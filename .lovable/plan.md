@@ -1,34 +1,85 @@
-## Goal
-Prevent driver phone numbers in the Driver Hub table from wrapping onto multiple lines in production (SUPERDRIVE), so each phone number renders on a single continuous line.
+## Problem
 
-## Cause
-In `src/components/drivers/DriverRoster.tsx` (line ~1147), the phone cell renders a `<a>` with `flex items-center gap-1` but no whitespace control. When the viewport / column is tight (Mac browser at certain widths), the digits and dashes wrap. Lovable's preview happens to be wider, so it looks fine there.
+In the Driver Hub roster, the **Compliance** column renders two pills (CDL + Med Cert) inside a `flex-wrap` container. Each pill is sized to its own content, healthy items use a borderless plain-text style while expired/critical/warning items use filled badges, and the "No Date" variant uses yet another style. The result:
 
-## Change
-One small edit in `src/components/drivers/DriverRoster.tsx`:
+- Pills wrap unpredictably and shift width row-to-row
+- Healthy vs. at-risk drivers look like different components
+- Icon usage is inconsistent (only the "No Date" state has an icon)
+- The column reads as cluttered and non-scannable
 
-- Add `whitespace-nowrap` to the phone `<TableCell>` (line 1145) and to the inner `<a>` (line 1147) so the icon + number stay on one line.
-- Keep the existing `hidden sm:table-cell` so the column still hides on the smallest screens.
+## Proposed fix (visual only — `src/components/drivers/DriverRoster.tsx`)
 
-No other files, no logic changes, no header changes needed.
+Refactor `expiryPill` and the column wrapper so every row renders the **same shape**: a fixed-width status chip with a label, a colored status dot, and the days/status text. This gives the column a uniform two-row stack that aligns vertically across all drivers.
 
-## Technical details
+### 1. Column wrapper (line ~1200)
+Change from `flex flex-wrap gap-1 items-center` to a vertical stack:
+
 ```tsx
-<TableCell className="hidden sm:table-cell whitespace-nowrap">
-  {driver.phone
-    ? <a
-        href={`tel:${driver.phone}`}
-        className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 whitespace-nowrap"
-        onClick={e => e.stopPropagation()}
-      >
-        <Phone className="h-3 w-3 shrink-0" />
-        {driver.phone}
-      </a>
-    : <span className="text-muted-foreground text-xs">—</span>}
-</TableCell>
+<div className="flex flex-col gap-1 min-w-[140px]" onClick={e => e.stopPropagation()}>
+  {expiryPill(driver.cdl_expiration, 'CDL')}
+  {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
+  {showReminderBadge && (<span className="xl:hidden pt-0.5">…</span>)}
+</div>
 ```
 
-Adding `shrink-0` to the `Phone` icon is a tiny safety net so the icon never shrinks if the row gets pinched.
+A `min-w-[140px]` on the cell content keeps chip widths consistent.
+
+### 2. Unified chip (replace all 4 `expiryPill` return branches)
+
+One single chip component, color-driven by status tier:
+
+```text
+┌──────────────────────────┐
+│ ● CDL        42d         │   ← healthy (green dot, muted text)
+│ ● Med Cert   12d         │   ← warning (amber dot, amber text)
+│ ● CDL        Expired     │   ← expired (red dot, red text + bg)
+│ ○ Med Cert   No date     │   ← missing  (gray dot, dashed border)
+└──────────────────────────┘
+```
+
+Implementation outline:
+
+```tsx
+const tier = !dateStr ? 'missing'
+  : days < 0 ? 'expired'
+  : days <= 7 ? 'critical'
+  : days <= 30 ? 'warning'
+  : 'ok';
+
+const styles = {
+  ok:       'bg-muted/40 border-border text-foreground',
+  warning:  'bg-[hsl(var(--status-action))]/10 border-[hsl(var(--status-action))]/30 text-[hsl(var(--status-action))]',
+  critical: 'bg-destructive/10 border-destructive/30 text-destructive',
+  expired:  'bg-destructive/10 border-destructive/40 text-destructive font-semibold',
+  missing:  'bg-muted border-dashed border-border text-muted-foreground',
+}[tier];
+
+<span className={`inline-flex items-center gap-2 text-xs rounded-md border px-2 py-1 whitespace-nowrap ${styles}`}>
+  <span className={`h-1.5 w-1.5 rounded-full ${dotColor[tier]} shrink-0`} />
+  <span className="font-medium w-14 shrink-0">{label}</span>
+  <span className="ml-auto tabular-nums">{text}</span>
+</span>
+```
+
+Key details:
+- Fixed label width (`w-14`) so "CDL" and "Med Cert" align vertically
+- `ml-auto` + `tabular-nums` right-aligns the days text, so all rows line up
+- `whitespace-nowrap` prevents the chip wrapping inside itself
+- Same border + padding + rounding across all tiers — only color changes
+- Tooltip still shows the full formatted date (`MM/dd/yyyy`)
+
+### 3. Header alignment
+No header change needed (still "Compliance"), but the column already has `hidden lg:table-cell` so behavior at smaller breakpoints is preserved.
+
+## Scope guardrails
+
+- No logic, filtering, sorting, or data changes
+- No changes to other columns or to dispatch mode
+- Only touches `expiryPill` and the wrapper `<div>` at line ~1200 in `DriverRoster.tsx`
 
 ## Verification
-After implementation, reload the management Driver Hub on the Mac browser at the widths you saw the issue (sidebar open and collapsed) and confirm the phone number is a single line.
+
+Reload `/dashboard?view=drivers`, confirm:
+- CDL and Med Cert chips stack vertically and align across rows
+- Labels line up, days/status right-align, tier colors are consistent
+- Tooltip on each chip still shows the exact expiration date
