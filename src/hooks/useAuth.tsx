@@ -36,6 +36,24 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
+const LOGIN_PATH = '/login';
+
+function clearLocalAuthSession() {
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch {
+    // Ignore storage access failures; signOut still attempts to clear the session.
+  }
+}
+
+function replaceWithLogin() {
+  window.location.replace(`${window.location.origin}${LOGIN_PATH}`);
+}
+
 // Export context so Vite HMR can preserve it across hot reloads
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -149,31 +167,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    // Defensive local reset immediately so protected screens unmount before the
-    // network sign-out completes. This prevents the blank/white post-logout state.
+    // Treat logout as a hard app boundary. The previous SPA-only route swap could
+    // leave protected dashboard state half-unmounted, causing the blank screen.
+    setLoading(true);
     setUser(null);
     setSession(null);
     setRoles([]);
     setActiveRoleState(null);
     setProfile(null);
 
-    // Send the browser to the sign-in route right away; BrowserRouter listens
-    // for popstate, so this avoids a full-page reload in regular web sessions.
-    if (window.location.pathname !== '/login') {
-      window.history.replaceState(null, '', '/login');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    }
+    clearLocalAuthSession();
+
+    const redirectFallback = window.setTimeout(replaceWithLogin, 400);
 
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {
-      // ignore — local state has already been cleared and the user is on login
-    }
-
-    // Installed PWAs (iOS standalone, Android TWA) still need a hard navigation
-    // so the standalone shell fully resets after the auth session is cleared.
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
-      window.location.replace('/login');
+      // Ignore — local state/storage has already been cleared.
+    } finally {
+      window.clearTimeout(redirectFallback);
+      clearLocalAuthSession();
+      replaceWithLogin();
     }
   };
 
