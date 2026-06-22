@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
-import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, Circle, MinusCircle, Search, List as ListIcon, LayoutGrid } from 'lucide-react';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { reminderErrorToast } from '@/lib/reminderError';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -80,6 +81,7 @@ interface Props {
 
 type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
+type SortMode    = 'urgency' | 'name' | 'doc';
 
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder, defaultExpanded = false }: Props) {
   const { toast } = useToast();
@@ -98,11 +100,25 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   useEffect(() => {
     try { localStorage.setItem('compliance_summary_view', viewMode); } catch {}
   }, [viewMode]);
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    if (typeof window === 'undefined') return 'urgency';
+    return (localStorage.getItem('compliance_summary_sort') as SortMode) || 'urgency';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('compliance_summary_sort', sortMode); } catch {}
+  }, [sortMode]);
   // Per fleet-row save state: key = inspectionDocId
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved]   = useState<Record<string, boolean>>({});
   // Open popover tracking: key = inspectionDocId
   const [openPicker, setOpenPicker] = useState<string | null>(null);
+  // Per-driver inline renew popover key = `${operatorId}|${docKey}`
+  const [driverPicker, setDriverPicker] = useState<string | null>(null);
+  const [driverSaving, setDriverSaving] = useState<Record<string, boolean>>({});
+  const [driverSaved, setDriverSaved] = useState<Record<string, boolean>>({});
+  // Remind-driver per-cert state: key = `${operatorId}|${docKey}`
+  const [remindSending, setRemindSending] = useState<Record<string, boolean>>({});
+  const [remindSent, setRemindSent] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -273,6 +289,101 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     }
   };
 
+  // ── Inline date save for per-driver certs (CDL / Med Cert) ───────────────
+  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, date: Date | undefined) => {
+    if (!date) return;
+    const key = `${operatorId}|${docKey}`;
+    setDriverPicker(null);
+    setDriverSaving(prev => ({ ...prev, [key]: true }));
+    const isoDate = format(date, 'yyyy-MM-dd');
+
+    const docName: string = docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate';
+
+    // Locate or upsert the per-driver inspection_documents row.
+    const lookup: any = await (supabase.from('inspection_documents') as any)
+      .select('id')
+      .eq('scope', 'per_driver')
+      .eq('operator_id', operatorId)
+      .eq('name', docName)
+      .maybeSingle();
+    const existing = lookup.data as { id: string } | null;
+
+    let error: any = null;
+    if (existing?.id) {
+      ({ error } = await supabase
+        .from('inspection_documents')
+        .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
+        .eq('id', existing.id));
+    } else {
+      ({ error } = await supabase
+        .from('inspection_documents')
+        .insert({
+          scope: 'per_driver',
+          operator_id: operatorId,
+          name: docName,
+          expires_at: isoDate,
+        }));
+    }
+
+    setDriverSaving(prev => ({ ...prev, [key]: false }));
+    if (error) {
+      toast({ variant: 'destructive', title: 'Save failed', description: `Could not update ${DOC_DISPLAY[docKey]} expiry.` });
+      return;
+    }
+    setDriverSaved(prev => ({ ...prev, [key]: true }));
+    setTimeout(() => setDriverSaved(prev => ({ ...prev, [key]: false })), 2000);
+
+    const daysUntil = differenceInDays(date, new Date());
+    const urgency = getStatus(daysUntil, windowDays);
+    setEntries(prev => prev.map(e =>
+      e.operatorId === operatorId && e.docKey === docKey
+        ? { ...e, expiresAt: isoDate, daysUntil, status: urgency }
+        : e,
+    ));
+    toast({ title: `${DOC_DISPLAY[docKey]} expiry updated`, description: format(date, 'MMM d, yyyy') });
+  };
+
+  // ── Send a cert reminder to a single driver ──────────────────────────────
+  const handleSendReminder = async (operatorId: string, operatorName: string, entry: DocEntry) => {
+    if (!entry.expiresAt || entry.daysUntil === null) return;
+    const key = `${operatorId}|${entry.docKey}`;
+    const docType = entry.docKey === 'CDL' ? 'CDL' : 'Medical Cert';
+    setRemindSending(prev => ({ ...prev, [key]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          operator_id: operatorId,
+          doc_type: docType,
+          days_until: entry.daysUntil,
+          expiration_date: entry.expiresAt,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      setRemindSent(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => setRemindSent(prev => ({ ...prev, [key]: false })), 8000);
+      if (data.email_error) {
+        const { title, description } = reminderErrorToast(new Error(data.email_error));
+        toast({ title, description, variant: 'destructive' });
+      } else {
+        toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      }
+    } catch (err: any) {
+      const { title, description } = reminderErrorToast(err);
+      toast({ title, description, variant: 'destructive' });
+    } finally {
+      setRemindSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   // ── Derived counts ────────────────────────────────────────────────────────
   const counts = {
     expired:  entries.filter(e => e.status === 'expired').length,
@@ -293,6 +404,34 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   if (!loading && entries.length === 0) return null;
 
   const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
+
+  // ── CSV export ─────────────────────────────────────────────────────────
+  const exportCsv = () => {
+    const rows = [
+      ['Scope', 'Driver / Fleet', 'Document', 'Expires', 'Days Until', 'Status'],
+      ...filtered.map(e => [
+        e.operatorId === '__fleet__' ? 'Fleet' : 'Driver',
+        e.operatorId === '__fleet__' ? 'Fleet (all drivers)' : e.operatorName,
+        DOC_DISPLAY[e.docKey] ?? e.docKey,
+        e.expiresAt ? format(parseLocalDate(e.expiresAt), 'yyyy-MM-dd') : '',
+        e.daysUntil === null ? '' : String(e.daysUntil),
+        STATUS_CONFIG[e.status].label,
+      ]),
+    ];
+    const csv = rows.map(r => r.map(c => {
+      const s = String(c ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compliance-summary-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   // ── Group per-driver CDL + Med Cert into one entry; fleet rows stay separate ──
   type DriverGroup = {
@@ -348,6 +487,15 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     let drivers = Array.from(byDriver.values());
     if (q) drivers = drivers.filter(d => d.operatorName.toLowerCase().includes(q));
     drivers.sort((a, b) => {
+      if (sortMode === 'name') return a.operatorName.localeCompare(b.operatorName);
+      if (sortMode === 'doc') {
+        // Drivers with the soonest CDL expiry first; then Med Cert; then by name
+        const aCdl = a.cdl?.daysUntil ?? Number.POSITIVE_INFINITY;
+        const bCdl = b.cdl?.daysUntil ?? Number.POSITIVE_INFINITY;
+        if (aCdl !== bCdl) return aCdl - bCdl;
+        return a.operatorName.localeCompare(b.operatorName);
+      }
+      // Default: urgency
       const t = tierRank[a.worstStatus] - tierRank[b.worstStatus];
       if (t !== 0) return t;
       return a.operatorName.localeCompare(b.operatorName);
@@ -399,20 +547,105 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     else if (onOpenOperator) onOpenOperator(operatorId);
   };
 
-  // Row inside a driver card/list entry for a single cert.
+  // Shared inline date editor + remind-driver button for per-driver certs.
+  const DriverDateEditor = ({ entry }: { entry: DocEntry }) => {
+    const key = `${entry.operatorId}|${entry.docKey}`;
+    const isOpen = driverPicker === key;
+    const isSaving = !!driverSaving[key];
+    const isSaved = !!driverSaved[key];
+    return (
+      <Popover open={isOpen} onOpenChange={open => setDriverPicker(open ? key : null)}>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              'inline-flex items-center gap-1 rounded px-1.5 py-0.5 -mx-1 text-xs tabular-nums transition-colors',
+              isOpen ? 'bg-muted/60 text-foreground' : 'text-foreground hover:bg-muted/40',
+              isSaved && 'text-status-complete',
+            )}
+            disabled={isSaving}
+            aria-label={`Edit ${DOC_DISPLAY[entry.docKey]} expiry for ${entry.operatorName}`}
+          >
+            {isSaving
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : isSaved
+              ? <Check className="h-3 w-3" />
+              : <CalendarIcon className="h-3 w-3 opacity-50" />}
+            <span>
+              {entry.expiresAt
+                ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
+                : <span className="italic opacity-60">Set date</span>}
+            </span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start" side="bottom">
+          <div className="px-3 pt-3 pb-1 border-b border-border/60">
+            <p className="text-xs font-semibold text-foreground">
+              {entry.operatorName} · {DOC_DISPLAY[entry.docKey]} expiry
+            </p>
+            <p className="text-[11px] text-muted-foreground">Past dates disabled. Click a day to save.</p>
+          </div>
+          <Calendar
+            mode="single"
+            selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
+            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, date)}
+            disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+            initialFocus
+            className={cn('p-3 pointer-events-auto')}
+          />
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  const RemindButton = ({ entry }: { entry: DocEntry }) => {
+    if (entry.status !== 'expired' && entry.status !== 'critical') return null;
+    if (!entry.expiresAt) return null;
+    const key = `${entry.operatorId}|${entry.docKey}`;
+    const sending = !!remindSending[key];
+    const sent = !!remindSent[key];
+    return (
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => handleSendReminder(entry.operatorId, entry.operatorName, entry)}
+              disabled={sending || sent}
+              aria-label={`Send ${DOC_DISPLAY[entry.docKey]} reminder to ${entry.operatorName}`}
+              className={cn(
+                'h-6 w-6 rounded flex items-center justify-center shrink-0 transition-colors',
+                sent
+                  ? 'text-status-complete bg-status-complete/10'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+              )}
+            >
+              {sending
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : sent
+                ? <Check className="h-3.5 w-3.5" />
+                : <Bell className="h-3.5 w-3.5" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {sent ? 'Reminder sent' : `Email ${entry.operatorName.split(' ')[0]} about ${DOC_DISPLAY[entry.docKey]}`}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  // Row inside a driver card entry for a single cert.
   const CertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
     return (
       <div className="flex items-center gap-2 py-1">
-        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} />
+        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
         <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
           {DOC_DISPLAY[entry.docKey]}
         </span>
-        <span className="text-xs text-muted-foreground flex-1 truncate">
-          {entry.expiresAt
-            ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
-            : <span className="italic opacity-60">Not set</span>}
+        <span className="flex-1 min-w-0 truncate">
+          <DriverDateEditor entry={entry} />
         </span>
+        <RemindButton entry={entry} />
         <CertPill entry={entry} />
       </div>
     );
@@ -428,12 +661,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
           {DOC_DISPLAY[entry.docKey]}
         </span>
-        <span className="text-xs text-foreground tabular-nums w-[110px] shrink-0">
-          {entry.expiresAt
-            ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
-            : <span className="italic text-muted-foreground/60">Not set</span>}
+        <span className="w-[140px] shrink-0">
+          <DriverDateEditor entry={entry} />
         </span>
         <span className="flex-1" />
+        <RemindButton entry={entry} />
         <CertPill entry={entry} />
       </div>
     );
@@ -573,7 +805,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                 className="h-8 pl-7 text-xs"
               />
             </div>
-            <div className="ml-auto inline-flex rounded-md border border-border bg-background overflow-hidden">
+            {/* Sort */}
+            <div className="ml-auto inline-flex items-center gap-1">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <select
+                aria-label="Sort drivers"
+                value={sortMode}
+                onChange={e => setSortMode(e.target.value as SortMode)}
+                className="h-8 px-1.5 text-[11px] font-semibold bg-background border border-border rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="urgency">Urgency</option>
+                <option value="name">Driver A–Z</option>
+                <option value="doc">Soonest CDL</option>
+              </select>
+            </div>
+            {/* CSV export */}
+            <button
+              onClick={exportCsv}
+              aria-label="Export visible rows to CSV"
+              className="inline-flex items-center gap-1 h-8 px-2 text-[11px] font-semibold bg-background border border-border rounded-md text-muted-foreground hover:text-foreground"
+            >
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
+            <div className="inline-flex rounded-md border border-border bg-background overflow-hidden">
               <button
                 onClick={() => setViewMode('list')}
                 className={cn(
@@ -609,8 +863,20 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
               ))}
             </div>
           ) : grouped.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {q ? `No drivers match "${search}".` : 'No entries match the current filter.'}
+            <div className="px-4 py-10 text-center">
+              {q ? (
+                <p className="text-sm text-muted-foreground">No drivers match "{search}".</p>
+              ) : filterStatus === 'all' && filterDoc === 'all' && counts.expired === 0 && counts.critical === 0 && counts.warning === 0 ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-10 w-10 rounded-full bg-status-complete/10 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-status-complete" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">All compliant</p>
+                  <p className="text-xs text-muted-foreground">No expired, critical, or expiring certifications.</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No entries match the current filter.</p>
+              )}
             </div>
           ) : viewMode === 'cards' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
@@ -656,6 +922,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                                   mode="single"
                                   selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
                                   onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                  disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
                                   initialFocus
                                   className={cn('p-3 pointer-events-auto')}
                                 />
@@ -746,6 +1013,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                                 mode="single"
                                 selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
                                 onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                  disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
                                 initialFocus
                                 className={cn('p-3 pointer-events-auto')}
                               />
