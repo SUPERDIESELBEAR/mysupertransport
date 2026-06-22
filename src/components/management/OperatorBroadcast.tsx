@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2, Cloud, CloudOff } from 'lucide-react';
+import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
 
 interface OperatorRow {
   id: string;
@@ -36,6 +37,10 @@ interface BroadcastRow {
   status: string;
   scheduled_at: string | null;
   selected_operator_ids: string[] | null;
+  requires_acknowledgment?: boolean | null;
+  opened_count?: number;
+  read_count?: number;
+  acknowledged_count?: number;
 }
 
 function escapeHtml(s: string): string {
@@ -99,9 +104,14 @@ export function OperatorBroadcast() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [viewing, setViewing] = useState<BroadcastRow | null>(null);
+  const [viewingStats, setViewingStats] = useState<{
+    total: number; opened: number; read: number; acknowledged: number;
+    rows: Array<{ id: string; email: string; status: string; opened_at: string | null; read_at: string | null; acknowledged_at: string | null }>;
+  } | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
+  const [requiresAck, setRequiresAck] = useState(false);
   const [finalPreviewOpen, setFinalPreviewOpen] = useState(false);
   const [finalPreviewHtml, setFinalPreviewHtml] = useState<string | null>(null);
   const [finalPreviewLoading, setFinalPreviewLoading] = useState(false);
@@ -175,11 +185,34 @@ export function OperatorBroadcast() {
 
   useEffect(() => { loadAll(); }, []);
 
+  // Load per-recipient tracking stats when opening the viewer
+  useEffect(() => {
+    if (!viewing) { setViewingStats(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('operator_broadcast_recipients')
+        .select('id, email, status, opened_at, read_at, acknowledged_at')
+        .eq('broadcast_id', viewing.id);
+      if (cancelled) return;
+      const rows = (data ?? []) as any[];
+      setViewingStats({
+        total: rows.length,
+        opened: rows.filter((r) => r.opened_at).length,
+        read: rows.filter((r) => r.read_at).length,
+        acknowledged: rows.filter((r) => r.acknowledged_at).length,
+        rows,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [viewing]);
+
   const resetCompose = () => {
     setEditingId(null);
     setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
     setExcludedIds(new Set());
     setScheduleDate(''); setScheduleTime('');
+    setRequiresAck(false);
     setPreviewApproved(false);
     setFinalPreviewHtml(null);
     skipDirtyRef.current = true;
@@ -197,6 +230,7 @@ export function OperatorBroadcast() {
     setBody(b.body ?? '');
     setCtaLabel(b.cta_label ?? '');
     setCtaUrl(b.cta_url ?? '');
+    setRequiresAck(b.requires_acknowledgment === true);
     if (b.recipient_scope === 'selected' && Array.isArray(b.selected_operator_ids)) {
       const includeSet = new Set(b.selected_operator_ids);
       // Exclude = all current operators not in the saved include list.
@@ -248,6 +282,7 @@ export function OperatorBroadcast() {
           ctaUrl: ctaUrl.trim() || undefined,
           operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
           scheduledAt: scheduledAtIso,
+          requiresAcknowledgment: requiresAck,
         },
       });
       if (error) throw error;
@@ -295,6 +330,7 @@ export function OperatorBroadcast() {
           ctaLabel: ctaLabel.trim() || undefined,
           ctaUrl: ctaUrl.trim() || undefined,
           operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
+          requiresAcknowledgment: requiresAck,
         },
       });
       if (error) throw error;
@@ -366,6 +402,7 @@ export function OperatorBroadcast() {
             ctaLabel: ctaLabel.trim() || undefined,
             ctaUrl: ctaUrl.trim() || undefined,
             operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
+            requiresAcknowledgment: requiresAck,
           },
         });
         if (error) throw error;
@@ -510,6 +547,27 @@ export function OperatorBroadcast() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     All active operators are included by default. Open the picker to exclude anyone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-md border p-3 bg-muted/20 flex items-start gap-3">
+                <ShieldCheck className={`h-5 w-5 mt-0.5 ${requiresAck ? 'text-gold' : 'text-muted-foreground'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="requires-ack" className="font-medium cursor-pointer">
+                      Require acknowledgment from recipients
+                    </Label>
+                    <Switch
+                      id="requires-ack"
+                      checked={requiresAck}
+                      onCheckedChange={setRequiresAck}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {requiresAck
+                      ? 'Recipients must tap “Acknowledge” inside SUPERDRIVE. Until they do, their status stays Unacknowledged.'
+                      : 'Message is marked “Read” automatically when a recipient opens it in SUPERDRIVE. No tap required.'}
                   </p>
                 </div>
               </div>
@@ -854,12 +912,54 @@ export function OperatorBroadcast() {
                 Sent {new Date(viewing.created_at).toLocaleString()} · {viewing.recipient_count} recipients ·
                 {' '}{viewing.delivered_count} delivered · {viewing.failed_count} failed · {viewing.skipped_count} skipped
               </div>
+              {viewingStats && (
+                <div className="flex flex-wrap gap-1.5 text-xs">
+                  <Badge variant="outline">Opened: {viewingStats.opened}/{viewingStats.total}</Badge>
+                  <Badge variant="outline">Read in app: {viewingStats.read}/{viewingStats.total}</Badge>
+                  {viewing.requires_acknowledgment && (
+                    <Badge className="bg-gold text-black">
+                      Acknowledged: {viewingStats.acknowledged}/{viewingStats.total}
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {viewing.requires_acknowledgment && (
+                <p className="text-xs text-muted-foreground">
+                  <ShieldCheck className="h-3 w-3 inline mr-1 text-gold" />
+                  Acknowledgment was required for this broadcast.
+                </p>
+              )}
               <div
                 className="border rounded-md overflow-hidden"
                 dangerouslySetInnerHTML={{
                   __html: buildPreviewHtml(viewing.subject, viewing.body, viewing.cta_label ?? undefined, viewing.cta_url ?? undefined),
                 }}
               />
+              {viewingStats && viewingStats.rows.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-semibold mb-1.5">Per-recipient status</p>
+                  <ScrollArea className="h-[200px] border rounded-md">
+                    <div className="text-xs divide-y">
+                      {viewingStats.rows.map((r) => (
+                        <div key={r.id} className="flex items-center justify-between gap-2 px-2 py-1.5">
+                          <span className="truncate flex-1">{r.email || '(no email)'}</span>
+                          <div className="flex gap-1 shrink-0">
+                            {r.acknowledged_at ? (
+                              <Badge className="bg-gold text-black text-[10px]">Acknowledged</Badge>
+                            ) : r.read_at ? (
+                              <Badge className="bg-green-600 text-[10px]">Read</Badge>
+                            ) : r.opened_at ? (
+                              <Badge variant="outline" className="text-[10px]">Opened</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">{r.status}</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
             </>
           )}
         </DialogContent>

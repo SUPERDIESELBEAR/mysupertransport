@@ -2497,34 +2497,46 @@ export type Database = {
       }
       operator_broadcast_recipients: {
         Row: {
+          acknowledged_at: string | null
           broadcast_id: string
           created_at: string
           email: string
           error: string | null
           id: string
+          opened_at: string | null
           operator_id: string | null
+          read_at: string | null
           sent_at: string | null
           status: string
+          track_token: string | null
         }
         Insert: {
+          acknowledged_at?: string | null
           broadcast_id: string
           created_at?: string
           email: string
           error?: string | null
           id?: string
+          opened_at?: string | null
           operator_id?: string | null
+          read_at?: string | null
           sent_at?: string | null
           status: string
+          track_token?: string | null
         }
         Update: {
+          acknowledged_at?: string | null
           broadcast_id?: string
           created_at?: string
           email?: string
           error?: string | null
           id?: string
+          opened_at?: string | null
           operator_id?: string | null
+          read_at?: string | null
           sent_at?: string | null
           status?: string
+          track_token?: string | null
         }
         Relationships: [
           {
@@ -2555,6 +2567,7 @@ export type Database = {
           id: string
           recipient_count: number
           recipient_scope: string
+          requires_acknowledgment: boolean
           scheduled_at: string | null
           selected_operator_ids: Json | null
           sent_by: string | null
@@ -2573,6 +2586,7 @@ export type Database = {
           id?: string
           recipient_count?: number
           recipient_scope: string
+          requires_acknowledgment?: boolean
           scheduled_at?: string | null
           selected_operator_ids?: Json | null
           sent_by?: string | null
@@ -2591,6 +2605,7 @@ export type Database = {
           id?: string
           recipient_count?: number
           recipient_scope?: string
+          requires_acknowledgment?: boolean
           scheduled_at?: string | null
           selected_operator_ids?: Json | null
           sent_by?: string | null

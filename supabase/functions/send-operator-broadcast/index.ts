@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
       : undefined;
     const broadcastId: string | undefined = body.broadcastId || undefined;
     const scheduledAt: string | undefined = body.scheduledAt || undefined;
+    const requiresAcknowledgment: boolean = body.requiresAcknowledgment === true;
 
     // For drafts subject/body may be empty; for send/schedule require them.
     if (mode !== 'draft') {
@@ -137,6 +138,7 @@ Deno.serve(async (req) => {
         selected_operator_ids: operatorIds ?? null,
         status: mode === 'draft' ? 'draft' : 'scheduled',
         scheduled_at: mode === 'schedule' ? scheduledAt : null,
+        requires_acknowledgment: requiresAcknowledgment,
       };
       let savedId = broadcastId;
       if (broadcastId) {
@@ -168,6 +170,7 @@ Deno.serve(async (req) => {
     let resolvedCtaLabel = ctaLabel;
     let resolvedCtaUrl = ctaUrl;
     let existingBroadcastId = broadcastId;
+    let resolvedRequiresAck = requiresAcknowledgment;
     if (mode === 'dispatch') {
       if (!broadcastId) {
         return new Response(JSON.stringify({ error: 'broadcastId required for dispatch' }), {
@@ -193,6 +196,7 @@ Deno.serve(async (req) => {
         ? row.selected_operator_ids as string[]
         : undefined;
       existingBroadcastId = broadcastId;
+      resolvedRequiresAck = row.requires_acknowledgment === true;
       // Lock: mark sending
       await supabaseAdmin.from('operator_broadcasts')
         .update({ status: 'sending' }).eq('id', broadcastId);
@@ -237,6 +241,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from('operator_broadcasts').update({
         recipient_count: operators.length,
         status: 'sending',
+        requires_acknowledgment: resolvedRequiresAck,
       }).eq('id', existingBroadcastId);
       activeBroadcastId = existingBroadcastId;
     } else {
@@ -251,6 +256,7 @@ Deno.serve(async (req) => {
           recipient_scope: resolvedOperatorIds ? 'selected' : 'all',
           recipient_count: operators.length,
           status: 'sending',
+          requires_acknowledgment: resolvedRequiresAck,
         })
         .select('id')
         .single();
@@ -258,31 +264,71 @@ Deno.serve(async (req) => {
       activeBroadcastId = broadcast.id;
     }
 
-    // Build email HTML once
+    // Build base email HTML once; per-recipient tracking is injected in the loop.
     const safeBody = escapeHtml(resolvedBody).replace(/\n/g, '<br/>');
-    const html = buildEmail(
+    const ackNotice = resolvedRequiresAck
+      ? `<p style="margin:18px 0 0;padding:12px 16px;background:#FFF8E1;border-left:3px solid #C9A84C;color:#5b4500;font-size:13px;border-radius:4px;">
+           <strong>Acknowledgment required:</strong> please open SUPERDRIVE and tap <em>Acknowledge</em> on this announcement.
+         </p>`
+      : '';
+    const baseHtml = buildEmail(
       resolvedSubject,
       escapeHtml(resolvedSubject),
-      `<div style="color:#444;font-size:15px;line-height:1.7;">${safeBody}</div>`,
+      `<div style="color:#444;font-size:15px;line-height:1.7;">${safeBody}${ackNotice}</div>`,
       resolvedCtaLabel && resolvedCtaUrl ? { label: resolvedCtaLabel, url: resolvedCtaUrl } : undefined,
       SUPPORT_EMAIL
     );
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const appBaseUrl = Deno.env.get('PUBLIC_APP_URL') || 'https://mysupertransport.lovable.app';
+
+    function buildRecipientHtml(recipientId: string, token: string): string {
+      const pixelUrl = `${supabaseUrl}/functions/v1/broadcast-track-open?b=${encodeURIComponent(activeBroadcastId)}&r=${encodeURIComponent(recipientId)}&t=${encodeURIComponent(token)}`;
+      const viewUrl = `${appBaseUrl}/operator?tab=messages&b=${encodeURIComponent(activeBroadcastId)}`;
+      const viewLink = `<div style="text-align:center;margin:14px 0 0;font-size:12px;color:#666;">
+        <a href="${viewUrl}" style="color:#C9A84C;text-decoration:none;font-weight:600;">View in SUPERDRIVE →</a>
+      </div>`;
+      const pixel = `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:block;border:0;outline:0;width:1px;height:1px;" />`;
+      // Append link + pixel just before the closing of the body wrapper.
+      return baseHtml + viewLink + pixel;
+    }
+
     const resendKey = Deno.env.get('RESEND_API_KEY');
     let delivered = 0, failed = 0, skipped = 0;
 
-    // Pre-stage recipient rows
+    // Pre-stage recipient rows (with per-recipient track token)
+    function randomToken(): string {
+      const bytes = new Uint8Array(18);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
     const recipientRows = operators.map((op) => {
       const email = emailMap.get(op.user_id);
       let status: string;
       if (!email) status = 'skipped_no_email';
       else if (optedOut.has(op.user_id)) status = 'skipped_optout';
       else status = 'pending';
-      return { broadcast_id: activeBroadcastId, operator_id: op.id, email: email ?? '', status };
+      return {
+        broadcast_id: activeBroadcastId,
+        operator_id: op.id,
+        email: email ?? '',
+        status,
+        track_token: randomToken(),
+      };
     });
     // Clear any prior staged rows (e.g. when re-sending a scheduled broadcast)
     await supabaseAdmin.from('operator_broadcast_recipients').delete().eq('broadcast_id', activeBroadcastId);
     await supabaseAdmin.from('operator_broadcast_recipients').insert(recipientRows);
+
+    // Reload to capture inserted recipient ids for tracking URL construction.
+    const { data: insertedRecipients } = await supabaseAdmin
+      .from('operator_broadcast_recipients')
+      .select('id, operator_id, track_token')
+      .eq('broadcast_id', activeBroadcastId);
+    const recipientByOperator = new Map<string, { id: string; token: string }>();
+    for (const r of insertedRecipients ?? []) {
+      recipientByOperator.set(r.operator_id as string, { id: r.id as string, token: r.track_token as string });
+    }
 
     if (!resendKey) {
       console.warn('RESEND_API_KEY not set — broadcast archived but not sent');
@@ -301,6 +347,10 @@ Deno.serve(async (req) => {
       const email = emailMap.get(op.user_id);
       if (!email) { skipped++; continue; }
       if (optedOut.has(op.user_id)) { skipped++; continue; }
+      const recipientMeta = recipientByOperator.get(op.id);
+      const html = recipientMeta
+        ? buildRecipientHtml(recipientMeta.id, recipientMeta.token)
+        : baseHtml;
       try {
         await sendEmailStrict(email, resolvedSubject, html, resendKey);
         delivered++;

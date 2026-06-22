@@ -1,37 +1,64 @@
-## Goal
+# Broadcast Read/Acknowledgment Tracking — Final Plan
 
-Make the driver portal's top nav labels visible at all times on laptop screens so drivers don't have to hover each icon to discover what it does.
+Nest the new Announcements inbox under a unified **Messages** top-bar item (with tabs: Announcements | Direct). Ship in two phases.
 
-## Recommendation
+## Phase 1 — Tracking foundation (backend + composer toggle + email)
 
-Stacked icon-over-label, always visible from `md` upward. This is the strongest UX choice here because:
+**Schema** (`supabase/migrations/...`):
+- `operator_broadcasts.requires_acknowledgment boolean not null default false`
+- `operator_broadcast_recipients`: add `opened_at timestamptz`, `read_at timestamptz`, `acknowledged_at timestamptz`, `track_token text` (random, per-row)
+- Index `(broadcast_id)` on the new ack column for management queries
+- RLS update: operators can `SELECT` and `UPDATE` (only `read_at`, `acknowledged_at`) their own recipient row via `operator_id → operators.user_id = auth.uid()`
 
-- The portal has ~13 nav items. Side-by-side icon + text doesn't fit on a 1024–1366px laptop without horizontal overflow or aggressive truncation.
-- Stacked labels keep each item compact (icon stays the tap target, label sits under it as a small caption), match common app-bar conventions (Slack, Linear, mobile bottom nav), and remove the hover-to-discover problem entirely.
-- It also brings the desktop bar visually in line with the existing mobile bottom nav, which already uses stacked icon + label — so the portal feels consistent across breakpoints.
+**Composer (`OperatorBroadcast.tsx`)**:
+- Add a Switch: "Require acknowledgment from recipients" (off by default), with helper text explaining the two modes
+- Pass `requiresAcknowledgment` to `send-operator-broadcast`
 
-## What changes
+**Edge functions**:
+- `send-operator-broadcast`: persist `requires_acknowledgment`; inject per-recipient open pixel `<img src=".../broadcast-track-open?b=...&r=...&t=...">` and a "View in SUPERDRIVE" link into the email HTML
+- New `broadcast-track-open` (public, `verify_jwt = false`): validates token, stamps `opened_at` if null, returns a 1×1 transparent GIF
+- New `broadcast-acknowledge` (auth required): stamps `read_at` and (if required) `acknowledged_at` for the caller's recipient row
 
-Scope is limited to the desktop nav inside `src/pages/operator/OperatorPortal.tsx` (the `<nav className="hidden md:flex …">` block around the `navItems.map(...)` render). No changes to mobile nav, no changes to behavior, badges, dots, or routing.
+**Management visibility (`OperatorBroadcast.tsx` history view)**:
+- New columns in the recipient drawer: Opened / Read / Acknowledged with timestamps
+- Summary chips on each broadcast row: e.g. "12/20 read · 8/20 acknowledged"
+- "Nudge" button: re-sends to unacknowledged-only recipients
 
-### Visual spec
+The "View in SUPERDRIVE" link in emails routes to `/messages?b=<id>`. Until Phase 2 lands, it opens the existing Messages page — harmless, just doesn't deep-link.
 
-- Each nav button becomes a small vertical stack: icon on top (current `h-5 w-5`), 10–11px label below.
-- Labels are always visible from `md` and up — drop the current `hidden 2xl:inline` gate on the label span.
-- Header height grows from `h-16` to `h-20` (or `md:h-20`) to comfortably fit two-line buttons without crowding the logo or the right-side controls.
-- Active state: keep current gold pill background; label inherits the same gold text color.
-- Inactive state: muted label color matching current icon color, hover lifts both icon and label.
-- Spacing between items tightens slightly (`gap-0.5` instead of `gap-1`) and per-button horizontal padding drops (`px-2`) so all items fit on a 1280px laptop without scroll.
-- Badge dots/pills (`unreadCount`, `unackedRequiredDocs`, ICA dot, expiry dot, `pillBadge`) keep their current absolute positioning relative to the icon — they continue to anchor on the icon, not the label.
-- Keep the existing tooltip wrapper only for the expiry-warning case (where the tooltip carries extra detail). Remove the redundant `aria-label`-only tooltip behavior — the visible label is now the accessible label.
+## Phase 2 — In-app inbox under Messages
 
-### Overflow safety
+**Nav restructure** (`src/pages/operator/OperatorPortal.tsx`):
+- Replace the current standalone direct-message nav item with a single **Messages** item (icon: `MessagesSquare`)
+- Single unread badge = unread direct messages + unread broadcasts; gold dot overlay when any broadcast requires acknowledgment
 
-If the full set still doesn't fit at 1024–1180px on screens with the back button visible, shrink the per-button label to a 1-line max with `truncate` and a `max-w-[72px]`. Items like "Inspection Binder" and "Settlement Forecast" get short forms ("Binder", "Forecast") at `md`/`lg` and full names at `xl+`, mirroring how the mobile bar already uses short labels.
+**New route `/messages`**:
+- Tabs (shadcn `Tabs`): **Announcements** | **Direct**
+- Default tab = Announcements if any unread/unacknowledged broadcast exists, else Direct
+- Per-tab unread counts in the tab labels
+
+**Announcements tab**:
+- List view: newest first, sender ("SUPERTRANSPORT Management"), subject, sent timestamp, unread dot, gold "Action required" chip when applicable
+- Detail view: subject, body (sanitized), optional CTA button, sent timestamp; opening stamps `read_at` via `broadcast-acknowledge` (read-only mode)
+- If `requires_acknowledgment`: gold "Acknowledge" button at the bottom; on click stamps `acknowledged_at`, button becomes a green "Acknowledged on {date}" badge
+- Realtime subscription on `operator_broadcast_recipients` for live unread updates
+
+**Direct tab**:
+- The existing direct-message thread component, unchanged
+
+**Deep link**: `/messages?b=<broadcastId>` opens Announcements tab + that broadcast's detail view (from the email "View in SUPERDRIVE" link).
 
 ## Out of scope
+- Bounce/spam tracking
+- SMS or push notifications
+- Editing the acknowledgment toggle after a broadcast is sent
+- Bulk export of acknowledgment status (can follow later)
 
-- No changes to which items appear, their order, badges, or click behavior.
-- No changes to mobile bottom nav.
-- No changes to the preview tab bar (used only in staff "Preview as Operator" mode).
-- No theme/token changes — uses existing `gold`, `surface-dark-*`, and `muted` tokens.
+## Technical notes
+- Open pixel is best-effort only (Apple Mail Privacy Protection and Gmail image proxy inflate or block it); in-app `read_at` is the trustworthy signal
+- `track_token` prevents recipient-ID enumeration on the public pixel endpoint
+- All new tables/columns get explicit `GRANT` statements; RLS scoped to `auth.uid()` via the operators join
+- No edits to `src/integrations/supabase/client.ts`, `types.ts`, `.env`, or `supabase/config.toml` project-level settings (the two new functions get added to `[functions]` entries)
+
+## Decision
+Approve to start with Phase 1. Phase 2 follows immediately after in a separate turn so each phase stays reviewable.
