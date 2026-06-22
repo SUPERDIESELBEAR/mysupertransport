@@ -405,6 +405,34 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
 
+  // ── CSV export ─────────────────────────────────────────────────────────
+  const exportCsv = () => {
+    const rows = [
+      ['Scope', 'Driver / Fleet', 'Document', 'Expires', 'Days Until', 'Status'],
+      ...filtered.map(e => [
+        e.operatorId === '__fleet__' ? 'Fleet' : 'Driver',
+        e.operatorId === '__fleet__' ? 'Fleet (all drivers)' : e.operatorName,
+        DOC_DISPLAY[e.docKey] ?? e.docKey,
+        e.expiresAt ? format(parseLocalDate(e.expiresAt), 'yyyy-MM-dd') : '',
+        e.daysUntil === null ? '' : String(e.daysUntil),
+        STATUS_CONFIG[e.status].label,
+      ]),
+    ];
+    const csv = rows.map(r => r.map(c => {
+      const s = String(c ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compliance-summary-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // ── Group per-driver CDL + Med Cert into one entry; fleet rows stay separate ──
   type DriverGroup = {
     kind: 'driver';
