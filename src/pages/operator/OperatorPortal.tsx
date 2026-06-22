@@ -19,6 +19,7 @@ import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
 import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
+import OperatorMessagesHub from '@/components/operator/OperatorMessagesHub';
 import NotificationBell from '@/components/NotificationBell';
 import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
@@ -1563,7 +1564,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {view === 'notifications' && <NotificationHistory />}
 
         {/* ── MESSAGES VIEW ── */}
-        {view === 'messages' && <OperatorMessagesView />}
+        {view === 'messages' && (
+          <OperatorMessagesHub
+            initialBroadcastId={new URLSearchParams(location.search).get('b') ?? undefined}
+          />
+        )}
 
         {/* ── DISPATCH VIEW ── */}
         {view === 'dispatch' && operatorId && (
