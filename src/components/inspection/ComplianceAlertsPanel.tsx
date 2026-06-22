@@ -396,9 +396,12 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   // ── Derived data ───────────────────────────────────────────────────────
   const visibleAlerts = (() => {
+    const q = search.trim().toLowerCase();
     const base = alerts.filter(a => {
       if (noActionOnly) { const key = `${a.operator_id}|${a.doc_type}`; if (lastReminded[key] || lastRenewed[key]) return false; }
-      return docFilter === 'all' || a.doc_type === docFilter;
+      if (docFilter !== 'all' && a.doc_type !== docFilter) return false;
+      if (q && !a.operator_name.toLowerCase().includes(q)) return false;
+      return true;
     });
     if (sort === 'urgency') return base;
     return [...base].sort((a, b) => {
@@ -409,6 +412,40 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   })();
 
   const noActionCount = alerts.filter(a => { const key = `${a.operator_id}|${a.doc_type}`; return !lastReminded[key] && !lastRenewed[key]; }).length;
+
+  // Group visible alerts by driver — one entry per operator with optional CDL + Med Cert.
+  type DriverGroup = {
+    operator_id: string;
+    operator_name: string;
+    certs: ComplianceAlert[];
+    worstDays: number;
+    lastActionTs: number;
+  };
+  const driverGroups: DriverGroup[] = useMemo(() => {
+    const map = new Map<string, DriverGroup>();
+    for (const a of visibleAlerts) {
+      const key = `${a.operator_id}|${a.doc_type}`;
+      const ts = Math.max(
+        lastReminded[key] ? new Date(lastReminded[key]).getTime() : 0,
+        lastRenewed[key] ? new Date(lastRenewed[key]).getTime() : 0,
+      );
+      let g = map.get(a.operator_id);
+      if (!g) {
+        g = { operator_id: a.operator_id, operator_name: a.operator_name, certs: [], worstDays: a.days_until, lastActionTs: ts };
+        map.set(a.operator_id, g);
+      }
+      g.certs.push(a);
+      if (a.days_until < g.worstDays) g.worstDays = a.days_until;
+      if (ts > g.lastActionTs) g.lastActionTs = ts;
+    }
+    // Keep CDL first, Med Cert second within each driver.
+    const order = (t: string) => (t === 'CDL' ? 0 : 1);
+    const list = Array.from(map.values()).map(g => ({ ...g, certs: [...g.certs].sort((a, b) => order(a.doc_type) - order(b.doc_type)) }));
+    if (sort === 'urgency') list.sort((a, b) => a.worstDays - b.worstDays);
+    else if (sort === 'last_action_desc') list.sort((a, b) => b.lastActionTs - a.lastActionTs);
+    else list.sort((a, b) => a.lastActionTs - b.lastActionTs);
+    return list;
+  }, [visibleAlerts, lastReminded, lastRenewed, sort]);
 
   if (alerts.length === 0) return (
     <div className="border border-status-complete/30 bg-status-complete/5 rounded-xl shadow-sm px-5 py-6 flex items-center gap-4">
