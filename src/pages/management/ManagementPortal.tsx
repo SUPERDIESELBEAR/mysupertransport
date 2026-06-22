@@ -44,7 +44,6 @@ import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
 import OperatorBroadcast from '@/components/management/OperatorBroadcast';
 import CarrierSignatureSettings from '@/components/ica/CarrierSignatureSettings';
 import { RevertCourtesyDefaultsCard } from '@/components/management/RevertCourtesyDefaultsCard';
-import ComplianceSummaryCard, { type ComplianceDriverRow } from '@/components/management/ComplianceSummaryCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
