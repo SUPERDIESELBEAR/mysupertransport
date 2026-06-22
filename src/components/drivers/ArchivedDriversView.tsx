@@ -284,6 +284,88 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
               : 'No drivers match your search.'}
           </p>
         </div>
+      ) : viewMode === 'cards' ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map(driver => {
+            const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
+            const initials = [driver.first_name?.[0], driver.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+            return (
+              <div
+                key={driver.operator_id}
+                onClick={() => onOpenDriver(driver.operator_id)}
+                className="group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3 opacity-90 hover:opacity-100"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 border border-border">
+                      <span className="text-sm font-bold text-muted-foreground">{initials}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm text-foreground truncate">{name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Unit <span className="font-mono font-semibold text-foreground">{driver.unit_number ?? '—'}</span>
+                        {driver.home_state && <span> · {driver.home_state}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30 text-muted-foreground/70">
+                      Inactive
+                    </Badge>
+                    {driver.fully_onboarded ? (
+                      <Badge className="status-complete border text-[10px]">Onboarded</Badge>
+                    ) : (
+                      <Badge className="status-neutral border text-[10px]">Incomplete</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {driver.phone && (
+                  <a
+                    href={`tel:${driver.phone}`}
+                    onClick={e => e.stopPropagation()}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary border-t border-border pt-2.5 whitespace-nowrap"
+                  >
+                    <Phone className="h-3 w-3 shrink-0" />
+                    {formatPhoneDisplay(driver.phone)}
+                  </a>
+                )}
+
+                <div className="border-t border-border pt-2.5 flex items-start justify-between gap-2">
+                  <div className="text-xs space-y-1 min-w-0">
+                    {driver.deactivated_at && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        Archived {format(parseISO(driver.deactivated_at), 'MMM d, yyyy')}
+                      </div>
+                    )}
+                    {driver.deactivate_reason && (
+                      <div className="text-muted-foreground">
+                        Reason: <span className="text-foreground">{driver.deactivate_reason}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                    {onMessageDriver && (
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Message driver" onClick={() => onMessageDriver(driver.operator_user_id)}>
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" title="Edit reason" onClick={() => openEditReason(driver)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-primary/70 hover:text-primary hover:bg-primary/10" title="Reactivate driver" onClick={() => setConfirmReactivate(driver)}>
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View profile" onClick={() => onOpenDriver(driver.operator_id)}>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="rounded-xl border border-border overflow-hidden">
           <Table>
