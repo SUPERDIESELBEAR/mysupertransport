@@ -981,7 +981,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // #11: binder is the source of truth — also re-fetch when an
+    // inspection_documents row changes directly (e.g. inline date edit).
+    const binderCh = supabase
+      .channel('pipeline-binder-expiry-watch')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inspection_documents', filter: 'scope=eq.per_driver' },
+        () => fetchComplianceAlerts(),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(binderCh); };
   }, [fetchComplianceAlerts]);
 
   // Realtime: refresh unread counts when a new message arrives
