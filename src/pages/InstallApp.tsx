@@ -12,7 +12,7 @@ export default function InstallApp() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-dark text-white">
+    <div className="min-h-dvh bg-surface-dark text-white">
       <div className="px-4 pt-6 pb-4 max-w-md mx-auto">
         <div className="flex items-center justify-between mb-6">
           <p className="text-[11px] font-bold tracking-[0.18em] text-surface-dark-muted">

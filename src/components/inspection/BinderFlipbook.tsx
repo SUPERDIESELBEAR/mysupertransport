@@ -238,6 +238,8 @@ export default function BinderFlipbook({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useRef(`binder-title-${Math.random().toString(36).slice(2)}`).current;
 
   const total = pages.length;
   const current = pages[index];
@@ -276,6 +278,44 @@ export default function BinderFlipbook({
     const original = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = original; };
+  }, []);
+
+  // Focus management: focus the dialog on open, restore focus on close,
+  // and trap Tab inside the dialog so keyboard users don't escape into
+  // the page behind the modal.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const node = dialogRef.current;
+    if (node) {
+      // Defer one frame so the portal contents are mounted before focusing.
+      requestAnimationFrame(() => node.focus());
+    }
+
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !dialogRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', trap);
+    return () => {
+      window.removeEventListener('keydown', trap);
+      // Restore focus on unmount (close).
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus();
+      }
+    };
   }, []);
 
   const swipe = useSwipeGesture<HTMLDivElement>({
@@ -341,7 +381,17 @@ export default function BinderFlipbook({
     : null;
 
   const overlay = (
-    <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      className="fixed inset-0 z-[100] bg-background flex flex-col outline-none"
+    >
+      <h2 id={titleId} className="sr-only">
+        Inspection binder for {driverName}{unitNumber ? ` — Unit ${unitNumber}` : ''}
+      </h2>
       {/* Top bar */}
       <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-border bg-card/95 backdrop-blur">
         <button

@@ -58,13 +58,21 @@ export default function IdleWarningModal() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2">
-          <AlertDialogCancel
+          {/*
+            "Sign out now" is the destructive action — render it as a styled
+            outline button (NOT AlertDialogAction) so a reflexive Enter on the
+            focused primary doesn't end the session.
+            "Stay signed in" is the primary AlertDialogAction and is autofocused.
+          */}
+          <button
+            type="button"
             onClick={handleSignOut}
-            className="text-xs"
+            className="mt-2 sm:mt-0 inline-flex items-center justify-center rounded-md border border-destructive/40 bg-transparent px-4 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
           >
             Sign out now
-          </AlertDialogCancel>
+          </button>
           <AlertDialogAction
+            autoFocus
             onClick={resetIdle}
             className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
           >

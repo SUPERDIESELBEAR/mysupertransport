@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationFormData } from './types';
 import { FormField, AppInput } from './FormField';
@@ -16,6 +17,7 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
   const sigWrapRef = useRef<HTMLDivElement>(null);
   const [savingSig, setSavingSig] = useState(false);
   const [sigSaved, setSigSaved] = useState(!!data.signature_image_url);
+  const [sigError, setSigError] = useState<string | null>(null);
   const [showSSN, setShowSSN] = useState(false);
 
   // ── DPR-aware canvas sizing ──────────────────────────────────────────────
@@ -45,11 +47,13 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
     sigRef.current?.clear();
     onChange('signature_image_url', '');
     setSigSaved(false);
+    setSigError(null);
   };
 
   const saveSig = async () => {
     if (!sigRef.current || sigRef.current.isEmpty()) return;
     setSavingSig(true);
+    setSigError(null);
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
@@ -58,8 +62,14 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
       if (error) throw error;
       onChange('signature_image_url', path);
       setSigSaved(true);
-    } catch {
-      // keep trying
+    } catch (err: any) {
+      const message =
+        err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError')
+          ? "Couldn't save your signature — please check your connection and draw it again."
+          : "Couldn't save your signature. Please clear and try again.";
+      setSigSaved(false);
+      setSigError(message);
+      toast.error(message);
     } finally {
       setSavingSig(false);
     }
@@ -150,6 +160,9 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
           </div>
         </div>
         {savingSig && <p className="text-xs text-muted-foreground mt-1">Saving signature…</p>}
+        {sigError && !savingSig && (
+          <p className="text-xs text-destructive mt-1" role="alert">{sigError}</p>
+        )}
       </FormField>
 
       {/* Date */}

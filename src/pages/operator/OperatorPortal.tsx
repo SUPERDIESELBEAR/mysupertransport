@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -9,30 +9,33 @@ import {
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
 } from 'lucide-react';
-import DocumentHub from '@/components/documents/DocumentHub';
-import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
+// Heavy view-gated panels are lazy-loaded so the initial portal mount and
+// switches between unrelated views don't pay the full bundle/render cost
+// (see audit item #5 — OperatorPortal jank on mid-range Android).
+const DocumentHub = lazy(() => import('@/components/documents/DocumentHub'));
+const DriverServiceLibrary = lazy(() => import('@/components/service-library/DriverServiceLibrary'));
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import NotificationHistory from '@/components/management/NotificationHistory';
+const NotificationHistory = lazy(() => import('@/components/management/NotificationHistory'));
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
-import OperatorMessagesHub from '@/components/operator/OperatorMessagesHub';
+const OperatorMessagesHub = lazy(() => import('@/components/operator/OperatorMessagesHub'));
 import NotificationBell from '@/components/NotificationBell';
-import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
+const OperatorStatusPage = lazy(() => import('@/components/operator/OperatorStatusPage'));
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
-import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
-import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
+const OperatorInspectionBinder = lazy(() => import('@/components/inspection/OperatorInspectionBinder'));
+const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
-import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
+const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
-import SettlementForecast from '@/components/operator/SettlementForecast';
+const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
@@ -1376,7 +1379,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
-          <>
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
             <OperatorStatusPage
               stages={stages}
               isFullyOnboarded={isFullyOnboarded}
@@ -1467,12 +1470,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </div>
               </div>
             </div>
-          </>
+          </Suspense>
         )}
 
         {/* ── INSPECTION BINDER VIEW ── */}
         {view === 'inspection-binder' && effectiveUserId && (
-          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} onReady={() => handleDestinationReady('inspection-binder')} />
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading inspection binder…</div>}>
+            <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} onReady={() => handleDestinationReady('inspection-binder')} />
+          </Suspense>
         )}
 
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
@@ -1491,12 +1496,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
-          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+            <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
+          </Suspense>
         )}
 
         {/* ── SETTLEMENT FORECAST VIEW ── */}
         {view === 'forecast' && operatorId && (
-          <SettlementForecast operatorId={operatorId} onReady={() => handleDestinationReady('forecast')} />
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading forecast…</div>}>
+            <SettlementForecast operatorId={operatorId} onReady={() => handleDestinationReady('forecast')} />
+          </Suspense>
         )}
         {view === 'forecast' && !operatorId && (
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
@@ -1531,7 +1540,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
               </TabsList>
               <TabsContent value="services">
-                <DriverServiceLibrary />
+                <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+                  <DriverServiceLibrary />
+                </Suspense>
               </TabsContent>
               <TabsContent value="documents">
                 <OperatorResourceLibrary onReady={() => handleDestinationReady('resource-center')} />
@@ -1555,18 +1566,26 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <p className="text-xs text-muted-foreground">Enter your payroll details to get your contractor account set up.</p>
               </div>
             </div>
-            <ContractorPaySetup operatorId={operatorId} onSubmitted={fetchData} />
+            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+              <ContractorPaySetup operatorId={operatorId} onSubmitted={fetchData} />
+            </Suspense>
           </div>
         )}
 
         {/* ── NOTIFICATIONS VIEW ── */}
-        {view === 'notifications' && <NotificationHistory />}
+        {view === 'notifications' && (
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+            <NotificationHistory />
+          </Suspense>
+        )}
 
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && (
-          <OperatorMessagesHub
-            initialBroadcastId={new URLSearchParams(location.search).get('b') ?? undefined}
-          />
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading messages…</div>}>
+            <OperatorMessagesHub
+              initialBroadcastId={new URLSearchParams(location.search).get('b') ?? undefined}
+            />
+          </Suspense>
         )}
 
         {/* ── DISPATCH VIEW ── */}
@@ -1584,7 +1603,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── DOC HUB VIEW ── */}
         {view === 'docs-hub' && (
-          <DocumentHub onAcknowledged={fetchData} />
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+            <DocumentHub onAcknowledged={fetchData} />
+          </Suspense>
         )}
 
         {/* ── CROSSFADE OVERLAY ──────────────────────────────────────────

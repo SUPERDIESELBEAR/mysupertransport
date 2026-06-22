@@ -353,6 +353,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
           <button
             onClick={() => setMobileSidebarOpen(true)}
             className="lg:hidden text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Open navigation menu"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -360,6 +361,8 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="hidden lg:block text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-expanded={sidebarOpen}
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>

@@ -171,7 +171,7 @@ export default function WelcomeOperator() {
   // ── Invalid / Expired Token ──────────────────────────────────────
   if (tokenError) {
     return (
-      <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
         {background}
         <div className="w-full max-w-md relative text-center">
           <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain mx-auto mb-8" />
@@ -245,7 +245,7 @@ export default function WelcomeOperator() {
   // ── Success State ────────────────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
         {background}
         <div className="w-full max-w-md relative text-center">
           <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain mx-auto mb-8" />
@@ -273,7 +273,7 @@ export default function WelcomeOperator() {
 
   // ── Main Welcome + Password Form ─────────────────────────────────
   return (
-    <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
       {background}
 
       <div className="w-full max-w-4xl relative">

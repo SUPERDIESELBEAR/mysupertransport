@@ -1,38 +1,46 @@
-## Fix: Refresh button should also load latest published code
+## Critical Block — Implementation Plan
 
-### What's happening now
+Fixing all 8 critical items from the audit. Scope is intentionally narrow: each fix is targeted, no refactors beyond what the issue requires.
 
-The dashboard's refresh button calls `useAppRefresh()` (`src/hooks/useAppRefresh.ts`), which does a **soft refresh only**: it re-fetches the user profile and invalidates React Query caches. It never reloads the HTML/JS bundle, so freshly published Lovable code does not appear until the user manually hard-refreshes the browser or the 2-minute `useVersionCheck` poll fires its "New version available" toast.
+### Driver PWA
 
-Result: clicking Refresh shows a "Up to date" toast even when a newer build is sitting on the server.
+1. **`min-h-screen` → `min-h-dvh`** on every driver-facing page so buttons don't hide behind iOS Safari's URL bar.
+   Files: `LoginPage.tsx`, `SplashPage.tsx`, `WelcomeOperator.tsx`, `ResetPassword.tsx`, `ApplicationStatus.tsx`, `SubmitSSN.tsx`, `InstallApp.tsx`, `PEIRelease.tsx`, `PEIRespond.tsx`, `ApplicationApprove.tsx`, `InspectionSharePage.tsx`.
 
-### Fix
+2. **`InspectionSharePage.tsx` PDF on iOS** — `<iframe>` PDFs render blank on iOS Safari (this is the *roadside officer* page). Add a prominent "Open / Download PDF" button as a reliable fallback, detect iOS, and surface the button up-front instead of relying on the iframe.
 
-Make the refresh button compare the running build version against `/version.json` and, if a newer build is available, do a hard reload. Otherwise keep the existing soft-refresh behavior.
+3. **`ApplicationStatus.tsx:114` dead CTA** — wire "Complete Account Setup" to navigate to the proper next-step destination (or hide it when no action is available).
 
-Concrete changes in `src/hooks/useAppRefresh.ts`:
+4. **`Step9Signature.tsx:61` silent upload failure** — surface the error to the user via toast, keep `sigSaved=false`, and prevent submit-time confusion by showing an inline error.
 
-1. Read the build version baked at compile time via `declare const __BUILD_VERSION__: string;` (already exposed by Vite — `useVersionCheck.tsx` uses it).
-2. At the start of `refresh()`, fetch `/version.json?t=${Date.now()}` with `cache: 'no-store'`. Skip this check on preview/dev hosts (reuse the same `isPreviewHost()` predicate pattern as `useVersionCheck`) so Lovable previews don't trigger surprise reloads.
-3. If `data.version` differs from `__BUILD_VERSION__`:
-   - Show a brief toast: "Loading latest version…"
-   - Call `window.location.reload()` (which already preserves the current path/query). The pending soft-refresh work is skipped because the page is about to unload.
-   - Also dismiss the sticky `id: 'version-update'` toast if present so it doesn't reappear post-reload.
-4. If versions match (or the fetch fails/network down): fall through to the existing `refreshProfile()` + `queryClient.invalidateQueries()` path with the "Up to date" toast — unchanged.
+5. **`OperatorPortal.tsx` jank** — full split-out is a larger refactor; for the critical pass, lazy-load the heavy panels (Inspection Binder, Service Library, Status Page, etc.) via `React.lazy` so initial portal mount and per-view switches don't re-render all panels. Leaves business logic intact.
 
-### Why this is the right scope
+### Management
 
-- Single hook change. Both `StaffLayout` and `OperatorPortal` already use `useAppRefresh`, so management, staff, and operator refresh buttons all benefit automatically.
-- Preserves the no-flash soft-refresh UX when no new build exists (the common case).
-- Hard reload only happens when there's actually new code — no perf regression.
-- Reuses the same `/version.json` mechanism `useVersionCheck` already polls, so behavior is consistent across the toast and the button.
+6. **Icon-only buttons missing `aria-label`** — add labels to:
+   - `NotificationBell.tsx:262` (Bell trigger) + `aria-expanded`/`aria-haspopup`.
+   - `StaffLayout.tsx:353` (hamburger) and `:360` (sidebar collapse).
 
-### File
+7. **`IdleWarningModal.tsx:61-72` swapped semantics** — make "Stay signed in" the primary `AlertDialogAction` (already is) and "Sign out now" use `AlertDialogCancel` with `variant="destructive"` styling so reflexive Enter doesn't accidentally sign the user out. Also set `autoFocus` on "Stay signed in".
 
-- `src/hooks/useAppRefresh.ts` — add version check + conditional hard reload at the top of `refresh()`.
+8. **`BinderFlipbook.tsx:517` modal a11y** — add `role="dialog"`, `aria-modal="true"`, `aria-labelledby` to the portal container, and implement a basic focus trap (focus first nav button on open, restore prior focus on close).
 
-### Out of scope
+### Out of scope for this pass
+- Splitting mega-components (PipelineDashboard, ManagementPortal, OperatorPortal beyond lazy-loading) — covered in later High/Medium items.
+- All non-critical findings (items 9–57) — queued for follow-up.
 
-- No changes to `useVersionCheck` (the background poller stays as-is).
-- No changes to button UI in `StaffLayout` or `OperatorPortal`.
-- No service worker / cache changes.
+### How you'll verify visually
+
+After implementation, you'll be able to see the changes in the live preview:
+
+- **Items 1, 7, 8, 6** — visible right in the preview URL.
+  - Resize to mobile or use the device toggle above the preview (phone icon) to confirm `min-h-dvh` pages no longer clip buttons.
+  - Open Notifications bell, hamburger, sidebar collapse — hover/inspect to confirm accessible name.
+  - Wait for the idle warning modal (or temporarily lower idle timeout to test) and confirm "Stay signed in" is the highlighted primary button.
+  - Open any document binder → click a doc to launch BinderFlipbook → press Tab and Escape to confirm focus is trapped + restored.
+- **Item 2** — visit `/inspect/<token>` on an iOS device (or iOS simulator / Safari responsive mode) to see the new download CTA.
+- **Item 3** — go to `/status` when application is approved; the "Complete Account Setup" button now navigates.
+- **Item 4** — on Step 9 of `/apply`, temporarily simulate an offline state (DevTools → Network → Offline) and draw a signature; toast + inline error will surface.
+- **Item 5** — open `/dashboard` as an operator; initial JS payload drops and per-view switches feel smoother (verifiable in DevTools → Network/Performance).
+
+I'll also call out the exact preview URL and any specific click path to reproduce each fix when I finish.

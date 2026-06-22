@@ -94,7 +94,7 @@ const SubmitSSN = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface-dark flex flex-col">
+    <div className="min-h-dvh bg-surface-dark flex flex-col">
       {/* Header */}
       <header className="bg-surface-dark border-b border-gold/20 px-6 py-4">
         <div className="max-w-md mx-auto flex items-center gap-3">
