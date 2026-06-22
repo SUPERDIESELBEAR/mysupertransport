@@ -34,9 +34,7 @@ function formatMessageTime(iso: string) {
   return format(d, 'MMM d');
 }
 
-function initials(name: string) {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-}
+import { initials } from '@/lib/initials';
 
 function previewBody(m: { body: string; deleted_at: string | null; attachment_name: string | null } | null): string {
   if (!m) return 'No messages yet';
