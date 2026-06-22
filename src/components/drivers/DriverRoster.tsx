@@ -14,6 +14,8 @@ import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTrian
 import { toast } from '@/hooks/use-toast';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 interface DriverRow {
   operator_id: string;
