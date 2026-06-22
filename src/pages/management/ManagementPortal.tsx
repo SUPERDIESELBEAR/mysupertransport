@@ -44,7 +44,6 @@ import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
 import OperatorBroadcast from '@/components/management/OperatorBroadcast';
 import CarrierSignatureSettings from '@/components/ica/CarrierSignatureSettings';
 import { RevertCourtesyDefaultsCard } from '@/components/management/RevertCourtesyDefaultsCard';
-import ComplianceSummaryCard, { type ComplianceDriverRow } from '@/components/management/ComplianceSummaryCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
@@ -160,7 +159,8 @@ export default function ManagementPortal() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
-  const [complianceSummary, setComplianceSummary] = useState<ComplianceDriverRow[]>([]);
+  type ComplianceRow = { operatorId: string; name: string; daysUntil: number; docType: 'CDL' | 'Med Cert'; expiryDate: string };
+  const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const [driverComplianceFilter, setDriverComplianceFilter] = useState<ComplianceFilter>('all');
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
@@ -340,7 +340,7 @@ export default function ManagementPortal() {
     let noReminder = 0;
     const remindedKeys = new Set<string>();
     (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
-    const driverMap = new Map<string, ComplianceDriverRow>();
+    const rows: ComplianceRow[] = [];
     const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 };
 
     (data as any[]).forEach((op: any) => {
@@ -349,11 +349,11 @@ export default function ManagementPortal() {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const isFullyOnboarded = os?.fully_onboarded === true;
       const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
-      const docs: { field: string; slot: 'cdl' | 'med'; docType: string }[] = [
-        { field: 'cdl_expiration', slot: 'cdl', docType: 'CDL' },
-        { field: 'medical_cert_expiration', slot: 'med', docType: 'Medical Cert' },
+      const docs: { field: string; label: 'CDL' | 'Med Cert'; docType: string }[] = [
+        { field: 'cdl_expiration', label: 'CDL', docType: 'CDL' },
+        { field: 'medical_cert_expiration', label: 'Med Cert', docType: 'Medical Cert' },
       ];
-      docs.forEach(({ field, slot, docType }) => {
+      docs.forEach(({ field, label, docType }) => {
         const dateStr: string | null = app[field];
         if (!dateStr) {
           if (isFullyOnboarded) driverCounts.neverRenewed++;
@@ -363,13 +363,7 @@ export default function ManagementPortal() {
         if (days < 0) expired++;
         if (days <= 30) count++;
         if (days <= 90) {
-          let row = driverMap.get(op.id);
-          if (!row) {
-            row = { operatorId: op.id, name, cdl: null, med: null, worstDays: days };
-            driverMap.set(op.id, row);
-          }
-          row[slot] = { expiryDate: dateStr, daysUntil: days };
-          if (days < row.worstDays) row.worstDays = days;
+          rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
         }
         const key = `${op.id}|${docType}`;
         if (days <= 30 && !remindedKeys.has(key)) noReminder++;
@@ -380,11 +374,11 @@ export default function ManagementPortal() {
         }
       });
     });
-    const rows = Array.from(driverMap.values()).sort((a, b) => a.worstDays - b.worstDays);
+    rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
     setExpiredCount(expired);
     setNoReminderCount(noReminder);
-    setComplianceSummary(rows);
+    setComplianceSummary(rows.slice(0, 5));
     setDriverComplianceCounts(driverCounts);
   }, []);
 
@@ -1213,11 +1207,57 @@ export default function ManagementPortal() {
             </div>
 
             {/* Compliance Summary */}
-            <ComplianceSummaryCard
-              rows={complianceSummary}
-              onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
-              onViewAll={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
-            />
+            {complianceSummary.length > 0 && (
+              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="h-4 w-4 text-destructive" />
+                    <div>
+                      <h2 className="font-semibold text-foreground">Compliance Summary</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Operators with nearest document expiries</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
+                    View all <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="divide-y divide-border">
+                  {complianceSummary.map((row, i) => {
+                    const isCritical = row.daysUntil <= 30;
+                    const isExpired = row.daysUntil < 0;
+                    const urgencyColor = isExpired
+                      ? 'text-destructive bg-destructive/10 border-destructive/20'
+                      : isCritical
+                      ? 'text-destructive bg-destructive/10 border-destructive/20'
+                      : 'text-gold bg-gold/10 border-gold/20';
+                    const label = isExpired
+                      ? `Expired ${Math.abs(row.daysUntil)}d ago`
+                      : row.daysUntil === 0
+                      ? 'Expires today'
+                      : `${row.daysUntil}d`;
+                    return (
+                      <div key={`${row.operatorId}-${row.docType}-${i}`} className="flex items-center justify-between px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors gap-3">
+                        <div className="min-w-0 flex-1 flex items-center gap-3">
+                          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${urgencyColor}`}>
+                            {label}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground text-sm truncate">{row.name}</p>
+                            <p className="text-xs text-muted-foreground">{row.docType} · Expires {new Date(row.expiryDate + 'T00:00:00').toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { setSelectedOperatorId(row.operatorId); setView('operator-detail'); }}
+                          className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 transition-colors"
+                        >
+                          Open <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* App Install Status */}
             {(() => {

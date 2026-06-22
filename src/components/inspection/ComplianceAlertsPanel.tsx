@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2, Search, List as ListIcon, LayoutGrid, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
@@ -40,6 +41,21 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
   const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
+
+  // View toggle + search
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>('cards');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('compliance_alerts_view');
+      if (saved === 'list' || saved === 'cards') setViewMode(saved);
+    } catch {}
+  }, []);
+  const setViewPersisted = (v: 'list' | 'cards') => {
+    setViewMode(v);
+    try { localStorage.setItem('compliance_alerts_view', v); } catch {}
+  };
 
   // Outreach tracking
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
@@ -380,9 +396,12 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   // ── Derived data ───────────────────────────────────────────────────────
   const visibleAlerts = (() => {
+    const q = search.trim().toLowerCase();
     const base = alerts.filter(a => {
       if (noActionOnly) { const key = `${a.operator_id}|${a.doc_type}`; if (lastReminded[key] || lastRenewed[key]) return false; }
-      return docFilter === 'all' || a.doc_type === docFilter;
+      if (docFilter !== 'all' && a.doc_type !== docFilter) return false;
+      if (q && !a.operator_name.toLowerCase().includes(q)) return false;
+      return true;
     });
     if (sort === 'urgency') return base;
     return [...base].sort((a, b) => {
@@ -393,6 +412,40 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   })();
 
   const noActionCount = alerts.filter(a => { const key = `${a.operator_id}|${a.doc_type}`; return !lastReminded[key] && !lastRenewed[key]; }).length;
+
+  // Group visible alerts by driver — one entry per operator with optional CDL + Med Cert.
+  type DriverGroup = {
+    operator_id: string;
+    operator_name: string;
+    certs: ComplianceAlert[];
+    worstDays: number;
+    lastActionTs: number;
+  };
+  const driverGroups: DriverGroup[] = useMemo(() => {
+    const map = new Map<string, DriverGroup>();
+    for (const a of visibleAlerts) {
+      const key = `${a.operator_id}|${a.doc_type}`;
+      const ts = Math.max(
+        lastReminded[key] ? new Date(lastReminded[key]).getTime() : 0,
+        lastRenewed[key] ? new Date(lastRenewed[key]).getTime() : 0,
+      );
+      let g = map.get(a.operator_id);
+      if (!g) {
+        g = { operator_id: a.operator_id, operator_name: a.operator_name, certs: [], worstDays: a.days_until, lastActionTs: ts };
+        map.set(a.operator_id, g);
+      }
+      g.certs.push(a);
+      if (a.days_until < g.worstDays) g.worstDays = a.days_until;
+      if (ts > g.lastActionTs) g.lastActionTs = ts;
+    }
+    // Keep CDL first, Med Cert second within each driver.
+    const order = (t: string) => (t === 'CDL' ? 0 : 1);
+    const list = Array.from(map.values()).map(g => ({ ...g, certs: [...g.certs].sort((a, b) => order(a.doc_type) - order(b.doc_type)) }));
+    if (sort === 'urgency') list.sort((a, b) => a.worstDays - b.worstDays);
+    else if (sort === 'last_action_desc') list.sort((a, b) => b.lastActionTs - a.lastActionTs);
+    else list.sort((a, b) => a.lastActionTs - b.lastActionTs);
+    return list;
+  }, [visibleAlerts, lastReminded, lastRenewed, sort]);
 
   if (alerts.length === 0) return (
     <div className="border border-status-complete/30 bg-status-complete/5 rounded-xl shadow-sm px-5 py-6 flex items-center gap-4">
@@ -496,6 +549,45 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
         {/* Right-side action cluster — wraps as a unit on narrow widths */}
         <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
+        {/* Search */}
+        <div onClick={(e) => e.stopPropagation()} className="relative shrink-0">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search drivers"
+            className="h-7 pl-7 pr-7 text-xs w-[160px] sm:w-[180px]"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {/* View toggle */}
+        <div onClick={(e) => e.stopPropagation()} className="inline-flex items-center rounded-md border border-border bg-background p-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewPersisted('list')}
+            className={`h-6 px-2 rounded text-[11px] flex items-center gap-1 transition-colors ${viewMode === 'list' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            aria-pressed={viewMode === 'list'}
+          >
+            <ListIcon className="h-3 w-3" /> List
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewPersisted('cards')}
+            className={`h-6 px-2 rounded text-[11px] flex items-center gap-1 transition-colors ${viewMode === 'cards' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            aria-pressed={viewMode === 'cards'}
+          >
+            <LayoutGrid className="h-3 w-3" /> Cards
+          </button>
+        </div>
         {/* Visibility window picker */}
         <div onClick={(e) => e.stopPropagation()} className="shrink-0">
           <ComplianceWindowPicker />
@@ -574,175 +666,175 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
       {/* Alert rows */}
       {expanded && (
-        <div className="border-t border-destructive/20 divide-y divide-destructive/10">
-          {/* Column headers */}
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-destructive/5">
-            <span className="h-2 w-2 shrink-0" />
-            <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
+        <div className="border-t border-destructive/20">
+          {/* Sort control bar */}
+          <div className="flex items-center justify-between px-4 py-1.5 bg-destructive/5 border-b border-destructive/10">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+              {driverGroups.length} driver{driverGroups.length !== 1 ? 's' : ''}
+            </span>
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
-              className="hidden md:inline-flex items-center gap-1 w-[90px] justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group shrink-0"
-              style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
-              <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
+              className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group">
+              <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Sort: {sort === 'urgency' ? 'Urgency' : 'Last Action'}</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Reminded</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Renewed</span>
-            <span className="shrink-0 w-[74px]" /><span className="shrink-0 w-[68px]" /><span className="shrink-0 w-[58px]" />
           </div>
 
-          {visibleAlerts.map((alert) => {
-            const expired = alert.days_until < 0;
-            const critical = !expired && alert.days_until <= 30;
-            const warning = !expired && !critical;
-            const rowKey = `${alert.operator_id}|${alert.doc_type}`;
-            const isSending = reminderSending[rowKey];
-            const isSent = reminderSent[rowKey];
-            const remindedAt = lastReminded[rowKey];
-            const remindedBy = lastRemindedBy[rowKey];
-            const reminderOutcome = lastReminderOutcome[rowKey];
-            const isRowRenewing = rowRenewing[rowKey];
-            const isRowRenewed = rowRenewed[rowKey];
-            const renewedAt = lastRenewed[rowKey];
-            const renewedByName = lastRenewedBy[rowKey];
-            return (
-              <div key={`${alert.operator_id}-${alert.doc_type}`}
-                className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
-                {/* Urgency dot */}
-                <span className={`h-2 w-2 rounded-full shrink-0 ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
-                {/* Name + doc type */}
-                <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
-                  <span className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
-                  {!renewedAt && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 shrink-0"><span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />Never Renewed</span>}
-                </div>
-                {/* Expiry date */}
-                <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
-                {/* Urgency badge */}
-                <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
-                  {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
-                </span>
-                {/* Last Action column */}
-                {(() => {
-                  const remindedTs = remindedAt ? new Date(remindedAt).getTime() : 0;
-                  const renewedTs = renewedAt ? new Date(renewedAt).getTime() : 0;
-                  const hasAction = remindedTs > 0 || renewedTs > 0;
-                  const lastActionTs = Math.max(remindedTs, renewedTs);
-                  const lastActionDate = hasAction ? new Date(lastActionTs) : null;
-                  const isRenewal = renewedTs >= remindedTs && renewedTs > 0;
-                  const actionBy = isRenewal ? renewedByName : remindedBy;
-                  const actionLabel = isRenewal ? 'Renewed' : 'Reminded';
-                  const pillClass = isRenewal ? 'bg-status-complete/10 text-status-complete border border-status-complete/25' : 'bg-primary/10 text-primary border border-primary/25';
-                  const Icon = isRenewal ? RotateCcw : CheckCheck;
-                  return (
-                    <TooltipProvider delayDuration={100}><Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={`hidden md:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[90px] justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
-                          {hasAction && lastActionDate ? <><Icon className="h-3 w-3 shrink-0" />{format(lastActionDate, 'MMM d')}</> : <span className="text-muted-foreground/40">No action</span>}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[220px]">
-                        {hasAction && lastActionDate ? <span className="flex flex-col gap-0.5"><span className="font-medium">{actionLabel}</span><span>{format(lastActionDate, "MMM d, yyyy 'at' h:mm a")}</span>{actionBy && <span className="text-muted-foreground">by {actionBy}</span>}</span> : 'No reminder or renewal recorded yet'}
-                      </TooltipContent>
-                    </Tooltip></TooltipProvider>
-                  );
-                })()}
-                {/* Last Reminded column */}
-                {(() => {
-                  let freshness: 'recent' | 'stale' | 'none' = 'none';
-                  if (remindedAt) { const d = differenceInDays(new Date(), new Date(remindedAt)); freshness = d <= 7 ? 'recent' : d >= 30 ? 'stale' : 'none'; }
-                  const emailFailed = remindedAt && reminderOutcome && !reminderOutcome.sent;
-                  const pillClass = emailFailed ? 'bg-destructive/10 text-destructive border border-destructive/30' : freshness === 'recent' ? 'bg-status-complete/10 text-status-complete border border-status-complete/25' : freshness === 'stale' ? 'bg-warning/10 text-warning border border-warning/25' : '';
-                  const iconClass = emailFailed ? 'text-destructive' : freshness === 'recent' ? 'text-status-complete' : freshness === 'stale' ? 'text-warning' : 'text-muted-foreground';
-                  return (
-                    <TooltipProvider delayDuration={100}><Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${remindedAt ? pillClass : 'text-muted-foreground/40'}`}>
-                          {remindedAt ? <><CheckCheck className={`h-3 w-3 shrink-0 ${iconClass}`} />{format(new Date(remindedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[240px]">
-                        {remindedAt ? <span className="flex flex-col gap-0.5"><span>Last reminder {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>{remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}{emailFailed ? <span className="text-destructive font-medium">✗ Email failed{reminderOutcome?.error ? ` — ${reminderOutcome.error.replace(/^Error:\s*/i, '').slice(0, 80)}` : ''}</span> : <span className="text-status-complete font-medium">✓ Email delivered</span>}</span> : 'No reminder sent yet'}
-                      </TooltipContent>
-                    </Tooltip></TooltipProvider>
-                  );
-                })()}
-                {/* Last Renewed column */}
-                {(() => {
-                  const pillClass = renewedAt ? 'bg-status-complete/10 text-status-complete border border-status-complete/25' : '';
-                  return (
-                    <TooltipProvider delayDuration={100}><Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${renewedAt ? pillClass : 'text-muted-foreground/40'}`}>
-                          {renewedAt ? <><RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />{format(new Date(renewedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[220px]">
-                        {renewedAt ? <span className="flex flex-col gap-0.5"><span>Last renewed {format(new Date(renewedAt), "MMM d, yyyy 'at' h:mm a")}</span>{renewedByName && <span className="text-muted-foreground">by {renewedByName}</span>}</span> : 'Not yet renewed'}
-                      </TooltipContent>
-                    </Tooltip></TooltipProvider>
-                  );
-                })()}
-                {/* Last-reminded badge */}
-                {remindedAt && !isSent && (() => {
-                  const daysSince = differenceInDays(new Date(), new Date(remindedAt));
-                  const label = daysSince === 0 ? 'Today' : daysSince === 1 ? '1d ago' : `${daysSince}d ago`;
-                  const isRecent = daysSince <= 7;
-                  const emailFailed = reminderOutcome && !reminderOutcome.sent;
-                  return (
-                    <TooltipProvider delayDuration={100}><Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium rounded px-1.5 py-0.5 border shrink-0 cursor-default ${emailFailed ? 'text-destructive bg-destructive/10 border-destructive/30' : isRecent ? 'text-primary bg-primary/10 border-primary/25' : 'text-muted-foreground bg-muted border-border'}`}>
-                          <Send className="h-2.5 w-2.5 shrink-0" />{label}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[220px]">
-                        <span className="flex flex-col gap-0.5">
-                          <span>Last reminder {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
-                          {remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}
-                          {emailFailed ? <span className="text-destructive font-medium">✗ Email failed{reminderOutcome?.error ? ` — ${reminderOutcome.error.replace(/^Error:\s*/i, '').slice(0, 80)}` : ''}</span> : <span className="text-status-complete font-medium">✓ Email delivered</span>}
-                        </span>
-                      </TooltipContent>
-                    </Tooltip></TooltipProvider>
-                  );
-                })()}
-                {/* Send Reminder button */}
-                <TooltipProvider delayDuration={100}><Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={() => handleSendReminder(alert)} disabled={isSending || isSent}
-                      className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${isSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}>
-                      {isSending ? <Loader2 className="h-3 w-3 animate-spin" /> : isSent ? <><CheckCheck className="h-3 w-3" /><span className="hidden sm:inline">Sent</span></> : <><Send className="h-3 w-3" /><span className="hidden sm:inline">Remind</span></>}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">{isSent ? 'Reminder sent!' : `Send email reminder to ${alert.operator_name}`}</TooltipContent>
-                </Tooltip></TooltipProvider>
-                {/* Mark as Renewed button */}
-                <TooltipProvider delayDuration={100}><Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={() => handleMarkRenewed(alert)} disabled={isRowRenewing || isRowRenewed}
-                      className={`relative shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${isRowRenewed ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : warning ? 'border-warning/40 text-warning/80 bg-warning/5 hover:border-warning/60 hover:text-warning hover:bg-warning/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'}`}>
-                      {isRowRenewing ? <Loader2 className="h-3 w-3 animate-spin" /> : isRowRenewed ? <><CheckCircle2 className="h-3 w-3" /><span className="hidden sm:inline">Renewed</span></> : <><RotateCcw className="h-3 w-3" /><span className="hidden sm:inline">Renew</span></>}
-                      {warning && !isRowRenewed && !isRowRenewing && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-warning border border-background" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs max-w-[200px] text-center">{isRowRenewed ? 'Document renewed!' : warning ? <><span className="font-semibold text-warning block">Not urgent yet</span><span>{alert.doc_type} expires in {alert.days_until}d</span></> : `Mark ${alert.doc_type} as renewed (+1 year)`}</TooltipContent>
-                </Tooltip></TooltipProvider>
-                {/* Open button */}
-                {(onOpenOperator || onOpenOperatorWithFocus) && (
-                  <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
-                    className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-2">
-                    Open →
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-
-          {visibleAlerts.length === 0 && (
-            <div className="flex items-center justify-center gap-2 py-5 text-muted-foreground">
+          {driverGroups.length === 0 && (
+            <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
               <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
-              <span className="text-xs">{noActionOnly ? 'All operators have at least one reminder or renewal recorded' : docFilter === 'all' ? 'No compliance alerts within 90 days' : `No ${docFilter} alerts found`}</span>
+              <span className="text-xs">
+                {search.trim()
+                  ? `No drivers match "${search}"`
+                  : noActionOnly
+                    ? 'All operators have at least one reminder or renewal recorded'
+                    : docFilter === 'all'
+                      ? 'No compliance alerts within 90 days'
+                      : `No ${docFilter} alerts found`}
+              </span>
+            </div>
+          )}
+
+          {driverGroups.length > 0 && (
+            <div className={viewMode === 'cards'
+              ? 'p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'
+              : 'divide-y divide-destructive/10'
+            }>
+              {driverGroups.map((group) => {
+                const tier: 'expired' | 'critical' | 'warning' =
+                  group.worstDays < 0 ? 'expired' : group.worstDays <= 30 ? 'critical' : 'warning';
+                const tierBadge =
+                  tier === 'expired' ? 'bg-destructive/15 text-destructive border-destructive/40'
+                  : tier === 'critical' ? 'bg-destructive/10 text-destructive border-destructive/30'
+                  : 'bg-yellow-50 text-yellow-700 border-yellow-300';
+                const tierStripe = tier === 'warning' ? 'bg-yellow-500' : 'bg-destructive';
+                const containerCls = viewMode === 'cards'
+                  ? 'relative border border-border rounded-lg bg-white overflow-hidden hover:shadow-sm transition-shadow'
+                  : 'relative bg-background/60 hover:bg-background/80';
+
+                return (
+                  <div key={group.operator_id} className={containerCls}>
+                    {/* Status stripe */}
+                    <span className={`absolute left-0 top-0 bottom-0 w-1 ${tierStripe} ${tier === 'expired' ? 'animate-pulse' : ''}`} />
+                    {/* Driver header */}
+                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 pl-5 border-b border-border/60">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span className="font-semibold text-sm text-foreground truncate">{group.operator_name}</span>
+                        <span className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${tierBadge}`}>
+                          {tier === 'expired' ? 'Expired' : tier === 'critical' ? 'Critical' : 'Warning'}
+                        </span>
+                      </div>
+                      {(onOpenOperator || onOpenOperatorWithFocus) && (
+                        <Button variant="ghost" size="sm"
+                          onClick={() => onOpenOperator ? onOpenOperator(group.operator_id) : onOpenOperatorWithFocus?.(group.operator_id, 'cdl')}
+                          className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-2">
+                          Open →
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Per-cert sub-rows */}
+                    <div className="divide-y divide-border/40">
+                      {group.certs.map((alert) => {
+                        const expired = alert.days_until < 0;
+                        const critical = !expired && alert.days_until <= 30;
+                        const warning = !expired && !critical;
+                        const rowKey = `${alert.operator_id}|${alert.doc_type}`;
+                        const isSending = reminderSending[rowKey];
+                        const isSent = reminderSent[rowKey];
+                        const remindedAt = lastReminded[rowKey];
+                        const remindedBy = lastRemindedBy[rowKey];
+                        const reminderOutcome = lastReminderOutcome[rowKey];
+                        const isRowRenewing = rowRenewing[rowKey];
+                        const isRowRenewed = rowRenewed[rowKey];
+                        const renewedAt = lastRenewed[rowKey];
+                        const renewedByName = lastRenewedBy[rowKey];
+                        const emailFailed = remindedAt && reminderOutcome && !reminderOutcome.sent;
+                        const remindedFresh = remindedAt ? differenceInDays(new Date(), new Date(remindedAt)) : null;
+                        const remindedPillClass = emailFailed
+                          ? 'bg-destructive/10 text-destructive border-destructive/30'
+                          : remindedFresh !== null && remindedFresh <= 7
+                            ? 'bg-status-complete/10 text-status-complete border-status-complete/25'
+                            : remindedFresh !== null && remindedFresh >= 30
+                              ? 'bg-warning/10 text-warning border-warning/25'
+                              : 'bg-primary/10 text-primary border-primary/25';
+
+                        return (
+                          <div key={rowKey} className="flex flex-wrap items-center gap-2 px-4 py-2.5 pl-5">
+                            {/* Cert label + expiry */}
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
+                              <span className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-semibold border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
+                                {alert.doc_type}
+                              </span>
+                              <span className="text-xs text-muted-foreground truncate">
+                                Expires {format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}
+                              </span>
+                              <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
+                                {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
+                              </span>
+                              {!renewedAt && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 shrink-0">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />Never Renewed
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Last reminded/renewed pills */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {remindedAt && (
+                                <TooltipProvider delayDuration={100}><Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 border shrink-0 cursor-default ${remindedPillClass}`}>
+                                      <Send className="h-2.5 w-2.5 shrink-0" />Reminded {format(new Date(remindedAt), 'MMM d')}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs max-w-[240px]">
+                                    <span className="flex flex-col gap-0.5">
+                                      <span>Last reminder {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                      {remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}
+                                      {emailFailed
+                                        ? <span className="text-destructive font-medium">✗ Email failed{reminderOutcome?.error ? ` — ${reminderOutcome.error.replace(/^Error:\s*/i, '').slice(0, 80)}` : ''}</span>
+                                        : <span className="text-status-complete font-medium">✓ Email delivered</span>}
+                                    </span>
+                                  </TooltipContent>
+                                </Tooltip></TooltipProvider>
+                              )}
+                              {renewedAt && (
+                                <TooltipProvider delayDuration={100}><Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium rounded px-1.5 py-0.5 border shrink-0 cursor-default bg-status-complete/10 text-status-complete border-status-complete/25">
+                                      <RotateCcw className="h-2.5 w-2.5 shrink-0" />Renewed {format(new Date(renewedAt), 'MMM d')}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs max-w-[220px]">
+                                    <span className="flex flex-col gap-0.5">
+                                      <span>Last renewed {format(new Date(renewedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                      {renewedByName && <span className="text-muted-foreground">by {renewedByName}</span>}
+                                    </span>
+                                  </TooltipContent>
+                                </Tooltip></TooltipProvider>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              <Button variant="outline" size="sm" onClick={() => handleSendReminder(alert)} disabled={isSending || isSent}
+                                className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${isSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}>
+                                {isSending ? <Loader2 className="h-3 w-3 animate-spin" /> : isSent ? <><CheckCheck className="h-3 w-3" />Sent</> : <><Send className="h-3 w-3" />Remind</>}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleMarkRenewed(alert)} disabled={isRowRenewing || isRowRenewed}
+                                className={`relative shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${isRowRenewed ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : warning ? 'border-warning/40 text-warning/80 bg-warning/5 hover:border-warning/60 hover:text-warning hover:bg-warning/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'}`}>
+                                {isRowRenewing ? <Loader2 className="h-3 w-3 animate-spin" /> : isRowRenewed ? <><CheckCircle2 className="h-3 w-3" />Renewed</> : <><RotateCcw className="h-3 w-3" />Renew</>}
+                                {warning && !isRowRenewed && !isRowRenewing && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-warning border border-background" />}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
