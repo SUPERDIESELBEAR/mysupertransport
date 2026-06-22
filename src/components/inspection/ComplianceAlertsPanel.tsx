@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2, Search, List as ListIcon, LayoutGrid, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
