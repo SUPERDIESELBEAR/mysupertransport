@@ -18,7 +18,6 @@ import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
-import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
 import OperatorMessagesHub from '@/components/operator/OperatorMessagesHub';
 import NotificationBell from '@/components/NotificationBell';
 import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
