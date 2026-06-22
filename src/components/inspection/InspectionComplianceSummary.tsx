@@ -300,13 +300,13 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     const docName: string = docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate';
 
     // Locate or upsert the per-driver inspection_documents row.
-    const { data: existing } = await supabase
-      .from('inspection_documents')
+    const lookup: any = await (supabase.from('inspection_documents') as any)
       .select('id')
       .eq('scope', 'per_driver')
       .eq('operator_id', operatorId)
       .eq('name', docName)
       .maybeSingle();
+    const existing = lookup.data as { id: string } | null;
 
     let error: any = null;
     if (existing?.id) {
