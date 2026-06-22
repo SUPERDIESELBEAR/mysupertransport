@@ -1,85 +1,46 @@
-## Problem
+## Move the Cards/Table toggle next to the search row
 
-In the Driver Hub roster, the **Compliance** column renders two pills (CDL + Med Cert) inside a `flex-wrap` container. Each pill is sized to its own content, healthy items use a borderless plain-text style while expired/critical/warning items use filled badges, and the "No Date" variant uses yet another style. The result:
+Single-file change in `src/pages/dispatch/DispatchPortal.tsx`.
 
-- Pills wrap unpredictably and shift width row-to-row
-- Healthy vs. at-risk drivers look like different components
-- Icon usage is inconsistent (only the "No Date" state has an icon)
-- The column reads as cluttered and non-scannable
+### 1. Remove the toggle from the top header (lines ~1221-1241)
+Delete the `<div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">…</div>` block that holds the Cards/Table buttons. Leave the Refresh button in place — it remains a page-level action in the header.
 
-## Proposed fix (visual only — `src/components/drivers/DriverRoster.tsx`)
-
-Refactor `expiryPill` and the column wrapper so every row renders the **same shape**: a fixed-width status chip with a label, a colored status dot, and the days/status text. This gives the column a uniform two-row stack that aligns vertically across all drivers.
-
-### 1. Column wrapper (line ~1200)
-Change from `flex flex-wrap gap-1 items-center` to a vertical stack:
+### 2. Add the toggle to the filter/search row (line ~1485, just before the closing `</div>`)
+Insert the same toggle markup immediately after the search input, inside the existing `flex flex-col sm:flex-row` row:
 
 ```tsx
-<div className="flex flex-col gap-1 min-w-[140px]" onClick={e => e.stopPropagation()}>
-  {expiryPill(driver.cdl_expiration, 'CDL')}
-  {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
-  {showReminderBadge && (<span className="xl:hidden pt-0.5">…</span>)}
+{/* View toggle — kept next to search so list controls live together */}
+<div className="flex items-center bg-muted rounded-lg p-0.5 border border-border shrink-0 self-start sm:self-auto">
+  <button
+    onClick={() => setViewMode('cards')}
+    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+      viewMode === 'cards' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+    }`}
+  >
+    <LayoutGrid className="h-3.5 w-3.5" />
+    <span className="hidden sm:inline">Cards</span>
+  </button>
+  <button
+    onClick={() => setViewMode('table')}
+    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+      viewMode === 'table' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+    }`}
+  >
+    <List className="h-3.5 w-3.5" />
+    <span className="hidden sm:inline">Table</span>
+  </button>
 </div>
 ```
 
-A `min-w-[140px]` on the cell content keeps chip widths consistent.
+Slight padding reduction (`py-1` instead of `py-1.5`) so its height matches the h-8 search input and dispatcher Select on the same row.
 
-### 2. Unified chip (replace all 4 `expiryPill` return branches)
+### Result
 
-One single chip component, color-driven by status tier:
+- Top-right header keeps Sound + fleet-unlogged badge + Refresh.
+- Filter tabs → Dispatcher select → Search → **View toggle** all sit on one row, mirroring the Driver Hub / Compliance pattern.
+- All state, behavior, URL sync (`mode=` param) unchanged — only the JSX location changes.
 
-```text
-┌──────────────────────────┐
-│ ● CDL        42d         │   ← healthy (green dot, muted text)
-│ ● Med Cert   12d         │   ← warning (amber dot, amber text)
-│ ● CDL        Expired     │   ← expired (red dot, red text + bg)
-│ ○ Med Cert   No date     │   ← missing  (gray dot, dashed border)
-└──────────────────────────┘
-```
+### Scope
 
-Implementation outline:
-
-```tsx
-const tier = !dateStr ? 'missing'
-  : days < 0 ? 'expired'
-  : days <= 7 ? 'critical'
-  : days <= 30 ? 'warning'
-  : 'ok';
-
-const styles = {
-  ok:       'bg-muted/40 border-border text-foreground',
-  warning:  'bg-[hsl(var(--status-action))]/10 border-[hsl(var(--status-action))]/30 text-[hsl(var(--status-action))]',
-  critical: 'bg-destructive/10 border-destructive/30 text-destructive',
-  expired:  'bg-destructive/10 border-destructive/40 text-destructive font-semibold',
-  missing:  'bg-muted border-dashed border-border text-muted-foreground',
-}[tier];
-
-<span className={`inline-flex items-center gap-2 text-xs rounded-md border px-2 py-1 whitespace-nowrap ${styles}`}>
-  <span className={`h-1.5 w-1.5 rounded-full ${dotColor[tier]} shrink-0`} />
-  <span className="font-medium w-14 shrink-0">{label}</span>
-  <span className="ml-auto tabular-nums">{text}</span>
-</span>
-```
-
-Key details:
-- Fixed label width (`w-14`) so "CDL" and "Med Cert" align vertically
-- `ml-auto` + `tabular-nums` right-aligns the days text, so all rows line up
-- `whitespace-nowrap` prevents the chip wrapping inside itself
-- Same border + padding + rounding across all tiers — only color changes
-- Tooltip still shows the full formatted date (`MM/dd/yyyy`)
-
-### 3. Header alignment
-No header change needed (still "Compliance"), but the column already has `hidden lg:table-cell` so behavior at smaller breakpoints is preserved.
-
-## Scope guardrails
-
-- No logic, filtering, sorting, or data changes
-- No changes to other columns or to dispatch mode
-- Only touches `expiryPill` and the wrapper `<div>` at line ~1200 in `DriverRoster.tsx`
-
-## Verification
-
-Reload `/dashboard?view=drivers`, confirm:
-- CDL and Med Cert chips stack vertically and align across rows
-- Labels line up, days/status right-align, tier colors are consistent
-- Tooltip on each chip still shows the exact expiration date
+- Visual relocation only. No logic, state, or imports change (LayoutGrid/List icons already imported).
+- No other pages touched. When you're ready to add this to more pages, the row will be the consistent home.

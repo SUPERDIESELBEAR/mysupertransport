@@ -1218,27 +1218,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {/* View toggle */}
-          <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                viewMode === 'cards' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Cards</span>
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                viewMode === 'table' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Table</span>
-            </button>
-          </div>
           <Button
             variant="outline"
             size="sm"
@@ -1481,6 +1460,27 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
               <X className="h-3.5 w-3.5" />
             </button>
           )}
+        </div>
+        {/* View toggle — kept next to search so list controls live together */}
+        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border shrink-0 self-start sm:self-auto">
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+              viewMode === 'cards' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Cards</span>
+          </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+              viewMode === 'table' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <List className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Table</span>
+          </button>
         </div>
       </div>
 
