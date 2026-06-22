@@ -27,6 +27,8 @@ interface DocEntry {
   status: Status;
   /** Only set for fleet-wide (IRP/Insurance/IFTA) rows */
   inspectionDocId?: string;
+  /** True when expiry was edited but no new file was uploaded (>24h) */
+  isStale?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -129,21 +131,35 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     // with days_until already calculated against US Central Time in the database.
     const { data: rows } = await supabase
       .from('v_compliance_items')
-      .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until');
+      .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until, file_path, uploaded_at, expires_updated_at');
 
     if (!rows) { setLoading(false); return; }
 
-    const result: DocEntry[] = rows.map(r => ({
-      docKey: (r.doc_key ?? '') as DocKey,
-      operatorId: r.entity_kind === 'fleet' ? '__fleet__' : (r.operator_id ?? ''),
-      operatorName: r.operator_name ?? 'Unknown',
-      expiresAt: r.expires_at ?? null,
-      daysUntil: r.days_until ?? null,
-      // Status uses the user's chosen warning window, applied to the
-      // server-computed days_until — single source of truth for the date math.
-      status: getStatus(r.days_until ?? null, windowDays),
-      inspectionDocId: r.inspection_doc_id ?? undefined,
-    }));
+    const STALE_MS = 24 * 60 * 60 * 1000;
+    const result: DocEntry[] = rows.map((r: any) => {
+      const filePath = r.file_path as string | null | undefined;
+      const uploadedAt = r.uploaded_at ? new Date(r.uploaded_at).getTime() : null;
+      const expiresUpdatedAt = r.expires_updated_at ? new Date(r.expires_updated_at).getTime() : null;
+      // Stale = expiry was set/edited but no supporting file uploaded since
+      // (either no file at all, OR file is >24h older than the expiry edit).
+      const hasExpiry = !!r.expires_at;
+      const isStale = hasExpiry && (
+        !filePath ||
+        (uploadedAt !== null && expiresUpdatedAt !== null && expiresUpdatedAt - uploadedAt > STALE_MS)
+      );
+      return {
+        docKey: (r.doc_key ?? '') as DocKey,
+        operatorId: r.entity_kind === 'fleet' ? '__fleet__' : (r.operator_id ?? ''),
+        operatorName: r.operator_name ?? 'Unknown',
+        expiresAt: r.expires_at ?? null,
+        daysUntil: r.days_until ?? null,
+        // Status uses the user's chosen warning window, applied to the
+        // server-computed days_until — single source of truth for the date math.
+        status: getStatus(r.days_until ?? null, windowDays),
+        inspectionDocId: r.inspection_doc_id ?? undefined,
+        isStale,
+      };
+    });
 
     // Sort: fleet rows first, then group by operator (worst status first), within operator CDL before Med Cert
     const tierOrder: Record<Status, number> = { expired: 0, critical: 1, warning: 2, valid: 3, missing: 4 };
