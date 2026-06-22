@@ -183,10 +183,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+  const [viewMode, setViewModeState] = useState<'table' | 'cards'>(() => {
     const m = searchParams.get('mode');
-    return m === 'table' ? 'table' : 'cards';
+    if (m === 'table' || m === 'cards') return m;
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('dispatch_view');
+      if (stored === 'table' || stored === 'cards') return stored;
+    }
+    return 'cards';
   });
+  const setViewMode = (next: 'table' | 'cards') => {
+    setViewModeState(next);
+    try { window.localStorage.setItem('dispatch_view', next); } catch { /* ignore */ }
+  };
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
   // Quick-compose modal state
