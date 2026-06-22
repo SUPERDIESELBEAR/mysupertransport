@@ -164,14 +164,17 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             </p>
           </div>
         </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vehicles…"
-            className="pl-9 text-sm h-9"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search vehicles…"
+              className="pl-9 text-sm h-9"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
