@@ -63,6 +63,30 @@ const OPERATOR_EVENT_TYPES: EventTypeDef[] = [
     iconBg: 'bg-yellow-100',
     iconColor: 'text-yellow-600',
   },
+  {
+    type: 'cert_reminder_cdl',
+    label: 'CDL Renewal Reminders',
+    description: 'Automated 45 / 14 / 3 / 0 / +1 day cadence for your CDL. Toggle off to silence just this document type.',
+    icon: ShieldAlert,
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-500',
+  },
+  {
+    type: 'cert_reminder_medical',
+    label: 'Medical Certificate Renewal Reminders',
+    description: 'Automated 45 / 14 / 3 / 0 / +1 day cadence for your Medical Certificate.',
+    icon: ShieldAlert,
+    iconBg: 'bg-purple-100',
+    iconColor: 'text-purple-600',
+  },
+  {
+    type: 'cert_reminder_irp',
+    label: 'IRP Registration Renewal Reminders',
+    description: 'Automated 45 / 14 / 3 / 0 / +1 day cadence for your IRP registration (cab card).',
+    icon: ShieldAlert,
+    iconBg: 'bg-sky-100',
+    iconColor: 'text-sky-600',
+  },
 ];
 
 interface Props {
