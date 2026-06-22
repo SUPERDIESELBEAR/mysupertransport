@@ -381,6 +381,7 @@ export default function DriverRoster({
   // Tracks operators currently receiving a SUPERDRIVE install reminder
   const [installSending, setInstallSending] = useState<Set<string>>(new Set());
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('driver_hub_view', 'mode', 'table');
 
   const handleSendInstallReminder = useCallback(async (operatorId: string, driverName: string, force = false) => {
     setInstallSending(prev => {
