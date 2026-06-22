@@ -326,14 +326,27 @@ export default function ManagementPortal() {
   }, [session?.user?.id]);
 
   const fetchCriticalExpiries = useCallback(async () => {
-    const [{ data }, { data: reminders }] = await Promise.all([
+    const [{ data }, { data: reminders }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select('id, onboarding_status(fully_onboarded), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
+        .select('id, user_id, onboarding_status(fully_onboarded), applications(first_name, last_name)')
         .not('application_id', 'is', null),
       supabase.from('cert_reminders').select('operator_id, doc_type'),
+      // #11: inspection_documents is the sole source of truth for cert expiry
+      supabase
+        .from('inspection_documents')
+        .select('driver_id, name, expires_at')
+        .eq('scope', 'per_driver')
+        .in('name', ['CDL (Front)', 'Medical Certificate']),
     ]);
     if (!data) return;
+    const binderDates: Record<string, { cdl?: string; med?: string }> = {};
+    (binderDocs ?? []).forEach((doc: any) => {
+      if (!doc.driver_id || !doc.expires_at) return;
+      if (!binderDates[doc.driver_id]) binderDates[doc.driver_id] = {};
+      if (doc.name === 'CDL (Front)') binderDates[doc.driver_id].cdl = doc.expires_at;
+      if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
+    });
     const today = startOfDay(new Date());
     let count = 0;
     let expired = 0;
@@ -354,7 +367,9 @@ export default function ManagementPortal() {
         { field: 'medical_cert_expiration', label: 'Med Cert', docType: 'Medical Cert' },
       ];
       docs.forEach(({ field, label, docType }) => {
-        const dateStr: string | null = app[field];
+        const dateStr: string | null = field === 'cdl_expiration'
+          ? (binderDates[op.user_id]?.cdl ?? null)
+          : (binderDates[op.user_id]?.med ?? null);
         if (!dateStr) {
           if (isFullyOnboarded) driverCounts.neverRenewed++;
           return;
