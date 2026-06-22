@@ -1267,12 +1267,20 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         {g.med && <CertSubRow entry={g.med} />}
                         {g.irp && <CertSubRow entry={g.irp} />}
                       </div>
-                      <button
-                        onClick={() => openDriver(g.operatorId)}
-                        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                      >
-                        Open in Inspection Binder <ExternalLink className="h-3 w-3" />
-                      </button>
+                      <div className="mt-3 flex items-center gap-3">
+                        <button
+                          onClick={() => openDriver(g.operatorId)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Open in Binder <ExternalLink className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Timeline <History className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
