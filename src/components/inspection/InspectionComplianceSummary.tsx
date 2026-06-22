@@ -70,13 +70,6 @@ const DOC_DISPLAY: Record<DocKey, string> = {
   'Medical Certificate': 'Med Cert',
 };
 
-// Map inspection_documents.name → our DocKey
-const INSPECTION_NAMES: Record<string, DocKey> = {
-  'IRP Registration (cab card)': 'IRP Registration (cab card)',
-  'Insurance':        'Insurance',
-  'IFTA License':     'IFTA License',
-};
-
 // ── Component ──────────────────────────────────────────────────────────────
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
