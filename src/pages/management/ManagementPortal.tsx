@@ -232,6 +232,14 @@ export default function ManagementPortal() {
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
+    // Persist the current top-level section to sessionStorage so a refresh
+    // restores the last viewed page, independent of URL state. Skip transient
+    // detail views that need a selected record to render correctly.
+    try {
+      if (view !== 'operator-detail' && view !== 'vehicle-detail') {
+        sessionStorage.setItem('mgmt_last_view', view);
+      }
+    } catch { /* ignore */ }
   }, [view, selectedOperatorId, statusFilter, setSearchParams]);
 
 
