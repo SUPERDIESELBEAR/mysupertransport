@@ -89,6 +89,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const { windowDays } = useComplianceWindow();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // Last-updated map: inspection_doc_id -> { by, at }
+  const [lastUpdated, setLastUpdated] = useState<Record<string, { by: string; at: string }>>({});
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
@@ -180,6 +182,34 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     setEntries(result);
+
+    // ── Fetch most-recent audit_log entry per inspection_doc_id ──────────
+    // Trigger writes entity_type='compliance', entity_id=inspection_doc_id.
+    const docIds = result.map(e => e.inspectionDocId).filter(Boolean) as string[];
+    if (docIds.length > 0) {
+      const { data: logs } = await supabase
+        .from('audit_log')
+        .select('entity_id, actor_name, created_at')
+        .eq('entity_type', 'compliance')
+        .in('entity_id', docIds)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (logs) {
+        const map: Record<string, { by: string; at: string }> = {};
+        // First occurrence per entity_id wins because the list is desc.
+        logs.forEach((l: any) => {
+          if (!map[l.entity_id]) {
+            map[l.entity_id] = { by: l.actor_name ?? 'A staff member', at: l.created_at };
+          }
+        });
+        setLastUpdated(map);
+      } else {
+        setLastUpdated({});
+      }
+    } else {
+      setLastUpdated({});
+    }
+
     setLoading(false);
   }, [windowDays]);
 
@@ -290,7 +320,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   };
 
   // ── Inline date save for per-driver certs (CDL / Med Cert) ───────────────
-  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, date: Date | undefined) => {
+  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, inspectionDocId: string | undefined, date: Date | undefined) => {
     if (!date) return;
     const key = `${operatorId}|${docKey}`;
     setDriverPicker(null);
@@ -299,30 +329,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
     const docName: string = docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate';
 
-    // Locate or upsert the per-driver inspection_documents row.
-    const lookup: any = await (supabase.from('inspection_documents') as any)
-      .select('id')
-      .eq('scope', 'per_driver')
-      .eq('operator_id', operatorId)
-      .eq('name', docName)
-      .maybeSingle();
-    const existing = lookup.data as { id: string } | null;
-
     let error: any = null;
-    if (existing?.id) {
+    if (inspectionDocId) {
       ({ error } = await supabase
         .from('inspection_documents')
         .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
-        .eq('id', existing.id));
+        .eq('id', inspectionDocId));
     } else {
-      ({ error } = await supabase
-        .from('inspection_documents')
-        .insert({
-          scope: 'per_driver',
-          operator_id: operatorId,
-          name: docName,
-          expires_at: isoDate,
-        }));
+      // No binder row yet — resolve the driver's auth user_id from operators
+      // and insert a fresh per_driver inspection_documents row.
+      const opLookup: any = await (supabase.from('operators') as any)
+        .select('user_id').eq('id', operatorId).maybeSingle();
+      const driverUserId = opLookup.data?.user_id as string | undefined;
+      if (!driverUserId) {
+        error = new Error('Could not resolve driver user_id');
+      } else {
+        ({ error } = await supabase
+          .from('inspection_documents')
+          .insert({
+            scope: 'per_driver',
+            driver_id: driverUserId,
+            name: docName,
+            expires_at: isoDate,
+          }));
+      }
     }
 
     setDriverSaving(prev => ({ ...prev, [key]: false }));
@@ -547,6 +577,32 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     else if (onOpenOperator) onOpenOperator(operatorId);
   };
 
+  // Compact "X ago" formatter for the last-updated line.
+  const formatAgo = (iso: string): string => {
+    const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diffSec < 60) return 'just now';
+    const mins = Math.floor(diffSec / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months}mo ago`;
+    return `${Math.floor(months / 12)}y ago`;
+  };
+
+  const LastUpdatedLine = ({ entry }: { entry: DocEntry }) => {
+    if (!entry.inspectionDocId) return null;
+    const meta = lastUpdated[entry.inspectionDocId];
+    if (!meta) return null;
+    return (
+      <div className="text-[10px] text-muted-foreground/70 italic pl-[68px] pb-0.5">
+        Updated by {meta.by}, {formatAgo(meta.at)}
+      </div>
+    );
+  };
+
   // Shared inline date editor + remind-driver button for per-driver certs.
   const DriverDateEditor = ({ entry }: { entry: DocEntry }) => {
     const key = `${entry.operatorId}|${entry.docKey}`;
@@ -587,7 +643,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <Calendar
             mode="single"
             selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
-            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, date)}
+            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, entry.inspectionDocId, date)}
             disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
             initialFocus
             className={cn('p-3 pointer-events-auto')}
@@ -637,16 +693,19 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const CertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
     return (
-      <div className="flex items-center gap-2 py-1">
-        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-        <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
-          {DOC_DISPLAY[entry.docKey]}
-        </span>
-        <span className="flex-1 min-w-0 truncate">
-          <DriverDateEditor entry={entry} />
-        </span>
-        <RemindButton entry={entry} />
-        <CertPill entry={entry} />
+      <div className="py-1">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+          <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
+            {DOC_DISPLAY[entry.docKey]}
+          </span>
+          <span className="flex-1 min-w-0 truncate">
+            <DriverDateEditor entry={entry} />
+          </span>
+          <RemindButton entry={entry} />
+          <CertPill entry={entry} />
+        </div>
+        <LastUpdatedLine entry={entry} />
       </div>
     );
   };
@@ -656,17 +715,20 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const ListCertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
     return (
-      <div className="flex items-center gap-2 py-0.5">
-        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
-          {DOC_DISPLAY[entry.docKey]}
-        </span>
-        <span className="w-[140px] shrink-0">
-          <DriverDateEditor entry={entry} />
-        </span>
-        <span className="flex-1" />
-        <RemindButton entry={entry} />
-        <CertPill entry={entry} />
+      <div className="py-0.5">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
+            {DOC_DISPLAY[entry.docKey]}
+          </span>
+          <span className="w-[140px] shrink-0">
+            <DriverDateEditor entry={entry} />
+          </span>
+          <span className="flex-1" />
+          <RemindButton entry={entry} />
+          <CertPill entry={entry} />
+        </div>
+        <LastUpdatedLine entry={entry} />
       </div>
     );
   };
