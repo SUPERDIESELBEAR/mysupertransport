@@ -34,6 +34,9 @@ function daysUntilExpiry(expiresAt: string | null): number | null {
 import MoPlateFormModal, { type MoPlate } from './MoPlateFormModal';
 import MoPlateAssignModal from './MoPlateAssignModal';
 import MoPlateHistoryModal from './MoPlateHistoryModal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 type PlateWithAssignee = MoPlate & {
   current_driver?: string | null;
