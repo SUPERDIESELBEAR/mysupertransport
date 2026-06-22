@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,6 +24,7 @@ export default function StaffDirectory() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery, 200);
   const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
   const [showInvite, setShowInvite] = useState(false);
   const [managingMember, setManagingMember] = useState<StaffMember | null>(null);
@@ -75,8 +77,8 @@ export default function StaffDirectory() {
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch.toLowerCase();
     const name = `${s.first_name ?? ''} ${s.last_name ?? ''}`.toLowerCase();
     return name.includes(q) || (s.email ?? '').toLowerCase().includes(q);
   });
