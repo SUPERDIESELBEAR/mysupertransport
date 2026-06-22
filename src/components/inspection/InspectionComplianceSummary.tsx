@@ -459,6 +459,15 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     let drivers = Array.from(byDriver.values());
     if (q) drivers = drivers.filter(d => d.operatorName.toLowerCase().includes(q));
     drivers.sort((a, b) => {
+      if (sortMode === 'name') return a.operatorName.localeCompare(b.operatorName);
+      if (sortMode === 'doc') {
+        // Drivers with the soonest CDL expiry first; then Med Cert; then by name
+        const aCdl = a.cdl?.daysUntil ?? Number.POSITIVE_INFINITY;
+        const bCdl = b.cdl?.daysUntil ?? Number.POSITIVE_INFINITY;
+        if (aCdl !== bCdl) return aCdl - bCdl;
+        return a.operatorName.localeCompare(b.operatorName);
+      }
+      // Default: urgency
       const t = tierRank[a.worstStatus] - tierRank[b.worstStatus];
       if (t !== 0) return t;
       return a.operatorName.localeCompare(b.operatorName);
