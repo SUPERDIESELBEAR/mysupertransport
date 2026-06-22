@@ -30,8 +30,23 @@ export default function FormProgress({ currentStep, totalSteps, stepLabels }: Fo
           style={{ width: `${pct}%` }}
         />
       </div>
+      {/* Visually-hidden step list for screen readers */}
+      <ol className="sr-only">
+        {stepLabels.map((label, i) => {
+          const stepNum = i + 1;
+          const state = stepNum < currentStep ? 'Completed' : stepNum === currentStep ? 'Current' : 'Not started';
+          return (
+            <li
+              key={i}
+              aria-current={stepNum === currentStep ? 'step' : undefined}
+            >
+              {`Step ${stepNum} of ${totalSteps}: ${label} — ${state}`}
+            </li>
+          );
+        })}
+      </ol>
       {/* Desktop: step dots */}
-      <div className="hidden md:flex justify-between mt-3">
+      <div className="hidden md:flex justify-between mt-3" aria-hidden="true">
         {stepLabels.map((label, i) => (
           <div key={i} className="flex flex-col items-center gap-1" style={{ width: `${100 / totalSteps}%` }}>
             <div className={`h-2 w-2 rounded-full transition-colors ${
