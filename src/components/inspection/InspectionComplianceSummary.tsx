@@ -395,7 +395,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const tierRank: Record<Status, number> = { expired: 0, critical: 1, warning: 2, missing: 3, valid: 4 };
   const q = search.trim().toLowerCase();
 
-  const grouped: Group[] = useMemo(() => {
+  const grouped: Group[] = (() => {
     const fleetGroups: FleetGroup[] = [];
     const byDriver = new Map<string, DriverGroup>();
     filtered.forEach(e => {
@@ -440,7 +440,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     // When a search is active, hide fleet rows so results stay focused.
     const fleet = q ? [] : fleetGroups;
     return [...fleet, ...drivers];
-  }, [filtered, q]);
+  })();
 
   // ── Tiny reusable bits for the new views ─────────────────────────────────
   const CertPill = ({ entry }: { entry: DocEntry }) => {
