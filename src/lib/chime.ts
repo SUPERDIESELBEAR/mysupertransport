@@ -3,9 +3,20 @@
  * No external files or dependencies required.
  * Safe to call even when the browser has no audio context support.
  */
+/**
+ * Safari < 14.1 only exposes `webkitAudioContext`. Declared here so we can
+ * fall back without an `as any` cast.
+ */
+interface WebkitWindow extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
 export function playTruckDownChime(): void {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioCtor =
+      window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
+    if (!AudioCtor) return;
+    const ctx = new AudioCtor();
 
     const play = (freq: number, startTime: number, duration: number, gain: number) => {
       const osc = ctx.createOscillator();

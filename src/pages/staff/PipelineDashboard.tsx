@@ -1288,7 +1288,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       if (opRow?.application_id) {
         const { error: appErr } = await supabase
           .from('applications')
-          .update({ review_status: 'denied' as any })
+          .update({ review_status: 'denied' })
           .eq('id', opRow.application_id);
         if (appErr) throw appErr;
       }

@@ -5,6 +5,7 @@ import { CheckCircle, Clock, XCircle, Mail, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import logo from '@/assets/supertransport-logo.png';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 
 export default function ApplicationStatus() {
   const { profile, user, signOut } = useAuth();
@@ -48,13 +49,10 @@ export default function ApplicationStatus() {
         body: { applicationId: app.id },
       });
       if (error) {
-        const ctx: any = (error as any).context;
-        let msg = 'Could not send the email. Please try again in a moment.';
-        try {
-          const parsed = ctx?.body ? JSON.parse(ctx.body) : null;
-          if (parsed?.message) msg = parsed.message;
-        } catch { /* ignore */ }
-        toast.error(msg);
+        toast.error(await getEdgeFunctionErrorMessage(
+          error,
+          'Could not send the email. Please try again in a moment.',
+        ));
         return;
       }
       if ((data as any)?.success) {

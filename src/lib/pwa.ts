@@ -2,9 +2,24 @@
  * Shared helpers for PWA install flows (banner + /install-app step).
  */
 
+/**
+ * Vendor-prefixed bits the standard `Navigator` / `Window` types don't
+ * include. Declared as optional so calling code stays type-safe without
+ * resorting to `as any`.
+ */
+interface LegacyNavigator extends Navigator {
+  /** Set by iOS Safari when the page is launched as an installed PWA. */
+  standalone?: boolean;
+}
+
+interface LegacyWindow extends Window {
+  /** Legacy IE-only flag once used to gate `iPad/iPhone` UA matching. */
+  MSStream?: unknown;
+}
+
 export function isIOS(): boolean {
   if (typeof navigator === "undefined") return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as LegacyWindow).MSStream;
 }
 
 export function isAndroid(): boolean {
@@ -16,7 +31,7 @@ export function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as any).standalone === true
+    (navigator as LegacyNavigator).standalone === true
   );
 }
 
