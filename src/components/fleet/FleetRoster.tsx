@@ -11,6 +11,15 @@ import QuickTruckEditModal from './QuickTruckEditModal';
 import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type DotFilter = 'all' | 'overdue' | 'due_soon' | 'no_record';
+type DotSort = 'unit' | 'due_asc' | 'due_desc';
+
+function daysUntilDue(nextDue: string | null): number | null {
+  if (!nextDue) return null;
+  return differenceInDays(startOfDay(parseISO(nextDue)), startOfDay(new Date()));
+}
 
 interface FleetRow {
   operatorId: string;
@@ -49,6 +58,15 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
+  const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
+    return (localStorage.getItem('vehicle_hub_dot_filter') as DotFilter) || 'all';
+  });
+  const [dotSort, setDotSort] = useState<DotSort>(() => {
+    return (localStorage.getItem('vehicle_hub_dot_sort') as DotSort) || 'unit';
+  });
+
+  useEffect(() => { localStorage.setItem('vehicle_hub_dot_filter', dotFilter); }, [dotFilter]);
+  useEffect(() => { localStorage.setItem('vehicle_hub_dot_sort', dotSort); }, [dotSort]);
 
   const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
@@ -151,6 +169,51 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     );
   }, [rows, search]);
 
+  const counts = useMemo(() => {
+    const c = { all: filtered.length, overdue: 0, due_soon: 0, no_record: 0 };
+    filtered.forEach(r => {
+      const d = daysUntilDue(r.dotNextDue);
+      if (d === null) c.no_record++;
+      else if (d < 0) c.overdue++;
+      else if (d <= 30) c.due_soon++;
+    });
+    return c;
+  }, [filtered]);
+
+  const filteredAndSorted = useMemo(() => {
+    const list = filtered.filter(r => {
+      if (dotFilter === 'all') return true;
+      const d = daysUntilDue(r.dotNextDue);
+      if (dotFilter === 'no_record') return d === null;
+      if (dotFilter === 'overdue') return d !== null && d < 0;
+      if (dotFilter === 'due_soon') return d !== null && d >= 0 && d <= 30;
+      return true;
+    });
+    const sorted = [...list];
+    if (dotSort === 'unit') {
+      sorted.sort((a, b) => parseInt(a.unitNumber ?? '99999') - parseInt(b.unitNumber ?? '99999'));
+    } else {
+      const dir = dotSort === 'due_asc' ? 1 : -1;
+      sorted.sort((a, b) => {
+        const da = daysUntilDue(a.dotNextDue);
+        const db = daysUntilDue(b.dotNextDue);
+        // No record always at top
+        if (da === null && db === null) return 0;
+        if (da === null) return -1;
+        if (db === null) return 1;
+        return (da - db) * dir;
+      });
+    }
+    return sorted;
+  }, [filtered, dotFilter, dotSort]);
+
+  const handleFilterChange = (next: DotFilter) => {
+    setDotFilter(next);
+    if ((next === 'overdue' || next === 'due_soon') && dotSort === 'unit') {
+      setDotSort('due_asc');
+    }
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -221,19 +284,57 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </Button>
       </div>
 
+      {/* DOT status filter chips + sort */}
+      <div className="flex flex-wrap gap-1.5 items-center justify-between">
+        <div className="flex flex-wrap gap-1.5">
+          {([
+            { key: 'all' as const, label: 'All', count: counts.all, activeClass: 'bg-primary text-primary-foreground border-primary' },
+            { key: 'overdue' as const, label: 'Overdue', count: counts.overdue, activeClass: 'bg-destructive text-destructive-foreground border-destructive' },
+            { key: 'due_soon' as const, label: 'Due Soon', count: counts.due_soon, activeClass: 'bg-amber-500 text-white border-amber-500' },
+            { key: 'no_record' as const, label: 'No Record', count: counts.no_record, activeClass: 'bg-muted-foreground text-background border-muted-foreground' },
+          ]).map(chip => {
+            const active = dotFilter === chip.key;
+            return (
+              <button
+                key={chip.key}
+                onClick={() => handleFilterChange(chip.key)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
+                  active ? chip.activeClass : 'bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
+                }`}
+              >
+                {chip.label}
+                <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded-full ${active ? 'bg-white/20' : 'bg-muted'}`}>
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <Select value={dotSort} onValueChange={(v) => setDotSort(v as DotSort)}>
+          <SelectTrigger className="h-8 text-xs w-[200px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unit" className="text-xs">Unit # (default)</SelectItem>
+            <SelectItem value="due_asc" className="text-xs">DOT Due — Soonest first</SelectItem>
+            <SelectItem value="due_desc" className="text-xs">DOT Due — Furthest first</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {loading ? (
         <div className="text-center py-16 text-muted-foreground">
           <Loader2 className="h-6 w-6 mx-auto animate-spin mb-2" />
           <p className="text-sm">Loading fleet…</p>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filteredAndSorted.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-2 opacity-30" />
           <p className="text-sm">{search ? 'No vehicles match your search.' : showDeactivated ? 'No deactivated vehicles.' : 'No active vehicles found.'}</p>
         </div>
       ) : viewMode === 'cards' ? (
         <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${showDeactivated ? 'opacity-75' : ''}`}>
-          {filtered.map(row => (
+          {filteredAndSorted.map(row => (
             <div
               key={row.operatorId}
               onClick={() => onSelectOperator(row.operatorId)}
@@ -327,7 +428,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(row => (
+                {filteredAndSorted.map(row => (
                   <TableRow
                     key={row.operatorId}
                     className="cursor-pointer hover:bg-muted/30 transition-colors"

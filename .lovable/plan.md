@@ -1,55 +1,49 @@
-## Add Cards/Table toggle to 4 more pages
+## Vehicle Hub — DOT Filters & Sort
 
-Reuse the shared `ViewModeToggle` + `useViewMode` from the previous round. Wrap existing data only, no field redesign.
+Add a compact toolbar row above the vehicle grid/table with DOT status filter chips and a sort dropdown. No data, schema, or business logic changes — purely client-side filter/sort over the existing `filtered` list.
 
----
+### 1. Filter chips (multi-state, single-select)
 
-### 1. Archived Drivers — `src/components/drivers/ArchivedDriversView.tsx`
-**Default: Table** (matches Driver Hub).
+Place a new chip row directly under the Active/Deactivated toggle:
 
-- Add `useViewMode('archived_drivers_view', 'mode', 'table')`.
-- Place `<ViewModeToggle>` on the existing search row (right side, next to any refresh button).
-- When `viewMode === 'cards'`, render a `grid sm:grid-cols-2 lg:grid-cols-3 gap-3` of cards showing: avatar/initials + name, unit #, archived date, archived reason, and the same action buttons (View, Restore if applicable).
-- Existing table render kept as-is for `viewMode === 'table'`.
+- **All** (default)
+- **Overdue** — `dotNextDue` exists and `days < 0`
+- **Due Soon** — `dotNextDue` exists and `0 ≤ days ≤ 30`
+- **No Record** — `dotNextDue` is null
 
-### 2. Equipment Inventory — `src/components/equipment/EquipmentInventory.tsx`
-**Default: Table** (current EquipmentRow layout — staff scan for serial/operator).
+Each chip shows a live count for the current Active/Deactivated + search context. Style matches the existing Active/Deactivated chips (same `text-xs px-3 py-1.5 rounded-lg` pattern) with status-tinted backgrounds when selected: Overdue = destructive red, Due Soon = amber, No Record = muted.
 
-The current "list" inside each device-type group is a row-based divider list. We'll treat that as **Table** and add a **Cards** alternative.
+### 2. Sort dropdown
 
-- Add `useViewMode('equipment_inventory_view', 'mode', 'table')`.
-- Place `<ViewModeToggle>` on the filter chip row (right side).
-- When `viewMode === 'cards'`, replace the `divide-y` row list inside each group with a `grid sm:grid-cols-2 lg:grid-cols-3 gap-3` of cards: device icon + serial number, status badge, assigned operator, condition notes, and the same action menu (Edit / Assign / Return / History).
-- Group headers (per device type) and Show-more behavior remain identical in both modes.
+A small shadcn `Select` to the right of the chip row:
 
-### 3. MO Plate Registry — `src/components/mo-plates/MoPlateRegistry.tsx`
-**Default: Cards** (already the current layout — keep it).
+- **Unit # (default)** — current behavior
+- **DOT Due — Soonest first** — ascending by days-until-due
+- **DOT Due — Furthest first** — descending by days-until-due
 
-- Add `useViewMode('mo_plate_registry_view', 'mode', 'cards')`.
-- Place `<ViewModeToggle>` on the search/filter row.
-- When `viewMode === 'table'`, render a `<Table>` with columns: Plate #, State, Status, Current Driver, Unit #, Assigned Date, Actions. One row per plate.
-- Existing card grid unchanged for `viewMode === 'cards'`.
+When sorting by DOT Due (either direction), **vehicles with no DOT record sort to the top** as a data-quality flag, with a subtle "Needs attention" cue already implied by the existing "No Record" badge.
 
-### 4. PEI Queue — `src/components/pei/PEIQueuePanel.tsx`
-**Recommend skipping for now.** Here's why, then ask if you still want it:
+When the user picks the **Overdue** or **Due Soon** chip, the sort auto-switches to "DOT Due — Soonest first" for sensible defaults. The user can still override via the dropdown.
 
-The PEI Queue is *not* a flat list — it's a collapsible accordion grouped by applicant, with an embedded table of employers under each. Flattening to cards loses the by-applicant grouping that makes the page usable (you triage one applicant at a time, not one employer at a time). A "cards" view would either:
-- (a) Show one card per applicant (loses per-employer status visibility), or
-- (b) Show one card per employer (loses the applicant grouping).
+### 3. Persistence
 
-Neither is clearly better than what's there. The page is also unique in shape, so it doesn't gain the consistency benefit that motivates the toggle on the other pages.
+Both the filter chip and sort selection persist in `localStorage` under `vehicle_hub_dot_filter` and `vehicle_hub_dot_sort`, matching the existing `useViewMode` pattern. No URL params (keeps the URL clean; view mode already uses `?mode=`).
 
-**My recommendation:** leave PEI as-is. If you want it anyway, tell me which of (a) or (b) you prefer and I'll add it in a follow-up.
+### 4. Applies to both views
 
----
+Cards and Table views both render from the same filtered+sorted list, so the toolbar works identically in both.
 
-### Scope guardrails
-- No data, filter, sort, RLS, or business logic changes.
-- No restyling of existing rows or chips.
-- Per-page storage keys: `archived_drivers_view`, `equipment_inventory_view`, `mo_plate_registry_view`.
+### Technical notes
 
-### Verification
-- Each page's toggle flips view immediately.
-- Refresh page → view sticks (localStorage).
-- `?mode=cards` / `?mode=table` URL overrides honored on first load.
-- All actions (edit, assign, restore, etc.) work in both views.
+- New `useMemo` derives `filteredAndSorted` from `filtered` using a small helper `daysUntilDue(row)` returning `null` for missing records.
+- Sort comparator places `null` first when sorting by DOT, otherwise falls back to Unit # numeric sort.
+- No changes to `FleetRow`, queries, or `ViewModeToggle`.
+
+### Files
+
+- `src/components/fleet/FleetRoster.tsx` — add toolbar row, filter/sort state, memoized derived list.
+
+### Out of scope
+
+- No changes to Driver Hub, Dispatch, or other roster pages (can be applied later if desired).
+- No new DOT thresholds or badge logic — reuses existing `dotStatusBadge` rules.
