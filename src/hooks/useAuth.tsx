@@ -160,9 +160,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoles([]);
     setActiveRoleState(null);
     setProfile(null);
-    // Hard-navigate to /login so installed iOS PWAs fully reset and never
-    // leave the user staring at a blank portal screen.
-    window.location.replace('/login');
+    // Installed PWAs (iOS standalone, Android TWA) need a hard reload so the
+    // standalone shell fully resets. Regular browser sessions don't — the
+    // existing route guards in App.tsx redirect to /login as soon as `user`
+    // is null, avoiding the white-flash full-page reload.
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+    if (isStandalone) {
+      window.location.replace('/login');
+    }
   };
 
   const isOwner = roles.includes('owner');
