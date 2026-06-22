@@ -62,7 +62,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 const ALL_STAFF_ROLES: StaffRole[] = ['onboarding_staff', 'dispatcher', 'management'];
 
 export default function StaffDirectory() {
-  const { session, user, isOwner } = useAuth();
+  const { session, user, isOwner, signOut } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
 
@@ -119,8 +119,7 @@ export default function StaffDirectory() {
         const status = (error as any)?.context?.status ?? (error as any)?.status;
         const msg = (error as any)?.message ?? '';
         if (status === 401 || /non-2xx/i.test(msg)) {
-          await supabase.auth.signOut().catch(() => {});
-          window.location.href = '/login';
+          await signOut();
           return;
         }
         throw error;
@@ -138,7 +137,7 @@ export default function StaffDirectory() {
     } finally {
       setLoading(false);
     }
-  }, [session?.access_token, toast]);
+  }, [session?.access_token, signOut, toast]);
 
   useEffect(() => {
     fetchStaff();
