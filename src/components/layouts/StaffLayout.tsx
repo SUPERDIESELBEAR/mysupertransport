@@ -148,7 +148,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
                     {/* Icon with optional badge */}
                     <span className="relative shrink-0">
                       {item.icon}
-                      {item.badge != null && item.badge > 0 && (
+                      {item.badge != null && item.badge > 0 && !(sidebarOpen || isMobileDrawer) && (
                         <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
                           {item.badge > 99 ? '99+' : item.badge}
                         </span>
