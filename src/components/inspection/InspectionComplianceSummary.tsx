@@ -214,10 +214,6 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     setOpenPicker(null);
     setSaving(prev => ({ ...prev, [inspectionDocId]: true }));
 
-    // Capture old expiry before the update for the audit trail
-    const oldEntry = entries.find(e => e.inspectionDocId === inspectionDocId);
-    const oldDate = oldEntry?.expiresAt ?? null;
-
     const isoDate = format(date, 'yyyy-MM-dd');
     const { error } = await supabase
       .from('inspection_documents')
