@@ -744,7 +744,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <span className="flex-1 min-w-0 truncate">
             <DriverDateEditor entry={entry} />
           </span>
-          <RemindButton entry={entry} />
+          <StaleChip entry={entry} /><RemindButton entry={entry} />
           <CertPill entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
@@ -767,7 +767,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             <DriverDateEditor entry={entry} />
           </span>
           <span className="flex-1" />
-          <RemindButton entry={entry} />
+          <StaleChip entry={entry} /><RemindButton entry={entry} />
           <CertPill entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
