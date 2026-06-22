@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2, Cloud, CloudOff } from 'lucide-react';
+import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
 
 interface OperatorRow {
   id: string;
@@ -36,6 +37,10 @@ interface BroadcastRow {
   status: string;
   scheduled_at: string | null;
   selected_operator_ids: string[] | null;
+  requires_acknowledgment?: boolean | null;
+  opened_count?: number;
+  read_count?: number;
+  acknowledged_count?: number;
 }
 
 function escapeHtml(s: string): string {
@@ -102,6 +107,7 @@ export function OperatorBroadcast() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
+  const [requiresAck, setRequiresAck] = useState(false);
   const [finalPreviewOpen, setFinalPreviewOpen] = useState(false);
   const [finalPreviewHtml, setFinalPreviewHtml] = useState<string | null>(null);
   const [finalPreviewLoading, setFinalPreviewLoading] = useState(false);
@@ -180,6 +186,7 @@ export function OperatorBroadcast() {
     setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
     setExcludedIds(new Set());
     setScheduleDate(''); setScheduleTime('');
+    setRequiresAck(false);
     setPreviewApproved(false);
     setFinalPreviewHtml(null);
     skipDirtyRef.current = true;
@@ -197,6 +204,7 @@ export function OperatorBroadcast() {
     setBody(b.body ?? '');
     setCtaLabel(b.cta_label ?? '');
     setCtaUrl(b.cta_url ?? '');
+    setRequiresAck(b.requires_acknowledgment === true);
     if (b.recipient_scope === 'selected' && Array.isArray(b.selected_operator_ids)) {
       const includeSet = new Set(b.selected_operator_ids);
       // Exclude = all current operators not in the saved include list.
@@ -248,6 +256,7 @@ export function OperatorBroadcast() {
           ctaUrl: ctaUrl.trim() || undefined,
           operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
           scheduledAt: scheduledAtIso,
+          requiresAcknowledgment: requiresAck,
         },
       });
       if (error) throw error;
@@ -295,6 +304,7 @@ export function OperatorBroadcast() {
           ctaLabel: ctaLabel.trim() || undefined,
           ctaUrl: ctaUrl.trim() || undefined,
           operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
+          requiresAcknowledgment: requiresAck,
         },
       });
       if (error) throw error;
@@ -366,6 +376,7 @@ export function OperatorBroadcast() {
             ctaLabel: ctaLabel.trim() || undefined,
             ctaUrl: ctaUrl.trim() || undefined,
             operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
+            requiresAcknowledgment: requiresAck,
           },
         });
         if (error) throw error;
