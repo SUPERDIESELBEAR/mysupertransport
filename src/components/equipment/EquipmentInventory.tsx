@@ -249,6 +249,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
             </button>
           ))}
         </div>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} className="ml-auto" />
       </div>
 
       {/* Device groups */}
