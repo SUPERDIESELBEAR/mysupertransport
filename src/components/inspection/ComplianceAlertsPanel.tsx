@@ -549,6 +549,45 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
         {/* Right-side action cluster — wraps as a unit on narrow widths */}
         <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
+        {/* Search */}
+        <div onClick={(e) => e.stopPropagation()} className="relative shrink-0">
+          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search drivers"
+            className="h-7 pl-7 pr-7 text-xs w-[160px] sm:w-[180px]"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {/* View toggle */}
+        <div onClick={(e) => e.stopPropagation()} className="inline-flex items-center rounded-md border border-border bg-background p-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewPersisted('list')}
+            className={`h-6 px-2 rounded text-[11px] flex items-center gap-1 transition-colors ${viewMode === 'list' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            aria-pressed={viewMode === 'list'}
+          >
+            <ListIcon className="h-3 w-3" /> List
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewPersisted('cards')}
+            className={`h-6 px-2 rounded text-[11px] flex items-center gap-1 transition-colors ${viewMode === 'cards' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            aria-pressed={viewMode === 'cards'}
+          >
+            <LayoutGrid className="h-3 w-3" /> Cards
+          </button>
+        </div>
         {/* Visibility window picker */}
         <div onClick={(e) => e.stopPropagation()} className="shrink-0">
           <ComplianceWindowPicker />
