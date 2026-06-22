@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -9,30 +9,33 @@ import {
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
 } from 'lucide-react';
-import DocumentHub from '@/components/documents/DocumentHub';
-import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
+// Heavy view-gated panels are lazy-loaded so the initial portal mount and
+// switches between unrelated views don't pay the full bundle/render cost
+// (see audit item #5 — OperatorPortal jank on mid-range Android).
+const DocumentHub = lazy(() => import('@/components/documents/DocumentHub'));
+const DriverServiceLibrary = lazy(() => import('@/components/service-library/DriverServiceLibrary'));
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import NotificationHistory from '@/components/management/NotificationHistory';
+const NotificationHistory = lazy(() => import('@/components/management/NotificationHistory'));
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
-import OperatorMessagesHub from '@/components/operator/OperatorMessagesHub';
+const OperatorMessagesHub = lazy(() => import('@/components/operator/OperatorMessagesHub'));
 import NotificationBell from '@/components/NotificationBell';
-import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
+const OperatorStatusPage = lazy(() => import('@/components/operator/OperatorStatusPage'));
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
-import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
-import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
+const OperatorInspectionBinder = lazy(() => import('@/components/inspection/OperatorInspectionBinder'));
+const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
-import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
+const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
-import SettlementForecast from '@/components/operator/SettlementForecast';
+const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
