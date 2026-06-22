@@ -290,7 +290,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   };
 
   // ── Inline date save for per-driver certs (CDL / Med Cert) ───────────────
-  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, date: Date | undefined) => {
+  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, inspectionDocId: string | undefined, date: Date | undefined) => {
     if (!date) return;
     const key = `${operatorId}|${docKey}`;
     setDriverPicker(null);
@@ -299,30 +299,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
     const docName: string = docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate';
 
-    // Locate or upsert the per-driver inspection_documents row.
-    const lookup: any = await (supabase.from('inspection_documents') as any)
-      .select('id')
-      .eq('scope', 'per_driver')
-      .eq('operator_id', operatorId)
-      .eq('name', docName)
-      .maybeSingle();
-    const existing = lookup.data as { id: string } | null;
-
     let error: any = null;
-    if (existing?.id) {
+    if (inspectionDocId) {
       ({ error } = await supabase
         .from('inspection_documents')
         .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
-        .eq('id', existing.id));
+        .eq('id', inspectionDocId));
     } else {
-      ({ error } = await supabase
-        .from('inspection_documents')
-        .insert({
-          scope: 'per_driver',
-          operator_id: operatorId,
-          name: docName,
-          expires_at: isoDate,
-        }));
+      // No binder row yet — resolve the driver's auth user_id from operators
+      // and insert a fresh per_driver inspection_documents row.
+      const opLookup: any = await (supabase.from('operators') as any)
+        .select('user_id').eq('id', operatorId).maybeSingle();
+      const driverUserId = opLookup.data?.user_id as string | undefined;
+      if (!driverUserId) {
+        error = new Error('Could not resolve driver user_id');
+      } else {
+        ({ error } = await supabase
+          .from('inspection_documents')
+          .insert({
+            scope: 'per_driver',
+            driver_id: driverUserId,
+            name: docName,
+            expires_at: isoDate,
+          }));
+      }
     }
 
     setDriverSaving(prev => ({ ...prev, [key]: false }));
