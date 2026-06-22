@@ -683,7 +683,6 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                   <div key={g.operatorId} className={cn(cardWrapperCls(g.worstStatus), 'pl-3')}>
                     <div className="p-3">
                       <div className="flex items-center gap-2">
-                        <span className={cn('h-2 w-2 rounded-full', STATUS_CONFIG[g.worstStatus].dotCls)} />
                         <span className="font-semibold text-sm text-foreground truncate">{g.operatorName}</span>
                         <span className={cn(
                           'ml-auto inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-semibold border',
