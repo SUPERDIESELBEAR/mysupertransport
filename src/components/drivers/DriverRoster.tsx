@@ -114,72 +114,60 @@ const DISPATCH_STATUS_CONFIG = {
 };
 
 function expiryPill(dateStr: string | null, label: string) {
-  if (!dateStr) return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5">
-            <FileX className="h-3 w-3 shrink-0" />
-            {label} · No Date
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>No expiration date on file</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-  const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
-  const formatted = format(parseISO(dateStr), 'MM/dd/yyyy');
-  if (days < 0) {
-    return (
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded px-1.5 py-0.5">
-              {label} Expired
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{formatted}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
+  type Tier = 'missing' | 'expired' | 'critical' | 'warning' | 'ok';
+
+  let tier: Tier;
+  let valueText: string;
+  let tooltipText: string;
+
+  if (!dateStr) {
+    tier = 'missing';
+    valueText = 'No date';
+    tooltipText = 'No expiration date on file';
+  } else {
+    const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+    tooltipText = format(parseISO(dateStr), 'MM/dd/yyyy');
+    if (days < 0) {
+      tier = 'expired';
+      valueText = 'Expired';
+    } else if (days <= 7) {
+      tier = 'critical';
+      valueText = formatDaysHuman(days);
+    } else if (days <= 30) {
+      tier = 'warning';
+      valueText = formatDaysHuman(days);
+    } else {
+      tier = 'ok';
+      valueText = formatDaysHuman(days);
+    }
   }
-  if (days <= 7) {
-    return (
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded px-1.5 py-0.5">
-              {label} · {formatDaysHuman(days)}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{formatted}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-  if (days <= 30) {
-    return (
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--status-action))] bg-[hsl(var(--status-action))]/10 border border-[hsl(var(--status-action))]/30 rounded px-1.5 py-0.5">
-              {label} · {formatDaysHuman(days)}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{formatted}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
+
+  const chipStyles: Record<Tier, string> = {
+    ok:       'bg-muted/40 border-border text-foreground',
+    warning:  'bg-[hsl(var(--status-action))]/10 border-[hsl(var(--status-action))]/30 text-[hsl(var(--status-action))]',
+    critical: 'bg-destructive/10 border-destructive/30 text-destructive',
+    expired:  'bg-destructive/10 border-destructive/40 text-destructive font-semibold',
+    missing:  'bg-muted border-dashed border-border text-muted-foreground',
+  };
+  const dotStyles: Record<Tier, string> = {
+    ok:       'bg-[hsl(var(--status-complete))]',
+    warning:  'bg-[hsl(var(--status-action))]',
+    critical: 'bg-destructive',
+    expired:  'bg-destructive',
+    missing:  'bg-muted-foreground/50',
+  };
+
   return (
     <TooltipProvider delayDuration={100}>
       <Tooltip>
-        <TooltipTrigger>
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            {label} · {formatDaysHuman(days)}
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-2 text-xs rounded-md border px-2 py-1 whitespace-nowrap w-full ${chipStyles[tier]}`}>
+            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotStyles[tier]}`} />
+            <span className="font-medium w-14 shrink-0">{label}</span>
+            <span className="ml-auto tabular-nums">{valueText}</span>
           </span>
         </TooltipTrigger>
-        <TooltipContent>{formatted}</TooltipContent>
+        <TooltipContent>{tooltipText}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
