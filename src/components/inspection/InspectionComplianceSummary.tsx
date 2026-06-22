@@ -297,13 +297,15 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     setDriverSaving(prev => ({ ...prev, [key]: true }));
     const isoDate = format(date, 'yyyy-MM-dd');
 
+    const docName: string = docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate';
+
     // Locate or upsert the per-driver inspection_documents row.
     const { data: existing } = await supabase
       .from('inspection_documents')
       .select('id')
       .eq('scope', 'per_driver')
       .eq('operator_id', operatorId)
-      .eq('name', docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate')
+      .eq('name', docName)
       .maybeSingle();
 
     let error: any = null;
@@ -318,7 +320,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         .insert({
           scope: 'per_driver',
           operator_id: operatorId,
-          name: docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate',
+          name: docName,
           expires_at: isoDate,
         }));
     }
