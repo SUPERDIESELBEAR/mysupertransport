@@ -912,12 +912,54 @@ export function OperatorBroadcast() {
                 Sent {new Date(viewing.created_at).toLocaleString()} · {viewing.recipient_count} recipients ·
                 {' '}{viewing.delivered_count} delivered · {viewing.failed_count} failed · {viewing.skipped_count} skipped
               </div>
+              {viewingStats && (
+                <div className="flex flex-wrap gap-1.5 text-xs">
+                  <Badge variant="outline">Opened: {viewingStats.opened}/{viewingStats.total}</Badge>
+                  <Badge variant="outline">Read in app: {viewingStats.read}/{viewingStats.total}</Badge>
+                  {viewing.requires_acknowledgment && (
+                    <Badge className="bg-gold text-black">
+                      Acknowledged: {viewingStats.acknowledged}/{viewingStats.total}
+                    </Badge>
+                  )}
+                </div>
+              )}
+              {viewing.requires_acknowledgment && (
+                <p className="text-xs text-muted-foreground">
+                  <ShieldCheck className="h-3 w-3 inline mr-1 text-gold" />
+                  Acknowledgment was required for this broadcast.
+                </p>
+              )}
               <div
                 className="border rounded-md overflow-hidden"
                 dangerouslySetInnerHTML={{
                   __html: buildPreviewHtml(viewing.subject, viewing.body, viewing.cta_label ?? undefined, viewing.cta_url ?? undefined),
                 }}
               />
+              {viewingStats && viewingStats.rows.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs font-semibold mb-1.5">Per-recipient status</p>
+                  <ScrollArea className="h-[200px] border rounded-md">
+                    <div className="text-xs divide-y">
+                      {viewingStats.rows.map((r) => (
+                        <div key={r.id} className="flex items-center justify-between gap-2 px-2 py-1.5">
+                          <span className="truncate flex-1">{r.email || '(no email)'}</span>
+                          <div className="flex gap-1 shrink-0">
+                            {r.acknowledged_at ? (
+                              <Badge className="bg-gold text-black text-[10px]">Acknowledged</Badge>
+                            ) : r.read_at ? (
+                              <Badge className="bg-green-600 text-[10px]">Read</Badge>
+                            ) : r.opened_at ? (
+                              <Badge variant="outline" className="text-[10px]">Opened</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">{r.status}</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
             </>
           )}
         </DialogContent>
