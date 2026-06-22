@@ -9,6 +9,8 @@ import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
 import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 interface FleetRow {
   operatorId: string;
@@ -46,6 +48,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
 
   const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
@@ -161,14 +164,17 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             </p>
           </div>
         </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vehicles…"
-            className="pl-9 text-sm h-9"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search vehicles…"
+              className="pl-9 text-sm h-9"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
@@ -224,6 +230,84 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-2 opacity-30" />
           <p className="text-sm">{search ? 'No vehicles match your search.' : showDeactivated ? 'No deactivated vehicles.' : 'No active vehicles found.'}</p>
+        </div>
+      ) : viewMode === 'cards' ? (
+        <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${showDeactivated ? 'opacity-75' : ''}`}>
+          {filtered.map(row => (
+            <div
+              key={row.operatorId}
+              onClick={() => onSelectOperator(row.operatorId)}
+              className="group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3"
+            >
+              {/* Header: Unit # + DOT status */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Truck className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Unit</div>
+                    <div className="text-lg font-mono font-bold text-primary leading-tight truncate">
+                      {row.unitNumber || '—'}
+                    </div>
+                  </div>
+                </div>
+                <div className="shrink-0">{dotStatusBadge(row.dotNextDue)}</div>
+              </div>
+
+              {/* Driver + Owner */}
+              <div className="space-y-0.5 text-sm">
+                <div className="font-medium text-foreground truncate">{row.driverName}</div>
+                {row.ownerName && row.ownerName !== row.driverName && (
+                  <div className="text-xs text-muted-foreground truncate">Owner: {row.ownerName}</div>
+                )}
+              </div>
+
+              {/* Specs */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-border pt-2.5">
+                <div>
+                  <div className="text-muted-foreground">Vehicle</div>
+                  <div className="font-medium text-foreground truncate">
+                    {[row.truckYear, row.truckMake].filter(Boolean).join(' ') || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Plate</div>
+                  <div className="font-mono text-foreground truncate">
+                    {row.truckPlate
+                      ? `${row.truckPlate}${row.truckPlateState ? ` (${row.truckPlateState})` : ''}`
+                      : '—'}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-muted-foreground">VIN</div>
+                  <div className="font-mono text-foreground truncate">{row.truckVin || '—'}</div>
+                </div>
+              </div>
+
+              {/* Footer: Repair cost + Edit */}
+              <div className="flex items-center justify-between border-t border-border pt-2.5">
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Repair Cost</div>
+                  <div className="text-sm font-mono font-semibold">
+                    {row.totalRepairCost > 0
+                      ? `$${row.totalRepairCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                      : '—'}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  onClick={e => { e.stopPropagation(); setEditTarget(row); }}
+                  title="Quick edit truck specs"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${showDeactivated ? 'opacity-75' : ''}`}>

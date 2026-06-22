@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
@@ -183,10 +184,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+  const [viewMode, setViewModeState] = useState<'table' | 'cards'>(() => {
     const m = searchParams.get('mode');
-    return m === 'table' ? 'table' : 'cards';
+    if (m === 'table' || m === 'cards') return m;
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('dispatch_view');
+      if (stored === 'table' || stored === 'cards') return stored;
+    }
+    return 'cards';
   });
+  const setViewMode = (next: 'table' | 'cards') => {
+    setViewModeState(next);
+    try { window.localStorage.setItem('dispatch_view', next); } catch { /* ignore */ }
+  };
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
   // Quick-compose modal state
@@ -1462,26 +1472,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           )}
         </div>
         {/* View toggle — kept next to search so list controls live together */}
-        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border shrink-0 self-start sm:self-auto">
-          <button
-            onClick={() => setViewMode('cards')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'cards' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Cards</span>
-          </button>
-          <button
-            onClick={() => setViewMode('table')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'table' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <List className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Table</span>
-          </button>
-        </div>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} className="self-start sm:self-auto" />
       </div>
 
       {/* Bulk action bar */}

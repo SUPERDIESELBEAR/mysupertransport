@@ -14,6 +14,8 @@ import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTrian
 import { toast } from '@/hooks/use-toast';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 interface DriverRow {
   operator_id: string;
@@ -379,6 +381,7 @@ export default function DriverRoster({
   // Tracks operators currently receiving a SUPERDRIVE install reminder
   const [installSending, setInstallSending] = useState<Set<string>>(new Set());
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('driver_hub_view', 'mode', 'table');
 
   const handleSendInstallReminder = useCallback(async (operatorId: string, driverName: string, force = false) => {
     setInstallSending(prev => {
@@ -753,6 +756,7 @@ export default function DriverRoster({
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {/* Compliance filter chips */}
@@ -910,6 +914,151 @@ export default function DriverRoster({
                 ? `No drivers match the "${complianceFilter}" compliance filter.`
               : 'Try adjusting your search or filter.'}
           </p>
+        </div>
+      ) : viewMode === 'cards' ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map(driver => {
+            const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
+            const initials = [driver.first_name?.[0], driver.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+            const statusCfg = DISPATCH_STATUS_CONFIG[driver.dispatch_status];
+            const isSelected = selected.has(driver.operator_id);
+            const getDaysUntil = (dateStr: string | null) =>
+              dateStr ? differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date())) : null;
+            const cdlDays = getDaysUntil(driver.cdl_expiration);
+            const medDays = getDaysUntil(driver.medical_cert_expiration);
+            const minDays = [cdlDays, medDays].filter((d): d is number => d !== null).reduce((a, b) => Math.min(a, b), Infinity);
+            const cardHighlight =
+              minDays <= 7
+                ? 'border-l-4 border-l-destructive'
+                : minDays <= 30
+                ? 'border-l-4 border-l-[hsl(var(--status-action))]'
+                : '';
+            const updateFocusField: 'cdl' | 'medcert' = (() => {
+              if (!driver.cdl_expiration) return 'cdl';
+              if (!driver.medical_cert_expiration) return 'medcert';
+              return (cdlDays ?? Infinity) <= (medDays ?? Infinity) ? 'cdl' : 'medcert';
+            })();
+            const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
+            const reminderHistory = reminderHistoryMap[driver.operator_id];
+            const showReminderBadge = complianceFilter !== 'all' && !dispatchMode && complianceFilter !== 'not_yet_reminded';
+
+            return (
+              <div
+                key={driver.operator_id}
+                onClick={() => onOpenDriver(driver.operator_id)}
+                className={`group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3 ${cardHighlight} ${isSelected ? 'bg-primary/[0.04]' : ''}`}
+              >
+                {/* Header: checkbox + avatar + name + status */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div onClick={e => toggleOne(driver.operator_id, e)} className="shrink-0">
+                      <Checkbox checked={isSelected} onCheckedChange={() => {}} aria-label={`Select ${name}`} />
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
+                      <span className="text-sm font-bold text-gold">{initials}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm text-foreground truncate flex items-center gap-1.5">
+                        {name}
+                        {driver.pwa_installed_at ? (
+                          <Smartphone className="h-3 w-3 shrink-0 text-emerald-500" />
+                        ) : driver.last_web_seen_at ? (
+                          <Globe className="h-3 w-3 shrink-0 text-amber-500" />
+                        ) : (
+                          <UserX className="h-3 w-3 shrink-0 text-muted-foreground/30" />
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Unit <span className="font-mono font-semibold text-foreground">{driver.unit_number ?? '—'}</span>
+                        {driver.home_state && <span> · {driver.home_state}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge className={`text-xs whitespace-nowrap shrink-0 ${statusCfg.badgeClass}`}>
+                    {statusCfg.label}
+                  </Badge>
+                </div>
+
+                {/* Contact */}
+                {!dispatchMode && (driver.phone || driver.email) && (
+                  <div className="flex flex-col gap-1 text-xs border-t border-border pt-2.5">
+                    {driver.phone && (
+                      <a
+                        href={`tel:${driver.phone}`}
+                        onClick={e => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary whitespace-nowrap"
+                      >
+                        <Phone className="h-3 w-3 shrink-0" />
+                        {driver.phone}
+                      </a>
+                    )}
+                    {driver.email && (
+                      <a
+                        href={`mailto:${driver.email}`}
+                        onClick={e => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary truncate"
+                      >
+                        <span className="truncate">{driver.email}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Compliance chips */}
+                {!dispatchMode && (
+                  <div className="flex flex-col gap-1 border-t border-border pt-2.5" onClick={e => e.stopPropagation()}>
+                    {expiryPill(driver.cdl_expiration, 'CDL')}
+                    {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
+                  </div>
+                )}
+
+                {/* Footer: reminder badge + actions */}
+                <div className="flex items-center justify-between gap-2 border-t border-border pt-2.5" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-1">
+                    {showReminderBadge && (
+                      <ReminderHistoryBadge
+                        entries={reminderHistory}
+                        operatorId={driver.operator_id}
+                        driverName={name}
+                        onSent={() => fetchDrivers(true)}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {showUpdateLink && (
+                      <button
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary/80 hover:text-primary px-2 py-1 rounded hover:bg-primary/8"
+                        onClick={() => onUpdateCompliance!(driver.operator_id, updateFocusField)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Update
+                      </button>
+                    )}
+                    {onMessageDriver && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        title="Message driver"
+                        onClick={() => onMessageDriver(driver.operator_user_id)}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      title="Open driver profile"
+                      onClick={() => onOpenDriver(driver.operator_id)}
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-xl border border-border overflow-hidden">
