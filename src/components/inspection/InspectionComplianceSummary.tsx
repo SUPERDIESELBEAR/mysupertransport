@@ -1380,13 +1380,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         {g.irp && <ListCertSubRow entry={g.irp} />}
                       </div>
                     </div>
-                    <button
-                      onClick={() => openDriver(g.operatorId)}
-                      aria-label={`Open ${g.operatorName} in Inspection Binder`}
-                      className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <TooltipProvider delayDuration={250}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
+                              aria-label={`View ${g.operatorName} compliance timeline`}
+                              className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            >
+                              <History className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Compliance timeline</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <button
+                        onClick={() => openDriver(g.operatorId)}
+                        aria-label={`Open ${g.operatorName} in Inspection Binder`}
+                        className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
