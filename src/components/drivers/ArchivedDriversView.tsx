@@ -263,6 +263,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+        <ViewModeToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {/* Count */}
