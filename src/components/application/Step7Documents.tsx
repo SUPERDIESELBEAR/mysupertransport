@@ -72,7 +72,8 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
           <button
             type="button"
             onClick={() => { onUploaded(''); if (inputRef.current) inputRef.current.value = ''; }}
-            className="text-muted-foreground hover:text-destructive transition-colors"
+            className="text-muted-foreground hover:text-destructive transition-colors inline-flex items-center justify-center h-11 w-11 rounded-md shrink-0"
+            aria-label="Remove uploaded file"
           >
             <X className="h-4 w-4" />
           </button>

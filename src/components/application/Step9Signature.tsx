@@ -109,7 +109,7 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
           <button
             type="button"
             onClick={() => setShowSSN(prev => !prev)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors inline-flex items-center justify-center h-11 w-11 rounded-md"
             aria-label={showSSN ? 'Hide SSN' : 'Show SSN'}
           >
             {showSSN ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
