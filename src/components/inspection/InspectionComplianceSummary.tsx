@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
-import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, Circle, MinusCircle, Search, List as ListIcon, LayoutGrid } from 'lucide-react';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, Circle, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { reminderErrorToast } from '@/lib/reminderError';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -80,6 +81,7 @@ interface Props {
 
 type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
+type SortMode    = 'urgency' | 'name' | 'doc';
 
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder, defaultExpanded = false }: Props) {
   const { toast } = useToast();
@@ -98,11 +100,25 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   useEffect(() => {
     try { localStorage.setItem('compliance_summary_view', viewMode); } catch {}
   }, [viewMode]);
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    if (typeof window === 'undefined') return 'urgency';
+    return (localStorage.getItem('compliance_summary_sort') as SortMode) || 'urgency';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('compliance_summary_sort', sortMode); } catch {}
+  }, [sortMode]);
   // Per fleet-row save state: key = inspectionDocId
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved]   = useState<Record<string, boolean>>({});
   // Open popover tracking: key = inspectionDocId
   const [openPicker, setOpenPicker] = useState<string | null>(null);
+  // Per-driver inline renew popover key = `${operatorId}|${docKey}`
+  const [driverPicker, setDriverPicker] = useState<string | null>(null);
+  const [driverSaving, setDriverSaving] = useState<Record<string, boolean>>({});
+  const [driverSaved, setDriverSaved] = useState<Record<string, boolean>>({});
+  // Remind-driver per-cert state: key = `${operatorId}|${docKey}`
+  const [remindSending, setRemindSending] = useState<Record<string, boolean>>({});
+  const [remindSent, setRemindSent] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
