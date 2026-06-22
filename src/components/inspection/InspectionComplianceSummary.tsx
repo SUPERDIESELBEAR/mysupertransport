@@ -626,198 +626,243 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             })}
           </div>
 
-          {/* Column headers */}
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-muted/10">
-            <span className="h-2 w-2 shrink-0" />
-            <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator / Document</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[118px]">Expires</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[116px] text-right">Status</span>
+          {/* Search + view toggle */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-muted/10 border-b border-border/40">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search driver…"
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
+            <div className="ml-auto inline-flex rounded-md border border-border bg-background overflow-hidden">
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 h-8 text-[11px] font-semibold transition-colors',
+                  viewMode === 'list' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+                aria-pressed={viewMode === 'list'}
+              >
+                <ListIcon className="h-3.5 w-3.5" /> List
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 h-8 text-[11px] font-semibold transition-colors border-l border-border',
+                  viewMode === 'cards' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+                aria-pressed={viewMode === 'cards'}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> Cards
+              </button>
+            </div>
           </div>
 
-          {/* Rows */}
-          <div className="divide-y divide-border/50">
-            {loading ? (
-              [...Array(5)].map((_, i) => (
+          {/* Body — grouped per driver */}
+          {loading ? (
+            <div className="divide-y divide-border/50">
+              {[...Array(5)].map((_, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-2.5 animate-pulse">
                   <span className="h-2 w-2 rounded-full bg-muted shrink-0" />
                   <span className="flex-1 h-4 bg-muted rounded" />
-                  <span className="h-4 w-20 bg-muted rounded hidden sm:block" />
                   <span className="h-5 w-20 bg-muted rounded" />
                 </div>
-              ))
-            ) : filtered.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No entries match the current filter.
-              </div>
-            ) : (
-              filtered.map((entry, i) => {
-                const cfg = STATUS_CONFIG[entry.status];
-                const isFleet = entry.operatorId === '__fleet__';
-                const docId = entry.inspectionDocId;
-                const isSaving = docId ? !!saving[docId] : false;
-                const isSaved  = docId ? !!saved[docId]  : false;
-                const isPickerOpen = docId ? openPicker === docId : false;
-
+              ))}
+            </div>
+          ) : grouped.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              {q ? `No drivers match "${search}".` : 'No entries match the current filter.'}
+            </div>
+          ) : viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
+              {grouped.map((g, i) => {
+                if (g.kind === 'fleet') {
+                  const entry = g.entry;
+                  const docId = entry.inspectionDocId;
+                  const isSaving = docId ? !!saving[docId] : false;
+                  const isSaved  = docId ? !!saved[docId]  : false;
+                  const isPickerOpen = docId ? openPicker === docId : false;
+                  const cfg = STATUS_CONFIG[entry.status];
+                  return (
+                    <div key={`fleet-${i}`} className={cn(cardWrapperCls(entry.status), 'pl-3')}>
+                      <div className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('h-2 w-2 rounded-full', cfg.dotCls)} />
+                          <span className="font-semibold text-sm text-foreground truncate">Fleet (all drivers)</span>
+                          <span className="ml-auto text-[10px] text-muted-foreground italic">Fleet-wide</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border', DOC_BADGE[entry.docKey])}>
+                            {DOC_DISPLAY[entry.docKey]}
+                          </span>
+                          {docId ? (
+                            <Popover open={isPickerOpen} onOpenChange={open => setOpenPicker(open ? docId : null)}>
+                              <PopoverTrigger asChild>
+                                <button
+                                  className={cn('flex items-center gap-1.5 text-xs rounded px-1.5 py-0.5 transition-colors',
+                                    isPickerOpen ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                                    isSaved && 'text-status-complete')}
+                                  disabled={isSaving}
+                                >
+                                  {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isSaved ? <Check className="h-3 w-3" /> : <CalendarIcon className="h-3 w-3 opacity-50" />}
+                                  <span>{entry.expiresAt ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy') : <span className="italic opacity-50">Set date</span>}</span>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start" side="bottom">
+                                <div className="px-3 pt-3 pb-1 border-b border-border/60">
+                                  <p className="text-xs font-semibold text-foreground">{DOC_DISPLAY[entry.docKey]} Expiry</p>
+                                  <p className="text-[11px] text-muted-foreground">Click a date to save</p>
+                                </div>
+                                <Calendar
+                                  mode="single"
+                                  selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
+                                  onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                  initialFocus
+                                  className={cn('p-3 pointer-events-auto')}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Not set</span>
+                          )}
+                          <span className="ml-auto"><CertPill entry={entry} /></span>
+                        </div>
+                        {onOpenInspectionBinder && (
+                          <button
+                            onClick={onOpenInspectionBinder}
+                            className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-gold hover:underline"
+                          >
+                            Open Inspection Binder <ExternalLink className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                // Driver group
                 return (
-                  <div
-                    key={`${entry.operatorId}-${entry.docKey}-${i}`}
-                    className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}
-                  >
-                    {/* Dot */}
-                    <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dotCls)} />
-
-                    {/* Name + doc badge */}
-                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="font-medium text-sm text-foreground truncate">
-                        {entry.operatorName}
-                      </span>
-                      <span className={cn(
-                        'inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border',
-                        DOC_BADGE[entry.docKey],
-                      )}>
-                        {DOC_DISPLAY[entry.docKey]}
-                      </span>
-                      {isFleet && (
-                        <span className="text-[10px] text-muted-foreground italic">Fleet-wide</span>
-                      )}
-                    </div>
-
-                    {/* Expiry date — clickable date picker for fleet rows */}
-                    <div className="hidden sm:block shrink-0 w-[118px]">
-                      {isFleet && docId ? (
-                        <Popover open={isPickerOpen} onOpenChange={open => setOpenPicker(open ? docId : null)}>
-                          <PopoverTrigger asChild>
-                            <button
-                              className={cn(
-                                'flex items-center gap-1.5 text-xs rounded px-1.5 py-0.5 -mx-1.5 transition-colors group',
-                                isPickerOpen
-                                  ? 'bg-muted/60 text-foreground'
-                                  : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-                                isSaved && 'text-status-complete',
-                              )}
-                              disabled={isSaving}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-                              ) : isSaved ? (
-                                <Check className="h-3 w-3 text-status-complete shrink-0" />
-                              ) : (
-                                <CalendarIcon className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
-                              )}
-                              <span className={cn(isSaved && 'text-status-complete font-medium')}>
-                                {entry.expiresAt
-                                  ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
-                                  : <span className="italic opacity-50">Set date</span>
-                                }
-                              </span>
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start" side="bottom">
-                            <div className="px-3 pt-3 pb-1 border-b border-border/60">
-                              <p className="text-xs font-semibold text-foreground">{DOC_DISPLAY[entry.docKey]} Expiry</p>
-                              <p className="text-[11px] text-muted-foreground">Click a date to save</p>
-                            </div>
-                            <Calendar
-                              mode="single"
-                              selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
-                              onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
-                              initialFocus
-                              className={cn('p-3 pointer-events-auto')}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {entry.expiresAt
-                            ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
-                            : <span className="italic text-muted-foreground/50">Not set</span>
-                          }
+                  <div key={g.operatorId} className={cn(cardWrapperCls(g.worstStatus), 'pl-3')}>
+                    <div className="p-3">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('h-2 w-2 rounded-full', STATUS_CONFIG[g.worstStatus].dotCls)} />
+                        <span className="font-semibold text-sm text-foreground truncate">{g.operatorName}</span>
+                        <span className={cn(
+                          'ml-auto inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-semibold border',
+                          STATUS_CONFIG[g.worstStatus].badgeCls,
+                        )}>
+                          {STATUS_CONFIG[g.worstStatus].label}
                         </span>
-                      )}
-                    </div>
-
-                    {/* Status badge + open operator link */}
-                    <div className="flex items-center gap-1.5 shrink-0 w-[116px] justify-end">
-                      <TooltipProvider delayDuration={100}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className={cn(
-                              'inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border cursor-default',
-                              cfg.badgeCls,
-                            )}>
-                              {entry.status === 'expired'
-                                ? `${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
-                                : entry.status === 'missing'
-                                ? 'No date'
-                                : entry.daysUntil === 0
-                                ? 'Today'
-                                : formatDaysHuman(entry.daysUntil!)
-                              }
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {entry.status === 'expired'
-                              ? `Expired ${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
-                              : entry.status === 'missing'
-                              ? 'No expiry date set'
-                              : entry.daysUntil === 0
-                              ? 'Expires today'
-                              : `${formatDaysHuman(entry.daysUntil!)} until expiry`}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {isFleet && onOpenInspectionBinder && (
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={onOpenInspectionBinder}
-                                className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">Update in Inspection Binder</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      {!isFleet && onOpenOperatorAtBinder && (
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => onOpenOperatorAtBinder(entry.operatorId)}
-                                className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">Open in Inspection Binder</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      {!isFleet && !onOpenOperatorAtBinder && onOpenOperator && (
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => onOpenOperator(entry.operatorId)}
-                                className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">Open operator detail</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      </div>
+                      <div className="mt-2 divide-y divide-border/40">
+                        {g.cdl && <CertSubRow entry={g.cdl} />}
+                        {g.med && <CertSubRow entry={g.med} />}
+                      </div>
+                      <button
+                        onClick={() => openDriver(g.operatorId)}
+                        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        Open in Inspection Binder <ExternalLink className="h-3 w-3" />
+                      </button>
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          ) : (
+            // List view (grouped)
+            <div className="divide-y divide-border/50">
+              {grouped.map((g, i) => {
+                if (g.kind === 'fleet') {
+                  const entry = g.entry;
+                  const cfg = STATUS_CONFIG[entry.status];
+                  const docId = entry.inspectionDocId;
+                  const isSaving = docId ? !!saving[docId] : false;
+                  const isSaved  = docId ? !!saved[docId]  : false;
+                  const isPickerOpen = docId ? openPicker === docId : false;
+                  return (
+                    <div key={`fleet-l-${i}`} className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}>
+                      <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dotCls)} />
+                      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="font-medium text-sm text-foreground truncate">Fleet (all drivers)</span>
+                        <span className={cn('inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border', DOC_BADGE[entry.docKey])}>
+                          {DOC_DISPLAY[entry.docKey]}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground italic">Fleet-wide</span>
+                      </div>
+                      <div className="hidden sm:block shrink-0 w-[140px]">
+                        {docId ? (
+                          <Popover open={isPickerOpen} onOpenChange={open => setOpenPicker(open ? docId : null)}>
+                            <PopoverTrigger asChild>
+                              <button
+                                className={cn('flex items-center gap-1.5 text-xs rounded px-1.5 py-0.5 -mx-1.5 transition-colors',
+                                  isPickerOpen ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                                  isSaved && 'text-status-complete')}
+                                disabled={isSaving}
+                              >
+                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isSaved ? <Check className="h-3 w-3" /> : <CalendarIcon className="h-3 w-3 opacity-50" />}
+                                <span>{entry.expiresAt ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy') : <span className="italic opacity-50">Set date</span>}</span>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start" side="bottom">
+                              <Calendar
+                                mode="single"
+                                selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
+                                onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                initialFocus
+                                className={cn('p-3 pointer-events-auto')}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Not set</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                        <CertPill entry={entry} />
+                        {onOpenInspectionBinder && (
+                          <button
+                            onClick={onOpenInspectionBinder}
+                            className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
+                            title="Update in Inspection Binder"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                const cfg = STATUS_CONFIG[g.worstStatus];
+                return (
+                  <div key={g.operatorId} className={cn('flex items-start gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}>
+                    <span className={cn('h-2 w-2 rounded-full shrink-0 mt-1.5', cfg.dotCls)} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-foreground truncate">{g.operatorName}</span>
+                        <span className={cn('inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-semibold border', cfg.badgeCls)}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                        {g.cdl && <CertSubRow entry={g.cdl} />}
+                        {g.med && <CertSubRow entry={g.med} />}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => openDriver(g.operatorId)}
+                      className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                      title="Open in Inspection Binder"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Footer summary */}
           {!loading && filtered.length > 0 && (
