@@ -379,6 +379,130 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
 
+  // ── Group per-driver CDL + Med Cert into one entry; fleet rows stay separate ──
+  type DriverGroup = {
+    kind: 'driver';
+    operatorId: string;
+    operatorName: string;
+    cdl?: DocEntry;
+    med?: DocEntry;
+    worstStatus: Status;
+    worstDays: number | null;
+  };
+  type FleetGroup = { kind: 'fleet'; entry: DocEntry };
+  type Group = DriverGroup | FleetGroup;
+
+  const tierRank: Record<Status, number> = { expired: 0, critical: 1, warning: 2, missing: 3, valid: 4 };
+  const q = search.trim().toLowerCase();
+
+  const grouped: Group[] = useMemo(() => {
+    const fleetGroups: FleetGroup[] = [];
+    const byDriver = new Map<string, DriverGroup>();
+    filtered.forEach(e => {
+      if (e.operatorId === '__fleet__') {
+        fleetGroups.push({ kind: 'fleet', entry: e });
+        return;
+      }
+      let g = byDriver.get(e.operatorId);
+      if (!g) {
+        g = {
+          kind: 'driver',
+          operatorId: e.operatorId,
+          operatorName: e.operatorName,
+          worstStatus: 'valid',
+          worstDays: null,
+        };
+        byDriver.set(e.operatorId, g);
+      }
+      if (e.docKey === 'CDL') g.cdl = e;
+      else if (e.docKey === 'Medical Certificate') g.med = e;
+    });
+    byDriver.forEach(g => {
+      const certs = [g.cdl, g.med].filter(Boolean) as DocEntry[];
+      let worst: Status = 'valid';
+      let worstDays: number | null = null;
+      certs.forEach(c => {
+        if (tierRank[c.status] < tierRank[worst]) worst = c.status;
+        if (c.daysUntil !== null && (worstDays === null || c.daysUntil < worstDays)) {
+          worstDays = c.daysUntil;
+        }
+      });
+      g.worstStatus = worst;
+      g.worstDays = worstDays;
+    });
+    let drivers = Array.from(byDriver.values());
+    if (q) drivers = drivers.filter(d => d.operatorName.toLowerCase().includes(q));
+    drivers.sort((a, b) => {
+      const t = tierRank[a.worstStatus] - tierRank[b.worstStatus];
+      if (t !== 0) return t;
+      return a.operatorName.localeCompare(b.operatorName);
+    });
+    // When a search is active, hide fleet rows so results stay focused.
+    const fleet = q ? [] : fleetGroups;
+    return [...fleet, ...drivers];
+  }, [filtered, q]);
+
+  // ── Tiny reusable bits for the new views ─────────────────────────────────
+  const CertPill = ({ entry }: { entry: DocEntry }) => {
+    const cfg = STATUS_CONFIG[entry.status];
+    const label = entry.status === 'expired'
+      ? `${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
+      : entry.status === 'missing'
+      ? 'No date'
+      : entry.daysUntil === 0
+      ? 'Today'
+      : formatDaysHuman(entry.daysUntil!);
+    return (
+      <span className={cn('inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border', cfg.badgeCls)}>
+        {label}
+      </span>
+    );
+  };
+
+  const stripeCls = (s: Status) =>
+    s === 'expired' || s === 'critical'
+      ? 'before:bg-destructive'
+      : s === 'warning'
+      ? 'before:bg-yellow-500'
+      : s === 'missing'
+      ? 'before:bg-muted-foreground/40'
+      : 'before:bg-status-complete';
+
+  const cardWrapperCls = (s: Status) => cn(
+    'relative overflow-hidden rounded-lg border bg-card transition-colors',
+    'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1',
+    stripeCls(s),
+    s === 'expired' || s === 'critical'
+      ? 'border-destructive/40 bg-destructive/[0.03]'
+      : s === 'warning'
+      ? 'border-warning/40 bg-warning/[0.03]'
+      : 'border-border',
+  );
+
+  const openDriver = (operatorId: string) => {
+    if (onOpenOperatorAtBinder) onOpenOperatorAtBinder(operatorId);
+    else if (onOpenOperator) onOpenOperator(operatorId);
+  };
+
+  // Row inside a driver card/list entry for a single cert.
+  const CertSubRow = ({ entry }: { entry: DocEntry }) => {
+    const cfg = STATUS_CONFIG[entry.status];
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} />
+        <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
+          {DOC_DISPLAY[entry.docKey]}
+        </span>
+        <span className="text-xs text-muted-foreground flex-1 truncate">
+          {entry.expiresAt
+            ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
+            : <span className="italic opacity-60">Not set</span>}
+        </span>
+        <CertPill entry={entry} />
+      </div>
+    );
+  };
+
   return (
     <div className={cn(
       'border rounded-xl shadow-sm overflow-hidden',
