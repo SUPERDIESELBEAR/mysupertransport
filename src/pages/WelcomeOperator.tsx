@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, Eye, EyeOff, CheckCircle2, Truck, FileText, MessageSquare, Star, Mail, Loader2 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import InstallStep from '@/components/InstallStep';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 
 const FEATURES = [
   { icon: <Truck className="h-4 w-4" />, text: 'Real-time dispatch status updates' },
@@ -122,22 +123,7 @@ export default function WelcomeOperator() {
       });
 
       if (fnError) {
-        // Try to extract the JSON error message from the response body
-        let msg = 'Something went wrong. Please try again.';
-        try {
-          const ctx = (fnError as any)?.context;
-          if (ctx instanceof Response) {
-            const json = await ctx.clone().json();
-            msg = json?.error ?? msg;
-          } else if (typeof ctx?.error === 'string') {
-            msg = ctx.error;
-          } else {
-            msg = fnError.message ?? msg;
-          }
-        } catch {
-          msg = fnError.message ?? msg;
-        }
-        setResendError(msg);
+        setResendError(await getEdgeFunctionErrorMessage(fnError));
       } else if (data?.error) {
         setResendError(data.error);
       } else {
