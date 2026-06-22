@@ -42,6 +42,21 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
   const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
 
+  // View toggle + search
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>('cards');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('compliance_alerts_view');
+      if (saved === 'list' || saved === 'cards') setViewMode(saved);
+    } catch {}
+  }, []);
+  const setViewPersisted = (v: 'list' | 'cards') => {
+    setViewMode(v);
+    try { localStorage.setItem('compliance_alerts_view', v); } catch {}
+  };
+
   // Outreach tracking
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
   const [lastRemindedBy, setLastRemindedBy] = useState<Record<string, string>>({});
