@@ -721,7 +721,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                 className="h-8 pl-7 text-xs"
               />
             </div>
-            <div className="ml-auto inline-flex rounded-md border border-border bg-background overflow-hidden">
+            {/* Sort */}
+            <div className="ml-auto inline-flex items-center gap-1">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <select
+                aria-label="Sort drivers"
+                value={sortMode}
+                onChange={e => setSortMode(e.target.value as SortMode)}
+                className="h-8 px-1.5 text-[11px] font-semibold bg-background border border-border rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="urgency">Urgency</option>
+                <option value="name">Driver A–Z</option>
+                <option value="doc">Soonest CDL</option>
+              </select>
+            </div>
+            {/* CSV export */}
+            <button
+              onClick={exportCsv}
+              aria-label="Export visible rows to CSV"
+              className="inline-flex items-center gap-1 h-8 px-2 text-[11px] font-semibold bg-background border border-border rounded-md text-muted-foreground hover:text-foreground"
+            >
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
+            <div className="inline-flex rounded-md border border-border bg-background overflow-hidden">
               <button
                 onClick={() => setViewMode('list')}
                 className={cn(
