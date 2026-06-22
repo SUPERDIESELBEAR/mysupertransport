@@ -81,8 +81,18 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
         <div
           onDrop={handleDrop}
           onDragOver={e => e.preventDefault()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-gold/50 hover:bg-gold/5 ${(error || uploadError) ? 'border-destructive' : 'border-border'}`}
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-gold/50 hover:bg-gold/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 ${(error || uploadError) ? 'border-destructive' : 'border-border'}`}
           onClick={() => inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              inputRef.current?.click();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Upload ${label}. Tap or press Enter to choose a file, or drag and drop.`}
+          aria-busy={uploading}
         >
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
@@ -91,7 +101,7 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <Upload className="h-6 w-6 text-muted-foreground" />
+              <Upload className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
               <p className="text-sm font-medium text-foreground">Tap to upload or drag & drop</p>
               <p className="text-xs text-muted-foreground">JPG, PNG, or PDF · Max 10 MB</p>
             </div>

@@ -108,7 +108,8 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => setShowPassword(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-dark-muted hover:text-surface-dark-foreground"
-                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -116,7 +117,7 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                  <div role="alert" aria-live="assertive" className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
                     <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                     <p className="text-sm text-destructive">{error}</p>
                   </div>
@@ -176,7 +177,7 @@ export default function LoginPage() {
                   </div>
 
                   {error && (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                    <div role="alert" aria-live="assertive" className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
                       <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                       <p className="text-sm text-destructive">{error}</p>
                     </div>
