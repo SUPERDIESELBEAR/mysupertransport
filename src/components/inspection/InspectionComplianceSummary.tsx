@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
-import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Clock, ExternalLink, CalendarIcon, Loader2, Check, Search, List as ListIcon, LayoutGrid } from 'lucide-react';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, Circle, MinusCircle, Search, List as ListIcon, LayoutGrid } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -43,6 +43,15 @@ const STATUS_CONFIG: Record<Status, { label: string; rowCls: string; badgeCls: s
   warning:  { label: 'Expiring Soon',rowCls: 'bg-warning/[0.03] hover:bg-warning/[0.06] border-l-2 border-l-warning/60', badgeCls: 'bg-yellow-50 text-yellow-700 border-yellow-300', dotCls: 'bg-yellow-500' },
   valid:    { label: 'Valid',         rowCls: 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent', badgeCls: 'bg-status-complete/10 text-status-complete border-status-complete/30', dotCls: 'bg-status-complete' },
   missing:  { label: 'No Expiry Set', rowCls: 'bg-muted/30 hover:bg-muted/50 border-l-2 border-l-border', badgeCls: 'bg-muted text-muted-foreground border-border', dotCls: 'bg-muted-foreground/40' },
+};
+
+// Lucide icon paired with each status so meaning isn't color-only (a11y).
+const STATUS_ICON: Record<Status, React.ComponentType<{ className?: string }>> = {
+  expired: AlertOctagon,
+  critical: AlertTriangle,
+  warning: Clock,
+  valid: CheckCircle2,
+  missing: MinusCircle,
 };
 
 const DOC_BADGE: Record<DocKey, string> = {
