@@ -1142,6 +1142,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       <div className="mt-1 ml-1 pl-3 border-l border-border/60">
                         {g.cdl && <ListCertSubRow entry={g.cdl} />}
                         {g.med && <ListCertSubRow entry={g.med} />}
+                        {g.irp && <ListCertSubRow entry={g.irp} />}
                       </div>
                     </div>
                     <button
