@@ -671,6 +671,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     );
   };
 
+  // Amber chip shown when expiry was set/edited but no new file is on record.
+  const StaleChip = ({ entry }: { entry: DocEntry }) => {
+    if (!entry.isStale) return null;
+    return (
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              role="img"
+              aria-label="Expiry edited but no new file uploaded"
+              className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-300"
+            >
+              <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+              Stale
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[220px] text-xs">
+            Expiry date was updated but no renewed file has been uploaded. Upload the new document to clear this flag.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const RemindButton = ({ entry }: { entry: DocEntry }) => {
     if (entry.status !== 'expired' && entry.status !== 'critical') return null;
     if (!entry.expiresAt) return null;
