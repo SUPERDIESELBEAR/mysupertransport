@@ -779,6 +779,18 @@ export default function ManagementPortal() {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
       if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
+      // Defensive: synchronously strip any stale ?view= from the URL so a
+      // refresh during the React render flush can never land on the prior
+      // section (e.g., Broadcast Email). The writer effect will reconcile
+      // the final value on the next tick.
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('view')) {
+          params.delete('view');
+          const qs = params.toString();
+          window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+        }
+      } catch { /* ignore */ }
     }
   };
 
