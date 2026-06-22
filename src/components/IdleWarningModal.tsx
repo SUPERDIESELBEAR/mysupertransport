@@ -11,7 +11,6 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { Clock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -21,11 +20,10 @@ function formatTime(seconds: number) {
 }
 
 export default function IdleWarningModal() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
+    await signOut();
   };
 
   const { showWarning, secondsLeft, resetIdle } = useIdleTimeout({
