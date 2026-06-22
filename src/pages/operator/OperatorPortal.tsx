@@ -1471,6 +1471,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
             </div>
           </>
+          </Suspense>
         )}
 
         {/* ── INSPECTION BINDER VIEW ── */}
