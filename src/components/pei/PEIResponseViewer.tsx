@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { fetchPEIResponse, fetchPEIAccidents, fetchPEIRequestEvents } from '@/lib/pei/api';
 import { GFE_REASON_LABEL, type PEIRequest, type PEIResponse, type PEIAccident, type PEIRequestEvent } from '@/lib/pei/types';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,25 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
   const [accidents, setAccidents] = useState<PEIAccident[]>([]);
   const [applicantName, setApplicantName] = useState('');
   const [events, setEvents] = useState<PEIRequestEvent[]>([]);
+  const { toast } = useToast();
+
+  /**
+   * `window.print()` can throw in cross-origin iframes (Lovable preview) and
+   * silently no-ops on iOS Safari from within a dialog. Wrap the call so
+   * users get a clear toast instead of an unresponsive button.
+   */
+  const handlePrint = () => {
+    try {
+      window.print();
+    } catch (err) {
+      console.error('Print failed:', err);
+      toast({
+        title: 'Print unavailable',
+        description: 'Use your browser menu (⌘P / Ctrl+P) to print this page.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     if (!open || !request) return;
@@ -172,7 +192,7 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => window.print()}><Printer className="h-3.5 w-3.5 mr-1" />Print</Button>
+          <Button variant="outline" onClick={handlePrint}><Printer className="h-3.5 w-3.5 mr-1" />Print</Button>
           <Button onClick={onClose}>Close</Button>
         </div>
       </DialogContent>
