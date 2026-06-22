@@ -462,3 +462,69 @@ function EquipmentRow({
     </div>
   );
 }
+
+function EquipmentCard({
+  item,
+  onEdit,
+  onAssign,
+  onReturn,
+  onHistory,
+}: {
+  item: EquipmentItem;
+  onEdit: () => void;
+  onAssign: () => void;
+  onReturn: () => void;
+  onHistory: () => void;
+}) {
+  const cfg = STATUS_CONFIG[item.status];
+  const devCfg = DEVICE_CONFIG[item.device_type];
+
+  return (
+    <div className="bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all p-3.5 flex flex-col gap-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0 ${devCfg.color}`}>
+            {devCfg.icon}
+          </div>
+          <div className="min-w-0">
+            <div className="font-mono text-sm font-semibold text-foreground truncate">{item.serial_number}</div>
+            <div className="text-[11px] text-muted-foreground">{devCfg.label}</div>
+          </div>
+        </div>
+        <Badge variant="outline" className={`text-[10px] gap-1 shrink-0 ${cfg.color}`}>
+          {cfg.icon}{cfg.label}
+        </Badge>
+      </div>
+
+      {item.status === 'assigned' && item.current_operator_name && (
+        <div className="text-xs text-foreground bg-primary/5 border border-primary/15 rounded px-2 py-1.5 flex items-center gap-1.5">
+          <UserCheck className="h-3 w-3 text-primary shrink-0" />
+          <span className="truncate">{item.current_operator_name}</span>
+        </div>
+      )}
+
+      {item.notes && (
+        <p className="text-xs text-muted-foreground italic line-clamp-2">{item.notes}</p>
+      )}
+
+      <div className="flex items-center gap-1.5 flex-wrap border-t border-border pt-2 mt-auto">
+        <Button variant="outline" size="sm" onClick={onHistory} className="h-7 px-2 text-xs gap-1">
+          <History className="h-3 w-3" />History
+        </Button>
+        <Button variant="outline" size="sm" onClick={onEdit} className="h-7 px-2 text-xs gap-1">
+          <Pencil className="h-3 w-3" />Edit
+        </Button>
+        {item.status === 'available' && (
+          <Button variant="outline" size="sm" onClick={onAssign} className="h-7 px-2 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary">
+            <UserCheck className="h-3 w-3" />Assign
+          </Button>
+        )}
+        {item.status === 'assigned' && (
+          <Button variant="outline" size="sm" onClick={onReturn} className="h-7 px-2 text-xs gap-1 border-status-complete/40 text-status-complete hover:bg-status-complete/10 hover:text-status-complete">
+            <RotateCcw className="h-3 w-3" />Return
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
