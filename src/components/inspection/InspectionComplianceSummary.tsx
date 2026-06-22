@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
-import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell, Upload } from 'lucide-react';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell, Upload, History } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
+import ComplianceHistoryModal from './ComplianceHistoryModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -127,6 +128,12 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   // Renewal-upload per-cert state: key = `${operatorId}|${docKey}`
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadedKey, setUploadedKey] = useState<string | null>(null);
+  // History modal state — either per-cert (#16) or per-driver (#17)
+  const [historyTarget, setHistoryTarget] = useState<
+    | { mode: 'cert'; inspectionDocId: string; operatorId: string | null; docTypeForReminders: string | null; title: string }
+    | { mode: 'driver'; operatorId: string; driverUserId: string | null; title: string }
+    | null
+  >(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -871,6 +878,54 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     );
   };
 
+  // #16 — open per-cert audit history
+  const openCertHistory = (entry: DocEntry) => {
+    if (!entry.inspectionDocId) return;
+    const docTypeForReminders =
+      entry.docKey === 'CDL' ? 'CDL'
+      : entry.docKey === 'Medical Certificate' ? 'Medical Cert'
+      : null;
+    setHistoryTarget({
+      mode: 'cert',
+      inspectionDocId: entry.inspectionDocId,
+      operatorId: entry.operatorId === '__fleet__' ? null : entry.operatorId,
+      docTypeForReminders,
+      title: `${entry.operatorId === '__fleet__' ? 'Fleet' : entry.operatorName} — ${DOC_DISPLAY[entry.docKey]} history`,
+    });
+  };
+
+  const HistoryButton = ({ entry }: { entry: DocEntry }) => {
+    if (!entry.inspectionDocId) return null;
+    return (
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => openCertHistory(entry)}
+              aria-label={`View ${DOC_DISPLAY[entry.docKey]} history for ${entry.operatorName}`}
+              className="h-6 w-6 rounded flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <History className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">View history</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  // #17 — open per-driver compliance timeline
+  const openDriverTimeline = async (operatorId: string, operatorName: string) => {
+    const opLookup: any = await (supabase.from('operators') as any)
+      .select('user_id').eq('id', operatorId).maybeSingle();
+    setHistoryTarget({
+      mode: 'driver',
+      operatorId,
+      driverUserId: opLookup.data?.user_id ?? null,
+      title: `${operatorName} — Compliance timeline`,
+    });
+  };
+
   // Row inside a driver card entry for a single cert.
   const CertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
@@ -884,7 +939,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <span className="flex-1 min-w-0 truncate">
             <DriverDateEditor entry={entry} />
           </span>
-          <StaleChip entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
+          <StaleChip entry={entry} /><HistoryButton entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
           <CertPill entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
@@ -907,7 +962,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             <DriverDateEditor entry={entry} />
           </span>
           <span className="flex-1" />
-          <StaleChip entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
+          <StaleChip entry={entry} /><HistoryButton entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
           <CertPill entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
@@ -1177,6 +1232,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           )}
                           <span className="ml-auto flex items-center gap-1.5">
                             <StaleChip entry={entry} />
+                            <HistoryButton entry={entry} />
                             <UploadButton entry={entry} />
                             <CertPill entry={entry} />
                           </span>
@@ -1211,12 +1267,20 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         {g.med && <CertSubRow entry={g.med} />}
                         {g.irp && <CertSubRow entry={g.irp} />}
                       </div>
-                      <button
-                        onClick={() => openDriver(g.operatorId)}
-                        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                      >
-                        Open in Inspection Binder <ExternalLink className="h-3 w-3" />
-                      </button>
+                      <div className="mt-3 flex items-center gap-3">
+                        <button
+                          onClick={() => openDriver(g.operatorId)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Open in Binder <ExternalLink className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Timeline <History className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1274,6 +1338,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 justify-end">
                         <StaleChip entry={entry} />
+                        <HistoryButton entry={entry} />
                         <UploadButton entry={entry} />
                         <CertPill entry={entry} />
                         {onOpenInspectionBinder && (
@@ -1315,13 +1380,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         {g.irp && <ListCertSubRow entry={g.irp} />}
                       </div>
                     </div>
-                    <button
-                      onClick={() => openDriver(g.operatorId)}
-                      aria-label={`Open ${g.operatorName} in Inspection Binder`}
-                      className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <TooltipProvider delayDuration={250}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
+                              aria-label={`View ${g.operatorName} compliance timeline`}
+                              className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            >
+                              <History className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Compliance timeline</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <button
+                        onClick={() => openDriver(g.operatorId)}
+                        aria-label={`Open ${g.operatorName} in Inspection Binder`}
+                        className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1358,6 +1439,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             </div>
           )}
         </div>
+      )}
+
+      {historyTarget && (
+        historyTarget.mode === 'cert' ? (
+          <ComplianceHistoryModal
+            open
+            onClose={() => setHistoryTarget(null)}
+            mode="cert"
+            title={historyTarget.title}
+            inspectionDocId={historyTarget.inspectionDocId}
+            operatorId={historyTarget.operatorId}
+            docTypeForReminders={historyTarget.docTypeForReminders}
+          />
+        ) : (
+          <ComplianceHistoryModal
+            open
+            onClose={() => setHistoryTarget(null)}
+            mode="driver"
+            title={historyTarget.title}
+            operatorId={historyTarget.operatorId}
+            driverUserId={historyTarget.driverUserId}
+          />
+        )
       )}
     </div>
   );

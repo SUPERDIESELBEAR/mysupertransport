@@ -83,6 +83,24 @@ Deno.serve(async (req) => {
       .eq('id', row.operator_id)
       .single();
     if (!op?.user_id) { skipped++; continue; }
+
+    // #14 — Per-driver cert-reminder opt-out. event_type maps to the toggle
+    // surfaced in the operator notification prefs modal. If the driver has
+    // explicitly disabled email for that doc type we skip the send entirely
+    // (no cert_reminders row inserted so the cadence is fully silent).
+    const prefEventType = row.doc_key === 'CDL'
+      ? 'cert_reminder_cdl'
+      : row.doc_key === 'Medical Certificate'
+      ? 'cert_reminder_medical'
+      : 'cert_reminder_irp';
+    const { data: pref } = await supabase
+      .from('notification_preferences')
+      .select('email_enabled')
+      .eq('user_id', op.user_id)
+      .eq('event_type', prefEventType)
+      .maybeSingle();
+    if (pref && pref.email_enabled === false) { skipped++; continue; }
+
     const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
     const firstName = app?.first_name || 'Driver';
 
