@@ -289,6 +289,99 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     }
   };
 
+  // ── Inline date save for per-driver certs (CDL / Med Cert) ───────────────
+  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, date: Date | undefined) => {
+    if (!date) return;
+    const key = `${operatorId}|${docKey}`;
+    setDriverPicker(null);
+    setDriverSaving(prev => ({ ...prev, [key]: true }));
+    const isoDate = format(date, 'yyyy-MM-dd');
+
+    // Locate or upsert the per-driver inspection_documents row.
+    const { data: existing } = await supabase
+      .from('inspection_documents')
+      .select('id')
+      .eq('scope', 'per_driver')
+      .eq('operator_id', operatorId)
+      .eq('name', docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate')
+      .maybeSingle();
+
+    let error: any = null;
+    if (existing?.id) {
+      ({ error } = await supabase
+        .from('inspection_documents')
+        .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
+        .eq('id', existing.id));
+    } else {
+      ({ error } = await supabase
+        .from('inspection_documents')
+        .insert({
+          scope: 'per_driver',
+          operator_id: operatorId,
+          name: docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate',
+          expires_at: isoDate,
+        }));
+    }
+
+    setDriverSaving(prev => ({ ...prev, [key]: false }));
+    if (error) {
+      toast({ variant: 'destructive', title: 'Save failed', description: `Could not update ${DOC_DISPLAY[docKey]} expiry.` });
+      return;
+    }
+    setDriverSaved(prev => ({ ...prev, [key]: true }));
+    setTimeout(() => setDriverSaved(prev => ({ ...prev, [key]: false })), 2000);
+
+    const daysUntil = differenceInDays(date, new Date());
+    const urgency = getStatus(daysUntil, windowDays);
+    setEntries(prev => prev.map(e =>
+      e.operatorId === operatorId && e.docKey === docKey
+        ? { ...e, expiresAt: isoDate, daysUntil, status: urgency }
+        : e,
+    ));
+    toast({ title: `${DOC_DISPLAY[docKey]} expiry updated`, description: format(date, 'MMM d, yyyy') });
+  };
+
+  // ── Send a cert reminder to a single driver ──────────────────────────────
+  const handleSendReminder = async (operatorId: string, operatorName: string, entry: DocEntry) => {
+    if (!entry.expiresAt || entry.daysUntil === null) return;
+    const key = `${operatorId}|${entry.docKey}`;
+    const docType = entry.docKey === 'CDL' ? 'CDL' : 'Medical Cert';
+    setRemindSending(prev => ({ ...prev, [key]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          operator_id: operatorId,
+          doc_type: docType,
+          days_until: entry.daysUntil,
+          expiration_date: entry.expiresAt,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      setRemindSent(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => setRemindSent(prev => ({ ...prev, [key]: false })), 8000);
+      if (data.email_error) {
+        const { title, description } = reminderErrorToast(new Error(data.email_error));
+        toast({ title, description, variant: 'destructive' });
+      } else {
+        toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      }
+    } catch (err: any) {
+      const { title, description } = reminderErrorToast(err);
+      toast({ title, description, variant: 'destructive' });
+    } finally {
+      setRemindSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   // ── Derived counts ────────────────────────────────────────────────────────
   const counts = {
     expired:  entries.filter(e => e.status === 'expired').length,
