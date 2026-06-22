@@ -149,25 +149,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      // ignore — we still want to clear state and redirect
-    }
-    // Defensive local reset in case onAuthStateChange hasn't fired yet
+    // Defensive local reset immediately so protected screens unmount before the
+    // network sign-out completes. This prevents the blank/white post-logout state.
     setUser(null);
     setSession(null);
     setRoles([]);
     setActiveRoleState(null);
     setProfile(null);
-    // Installed PWAs (iOS standalone, Android TWA) need a hard reload so the
-    // standalone shell fully resets. Regular browser sessions don't — the
-    // existing route guards in App.tsx redirect to /login as soon as `user`
-    // is null, avoiding the white-flash full-page reload.
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
-    if (isStandalone) {
+
+    // Send the browser to the sign-in route right away; BrowserRouter listens
+    // for popstate, so this avoids a full-page reload in regular web sessions.
+    if (window.location.pathname !== '/login') {
+      window.history.replaceState(null, '', '/login');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // ignore — local state has already been cleared and the user is on login
+    }
+
+    // Installed PWAs (iOS standalone, Android TWA) still need a hard navigation
+    // so the standalone shell fully resets after the auth session is cleared.
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
       window.location.replace('/login');
     }
   };
