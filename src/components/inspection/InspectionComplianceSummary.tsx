@@ -27,6 +27,8 @@ interface DocEntry {
   status: Status;
   /** Only set for fleet-wide (IRP/Insurance/IFTA) rows */
   inspectionDocId?: string;
+  /** True when expiry was edited but no new file was uploaded (>24h) */
+  isStale?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -129,21 +131,35 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     // with days_until already calculated against US Central Time in the database.
     const { data: rows } = await supabase
       .from('v_compliance_items')
-      .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until');
+      .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until, file_path, uploaded_at, expires_updated_at');
 
     if (!rows) { setLoading(false); return; }
 
-    const result: DocEntry[] = rows.map(r => ({
-      docKey: (r.doc_key ?? '') as DocKey,
-      operatorId: r.entity_kind === 'fleet' ? '__fleet__' : (r.operator_id ?? ''),
-      operatorName: r.operator_name ?? 'Unknown',
-      expiresAt: r.expires_at ?? null,
-      daysUntil: r.days_until ?? null,
-      // Status uses the user's chosen warning window, applied to the
-      // server-computed days_until — single source of truth for the date math.
-      status: getStatus(r.days_until ?? null, windowDays),
-      inspectionDocId: r.inspection_doc_id ?? undefined,
-    }));
+    const STALE_MS = 24 * 60 * 60 * 1000;
+    const result: DocEntry[] = rows.map((r: any) => {
+      const filePath = r.file_path as string | null | undefined;
+      const uploadedAt = r.uploaded_at ? new Date(r.uploaded_at).getTime() : null;
+      const expiresUpdatedAt = r.expires_updated_at ? new Date(r.expires_updated_at).getTime() : null;
+      // Stale = expiry was set/edited but no supporting file uploaded since
+      // (either no file at all, OR file is >24h older than the expiry edit).
+      const hasExpiry = !!r.expires_at;
+      const isStale = hasExpiry && (
+        !filePath ||
+        (uploadedAt !== null && expiresUpdatedAt !== null && expiresUpdatedAt - uploadedAt > STALE_MS)
+      );
+      return {
+        docKey: (r.doc_key ?? '') as DocKey,
+        operatorId: r.entity_kind === 'fleet' ? '__fleet__' : (r.operator_id ?? ''),
+        operatorName: r.operator_name ?? 'Unknown',
+        expiresAt: r.expires_at ?? null,
+        daysUntil: r.days_until ?? null,
+        // Status uses the user's chosen warning window, applied to the
+        // server-computed days_until — single source of truth for the date math.
+        status: getStatus(r.days_until ?? null, windowDays),
+        inspectionDocId: r.inspection_doc_id ?? undefined,
+        isStale,
+      };
+    });
 
     // Sort: fleet rows first, then group by operator (worst status first), within operator CDL before Med Cert
     const tierOrder: Record<Status, number> = { expired: 0, critical: 1, warning: 2, valid: 3, missing: 4 };
@@ -470,6 +486,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     operatorName: string;
     cdl?: DocEntry;
     med?: DocEntry;
+    irp?: DocEntry;
     worstStatus: Status;
     worstDays: number | null;
   };
@@ -500,9 +517,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       }
       if (e.docKey === 'CDL') g.cdl = e;
       else if (e.docKey === 'Medical Certificate') g.med = e;
+      else if (e.docKey === 'IRP Registration (cab card)') g.irp = e;
     });
     byDriver.forEach(g => {
-      const certs = [g.cdl, g.med].filter(Boolean) as DocEntry[];
+      const certs = [g.cdl, g.med, g.irp].filter(Boolean) as DocEntry[];
       let worst: Status = 'valid';
       let worstDays: number | null = null;
       certs.forEach(c => {
@@ -653,6 +671,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     );
   };
 
+  // Amber chip shown when expiry was set/edited but no new file is on record.
+  const StaleChip = ({ entry }: { entry: DocEntry }) => {
+    if (!entry.isStale) return null;
+    return (
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              role="img"
+              aria-label="Expiry edited but no new file uploaded"
+              className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-300"
+            >
+              <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+              Stale
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[220px] text-xs">
+            Expiry date was updated but no renewed file has been uploaded. Upload the new document to clear this flag.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const RemindButton = ({ entry }: { entry: DocEntry }) => {
     if (entry.status !== 'expired' && entry.status !== 'critical') return null;
     if (!entry.expiresAt) return null;
@@ -702,7 +744,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <span className="flex-1 min-w-0 truncate">
             <DriverDateEditor entry={entry} />
           </span>
-          <RemindButton entry={entry} />
+          <StaleChip entry={entry} /><RemindButton entry={entry} />
           <CertPill entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
@@ -725,7 +767,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             <DriverDateEditor entry={entry} />
           </span>
           <span className="flex-1" />
-          <RemindButton entry={entry} />
+          <StaleChip entry={entry} /><RemindButton entry={entry} />
           <CertPill entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
@@ -1023,6 +1065,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       <div className="mt-2 divide-y divide-border/40">
                         {g.cdl && <CertSubRow entry={g.cdl} />}
                         {g.med && <CertSubRow entry={g.med} />}
+                        {g.irp && <CertSubRow entry={g.irp} />}
                       </div>
                       <button
                         onClick={() => openDriver(g.operatorId)}
@@ -1123,6 +1166,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       <div className="mt-1 ml-1 pl-3 border-l border-border/60">
                         {g.cdl && <ListCertSubRow entry={g.cdl} />}
                         {g.med && <ListCertSubRow entry={g.med} />}
+                        {g.irp && <ListCertSubRow entry={g.irp} />}
                       </div>
                     </div>
                     <button
