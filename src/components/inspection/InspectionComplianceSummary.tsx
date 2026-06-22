@@ -1232,6 +1232,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           )}
                           <span className="ml-auto flex items-center gap-1.5">
                             <StaleChip entry={entry} />
+                            <HistoryButton entry={entry} />
                             <UploadButton entry={entry} />
                             <CertPill entry={entry} />
                           </span>
