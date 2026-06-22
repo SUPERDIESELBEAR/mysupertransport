@@ -112,8 +112,18 @@ export default function ManagementPortal() {
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
-    const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'].includes(v)) ? v : 'overview';
+    const ALLOWED = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'];
+    const urlView = searchParams.get('view') as ManagementView | null;
+    const hasDeepLink = !!(searchParams.get('op') || searchParams.get('app'));
+    // Honor URL only when it's an explicit deep-link from a notification/email.
+    if (urlView && ALLOWED.includes(urlView) && hasDeepLink) return urlView;
+    // Otherwise prefer the per-tab sessionStorage "last viewed section".
+    try {
+      const saved = sessionStorage.getItem('mgmt_last_view') as ManagementView | null;
+      if (saved && ALLOWED.includes(saved)) return saved;
+    } catch { /* ignore */ }
+    if (urlView && ALLOWED.includes(urlView)) return urlView;
+    return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
