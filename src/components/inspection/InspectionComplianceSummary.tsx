@@ -1440,6 +1440,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           )}
         </div>
       )}
+
+      {historyTarget && (
+        historyTarget.mode === 'cert' ? (
+          <ComplianceHistoryModal
+            open
+            onClose={() => setHistoryTarget(null)}
+            mode="cert"
+            title={historyTarget.title}
+            inspectionDocId={historyTarget.inspectionDocId}
+            operatorId={historyTarget.operatorId}
+            docTypeForReminders={historyTarget.docTypeForReminders}
+          />
+        ) : (
+          <ComplianceHistoryModal
+            open
+            onClose={() => setHistoryTarget(null)}
+            mode="driver"
+            title={historyTarget.title}
+            operatorId={historyTarget.operatorId}
+            driverUserId={historyTarget.driverUserId}
+          />
+        )
+      )}
     </div>
   );
 }
