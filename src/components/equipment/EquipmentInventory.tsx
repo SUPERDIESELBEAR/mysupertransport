@@ -295,19 +295,34 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                   </div>
                 ) : (
                   <>
-                    <div className="divide-y divide-border">
-                      {displayItems.map(item => (
-                        <EquipmentRow
-                          key={item.id}
-                          item={item}
-                          isManagement={isManagement}
-                          onEdit={() => setEditItem(item)}
-                          onAssign={() => setAssignItem(item)}
-                          onReturn={() => setReturnItem(item)}
-                          onHistory={() => setHistoryItem(item)}
-                        />
-                      ))}
-                    </div>
+                    {viewMode === 'cards' ? (
+                      <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {displayItems.map(item => (
+                          <EquipmentCard
+                            key={item.id}
+                            item={item}
+                            onEdit={() => setEditItem(item)}
+                            onAssign={() => setAssignItem(item)}
+                            onReturn={() => setReturnItem(item)}
+                            onHistory={() => setHistoryItem(item)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {displayItems.map(item => (
+                          <EquipmentRow
+                            key={item.id}
+                            item={item}
+                            isManagement={isManagement}
+                            onEdit={() => setEditItem(item)}
+                            onAssign={() => setAssignItem(item)}
+                            onReturn={() => setReturnItem(item)}
+                            onHistory={() => setHistoryItem(item)}
+                          />
+                        ))}
+                      </div>
+                    )}
                     {showToggle && (
                       <button
                         onClick={() => setExpandedType(isExpanded ? null : type)}
