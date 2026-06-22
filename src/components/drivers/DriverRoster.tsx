@@ -1142,9 +1142,9 @@ export default function DriverRoster({
 
                     {/* Phone */}
                     {!dispatchMode && (
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell className="hidden sm:table-cell whitespace-nowrap">
                         {driver.phone
-                          ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{driver.phone}</a>
+                          ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 whitespace-nowrap" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3 shrink-0" />{driver.phone}</a>
                           : <span className="text-muted-foreground text-xs">—</span>}
                       </TableCell>
                     )}
