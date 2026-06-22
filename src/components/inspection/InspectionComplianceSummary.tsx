@@ -779,27 +779,36 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                   );
                 }
                 const cfg = STATUS_CONFIG[g.worstStatus];
+                const StatusIcon = STATUS_ICON[g.worstStatus];
+                const ariaLabel = `${g.operatorName} — ${cfg.label}` +
+                  (g.worstDays !== null
+                    ? `, ${g.worstDays < 0 ? `expired ${Math.abs(g.worstDays)} days ago` : g.worstDays === 0 ? 'expires today' : `${g.worstDays} days remaining`}`
+                    : '');
                 return (
-                  <div key={g.operatorId} className={cn('flex items-start gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}>
-                    <span className={cn('h-2 w-2 rounded-full shrink-0 mt-1.5', cfg.dotCls)} />
+                  <div
+                    key={g.operatorId}
+                    aria-label={ariaLabel}
+                    className={cn('flex items-start gap-3 px-4 py-2 transition-colors', cfg.rowCls)}
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm text-foreground truncate">{g.operatorName}</span>
-                        <span className={cn('inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-semibold border', cfg.badgeCls)}>
+                        <span className={cn('inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border', cfg.badgeCls)}>
+                          <StatusIcon className="h-3 w-3" aria-hidden="true" />
                           {cfg.label}
                         </span>
                       </div>
-                      <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                        {g.cdl && <CertSubRow entry={g.cdl} />}
-                        {g.med && <CertSubRow entry={g.med} />}
+                      <div className="mt-1 ml-1 pl-3 border-l border-border/60">
+                        {g.cdl && <ListCertSubRow entry={g.cdl} />}
+                        {g.med && <ListCertSubRow entry={g.med} />}
                       </div>
                     </div>
                     <button
                       onClick={() => openDriver(g.operatorId)}
-                      className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-                      title="Open in Inspection Binder"
+                      aria-label={`Open ${g.operatorName} in Inspection Binder`}
+                      className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
                     >
-                      <ExternalLink className="h-3 w-3" />
+                      <ExternalLink className="h-4 w-4" />
                     </button>
                   </div>
                 );
