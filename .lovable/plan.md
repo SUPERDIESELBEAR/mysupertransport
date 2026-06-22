@@ -1,46 +1,73 @@
 ## Goal
 
-Apply the previously-built improvements (merged per-driver CDL + Med Cert, status highlighting, Cards view, search) to the correct section: the **Compliance Summary** panel (`InspectionComplianceSummary`) on the **Compliance tab**. Revert all changes to `ComplianceAlertsPanel` (which should never have been touched).
+Clean up the Compliance Summary list view and harden the data layer behind it so every consumer (dashboard, cron jobs, audit log) sees the same compliance status. Five workstreams, ordered so each one's value lands independently.
 
-## Step 1 — Revert `ComplianceAlertsPanel.tsx`
+## 1. List view cleanup + remove leading dot next to driver name
 
-Restore `src/components/inspection/ComplianceAlertsPanel.tsx` to its pre-change state: remove driver grouping, the List/Cards view toggle, the `compliance_alerts_view` localStorage key, the search bar, and the card grid. Keep the file exactly as it was before this task began (one row per operator+doc, existing filters/sort/bulk actions untouched).
+File: `src/components/inspection/InspectionComplianceSummary.tsx` (list-view branch only).
 
-## Step 2 — Update `InspectionComplianceSummary.tsx` (the real "Compliance Summary")
+- Remove the colored status dot rendered immediately before each **driver name** in list view. Row-level status stays visible via the existing left stripe/tint from `cfg.rowCls`. Fleet rows keep their leading dot (user only asked about drivers).
+- Restructure each driver row into a single, scannable block:
+  ```text
+  [ Driver Name ─────────────────────────  Status pill   ⤴ ]
+     │ CDL      Mar 14, 2026     • 87 days
+     │ Med Cert May 02, 2026     • 134 days
+  ```
+  - Sub-rows render as a vertical stack with a faint left guide (`border-l border-border/60 pl-3`), not the current `sm:grid-cols-2` grid.
+  - In list-view sub-rows, replace the colored doc-type badge (CDL/Med Cert) with bold muted-foreground text in a fixed-width slot. Keep the small status dot and the per-cert status pill.
+  - Date column uses `tabular-nums w-[110px]` so dates align vertically across drivers.
+  - Tighten padding to `py-2`, hover changes background only.
+- Cards view and fleet rows untouched.
 
-Add the requested capabilities to this component only:
+## 2. Server-side compliance status (foundation for everything else)
 
-**Per-driver grouping**
-- Group the per-operator CDL and Medical Certificate rows into a single driver entry. Fleet-wide rows (Insurance, IFTA) stay as their own entries — they are not driver-scoped.
-- Each driver entry exposes both certs as sub-items. Overall driver status = the worst of the two (`expired > critical > warning > missing > valid`).
+Create a Postgres **view** `public.v_compliance_items` that the dashboard, cron jobs, and edge functions all read from. Each row is one cert for one entity:
 
-**Highlight critical/expired**
-- Driver entries with any expired or critical cert get a prominent red status stripe / border + pulsing dot. Warning gets gold. Valid stays neutral.
-- Per-cert chips inside the entry keep their own status pill so staff see exactly which cert is the problem.
+| column            | type    | notes                                                              |
+|-------------------|---------|--------------------------------------------------------------------|
+| `entity_kind`     | text    | `'driver'` or `'fleet'`                                            |
+| `operator_id`     | uuid    | null for fleet rows                                                |
+| `operator_name`   | text    | resolved from `applications`                                       |
+| `doc_key`         | text    | `'CDL'`, `'Medical Certificate'`, `'Insurance'`, `'IFTA License'`  |
+| `inspection_doc_id` | uuid  | fleet rows only                                                    |
+| `expires_at`      | date    |                                                                    |
+| `days_until`      | int     | `expires_at - (now() AT TIME ZONE 'America/Chicago')::date`        |
+| `status`          | text    | `'expired' \| 'critical' \| 'warning' \| 'valid' \| 'missing'`     |
 
-**View toggle (List ↔ Cards)**
-- Add a List/Cards toggle in the panel header (next to the existing chevron). Default = Cards. Persist in `localStorage` under `compliance_summary_view`.
-- **List view**: keep close to today's layout but collapsed to one row per driver — driver name, two cert chips (each with its own date + status pill), one action cluster on the right (Open in Inspection Binder). Fleet rows render as today.
-- **Cards view**: responsive grid (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`), styled like the Dispatch Board cards. Each card shows: status stripe on the left, driver name header, two sub-rows (CDL, Med Cert) with badge + expiry date + days-until pill + "No date" tag when missing, and a footer "Open in Inspection Binder" link. Fleet entries render as a distinct card style (single doc, "Fleet-wide" label, inline date picker preserved).
+Status thresholds match today's JS rules and accept the warning window via a `compliance_status(days int, window_days int)` SQL function so the dashboard can pass the user's chosen window. The component swaps its `getStatus()` + manual fetch/sort for a single `SELECT ... FROM v_compliance_items` ordered server-side. Anchors to **US Central** per project standard.
 
-**Search bar**
-- Add a search input above the rows/grid. Case-insensitive filter on driver name. Fleet rows always remain visible (or hide them only when the query is non-empty — pick: hide when query non-empty, so search results stay focused on drivers).
-- Search composes with existing status/doc-type filter chips.
+## 3. Single source of truth for CDL / Med Cert expiries
 
-**Preserve existing behavior**
-- Keep all current data fetching, realtime subscriptions, fleet-row inline date picker, audit log + notification fan-out, filter chips, counts header, and footer summary. No backend / data-fetch changes.
-- The doc-type filter chips for CDL and Med Cert still work — when active, only matching sub-rows render inside each driver entry (a driver with no matching cert is hidden).
+Today the component reads from `inspection_documents` and silently falls back to `applications.cdl_expiration` / `medical_cert_expiration`. The view in #2 will read from `inspection_documents` only. To make that safe:
 
-## Step 3 — Verify
+- **Backfill migration**: for every active operator with no per-driver `inspection_documents` row for `CDL (Front)` / `Medical Certificate`, insert one using the value from `applications`. Idempotent (skip rows that already exist).
+- **Trigger** `sync_application_expiry_to_binder`: on `UPDATE` of `applications.cdl_expiration` or `medical_cert_expiration`, upsert the matching `inspection_documents` row so legacy code paths that still write to `applications` stay consistent during the transition.
+- Application form is untouched — it still writes initial values on submit, the trigger fans out from there.
 
-- Open `/dashboard?view=compliance`, expand Compliance Summary, confirm Cards is the default, toggle to List, run a search, and check that critical/expired drivers are visibly highlighted.
-- Confirm Compliance Alerts (the panel above it) looks identical to before this task.
+## 4. Per-cert edit history
 
-## Files
+Add an `AFTER UPDATE OF expires_at` trigger on `inspection_documents` that writes one `audit_log` row with `entity_type='compliance'`, `entity_id=<inspection_doc_id>`, `entity_label='<DriverName> <DocType>'` or `'Fleet <DocType>'`, and `metadata={ old_expiry, new_expiry, document_type, source: 'trigger' }`. The existing manual `audit_log.insert` in `handleFleetDateChange` is removed to avoid double entries (trigger covers it). Per-driver edits made from the Inspection Binder now also get logged automatically. Surface "Last updated by X, Y ago" as a small line under each sub-row in the Compliance Summary (reads the most recent `audit_log` row for that `inspection_doc_id`).
 
-- `src/components/inspection/ComplianceAlertsPanel.tsx` — revert to pre-task state.
-- `src/components/inspection/InspectionComplianceSummary.tsx` — add grouping, highlight, view toggle, search, Cards grid.
+## 5. Realtime + a11y polish
+
+- **Scoped subscriptions**: replace the two open-ended `*` listeners with filtered ones — `inspection_documents` filtered to `scope=eq.per_driver` plus a second channel for `scope=eq.company_wide` matching the four doc names we care about. Drop the `applications` channel entirely (the trigger in #3 funnels expiry edits through `inspection_documents`).
+- **Debounced refetch**: coalesce events fired within 400 ms into a single fetch.
+- **A11y**:
+  - Add `aria-label` on each row summarising state in words (e.g. `"John Smith — CDL expires in 12 days, critical"`).
+  - Pair the colored status dot/stripe with a small Lucide icon that differs by status (Circle, AlertTriangle, AlertOctagon, MinusCircle) so meaning isn't color-only.
+  - Bump the icon-only "Open in Inspection Binder" button to `min-h-11 min-w-11` and confirm it has an `aria-label`.
 
 ## Out of scope
 
-Overview tab, data model, audit/notification logic, Document Hub `ComplianceDashboard`, `ComplianceAlertsPanel` behavior.
+Overview tab, `ComplianceAlertsPanel`, Document Hub `ComplianceDashboard`, fleet-row layout, Cards-view styling, application form UI, IRP per-driver flow, notification email content.
+
+## Technical notes / order of operations
+
+The DB work in #2, #3, #4 ships as one migration (approved before any code change), so the component refactor in #1 and #5 can read directly from `v_compliance_items` and not have to support both old and new shapes. Migration order in a single transaction:
+
+1. Backfill `inspection_documents` from `applications` (#3).
+2. Create `sync_application_expiry_to_binder` trigger (#3).
+3. Create `compliance_status(days, window)` SQL function and `v_compliance_items` view (#2). View is `security_invoker=on` so existing RLS on `inspection_documents` / `operators` / `applications` is enforced; `GRANT SELECT ON public.v_compliance_items TO authenticated`.
+4. Create `log_inspection_expiry_change` trigger writing to `audit_log` (#4).
+
+Then the component PR: replace fetch/sort/grouping with a single `from('v_compliance_items').select('*')`, drop client-side `getStatus`, drop the manual fleet audit-log insert, swap realtime channels, restyle list view, add a11y.
