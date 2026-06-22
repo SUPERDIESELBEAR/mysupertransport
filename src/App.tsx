@@ -9,6 +9,7 @@ import IdleWarningModal from "@/components/IdleWarningModal";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import PWAInstallBannerBoundary from "@/components/PWAInstallBannerBoundary";
 import TrackOperatorPresence from "@/components/TrackOperatorPresence";
+import OfflineBanner from "@/components/OfflineBanner";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 
 // Pages
@@ -135,6 +136,7 @@ const App = () => (
             <IdleWarningModal />
             <TrackOperatorPresence />
           </BrowserRouter>
+          <OfflineBanner />
           <PWAInstallBannerBoundary>
             <PWAInstallBanner />
           </PWAInstallBannerBoundary>
