@@ -113,104 +113,26 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const today = new Date();
 
-    // 1. Fetch all operators with their names (from applications)
-    const { data: ops } = await supabase
-      .from('operators')
-      .select(`id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)`)
-      .not('application_id', 'is', null)
-      .eq('is_active', true);
+    // Single server-side query: v_compliance_items unifies fleet + driver certs
+    // with days_until already calculated against US Central Time in the database.
+    const { data: rows } = await supabase
+      .from('v_compliance_items')
+      .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until');
 
-    // 2. Fetch company-wide inspection docs (Insurance, IFTA — IRP is now per-driver)
-    const [{ data: inspDocs }, { data: binderDocs }] = await Promise.all([
-      supabase
-        .from('inspection_documents')
-        .select('id, name, expires_at')
-        .eq('scope', 'company_wide')
-        .in('name', ['Insurance', 'IFTA License']),
-      supabase
-        .from('inspection_documents')
-        .select('driver_id, name, expires_at')
-        .eq('scope', 'per_driver')
-        .in('name', ['CDL (Front)', 'Medical Certificate']),
-    ]);
+    if (!rows) { setLoading(false); return; }
 
-    if (!ops) { setLoading(false); return; }
-
-    // Build binder expiry lookup: driver_id (user_id) → { cdl, med }
-    const binderDates: Record<string, { cdl?: string; med?: string }> = {};
-    (binderDocs ?? []).forEach((doc: any) => {
-      if (!doc.driver_id || !doc.expires_at) return;
-      if (!binderDates[doc.driver_id]) binderDates[doc.driver_id] = {};
-      if (doc.name === 'CDL (Front)') binderDates[doc.driver_id].cdl = doc.expires_at;
-      if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
-    });
-
-    const result: DocEntry[] = [];
-
-    // Build operator name lookup
-    const opNames: Record<string, string> = {};
-    (ops as any[]).forEach(op => {
-      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
-      opNames[op.id] = app
-        ? `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || 'Unknown'
-        : 'Unknown';
-    });
-
-    // ── Company-wide docs (Insurance, IFTA) ───────────────────────────────
-    const companyDocMap: Partial<Record<DocKey, { id: string; expiresAt: string | null; daysUntil: number | null }>> = {};
-    (inspDocs ?? []).forEach((doc: any) => {
-      const key = INSPECTION_NAMES[doc.name];
-      if (!key) return;
-      const daysUntil = doc.expires_at
-        ? differenceInDays(parseLocalDate(doc.expires_at), today)
-        : null;
-      companyDocMap[key] = { id: doc.id, expiresAt: doc.expires_at, daysUntil };
-    });
-
-    // For each company-wide doc, emit one row labelled "Fleet"
-    (['Insurance', 'IFTA License'] as DocKey[]).forEach(docKey => {
-      const info = companyDocMap[docKey];
-      result.push({
-        docKey,
-        operatorId: '__fleet__',
-        operatorName: 'Fleet (all drivers)',
-        expiresAt: info?.expiresAt ?? null,
-        daysUntil: info?.daysUntil ?? null,
-        status: getStatus(info?.daysUntil ?? null, windowDays),
-        inspectionDocId: info?.id,
-      });
-    });
-
-    // ── Per-operator: CDL & Medical Cert ──────────────────────────────────
-    (ops as any[]).forEach(op => {
-      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
-      if (!app) return;
-      const name = opNames[op.id];
-
-      const cdlDate = binderDates[op.user_id]?.cdl ?? app.cdl_expiration ?? null;
-      const medDate = binderDates[op.user_id]?.med ?? app.medical_cert_expiration ?? null;
-      const cdlDays = cdlDate ? differenceInDays(parseLocalDate(cdlDate), today) : null;
-      const medDays = medDate ? differenceInDays(parseLocalDate(medDate), today) : null;
-
-      result.push({
-        docKey: 'CDL',
-        operatorId: op.id,
-        operatorName: name,
-        expiresAt: cdlDate,
-        daysUntil: cdlDays,
-        status: getStatus(cdlDays, windowDays),
-      });
-      result.push({
-        docKey: 'Medical Certificate',
-        operatorId: op.id,
-        operatorName: name,
-        expiresAt: medDate,
-        daysUntil: medDays,
-        status: getStatus(medDays, windowDays),
-      });
-    });
+    const result: DocEntry[] = rows.map(r => ({
+      docKey: (r.doc_key ?? '') as DocKey,
+      operatorId: r.entity_kind === 'fleet' ? '__fleet__' : (r.operator_id ?? ''),
+      operatorName: r.operator_name ?? 'Unknown',
+      expiresAt: r.expires_at ?? null,
+      daysUntil: r.days_until ?? null,
+      // Status uses the user's chosen warning window, applied to the
+      // server-computed days_until — single source of truth for the date math.
+      status: getStatus(r.days_until ?? null, windowDays),
+      inspectionDocId: r.inspection_doc_id ?? undefined,
+    }));
 
     // Sort: fleet rows first, then group by operator (worst status first), within operator CDL before Med Cert
     const tierOrder: Record<Status, number> = { expired: 0, critical: 1, warning: 2, valid: 3, missing: 4 };
@@ -255,25 +177,34 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   useEffect(() => {
     fetchData();
 
-    // Realtime: re-fetch when inspection_documents changes (IRP, Insurance, IFTA expiry updates)
-    const inspChannel = supabase
-      .channel('compliance-summary-inspection')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inspection_documents' }, () => {
-        fetchData();
-      })
+    // Debounced refetch: coalesce realtime bursts (e.g. multi-row writes) into
+    // a single refetch so we don't hammer the DB on busy days.
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => { void fetchData(); }, 400);
+    };
+
+    // Scoped subscriptions: only inspection_documents changes (applications
+    // expiry edits now fan out to inspection_documents via DB trigger).
+    const perDriverChannel = supabase
+      .channel('compliance-summary-per-driver')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'inspection_documents', filter: 'scope=eq.per_driver' },
+        scheduleRefetch)
       .subscribe();
 
-    // Realtime: re-fetch when applications changes (CDL / Medical Cert expiry updates)
-    const appChannel = supabase
-      .channel('compliance-summary-applications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
-        fetchData();
-      })
+    const fleetChannel = supabase
+      .channel('compliance-summary-fleet')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'inspection_documents', filter: 'scope=eq.company_wide' },
+        scheduleRefetch)
       .subscribe();
 
     return () => {
-      supabase.removeChannel(inspChannel);
-      supabase.removeChannel(appChannel);
+      if (pending) clearTimeout(pending);
+      supabase.removeChannel(perDriverChannel);
+      supabase.removeChannel(fleetChannel);
     };
   }, [fetchData]);
 
