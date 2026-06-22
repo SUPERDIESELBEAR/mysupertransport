@@ -525,6 +525,27 @@ export function OperatorBroadcast() {
                 </div>
               </div>
 
+              <div className="rounded-md border p-3 bg-muted/20 flex items-start gap-3">
+                <ShieldCheck className={`h-5 w-5 mt-0.5 ${requiresAck ? 'text-gold' : 'text-muted-foreground'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="requires-ack" className="font-medium cursor-pointer">
+                      Require acknowledgment from recipients
+                    </Label>
+                    <Switch
+                      id="requires-ack"
+                      checked={requiresAck}
+                      onCheckedChange={setRequiresAck}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {requiresAck
+                      ? 'Recipients must tap “Acknowledge” inside SUPERDRIVE. Until they do, their status stays Unacknowledged.'
+                      : 'Message is marked “Read” automatically when a recipient opens it in SUPERDRIVE. No tap required.'}
+                  </p>
+                </div>
+              </div>
+
               <div className="pt-2 border-t space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Will send to <span className="font-semibold text-foreground">{eligibleCount}</span> operator(s)
