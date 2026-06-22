@@ -1177,7 +1177,7 @@ export default function DriverRoster({
 
                     {/* Dispatch Status */}
                     <TableCell>
-                      <Badge className={`text-xs ${statusCfg.badgeClass}`}>
+                      <Badge className={`text-xs whitespace-nowrap ${statusCfg.badgeClass}`}>
                         {statusCfg.label}
                       </Badge>
                     </TableCell>
