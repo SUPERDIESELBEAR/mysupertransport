@@ -98,7 +98,7 @@ export default function StaffPortal() {
         last_name: profile?.last_name ?? '',
         phone: profile?.phone ?? '',
         address_state: profile?.home_state ?? '',
-        review_status: 'approved' as any,
+        review_status: 'approved',
         is_draft: false,
       })
       .select('*')
