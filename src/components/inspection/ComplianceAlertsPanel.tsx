@@ -140,7 +140,10 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       const name = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || 'Unknown Operator';
       (['cdl_expiration', 'medical_cert_expiration'] as const).forEach(field => {
         const binderDate = field === 'cdl_expiration' ? binderDates[op.user_id]?.cdl : binderDates[op.user_id]?.med;
-        const dateStr: string | null = binderDate ?? app[field];
+        // #11: inspection_documents is the sole source of truth. A DB trigger
+        // syncs applications.cdl_expiration → inspection_documents.expires_at,
+        // so no fallback to app.* is needed.
+        const dateStr: string | null = binderDate ?? null;
         if (!dateStr) return;
         const days = differenceInDays(parseLocalDate(dateStr), today);
         if (days <= windowDays) {
