@@ -1,49 +1,38 @@
-## Vehicle Hub — DOT Filters & Sort
+## Fix: Logout white-screen flash on web
 
-Add a compact toolbar row above the vehicle grid/table with DOT status filter chips and a sort dropdown. No data, schema, or business logic changes — purely client-side filter/sort over the existing `filtered` list.
+### Root cause
 
-### 1. Filter chips (multi-state, single-select)
+`signOut()` in `src/hooks/useAuth.tsx` ends with `window.location.replace('/login')`. That triggers a full page reload — the browser tears down the React tree (white screen), then re-downloads `index.html`, re-bootstraps React, re-runs `getSession()` (loading spinner), and finally renders `/login`. On the web this reads as a blank/white flash before the sign-in page appears.
 
-Place a new chip row directly under the Active/Deactivated toggle:
+The hard reload was added intentionally for installed iOS PWAs so the standalone shell fully resets. We need to keep that behavior for PWA but use a soft, in-app navigation for normal browser sessions.
 
-- **All** (default)
-- **Overdue** — `dotNextDue` exists and `days < 0`
-- **Due Soon** — `dotNextDue` exists and `0 ≤ days ≤ 30`
-- **No Record** — `dotNextDue` is null
+### Fix
 
-Each chip shows a live count for the current Active/Deactivated + search context. Style matches the existing Active/Deactivated chips (same `text-xs px-3 py-1.5 rounded-lg` pattern) with status-tinted backgrounds when selected: Overdue = destructive red, Due Soon = amber, No Record = muted.
+In `signOut()`:
 
-### 2. Sort dropdown
+1. Call `supabase.auth.signOut()` and clear local auth state (`user`, `session`, `roles`, `activeRole`, `profile`) — unchanged.
+2. Detect PWA standalone mode:
+   ```ts
+   const isStandalone =
+     window.matchMedia('(display-mode: standalone)').matches ||
+     (window.navigator as any).standalone === true;
+   ```
+3. If `isStandalone` → keep `window.location.replace('/login')` (preserves the iOS PWA reset behavior).
+4. Otherwise → do **not** hard-navigate. The route guards already render `<Navigate to="/login" replace />` for `/dashboard`, `/staff/*`, `/dispatch/*`, `/management/*`, `/operator/*`, `/owner/*`, `/status` as soon as `user` becomes `null`, so the user lands on `/login` instantly with no reload and no white flash.
 
-A small shadcn `Select` to the right of the chip row:
+That's a ~6-line change confined to `signOut()`. No router, route guard, or component changes needed.
 
-- **Unit # (default)** — current behavior
-- **DOT Due — Soonest first** — ascending by days-until-due
-- **DOT Due — Furthest first** — descending by days-until-due
+### Why this is safe
 
-When sorting by DOT Due (either direction), **vehicles with no DOT record sort to the top** as a data-quality flag, with a subtle "Needs attention" cue already implied by the existing "No Record" badge.
+- Every protected route in `src/App.tsx` already has `!user ? <Navigate to="/login" replace /> : …`, so clearing `user` is sufficient to redirect.
+- `/login` itself renders `LoginPage` when `!user`, so the redirect target is correct.
+- iOS PWA behavior is preserved because standalone mode still gets the hard reload.
 
-When the user picks the **Overdue** or **Due Soon** chip, the sort auto-switches to "DOT Due — Soonest first" for sensible defaults. The user can still override via the dropdown.
+### File
 
-### 3. Persistence
-
-Both the filter chip and sort selection persist in `localStorage` under `vehicle_hub_dot_filter` and `vehicle_hub_dot_sort`, matching the existing `useViewMode` pattern. No URL params (keeps the URL clean; view mode already uses `?mode=`).
-
-### 4. Applies to both views
-
-Cards and Table views both render from the same filtered+sorted list, so the toolbar works identically in both.
-
-### Technical notes
-
-- New `useMemo` derives `filteredAndSorted` from `filtered` using a small helper `daysUntilDue(row)` returning `null` for missing records.
-- Sort comparator places `null` first when sorting by DOT, otherwise falls back to Unit # numeric sort.
-- No changes to `FleetRow`, queries, or `ViewModeToggle`.
-
-### Files
-
-- `src/components/fleet/FleetRoster.tsx` — add toolbar row, filter/sort state, memoized derived list.
+- `src/hooks/useAuth.tsx` — modify `signOut()` only.
 
 ### Out of scope
 
-- No changes to Driver Hub, Dispatch, or other roster pages (can be applied later if desired).
-- No new DOT thresholds or badge logic — reuses existing `dotStatusBadge` rules.
+- No changes to `IdleWarningModal` or `StaffDirectory` direct `supabase.auth.signOut()` calls (those don't navigate and aren't part of the reported flow).
+- No router restructuring.
