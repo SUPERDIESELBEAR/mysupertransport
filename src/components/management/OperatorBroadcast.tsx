@@ -104,6 +104,10 @@ export function OperatorBroadcast() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [viewing, setViewing] = useState<BroadcastRow | null>(null);
+  const [viewingStats, setViewingStats] = useState<{
+    total: number; opened: number; read: number; acknowledged: number;
+    rows: Array<{ id: string; email: string; status: string; opened_at: string | null; read_at: string | null; acknowledged_at: string | null }>;
+  } | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
@@ -180,6 +184,28 @@ export function OperatorBroadcast() {
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  // Load per-recipient tracking stats when opening the viewer
+  useEffect(() => {
+    if (!viewing) { setViewingStats(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('operator_broadcast_recipients')
+        .select('id, email, status, opened_at, read_at, acknowledged_at')
+        .eq('broadcast_id', viewing.id);
+      if (cancelled) return;
+      const rows = (data ?? []) as any[];
+      setViewingStats({
+        total: rows.length,
+        opened: rows.filter((r) => r.opened_at).length,
+        read: rows.filter((r) => r.read_at).length,
+        acknowledged: rows.filter((r) => r.acknowledged_at).length,
+        rows,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [viewing]);
 
   const resetCompose = () => {
     setEditingId(null);
