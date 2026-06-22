@@ -141,21 +141,24 @@ const SubmitSSN = () => {
                 Due to a minor technical issue, your Social Security Number was not captured when you submitted your application. Please enter it below — it will be encrypted and securely stored.
               </p>
 
-              <label className="block text-xs font-semibold text-surface-dark-muted mb-2 uppercase tracking-wider">
+              <label htmlFor="ssn-input" className="block text-xs font-semibold text-surface-dark-muted mb-2 uppercase tracking-wider">
                 Social Security Number
               </label>
               <input
+                id="ssn-input"
                 type="text"
                 inputMode="numeric"
+                autoComplete="off"
                 value={ssn}
                 onChange={(e) => setSsn(formatSsn(e.target.value))}
                 placeholder="XXX-XX-XXXX"
                 maxLength={11}
+                aria-describedby="ssn-help"
                 className="w-full h-12 px-4 rounded-lg bg-surface-dark border border-gold/30 text-white font-mono text-lg tracking-[0.25em] placeholder:text-surface-dark-muted/50 focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold"
               />
 
               {error && (
-                <p className="text-xs text-destructive mt-2">{error}</p>
+                <p role="alert" aria-live="assertive" className="text-xs text-destructive mt-2">{error}</p>
               )}
 
               <Button
@@ -170,7 +173,7 @@ const SubmitSSN = () => {
                 )}
               </Button>
 
-              <p className="text-[10px] text-surface-dark-muted/60 mt-4 text-center">
+              <p id="ssn-help" className="text-[10px] text-surface-dark-muted/60 mt-4 text-center">
                 🔒 Your SSN is encrypted with AES-256 before being stored. It is never saved in plain text.
               </p>
             </div>

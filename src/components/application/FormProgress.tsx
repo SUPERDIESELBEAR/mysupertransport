@@ -17,7 +17,14 @@ export default function FormProgress({ currentStep, totalSteps, stepLabels }: Fo
         <span className="text-xs text-surface-dark-muted">{stepLabels[currentStep - 1]}</span>
       </div>
       {/* Progress bar */}
-      <div className="h-1.5 bg-surface-dark-border rounded-full overflow-hidden">
+      <div
+        className="h-1.5 bg-surface-dark-border rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuenow={currentStep}
+        aria-valuemin={1}
+        aria-valuemax={totalSteps}
+        aria-label={`Application progress: step ${currentStep} of ${totalSteps}, ${stepLabels[currentStep - 1]}`}
+      >
         <div
           className="h-full bg-gold rounded-full transition-all duration-500 ease-out"
           style={{ width: `${pct}%` }}
