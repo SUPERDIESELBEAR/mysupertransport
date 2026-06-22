@@ -88,6 +88,14 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
+  const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return (localStorage.getItem('compliance_summary_view') as 'list' | 'cards') || 'cards';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('compliance_summary_view', viewMode); } catch {}
+  }, [viewMode]);
   // Per fleet-row save state: key = inspectionDocId
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved]   = useState<Record<string, boolean>>({});
