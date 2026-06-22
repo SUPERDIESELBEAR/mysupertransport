@@ -1175,7 +1175,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           ) : (
                             <span className="text-xs text-muted-foreground italic">Not set</span>
                           )}
-                          <span className="ml-auto"><CertPill entry={entry} /></span>
+                          <span className="ml-auto flex items-center gap-1.5">
+                            <StaleChip entry={entry} />
+                            <UploadButton entry={entry} />
+                            <CertPill entry={entry} />
+                          </span>
                         </div>
                         {onOpenInspectionBinder && (
                           <button
@@ -1269,6 +1273,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                        <StaleChip entry={entry} />
+                        <UploadButton entry={entry} />
                         <CertPill entry={entry} />
                         {onOpenInspectionBinder && (
                           <button
