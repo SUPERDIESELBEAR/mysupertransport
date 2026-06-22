@@ -62,6 +62,7 @@ export default function MoPlateRegistry() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [viewMode, setViewMode] = useViewMode('mo_plate_registry_view', 'mode', 'cards');
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
