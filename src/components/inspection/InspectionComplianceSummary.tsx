@@ -838,6 +838,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                                   mode="single"
                                   selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
                                   onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                  disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
                                   initialFocus
                                   className={cn('p-3 pointer-events-auto')}
                                 />
@@ -928,6 +929,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                                 mode="single"
                                 selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
                                 onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                  disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
                                 initialFocus
                                 className={cn('p-3 pointer-events-auto')}
                               />
