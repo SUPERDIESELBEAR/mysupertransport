@@ -1330,6 +1330,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 justify-end">
                         <StaleChip entry={entry} />
+                        <HistoryButton entry={entry} />
                         <UploadButton entry={entry} />
                         <CertPill entry={entry} />
                         {onOpenInspectionBinder && (
