@@ -1185,12 +1185,12 @@ export default function DriverRoster({
                     {/* Compliance pills (hidden below lg) */}
                     {!dispatchMode && (
                       <TableCell className="hidden lg:table-cell">
-                        <div className="flex flex-wrap gap-1 items-center" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col gap-1 min-w-[150px] max-w-[180px]" onClick={e => e.stopPropagation()}>
                           {expiryPill(driver.cdl_expiration, 'CDL')}
                           {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
                           {/* Show reminder badge inline inside compliance col below xl (where Last Sent col is hidden) */}
                           {showReminderBadge && (
-                            <span className="xl:hidden">
+                            <span className="xl:hidden pt-0.5">
                               <ReminderHistoryBadge
                                 entries={reminderHistory}
                                 operatorId={driver.operator_id}
