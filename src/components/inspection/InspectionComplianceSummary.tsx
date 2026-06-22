@@ -1041,6 +1041,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       <div className="mt-2 divide-y divide-border/40">
                         {g.cdl && <CertSubRow entry={g.cdl} />}
                         {g.med && <CertSubRow entry={g.med} />}
+                        {g.irp && <CertSubRow entry={g.irp} />}
                       </div>
                       <button
                         onClick={() => openDriver(g.operatorId)}
