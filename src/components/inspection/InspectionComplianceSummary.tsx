@@ -779,8 +779,20 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
               ))}
             </div>
           ) : grouped.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {q ? `No drivers match "${search}".` : 'No entries match the current filter.'}
+            <div className="px-4 py-10 text-center">
+              {q ? (
+                <p className="text-sm text-muted-foreground">No drivers match "{search}".</p>
+              ) : filterStatus === 'all' && filterDoc === 'all' && counts.expired === 0 && counts.critical === 0 && counts.warning === 0 ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-10 w-10 rounded-full bg-status-complete/10 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-status-complete" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">All compliant</p>
+                  <p className="text-xs text-muted-foreground">No expired, critical, or expiring certifications.</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No entries match the current filter.</p>
+              )}
             </div>
           ) : viewMode === 'cards' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
