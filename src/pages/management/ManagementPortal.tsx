@@ -340,7 +340,7 @@ export default function ManagementPortal() {
     let noReminder = 0;
     const remindedKeys = new Set<string>();
     (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
-    const rows: ComplianceRow[] = [];
+    const driverMap = new Map<string, ComplianceDriverRow>();
     const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 };
 
     (data as any[]).forEach((op: any) => {
@@ -349,11 +349,11 @@ export default function ManagementPortal() {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const isFullyOnboarded = os?.fully_onboarded === true;
       const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
-      const docs: { field: string; label: 'CDL' | 'Med Cert'; docType: string }[] = [
-        { field: 'cdl_expiration', label: 'CDL', docType: 'CDL' },
-        { field: 'medical_cert_expiration', label: 'Med Cert', docType: 'Medical Cert' },
+      const docs: { field: string; slot: 'cdl' | 'med'; docType: string }[] = [
+        { field: 'cdl_expiration', slot: 'cdl', docType: 'CDL' },
+        { field: 'medical_cert_expiration', slot: 'med', docType: 'Medical Cert' },
       ];
-      docs.forEach(({ field, label, docType }) => {
+      docs.forEach(({ field, slot, docType }) => {
         const dateStr: string | null = app[field];
         if (!dateStr) {
           if (isFullyOnboarded) driverCounts.neverRenewed++;
@@ -363,7 +363,13 @@ export default function ManagementPortal() {
         if (days < 0) expired++;
         if (days <= 30) count++;
         if (days <= 90) {
-          rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
+          let row = driverMap.get(op.id);
+          if (!row) {
+            row = { operatorId: op.id, name, cdl: null, med: null, worstDays: days };
+            driverMap.set(op.id, row);
+          }
+          row[slot] = { expiryDate: dateStr, daysUntil: days };
+          if (days < row.worstDays) row.worstDays = days;
         }
         const key = `${op.id}|${docType}`;
         if (days <= 30 && !remindedKeys.has(key)) noReminder++;
@@ -374,11 +380,11 @@ export default function ManagementPortal() {
         }
       });
     });
-    rows.sort((a, b) => a.daysUntil - b.daysUntil);
+    const rows = Array.from(driverMap.values()).sort((a, b) => a.worstDays - b.worstDays);
     setCriticalExpiryCount(count);
     setExpiredCount(expired);
     setNoReminderCount(noReminder);
-    setComplianceSummary(rows.slice(0, 5));
+    setComplianceSummary(rows);
     setDriverComplianceCounts(driverCounts);
   }, []);
 
