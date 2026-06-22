@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
