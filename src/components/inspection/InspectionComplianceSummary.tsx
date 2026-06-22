@@ -89,6 +89,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const { windowDays } = useComplianceWindow();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // Last-updated map: inspection_doc_id -> { by, at }
+  const [lastUpdated, setLastUpdated] = useState<Record<string, { by: string; at: string }>>({});
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
@@ -180,6 +182,34 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     setEntries(result);
+
+    // ── Fetch most-recent audit_log entry per inspection_doc_id ──────────
+    // Trigger writes entity_type='compliance', entity_id=inspection_doc_id.
+    const docIds = result.map(e => e.inspectionDocId).filter(Boolean) as string[];
+    if (docIds.length > 0) {
+      const { data: logs } = await supabase
+        .from('audit_log')
+        .select('entity_id, actor_name, created_at')
+        .eq('entity_type', 'compliance')
+        .in('entity_id', docIds)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (logs) {
+        const map: Record<string, { by: string; at: string }> = {};
+        // First occurrence per entity_id wins because the list is desc.
+        logs.forEach((l: any) => {
+          if (!map[l.entity_id]) {
+            map[l.entity_id] = { by: l.actor_name ?? 'A staff member', at: l.created_at };
+          }
+        });
+        setLastUpdated(map);
+      } else {
+        setLastUpdated({});
+      }
+    } else {
+      setLastUpdated({});
+    }
+
     setLoading(false);
   }, [windowDays]);
 
