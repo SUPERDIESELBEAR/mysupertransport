@@ -30,9 +30,7 @@ interface MessageThreadProps {
   onMessageSent?: (msg: ChatMessage) => void;
 }
 
-function initials(name: string) {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-}
+import { initials } from '@/lib/initials';
 
 export function MessageThread({
   myUserId, otherUserId, otherName, otherSubtitle, otherAvatarUrl,
