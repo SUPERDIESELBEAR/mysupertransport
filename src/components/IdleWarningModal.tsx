@@ -11,7 +11,6 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { Clock } from 'lucide-react';
-import { useRef, useEffect } from 'react';
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);

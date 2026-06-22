@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertTriangle, FileText, Loader2, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, FileText, Loader2, ShieldCheck, ExternalLink, Download } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 
 interface DocInfo {
@@ -33,6 +33,21 @@ export default function InspectionSharePage() {
     })();
   }, [token]);
 
+  // iOS Safari does NOT render PDFs inside <iframe> elements — the embed is
+  // a blank white box. Roadside officers must be able to open/download the
+  // document directly, so we always surface a prominent CTA on iOS.
+  const isIOS = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) ||
+      (ua.includes('Macintosh') && 'ontouchend' in document);
+  }, []);
+
+  const isPdfFile = (url: string | null | undefined) => {
+    if (!url) return false;
+    return /\.pdf(\?|#|$)/i.test(url);
+  };
+
   const expiryBadge = () => {
     if (!doc?.expires_at) return null;
     const days = Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000);
@@ -42,7 +57,7 @@ export default function InspectionSharePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-dvh bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-black text-white px-4 py-3 flex items-center gap-3">
         <img src={logo} alt="SuperTransport" className="h-7 object-contain" />
@@ -94,15 +109,58 @@ export default function InspectionSharePage() {
               </div>
             </div>
 
-            {/* PDF viewer */}
+            {/* Always provide a reliable download/open CTA up-front. iOS Safari
+                cannot render PDFs in <iframe>, so the button is the primary
+                interaction for officers on those devices. */}
             {doc.file_url ? (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 240px)', minHeight: 400 }}>
-                <iframe
-                  src={`${doc.file_url}#toolbar=1`}
-                  className="w-full h-full"
-                  title={doc.name}
-                />
-              </div>
+              <>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {isIOS && isPdfFile(doc.file_url)
+                        ? 'Tap to open the document'
+                        : 'Open or download the document'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Opens in your device's PDF viewer for full-screen reading and sharing.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <a
+                      href={doc.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-black text-white text-sm font-semibold px-4 py-2.5 min-h-11 hover:bg-gray-800 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open
+                    </a>
+                    <a
+                      href={doc.file_url}
+                      download={doc.name}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-gray-900 text-sm font-semibold px-4 py-2.5 min-h-11 hover:bg-gray-50 transition-colors"
+                    >
+                      <Download className="h-4 w-4" />
+                      Save
+                    </a>
+                  </div>
+                </div>
+
+                {/* Inline preview — works on desktop/Android; iOS Safari will show
+                    a blank box for PDFs, but the CTA above is the reliable path. */}
+                {!isIOS && (
+                  <div
+                    className="hidden sm:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
+                    style={{ height: 'calc(100dvh - 320px)', minHeight: 400 }}
+                  >
+                    <iframe
+                      src={`${doc.file_url}#toolbar=1`}
+                      className="w-full h-full"
+                      title={doc.name}
+                    />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 flex flex-col items-center gap-3 text-center">
                 <FileText className="h-10 w-10 text-gray-300" />
