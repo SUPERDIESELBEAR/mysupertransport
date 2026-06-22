@@ -610,6 +610,8 @@ export type Database = {
           sent_at: string
           sent_by: string | null
           sent_by_name: string | null
+          source: string
+          threshold: string | null
         }
         Insert: {
           doc_type: string
@@ -620,6 +622,8 @@ export type Database = {
           sent_at?: string
           sent_by?: string | null
           sent_by_name?: string | null
+          source?: string
+          threshold?: string | null
         }
         Update: {
           doc_type?: string
@@ -630,6 +634,8 @@ export type Database = {
           sent_at?: string
           sent_by?: string | null
           sent_by_name?: string | null
+          source?: string
+          threshold?: string | null
         }
         Relationships: [
           {
@@ -3860,9 +3866,12 @@ export type Database = {
           doc_key: string | null
           entity_kind: string | null
           expires_at: string | null
+          expires_updated_at: string | null
+          file_path: string | null
           inspection_doc_id: string | null
           operator_id: string | null
           operator_name: string | null
+          uploaded_at: string | null
         }
         Relationships: []
       }
