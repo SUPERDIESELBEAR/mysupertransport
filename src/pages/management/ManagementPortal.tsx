@@ -160,8 +160,7 @@ export default function ManagementPortal() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
-  type ComplianceRow = { operatorId: string; name: string; daysUntil: number; docType: 'CDL' | 'Med Cert'; expiryDate: string };
-  const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
+  const [complianceSummary, setComplianceSummary] = useState<ComplianceDriverRow[]>([]);
   const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const [driverComplianceFilter, setDriverComplianceFilter] = useState<ComplianceFilter>('all');
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
