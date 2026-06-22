@@ -3854,7 +3854,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_compliance_items: {
+        Row: {
+          days_until: number | null
+          doc_key: string | null
+          entity_kind: string | null
+          expires_at: string | null
+          inspection_doc_id: string | null
+          operator_id: string | null
+          operator_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
@@ -3886,6 +3897,10 @@ export type Database = {
       check_application_email_taken: {
         Args: { p_email: string }
         Returns: boolean
+      }
+      compliance_status: {
+        Args: { days: number; window_days: number }
+        Returns: string
       }
       consume_application_resume_token: {
         Args: { p_token: string }
