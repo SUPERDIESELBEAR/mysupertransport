@@ -423,6 +423,78 @@ export default function MoPlateRegistry() {
             {plates.length === 0 ? 'Add your first MO plate to get started.' : 'Try adjusting your search or filter.'}
           </p>
         </div>
+      ) : viewMode === 'table' ? (
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40">
+                <TableHead>Plate #</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">Current Driver</TableHead>
+                <TableHead className="hidden lg:table-cell">Unit #</TableHead>
+                <TableHead className="hidden lg:table-cell">Expires</TableHead>
+                <TableHead className="hidden xl:table-cell">Assigned Since</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayed.map(plate => {
+                const cfg = STATUS_CONFIG[plate.status] ?? STATUS_CONFIG.available;
+                const expStatus = getExpiryStatus(plate.expires_at);
+                const expClass = expStatus === 'expired' ? 'text-destructive font-semibold'
+                  : expStatus === 'expiring_soon' ? 'text-status-warning font-medium'
+                  : 'text-muted-foreground';
+                return (
+                  <TableRow key={plate.id} className="hover:bg-muted/30">
+                    <TableCell className="font-mono font-bold tracking-wider text-foreground">
+                      {plate.plate_number}
+                      {plate.registration_number && (
+                        <div className="text-[10px] text-muted-foreground font-sans font-normal">Reg #{plate.registration_number}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`text-[10px] font-semibold border flex items-center gap-1 w-fit ${cfg.badge}`}>
+                        {cfg.icon}{cfg.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm">
+                      {plate.current_driver ?? <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm font-mono">
+                      {plate.current_driver_unit ?? <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                    <TableCell className={`hidden lg:table-cell text-xs ${expClass}`}>
+                      {plate.expires_at ? format(new Date(plate.expires_at), 'MMM d, yyyy') : <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
+                      {plate.assigned_since ? format(new Date(plate.assigned_since), 'MMM d, yyyy') : <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {plate.status === 'available' && (
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => { setTransferFromDriver(null); setAssignPlate(plate); setAssignOpen(true); }} title="Assign">
+                            <UserCheck className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {plate.status === 'assigned' && (
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => { setReturnDialogPlate(plate); setReturnNotes(''); }} title="Return">
+                            <UserX className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => { setHistoryPlate(plate); setHistoryOpen(true); }} title="History">
+                          <History className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => { setEditPlate(plate); setFormOpen(true); }} title="Edit">
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {displayed.map(plate => {
