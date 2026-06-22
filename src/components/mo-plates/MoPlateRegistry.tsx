@@ -396,14 +396,17 @@ export default function MoPlateRegistry() {
             </button>
           ))}
         </div>
-        <div className="relative sm:ml-auto">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search plate or driver…"
-            className="pl-8 h-8 text-sm w-full sm:w-56"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search plate or driver…"
+              className="pl-8 h-8 text-sm w-full sm:w-56"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
