@@ -16,6 +16,8 @@ import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost';
@@ -57,6 +59,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
   const [expandedType, setExpandedType] = useState<DeviceType | null>(null);
+  const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
