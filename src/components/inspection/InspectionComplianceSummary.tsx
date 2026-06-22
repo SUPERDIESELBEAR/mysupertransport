@@ -486,6 +486,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     operatorName: string;
     cdl?: DocEntry;
     med?: DocEntry;
+    irp?: DocEntry;
     worstStatus: Status;
     worstDays: number | null;
   };
@@ -516,9 +517,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       }
       if (e.docKey === 'CDL') g.cdl = e;
       else if (e.docKey === 'Medical Certificate') g.med = e;
+      else if (e.docKey === 'IRP Registration (cab card)') g.irp = e;
     });
     byDriver.forEach(g => {
-      const certs = [g.cdl, g.med].filter(Boolean) as DocEntry[];
+      const certs = [g.cdl, g.med, g.irp].filter(Boolean) as DocEntry[];
       let worst: Status = 'valid';
       let worstDays: number | null = null;
       certs.forEach(c => {
