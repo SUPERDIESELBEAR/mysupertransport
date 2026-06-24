@@ -73,7 +73,7 @@ export default function Unsubscribe() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-surface px-4">
       <Card className="w-full max-w-md p-8 text-center space-y-5">
         <div className="mx-auto h-12 w-12 rounded-full bg-gold/15 flex items-center justify-center">
           <MailMinus className="h-6 w-6 text-gold" />

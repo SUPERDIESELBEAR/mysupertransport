@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,7 +6,9 @@ import { useDemoMode } from '@/hooks/useDemoMode';
 import { supabase } from '@/integrations/supabase/client';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
-import OperatorDetailPanel from './OperatorDetailPanel';
+// Lazy-load the operator detail drawer — it's the largest panel in the staff portal
+// and only renders after a row click.
+const OperatorDetailPanel = lazy(() => import('./OperatorDetailPanel'));
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
@@ -622,16 +624,24 @@ export default function StaffPortal() {
         />
       )}
       {currentView === 'operator-detail' && selectedOperatorId && (
-        <OperatorDetailPanel
-          operatorId={selectedOperatorId}
-          onBack={handleBackToPipeline}
-          onMessageOperator={handleMessageOperator}
-          onUnsavedChangesChange={setOperatorHasUnsavedChanges}
-          expiryOverride={panelExpiryOverride}
-          scrollToInspectionBinder={scrollToInspectionBinder}
-          scrollToStageKey={scrollToStageKey}
-          onOpenAppReview={(focusField) => resolveAndOpenAppReview(selectedOperatorId, focusField)}
-        />
+        <Suspense
+          fallback={
+            <div className="flex min-h-[60vh] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+            </div>
+          }
+        >
+          <OperatorDetailPanel
+            operatorId={selectedOperatorId}
+            onBack={handleBackToPipeline}
+            onMessageOperator={handleMessageOperator}
+            onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+            expiryOverride={panelExpiryOverride}
+            scrollToInspectionBinder={scrollToInspectionBinder}
+            scrollToStageKey={scrollToStageKey}
+            onOpenAppReview={(focusField) => resolveAndOpenAppReview(selectedOperatorId, focusField)}
+          />
+        </Suspense>
       )}
       {currentView === 'messages' && (
         <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>

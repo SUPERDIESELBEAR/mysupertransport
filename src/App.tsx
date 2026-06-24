@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,16 +13,12 @@ import TrackOperatorPresence from "@/components/TrackOperatorPresence";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 
-// Pages
+// Pages — eager entry points (hit on cold start)
 import LoginPage from "./pages/LoginPage";
 import ResetPassword from "./pages/ResetPassword";
 import WelcomeOperator from "./pages/WelcomeOperator";
 import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
-import OperatorPortal from "./pages/operator/OperatorPortal";
-import StaffPortal from "./pages/staff/StaffPortal";
-import ManagementPortal from "./pages/management/ManagementPortal";
-import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
@@ -31,7 +28,24 @@ import PEIRespond from "./pages/PEIRespond";
 import PEIRelease from "./pages/PEIRelease";
 import ApplicationApprove from "./pages/ApplicationApprove";
 
+// Heavy authenticated portals — code-split out of the initial bundle
+const OperatorPortal = lazy(() => import("./pages/operator/OperatorPortal"));
+const StaffPortal = lazy(() => import("./pages/staff/StaffPortal"));
+const ManagementPortal = lazy(() => import("./pages/management/ManagementPortal"));
+const DispatchPortal = lazy(() => import("./pages/dispatch/DispatchPortal"));
+
 const queryClient = new QueryClient();
+
+function PortalFallback() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-surface-dark">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold border-t-transparent" />
+        <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERDRIVE</p>
+      </div>
+    </div>
+  );
+}
 
 function AppRoutes() {
   const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
@@ -52,6 +66,7 @@ function AppRoutes() {
   }
 
   return (
+    <Suspense fallback={<PortalFallback />}>
     <Routes>
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
@@ -121,6 +136,7 @@ function AppRoutes() {
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <SplashPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
   );
 }
 
