@@ -31,11 +31,14 @@ export default function OfflineBanner() {
     >
       {!online && (
         <div
-          className="fixed top-0 inset-x-0 z-[10000] bg-amber-500 text-amber-950 text-xs font-semibold px-3 py-1.5 flex items-center justify-center gap-2 shadow-md"
+          className="fixed top-0 inset-x-0 z-[10000] bg-amber-500 text-amber-950 text-xs font-semibold shadow-md"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
           role="alert"
         >
-          <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>You're offline — changes will sync when reconnected.</span>
+          <div className="flex items-center justify-center gap-2 px-3 py-1.5">
+            <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>You're offline — changes will sync when reconnected.</span>
+          </div>
         </div>
       )}
     </div>
