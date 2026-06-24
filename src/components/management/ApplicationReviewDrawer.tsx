@@ -750,6 +750,34 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           {activeTab === 'overview' && (
             <div className="p-6 space-y-7">
 
+              {/* Denial reason (only for denied applications) */}
+              {app.review_status === 'denied' && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-destructive">Application denied</p>
+                        {app.reviewed_at && (
+                          <span className="text-xs text-muted-foreground">
+                            · {new Date(app.reviewed_at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                      {app.reviewer_notes ? (
+                        <p className="text-sm text-foreground mt-1.5 whitespace-pre-wrap break-words">
+                          {app.reviewer_notes}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic mt-1.5">
+                          No reason was recorded when this application was denied.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Personal Info */}
               <Section title="Personal Information" icon={<User className="h-4 w-4" />}>
                 <Field label="Full Name" value={fullName} />
