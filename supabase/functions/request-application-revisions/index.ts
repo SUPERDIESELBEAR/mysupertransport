@@ -210,7 +210,7 @@ serve(async (req) => {
             requested_by: userId,
           },
         },
-        () => sendEmailStrict(app.email, subject, html, resendKey)
+        () => sendEmailStrict(app.email, subject, html, resendKey, undefined, { messageId })
       );
     } else {
       console.error('request-application-revisions: RESEND_API_KEY not configured');

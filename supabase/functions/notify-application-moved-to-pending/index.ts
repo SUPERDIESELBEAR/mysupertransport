@@ -78,7 +78,7 @@ serve(async (req) => {
       templateName: 'application-moved-to-pending',
       recipientEmail: app.email,
       metadata: { application_id: applicationId },
-    }, () => sendEmailStrict(app.email, subject, html, resendKey));
+    }, () => sendEmailStrict(app.email, subject, html, resendKey, undefined, { messageId }));
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (err) {

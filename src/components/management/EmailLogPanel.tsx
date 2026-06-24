@@ -18,6 +18,8 @@ type LogRow = {
   error_message: string | null;
   metadata: Record<string, any> | null;
   created_at: string;
+  opened_at: string | null;
+  open_count: number | null;
 };
 
 type RangePreset = '24h' | '7d' | '30d' | 'all';
@@ -77,7 +79,7 @@ export default function EmailLogPanel() {
 
     let q = supabase
       .from('email_send_log')
-      .select('id, message_id, template_name, recipient_email, status, error_message, metadata, created_at')
+      .select('id, message_id, template_name, recipient_email, status, error_message, metadata, created_at, opened_at, open_count')
       .order('created_at', { ascending: false })
       .limit(500);
     if (since) q = q.gte('created_at', since);
@@ -117,7 +119,13 @@ export default function EmailLogPanel() {
   const filtered = useMemo(() => {
     const q = searchQ.trim().toLowerCase();
     return dedupedRows.filter(r => {
-      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (statusFilter === 'opened') {
+        if (!r.opened_at) return false;
+      } else if (statusFilter === 'unopened') {
+        if (r.status !== 'sent' || r.opened_at) return false;
+      } else if (statusFilter !== 'all' && r.status !== statusFilter) {
+        return false;
+      }
       if (templateFilter !== 'all' && r.template_name !== templateFilter) return false;
       if (q && !r.recipient_email.toLowerCase().includes(q) && !r.template_name.toLowerCase().includes(q)) return false;
       return true;
@@ -125,11 +133,12 @@ export default function EmailLogPanel() {
   }, [dedupedRows, statusFilter, templateFilter, searchQ]);
 
   const stats = useMemo(() => {
-    const s = { total: filtered.length, sent: 0, pending: 0, failed: 0 };
+    const s = { total: filtered.length, sent: 0, opened: 0, pending: 0, failed: 0 };
     for (const r of filtered) {
       if (r.status === 'sent') s.sent++;
       else if (r.status === 'pending') s.pending++;
       else if (r.status === 'failed' || r.status === 'dlq' || r.status === 'bounced') s.failed++;
+      if (r.opened_at) s.opened++;
     }
     return s;
   }, [filtered]);
@@ -190,9 +199,10 @@ export default function EmailLogPanel() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Total emails" value={stats.total} accent="text-foreground" />
         <StatCard label="Sent" value={stats.sent} accent="text-emerald-600" />
+        <StatCard label="Opened" value={stats.opened} accent="text-sky-600" />
         <StatCard label="Pending" value={stats.pending} accent="text-amber-600" />
         <StatCard label="Failed" value={stats.failed} accent="text-rose-600" />
       </div>
@@ -257,6 +267,8 @@ export default function EmailLogPanel() {
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="opened">Opened</SelectItem>
+                <SelectItem value="unopened">Sent · not yet opened</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
                 <SelectItem value="dlq">DLQ</SelectItem>
@@ -290,14 +302,20 @@ export default function EmailLogPanel() {
                   <th className="text-left px-3 py-2 font-semibold">Recipient</th>
                   <th className="text-left px-3 py-2 font-semibold">Status</th>
                   <th className="text-left px-3 py-2 font-semibold hidden md:table-cell">Sent</th>
+                  <th
+                    className="text-left px-3 py-2 font-semibold hidden md:table-cell"
+                    title="Stamped when the email's tracking pixel loads. Some clients (image blockers, plain-text view) never fire it; Apple Mail Privacy Protection can pre-fetch it and inflate opens."
+                  >
+                    Opened
+                  </th>
                   <th className="text-right px-3 py-2 font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="text-center text-muted-foreground py-8">Loading…</td></tr>
+                  <tr><td colSpan={6} className="text-center text-muted-foreground py-8">Loading…</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center text-muted-foreground py-8">No emails match the current filters.</td></tr>
+                  <tr><td colSpan={6} className="text-center text-muted-foreground py-8">No emails match the current filters.</td></tr>
                 ) : filtered.map(r => {
                   const appId = r.metadata?.application_id as string | undefined;
                   const canResend = !!appId && isResendable(r.template_name);
@@ -312,6 +330,18 @@ export default function EmailLogPanel() {
                       <td className="px-3 py-2 text-muted-foreground">{r.recipient_email}</td>
                       <td className="px-3 py-2">{statusBadge(r.status)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell">{formatTimestamp(r.created_at)}</td>
+                      <td className="px-3 py-2 text-xs hidden md:table-cell">
+                        {r.opened_at ? (
+                          <span className="text-sky-700">
+                            {formatTimestamp(r.opened_at)}
+                            {(r.open_count ?? 0) > 1 && (
+                              <span className="text-muted-foreground"> · {r.open_count}×</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         {canResend && (
                           <Button

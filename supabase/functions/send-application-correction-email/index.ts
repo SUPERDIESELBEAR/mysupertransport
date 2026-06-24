@@ -119,7 +119,7 @@ serve(async (req) => {
       templateName: 'application-correction-request',
       recipientEmail: app.email,
       metadata: { application_id: reqRow.application_id, request_id: requestId, approve_url: approveUrl },
-    }, () => sendEmailStrict(app.email, subject, html, resendKey));
+    }, () => sendEmailStrict(app.email, subject, html, resendKey, undefined, { messageId }));
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (err) {

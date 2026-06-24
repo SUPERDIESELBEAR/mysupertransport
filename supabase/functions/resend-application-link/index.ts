@@ -212,7 +212,7 @@ serve(async (req) => {
           requested_by: userId,
         },
       },
-      () => sendEmailStrict(app.email, subject, html, resendKey)
+      () => sendEmailStrict(app.email, subject, html, resendKey, undefined, { messageId })
     );
 
     if (result === null) {
