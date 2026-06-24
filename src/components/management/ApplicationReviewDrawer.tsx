@@ -244,10 +244,9 @@ const STATUS_COLORS: Record<string, string> = {
 type DrawerTab = 'overview' | 'documents' | 'pei';
 
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const isManagement = roles.includes('management');
   const canEditDenialReason = roles.includes('management') || roles.includes('owner');
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
