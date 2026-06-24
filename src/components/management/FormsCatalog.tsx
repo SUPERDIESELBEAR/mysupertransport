@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ import Step6DrugAlcohol from '@/components/application/Step6DrugAlcohol';
 import Step7Documents from '@/components/application/Step7Documents';
 import Step8Disclosures from '@/components/application/Step8Disclosures';
 import Step9Signature from '@/components/application/Step9Signature';
-import { defaultFormData } from '@/components/application/types';
+import { defaultFormData, type ApplicationFormData } from '@/components/application/types';
 import ICADocumentView from '@/components/ica/ICADocumentView';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
@@ -161,19 +161,27 @@ const FORMS: FormEntry[] = [
   },
 ];
 
-// ─── Step renderer (read-only) ────────────────────────────────────────────────
+// ─── Step renderer (interactive preview — changes are NOT saved) ─────────────
 function PreviewStep({ step }: { step: number }) {
+  const [data, setData] = useState<ApplicationFormData>(SAMPLE_DATA as ApplicationFormData);
+  // Reset to seeded sample when navigating between steps so each step starts clean.
+  useEffect(() => {
+    setData(SAMPLE_DATA as ApplicationFormData);
+  }, [step]);
+  const handleChange = (field: keyof ApplicationFormData, value: unknown) => {
+    setData(prev => ({ ...prev, [field]: value }) as ApplicationFormData);
+  };
   return (
-    <div className="relative pointer-events-none select-none">
-      {step === 1 && <Step1Personal data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 2 && <Step2CDL data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 3 && <Step3Employment data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 4 && <Step4Driving data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 5 && <Step5Accidents data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 6 && <Step6DrugAlcohol data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 7 && <Step7Documents data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 8 && <Step8Disclosures data={SAMPLE_DATA} onChange={noop} errors={{}} />}
-      {step === 9 && <Step9Signature data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+    <div className="relative">
+      {step === 1 && <Step1Personal data={data} onChange={handleChange} errors={{}} />}
+      {step === 2 && <Step2CDL data={data} onChange={handleChange} errors={{}} />}
+      {step === 3 && <Step3Employment data={data} onChange={handleChange} errors={{}} />}
+      {step === 4 && <Step4Driving data={data} onChange={handleChange} errors={{}} />}
+      {step === 5 && <Step5Accidents data={data} onChange={handleChange} errors={{}} />}
+      {step === 6 && <Step6DrugAlcohol data={data} onChange={handleChange} errors={{}} />}
+      {step === 7 && <Step7Documents data={data} onChange={handleChange} errors={{}} />}
+      {step === 8 && <Step8Disclosures data={data} onChange={handleChange} errors={{}} />}
+      {step === 9 && <Step9Signature data={data} onChange={handleChange} errors={{}} />}
     </div>
   );
 }
@@ -212,7 +220,11 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
               <div className="min-w-0">
                 <DialogTitle className="text-base font-semibold leading-tight truncate">{form.title}</DialogTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {isStandaloneDoc ? 'Blank form preview · Step 8 standalone document' : `Read-only preview${!isICA ? ` · ${totalSteps} steps` : ''}`}
+                  {isStandaloneDoc
+                    ? 'Blank form preview · Step 8 standalone document'
+                    : isICA
+                      ? 'Read-only preview'
+                      : `Interactive preview · ${totalSteps} steps · changes are not saved`}
                 </p>
               </div>
             </div>
