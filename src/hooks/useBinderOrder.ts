@@ -17,7 +17,7 @@ export function useBinderOrder() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from('inspection_binder_order' as any)
+        .from('inspection_binder_order')
         .select('scope, doc_order');
       if (data) {
         for (const row of data as any[]) {
@@ -43,7 +43,7 @@ export function useBinderOrder() {
     else setDriverOrder(order);
 
     await supabase
-      .from('inspection_binder_order' as any)
+      .from('inspection_binder_order')
       .update({ doc_order: order, updated_at: new Date().toISOString() } as any)
       .eq('scope', scope);
   }, []);

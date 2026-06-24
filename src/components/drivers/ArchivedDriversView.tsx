@@ -103,7 +103,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
       const reasonMap: Record<string, { reason: string | null; id: string | null }> = {};
       if (operatorIds.length > 0) {
         const { data: auditRows } = await supabase
-          .from('audit_log' as any)
+          .from('audit_log')
           .select('id, entity_id, metadata, created_at')
           .eq('action', 'operator_deactivated')
           .in('entity_id', operatorIds)
@@ -201,7 +201,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
     if (editReasonDriver.audit_log_id) {
       // Update existing audit log entry metadata
       await supabase
-        .from('audit_log' as any)
+        .from('audit_log')
         .update({ metadata: { is_active: false, reason: finalReason || null } } as any)
         .eq('id', editReasonDriver.audit_log_id);
     } else {

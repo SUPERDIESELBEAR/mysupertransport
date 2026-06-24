@@ -1,45 +1,45 @@
-## Resume: Medium block — perf + mobile UX batch
+## `from('table' as any)` cluster cleanup
 
-We've shipped a11y, tokenization, bug-fix, and a focused `as any` follow-up. Next on the Medium queue are **perf** and **mobile UX**. Both are narrow, low-risk, and verifiable in the live preview.
+All 17 distinct tables behind these casts (`applications`, `audit_log`, `carrier_signature_settings`, `contractor_pay_setup`, `dispatch_status_history`, `driver_optional_docs`, `faq_history`, `ica_contracts`, `ica_driver_acknowledgments`, `inspection_binder_order`, `insurance_email_settings`, `lease_terminations`, `onboarding_status`, `operators`, `pei_request_events`, `pei_requests`, `truck_owners`) are **already present** in `src/integrations/supabase/types.ts`. No regeneration needed — the casts are stale leftovers from before the types were updated. Removing them gives us end-to-end type safety on these calls for free.
 
-### Perf batch
+### Scope
 
-1. **Route-level lazy splits in `src/App.tsx`** — every page is currently a static import, so the first paint pulls in `StaffPortal` + `ManagementPortal` + `PipelineDashboard` (~6.7k LOC) even for a logged-out applicant. Convert the heavy portals to `React.lazy` + a single `<Suspense fallback={…spinner…}>` wrapping `<Routes>`:
-   - `StaffPortal`, `ManagementPortal`, `DispatchPortal`, `OperatorPortal`, `PipelineDashboard` (already imported inside StaffPortal — leave as-is).
-   - Keep `LoginPage`, `SplashPage`, `ApplicationStatus`, `ApplicationForm` eager (entry points hit on cold start).
-   - Re-use the existing centered gold-spinner block as the Suspense fallback so there's no visual change.
+85 occurrences of `.from('<table>' as any)` across 10 files:
 
-2. **`PipelineDashboard.tsx` lazy-load detail panel** — file is 3,804 LOC; the operator detail drawer is the bulk of it but only opens on row click. Wrap `OperatorDetailPanel` import in `React.lazy` + local `<Suspense>` (same fallback pattern). No behavior change, smaller initial chunk for the staff dashboard.
+- `src/pages/staff/OperatorDetailPanel.tsx` (23)
+- `src/pages/staff/PipelineDashboard.tsx` (3)
+- `src/pages/dispatch/DispatchPortal.tsx` (4)
+- `src/pages/operator/OperatorPortal.tsx` (3)
+- `src/pages/management/TerminationsView.tsx` (1)
+- `src/components/operator/OperatorICASign.tsx` (3)
+- `src/hooks/useBinderOrder.ts` (2)
+- `src/hooks/useDriverOptionalDocs.ts` (3)
+- `src/lib/truckSync.ts` (1)
+- `src/lib/pei/api.ts` (2)
 
-### Mobile UX batch
+### Approach (per file, one pass)
 
-3. **`min-h-screen` → `min-h-dvh` on remaining pages** — the Critical pass missed:
-   - `src/pages/NotFound.tsx:12`
-   - `src/pages/ApplicationForm.tsx` (4 occurrences at lines 559, 588, 597, 636)
-   - `src/pages/operator/OperatorPortal.tsx:906`
-   - `src/pages/Unsubscribe.tsx:76`
-   Pure className swap; eliminates iOS Safari URL-bar clipping on these screens.
+1. Drop the `'<table>' as any` cast on every `.from()` call.
+2. Run `tsgo --noEmit` after each file. Any new errors will fall into one of three buckets:
+   - **`(data as any)?.field` downstream reads** — replace the cast with the real row type (or simply drop the `as any` since the query now returns a typed row).
+   - **`.insert(...)` / `.update(...)` payloads missing required columns** — narrow the cast to *just* the payload (e.g. `.insert(payload as never)` is wrong; instead build a typed `TablesInsert<'x'>` object, or keep a tight `as Database['public']['Tables']['x']['Insert']` cast only on the payload).
+   - **Filters / `.eq()` arg type mismatches** — usually means the value is `string | null`; add an early `if (!id) return;` guard or `.eq('col', id!)`.
+3. No behavior changes — pure type tightening. Where a column genuinely isn't in types (none expected, but if it appears), the file gets a narrowly-scoped cast on that single field, not the whole table.
 
-4. **`OfflineBanner` safe-area inset** — banner sits at top of viewport on iOS PWAs. Add `pt-[env(safe-area-inset-top)]` so it doesn't hide behind the notch when the app is installed.
+### What stays out of scope
 
-### Out of scope for this batch
-
-- `from('table' as any)` cluster — needs Lovable Cloud type regeneration; separate follow-up.
-- Splitting `PipelineDashboard.tsx` / `ManagementPortal.tsx` beyond lazy-loading — larger refactor, keep for later.
-- Remaining Medium items (any unaddressed items in the original 17) — pick up after this batch is verified.
-
-### Files I'll touch
-
-- `src/App.tsx` (lazy imports + Suspense)
-- `src/pages/staff/PipelineDashboard.tsx` (lazy OperatorDetailPanel)
-- `src/pages/NotFound.tsx`, `src/pages/ApplicationForm.tsx`, `src/pages/operator/OperatorPortal.tsx`, `src/pages/Unsubscribe.tsx` (dvh)
-- `src/components/OfflineBanner.tsx` (safe-area inset)
+- The remaining `as any` sites that are NOT `from('table' as any)` (RPC casts, third-party SDK shims, edge-function payloads) — separate follow-up.
+- Schema or RLS changes — strictly client-side type hygiene.
+- Behavior changes, refactors, or UI changes.
 
 ### How you'll verify
 
-- DevTools → Network → throttled "Fast 3G", hard-reload `/login` — initial JS payload drops noticeably; portals load on navigation with the existing gold spinner.
-- Open `/dashboard?view=staff` → click any pipeline row → brief spinner → detail drawer appears as before.
-- Resize the preview to mobile (or use the device toggle): `/apply` step pages, `/404`, `/unsubscribe`, operator portal — bottom buttons no longer clip behind Safari URL bar.
-- DevTools → Offline → amber banner now sits below the iOS status-bar area on installed PWAs.
+- `tsgo --noEmit` is green at the end of the pass.
+- Smoke-test paths that touch the most-cast file (`OperatorDetailPanel`):
+  - Open any operator row from `/dashboard?view=staff` → pay setup, ICA history, dispatch status changes, insurance email, audit-log entries still load.
+- Spot-check dispatcher: `/dispatch` → change a driver's dispatch status → row appears in history.
+- Spot-check operator: ICA signing flow still saves (`OperatorICASign`), binder order persists (`useBinderOrder`), optional docs render (`useDriverOptionalDocs`).
 
-Approve and I'll ship it in one batch.
+### Files touched
+
+The 10 listed above only. No new files, no deletions.

@@ -823,7 +823,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .select('operator_id, doc_type, sent_at, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
       supabase
-        .from('audit_log' as any)
+        .from('audit_log')
         .select('entity_id, actor_name, created_at, metadata')
         .eq('action', 'cert_renewed')
         .order('created_at', { ascending: false })
@@ -1688,7 +1688,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               .update({ [col]: newDateStr })
               .eq('id', appId);
             if (error) throw error;
-            await supabase.from('audit_log' as any).insert({
+            await supabase.from('audit_log').insert({
               actor_id: actorId,
               actor_name: actorName,
               action: 'cert_renewed',
@@ -1765,7 +1765,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .eq('id', appId);
       if (error) throw error;
 
-      await supabase.from('audit_log' as any).insert({
+      await supabase.from('audit_log').insert({
         actor_id: actorId,
         actor_name: actorName,
         action: 'cert_renewed',

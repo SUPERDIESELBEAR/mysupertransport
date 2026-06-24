@@ -19,7 +19,7 @@ export function useDriverOptionalDocs(driverUserId: string | null | undefined) {
       return;
     }
     const { data } = await supabase
-      .from('driver_optional_docs' as any)
+      .from('driver_optional_docs')
       .select('doc_name, enabled')
       .eq('driver_id', driverUserId);
     const next = new Set<string>();
@@ -38,7 +38,7 @@ export function useDriverOptionalDocs(driverUserId: string | null | undefined) {
     if (!OPTIONAL_COMPANY_DOCS.includes(docName)) return;
     if (on) {
       await supabase
-        .from('driver_optional_docs' as any)
+        .from('driver_optional_docs')
         .upsert({ driver_id: driverUserId, doc_name: docName, enabled: true } as any, {
           onConflict: 'driver_id,doc_name',
         });
@@ -47,7 +47,7 @@ export function useDriverOptionalDocs(driverUserId: string | null | undefined) {
       // Soft-disable: keep the row but mark enabled=false so we preserve any audit/history.
       // Actually delete the row — existing uploaded files in inspection_documents are untouched.
       await supabase
-        .from('driver_optional_docs' as any)
+        .from('driver_optional_docs')
         .delete()
         .eq('driver_id', driverUserId)
         .eq('doc_name', docName);

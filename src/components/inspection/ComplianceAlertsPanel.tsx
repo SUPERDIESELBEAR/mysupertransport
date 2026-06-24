@@ -82,7 +82,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         .select('operator_id, doc_type, sent_at, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
       supabase
-        .from('audit_log' as any)
+        .from('audit_log')
         .select('entity_id, actor_name, created_at, metadata')
         .eq('action', 'cert_renewed')
         .order('created_at', { ascending: false })
@@ -339,7 +339,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           const oldDateStr = (appData as any)?.[col] ?? null;
           const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
           if (error) throw error;
-          await supabase.from('audit_log' as any).insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: operatorId, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name, bulk: true } });
+          await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: operatorId, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name, bulk: true } });
           successCount++;
         } catch { failCount++; }
       }
@@ -367,7 +367,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       const oldDateStr = (appData as any)?.[col] ?? null;
       const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
       if (error) throw error;
-      await supabase.from('audit_log' as any).insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: alert.operator_id, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name } });
+      await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: alert.operator_id, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name } });
       const renewedNow = new Date().toISOString();
       setRowRenewing(prev => ({ ...prev, [key]: false }));
       setRowRenewed(prev => ({ ...prev, [key]: true }));

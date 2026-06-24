@@ -21,7 +21,7 @@ export default function DriverICAAcknowledgment({ contractId }: Props) {
     if (!user?.id || !contractId) return;
     setLoading(true);
     const { data } = await supabase
-      .from('ica_driver_acknowledgments' as any)
+      .from('ica_driver_acknowledgments')
       .select('acknowledged_at')
       .eq('contract_id', contractId)
       .eq('driver_user_id', user.id)
@@ -37,7 +37,7 @@ export default function DriverICAAcknowledgment({ contractId }: Props) {
     setSubmitting(true);
     try {
       const { error } = await supabase
-        .from('ica_driver_acknowledgments' as any)
+        .from('ica_driver_acknowledgments')
         .insert({ contract_id: contractId, driver_user_id: user.id });
       if (error) throw error;
       toast.success('Acknowledgment recorded.');

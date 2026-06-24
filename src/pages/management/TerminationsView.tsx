@@ -42,7 +42,7 @@ export default function TerminationsView() {
   const load = async () => {
     setLoading(true);
     const { data: terms } = await supabase
-      .from('lease_terminations' as any)
+      .from('lease_terminations')
       .select('id, operator_id, effective_date, reason, contractor_label, carrier_typed_name, insurance_notified_at, truck_vin')
       .order('effective_date', { ascending: false });
 

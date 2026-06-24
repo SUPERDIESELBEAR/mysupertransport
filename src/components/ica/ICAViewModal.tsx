@@ -29,7 +29,7 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
   useEffect(() => {
     const fetch = async () => {
       const { data } = await supabase
-        .from('ica_contracts' as any)
+        .from('ica_contracts')
         .select('*')
         .eq('operator_id', operatorId)
         .order('created_at', { ascending: false })

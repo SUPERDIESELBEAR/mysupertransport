@@ -100,7 +100,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
     const load = async () => {
       setLoading(true);
       const { data } = await supabase
-        .from('contractor_pay_setup' as any)
+        .from('contractor_pay_setup')
         .select('*')
         .eq('operator_id', operatorId)
         .maybeSingle();
@@ -166,7 +166,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      const payload: Record<string, unknown> = {
+      const payload = {
         operator_id: operatorId,
         contractor_type: contractorType,
         legal_first_name: firstName.trim(),
@@ -187,12 +187,12 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       let error: any;
       if (existing) {
         ({ error } = await supabase
-          .from('contractor_pay_setup' as any)
+          .from('contractor_pay_setup')
           .update(payload)
           .eq('operator_id', operatorId));
       } else {
         ({ error } = await supabase
-          .from('contractor_pay_setup' as any)
+          .from('contractor_pay_setup')
           .insert(payload));
       }
 
@@ -201,7 +201,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       toast({ title: 'Pay setup submitted!', description: 'Your payroll information has been received.' });
       // Reload
       const { data } = await supabase
-        .from('contractor_pay_setup' as any)
+        .from('contractor_pay_setup')
         .select('*')
         .eq('operator_id', operatorId)
         .maybeSingle();

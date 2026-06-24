@@ -16,6 +16,7 @@ const Step9Signature = lazy(() => import('@/components/application/Step9Signatur
 import { ApplicationFormData, defaultFormData } from '@/components/application/types';
 import { validateStep, buildPayload } from '@/components/application/utils';
 import { useToast } from '@/hooks/use-toast';
+import type { TablesInsert } from '@/integrations/supabase/types';
 
 const STEP_LABELS = [
   'Personal Info', 'CDL Info', 'Employment', 'Experience',
@@ -86,14 +87,13 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
         ssnEncrypted = encData.encrypted ?? null;
       }
 
-      const payload = {
+      const payload: TablesInsert<'applications'> = {
         ...buildPayload(formData, token, false, ssnEncrypted),
         submitted_at: new Date().toISOString(),
         submitted_by_staff: true,
-      };
+      } as TablesInsert<'applications'>;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('applications') as any).insert(payload);
+      const { error } = await supabase.from('applications').insert(payload);
       if (error) throw error;
 
       // Audit log

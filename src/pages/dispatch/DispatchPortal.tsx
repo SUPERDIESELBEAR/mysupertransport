@@ -275,7 +275,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       .map(r => r.operator_id);
     if (ids.length === 0) return;
     const { data } = await supabase
-      .from('dispatch_status_history' as any)
+      .from('dispatch_status_history')
       .select('operator_id, changed_at, status_notes')
       .in('operator_id', ids)
       .eq('status_notes', ACK_NOTE)
@@ -397,7 +397,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       // Fallback: dispatch_status_history → active_dispatch.updated_at.
       if (needFallback.length > 0) {
         const { data: histRows } = await supabase
-          .from('dispatch_status_history' as any)
+          .from('dispatch_status_history')
           .select('operator_id, dispatch_status, changed_at')
           .in('operator_id', needFallback)
           .order('changed_at', { ascending: false });
@@ -913,7 +913,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
 
   const fetchHistoryForOperators = async (operatorIds: string[]) => {
     const { data } = await supabase
-      .from('dispatch_status_history' as any)
+      .from('dispatch_status_history')
       .select('id, operator_id, dispatch_status, current_load_lane, status_notes, changed_at')
       .in('operator_id', operatorIds)
       .order('changed_at', { ascending: false })
@@ -1076,7 +1076,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       if (error) throw error;
 
       // Audit-log the change
-      void supabase.from('audit_log' as any).insert({
+      void supabase.from('audit_log').insert({
         actor_id: session?.user?.id ?? null,
         action: 'operator.dispatch_exclusion_changed',
         entity_type: 'operator',
