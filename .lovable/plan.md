@@ -1,34 +1,37 @@
-## Plan: Fix viewer rendering + allow testing with a specific operator's QPassport
+## Plan: Move QPassport viewer to an app route (fixes both issues)
 
-### Issue 1 — Viewer page rendered as raw HTML
+### Why
+- The edge-function URL `…supabase.co/functions/v1/download-qpassport?token=…` is being displayed as raw text by your Chrome (likely the Gemini/Ask Gemini extension visible in your tabs is intercepting unknown edge-function origins, or Chrome's safe-browsing heuristic). The function itself returns the correct `Content-Type: text/html` — confirmed by curl.
+- The auto-download script can't trigger a cross-origin download via the `<a download>` attribute (browser security — Chrome ignores `download` when the href is a different origin). Same-origin app code can fetch the bytes as a blob and download reliably.
 
-Your screenshot shows the browser displayed the HTML as plain text instead of rendering it. That means the `Content-Type: text/html` header was not honored end-to-end. The likely cause: Supabase's edge-function gateway can override or strip headers when responses don't include the standard CORS headers, falling back to `text/plain`.
+Moving the viewer into the app solves both: rendered by your trusted app domain (`mysupertransport.lovable.app`), and same-origin to the React code that issues the download.
 
-**Fix in `supabase/functions/download-qpassport/index.ts`:**
-- Merge `corsHeaders` into every Response (viewer page, PDF responses, error pages) — Access-Control-Allow-Origin, etc. Right now only the OPTIONS preflight returns CORS headers; the other responses don't, which can cause the gateway to substitute the Content-Type.
-- Add `X-Content-Type-Options: nosniff` is already implicit — instead, make Content-Type fully explicit: `text/html; charset=utf-8` (already set) AND ensure no other middleware path is being hit.
-- Add a `Content-Type-Options` exemption is not needed; the real fix is consistent header merging.
-- Sanity log on first request so we can confirm in `edge_function_logs` which branch served the response.
+### Changes
 
-After redeploy, hitting the same URL should render the dark viewer page with the iframe.
+**1) New app route — `src/pages/QPassportView.tsx`** (lazy-loaded in `src/App.tsx` as `/qpassport/view`):
+- Reads `token` query param.
+- Renders a dark page matching the existing viewer layout: sticky header (title "QPassport" + Download + Open My Portal buttons), and an `<iframe>` filling the rest.
+- On mount:
+  1. `fetch(downloadQpassportUrl + "?token=" + token + "&mode=inline")` → blob → `URL.createObjectURL` → set as iframe `src` (renders PDF in the native viewer, same-origin to the iframe).
+  2. `fetch(downloadQpassportUrl + "?token=" + token + "&mode=attachment")` → blob → `URL.createObjectURL` → synthetic `<a download="QPassport.pdf">` click → triggers a real download.
+  3. Header "Download" button re-runs step 2.
+- Error state: if either fetch fails (expired link, missing file), show the existing dark error card with portal button — read JSON or HTML error and surface a clean message.
+- Cleanup: `URL.revokeObjectURL` on unmount.
 
-### Issue 2 — Test with a specific operator's QPassport (Emma Mueller)
+**2) Edge function — `supabase/functions/download-qpassport/index.ts`**:
+- Default route (`mode` not set) → keep current viewer page as a **fallback** so already-sent emails still work, but also detect and redirect any browser request to the new app route via a 302 to `https://mysupertransport.lovable.app/qpassport/view?token=…`. Simpler approach: always 302 when `mode` is absent. This means old and new emails both end up on the app route.
+- `mode=inline` and `mode=attachment` continue to stream PDF bytes (unchanged), used by the new app page's fetches.
+- Ensure CORS allows `GET` from `https://mysupertransport.lovable.app` (already permissive `*`).
 
-Right now `send-test-email` picks **the most recently uploaded** QPassport across all operators and sends the link to a hardcoded `emma@mysupertransport.com`. To test against Emma's actual portal QPassport (operator account `emmafmueller@gmail.com`):
+**3) Email link target — `supabase/functions/_shared/qpassport-link.ts`** (and any caller):
+- Update `buildQPassportDownloadUrl(operatorId)` to return `https://mysupertransport.lovable.app/qpassport/view?token=<token>` directly, instead of the edge-function URL. New emails get the app URL; old emails get the 302 from the edge function, so both work.
 
-**Change in `supabase/functions/send-test-email/index.ts`:**
-- Accept an optional JSON body: `{ "operator_email"?: string, "to"?: string }`.
-- If `operator_email` is provided: look up `auth.users` → `operators.user_id` → `onboarding_status.qpassport_url` for that email. If found, mint the download link against that operator. If not found or no QPassport on file, return a clear 404 with the reason (don't silently fall back).
-- If `to` is provided, send the email there; otherwise default to `emma@mysupertransport.com`. Validate it's an email.
-- Defaults stay identical when called with no body, so existing behavior is preserved.
-
-**After build:**
-1. Deploy `download-qpassport` and `send-test-email`.
-2. Invoke `send-test-email` with `{ "operator_email": "emmafmueller@gmail.com", "to": "emma@mysupertransport.com" }` — this finds Emma's operator record, mints a token bound to **her** QPassport, and emails the link to your inbox.
-3. Open the email → click **"Open QPassport"** → confirm the dark viewer page renders (PDF in iframe + auto-download).
-4. If the lookup returns 404, I'll report it so you know whether Emma's `onboarding_status.qpassport_url` is empty (separate data issue, not a code issue).
+### Verification (after build)
+1. Re-invoke `send-test-email` with `{ "operator_email": "emmafmueller@gmail.com", "to": "emma@mysupertransport.com" }`.
+2. Open the new email → "Open QPassport" link goes to `mysupertransport.lovable.app/qpassport/view?token=…`.
+3. Expect: app page renders with QPassport in iframe AND `QPassport.pdf` lands in Downloads automatically.
+4. The header "Download" button re-downloads on click.
 
 ### Out of scope
-- No changes to the production `send-notification` flow.
-- No DB schema changes.
-- Token format unchanged.
+- No DB changes, no auth changes, no template structural rewrite.
+- Token format and HMAC unchanged.
