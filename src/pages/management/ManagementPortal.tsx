@@ -16,7 +16,6 @@ import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import PipelineConfigEditor from '@/components/management/PipelineConfigEditor';
 import ActivityLog from '@/components/management/ActivityLog';
-import ApplicationErrorsPanel from '@/components/management/ApplicationErrorsPanel';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import DispatchPortal from '../dispatch/DispatchPortal';
 import MessagesView from '@/components/staff/MessagesView';
@@ -837,7 +836,6 @@ export default function ManagementPortal() {
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
-    { label: 'Application Errors', icon: <AlertTriangle className="h-4 w-4" />, path: 'app-errors' },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
     { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
     { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
@@ -1740,10 +1738,6 @@ export default function ManagementPortal() {
               setView('staff');
             }
           }} />
-        )}
-
-        {view === 'app-errors' && (
-          <ApplicationErrorsPanel />
         )}
 
         {view === 'faq' && (

@@ -1,24 +1,18 @@
-# Make Forms Catalog Preview Interactive (Management → Driver Application)
+## Plan: Remove Application Errors from Management Dashboard
 
-The Driver Application preview in **Management → Forms Catalog** is wrapped in `pointer-events-none select-none` and uses a `noop` onChange, so the new FMCSA acknowledgment checkbox and employer inputs can't be clicked or typed into. Make the preview interactive so staff can test the gate end-to-end.
+Agreed — the panel is low-value day-to-day (it's a raw audit_log filter for `application_submit_failed`, and these errors are already captured in the audit log if ever needed for investigation). Removing it cleans up the sidebar.
 
-## Change
+### Changes
 
-**`src/components/management/FormsCatalog.tsx`** — `PreviewStep` component (lines ~164–179):
+**`src/pages/management/ManagementPortal.tsx`**
+1. Remove the sidebar entry `{ label: 'Application Errors', ..., path: 'app-errors' }` (line ~840).
+2. Remove the route/section that renders `<ApplicationErrorsPanel />` (line ~1746).
+3. Remove the `import ApplicationErrorsPanel from '@/components/management/ApplicationErrorsPanel'` (line 19).
+4. Leave the `AlertTriangle` lucide import in place if other entries still use it; remove only if unused after the deletion.
 
-1. Convert from read-only to a local-state preview:
-   - Lift `SAMPLE_DATA` into a `useState` inside `PreviewStep` (keyed by the active step so navigating Step → Step resets to the seeded sample, preventing cross-step leakage).
-   - Pass a real `onChange={(field, value) => setData(prev => ({ ...prev, [field]: value }))}` to each step component.
-2. Remove the `pointer-events-none select-none` wrapper so checkboxes, inputs, radios, and buttons are clickable.
-3. Keep the existing "Read-only preview · N steps" header copy but change it to **"Interactive preview · changes are not saved"** so staff understand nothing persists.
+**`src/components/management/ApplicationErrorsPanel.tsx`**
+- Delete the file (no other code references it).
 
-## Result
-
-- Staff click "Preview" on Driver Application → page to Step 3.
-- Amber FMCSA box appears with the **acknowledgment checkbox** — clickable.
-- After checking it, employer fieldsets enable and the sticky condensed reminder appears.
-- All typing/selecting works; nothing is saved (no `/apply` submit path is exposed in preview).
-
-## Out of scope
-- No change to the public `/apply` flow or to validation.
-- No change to standalone-document previews (those don't have form inputs).
+### Out of scope
+- No DB changes. The `application_submit_failed` audit_log rows remain — only the UI surface is removed. They can still be queried directly if needed.
+- No changes to public `/apply` error capture logic.
