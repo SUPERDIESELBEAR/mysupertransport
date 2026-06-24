@@ -1610,12 +1610,23 @@ export default function ManagementPortal() {
                       </div>
                       {filteredApps.map(app => {
                         const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || '—';
+                        const denialPreview = app.review_status === 'denied' && app.reviewer_notes
+                          ? app.reviewer_notes.replace(/^\[Archived from pipeline\]\s*/i, '')
+                          : null;
                         return (
                           <div key={app.id} className="cursor-pointer group hover:bg-secondary/20 transition-colors" onClick={() => setSelectedApp(app)}>
                             <div className="hidden sm:grid grid-cols-12 items-center px-5 py-4">
                               <div className="col-span-4">
                                 <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors">{name}</p>
                                 {(app.cdl_state || app.cdl_class) && <p className="text-xs text-muted-foreground mt-0.5">CDL {app.cdl_class ?? '?'} · {app.cdl_state ?? '?'}</p>}
+                                {denialPreview && (
+                                  <p
+                                    className="text-xs italic text-destructive/80 mt-1 truncate"
+                                    title={denialPreview}
+                                  >
+                                    "{denialPreview}"
+                                  </p>
+                                )}
                               </div>
                               <div className="col-span-3">
                                 <p className="text-xs text-foreground truncate">{app.email}</p>
@@ -1649,6 +1660,11 @@ export default function ManagementPortal() {
                                 </div>
                                 <p className="text-xs text-muted-foreground truncate mt-0.5">{app.email}</p>
                                 <p className="text-xs text-muted-foreground">{app.phone ?? 'No phone'}{app.submitted_at ? ` · ${new Date(app.submitted_at).toLocaleDateString()}` : ''}</p>
+                                {denialPreview && (
+                                  <p className="text-xs italic text-destructive/80 mt-1 truncate" title={denialPreview}>
+                                    "{denialPreview}"
+                                  </p>
+                                )}
                               </div>
                               <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors shrink-0" />
                             </div>
