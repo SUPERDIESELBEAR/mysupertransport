@@ -83,7 +83,7 @@ function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBloc
         </FormField>
       </div>
 
-      <FormField label="Employer Email (optional, helps speed up verification)">
+      <FormField label="Employer Email" required>
         <AppInput
           type="email"
           value={value.email ?? ''}
