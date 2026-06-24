@@ -716,6 +716,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             </p>
           </div>
           <div className="flex items-center gap-1">
+            {app.review_status === 'denied' && canEditDenialReason && !reasonEditing && (
+              <button
+                onClick={openDenialReasonEditor}
+                title="Edit denial reason"
+                className="inline-flex items-center gap-1 text-xs text-surface-dark-muted hover:text-white transition-colors px-2 py-1 rounded-md hover:bg-white/10"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit reason
+              </button>
+            )}
             <button
               onClick={handlePrint}
               title="Print / Save as PDF"
