@@ -263,6 +263,22 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [reasonEditing, setReasonEditing] = useState(false);
   const [reasonDraft, setReasonDraft] = useState('');
   const [reasonSaving, setReasonSaving] = useState(false);
+  const denialCardRef = useRef<HTMLDivElement>(null);
+
+  const openDenialReasonEditor = useCallback(() => {
+    const currentReason = reasonOverride !== undefined ? reasonOverride : app?.reviewer_notes;
+    const ARCHIVE_PREFIX = '[Archived from pipeline]';
+    const hasPrefix = !!currentReason && currentReason.trim().startsWith(ARCHIVE_PREFIX);
+    const bodyText = hasPrefix
+      ? currentReason!.trim().slice(ARCHIVE_PREFIX.length).trim()
+      : (currentReason ?? '');
+    setActiveTab('overview');
+    setReasonDraft(bodyText);
+    setReasonEditing(true);
+    setTimeout(() => {
+      denialCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }, [reasonOverride, app?.reviewer_notes]);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
