@@ -1597,7 +1597,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entity_type: 'operator',
           entity_id: operatorId,
           entity_label: operatorName,
-          metadata: { changes: insuranceChanges },
+          metadata: { changes: insuranceChanges } as never,
         }).then(({ error }) => { if (error) {} });
       }
 
