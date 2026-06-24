@@ -295,9 +295,9 @@ export default function EmailLogPanel() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} className="text-center text-muted-foreground py-8">Loading…</td></tr>
+                  <tr><td colSpan={6} className="text-center text-muted-foreground py-8">Loading…</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center text-muted-foreground py-8">No emails match the current filters.</td></tr>
+                  <tr><td colSpan={6} className="text-center text-muted-foreground py-8">No emails match the current filters.</td></tr>
                 ) : filtered.map(r => {
                   const appId = r.metadata?.application_id as string | undefined;
                   const canResend = !!appId && isResendable(r.template_name);
@@ -312,6 +312,18 @@ export default function EmailLogPanel() {
                       <td className="px-3 py-2 text-muted-foreground">{r.recipient_email}</td>
                       <td className="px-3 py-2">{statusBadge(r.status)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell">{formatTimestamp(r.created_at)}</td>
+                      <td className="px-3 py-2 text-xs hidden md:table-cell">
+                        {r.opened_at ? (
+                          <span className="text-sky-700">
+                            {formatTimestamp(r.opened_at)}
+                            {(r.open_count ?? 0) > 1 && (
+                              <span className="text-muted-foreground"> · {r.open_count}×</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         {canResend && (
                           <Button
