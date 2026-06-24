@@ -825,7 +825,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   }
                 };
                 return (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <div ref={denialCardRef} className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                     <div className="flex items-start gap-3">
                       <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
