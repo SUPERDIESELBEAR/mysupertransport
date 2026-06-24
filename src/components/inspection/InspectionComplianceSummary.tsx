@@ -365,7 +365,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     } else {
       // No binder row yet — resolve the driver's auth user_id from operators
       // and insert a fresh per_driver inspection_documents row.
-      const opLookup: any = await (supabase.from('operators') as any)
+      const opLookup = await supabase.from('operators')
         .select('user_id').eq('id', operatorId).maybeSingle();
       const driverUserId = opLookup.data?.user_id as string | undefined;
       if (!driverUserId) {
@@ -474,7 +474,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         // Resolve driver_id (auth user_id) for per-driver rows we may need to insert
         let driverUserId: string | null = null;
         if (entry.operatorId !== '__fleet__' && !entry.inspectionDocId) {
-          const opLookup: any = await (supabase.from('operators') as any)
+          const opLookup = await supabase.from('operators')
             .select('user_id').eq('id', entry.operatorId).maybeSingle();
           driverUserId = opLookup.data?.user_id ?? null;
           if (!driverUserId) throw new Error('Could not resolve driver user_id');
@@ -916,7 +916,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   // #17 — open per-driver compliance timeline
   const openDriverTimeline = async (operatorId: string, operatorName: string) => {
-    const opLookup: any = await (supabase.from('operators') as any)
+    const opLookup = await supabase.from('operators')
       .select('user_id').eq('id', operatorId).maybeSingle();
     setHistoryTarget({
       mode: 'driver',
