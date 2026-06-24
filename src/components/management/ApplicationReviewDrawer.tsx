@@ -263,6 +263,22 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [reasonEditing, setReasonEditing] = useState(false);
   const [reasonDraft, setReasonDraft] = useState('');
   const [reasonSaving, setReasonSaving] = useState(false);
+  const denialCardRef = useRef<HTMLDivElement>(null);
+
+  const openDenialReasonEditor = useCallback(() => {
+    const currentReason = reasonOverride !== undefined ? reasonOverride : app?.reviewer_notes;
+    const ARCHIVE_PREFIX = '[Archived from pipeline]';
+    const hasPrefix = !!currentReason && currentReason.trim().startsWith(ARCHIVE_PREFIX);
+    const bodyText = hasPrefix
+      ? currentReason!.trim().slice(ARCHIVE_PREFIX.length).trim()
+      : (currentReason ?? '');
+    setActiveTab('overview');
+    setReasonDraft(bodyText);
+    setReasonEditing(true);
+    setTimeout(() => {
+      denialCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }, [reasonOverride, app?.reviewer_notes]);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
@@ -700,6 +716,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             </p>
           </div>
           <div className="flex items-center gap-1">
+            {app.review_status === 'denied' && canEditDenialReason && !reasonEditing && (
+              <button
+                onClick={openDenialReasonEditor}
+                title="Edit denial reason"
+                className="inline-flex items-center gap-1 text-xs text-surface-dark-muted hover:text-white transition-colors px-2 py-1 rounded-md hover:bg-white/10"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit reason
+              </button>
+            )}
             <button
               onClick={handlePrint}
               title="Print / Save as PDF"
@@ -809,7 +835,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   }
                 };
                 return (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <div ref={denialCardRef} className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                     <div className="flex items-start gap-3">
                       <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
