@@ -71,10 +71,6 @@ const BLANK_APP: FullApplication = {
   medical_cert_expiration: null, signature_image_url: null,
 };
 
-// ─── No-op onChange ───────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const noop = (_field: any, _value: any) => {};
-
 // ─── Form catalog entry ───────────────────────────────────────────────────────
 interface FormEntry {
   id: string;
