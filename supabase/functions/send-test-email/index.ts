@@ -32,18 +32,25 @@ Deno.serve(async (req) => {
     // most recently uploaded QPassport across all operators.
     let operatorId: string | undefined;
     if (body.operator_email) {
-      const { data: userRow, error: userErr } = await admin
-        .schema('auth').from('users')
-        .select('id')
-        .eq('email', body.operator_email)
-        .maybeSingle();
-      if (userErr || !userRow) {
+      // auth.users isn't exposed via PostgREST; use the Admin API and filter by email.
+      let userId: string | undefined;
+      let page = 1;
+      const perPage = 200;
+      while (page <= 25 && !userId) {
+        const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+        if (error) break;
+        const match = data?.users?.find((u) => (u.email ?? '').toLowerCase() === body.operator_email!.toLowerCase());
+        if (match) { userId = match.id; break; }
+        if (!data?.users?.length || data.users.length < perPage) break;
+        page += 1;
+      }
+      if (!userId) {
         return new Response(JSON.stringify({ error: `No auth user found for ${body.operator_email}` }), {
           status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       const { data: opRow } = await admin
-        .from('operators').select('id').eq('user_id', (userRow as { id: string }).id).maybeSingle();
+        .from('operators').select('id').eq('user_id', userId).maybeSingle();
       if (!opRow) {
         return new Response(JSON.stringify({ error: `No operator record for ${body.operator_email}` }), {
           status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
