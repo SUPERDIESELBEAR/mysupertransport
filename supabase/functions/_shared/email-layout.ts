@@ -73,12 +73,14 @@ export async function sendEmail(
   subject: string,
   html: string,
   resendKey: string,
-  from = `${BRAND_NAME} <${ONBOARDING_EMAIL}>`
+  from = `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
+  opts?: { messageId?: string; trackOpens?: boolean }
 ): Promise<void> {
+  const finalHtml = await maybeInjectTrackingPixel(html, opts);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify({ from, to: [to], subject, html: finalHtml }),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -92,15 +94,63 @@ export async function sendEmailStrict(
   subject: string,
   html: string,
   resendKey: string,
-  from = `${BRAND_NAME} <${ONBOARDING_EMAIL}>`
+  from = `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
+  opts?: { messageId?: string; trackOpens?: boolean }
 ): Promise<void> {
+  const finalHtml = await maybeInjectTrackingPixel(html, opts);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    body: JSON.stringify({ from, to: [to], subject, html: finalHtml }),
   });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Resend error [${res.status}]: ${err}`);
+  }
+}
+
+// ─── Open tracking pixel ─────────────────────────────────────────────────────
+// Injects a 1×1 transparent GIF that hits the `email-track-open` edge function,
+// which stamps `email_send_log.opened_at` / increments `open_count` for the
+// matching `message_id`. Silent no-op when there's no messageId, no secret,
+// no Supabase URL, or the caller opted out.
+
+function b64url(bytes: ArrayBuffer): string {
+  const b = btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  return b.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function computeOpenToken(messageId: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(messageId));
+  return b64url(sig).slice(0, 16);
+}
+
+async function maybeInjectTrackingPixel(
+  html: string,
+  opts?: { messageId?: string; trackOpens?: boolean },
+): Promise<string> {
+  if (!opts?.messageId) return html;
+  if (opts.trackOpens === false) return html;
+  const secret = Deno.env.get('EMAIL_TRACK_SECRET');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  if (!secret || !supabaseUrl) return html;
+  try {
+    const token = await computeOpenToken(opts.messageId, secret);
+    const src = `${supabaseUrl}/functions/v1/email-track-open?m=${encodeURIComponent(opts.messageId)}&t=${token}`;
+    const pixel = `<img src="${src}" width="1" height="1" alt="" style="display:none;border:0;outline:none;width:1px;height:1px;" />`;
+    if (html.includes('</body>')) {
+      return html.replace('</body>', `${pixel}</body>`);
+    }
+    return html + pixel;
+  } catch (e) {
+    console.warn('[email-layout] failed to inject tracking pixel:', e);
+    return html;
   }
 }
