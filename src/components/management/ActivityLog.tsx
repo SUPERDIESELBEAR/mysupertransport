@@ -937,7 +937,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     // Query each action type + a total "all" count in parallel
     const perActionQueries = actionValues.map(async (action) => {
       let q = supabase
-        .from('audit_log' as any)
+        .from('audit_log')
         .select('id', { count: 'exact', head: true })
         .eq('action', action);
       if (dateFrom) q = q.gte('created_at', startOfDay(dateFrom).toISOString());
@@ -948,7 +948,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
 
     const totalQuery = (async () => {
       let q = supabase
-        .from('audit_log' as any)
+        .from('audit_log')
         .select('id', { count: 'exact', head: true });
       if (dateFrom) q = q.gte('created_at', startOfDay(dateFrom).toISOString());
       if (dateTo)   q = q.lte('created_at', endOfDay(dateTo).toISOString());

@@ -58,13 +58,13 @@ export default function LeaseTerminationBuilderModal({
   useEffect(() => {
     (async () => {
       const [icaRes, settingsRes] = await Promise.all([
-        supabase.from('ica_contracts' as any)
+        supabase.from('ica_contracts')
           .select('*')
           .eq('operator_id', operatorId)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase.from('carrier_signature_settings' as any).select('*').maybeSingle(),
+        supabase.from('carrier_signature_settings').select('*').maybeSingle(),
       ]);
       setIca(icaRes.data ?? null);
       const settings = settingsRes.data as any;
@@ -123,7 +123,7 @@ export default function LeaseTerminationBuilderModal({
         carrier_signed_at: new Date().toISOString(),
       };
       const { data, error } = await supabase
-        .from('lease_terminations' as any)
+        .from('lease_terminations')
         .insert(payload)
         .select('id')
         .single();

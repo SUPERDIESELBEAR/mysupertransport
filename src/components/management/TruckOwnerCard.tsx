@@ -51,7 +51,7 @@ export default function TruckOwnerCard({ operatorId }: Props) {
   const fetchOwner = async () => {
     setLoading(true);
     const { data } = await supabase
-      .from('truck_owners' as any)
+      .from('truck_owners')
       .select('*')
       .eq('operator_id', operatorId)
       .maybeSingle();

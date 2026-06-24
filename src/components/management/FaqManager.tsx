@@ -181,7 +181,7 @@ export default function FaqManager() {
         .single();
       if (prof) name = `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() || null;
     }
-    await (supabase.from('faq_history' as any)).insert({
+    await (supabase.from('faq_history')).insert({
       faq_id: faq.id,
       question: overrideQuestion ?? faq.question,
       answer: overrideAnswer ?? faq.answer,

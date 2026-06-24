@@ -160,7 +160,7 @@ export default function ICABuilderModal({
       // Fetch ICA draft and onboarding truck info in parallel
       const [{ data: existing }, { data: onboardingRow }, { data: truckOwnerRow }] = await Promise.all([
         supabase
-          .from('ica_contracts' as any)
+          .from('ica_contracts')
           .select('*')
           .eq('operator_id', operatorId)
           .in('status', ['draft', 'sent_to_operator'])
@@ -173,7 +173,7 @@ export default function ICABuilderModal({
           .eq('operator_id', operatorId)
           .maybeSingle() as any,
         supabase
-          .from('truck_owners' as any)
+          .from('truck_owners')
           .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip')
           .eq('operator_id', operatorId)
           .maybeSingle(),
@@ -247,7 +247,7 @@ export default function ICABuilderModal({
   // ── Load default carrier signature settings ──
   useEffect(() => {
     const loadDefaultSig = async () => {
-      const { data: row } = await supabase.from('carrier_signature_settings' as any).select('*').maybeSingle();
+      const { data: row } = await supabase.from('carrier_signature_settings').select('*').maybeSingle();
       if (row) {
         const sig = row as any;
         setDefaultSig({ typed_name: sig.typed_name, title: sig.title, signature_url: sig.signature_url });
@@ -321,9 +321,9 @@ export default function ICABuilderModal({
 
       let result;
       if (contractId) {
-        result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
+        result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts' as any).insert(payload).select().single();
+        result = await supabase.from('ica_contracts').insert(payload).select().single();
       }
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);
@@ -391,9 +391,9 @@ export default function ICABuilderModal({
           updated_by: session?.user?.id ?? null,
         };
         if (defaultSig) {
-          await supabase.from('carrier_signature_settings' as any).update(sigPayload).neq('id', '00000000-0000-0000-0000-000000000000');
+          await supabase.from('carrier_signature_settings').update(sigPayload).neq('id', '00000000-0000-0000-0000-000000000000');
         } else {
-          await supabase.from('carrier_signature_settings' as any).insert(sigPayload);
+          await supabase.from('carrier_signature_settings').insert(sigPayload);
         }
         setSaveAsDefault(false);
       }
@@ -418,9 +418,9 @@ export default function ICABuilderModal({
 
       let result;
       if (contractId) {
-        result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
+        result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts' as any).insert(payload).select().single();
+        result = await supabase.from('ica_contracts').insert(payload).select().single();
       }
 
       if (result.error) throw result.error;
@@ -522,9 +522,9 @@ export default function ICABuilderModal({
       const payload = { operator_id: operatorId, ...restData3, owner_name: _oname, owner_ein_ssn: _ein || _ssn || null, equipment_location: null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
       let result;
       if (contractId) {
-        result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
+        result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts' as any).insert(payload).select().single();
+        result = await supabase.from('ica_contracts').insert(payload).select().single();
       }
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);

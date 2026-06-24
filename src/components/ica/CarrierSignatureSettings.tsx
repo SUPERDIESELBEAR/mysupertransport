@@ -56,8 +56,8 @@ export default function CarrierSignatureSettings() {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     const [{ data }, { count }] = await Promise.all([
-      supabase.from('carrier_signature_settings' as any).select('*').maybeSingle(),
-      supabase.from('ica_contracts' as any)
+      supabase.from('carrier_signature_settings').select('*').maybeSingle(),
+      supabase.from('ica_contracts')
         .select('id', { count: 'exact', head: true })
         .is('carrier_signature_url', null),
     ]);
@@ -137,10 +137,10 @@ export default function CarrierSignatureSettings() {
 
       let result;
       if (existing) {
-        result = await supabase.from('carrier_signature_settings' as any)
+        result = await supabase.from('carrier_signature_settings')
           .update(payload).eq('id', existing.id).select().single();
       } else {
-        result = await supabase.from('carrier_signature_settings' as any)
+        result = await supabase.from('carrier_signature_settings')
           .insert(payload).select().single();
       }
       if (result.error) throw result.error;
@@ -166,7 +166,7 @@ export default function CarrierSignatureSettings() {
     setConfirmBackfillOpen(false);
     try {
       const { error, count } = await supabase
-        .from('ica_contracts' as any)
+        .from('ica_contracts')
         .update({
           carrier_signature_url: existing.signature_url,
           carrier_typed_name: existing.typed_name,

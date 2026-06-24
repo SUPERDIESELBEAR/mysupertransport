@@ -36,7 +36,7 @@ export default function LeaseTerminationViewModal({
 
   const load = async () => {
     const { data } = await supabase
-      .from('lease_terminations' as any)
+      .from('lease_terminations')
       .select('*')
       .eq('id', terminationId)
       .maybeSingle();
