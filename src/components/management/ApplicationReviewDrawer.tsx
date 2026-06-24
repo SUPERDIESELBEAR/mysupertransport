@@ -258,6 +258,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [correctionRefreshKey, setCorrectionRefreshKey] = useState(0);
   const [movingToPending, setMovingToPending] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Denial reason editing
+  const [reasonOverride, setReasonOverride] = useState<string | null | undefined>(undefined);
+  const [reasonEditing, setReasonEditing] = useState(false);
+  const [reasonDraft, setReasonDraft] = useState('');
+  const [reasonSaving, setReasonSaving] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
