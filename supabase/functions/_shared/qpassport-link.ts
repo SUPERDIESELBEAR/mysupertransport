@@ -24,11 +24,13 @@ export async function buildQPassportDownloadUrl(
   operatorId: string,
   opts: { expiresInSeconds?: number } = {},
 ): Promise<string> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const exp = Math.floor(Date.now() / 1000) + (opts.expiresInSeconds ?? 60 * 60 * 24 * 30) // 30 days
   const payloadJson = JSON.stringify({ o: operatorId, e: exp })
   const payload = b64urlEncode(new TextEncoder().encode(payloadJson))
   const sig = await hmacSign(payload, secret)
-  return `${supabaseUrl}/functions/v1/download-qpassport?token=${payload}.${sig}`
+  // Link to the app-hosted viewer page (same-origin, reliable rendering + blob download).
+  // The page fetches PDF bytes from the download-qpassport edge function with mode=inline/attachment.
+  const appUrl = Deno.env.get('APP_PUBLIC_URL') ?? 'https://mysupertransport.lovable.app'
+  return `${appUrl}/qpassport/view?token=${payload}.${sig}`
 }
