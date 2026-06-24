@@ -90,6 +90,7 @@ export interface FullApplication {
   review_status: string;
   submitted_at: string | null;
   reviewer_notes: string | null;
+  reviewed_at: string | null;
   dl_front_url: string | null;
   dl_rear_url: string | null;
   medical_cert_url: string | null;
