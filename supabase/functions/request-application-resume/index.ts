@@ -120,7 +120,7 @@ serve(async (req) => {
           recipientEmail: email,
           metadata: { application_id: app.id, resume_url: resumeUrl },
         },
-        () => sendEmailStrict(email, subject, html, resendKey)
+        () => sendEmailStrict(email, subject, html, resendKey, undefined, { messageId })
       );
     } else {
       console.error('request-application-resume: RESEND_API_KEY not configured');

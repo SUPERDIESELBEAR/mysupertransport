@@ -172,7 +172,7 @@ serve(async (req) => {
                 reverted_by: userId,
               },
             },
-            () => sendEmailStrict(app.email, subject, html, resendKey)
+            () => sendEmailStrict(app.email, subject, html, resendKey, undefined, { messageId })
           );
           courtesyEmailSent = true;
         } catch (e: any) {
