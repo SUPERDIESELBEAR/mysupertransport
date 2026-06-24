@@ -20,6 +20,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function b64urlDecode(input: string): Uint8Array {
   const pad = input.length % 4 === 0 ? '' : '='.repeat(4 - (input.length % 4))
   const b64 = input.replace(/-/g, '+').replace(/_/g, '/') + pad
@@ -82,7 +87,7 @@ function errorPage(title: string, message: string, status = 400): Response {
 <body><div class="card"><h1>${title}</h1><p>${message}</p>
 <a class="btn" href="https://mysupertransport.lovable.app/operator?tab=progress#qpassport">Open My Portal</a>
 </div></body></html>`
-  return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  return new Response(html, { status, headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'X-Content-Type-Options': 'nosniff' } })
 }
 
 // Verify token, return operator_id or an error Response.
@@ -177,7 +182,7 @@ function viewerPage(token: string): Response {
   } catch (_) {}
  </script>
 </body></html>`
-  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
+  return new Response(html, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' } })
 }
 
 function pdfResponse(bytes: Uint8Array, mode: 'inline' | 'attachment'): Response {
@@ -187,6 +192,7 @@ function pdfResponse(bytes: Uint8Array, mode: 'inline' | 'attachment'): Response
   return new Response(bytes, {
     status: 200,
     headers: {
+      ...corsHeaders,
       'Content-Type': 'application/pdf',
       'Content-Disposition': disposition,
       'Cache-Control': 'no-store',
@@ -197,12 +203,7 @@ function pdfResponse(bytes: Uint8Array, mode: 'inline' | 'attachment'): Response
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
