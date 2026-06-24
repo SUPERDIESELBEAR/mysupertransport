@@ -1,33 +1,17 @@
-## Add "Edit denial reason" button to the drawer header
+## Remove header "Edit reason" button
 
-### What changes
-In the Application Review drawer top header (where Print/Close live), when `review_status === 'denied'` and the viewer is Management or Owner, add a small **Edit reason** button.
+Revert the header shortcut. Keep the Edit control only inside the red "Application denied" card on the Overview tab (where it lived before today's header change).
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ John Smith  · Denied             [Edit reason] [Print] [×]   │
-├──────────────────────────────────────────────────────────────┤
-│  Overview │ Documents │ PEI                                  │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Behavior
-- Click → switches `activeTab` to **Overview**, scrolls to the existing red denial card, and opens the inline editor (sets `reasonEditing = true`, prefills `reasonDraft` from current reason body).
-- Save / Cancel / audit logging all reuse the existing logic already in the Overview card — no duplicate code paths.
-- Button is hidden for staff/dispatch roles (same `canEditDenialReason` gate already defined).
-- Button is hidden once `reasonEditing` is true (avoids redundancy while editing).
-
-### Files touched
-- `src/components/management/ApplicationReviewDrawer.tsx` — add the header button next to existing header actions; wire its onClick to `setActiveTab('overview')`, `setReasonDraft(bodyText)`, `setReasonEditing(true)`, then `scrollIntoView` on a ref attached to the denial card.
+### Changes
+- `src/components/management/ApplicationReviewDrawer.tsx`
+  - Remove the `Edit reason` button from the drawer header (the block added next to Print/Close).
+  - Remove the now-unused `openDenialReasonEditor` helper and the `denialCardRef` ref + its attachment on the denial card div.
+  - Leave the inline Edit/Save/Cancel flow inside the red denial card untouched.
 
 ### Out of scope
-- No changes to the denied list page itself.
-- No permission changes.
-- No schema or audit_log changes.
+- No changes to permissions, audit logging, or save behavior.
 
 ### Verification
-1. Open a denied applicant from Management → Applications → Denied.
-2. Header shows **Edit reason** button.
-3. Click it → drawer jumps to Overview, denial card is in view, textarea is open and prefilled.
-4. Save → toast + persisted text + audit_log entry (unchanged from today).
-5. Sign in as onboarding_staff → button is hidden.
+1. Open a denied applicant → header shows only Print and Close (no Edit reason).
+2. Overview tab still shows the red denial card with its Edit button for Management/Owner.
+3. Edit → Save still works and writes the audit_log entry.
