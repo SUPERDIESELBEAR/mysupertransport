@@ -582,7 +582,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchCertHistory();
     // Fetch Stage 8 pay setup record + signed URLs for files
     supabase
-      .from('contractor_pay_setup' as any)
+      .from('contractor_pay_setup')
       .select('*')
       .eq('operator_id', operatorId)
       .maybeSingle()
@@ -604,7 +604,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   useEffect(() => {
     if (status.ica_status !== 'in_progress') { setIcaDraftUpdatedAt(null); return; }
     supabase
-      .from('ica_contracts' as any)
+      .from('ica_contracts')
       .select('updated_at')
       .eq('operator_id', operatorId)
       .eq('status', 'draft')
@@ -722,13 +722,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     // Get total count for "load more"
     const { count } = await supabase
-      .from('dispatch_status_history' as any)
+      .from('dispatch_status_history')
       .select('id', { count: 'exact', head: true })
       .eq('operator_id', operatorId);
     setDispatchHistoryTotal(count ?? 0);
 
     const { data } = await supabase
-      .from('dispatch_status_history' as any)
+      .from('dispatch_status_history')
       .select('id, dispatch_status, current_load_lane, status_notes, changed_at, changed_by')
       .eq('operator_id', operatorId)
       .order('changed_at', { ascending: false })
@@ -747,7 +747,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const loadMoreHistory = async () => {
     setLoadingMoreHistory(true);
     const { data } = await supabase
-      .from('dispatch_status_history' as any)
+      .from('dispatch_status_history')
       .select('id, dispatch_status, current_load_lane, status_notes, changed_at, changed_by')
       .eq('operator_id', operatorId)
       .order('changed_at', { ascending: false })
@@ -800,7 +800,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       const actorName = profileData
         ? `${profileData.first_name ?? ''} ${profileData.last_name ?? ''}`.trim() || null
         : null;
-      const { error: auditErr } = await supabase.from('audit_log' as any).insert({
+      const { error: auditErr } = await supabase.from('audit_log').insert({
         actor_id: actorId,
         actor_name: actorName,
         action: 'cert_renewed',
@@ -1115,7 +1115,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           setStatus((prev: any) => ({ ...prev, operator_type: 'solo' }));
           if (os.id) {
             supabase
-              .from('onboarding_status' as any)
+              .from('onboarding_status')
               .update({ operator_type: 'solo' })
               .eq('id', os.id)
               .then(({ error }) => { if (error) console.error('default operator_type backfill failed', error); });
@@ -1159,7 +1159,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     // Load persistent insurance email recipients
     const { data: insSettings } = await supabase
-      .from('insurance_email_settings' as any)
+      .from('insurance_email_settings')
       .select('recipient_emails')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .maybeSingle();
@@ -1170,7 +1170,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // Build truck info: prefer onboarding_status fields, fall back to ICA
     const osTruck = (op as any)?.onboarding_status as any;
     const { data: icaData } = await supabase
-      .from('ica_contracts' as any)
+      .from('ica_contracts')
       .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
       .eq('operator_id', operatorId)
       .order('updated_at', { ascending: false })
@@ -1231,7 +1231,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setSavingInsuranceEmails(true);
     try {
       const { error } = await supabase
-        .from('insurance_email_settings' as any)
+        .from('insurance_email_settings')
         .update({ recipient_emails: insuranceEmailRecipients, updated_at: new Date().toISOString(), updated_by: session?.user?.id ?? null })
         .eq('id', '00000000-0000-0000-0000-000000000001');
       if (error) throw error;
@@ -1559,7 +1559,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       // ── Write audit log for operator status changes ───────────────────
       if (triggeredMilestones.length > 0) {
-        supabase.from('audit_log' as any).insert({
+        supabase.from('audit_log').insert({
           actor_id: session?.user?.id ?? null,
           actor_name: operatorName,
           action: 'operator_status_updated',
@@ -1573,7 +1573,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
       // ── Write a dedicated onboarding_completed entry ─────────────
       if (isNewlyFullyOnboarded) {
-        supabase.from('audit_log' as any).insert({
+        supabase.from('audit_log').insert({
           actor_id: session?.user?.id ?? null,
           actor_name: operatorName,
           action: 'onboarding_completed',
@@ -1590,7 +1590,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       // ── Write audit log for insurance field changes ───────────────────
       if (hasInsuranceChanges) {
-        void supabase.from('audit_log' as any).insert({
+        void supabase.from('audit_log').insert({
           actor_id: session?.user?.id ?? null,
           actor_name: operatorName,
           action: 'insurance_fields_updated',
@@ -1603,7 +1603,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       // ── Write audit log when exceptions are first approved ────────────
       if (!wasExceptionActive && isExceptionNowActive) {
-        void supabase.from('audit_log' as any).insert({
+        void supabase.from('audit_log').insert({
           actor_id: session?.user?.id ?? null,
           actor_name: operatorName,
           action: 'exception_approved',
@@ -1621,7 +1621,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       // ── Write audit log when go-live date is set or changed ───────────
       if (goLiveDateChanged) {
-        void supabase.from('audit_log' as any).insert({
+        void supabase.from('audit_log').insert({
           actor_id: session?.user?.id ?? null,
           actor_name: operatorName,
           action: 'go_live_updated',
@@ -1665,7 +1665,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     try {
       // Delete the ica_contracts record for this operator
       const { error: delError } = await supabase
-        .from('ica_contracts' as any)
+        .from('ica_contracts')
         .delete()
         .eq('operator_id', operatorId);
       if (delError) throw delError;
@@ -1680,7 +1680,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
 
       // Log the void action
-      void supabase.from('audit_log' as any).insert({
+      void supabase.from('audit_log').insert({
         actor_id: session?.user?.id ?? null,
         actor_name: null,
         action: 'ica_voided',
@@ -1712,7 +1712,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (error) throw error;
 
       // Log the action
-      void supabase.from('audit_log' as any).insert({
+      void supabase.from('audit_log').insert({
         actor_id: session?.user?.id ?? null,
         actor_name: null,
         action: newActive ? 'operator_reactivated' : 'operator_deactivated',
@@ -1755,7 +1755,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .eq('id', operatorId);
       if (error) throw error;
 
-      void supabase.from('audit_log' as any).insert({
+      void supabase.from('audit_log').insert({
         actor_id: session?.user?.id ?? null,
         actor_name: null,
         action: 'operator.dispatch_exclusion_changed',
@@ -1796,7 +1796,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setOnHoldReason(onHoldModalReason.trim());
       setOnHoldDate(onHoldModalDate);
       setShowOnHoldModal(false);
-      void supabase.from('audit_log' as any).insert({
+      void supabase.from('audit_log').insert({
         actor_id: session?.user?.id ?? null,
         actor_name: null,
         action: 'operator_placed_on_hold',
@@ -1824,7 +1824,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setIsOnHold(false);
       setOnHoldReason('');
       setOnHoldDate(null);
-      void supabase.from('audit_log' as any).insert({
+      void supabase.from('audit_log').insert({
         actor_id: session?.user?.id ?? null,
         actor_name: null,
         action: 'operator_removed_from_hold',
@@ -6513,7 +6513,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             }
             // Fetch draft updated_at for banner
             const { data: draft } = await supabase
-              .from('ica_contracts' as any)
+              .from('ica_contracts')
               .select('updated_at')
               .eq('operator_id', operatorId)
               .eq('status', 'draft')

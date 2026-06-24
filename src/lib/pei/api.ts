@@ -51,7 +51,7 @@ export async function fetchPEIRequestEvents(
   requestId: string
 ): Promise<PEIRequestEvent[]> {
   const { data, error } = await supabase
-    .from('pei_request_events' as any)
+    .from('pei_request_events')
     .select('*')
     .eq('pei_request_id', requestId)
     .order('occurred_at', { ascending: true });

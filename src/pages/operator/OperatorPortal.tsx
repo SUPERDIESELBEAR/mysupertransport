@@ -75,7 +75,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     let cancelled = false;
     (async () => {
       const { data } = await supabase
-        .from('truck_owners' as any)
+        .from('truck_owners')
         .select('operator_id, operators:operator_id(user_id)')
         .eq('user_id', user.id)
         .maybeSingle();
@@ -341,7 +341,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
       // Fetch Stage 8 pay setup status
       const { data: ps } = await supabase
-        .from('contractor_pay_setup' as any)
+        .from('contractor_pay_setup')
         .select('submitted_at, terms_accepted')
         .eq('operator_id', opId)
         .maybeSingle();
@@ -387,7 +387,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           .eq('operator_id', opId)
           .maybeSingle(),
         supabase
-          .from('ica_contracts' as any)
+          .from('ica_contracts')
           .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', opId)
           .order('updated_at', { ascending: false })

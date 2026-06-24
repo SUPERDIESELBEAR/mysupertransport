@@ -93,7 +93,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       resolvedSignerRole = 'driver';
     } else {
       const { data: to } = await supabase
-        .from('truck_owners' as any)
+        .from('truck_owners')
         .select('operator_id')
         .eq('user_id', session!.user.id)
         .maybeSingle();
@@ -114,7 +114,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
     if (profile) setOperatorName([profile.first_name, profile.last_name].filter(Boolean).join(' '));
 
     const { data } = await supabase
-      .from('ica_contracts' as any)
+      .from('ica_contracts')
       .select('*')
       .eq('operator_id', resolvedOperatorId)
       .order('created_at', { ascending: false })
@@ -195,7 +195,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         updatePayload.owner_email = ownerEdits.owner_email || null;
       }
       const { error } = await supabase
-        .from('ica_contracts' as any)
+        .from('ica_contracts')
         .update(updatePayload)
         .eq('id', contract.id);
 
