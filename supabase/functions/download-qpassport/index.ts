@@ -114,8 +114,17 @@ async function resolveToken(token: string | null): Promise<{ operatorId: string 
   return { operatorId }
 }
 
-// Fetch the QPassport PDF bytes for an operator. Returns bytes or an error Response.
-async function fetchQPassportBytes(operatorId: string): Promise<Uint8Array | Response> {
+function contentTypeFor(path: string): { contentType: string; extension: string } {
+  const lower = path.toLowerCase()
+  if (lower.endsWith('.png')) return { contentType: 'image/png', extension: 'png' }
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return { contentType: 'image/jpeg', extension: 'jpg' }
+  if (lower.endsWith('.webp')) return { contentType: 'image/webp', extension: 'webp' }
+  if (lower.endsWith('.gif')) return { contentType: 'image/gif', extension: 'gif' }
+  return { contentType: 'application/pdf', extension: 'pdf' }
+}
+
+// Fetch the QPassport bytes for an operator. Returns bytes + content-type or an error Response.
+async function fetchQPassportBytes(operatorId: string): Promise<{ bytes: Uint8Array; contentType: string; extension: string } | Response> {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
   const { data: row, error: rowErr } = await supabase
     .from('onboarding_status')
@@ -135,7 +144,8 @@ async function fetchQPassportBytes(operatorId: string): Promise<Uint8Array | Res
   if (dlErr || !fileBlob) {
     return errorPage('Download failed', 'We could not retrieve your QPassport right now. Please try again or open your portal.', 500)
   }
-  return new Uint8Array(await fileBlob.arrayBuffer())
+  const { contentType, extension } = contentTypeFor(path)
+  return { bytes: new Uint8Array(await fileBlob.arrayBuffer()), contentType, extension }
 }
 
 function viewerPage(token: string): Response {
@@ -185,15 +195,21 @@ function viewerPage(token: string): Response {
   return new Response(html, { status: 200, headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' } })
 }
 
-function pdfResponse(bytes: Uint8Array, mode: 'inline' | 'attachment'): Response {
+function fileResponse(
+  bytes: Uint8Array,
+  mode: 'inline' | 'attachment',
+  contentType: string,
+  extension: string,
+): Response {
+  const filename = `QPassport.${extension}`
   const disposition = mode === 'attachment'
-    ? 'attachment; filename="QPassport.pdf"'
-    : 'inline; filename="QPassport.pdf"'
+    ? `attachment; filename="${filename}"`
+    : `inline; filename="${filename}"`
   return new Response(bytes, {
     status: 200,
     headers: {
       ...corsHeaders,
-      'Content-Type': 'application/pdf',
+      'Content-Type': contentType,
       'Content-Disposition': disposition,
       'Cache-Control': 'no-store',
       'Content-Length': String(bytes.byteLength),
@@ -224,10 +240,10 @@ Deno.serve(async (req) => {
     if (resolved instanceof Response) return resolved
     const { operatorId } = resolved
 
-    // Inline or attachment → stream PDF bytes.
-    const bytesOrErr = await fetchQPassportBytes(operatorId)
-    if (bytesOrErr instanceof Response) return bytesOrErr
-    return pdfResponse(bytesOrErr, mode)
+    // Inline or attachment → stream file bytes.
+    const result = await fetchQPassportBytes(operatorId)
+    if (result instanceof Response) return result
+    return fileResponse(result.bytes, mode, result.contentType, result.extension)
   } catch (err) {
     console.error('[download-qpassport] error:', err)
     return errorPage('Something went wrong', 'An unexpected error occurred. Please open your portal to download your QPassport.', 500)

@@ -1,37 +1,32 @@
-## Plan: Move QPassport viewer to an app route (fixes both issues)
+## Goal
+When a driver clicks **Open QPassport** in the email, they should land on the app page and see **their own signed QPassport** displayed as a static image, while the file also downloads to their device.
 
-### Why
-- The edge-function URL `…supabase.co/functions/v1/download-qpassport?token=…` is being displayed as raw text by your Chrome (likely the Gemini/Ask Gemini extension visible in your tabs is intercepting unknown edge-function origins, or Chrome's safe-browsing heuristic). The function itself returns the correct `Content-Type: text/html` — confirmed by curl.
-- The auto-download script can't trigger a cross-origin download via the `<a download>` attribute (browser security — Chrome ignores `download` when the href is a different origin). Same-origin app code can fetch the bytes as a blob and download reliably.
+## Plan
+1. **Change the viewer from PDF iframe to static image rendering**
+   - Update `/qpassport/view` so it fetches the token-protected QPassport file.
+   - Convert the first PDF page to a rendered image using the existing `pdfjs-dist` dependency.
+   - Display that rendered image directly on the page instead of relying on the browser PDF viewer/iframe.
+   - If the stored QPassport is already an image, display it directly.
 
-Moving the viewer into the app solves both: rendered by your trusted app domain (`mysupertransport.lovable.app`), and same-origin to the React code that issues the download.
+2. **Keep the token tied to the specific driver**
+   - Preserve the existing signed-token flow: the email link includes a token minted for one operator/driver.
+   - The backend endpoint continues resolving that token to that operator’s `qpassport_url`, so Emma’s email opens Emma’s QPassport and another driver’s email opens theirs.
 
-### Changes
+3. **Make download reliable**
+   - Keep the blob-based download flow from the app page.
+   - Trigger auto-download on page load where the browser allows it.
+   - Keep a visible **Download** button as the guaranteed fallback, especially for phones/browsers that block automatic downloads unless the user taps.
 
-**1) New app route — `src/pages/QPassportView.tsx`** (lazy-loaded in `src/App.tsx` as `/qpassport/view`):
-- Reads `token` query param.
-- Renders a dark page matching the existing viewer layout: sticky header (title "QPassport" + Download + Open My Portal buttons), and an `<iframe>` filling the rest.
-- On mount:
-  1. `fetch(downloadQpassportUrl + "?token=" + token + "&mode=inline")` → blob → `URL.createObjectURL` → set as iframe `src` (renders PDF in the native viewer, same-origin to the iframe).
-  2. `fetch(downloadQpassportUrl + "?token=" + token + "&mode=attachment")` → blob → `URL.createObjectURL` → synthetic `<a download="QPassport.pdf">` click → triggers a real download.
-  3. Header "Download" button re-runs step 2.
-- Error state: if either fetch fails (expired link, missing file), show the existing dark error card with portal button — read JSON or HTML error and surface a clean message.
-- Cleanup: `URL.revokeObjectURL` on unmount.
+4. **Avoid accidental wrong file types**
+   - Update the backend response to preserve the stored file’s content type when possible instead of forcing everything to `application/pdf`.
+   - Use a safe download filename such as `QPassport.pdf` for PDFs and `QPassport.png/jpg` for image files.
 
-**2) Edge function — `supabase/functions/download-qpassport/index.ts`**:
-- Default route (`mode` not set) → keep current viewer page as a **fallback** so already-sent emails still work, but also detect and redirect any browser request to the new app route via a 302 to `https://mysupertransport.lovable.app/qpassport/view?token=…`. Simpler approach: always 302 when `mode` is absent. This means old and new emails both end up on the app route.
-- `mode=inline` and `mode=attachment` continue to stream PDF bytes (unchanged), used by the new app page's fetches.
-- Ensure CORS allows `GET` from `https://mysupertransport.lovable.app` (already permissive `*`).
+5. **Verify with Emma Mueller**
+   - Re-send the test email using `operator_email: emmafmueller@gmail.com`.
+   - Confirm the email link routes to `/qpassport/view?token=...`.
+   - Confirm the page renders a static preview and offers/downloads the same driver-specific file.
 
-**3) Email link target — `supabase/functions/_shared/qpassport-link.ts`** (and any caller):
-- Update `buildQPassportDownloadUrl(operatorId)` to return `https://mysupertransport.lovable.app/qpassport/view?token=<token>` directly, instead of the edge-function URL. New emails get the app URL; old emails get the 302 from the edge function, so both work.
-
-### Verification (after build)
-1. Re-invoke `send-test-email` with `{ "operator_email": "emmafmueller@gmail.com", "to": "emma@mysupertransport.com" }`.
-2. Open the new email → "Open QPassport" link goes to `mysupertransport.lovable.app/qpassport/view?token=…`.
-3. Expect: app page renders with QPassport in iframe AND `QPassport.pdf` lands in Downloads automatically.
-4. The header "Download" button re-downloads on click.
-
-### Out of scope
-- No DB changes, no auth changes, no template structural rewrite.
-- Token format and HMAC unchanged.
+## Notes
+- On desktop browsers, auto-download should usually fire after the page loads.
+- On iPhone/Android, browsers may block automatic downloads; the page will still show the QPassport immediately and the **Download** button will work as the user-initiated action.
+- No database schema or auth changes are needed.
