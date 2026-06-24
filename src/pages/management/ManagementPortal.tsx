@@ -2013,6 +2013,10 @@ export default function ManagementPortal() {
             }
           }}
           focusField={drawerFocusField}
+          onApplicationUpdated={(patch) => {
+            setSelectedApp((prev) => (prev && prev.id === patch.id ? { ...prev, ...patch } as FullApplication : prev));
+            setApplications((prev) => prev.map((a) => (a.id === patch.id ? { ...a, ...patch } as FullApplication : a)));
+          }}
         />
       )}
 

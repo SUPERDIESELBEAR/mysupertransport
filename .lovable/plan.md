@@ -1,17 +1,28 @@
-## Remove header "Edit reason" button
+## Persist denial-reason edits to the list and re-opened drawer
 
-Revert the header shortcut. Keep the Edit control only inside the red "Application denied" card on the Overview tab (where it lived before today's header change).
+The previous attempt was never actually wired up — the drawer still has no callback to the parent, so `ManagementPortal`'s `applications` list and `selectedApp` keep showing the old `reviewer_notes` after Save. That's why the red preview under the driver's name doesn't change and reopening the card shows stale text.
 
 ### Changes
-- `src/components/management/ApplicationReviewDrawer.tsx`
-  - Remove the `Edit reason` button from the drawer header (the block added next to Print/Close).
-  - Remove the now-unused `openDenialReasonEditor` helper and the `denialCardRef` ref + its attachment on the denial card div.
-  - Leave the inline Edit/Save/Cancel flow inside the red denial card untouched.
+
+**`src/components/management/ApplicationReviewDrawer.tsx`**
+- Add optional prop `onApplicationUpdated?: (patch: Partial<FullApplication> & { id: string }) => void`.
+- In the denial-reason `saveEdit` success path (right after `setReasonOverride(nextValue)`), call `onApplicationUpdated?.({ id: app.id, reviewer_notes: nextValue })`.
+
+**`src/pages/management/ManagementPortal.tsx`**
+- Pass `onApplicationUpdated` to `<ApplicationReviewDrawer>`:
+  - Update `selectedApp` with the patch (so reopening shows the new value without a refetch).
+  - Update the matching row in the `applications` state array (so the red preview text under the driver's name reflects the new reason immediately).
+
+### Why this fixes both symptoms
+- Preview under driver's name reads from `applications[].reviewer_notes`; updating that array updates the list row.
+- Reopening the drawer reads from `selectedApp`; updating it ensures the red card shows the new reason instead of the stale DB-load value.
 
 ### Out of scope
-- No changes to permissions, audit logging, or save behavior.
+- No DB schema, RLS, audit-log, or permission changes.
+- No changes to the realtime subscription (we update locally so the user sees the change instantly regardless of realtime latency).
 
 ### Verification
-1. Open a denied applicant → header shows only Print and Close (no Edit reason).
-2. Overview tab still shows the red denial card with its Edit button for Management/Owner.
-3. Edit → Save still works and writes the audit_log entry.
+1. Open a denied applicant → Edit reason → Save → toast "Reason updated."
+2. Close drawer → red preview text under the driver's name on the Denied tab reflects the new reason.
+3. Reopen the same driver → red "Application denied" card shows the new reason (no stale value).
+4. Hard reload the page → value still persisted from DB.

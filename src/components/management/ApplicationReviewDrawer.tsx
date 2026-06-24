@@ -44,6 +44,8 @@ interface ApplicationReviewDrawerProps {
   onExpiryUpdated?: () => void;
   /** Auto-open and scroll to this expiry field when the drawer mounts */
   focusField?: 'cdl' | 'medcert';
+  /** Notify parent of an in-drawer change so list/selectedApp stay in sync. */
+  onApplicationUpdated?: (patch: Partial<FullApplication> & { id: string }) => void;
 }
 
 export interface FullApplication {
@@ -243,7 +245,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 type DrawerTab = 'overview' | 'documents' | 'pei';
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField, onApplicationUpdated }: ApplicationReviewDrawerProps) {
   const { roles, user } = useAuth();
   const isManagement = roles.includes('management');
   const canEditDenialReason = roles.includes('management') || roles.includes('owner');
@@ -800,6 +802,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     setReasonOverride(nextValue);
                     setReasonEditing(false);
                     setReasonDraft('');
+                    onApplicationUpdated?.({ id: app.id, reviewer_notes: nextValue });
                     toast.success('Reason updated.');
                   } catch (err) {
                     console.error('[denial-reason] save failed', err);
