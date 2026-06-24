@@ -1591,7 +1591,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // ── Write audit log for insurance field changes ───────────────────
       if (hasInsuranceChanges) {
         void supabase.from('audit_log').insert({
-          actor_id: session?.user?.id ?? null,
+          actor_id: session?.user?.id ?? undefined,
           actor_name: operatorName,
           action: 'insurance_fields_updated',
           entity_type: 'operator',
@@ -1604,7 +1604,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // ── Write audit log when exceptions are first approved ────────────
       if (!wasExceptionActive && isExceptionNowActive) {
         void supabase.from('audit_log').insert({
-          actor_id: session?.user?.id ?? null,
+          actor_id: session?.user?.id ?? undefined,
           actor_name: operatorName,
           action: 'exception_approved',
           entity_type: 'operator',
