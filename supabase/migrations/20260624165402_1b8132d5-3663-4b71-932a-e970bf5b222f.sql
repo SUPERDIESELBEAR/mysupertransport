@@ -1,0 +1,1 @@
+ALTER TABLE public.email_send_log ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS open_count INTEGER NOT NULL DEFAULT 0; CREATE INDEX IF NOT EXISTS email_send_log_message_id_idx ON public.email_send_log(message_id);
