@@ -92,8 +92,7 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
         submitted_by_staff: true,
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('applications') as any).insert(payload);
+      const { error } = await supabase.from('applications').insert(payload);
       if (error) throw error;
 
       // Audit log
