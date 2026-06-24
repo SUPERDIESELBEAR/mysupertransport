@@ -1,27 +1,27 @@
-## Goal
-Make the email button **Open QPassport** land on a working public page where the driver sees their own QPassport as a static image and the file downloads to their device.
+## Problem
+`send-test-email` hardcodes `name = 'Emma Mueller'` and, when no `operator_email` is provided, falls back to "the most recently uploaded QPassport across all operators." That means any test send risks:
+- Greeting the wrong person ("Hi Emma Mueller,") regardless of recipient.
+- Linking to whichever operator most recently had a QPassport uploaded — not the recipient's.
 
-## What I found
-- The app code now includes `/qpassport/view`, but the screenshot is from the **published** site showing the app’s internal 404 page.
-- That means the published build the email opened likely does not yet include the new route, or the email link was generated before the current viewer was live.
+## Fix
+Make the email always match the operator whose QPassport is being sent:
 
-## Plan
-1. **Verify the published link behavior**
-   - Check the current published URL path `/qpassport/view` against the live site.
-   - Confirm whether it is a publishing/version issue versus a route/link-generation issue.
+1. **Require `operator_email`** (or `operator_id`) on the request. Remove the "most recent QPassport" fallback so we never silently send the wrong driver's QPassport.
+2. **Look up the operator's real name** from `operators` (and/or `profiles`) for that user, and use it in the greeting instead of the hardcoded "Emma Mueller".
+3. **Default the `to` field to the operator's own email** when no override is supplied, so a test send goes to that driver. Only use a different `to` when the caller explicitly passes one (for internal QA).
+4. **Clear error responses** when:
+   - `operator_email` missing
+   - no auth user found
+   - no operator record
+   - operator has no QPassport on file
+5. Keep the existing signed `/qpassport/view?token=...` link generation unchanged — it's already per-operator.
 
-2. **Ensure the viewer route is public and stable**
-   - Keep `/qpassport/view?token=...` outside the login-protected routes.
-   - Preserve the token-based fetch so each driver only loads their own QPassport.
+## Out of scope
+- No change to `QPassportView.tsx`, `buildQPassportDownloadUrl`, or the email layout/branding.
+- No new UI; this is an edge-function-only change. If you want a staff-facing "Send test QPassport email to this operator" button later, that's a separate task.
 
-3. **Confirm email link generation**
-   - Verify QPassport emails generate links to `https://mysupertransport.lovable.app/qpassport/view?token=...`.
-   - Ensure new test emails use that viewer link, not the raw file/download endpoint.
-
-4. **Publish the latest app build if needed**
-   - If the live site is behind the preview build, publish/update the app so `/qpassport/view` exists on `mysupertransport.lovable.app`.
-
-5. **Retest end-to-end**
-   - Send a fresh test QPassport email.
-   - Click **Open QPassport** from the new email.
-   - Confirm the page displays the QPassport as a static image and triggers a download, with the Download button as fallback on mobile/browser-blocked auto-downloads.
+## Verification
+- Call `send-test-email` with `{ "operator_email": "emma@mysupertransport.com" }` → email greets "Emma …", links to Emma's QPassport.
+- Call with a different operator's email → email greets that operator, links to their QPassport.
+- Call with no `operator_email` → 400 error, nothing sent.
+- Call with an operator that has no QPassport → 404 error, nothing sent.

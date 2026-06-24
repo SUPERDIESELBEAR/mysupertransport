@@ -18,66 +18,71 @@ Deno.serve(async (req) => {
     if (req.method === 'POST') {
       try { body = await req.json(); } catch { /* allow empty body */ }
     }
-    const to = (body.to && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.to))
-      ? body.to
-      : 'emma@mysupertransport.com';
-    const name = 'Emma Mueller';
+
+    if (!body.operator_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.operator_email)) {
+      return new Response(JSON.stringify({ error: 'operator_email is required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    // Resolve which operator's QPassport this email should link to.
-    // If operator_email is provided, look up that specific operator and
-    // require they have a QPassport on file. Otherwise fall back to the
-    // most recently uploaded QPassport across all operators.
-    let operatorId: string | undefined;
-    if (body.operator_email) {
-      // auth.users isn't exposed via PostgREST; use the Admin API and filter by email.
-      let userId: string | undefined;
-      let page = 1;
-      const perPage = 200;
-      while (page <= 25 && !userId) {
-        const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-        if (error) break;
-        const match = data?.users?.find((u) => (u.email ?? '').toLowerCase() === body.operator_email!.toLowerCase());
-        if (match) { userId = match.id; break; }
-        if (!data?.users?.length || data.users.length < perPage) break;
-        page += 1;
-      }
-      if (!userId) {
-        return new Response(JSON.stringify({ error: `No auth user found for ${body.operator_email}` }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const { data: opRow } = await admin
-        .from('operators').select('id').eq('user_id', userId).maybeSingle();
-      if (!opRow) {
-        return new Response(JSON.stringify({ error: `No operator record for ${body.operator_email}` }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const opId = (opRow as { id: string }).id;
-      const { data: osRow } = await admin
-        .from('onboarding_status').select('qpassport_url').eq('operator_id', opId).maybeSingle();
-      if (!osRow || !(osRow as { qpassport_url?: string | null }).qpassport_url) {
-        return new Response(JSON.stringify({ error: `Operator ${body.operator_email} has no QPassport on file` }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      operatorId = opId;
-    } else {
-      const { data: qpRow } = await admin
-        .from('onboarding_status')
-        .select('operator_id')
-        .not('qpassport_url', 'is', null)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      operatorId = (qpRow as { operator_id?: string } | null)?.operator_id;
+    // Resolve the operator by email. auth.users isn't exposed via PostgREST,
+    // so use the Admin API and filter by email.
+    let userId: string | undefined;
+    let page = 1;
+    const perPage = 200;
+    while (page <= 25 && !userId) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+      if (error) break;
+      const match = data?.users?.find((u) => (u.email ?? '').toLowerCase() === body.operator_email!.toLowerCase());
+      if (match) { userId = match.id; break; }
+      if (!data?.users?.length || data.users.length < perPage) break;
+      page += 1;
     }
-    const downloadUrl = operatorId
-      ? await buildQPassportDownloadUrl(operatorId)
-      : 'https://mysupertransport.lovable.app/operator?tab=progress#qpassport';
+    if (!userId) {
+      return new Response(JSON.stringify({ error: `No auth user found for ${body.operator_email}` }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const { data: opRow } = await admin
+      .from('operators').select('id, application_id').eq('user_id', userId).maybeSingle();
+    if (!opRow) {
+      return new Response(JSON.stringify({ error: `No operator record for ${body.operator_email}` }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const operatorId = (opRow as { id: string }).id;
+    const applicationId = (opRow as { application_id?: string | null }).application_id ?? null;
+
+    const { data: osRow } = await admin
+      .from('onboarding_status').select('qpassport_url').eq('operator_id', operatorId).maybeSingle();
+    if (!osRow || !(osRow as { qpassport_url?: string | null }).qpassport_url) {
+      return new Response(JSON.stringify({ error: `Operator ${body.operator_email} has no QPassport on file` }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Resolve the operator's real first name (applications -> profiles fallback).
+    let firstName: string | null = null;
+    let lastName: string | null = null;
+    if (applicationId) {
+      const { data: appRow } = await admin
+        .from('applications').select('first_name, last_name').eq('id', applicationId).maybeSingle();
+      firstName = (appRow as { first_name?: string | null } | null)?.first_name ?? null;
+      lastName = (appRow as { last_name?: string | null } | null)?.last_name ?? null;
+    }
+    if (!firstName) {
+      const { data: profRow } = await admin
+        .from('profiles').select('first_name, last_name').eq('id', userId).maybeSingle();
+      firstName = firstName ?? (profRow as { first_name?: string | null } | null)?.first_name ?? null;
+      lastName = lastName ?? (profRow as { last_name?: string | null } | null)?.last_name ?? null;
+    }
+    const name = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Driver';
+
+    const to = (body.to && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.to)) ? body.to : body.operator_email;
+    const downloadUrl = await buildQPassportDownloadUrl(operatorId);
 
     const subject = 'Action Required: Download Your QPassport';
     const heading = '📋 Your QPassport is Ready';
