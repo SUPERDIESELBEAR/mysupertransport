@@ -935,11 +935,11 @@ Deno.serve(async (req) => {
               subject,
               '📋 Your QPassport is Ready',
               `<p>Hi ${operatorName},</p>
-               <p>Your <strong>QPassport</strong> has been uploaded by your onboarding coordinator and is now available for download in your portal.</p>
+               <p>Your <strong>QPassport</strong> has been uploaded by your onboarding coordinator and is now available to open and download.</p>
                <p><strong>Important:</strong> You must bring this document to your drug screening appointment. The facility will scan the barcode to verify your identity before the test.</p>
-               <p>Please log in to your portal, open the <strong>Stage 1 — Background Check</strong> section, and download your QPassport now.</p>
+               <p>Click the button below to open your QPassport in your browser. A copy will also download automatically so you can bring it to your drug screening appointment.</p>
                <p style="margin-top:16px;">If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
-              { label: 'Download My QPassport', url: downloadUrl }
+              { label: 'Open QPassport', url: downloadUrl }
             );
             await sendEmail(operatorEmail, subject, html, RESEND_API_KEY);
           }
