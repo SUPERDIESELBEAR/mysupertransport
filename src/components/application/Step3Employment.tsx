@@ -1,6 +1,6 @@
 import { ApplicationFormData, EmployerRecord, US_STATES, defaultEmployer } from './types';
 import { FormField, AppInput, AppSelect, RadioGroup, AppTextarea } from './FormField';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
 
 interface Props {
   data: ApplicationFormData;
@@ -26,6 +26,7 @@ interface EmployerBlockProps {
   value: EmployerRecord;
   onChange: (v: EmployerRecord) => void;
   onRemove?: () => void;
+  disabled?: boolean;
 }
 
 function formatMonthYear(raw: string): string {
@@ -34,7 +35,7 @@ function formatMonthYear(raw: string): string {
   return digits.slice(0, 2) + '/' + digits.slice(2);
 }
 
-function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBlockProps) {
+function EmployerBlock({ index, total, value, onChange, onRemove, disabled }: EmployerBlockProps) {
   const set = (field: keyof EmployerRecord, v: string) => onChange({ ...value, [field]: v });
   const isCurrentEmployer = index === 0;
   const isCurrentlyEmployed = value.end_date === 'Present';
@@ -48,12 +49,15 @@ function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBloc
   };
 
   return (
-    <div className="border border-border rounded-xl p-4 sm:p-5 space-y-4 bg-secondary/30">
+    <fieldset
+      disabled={disabled}
+      className={`border border-border rounded-xl p-4 sm:p-5 space-y-4 bg-secondary/30 ${disabled ? 'opacity-50 pointer-events-none select-none' : ''}`}
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
           ({index + 1}) {getEmployerLabel(index)}
         </h3>
-        {onRemove && (
+        {onRemove && !disabled && (
           <button
             type="button"
             onClick={onRemove}
@@ -150,12 +154,13 @@ function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBloc
           )}
         </label>
       )}
-    </div>
+    </fieldset>
   );
 }
 
 export default function Step3Employment({ data, onChange, errors }: Props) {
   const employers = data.employers;
+  const acknowledged = data.fmcsa_10yr_acknowledged;
 
   const updateEmployer = (index: number, value: EmployerRecord) => {
     const updated = [...employers];
@@ -176,12 +181,50 @@ export default function Step3Employment({ data, onChange, errors }: Props) {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-foreground mb-1">Employment History</h2>
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-xs text-amber-800 leading-relaxed">
-            <strong>FMCSA Requirement:</strong> List all employment for the past 10 years or since obtaining your CDL. Include driving and non-driving positions. Do <strong>NOT</strong> leave any gaps. If you were off work, enter <em>NOT employed</em> under employer, your city and state, reason for not employed, and the not employed dates.
+      </div>
+
+      {!acknowledged ? (
+        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg space-y-3 shadow-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-amber-900">
+                FMCSA Requirement — Past 10 Years of Employment
+              </p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                List <strong>all employment for the past 10 years</strong> or since obtaining your CDL. Include driving and non-driving positions. Do <strong>NOT</strong> leave any gaps. If you were off work, enter <em>NOT employed</em> under employer, your city and state, reason for not employed, and the not employed dates.
+              </p>
+            </div>
+          </div>
+          <label className="flex items-start gap-2.5 cursor-pointer group pt-2 border-t border-amber-200">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => onChange('fmcsa_10yr_acknowledged', e.target.checked)}
+              className="h-4 w-4 mt-0.5 rounded accent-[hsl(var(--gold))]"
+            />
+            <span className="text-sm font-medium text-amber-900 group-hover:text-amber-950 transition-colors">
+              I have read and understand the FMCSA 10-year employment history requirement.
+            </span>
+          </label>
+        </div>
+      ) : (
+        <div className="sticky top-0 z-10 -mx-1 px-3 py-2 bg-amber-50/95 backdrop-blur border border-amber-200 rounded-lg flex items-center gap-2 shadow-sm">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+          <p className="text-xs text-amber-900 leading-snug flex-1">
+            <strong>FMCSA:</strong> List all employment for the past <strong>10 years</strong> — include non-driving jobs and gaps with <em>NOT employed</em>.
           </p>
         </div>
-      </div>
+      )}
+
+      {!acknowledged && (
+        <div className="flex items-center gap-2 p-3 bg-secondary/50 border border-dashed border-border rounded-lg">
+          <Lock className="h-4 w-4 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            Acknowledge the FMCSA requirement above to begin entering your employment history.
+          </p>
+        </div>
+      )}
 
       {employers.map((emp, i) => (
         <EmployerBlock
@@ -191,13 +234,15 @@ export default function Step3Employment({ data, onChange, errors }: Props) {
           value={emp}
           onChange={v => updateEmployer(i, v)}
           onRemove={i > 0 ? () => removeEmployer(i) : undefined}
+          disabled={!acknowledged}
         />
       ))}
 
       <button
         type="button"
         onClick={addEmployer}
-        className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
+        disabled={!acknowledged}
+        className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-muted-foreground disabled:hover:border-border"
       >
         <Plus className="h-4 w-4" />
         Add Previous Employer
