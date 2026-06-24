@@ -1,14 +1,27 @@
+## Goal
+Make the email button **Open QPassport** land on a working public page where the driver sees their own QPassport as a static image and the file downloads to their device.
+
+## What I found
+- The app code now includes `/qpassport/view`, but the screenshot is from the **published** site showing the app’s internal 404 page.
+- That means the published build the email opened likely does not yet include the new route, or the email link was generated before the current viewer was live.
+
 ## Plan
-Send a fresh test QPassport email to verify the new viewer end-to-end.
+1. **Verify the published link behavior**
+   - Check the current published URL path `/qpassport/view` against the live site.
+   - Confirm whether it is a publishing/version issue versus a route/link-generation issue.
 
-### Steps
-1. Invoke `send-test-email` with:
-   - `operator_email`: `emmafmueller@gmail.com` (so the link is bound to Emma's QPassport)
-   - `to`: `emma@mysupertransport.com` (delivery inbox)
-2. Confirm the function returns OK and that the email link points to `/qpassport/view?token=…`.
-3. You open the email and click **Open QPassport**, then confirm:
-   - Emma's QPassport renders as a static image on the page.
-   - The file auto-downloads (or downloads when you tap the header **Download** button on mobile).
+2. **Ensure the viewer route is public and stable**
+   - Keep `/qpassport/view?token=...` outside the login-protected routes.
+   - Preserve the token-based fetch so each driver only loads their own QPassport.
 
-### Important
-The published site (`mysupertransport.lovable.app`) must be on the latest build that includes the `/qpassport/view` route, otherwise the link will 404. If you haven't clicked **Update** in the Publish dialog since the route was added, do that first.
+3. **Confirm email link generation**
+   - Verify QPassport emails generate links to `https://mysupertransport.lovable.app/qpassport/view?token=...`.
+   - Ensure new test emails use that viewer link, not the raw file/download endpoint.
+
+4. **Publish the latest app build if needed**
+   - If the live site is behind the preview build, publish/update the app so `/qpassport/view` exists on `mysupertransport.lovable.app`.
+
+5. **Retest end-to-end**
+   - Send a fresh test QPassport email.
+   - Click **Open QPassport** from the new email.
+   - Confirm the page displays the QPassport as a static image and triggers a download, with the Download button as fallback on mobile/browser-blocked auto-downloads.
