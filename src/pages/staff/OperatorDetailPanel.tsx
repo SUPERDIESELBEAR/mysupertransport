@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { isEquipmentFullyComplete, looksPre2000, ELD_EXEMPT_DEFAULT_REASON } from '@/lib/equipmentCompletion';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
 import { syncAllDeviceFields } from '@/lib/equipmentSync';
