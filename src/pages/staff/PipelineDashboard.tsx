@@ -1286,9 +1286,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .eq('id', archiveTarget.id)
         .single();
       if (opRow?.application_id) {
+        const stamped = archiveReason.trim()
+          ? `[Archived from pipeline] ${archiveReason.trim()}`
+          : null;
         const { error: appErr } = await supabase
           .from('applications')
-          .update({ review_status: 'denied' })
+          .update({
+            review_status: 'denied',
+            reviewer_notes: stamped,
+            reviewed_at: new Date().toISOString(),
+          })
           .eq('id', opRow.application_id);
         if (appErr) throw appErr;
       }

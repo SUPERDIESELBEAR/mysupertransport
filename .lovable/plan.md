@@ -1,59 +1,54 @@
-# Status of open / read tracking on the management side
+# Confirming your request
 
-## What exists today
+Here's what I'm reading you to mean — please correct me if any of the four bullets is off before I build:
 
-**Broadcasts — fully tracked.** `Management → Broadcast → (open an archived broadcast)` shows:
-- Summary chips: `Opened: x/total`, `Read in app: x/total`, and `Acknowledged: x/total` when ack was required.
-- A per-recipient list with a colored badge per driver/staff: `Acknowledged` (gold) → `Read` (green) → `Opened` (outline) → raw delivery status fallback.
+1. **"Archived from the applicant pipeline"** = the staff **Pipeline Dashboard → Archive applicant** action (the "Move to Archived Drivers list" flow that opens with a reason textarea). Today that reason is **only stored on the `audit_log` row** (`metadata.reason`). It never gets onto the application itself, so anyone viewing the application later has no idea why it was archived.
+2. **"Denied" from the management side** = the **Management → Applications → Denied** tab. Apps reach that tab two ways:
+   - The drawer's **Confirm Deny** flow (writes `applications.reviewer_notes` from the "Reviewer Notes" textarea above the action buttons — but staff frequently leave that blank, so almost every existing denied row has `reviewer_notes = null`).
+   - The pipeline **Archive** flow (sets `applications.review_status = 'denied'` but writes no reason to the application — the gap above).
+3. **"Action arrow per each person located on the overview section"** = the **ChevronRight ▶** at the right edge of each row in the Applications list. Clicking the row/arrow opens the `ApplicationReviewDrawer`, and you want the reason visible on the **Overview** tab of that drawer.
+4. The reason text should be the **same comment** the archiver/denier originally typed — whether that came from the pipeline Archive dialog or the drawer's Reviewer Notes / Confirm Deny dialog.
 
-Plumbing behind it:
-- `broadcast-track-open` edge function — 1×1 pixel embedded in every broadcast email; stamps `operator_broadcast_recipients.opened_at` on first load.
-- `broadcast-acknowledge` edge function — called when the operator opens the broadcast in-app; stamps `read_at` (and `acknowledged_at` when required).
-- Stats query in `OperatorBroadcast.tsx` reads `opened_at / read_at / acknowledged_at` directly.
+If any of that is wrong (e.g. you want the reason inline on the list row itself, not inside the drawer), tell me and I'll adjust before touching anything.
 
-So for the **Broadcast Center**, the answer is **yes**, management can already see who opened, who read in-app, and who acknowledged.
+# Plan (assuming the four bullets above are correct)
 
-**Email Log page — delivery only, no opens.** `Management → Email Log` reads `email_send_log`, which only stores delivery state (`pending / sent / failed / bounced / suppressed / dlq`). There is no `opened_at` column, no tracking pixel on those templates (PEI invites, application revision/resume links, QPassport test, new-message notifications, birthday/anniversary, PWA reminders, etc.), and no per-recipient open count surfaced in the UI.
+## 1. Persist the archive reason onto the application
+Update `handleArchiveFromHold` in `src/pages/staff/PipelineDashboard.tsx` so that when it flips `applications.review_status` to `'denied'` it also writes:
+- `reviewer_notes` = the typed `archiveReason` (prefixed with a marker, e.g. `"[Archived from pipeline] <reason>"` so it's obvious where it came from)
+- `reviewed_at` = `now()`
 
-**Live data check.** Across all broadcasts to date there is 1 recipient row and 0 opens recorded — so even on the broadcast side we have no real-world opens to verify with. The most likely reasons:
-- The only broadcast sent so far was to a single recipient who hasn't opened the email in a client that loads remote images.
-- Some clients (Gmail image proxy, Apple Mail Privacy Protection) will pre-fetch the pixel and inflate opens, while others (plain-text view, image blocking) will never fire it. This is normal for any pixel-based system.
+(`audit_log` insert stays exactly as it is — full traceability is preserved.)
 
-## Proposed plan
+## 2. Backfill existing denied rows
+One-time SQL pass: for every `applications` row where `review_status = 'denied'` AND `reviewer_notes IS NULL`, look up the most recent `audit_log` entry where `action = 'applicant_archived'` AND `entity_label` matches `first_name + ' ' + last_name` (joining via the operator → application link where possible), and copy `metadata->>'reason'` in (still prefixed with the same `[Archived from pipeline]` marker). Done as a `supabase--insert` UPDATE; only fills nulls so it's idempotent.
 
-### 1. Email Log: add open tracking for transactional emails
-- Add `opened_at TIMESTAMPTZ` and `open_count INT DEFAULT 0` to `email_send_log` (migration + GRANTs already in place on the table).
-- New edge function `email-track-open` (mirrors `broadcast-track-open`):
-  - URL: `/functions/v1/email-track-open?m={message_id}&t={token}`.
-  - Validates a short HMAC token (derived from `message_id` + an `EMAIL_TRACK_SECRET` env var) so opens can't be forged or enumerated.
-  - On match → `UPDATE email_send_log SET opened_at = COALESCE(opened_at, now()), open_count = open_count + 1 WHERE message_id = $1`.
-  - Always returns the 1×1 transparent GIF, never reveals success/failure.
-- Add `EMAIL_TRACK_SECRET` via `add_secret`.
-- Helper in `supabase/functions/_shared/email-layout.ts`: `appendTrackingPixel(html, messageId)` that injects `<img src="…/email-track-open?m=…&t=…" width="1" height="1" alt="" style="display:none">` just before `</body>`. `sendEmail` becomes the single place that calls it, so every template gets tracked automatically.
-- Skip injection for: `pending` placeholder sends, transactional system mails to internal automations (e.g. cron summaries), and any explicit `{ trackOpens: false }` override.
+Result: the two existing reasons we already have on file ("Constanze Fanning…" and "Jeremy Scott…") will appear on those denied applications; the older rows with no reason recorded stay blank.
 
-### 2. Email Log UI updates
-- Add an **Opened** stat card next to Sent/Pending/Failed.
-- Add an **Opened** column (timestamp + count, or em-dash) to the log table.
-- Add an `Opened` option to the status filter (sent + opened, sent + unopened).
-- Tooltip on the column header explaining the limitations of pixel tracking (image blockers, Apple Mail Privacy Protection inflates opens).
+## 3. Show the reason in the drawer's Overview tab
+In `src/components/management/ApplicationReviewDrawer.tsx`, at the top of the Overview tab content, when `app.review_status === 'denied'`, render a new dark-red callout card:
+```
+┌──────────────────────────────────────────────┐
+│ ⓧ Application denied · 2026-06-24            │
+│                                              │
+│ "Constanze will not be moving forward in the │
+│  hiring process. This serves as…"            │
+└──────────────────────────────────────────────┘
+```
+- Header: `XCircle` icon + "Application denied" + reviewed_at date (Central Time).
+- Body: `reviewer_notes` verbatim. If `reviewer_notes` is null, fallback copy: *"No reason was recorded when this application was denied."*
+- Style matches the existing destructive design tokens (no new colors).
 
-### 3. Per-recipient summary for bulk sends
-For templates sent to many recipients in one batch (PEI bulk, broadcast reminders, etc.) the table is already per-row by `recipient_email`, so no extra schema is needed — opens will naturally show per row once step 1 is in place.
-
-### 4. Optional small fix on the broadcast side
-Surface the Broadcast open/read stats on the **Email Log** page too, so management has one place to look. Concretely: in `EmailLogPanel`, when a row's `template_name === 'operator-broadcast'`, link "View recipients" → opens the same archive dialog from `OperatorBroadcast.tsx`.
+## 4. (Light touch) Make the reason visible without opening the drawer
+On the Applications list row, when `review_status === 'denied'` and `reviewer_notes` is non-empty, show a single-line **italic, truncated** preview of the reason under the contact info — same row as today, no layout shuffle. Tooltip on hover shows the full text. Mobile card gets the same treatment as a 1-line clamp under the email.
 
 ## Out of scope
-- Click tracking (would need link rewriting through a redirector — separate effort).
-- Bounce/complaint webhook upgrades (already handled by Resend → `email_send_log.status`).
-- No changes to the existing `broadcast-track-open` / `broadcast-acknowledge` flow.
+- No changes to the drawer's Confirm Deny flow itself — it already writes `reviewer_notes`. (Optional later polish: make the textarea required when denying. Mention only.)
+- No changes to onboarding, operators, or the Archived Drivers list view itself.
+- No new tables/columns — `applications.reviewer_notes` + `reviewed_at` already exist.
 
 ## Verification
-- Send a test transactional email (e.g. `send-test-email` for QPassport) to a Gmail/Apple Mail inbox → confirm the pixel URL hits the function, `email_send_log.opened_at` populates, and the Email Log row shows an Opened timestamp.
-- Send a broadcast to two operators → confirm both stats chips and the per-recipient list update as before (regression check).
-- Confirm forged `m=` values with bad `t=` tokens return the pixel but do NOT stamp any row.
-
-## Technical notes
-- Files touched: `supabase/migrations/<new>.sql`, `supabase/functions/email-track-open/index.ts` (new), `supabase/functions/_shared/email-layout.ts`, `src/components/management/EmailLogPanel.tsx`. No client-side schema regen needed beyond the auto-generated `types.ts`.
-- Token format: `base64url(hmacSha256(EMAIL_TRACK_SECRET, message_id)).slice(0, 16)` — short, unguessable, deterministic so we can compute it once at send time.
+- Archive a test applicant from the pipeline with a reason → reload Management → Applications → Denied → click chevron → reason appears in the Overview card.
+- Deny a test pending application from the drawer with text in Reviewer Notes → same place, same display.
+- Old denied rows backfilled from audit log show the historic reason; rows with no reason on file show the fallback copy.
+- Mobile: list row shows the truncated reason; tapping opens the drawer card.
