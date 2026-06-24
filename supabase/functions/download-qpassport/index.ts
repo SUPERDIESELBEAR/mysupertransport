@@ -211,14 +211,18 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get('token')
     const mode = url.searchParams.get('mode') // 'inline' | 'attachment' | null
 
+    // Default (no mode) → redirect already-sent email links to the new app-hosted
+    // viewer page. Old emails keep working; new emails point at the app directly.
+    if (mode !== 'inline' && mode !== 'attachment') {
+      if (!token) return errorPage('Missing link token', 'This link is incomplete.', 400)
+      const appUrl = Deno.env.get('APP_PUBLIC_URL') ?? 'https://mysupertransport.lovable.app'
+      const target = `${appUrl}/qpassport/view?token=${encodeURIComponent(token)}`
+      return new Response(null, { status: 302, headers: { ...corsHeaders, Location: target, 'Cache-Control': 'no-store' } })
+    }
+
     const resolved = await resolveToken(token)
     if (resolved instanceof Response) return resolved
     const { operatorId } = resolved
-
-    // Default (no mode) → HTML viewer page that the email link points to.
-    if (mode !== 'inline' && mode !== 'attachment') {
-      return viewerPage(token!)
-    }
 
     // Inline or attachment → stream PDF bytes.
     const bytesOrErr = await fetchQPassportBytes(operatorId)
