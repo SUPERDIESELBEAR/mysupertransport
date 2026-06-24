@@ -69,6 +69,9 @@ export interface ApplicationFormData {
   dot_return_to_duty_docs: string; // 'yes' | 'no'
   testing_policy_accepted: boolean;
 
+  // FMCSA Step 3 acknowledgment (client-side gate only)
+  fmcsa_10yr_acknowledged: boolean;
+
   // Signature
   ssn: string;
   typed_full_name: string;
@@ -105,6 +108,7 @@ export const defaultFormData: ApplicationFormData = {
   auth_safety_history: false, auth_drug_alcohol: false, auth_previous_employers: false,
   dot_positive_test_past_2yr: '', dot_return_to_duty_docs: '',
   testing_policy_accepted: false,
+  fmcsa_10yr_acknowledged: false,
   ssn: '', typed_full_name: '', signature_image_url: '',
   signed_date: new Date().toISOString().slice(0, 10),
 };
