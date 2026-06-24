@@ -8,7 +8,7 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw, Pencil
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -246,6 +246,7 @@ type DrawerTab = 'overview' | 'documents' | 'pei';
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
+  const canEditDenialReason = roles.includes('management') || roles.includes('owner');
   const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
