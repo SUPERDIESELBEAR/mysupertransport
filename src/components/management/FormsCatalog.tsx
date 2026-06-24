@@ -66,7 +66,7 @@ const BLANK_APP: FullApplication = {
   auth_safety_history: null, auth_drug_alcohol: null, auth_previous_employers: null,
   testing_policy_accepted: null,
   typed_full_name: null, signed_date: null,
-  review_status: 'pending', submitted_at: null, reviewer_notes: null,
+  review_status: 'pending', submitted_at: null, reviewer_notes: null, reviewed_at: null,
   dl_front_url: null, dl_rear_url: null, medical_cert_url: null,
   medical_cert_expiration: null, signature_image_url: null,
 };
