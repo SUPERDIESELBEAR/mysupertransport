@@ -8,7 +8,7 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw, Pencil
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -244,8 +244,9 @@ const STATUS_COLORS: Record<string, string> = {
 type DrawerTab = 'overview' | 'documents' | 'pei';
 
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const isManagement = roles.includes('management');
+  const canEditDenialReason = roles.includes('management') || roles.includes('owner');
   const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
@@ -257,6 +258,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [correctionRefreshKey, setCorrectionRefreshKey] = useState(0);
   const [movingToPending, setMovingToPending] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Denial reason editing
+  const [reasonOverride, setReasonOverride] = useState<string | null | undefined>(undefined);
+  const [reasonEditing, setReasonEditing] = useState(false);
+  const [reasonDraft, setReasonDraft] = useState('');
+  const [reasonSaving, setReasonSaving] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
@@ -307,6 +313,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   useEffect(() => {
     setEditedDocPaths({});
+    setReasonOverride(undefined);
+    setReasonEditing(false);
+    setReasonDraft('');
   }, [app?.id]);
 
   useEffect(() => {
@@ -752,32 +761,115 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <div className="p-6 space-y-7">
 
               {/* Denial reason (only for denied applications) */}
-              {app.review_status === 'denied' && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                  <div className="flex items-start gap-3">
-                    <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-destructive">Application denied</p>
-                        {app.reviewed_at && (
-                          <span className="text-xs text-muted-foreground">
-                            · {new Date(app.reviewed_at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })}
-                          </span>
+              {app.review_status === 'denied' && (() => {
+                const currentReason = reasonOverride !== undefined ? reasonOverride : app.reviewer_notes;
+                const ARCHIVE_PREFIX = '[Archived from pipeline]';
+                const hasPrefix = !!currentReason && currentReason.trim().startsWith(ARCHIVE_PREFIX);
+                const bodyText = hasPrefix
+                  ? currentReason!.trim().slice(ARCHIVE_PREFIX.length).trim()
+                  : (currentReason ?? '');
+                const beginEdit = () => {
+                  setReasonDraft(bodyText);
+                  setReasonEditing(true);
+                };
+                const cancelEdit = () => {
+                  setReasonEditing(false);
+                  setReasonDraft('');
+                };
+                const saveEdit = async () => {
+                  setReasonSaving(true);
+                  try {
+                    const trimmed = reasonDraft.trim();
+                    const nextValue = trimmed.length === 0
+                      ? null
+                      : (hasPrefix ? `${ARCHIVE_PREFIX} ${trimmed}` : trimmed);
+                    const previousValue = currentReason ?? null;
+                    const { error: updErr } = await supabase
+                      .from('applications')
+                      .update({ reviewer_notes: nextValue })
+                      .eq('id', app.id);
+                    if (updErr) throw updErr;
+                    await supabase.from('audit_log').insert({
+                      action: 'application_denial_reason_edited',
+                      entity_type: 'application',
+                      entity_id: app.id,
+                      entity_label: [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email,
+                      actor_user_id: user?.id ?? null,
+                      metadata: { previous_reason: previousValue, new_reason: nextValue },
+                    });
+                    setReasonOverride(nextValue);
+                    setReasonEditing(false);
+                    setReasonDraft('');
+                    toast.success('Reason updated.');
+                  } catch (err) {
+                    console.error('[denial-reason] save failed', err);
+                    toast.error('Could not update reason. Please try again.');
+                  } finally {
+                    setReasonSaving(false);
+                  }
+                };
+                return (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-destructive">Application denied</p>
+                          {app.reviewed_at && (
+                            <span className="text-xs text-muted-foreground">
+                              · {new Date(app.reviewed_at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })}
+                            </span>
+                          )}
+                          {canEditDenialReason && !reasonEditing && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-auto h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={beginEdit}
+                            >
+                              <Pencil className="h-3.5 w-3.5 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+                        {reasonEditing ? (
+                          <div className="mt-2 space-y-2">
+                            {hasPrefix && (
+                              <p className="text-[11px] text-muted-foreground">
+                                The <span className="font-mono">{ARCHIVE_PREFIX}</span> tag will be preserved automatically.
+                              </p>
+                            )}
+                            <Textarea
+                              value={reasonDraft}
+                              onChange={(e) => setReasonDraft(e.target.value)}
+                              rows={4}
+                              placeholder="Enter the reason this application was denied…"
+                              disabled={reasonSaving}
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={reasonSaving}>
+                                Cancel
+                              </Button>
+                              <Button size="sm" onClick={saveEdit} disabled={reasonSaving}>
+                                {reasonSaving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                                Save
+                              </Button>
+                            </div>
+                          </div>
+                        ) : currentReason ? (
+                          <p className="text-sm text-foreground mt-1.5 whitespace-pre-wrap break-words">
+                            {currentReason}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic mt-1.5">
+                            No reason was recorded when this application was denied.
+                          </p>
                         )}
                       </div>
-                      {app.reviewer_notes ? (
-                        <p className="text-sm text-foreground mt-1.5 whitespace-pre-wrap break-words">
-                          {app.reviewer_notes}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic mt-1.5">
-                          No reason was recorded when this application was denied.
-                        </p>
-                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Personal Info */}
               <Section title="Personal Information" icon={<User className="h-4 w-4" />}>
