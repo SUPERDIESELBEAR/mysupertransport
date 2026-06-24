@@ -43,6 +43,10 @@ export function validateStep(step: number, data: ApplicationFormData): Partial<R
   }
 
   if (step === 3) {
+    if (!data.fmcsa_10yr_acknowledged) {
+      errs.employers = 'Please acknowledge the FMCSA 10-year employment history requirement above to continue' as any;
+      return errs;
+    }
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const emp0 = data.employers[0];
     if (!emp0 || !emp0.name.trim()) errs.employers = 'Current/last employer name is required' as any;
