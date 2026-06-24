@@ -27,6 +27,7 @@ import InstallApp from "./pages/InstallApp";
 import PEIRespond from "./pages/PEIRespond";
 import PEIRelease from "./pages/PEIRelease";
 import ApplicationApprove from "./pages/ApplicationApprove";
+import QPassportView from "./pages/QPassportView";
 
 // Heavy authenticated portals — code-split out of the initial bundle
 const OperatorPortal = lazy(() => import("./pages/operator/OperatorPortal"));
@@ -80,6 +81,7 @@ function AppRoutes() {
       <Route path="/application/approve/:token" element={<ApplicationApprove />} />
       <Route path="/splash" element={<SplashPage />} />
       <Route path="/install" element={<InstallApp />} />
+      <Route path="/qpassport/view" element={<QPassportView />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
