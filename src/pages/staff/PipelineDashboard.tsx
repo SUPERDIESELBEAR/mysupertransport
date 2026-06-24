@@ -1286,16 +1286,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .eq('id', archiveTarget.id)
         .single();
       if (opRow?.application_id) {
-        const stamped = archiveReason.trim()
-          ? `[Archived from pipeline] ${archiveReason.trim()}`
-          : null;
+        const appPatch: Record<string, unknown> = {
+          review_status: 'denied',
+          reviewed_at: new Date().toISOString(),
+        };
+        if (archiveReason.trim()) {
+          appPatch.reviewer_notes = `[Archived from pipeline] ${archiveReason.trim()}`;
+        }
         const { error: appErr } = await supabase
           .from('applications')
-          .update({
-            review_status: 'denied',
-            reviewer_notes: stamped,
-            reviewed_at: new Date().toISOString(),
-          })
+          .update(appPatch)
           .eq('id', opRow.application_id);
         if (appErr) throw appErr;
       }
