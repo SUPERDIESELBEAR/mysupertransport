@@ -313,6 +313,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   useEffect(() => {
     setEditedDocPaths({});
+    setReasonOverride(undefined);
+    setReasonEditing(false);
+    setReasonDraft('');
   }, [app?.id]);
 
   useEffect(() => {
