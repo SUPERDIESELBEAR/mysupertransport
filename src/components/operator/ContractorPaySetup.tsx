@@ -166,7 +166,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      const payload: Record<string, unknown> = {
+      const payload = {
         operator_id: operatorId,
         contractor_type: contractorType,
         legal_first_name: firstName.trim(),
