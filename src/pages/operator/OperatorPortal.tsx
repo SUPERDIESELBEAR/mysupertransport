@@ -903,7 +903,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
       </>
     )}
-    <div className={isPreview ? '' : 'min-h-screen bg-secondary'}>
+    <div className={isPreview ? '' : 'min-h-dvh bg-secondary'}>
       {/* Preview banner */}
       {isPreview && (
         <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 mb-4">

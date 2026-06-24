@@ -556,7 +556,7 @@ export default function ApplicationForm() {
   // ── Submitted confirmation ──────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-secondary flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="flex justify-center mb-6">
             <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
@@ -585,7 +585,7 @@ export default function ApplicationForm() {
 
   if (!draftLoaded) {
     return (
-      <div className="min-h-screen bg-secondary flex items-center justify-center">
+      <div className="min-h-dvh bg-secondary flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-gold animate-spin" />
       </div>
     );
@@ -594,7 +594,7 @@ export default function ApplicationForm() {
   // ── Resume link error screen ────────────────────────────────────────────
   if (resumeError) {
     return (
-      <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-secondary flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="flex justify-center mb-6">
             <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
@@ -633,7 +633,7 @@ export default function ApplicationForm() {
   }
 
   return (
-    <div className="min-h-screen bg-secondary">
+    <div className="min-h-dvh bg-secondary">
       {/* Header */}
       <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
