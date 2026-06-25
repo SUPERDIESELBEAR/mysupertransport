@@ -4472,7 +4472,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Select
                       value={(status.mvr_ch_approval as string) || undefined}
                       onValueChange={v => {
-                        updateStatus('mvr_ch_approval', v);
+                        updateStatusAndPersist('mvr_ch_approval', v);
                         if (v === 'approved' && status.pe_screening_result === 'clear') {
                           setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
                         }
@@ -4535,7 +4535,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Select
                       value={(status.pe_screening_result as string) || undefined}
                       onValueChange={v => {
-                        updateStatus('pe_screening_result', v);
+                        updateStatusAndPersist('pe_screening_result', v);
                         if (v === 'clear' && status.mvr_ch_approval === 'approved') {
                           setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
                         }
