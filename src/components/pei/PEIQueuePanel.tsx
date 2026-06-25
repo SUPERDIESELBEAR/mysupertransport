@@ -152,11 +152,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   }
 
   function actionFor(row: PEIQueueRow) {
-    if (row.status === 'pending') return { label: 'Send PEI', kind: 'initial' as const };
-    const days = row.date_sent ? Math.floor((Date.now() - new Date(row.date_sent).getTime()) / 86400000) : 0;
-    if (row.status === 'sent' && days >= 15 && days < 25) return { label: 'Send Follow-Up', kind: 'follow_up' as const };
-    if ((row.status === 'sent' || row.status === 'follow_up_sent') && days >= 25 && days < 30) return { label: 'Send Final Notice', kind: 'final_notice' as const };
-    if (days >= 30 || row.is_overdue) return { label: 'Document GFE', kind: 'gfe' as const };
+    if (row.status === 'pending') return { label: 'Send First Attempt', kind: 'initial' as const };
+    if (row.status === 'sent') return { label: 'Send Second Attempt', kind: 'follow_up' as const };
     return null;
   }
 
@@ -342,7 +339,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <div className="flex justify-end gap-1.5 flex-wrap">
-                                    {action && action.kind !== 'gfe' && (
+                                    {action && (
                                       <Button size="sm" disabled={busy === r.request_id} onClick={() => handleSend(r, action.kind)}>
                                         {busy === r.request_id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
                                         {action.label}
