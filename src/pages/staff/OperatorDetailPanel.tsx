@@ -1960,7 +1960,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (savedSnapshot.current) {
       savedSnapshot.current = {
         ...savedSnapshot.current,
-        status: { ...savedSnapshot.current.status, ...patch },
+        status: { ...savedSnapshot.current.status, ...(patch as any) },
       };
     }
     return true;
