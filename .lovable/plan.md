@@ -1,30 +1,35 @@
-## Plan: Fix the broken "View My Documents" button in the Document Received & Confirmed email
+# Fix PEI Print — Full Record
 
-### What's broken
-The email's CTA points to `https://mysupertransport.lovable.app/dashboard?tab=documents` (set in `supabase/functions/notify-onboarding-update/index.ts` under the `document_received` milestone).
+## Problem
 
-That URL fails in two real cases:
+In **Management → Applications → Driver PEI**, clicking **Print** on the PEI Response Viewer only prints what's currently visible inside the dialog. The dialog uses `max-h-[90dvh] overflow-y-auto`, so `window.print()` captures the scroll viewport — anything scrolled out of view is clipped from the printout.
 
-1. **Clicked while signed out.** `/dashboard` redirects to `/login`. Login does not preserve the original URL, so after sign-in the driver lands on plain `/dashboard` and the `?tab=documents` deep link is lost — the button appears to do nothing.
-2. **`/dashboard` route isn't the canonical operator URL.** The rest of the operator portal uses `/operator?tab=...` for deep links; `/dashboard` only works as a side effect of role-based redirects, which has caused similar deep-link drops elsewhere.
+## Root Cause
 
-### Fix
+`PEIResponseViewer.tsx` calls `window.print()` directly while the record lives inside a scroll-clipped Radix dialog. Browsers print the live DOM at its rendered size; the overflow container truncates everything past the visible region.
 
-1. **Point the CTA at the canonical operator deep link.**
-   In `supabase/functions/notify-onboarding-update/index.ts`, change the `document_received` and `decal_photos_requested` CTAs from `/dashboard?tab=documents` to `/operator?tab=documents`. `OperatorPortal` already reads `?tab=` on mount and switches to the Documents view.
+## Fix
 
-2. **Preserve the destination through login.**
-   - In `src/App.tsx`, when an unauthenticated user hits `/dashboard`, `/operator/*`, `/owner/*`, `/staff/*`, `/dispatch/*`, `/management/*`, or `/status`, redirect to `/login?next=<encoded pathname+search>` instead of bare `/login`.
-   - In `src/pages/LoginPage.tsx`, read `next` from the URL after a successful sign-in. If it is present and starts with `/` (same-origin only, no protocol), navigate there; otherwise fall back to `/dashboard`.
+Replace the in-place `window.print()` with a **dedicated print window** approach:
 
-3. **Redeploy `notify-onboarding-update`** so the new URL takes effect immediately.
+1. Build a self-contained HTML document containing the complete PEI record (header, all sections, accidents, audit trail) using the already-loaded `response`, `accidents`, `events`, and `request` state.
+2. Open a new browser window (`window.open('', '_blank')`), write the HTML + minimal print-friendly CSS, then call `print()` on that window and close it on `afterprint`.
+3. Keep the existing toast fallback for popup-blocker or cross-origin failures, pointing users to ⌘P / Ctrl+P.
 
-### Out of scope
-- No copy or layout changes to the email itself.
-- No changes to the Documents view in the operator portal.
-- No changes to other milestone emails beyond the two that currently route to `?tab=documents`.
+This guarantees the full record prints regardless of the dialog's scroll position and also produces a cleaner printout (no app chrome, dialog backdrop, or button bar).
 
-### Validation
-- Send a test `document_received` email via the existing preview tool.
-- Signed in: clicking the button lands on Operator Portal → Documents view.
-- Signed out: clicking the button lands on Login; after sign-in, lands on Operator Portal → Documents view (not the home view).
+## Files Touched
+
+- `src/components/pei/PEIResponseViewer.tsx` — rewrite `handlePrint` to render the full record into a new window; extract a small `buildPrintHtml(request, response, accidents, events, applicantName)` helper in the same file. No other files affected.
+
+## Out of Scope
+
+- No changes to data fetching, schema, or other portals' print buttons.
+- No new dependencies.
+
+## Verification
+
+1. Open a PEI record with a long audit trail or many accidents so the dialog scrolls.
+2. Scroll partway, click **Print** — the print preview should show **all** sections (Applicant header → Audit Trail), not just the visible slice.
+3. Try with a GFE-documented request — the GFE block should print instead of the response sections.
+4. Confirm popup-blocker case still shows the existing toast.

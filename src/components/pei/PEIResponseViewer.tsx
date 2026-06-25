@@ -23,18 +23,45 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
   const { toast } = useToast();
 
   /**
-   * `window.print()` can throw in cross-origin iframes (Lovable preview) and
-   * silently no-ops on iOS Safari from within a dialog. Wrap the call so
-   * users get a clear toast instead of an unresponsive button.
+   * The viewer lives in a scroll-clipped Radix dialog, so `window.print()`
+   * truncates everything outside the visible viewport. Render the full record
+   * into a dedicated popup window and print from there instead.
    */
   const handlePrint = () => {
     try {
-      window.print();
+      if (!request) return;
+      const html = buildPrintHtml({
+        request,
+        response,
+        accidents,
+        events,
+        applicantName,
+      });
+      const win = window.open('', '_blank', 'width=900,height=1000');
+      if (!win) throw new Error('popup blocked');
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      // Wait for layout, then trigger print. Close on afterprint or fallback timer.
+      const trigger = () => {
+        try {
+          win.focus();
+          win.print();
+        } catch (e) {
+          console.error('Print window print() failed:', e);
+        }
+      };
+      win.onafterprint = () => win.close();
+      if (win.document.readyState === 'complete') {
+        setTimeout(trigger, 50);
+      } else {
+        win.addEventListener('load', () => setTimeout(trigger, 50));
+      }
     } catch (err) {
       console.error('Print failed:', err);
       toast({
         title: 'Print unavailable',
-        description: 'Use your browser menu (⌘P / Ctrl+P) to print this page.',
+        description: 'Allow pop-ups for this site, or use ⌘P / Ctrl+P to print.',
         variant: 'destructive',
       });
     }
@@ -228,6 +255,198 @@ const EVENT_LABEL: Record<PEIRequestEvent['event_type'], string> = {
   opened_release_link: 'Opened FCRA release',
   submitted: 'Submitted response',
 };
+
+function esc(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function yn(v: boolean | null | undefined): string {
+  if (v === null || v === undefined) return '—';
+  return v ? 'Yes' : 'No';
+}
+
+function row(label: string, value: unknown): string {
+  return `<tr><th>${esc(label)}</th><td>${value === undefined || value === null || value === '' ? '—' : esc(value)}</td></tr>`;
+}
+
+function buildPrintHtml(args: {
+  request: PEIRequest;
+  response: PEIResponse | null;
+  accidents: PEIAccident[];
+  events: PEIRequestEvent[];
+  applicantName: string;
+}): string {
+  const { request, response, accidents, events, applicantName } = args;
+  const isGFE = request.status === 'gfe_documented';
+
+  const headerBlock = `
+    <header>
+      <h1>PEI Record — ${esc(request.employer_name)}</h1>
+      <table class="meta">
+        ${row('Applicant', applicantName || '—')}
+        ${row('Claimed employment', request.employment_start_date ? `${esc(request.employment_start_date)} → ${esc(request.employment_end_date ?? 'present')}` : '—')}
+        ${row('Status', request.status)}
+      </table>
+    </header>`;
+
+  const gfeBlock = isGFE ? `
+    <section>
+      <h2>Good Faith Effort Documented</h2>
+      <table>
+        ${row('Reason', request.gfe_reason ? GFE_REASON_LABEL[request.gfe_reason] : '—')}
+        ${request.gfe_other_reason ? row('Details', request.gfe_other_reason) : ''}
+        ${row('Documented by', request.gfe_signed_by_name ?? '—')}
+        ${row('Date', request.date_gfe_created ? new Date(request.date_gfe_created).toLocaleDateString() : '—')}
+      </table>
+      <p class="note">Per 49 CFR §391.23(c)(2), this record satisfies the good-faith effort requirement.</p>
+    </section>` : '';
+
+  const responseBlock = !isGFE && response ? `
+    <section>
+      <h2>Employment Verification</h2>
+      <table>
+        ${row('Was employed', yn(response.was_employed))}
+        ${row('Dates accurate', yn(response.dates_accurate))}
+        ${response.actual_start_date ? row('Actual start', response.actual_start_date) : ''}
+        ${response.actual_end_date ? row('Actual end', response.actual_end_date) : ''}
+        ${row('Safe & efficient', yn(response.safe_and_efficient))}
+        ${row('Reason for leaving', response.reason_for_leaving ?? '—')}
+        ${response.reason_detail ? row('Details', response.reason_detail) : ''}
+      </table>
+    </section>
+    <section>
+      <h2>Equipment & Trailers</h2>
+      <table>
+        ${row('Equipment', [
+          response.equipment_straight_truck && 'Straight truck',
+          response.equipment_tractor_semi && 'Tractor/Semi',
+          response.equipment_bus && 'Bus',
+        ].filter(Boolean).join(', ') || '—')}
+        ${row('Trailers', [
+          response.trailer_van && 'Van',
+          response.trailer_flatbed && 'Flatbed',
+          response.trailer_reefer && 'Reefer',
+          response.trailer_cargo_tank && 'Cargo tank',
+          response.trailer_triples && 'Triples',
+          response.trailer_doubles && 'Doubles',
+          response.trailer_na && 'N/A',
+        ].filter(Boolean).join(', ') || '—')}
+      </table>
+    </section>
+    <section>
+      <h2>Accidents</h2>
+      <table>${row('Had accidents', yn(response.had_accidents))}</table>
+      ${accidents.length > 0 ? `
+        <ul>
+          ${accidents.map(a => `<li>${esc(a.accident_date ?? '—')} · ${esc(a.location_city_state ?? '—')} · injuries ${esc(a.number_of_injuries ?? 0)} · fatalities ${esc(a.number_of_fatalities ?? 0)}${a.hazmat_spill ? ' · HazMat' : ''}</li>`).join('')}
+        </ul>` : ''}
+    </section>
+    <section>
+      <h2>Drug & Alcohol</h2>
+      <table>
+        ${row('Violation', yn(response.drug_alcohol_violation))}
+        ${response.drug_alcohol_violation ? `
+          ${row('Failed SAP rehab', yn(response.failed_rehab))}
+          ${row('Post-rehab violations', yn(response.post_rehab_violations))}
+          ${response.drug_alcohol_notes ? row('Notes', response.drug_alcohol_notes) : ''}
+        ` : ''}
+      </table>
+    </section>
+    <section>
+      <h2>Performance Ratings</h2>
+      <table>
+        ${row('Quality of work', response.rating_quality_of_work ?? '—')}
+        ${row('Cooperation', response.rating_cooperation ?? '—')}
+        ${row('Safety habits', response.rating_safety_habits ?? '—')}
+        ${row('Personal habits', response.rating_personal_habits ?? '—')}
+        ${row('Driving skills', response.rating_driving_skills ?? '—')}
+        ${row('Attitude', response.rating_attitude ?? '—')}
+      </table>
+    </section>
+    <section>
+      <h2>Responder</h2>
+      <table>
+        ${row('Name', response.responder_name)}
+        ${row('Title', response.responder_title ?? '—')}
+        ${row('Company', response.responder_company ?? '—')}
+        ${row('Email', response.responder_email ?? '—')}
+        ${row('Phone', response.responder_phone ?? '—')}
+        ${row('Signed at', response.signed_at ? new Date(response.signed_at).toLocaleString() : response.date_signed ? new Date(response.date_signed).toLocaleString() : '—')}
+        ${row('Signed from IP', response.signed_ip ?? '—')}
+        ${row('Browser', response.signed_user_agent ?? '—')}
+      </table>
+    </section>` : '';
+
+  const noResponseBlock = !isGFE && !response
+    ? `<section><p class="note">No response recorded yet.</p></section>`
+    : '';
+
+  // Audit trail (mirrors AuditTrail component logic)
+  type Row = { ts: string; label: string; detail?: string };
+  const auditRows: Row[] = [];
+  if (request.date_sent) auditRows.push({ ts: request.date_sent, label: 'Initial email sent' });
+  if (request.date_follow_up_sent) auditRows.push({ ts: request.date_follow_up_sent, label: 'Follow-up email sent' });
+  if (request.date_final_notice_sent) auditRows.push({ ts: request.date_final_notice_sent, label: 'Final notice email sent' });
+  for (const e of events) {
+    const detail = [e.ip_address, e.user_agent].filter(Boolean).join(' · ');
+    auditRows.push({ ts: e.occurred_at, label: EVENT_LABEL[e.event_type], detail });
+  }
+  auditRows.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+  const auditBlock = `
+    <section>
+      <h2>Audit Trail</h2>
+      ${auditRows.length === 0
+        ? `<p class="note">No activity recorded yet.</p>`
+        : `<table class="audit">
+            ${auditRows.map(r => `<tr>
+              <td class="ts">${esc(new Date(r.ts).toLocaleString())}</td>
+              <td><strong>${esc(r.label)}</strong>${r.detail ? ` — <span class="muted">${esc(r.detail)}</span>` : ''}</td>
+            </tr>`).join('')}
+          </table>`}
+      <p class="note">IP and browser are recorded server-side from request headers when the previous employer interacts with the tokenized links. This trail is retained for FMCSA audit defensibility per 49 CFR §391.53.</p>
+    </section>`;
+
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>PEI Record — ${esc(request.employer_name)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #0D0D0D; margin: 32px; font-size: 12px; line-height: 1.45; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  h2 { font-size: 13px; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #C9A84C; }
+  header { border-bottom: 2px solid #0D0D0D; padding-bottom: 12px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; margin: 4px 0 4px; }
+  th, td { text-align: left; vertical-align: top; padding: 4px 8px; }
+  th { width: 180px; font-weight: 600; color: #555; }
+  tr + tr th, tr + tr td { border-top: 1px solid #eee; }
+  ul { margin: 6px 0; padding-left: 18px; }
+  li { margin-bottom: 4px; border-left: 2px solid #C9A84C; padding-left: 6px; list-style: none; }
+  .note { font-size: 11px; color: #555; margin-top: 8px; }
+  .audit .ts { width: 200px; font-variant-numeric: tabular-nums; color: #555; }
+  .muted { color: #555; }
+  @media print {
+    body { margin: 16mm; }
+    section { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  ${headerBlock}
+  ${gfeBlock}
+  ${responseBlock}
+  ${noResponseBlock}
+  ${auditBlock}
+</body>
+</html>`;
+}
 
 function AuditTrail({
   request,
