@@ -1387,7 +1387,17 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               completedStages={completedStages}
               currentStage={currentStage}
               onboardingStatus={onboardingStatus}
-              onNavigateTo={(v) => setView(v as OperatorView)}
+              onNavigateTo={(v) => {
+                const target = v as OperatorView;
+                setView(target);
+                // Push the URL directly so the writer/reader effects can't race
+                // back to a stale tab (e.g. ?tab=notifications) left over from
+                // opening the notification bell.
+                const search = target && target !== 'progress' ? `?tab=${target}` : '';
+                if (window.location.search !== search) {
+                  navigate({ pathname: '/operator', search }, { replace: false });
+                }
+              }}
               displayName={displayName}
               assignedDispatcher={assignedDispatcher}
               assignedCoordinator={assignedCoordinator}
