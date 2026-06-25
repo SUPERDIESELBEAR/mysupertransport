@@ -98,7 +98,7 @@ function AppRoutes() {
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (roles.length === 0 && !activeRole) ? (
           <div className="flex min-h-screen items-center justify-center bg-surface-dark">
             <div className="flex flex-col items-center gap-4">
@@ -118,32 +118,32 @@ function AppRoutes() {
 
       {/* Role-specific portals */}
       <Route path="/staff/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isOnboardingStaff || isManagement) ? <StaffPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/dispatch/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isDispatcher || isManagement) ? <DispatchPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/management/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         isManagement ? <ManagementPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/operator/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isOperator || isManagement) ? <OperatorPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/owner/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isTruckOwner || isManagement) ? <OperatorPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/status" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         <ApplicationStatus />
       } />
 
