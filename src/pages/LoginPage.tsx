@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,11 @@ type View = 'login' | 'forgot';
 
 export default function LoginPage() {
   const { signIn, user, isDispatcher, isManagement, isOnboardingStaff, loading: authLoading } = useAuth();
+  const location = useLocation();
+  // Honor ?next=<path+search> from deep-linked emails, but only if it's a
+  // same-origin path (starts with '/' and not '//' or a protocol).
+  const rawNext = new URLSearchParams(location.search).get('next');
+  const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
   const [view, setView] = useState<View>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +29,7 @@ export default function LoginPage() {
 
   // Role-based redirect: dispatcher-only users go straight to /dispatch
   if (user && !authLoading) {
+    if (safeNext) return <Navigate to={safeNext} replace />;
     if (isDispatcher && !isManagement && !isOnboardingStaff) return <Navigate to="/dispatch" replace />;
     return <Navigate to="/dashboard" replace />;
   }
