@@ -1,22 +1,30 @@
-## Plan: Remove the quick-action buttons from Stage 1 & Stage 2
+## Plan: Fix the broken "View My Documents" button in the Document Received & Confirmed email
 
-Yes — in the last round I added two blue quick-action buttons to the management Operator Detail panel:
-- **"Approve Stage 1"** (appears above Stage 1 when MVR/CH are received and a PE result is entered)
-- **"Mark all Stage 2 received"** (appears above Stage 2 when all four documents have uploads)
+### What's broken
+The email's CTA points to `https://mysupertransport.lovable.app/dashboard?tab=documents` (set in `supabase/functions/notify-onboarding-update/index.ts` under the `document_received` milestone).
 
-You want these removed.
+That URL fails in two real cases:
 
-### Changes
+1. **Clicked while signed out.** `/dashboard` redirects to `/login`. Login does not preserve the original URL, so after sign-in the driver lands on plain `/dashboard` and the `?tab=documents` deep link is lost — the button appears to do nothing.
+2. **`/dashboard` route isn't the canonical operator URL.** The rest of the operator portal uses `/operator?tab=...` for deep links; `/dashboard` only works as a side effect of role-based redirects, which has caused similar deep-link drops elsewhere.
 
-**File:** `src/pages/staff/OperatorDetailPanel.tsx`
+### Fix
 
-1. Remove the JSX that renders both buttons at the top of the Stage 1 and Stage 2 sections.
-2. Remove the `bulkUpdateStatusAndPersist` helper that was added solely to power those buttons (if not referenced elsewhere).
-3. Leave intact:
-   - The per-field auto-save on Stage 1/2 dropdowns (`updateStatusAndPersist`)
-   - The `operator_id` fallback and error-revert hardening
-   - The driver portal realtime sync work
-   - The completion-indicator logic that reads from saved `onboarding_status`
+1. **Point the CTA at the canonical operator deep link.**
+   In `supabase/functions/notify-onboarding-update/index.ts`, change the `document_received` and `decal_photos_requested` CTAs from `/dashboard?tab=documents` to `/operator?tab=documents`. `OperatorPortal` already reads `?tab=` on mount and switches to the Documents view.
 
-### Result
-Management goes back to the previous flow: staff change each Stage 1/2 dropdown individually and each one auto-saves on change. No bulk blue buttons. Driver portal behavior is unchanged.
+2. **Preserve the destination through login.**
+   - In `src/App.tsx`, when an unauthenticated user hits `/dashboard`, `/operator/*`, `/owner/*`, `/staff/*`, `/dispatch/*`, `/management/*`, or `/status`, redirect to `/login?next=<encoded pathname+search>` instead of bare `/login`.
+   - In `src/pages/LoginPage.tsx`, read `next` from the URL after a successful sign-in. If it is present and starts with `/` (same-origin only, no protocol), navigate there; otherwise fall back to `/dashboard`.
+
+3. **Redeploy `notify-onboarding-update`** so the new URL takes effect immediately.
+
+### Out of scope
+- No copy or layout changes to the email itself.
+- No changes to the Documents view in the operator portal.
+- No changes to other milestone emails beyond the two that currently route to `?tab=documents`.
+
+### Validation
+- Send a test `document_received` email via the existing preview tool.
+- Signed in: clicking the button lands on Operator Portal → Documents view.
+- Signed out: clicking the button lands on Login; after sign-in, lands on Operator Portal → Documents view (not the home view).
