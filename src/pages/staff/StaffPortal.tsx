@@ -61,6 +61,7 @@ export default function StaffPortal() {
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [reviewInitialTab, setReviewInitialTab] = useState<'overview' | 'documents' | 'pei'>('overview');
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
