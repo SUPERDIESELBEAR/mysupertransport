@@ -4722,6 +4722,47 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </button>
           {!s2Collapsed && (
           <div className="px-5 pb-5 space-y-3">
+            {/* Quick action: mark every Stage 2 document received in one save
+                when uploads exist for all four. Persists immediately so the
+                driver portal flips to complete via realtime. */}
+            {(() => {
+              const haveAll =
+                (docFiles['form_2290']?.length ?? 0) > 0 &&
+                (docFiles['truck_title']?.length ?? 0) > 0 &&
+                (docFiles['truck_photos']?.length ?? 0) >= 1 &&
+                (docFiles['truck_inspection']?.length ?? 0) > 0;
+              const anyPending =
+                status.form_2290 !== 'received' ||
+                status.truck_title !== 'received' ||
+                status.truck_photos !== 'received' ||
+                status.truck_inspection !== 'received';
+              if (!haveAll || !anyPending) return null;
+              return (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-status-complete/30 bg-status-complete/5 px-3 py-2">
+                  <p className="text-xs text-foreground">
+                    All four Stage 2 documents are uploaded. Mark them all as <strong>Received</strong> and save instantly.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-status-complete text-white hover:bg-status-complete/90"
+                    onClick={async () => {
+                      const ok = await bulkUpdateStatusAndPersist({
+                        form_2290: 'received',
+                        truck_title: 'received',
+                        truck_photos: 'received',
+                        truck_inspection: 'received',
+                      });
+                      if (ok) {
+                        setCollapsedStages(prev => { const next = new Set(prev); next.add('stage2'); return next; });
+                        toast({ title: 'Stage 2 marked received', description: `${operatorName} will see Stage 2 complete in the driver app.` });
+                      }
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />Mark all received
+                  </Button>
+                </div>
+              );
+            })()}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
               <Select
