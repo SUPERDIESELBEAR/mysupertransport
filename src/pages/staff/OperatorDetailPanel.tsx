@@ -1909,13 +1909,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     field: keyof OnboardingStatus,
     value: string | null,
   ) => {
+    const previous = (status as any)[field] ?? null;
     setStatus(prev => ({ ...prev, [field]: value }));
-    if (!statusId) return;
-    const { error } = await supabase
-      .from('onboarding_status')
-      .update({ [field]: value } as any)
-      .eq('id', statusId);
+    // Prefer statusId, but fall back to operator_id so a missing local id never
+    // silently no-ops (which is what made management look "green" while the DB
+    // and driver portal still showed pending).
+    const query = supabase.from('onboarding_status').update({ [field]: value } as any);
+    const { error } = await (statusId
+      ? query.eq('id', statusId)
+      : query.eq('operator_id', operatorId));
     if (error) {
+      // Revert so the UI never displays an unsaved "complete" state.
+      setStatus(prev => ({ ...prev, [field]: previous }));
       toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
       return;
     }
