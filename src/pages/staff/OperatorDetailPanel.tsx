@@ -1909,13 +1909,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     field: keyof OnboardingStatus,
     value: string | null,
   ) => {
+    const previous = (status as any)[field] ?? null;
     setStatus(prev => ({ ...prev, [field]: value }));
-    if (!statusId) return;
-    const { error } = await supabase
-      .from('onboarding_status')
-      .update({ [field]: value } as any)
-      .eq('id', statusId);
+    // Prefer statusId, but fall back to operator_id so a missing local id never
+    // silently no-ops (which is what made management look "green" while the DB
+    // and driver portal still showed pending).
+    const query = supabase.from('onboarding_status').update({ [field]: value } as any);
+    const { error } = await (statusId
+      ? query.eq('id', statusId)
+      : query.eq('operator_id', operatorId));
     if (error) {
+      // Revert so the UI never displays an unsaved "complete" state.
+      setStatus(prev => ({ ...prev, [field]: previous }));
       toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
       return;
     }
@@ -1928,6 +1933,37 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         status: { ...savedSnapshot.current.status, [field]: value },
       };
     }
+  };
+
+  /**
+   * Bulk-persist multiple status fields in a single write. Used by the
+   * "Approve Stage 1" and "Mark all Stage 2 received" quick actions so staff
+   * never have to click Save separately and the driver portal sees stage
+   * completion immediately via realtime.
+   */
+  const bulkUpdateStatusAndPersist = async (
+    patch: Partial<Record<keyof OnboardingStatus, string | null>>,
+  ) => {
+    const previous: Record<string, unknown> = {};
+    Object.keys(patch).forEach(k => { previous[k] = (status as any)[k] ?? null; });
+    setStatus(prev => ({ ...prev, ...patch } as any));
+    const query = supabase.from('onboarding_status').update(patch as any);
+    const { error } = await (statusId
+      ? query.eq('id', statusId)
+      : query.eq('operator_id', operatorId));
+    if (error) {
+      setStatus(prev => ({ ...prev, ...previous } as any));
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+      return false;
+    }
+    savedMilestones.current = { ...savedMilestones.current, ...(patch as any) };
+    if (savedSnapshot.current) {
+      savedSnapshot.current = {
+        ...savedSnapshot.current,
+        status: { ...savedSnapshot.current.status, ...(patch as any) },
+      };
+    }
+    return true;
   };
 
   // Handle editing device numbers from TruckInfoCard
@@ -4430,6 +4466,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </button>
               {!s1Collapsed && (
                 <div className="px-5 pb-5 space-y-4">
+                  {/* Quick action: approve Stage 1 in one click when MVR + CH
+                      are received and a PE result document is on file. Persists
+                      immediately so the driver portal flips to complete. */}
+                  {!s1Complete && status.mvr_status === 'received' && status.ch_status === 'received' && (
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-status-complete/30 bg-status-complete/5 px-3 py-2">
+                      <p className="text-xs text-foreground">
+                        Ready to approve Stage 1? This sets <strong>MVR/CH = Approved</strong> and <strong>PE Result = Clear</strong> and saves immediately.
+                      </p>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs bg-status-complete text-white hover:bg-status-complete/90"
+                        onClick={async () => {
+                          const ok = await bulkUpdateStatusAndPersist({
+                            mvr_ch_approval: 'approved',
+                            pe_screening_result: 'clear',
+                          });
+                          if (ok) {
+                            setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
+                            toast({ title: 'Stage 1 approved', description: `${operatorName} will see Stage 1 complete in the driver app.` });
+                          }
+                        }}
+                      >
+                        <CheckCircle2 className="h-3 w-3 mr-1" />Approve Stage 1
+                      </Button>
+                    </div>
+                  )}
                   {/* MVR */}
                   <div className="space-y-2">
                     <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
@@ -4660,6 +4722,47 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </button>
           {!s2Collapsed && (
           <div className="px-5 pb-5 space-y-3">
+            {/* Quick action: mark every Stage 2 document received in one save
+                when uploads exist for all four. Persists immediately so the
+                driver portal flips to complete via realtime. */}
+            {(() => {
+              const haveAll =
+                (docFiles['form_2290']?.length ?? 0) > 0 &&
+                (docFiles['truck_title']?.length ?? 0) > 0 &&
+                (docFiles['truck_photos']?.length ?? 0) >= 1 &&
+                (docFiles['truck_inspection']?.length ?? 0) > 0;
+              const anyPending =
+                status.form_2290 !== 'received' ||
+                status.truck_title !== 'received' ||
+                status.truck_photos !== 'received' ||
+                status.truck_inspection !== 'received';
+              if (!haveAll || !anyPending) return null;
+              return (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-status-complete/30 bg-status-complete/5 px-3 py-2">
+                  <p className="text-xs text-foreground">
+                    All four Stage 2 documents are uploaded. Mark them all as <strong>Received</strong> and save instantly.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-status-complete text-white hover:bg-status-complete/90"
+                    onClick={async () => {
+                      const ok = await bulkUpdateStatusAndPersist({
+                        form_2290: 'received',
+                        truck_title: 'received',
+                        truck_photos: 'received',
+                        truck_inspection: 'received',
+                      });
+                      if (ok) {
+                        setCollapsedStages(prev => { const next = new Set(prev); next.add('stage2'); return next; });
+                        toast({ title: 'Stage 2 marked received', description: `${operatorName} will see Stage 2 complete in the driver app.` });
+                      }
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />Mark all received
+                  </Button>
+                </div>
+              );
+            })()}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
               <Select

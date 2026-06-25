@@ -1,35 +1,32 @@
-## Finding
+## Plan: Fix Stage 1/2 mismatch between management and driver portal (all drivers)
 
-This is not a realtime lag issue. For the specific driver in the screenshot, the database still has:
+This applies to every driver, not just Emma — she's only the test case used to confirm behavior.
 
-- Stage 1: `mvr_ch_approval = approved`, but `pe_screening_result = pending`
-- Stage 2: uploaded docs exist, but the official status fields are still `requested/not_started/not_started/not_started`
+### Root cause
+The driver portal reads saved values from `onboarding_status` and correctly shows Stage 1/2 as "in progress" when those values aren't yet `approved`/`clear`/`received`. Management can visually look "complete/green" while the saved DB values are still pending (because of unsaved local state, or because uploaded files are mistaken for staff sign-off). For the current test driver the DB still has `pe_screening_result = pending` and three Stage 2 docs at `not_started`/`requested`, so the driver portal correctly says Stage 1/2 are not complete.
 
-So the driver portal is showing the saved source-of-truth correctly, while management is visually implying completion based on uploaded files or local UI state. The fix should make the source of truth and both UIs agree.
+### Implementation (applies to all drivers)
 
-## Plan
+1. **One source of truth for stage completion**
+   - Management's Stage 1 / Stage 2 completion indicators use the saved `onboarding_status` values (same fields the driver portal already uses), not local uploaded-file evidence.
+   - When uploaded files exist but the saved status is not yet `received`/`approved`/`clear`, management shows an explicit "Needs staff review — not saved" state rather than green complete.
 
-1. **Centralize stage completion rules**
-   - Add a shared onboarding status helper for Stage 1 and Stage 2.
-   - Stage 1 complete when MVR/CH is approved and PE result is clear.
-   - Stage 2 complete when all four document status fields are received, with an explicit fallback that can treat existing uploaded documents as ready-for-review but not silently complete unless staff confirms.
+2. **One-click "Mark all Stage 2 received" in management**
+   - When all four Stage 2 documents have at least one uploaded file, staff get a single action to mark `form_2290`, `truck_title`, `truck_photos`, `truck_inspection` as `received` in one write.
+   - Persists immediately to `onboarding_status` and updates the local snapshot so the row doesn't appear unsaved.
 
-2. **Fix driver portal display**
-   - Update `OperatorPortal.tsx` to use the shared helper instead of duplicate inline checks.
-   - Show Stage 3 as available only when Stage 1 and Stage 2 are truly complete.
-   - Improve Stage 2 substep wording so uploaded-but-not-marked-received reads as “Awaiting coordinator review,” not “Not Started.”
+3. **One-click "Approve Stage 1" in management**
+   - When MVR and CH statuses are `received` and a PE result is entered, staff can set `mvr_ch_approval = approved` + `pe_screening_result = clear` in one write.
+   - Persists immediately.
 
-3. **Fix management-side received workflow**
-   - In `OperatorDetailPanel.tsx`, make every “Mark as Received” action immediately persist the matching `onboarding_status` field and update the local saved snapshot.
-   - When staff marks the final Stage 2 document received, re-check all four fields from the saved row so the management “All Docs Complete” badge cannot be ahead of the database.
-   - Keep existing notifications/audit behavior intact.
+4. **Harden the existing per-field immediate save**
+   - Keep the immediate-save dropdown behavior already in place for Stage 1/2.
+   - Fall back to `operator_id` when `statusId` is missing so a save never silently no-ops.
+   - Surface failures with a destructive toast and revert local state on error so management cannot look green while the DB is still pending.
 
-4. **Add an explicit Stage 2 catch-up action**
-   - Add a management-side “Mark uploaded Stage 2 docs received” action when all required uploads exist but official statuses are not yet all received.
-   - This resolves cases like the current driver where the files are present but the status fields were never changed.
+5. **Driver portal stays unchanged in logic**
+   - Continues to read saved `onboarding_status` and the existing realtime + focus/visibility refresh path already syncs within seconds once management persists.
 
-5. **Verify the specific driver path**
-   - Check that the driver portal reads the same row after refresh/login.
-   - Confirm Stage 1 remains in progress until PE result is clear, unless management has actually set it clear.
-   - Confirm Stage 2 moves to complete as soon as the four status fields are saved as received.
-   - Confirm Stage 3 becomes the next accessible stage once Stage 1 and Stage 2 are complete.
+### Validation
+- After the change, for any driver where staff sets Stage 1 approvals and Stage 2 documents to received, the DB row will reflect it and the driver portal Stage 1/2 will flip to complete on the next realtime tick or focus.
+- Re-run the diagnostic query on the test driver to confirm the saved fields actually change after staff uses the new one-click actions.
