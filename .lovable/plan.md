@@ -1,12 +1,28 @@
-## Problem
-The hidden file input behind the "Upload Receipt" button on the operator Status page has `capture="environment"`, which forces the mobile OS to open the camera directly. Users can't pick an existing photo or PDF from their device.
+# Fix: Stage 2 "Upload Documents" routes to Notifications
 
-## Change
-**`src/components/operator/OperatorStatusPage.tsx`** (line ~437)
-- Remove the `capture="environment"` attribute from the hidden `<input type="file">`.
-- Keep `accept="image/*,application/pdf"` so the OS picker offers Photo Library, Files, and Camera (Take Photo) — letting the user choose any source.
+## Diagnosis
+- `OnboardingChecklist.tsx:252` correctly calls `onNavigateTo('documents')`.
+- `OperatorPortal.tsx:1390` binds `onNavigateTo={(v) => setView(v as OperatorView)}`.
+- `view === 'documents'` correctly renders `OperatorDocumentUpload`.
 
-No other UI, copy, or upload-logic changes. PDFs were already accepted; removing `capture` just stops forcing the camera.
+Most plausible cause: a race between two effects in `OperatorPortal`:
+1. Reader (124–132) — runs on `location.search` change → `setView(tab)`.
+2. Writer (137–148) — runs on `view` change → `navigate({ search }, { replace: true })`.
 
-## Verification
-On mobile, tap Upload Receipt → OS sheet shows Photo Library / Choose File / Take Photo. On desktop, the normal file chooser opens.
+If the user previously opened the bell (URL = `?tab=notifications`), the stale param can re-fire the reader and overwrite `setView('documents')` back to `'notifications'`.
+
+## Proposed change (one file)
+`src/pages/operator/OperatorPortal.tsx` — replace the inline `onNavigateTo` at line 1390 so the URL is pushed synchronously and the writer/reader cannot race:
+
+```tsx
+onNavigateTo={(v) => {
+  const target = v as OperatorView;
+  setView(target);
+  const search = target && target !== 'progress' ? `?tab=${target}` : '';
+  if (window.location.search !== search) {
+    navigate({ pathname: '/operator', search }, { replace: false });
+  }
+}}
+```
+
+Guarantees Stage 2's "Upload Documents" lands on the Documents upload view (Form 2290 / Truck Title / Truck Photos / Truck Inspection) regardless of any stale `?tab=` param.
