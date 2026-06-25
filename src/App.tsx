@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
@@ -46,6 +46,19 @@ function PortalFallback() {
       </div>
     </div>
   );
+}
+
+/**
+ * Redirects to /login while preserving the original path+search as ?next=,
+ * so deep links from emails (e.g. /operator?tab=documents) survive sign-in.
+ */
+function LoginRedirect() {
+  const location = useLocation();
+  const next = `${location.pathname}${location.search}`;
+  const target = next && next !== '/login'
+    ? `/login?next=${encodeURIComponent(next)}`
+    : '/login';
+  return <Navigate to={target} replace />;
 }
 
 function AppRoutes() {
