@@ -152,11 +152,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   }
 
   function actionFor(row: PEIQueueRow) {
-    if (row.status === 'pending') return { label: 'Send PEI', kind: 'initial' as const };
-    const days = row.date_sent ? Math.floor((Date.now() - new Date(row.date_sent).getTime()) / 86400000) : 0;
-    if (row.status === 'sent' && days >= 15 && days < 25) return { label: 'Send Follow-Up', kind: 'follow_up' as const };
-    if ((row.status === 'sent' || row.status === 'follow_up_sent') && days >= 25 && days < 30) return { label: 'Send Final Notice', kind: 'final_notice' as const };
-    if (days >= 30 || row.is_overdue) return { label: 'Document GFE', kind: 'gfe' as const };
+    if (row.status === 'pending') return { label: 'Send First Attempt', kind: 'initial' as const };
+    if (row.status === 'sent') return { label: 'Send Second Attempt', kind: 'follow_up' as const };
     return null;
   }
 

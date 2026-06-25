@@ -1,32 +1,42 @@
 ## Goal
 
-When a staff/management user clicks **Open** on a row in the PEI Queue, the Application Review drawer should land on the **PEI** tab instead of the default **Overview** tab.
+In the PEI Queue, replace the current single "Send PEI" button + time-gated follow-up logic with a clean two-attempt flow:
 
-## Changes
+- Before anything has been sent → **Send First Attempt**
+- After the first send → **Send Second Attempt**
+- After the second send → no send button (GFE / Open / Delete remain available)
 
-1. **`src/components/management/ApplicationReviewDrawer.tsx`**
-   - Add optional prop `initialTab?: 'overview' | 'documents' | 'pei'`.
-   - Use it to initialize `activeTab` state (default `'overview'` — preserves current behavior everywhere else).
+No Final Notice button. No day-based gating — staff can fire the second attempt whenever they decide.
 
-2. **`src/pages/staff/StaffPortal.tsx`**
-   - Add a small state `reviewInitialTab` (default `'overview'`).
-   - In the `PEIQueuePanel`'s `onOpenApplication` callback, set `reviewInitialTab = 'pei'` alongside `setReviewApp(...)`.
-   - Pass `initialTab={reviewInitialTab}` into `<ApplicationReviewDrawer ... />`.
-   - Reset `reviewInitialTab` to `'overview'` in the drawer's `onClose`.
+## Change
 
-3. **`src/pages/management/ManagementPortal.tsx`**
-   - Same pattern: add `peiReviewTab` state, set it to `'pei'` from the PEI Queue callback, pass `initialTab` to the drawer, reset on close.
+Single-file edit: `src/components/pei/PEIQueuePanel.tsx` — update the `actionFor(row)` helper.
 
-No other callers of `ApplicationReviewDrawer` change — Overview remains the default for Applications view, Driver Hub, and elsewhere.
+| Current `status`               | Button shown            | Email kind sent |
+| ------------------------------ | ----------------------- | --------------- |
+| `pending`                      | **Send First Attempt**  | `initial`       |
+| `sent`                         | **Send Second Attempt** | `follow_up`     |
+| `follow_up_sent`               | (none)                  | —               |
+| `final_notice_sent`            | (none — legacy rows)    | —               |
+| `completed` / `gfe_documented` | (none)                  | —               |
+
+- Removes the 15/25/30-day windows so the second-attempt button appears immediately after the first send.
+- Drops the "Send Final Notice" UI entirely.
+- GFE button, Open, and Delete actions are unchanged.
+- Deadline column ("Due in Nd / Overdue") is unchanged.
+
+## Backend / other surfaces
+
+No backend or template changes. `sendPEIEmail(..., 'follow_up')` already stamps `status = 'follow_up_sent'` + `date_follow_up_sent`, so the button naturally disappears after the second attempt. The `final_notice` send path stays in `sendPEIEmail.ts` (now unreferenced from the queue UI) so nothing else breaks.
 
 ## Verification
 
-1. From **PEI Queue**, click **Open** on any row → drawer opens with the **PEI** tab active.
-2. From the regular **Applications** list (or Driver Hub), open an application → drawer still opens on **Overview**.
-3. Close and reopen from PEI Queue → still lands on PEI.
-4. Close from PEI Queue and then open from Applications list → lands on Overview (state reset works).
+1. Pending row shows **Send First Attempt**. Click → row flips to `sent` and button becomes **Send Second Attempt**.
+2. Click **Send Second Attempt** → row flips to `follow_up_sent` and no send button is shown (GFE / Open / Delete still present).
+3. Existing `final_notice_sent`, `completed`, and `gfe_documented` rows show no send button.
 
 ## Out of scope
 
-- No change to PEI Queue UI, data fetch, or tab content.
-- No change to deep-link / URL routing.
+- Renaming the underlying email template files.
+- Auto-scheduling the second attempt.
+- A third manual attempt.
