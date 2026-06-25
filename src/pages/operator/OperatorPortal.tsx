@@ -494,6 +494,45 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     return () => { supabase.removeChannel(channel); };
   }, [operatorId, fetchDispatcherInfo]);
 
+  // Realtime: keep Stage 2 doc statuses and uploaded docs in sync with management edits
+  useEffect(() => {
+    if (isPreview || !operatorId) return;
+    const channel = supabase
+      .channel(`operator-onboarding-sync-${operatorId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'onboarding_status',
+        filter: `operator_id=eq.${operatorId}`,
+      }, (payload: any) => {
+        if (payload.new) {
+          setOnboardingStatus((prev: any) => ({ ...(prev ?? {}), ...payload.new }));
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'operator_documents',
+        filter: `operator_id=eq.${operatorId}`,
+      }, (payload: any) => {
+        setUploadedDocs((prev: any[]) => {
+          const list = Array.isArray(prev) ? [...prev] : [];
+          if (payload.eventType === 'DELETE') {
+            return list.filter(d => d.id !== payload.old?.id);
+          }
+          const row = payload.new;
+          if (!row) return list;
+          if (row.deleted_at) return list.filter(d => d.id !== row.id);
+          const idx = list.findIndex(d => d.id === row.id);
+          if (idx === -1) list.push(row);
+          else list[idx] = { ...list[idx], ...row };
+          return list;
+        });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [operatorId]);
+
   // PWA install + presence tracking handled globally by <TrackOperatorPresence />
 
   // Clear unread count when messages tab is opened
