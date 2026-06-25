@@ -136,6 +136,7 @@ export default function ManagementPortal() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
+  const [selectedAppInitialTab, setSelectedAppInitialTab] = useState<'overview' | 'documents' | 'pei'>('overview');
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [dispatchLastChanged, setDispatchLastChanged] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
@@ -1857,7 +1858,10 @@ export default function ManagementPortal() {
         {view === 'pei-queue' && (
           <PEIQueuePanel onOpenApplication={async (appId) => {
             const { data } = await supabase.from('applications').select('*').eq('id', appId).single();
-            if (data) setSelectedApp(data as FullApplication);
+            if (data) {
+              setSelectedAppInitialTab('pei');
+              setSelectedApp(data as FullApplication);
+            }
           }} />
         )}
 
@@ -1993,7 +1997,7 @@ export default function ManagementPortal() {
       {selectedApp && (
         <ApplicationReviewDrawer
           app={selectedApp}
-          onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); }}
+          onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); setSelectedAppInitialTab('overview'); }}
           onApprove={handleApprove}
           onDeny={handleDeny}
           onExpiryUpdated={async () => {
@@ -2013,6 +2017,7 @@ export default function ManagementPortal() {
             }
           }}
           focusField={drawerFocusField}
+          initialTab={selectedAppInitialTab}
           onApplicationUpdated={(patch) => {
             setSelectedApp((prev) => (prev && prev.id === patch.id ? { ...prev, ...patch } as FullApplication : prev));
             setApplications((prev) => prev.map((a) => (a.id === patch.id ? { ...a, ...patch } as FullApplication : a)));

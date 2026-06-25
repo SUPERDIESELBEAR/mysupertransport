@@ -44,6 +44,8 @@ interface ApplicationReviewDrawerProps {
   onExpiryUpdated?: () => void;
   /** Auto-open and scroll to this expiry field when the drawer mounts */
   focusField?: 'cdl' | 'medcert';
+  /** Tab to show when the drawer opens. Defaults to 'overview'. */
+  initialTab?: 'overview' | 'documents' | 'pei';
   /** Notify parent of an in-drawer change so list/selectedApp stay in sync. */
   onApplicationUpdated?: (patch: Partial<FullApplication> & { id: string }) => void;
 }
@@ -245,11 +247,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 type DrawerTab = 'overview' | 'documents' | 'pei';
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField, onApplicationUpdated }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField, initialTab, onApplicationUpdated }: ApplicationReviewDrawerProps) {
   const { roles, user } = useAuth();
   const isManagement = roles.includes('management');
   const canEditDenialReason = roles.includes('management') || roles.includes('owner');
-  const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
+  const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab ?? 'overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
   const [revisionMessage, setRevisionMessage] = useState('');

@@ -61,6 +61,7 @@ export default function StaffPortal() {
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [reviewInitialTab, setReviewInitialTab] = useState<'overview' | 'documents' | 'pei'>('overview');
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
@@ -819,7 +820,10 @@ export default function StaffPortal() {
       {currentView === 'pei-queue' && (
         <PEIQueuePanel onOpenApplication={async (appId) => {
           const { data } = await supabase.from('applications').select('*').eq('id', appId).single();
-          if (data) setReviewApp(data as FullApplication);
+          if (data) {
+            setReviewInitialTab('pei');
+            setReviewApp(data as FullApplication);
+          }
         }} />
       )}
     </StaffLayout>
@@ -827,7 +831,7 @@ export default function StaffPortal() {
     {reviewApp && (
       <ApplicationReviewDrawer
         app={reviewApp}
-        onClose={() => { setReviewApp(null); setReviewFocusField(undefined); }}
+        onClose={() => { setReviewApp(null); setReviewFocusField(undefined); setReviewInitialTab('overview'); }}
         onApprove={async () => {}}
         onDeny={async () => {}}
         onExpiryUpdated={async () => {
@@ -847,6 +851,7 @@ export default function StaffPortal() {
           }
         }}
         focusField={reviewFocusField}
+        initialTab={reviewInitialTab}
       />
     )}
 
