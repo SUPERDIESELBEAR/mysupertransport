@@ -4435,32 +4435,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </button>
               {!s1Collapsed && (
                 <div className="px-5 pb-5 space-y-4">
-                  {/* Quick action: approve Stage 1 in one click when MVR + CH
-                      are received and a PE result document is on file. Persists
-                      immediately so the driver portal flips to complete. */}
-                  {!s1Complete && status.mvr_status === 'received' && status.ch_status === 'received' && (
-                    <div className="flex items-center justify-between gap-3 rounded-md border border-status-complete/30 bg-status-complete/5 px-3 py-2">
-                      <p className="text-xs text-foreground">
-                        Ready to approve Stage 1? This sets <strong>MVR/CH = Approved</strong> and <strong>PE Result = Clear</strong> and saves immediately.
-                      </p>
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs bg-status-complete text-white hover:bg-status-complete/90"
-                        onClick={async () => {
-                          const ok = await bulkUpdateStatusAndPersist({
-                            mvr_ch_approval: 'approved',
-                            pe_screening_result: 'clear',
-                          });
-                          if (ok) {
-                            setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
-                            toast({ title: 'Stage 1 approved', description: `${operatorName} will see Stage 1 complete in the driver app.` });
-                          }
-                        }}
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />Approve Stage 1
-                      </Button>
-                    </div>
-                  )}
                   {/* MVR */}
                   <div className="space-y-2">
                     <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
