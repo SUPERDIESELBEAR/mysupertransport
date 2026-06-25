@@ -1,35 +1,43 @@
-# Fix PEI Print — Full Record
-
 ## Problem
 
-In **Management → Applications → Driver PEI**, clicking **Print** on the PEI Response Viewer only prints what's currently visible inside the dialog. The dialog uses `max-h-[90dvh] overflow-y-auto`, so `window.print()` captures the scroll viewport — anything scrolled out of view is clipped from the printout.
+PEI Queue's **Completed** and **GFE** filter chips are always empty, even when a previous employer has returned a completed PEI (e.g. Matthew Clovis). The completed response correctly shows on the applicant's record under Applications → PEI section, but it never appears in the PEI Queue's Completed tab.
 
-## Root Cause
+## Root cause
 
-`PEIResponseViewer.tsx` calls `window.print()` directly while the record lives inside a scroll-clipped Radix dialog. Browsers print the live DOM at its rendered size; the overflow container truncates everything past the visible region.
+The `get_pei_queue` Postgres RPC (called by `PEIQueuePanel`) hard-filters out finished requests:
 
-## Fix
+```sql
+WHERE pr.status NOT IN ('completed', 'gfe_documented')
+```
 
-Replace the in-place `window.print()` with a **dedicated print window** approach:
+So even though the UI exposes `Completed` and `GFE` filter chips and the client-side filter logic in `PEIQueuePanel.tsx` checks for those statuses, the data never reaches the client. Completed PEIs are only visible from inside the application drawer.
 
-1. Build a self-contained HTML document containing the complete PEI record (header, all sections, accidents, audit trail) using the already-loaded `response`, `accidents`, `events`, and `request` state.
-2. Open a new browser window (`window.open('', '_blank')`), write the HTML + minimal print-friendly CSS, then call `print()` on that window and close it on `afterprint`.
-3. Keep the existing toast fallback for popup-blocker or cross-origin failures, pointing users to ⌘P / Ctrl+P.
+## Fix (single migration, no UI changes)
 
-This guarantees the full record prints regardless of the dialog's scroll position and also produces a cleaner printout (no app chrome, dialog backdrop, or button bar).
+Update `public.get_pei_queue()` to return **all** PEI requests and let the existing client-side chips do the filtering they were already written to do:
 
-## Files Touched
+- Remove the `WHERE pr.status NOT IN ('completed', 'gfe_documented')` clause.
+- Keep signature, security, and ordering identical.
+- Adjust ordering so completed/GFE rows sort to the bottom (null deadline last, then by `created_at`) — preserves current "what needs action first" ordering for the default **All** view.
 
-- `src/components/pei/PEIResponseViewer.tsx` — rewrite `handlePrint` to render the full record into a new window; extract a small `buildPrintHtml(request, response, accidents, events, applicantName)` helper in the same file. No other files affected.
+## Why no UI changes
 
-## Out of Scope
+`PEIQueuePanel.tsx` already:
+- Renders `Completed` and `GFE` filter chips.
+- Has matching filter branches (`r.status === 'completed'`, `r.status === 'gfe_documented'`).
+- Has `STATUS_ORDER` entries for both completed states in the group summary.
+- Stats tiles (`Total Open`, `Awaiting`, `Follow-Up`, `Overdue`) are computed from row predicates, not row count alone, so they stay accurate once completed rows are included.
 
-- No changes to data fetching, schema, or other portals' print buttons.
-- No new dependencies.
+The only visible behavior change: **All** view will now also list completed rows below open ones, and the **Completed** / **GFE** chips will finally show data.
 
 ## Verification
 
-1. Open a PEI record with a long audit trail or many accidents so the dialog scrolls.
-2. Scroll partway, click **Print** — the print preview should show **all** sections (Applicant header → Audit Trail), not just the visible slice.
-3. Try with a GFE-documented request — the GFE block should print instead of the response sections.
-4. Confirm popup-blocker case still shows the existing toast.
+1. As management, open PEI Queue → **Completed** tab → Matthew Clovis's completed employer response should now appear.
+2. **All** tab → completed rows appear below pending/sent rows.
+3. Stat tiles (`Total Open`, `Awaiting Response`, `Follow-Up Needed`, `Overdue / GFE`) remain unchanged in value.
+4. Opening a completed row's **Open** action still routes to the application's PEI tab.
+
+## Out of scope
+
+- No change to the applicant-side PEI tab (already working).
+- No change to email tracking, GFE flow, or queue ordering semantics for open items.
