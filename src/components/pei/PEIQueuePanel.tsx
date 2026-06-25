@@ -339,7 +339,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <div className="flex justify-end gap-1.5 flex-wrap">
-                                    {action && action.kind !== 'gfe' && (
+                                    {action && (
                                       <Button size="sm" disabled={busy === r.request_id} onClick={() => handleSend(r, action.kind)}>
                                         {busy === r.request_id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
                                         {action.label}
