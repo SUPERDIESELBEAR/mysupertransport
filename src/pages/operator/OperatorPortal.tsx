@@ -508,6 +508,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         if (payload.new) {
           setOnboardingStatus((prev: any) => ({ ...(prev ?? {}), ...payload.new }));
         }
+        // Reconcile with the full row in case the payload was partial / a column
+        // we depend on for stage completion was missing from REPLICA IDENTITY.
+        fetchData();
       })
       .on('postgres_changes', {
         event: '*',
@@ -529,9 +532,37 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           return list;
         });
       })
-      .subscribe();
+      .subscribe((status) => {
+        // When the channel (re)connects, immediately resync from the DB so any
+        // management edits made before the subscription was live are picked up.
+        if (status === 'SUBSCRIBED') {
+          fetchData();
+        }
+      });
     return () => { supabase.removeChannel(channel); };
-  }, [operatorId]);
+  }, [operatorId, fetchData, isPreview]);
+
+  // Catch-up refresh whenever the driver returns to the app, the window
+  // regains focus, or the device reconnects. Logout/login + manual refresh
+  // should already pull fresh data, but mobile browsers aggressively pause
+  // tabs in the background, which can stall Realtime *and* the existing
+  // fetch paths — this is the safety net that guarantees the portal sees
+  // management's latest Stage 1/2 status without a hard reload.
+  useEffect(() => {
+    if (isPreview || !operatorId) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchData();
+    };
+    const onFocusOrOnline = () => fetchData();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocusOrOnline);
+    window.addEventListener('online', onFocusOrOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocusOrOnline);
+      window.removeEventListener('online', onFocusOrOnline);
+    };
+  }, [isPreview, operatorId, fetchData]);
 
   // PWA install + presence tracking handled globally by <TrackOperatorPresence />
 
@@ -606,7 +637,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     switch (stageNum) {
       case 1:
         if (s.mvr_ch_approval === 'denied' || s.pe_screening_result === 'non_clear') return 'action_required';
-        if (s.pe_screening_result === 'clear') return 'complete';
+        // Match management: Stage 1 is complete only when BOTH the MVR/CH
+        // approval is approved AND the PE screening result is clear.
+        if (s.mvr_ch_approval === 'approved' && s.pe_screening_result === 'clear') return 'complete';
         if (s.mvr_status !== 'not_started' && s.mvr_status != null) return 'in_progress';
         return 'not_started';
       case 2:
@@ -658,7 +691,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         { label: 'MVR', value: fmt(onboardingStatus.mvr_status ?? 'not_started'), status: onboardingStatus.mvr_status === 'received' ? 'complete' : onboardingStatus.mvr_status === 'requested' ? 'in_progress' : 'not_started' },
         { label: 'Clearinghouse', value: fmt(onboardingStatus.ch_status ?? 'not_started'), status: onboardingStatus.ch_status === 'received' ? 'complete' : onboardingStatus.ch_status === 'requested' ? 'in_progress' : 'not_started' },
         { label: 'MVR/CH Approval', value: fmt(onboardingStatus.mvr_ch_approval ?? 'pending'), status: onboardingStatus.mvr_ch_approval === 'approved' ? 'complete' : onboardingStatus.mvr_ch_approval === 'denied' ? 'action_required' : 'in_progress' },
-        { label: 'PE Screening', value: fmt(onboardingStatus.pe_screening ?? 'not_started'), status: onboardingStatus.pe_screening === 'results_in' ? 'complete' : onboardingStatus.pe_screening === 'scheduled' ? 'in_progress' : 'not_started' },
+        { label: 'PE Screening', value: onboardingStatus.pe_screening_result === 'clear' ? 'Complete' : fmt(onboardingStatus.pe_screening ?? 'not_started'), status: onboardingStatus.pe_screening_result === 'clear' || onboardingStatus.pe_screening === 'results_in' ? 'complete' : onboardingStatus.pe_screening === 'scheduled' ? 'in_progress' : 'not_started' },
         { label: 'PE Result', value: fmt(onboardingStatus.pe_screening_result ?? 'pending'), status: onboardingStatus.pe_screening_result === 'clear' ? 'complete' : onboardingStatus.pe_screening_result === 'non_clear' ? 'action_required' : 'in_progress' },
       ],
       hint: 'Your onboarding coordinator will initiate your MVR, Clearinghouse, and drug screening. No action needed yet.',
