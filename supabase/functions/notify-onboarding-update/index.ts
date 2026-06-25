@@ -94,7 +94,7 @@ const MILESTONE_COPY: Record<string, {
     body: (name) => `<p>Hi ${name},</p>
       <p>Your onboarding coordinator has confirmed receipt of one of your required documents.</p>
       <p>Log in to your portal to see your updated document status and any remaining items.</p>`,
-    cta: (appUrl) => ({ label: 'View My Documents', url: `${appUrl}/dashboard?tab=documents` }),
+    cta: (appUrl) => ({ label: 'View My Documents', url: `${appUrl}/operator?tab=documents` }),
   },
   decal_photos_requested: {
     subject: 'Action Required: Upload Decal Installation Photos — SUPERTRANSPORT',
@@ -107,7 +107,7 @@ const MILESTONE_COPY: Record<string, {
         <li><strong>Passenger-side</strong> photo showing the decal clearly visible</li>
       </ul>
       <p>Log in to your portal and go to the <strong>Documents</strong> tab to upload your photos.</p>`,
-    cta: (appUrl) => ({ label: 'Upload Decal Photos', url: `${appUrl}/dashboard?tab=documents` }),
+    cta: (appUrl) => ({ label: 'Upload Decal Photos', url: `${appUrl}/operator?tab=documents` }),
   },
   go_live_set: {
     subject: '🚛 Your Go-Live Date is Confirmed — SUPERTRANSPORT',

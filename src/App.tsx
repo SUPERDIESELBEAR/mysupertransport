@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
@@ -48,6 +48,19 @@ function PortalFallback() {
   );
 }
 
+/**
+ * Redirects to /login while preserving the original path+search as ?next=,
+ * so deep links from emails (e.g. /operator?tab=documents) survive sign-in.
+ */
+function LoginRedirect() {
+  const location = useLocation();
+  const next = `${location.pathname}${location.search}`;
+  const target = next && next !== '/login'
+    ? `/login?next=${encodeURIComponent(next)}`
+    : '/login';
+  return <Navigate to={target} replace />;
+}
+
 function AppRoutes() {
   const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
 
@@ -85,7 +98,7 @@ function AppRoutes() {
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (roles.length === 0 && !activeRole) ? (
           <div className="flex min-h-screen items-center justify-center bg-surface-dark">
             <div className="flex flex-col items-center gap-4">
@@ -105,32 +118,32 @@ function AppRoutes() {
 
       {/* Role-specific portals */}
       <Route path="/staff/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isOnboardingStaff || isManagement) ? <StaffPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/dispatch/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isDispatcher || isManagement) ? <DispatchPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/management/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         isManagement ? <ManagementPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/operator/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isOperator || isManagement) ? <OperatorPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/owner/*" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         (isTruckOwner || isManagement) ? <OperatorPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/status" element={
-        !user ? <Navigate to="/login" replace /> :
+        !user ? <LoginRedirect /> :
         <ApplicationStatus />
       } />
 
