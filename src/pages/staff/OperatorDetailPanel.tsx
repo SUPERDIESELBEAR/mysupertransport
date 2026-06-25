@@ -1935,37 +1935,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
-  /**
-   * Bulk-persist multiple status fields in a single write. Used by the
-   * "Approve Stage 1" and "Mark all Stage 2 received" quick actions so staff
-   * never have to click Save separately and the driver portal sees stage
-   * completion immediately via realtime.
-   */
-  const bulkUpdateStatusAndPersist = async (
-    patch: Partial<Record<keyof OnboardingStatus, string | null>>,
-  ) => {
-    const previous: Record<string, unknown> = {};
-    Object.keys(patch).forEach(k => { previous[k] = (status as any)[k] ?? null; });
-    setStatus(prev => ({ ...prev, ...patch } as any));
-    const query = supabase.from('onboarding_status').update(patch as any);
-    const { error } = await (statusId
-      ? query.eq('id', statusId)
-      : query.eq('operator_id', operatorId));
-    if (error) {
-      setStatus(prev => ({ ...prev, ...previous } as any));
-      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
-      return false;
-    }
-    savedMilestones.current = { ...savedMilestones.current, ...(patch as any) };
-    if (savedSnapshot.current) {
-      savedSnapshot.current = {
-        ...savedSnapshot.current,
-        status: { ...savedSnapshot.current.status, ...(patch as any) },
-      };
-    }
-    return true;
-  };
-
   // Handle editing device numbers from TruckInfoCard
   const handleTruckDeviceEdit = async (payload: TruckInfoCardEditPayload) => {
     if (!statusId) return;
