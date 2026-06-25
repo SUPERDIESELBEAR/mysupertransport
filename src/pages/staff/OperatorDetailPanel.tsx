@@ -1897,6 +1897,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setStatus(prev => ({ ...prev, [field]: value }));
   };
 
+  /**
+   * Update a status field AND immediately persist it to the database so the
+   * driver portal sees the change without waiting for the main Save button.
+   * Used for fields where staff intent is unambiguous on selection
+   * (Stage 2 document statuses, PE screening result) and where unsaved local
+   * state was previously causing a perceived "lag" between management and
+   * the driver app.
+   */
+  const updateStatusAndPersist = async (
+    field: keyof OnboardingStatus,
+    value: string | null,
+  ) => {
+    setStatus(prev => ({ ...prev, [field]: value }));
+    if (!statusId) return;
+    const { error } = await supabase
+      .from('onboarding_status')
+      .update({ [field]: value } as any)
+      .eq('id', statusId);
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    // Keep snapshot + milestone refs in sync so the main Save button doesn't
+    // re-detect this as a pending change or re-fire milestone notifications.
+    savedMilestones.current = { ...savedMilestones.current, [field as string]: value ?? '' } as any;
+    if (savedSnapshot.current) {
+      savedSnapshot.current = {
+        ...savedSnapshot.current,
+        status: { ...savedSnapshot.current.status, [field]: value },
+      };
+    }
+  };
+
   // Handle editing device numbers from TruckInfoCard
   const handleTruckDeviceEdit = async (payload: TruckInfoCardEditPayload) => {
     if (!statusId) return;
@@ -4439,7 +4472,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Select
                       value={(status.mvr_ch_approval as string) || undefined}
                       onValueChange={v => {
-                        updateStatus('mvr_ch_approval', v);
+                        updateStatusAndPersist('mvr_ch_approval', v);
                         if (v === 'approved' && status.pe_screening_result === 'clear') {
                           setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
                         }
@@ -4502,7 +4535,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Select
                       value={(status.pe_screening_result as string) || undefined}
                       onValueChange={v => {
-                        updateStatus('pe_screening_result', v);
+                        updateStatusAndPersist('pe_screening_result', v);
                         if (v === 'clear' && status.mvr_ch_approval === 'approved') {
                           setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
                         }
@@ -4813,7 +4846,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   <div className="flex gap-1.5">
                     <div className="flex-1">
-                      <Select value={current} onValueChange={v => updateStatus(field, v)}>
+                      <Select value={current} onValueChange={v => updateStatusAndPersist(field, v)}>
                         <SelectTrigger className="h-9 text-sm">
                           <SelectValue placeholder="—" />
                         </SelectTrigger>
