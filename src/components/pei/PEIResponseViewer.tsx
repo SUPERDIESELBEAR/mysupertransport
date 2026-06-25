@@ -23,18 +23,45 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
   const { toast } = useToast();
 
   /**
-   * `window.print()` can throw in cross-origin iframes (Lovable preview) and
-   * silently no-ops on iOS Safari from within a dialog. Wrap the call so
-   * users get a clear toast instead of an unresponsive button.
+   * The viewer lives in a scroll-clipped Radix dialog, so `window.print()`
+   * truncates everything outside the visible viewport. Render the full record
+   * into a dedicated popup window and print from there instead.
    */
   const handlePrint = () => {
     try {
-      window.print();
+      if (!request) return;
+      const html = buildPrintHtml({
+        request,
+        response,
+        accidents,
+        events,
+        applicantName,
+      });
+      const win = window.open('', '_blank', 'width=900,height=1000');
+      if (!win) throw new Error('popup blocked');
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      // Wait for layout, then trigger print. Close on afterprint or fallback timer.
+      const trigger = () => {
+        try {
+          win.focus();
+          win.print();
+        } catch (e) {
+          console.error('Print window print() failed:', e);
+        }
+      };
+      win.onafterprint = () => win.close();
+      if (win.document.readyState === 'complete') {
+        setTimeout(trigger, 50);
+      } else {
+        win.addEventListener('load', () => setTimeout(trigger, 50));
+      }
     } catch (err) {
       console.error('Print failed:', err);
       toast({
         title: 'Print unavailable',
-        description: 'Use your browser menu (⌘P / Ctrl+P) to print this page.',
+        description: 'Allow pop-ups for this site, or use ⌘P / Ctrl+P to print.',
         variant: 'destructive',
       });
     }
