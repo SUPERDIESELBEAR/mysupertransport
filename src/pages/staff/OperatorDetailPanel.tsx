@@ -4846,7 +4846,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   <div className="flex gap-1.5">
                     <div className="flex-1">
-                      <Select value={current} onValueChange={v => updateStatus(field, v)}>
+                      <Select value={current} onValueChange={v => updateStatusAndPersist(field, v)}>
                         <SelectTrigger className="h-9 text-sm">
                           <SelectValue placeholder="—" />
                         </SelectTrigger>
