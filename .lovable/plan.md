@@ -1,60 +1,80 @@
-# Preserve & Display Submitted Application in Driver Hub → Onboarding History
+# Unsaved Changes Protection — Staff Dashboard
 
-## Problem
+## What staff will see
 
-The data link is actually intact at the database level — `operators.application_id` ties each driver to their original `applications` row throughout the lifecycle (Application → Pipeline → Driver Hub). The breakdown is purely in the **Driver Hub UI**: `OperatorDetailPanel` only pulls a small subset of the application row (name, email, phone, address, CDL/medical expirations, license photos). All the rich content the applicant entered — CDL details, endorsements, employment history, gaps, driving experience, equipment, accidents, violations, drug & alcohol status, disclosures, signature/signed date — is never loaded or rendered, so it looks "lost."
+**A status pill in the header of every editing page** that tells you, at a glance, where your work stands:
 
-This plan surfaces that data, read-only, inside the existing **Onboarding History** section.
+- **Unsaved changes** (gold) — you've typed something but haven't saved
+- **Saving…** — being written now
+- **All changes saved · 2s ago** — safe to walk away
+- **Save failed — Retry** (red) — click to try again
+- **Demo mode — changes not saved** — when in demo
 
-## Changes
+**A warning popup when you try to leave with unsaved work** — fires whether you click another menu item, close the drawer, hit the X, swipe back on your phone, or refresh the browser:
 
-### 1. Load the full application row
-**File:** `src/pages/staff/OperatorDetailPanel.tsx` (around line 1039)
+> You have unsaved changes.
+> [Save & continue]  [Discard changes]  [Keep editing]
 
-Expand the `applications (...)` select on the operator query to pull every column needed for the snapshot (keep listing them explicitly rather than `*` to preserve type narrowing):
+Same wording everywhere. Same three buttons everywhere.
 
-- Personal: existing fields + `address_line2`, `address_duration`, `prev_address_*`
-- CDL: `cdl_state`, `cdl_number`, `cdl_class`, `endorsements`, `cdl_10_years`, `referral_source`
-- Employment: `employers` (jsonb), `employment_gaps`, `employment_gaps_explanation`
-- Driving: `years_experience`, `equipment_operated`
-- Incidents: `dot_accidents`, `dot_accidents_description`, `moving_violations`, `moving_violations_description`
-- Drug/Alcohol: `sap_process`, `dot_positive_test_past_2yr`, `dot_return_to_duty_docs`
-- Disclosures: `auth_safety_history`, `auth_drug_alcohol`, `auth_previous_employers`, `testing_policy_accepted`
-- Signature: `typed_full_name`, `signature_image_url`, `signed_date`, `submitted_at`, `submitted_by_staff`
+**Cmd+S / Ctrl+S saves on every protected page** — and stops the browser's "save this webpage" dialog from hijacking it.
 
-No schema/migration changes — the columns already exist on `applications`.
+**Quiet auto-save on long-form writing pages** (broadcast emails, FAQs, release notes, document templates, email templates). Saves every ~1.5s after you stop typing, plus a hard flush every 15s. "Send" and "Publish" stay as separate, deliberate clicks — auto-save only protects the draft.
 
-### 2. New read-only snapshot component
-**New file:** `src/components/management/SubmittedApplicationSnapshot.tsx`
+**Multi-tab safety banner** — if the same record is open in two tabs and one saves, the other shows: *"This record was updated in another tab — reload to see latest."*
 
-- Props: `application: ApplicationRow | null`
-- Card layout grouped by the 9 application steps (Personal, CDL, Employment, Experience, Accidents, Drug & Alcohol, Documents, Disclosures, Signature).
-- Uses existing tokens (gold, surface, border) — no hardcoded colors.
-- Employment history rendered as a stacked list of employer cards (name, dates MM/YYYY, city/state, position, CMV y/n, reason for leaving, contact email).
-- Document fields (`dl_front_url`, `dl_rear_url`, `medical_cert_url`) render as "View" buttons that open the existing `FilePreviewModal` via a passed-in `onPreview(url, name)` callback.
-- Signature shows typed name + `signed_date` + `submitted_at` timestamp + a "Submitted by staff" badge when applicable.
-- Empty/null fields rendered as muted "—" so missing data is obvious without throwing.
-- Print-friendly: a small "Print application" button reuses the existing popup-window pattern (`buildPrintHtml` style from `PEIResponseViewer`).
+## Pages covered
 
-### 3. Render inside Onboarding History
-**File:** `src/pages/staff/OperatorDetailPanel.tsx` (around line 6390)
+**Warning-popup pages (Tier 2):**
+- Driver Hub (operator detail panel)
+- Applicant Pipeline (application review, propose changes, revert revision)
+- PEI Queue (queue panel, GFE modal, response viewer)
+- Vehicle Hub (roster, detail drawer, quick edit, DOT inspection, maintenance record)
+- Equipment (inventory, item modal, assign, return)
+- MO Plate Registry (registry, form, assign)
+- Pipeline Config Editor
+- Resource Library + Service Library (manager + form modals + help requests)
+- ICA / Lease Termination builders
+- Carrier Signature Settings
+- Staff Directory edit modal, Truck Owner edit
+- Inspection Binder admin
+- Staff Application modal
+- Notification preferences modals (staff + operator)
+- Edit Profile, Change Password
 
-Add a new collapsible block, ordered with the other history items (`order: 19`, just above the existing stage blocks at 20–24), that only renders when `isQuickView && onboardingHistoryExpanded`. It contains the `SubmittedApplicationSnapshot` and passes `applicationData` plus an `onPreview` handler that reuses the existing `setStage2Preview` modal flow.
+**Auto-save pages (Tier 1):**
+- Operator Broadcast (already drafts — migrating to the shared pill)
+- Email Templates editor
+- Release Notes Manager
+- FAQ Manager
+- Document Editor (TipTap)
 
-The toggle's caption updates from `(Stages 1–7, Costs, Progress)` to `(Application, Stages 1–7, Costs, Progress)`.
+**Not touched:** read-only dashboards, queues without inline edits, log panels, document viewers.
 
-### 4. Empty-state handling
-If `applicationData.id` is null (pre-existing operator added directly, no application on file), show a small muted note: *"No original application on file — this driver was added directly."* No errors.
+## UX rules applied everywhere
+
+1. One dialog, one set of button labels — **Save & continue / Discard changes / Keep editing**.
+2. Browser "Leave site?" prompt only attaches **while dirty** — no spurious prompts on clean pages.
+3. Route changes (clicking a sidebar link) trigger the same dialog as closing a drawer.
+4. Android hardware back / swipe-back composes with the existing `useBackButton` hook so the guard fires on gestures too.
+5. Auto-save never writes when a required field is invalid — pill shows *"Waiting to save — fix errors"*.
+6. Failed saves keep your dirty state intact — nothing is lost to a transient network error.
+7. Nested modals only show one dialog (innermost wins) — no double-warning.
+8. Demo mode suppresses auto-save and short-circuits manual save with the existing toast.
+9. Optional audit event when a user chooses **Discard** so admins can spot forms with high abandonment.
+
+## Technical structure
+
+- **`src/hooks/useUnsavedChanges.ts`** — single hook powering both tiers. Tracks dirty state, attaches `beforeunload`, exposes a `guard(action)` helper and an `autoSave` mode with debounce + status states (`idle | dirty | saving | saved | error`).
+- **`src/components/shared/UnsavedChangesDialog.tsx`** — the one AlertDialog used everywhere.
+- **`src/components/shared/UnsavedStatusPill.tsx`** — the status badge, themed with existing tokens, aria-live polite for screen readers.
+- React Router `useBlocker` for in-app navigation guards.
+- `BroadcastChannel('superdrive:record-saved')` for cross-tab invalidation.
+- Migrate `OperatorDetailPanel` and `OperatorBroadcast` first (they already implement custom versions of this) to validate the API, then roll out in batches: Vehicle Hub → Equipment → MO Plates → PEI → Pipeline → content editors → smaller modals.
+- Adding protection to a future page is one line: `const { dirty, guard, statusPill } = useUnsavedChanges({ dirty: isDirty, onSave });`
 
 ## Out of scope
 
-- Editing the submitted application from this view (existing edit affordances in the Overview tab remain the way to amend data).
-- Schema changes or any backend/RLS work — RLS on `applications` already allows staff to read these rows.
-- Pipeline or Application page UI changes — the data already shows there.
-- Adding the snapshot to the operator-facing portal.
-
-## Verification
-
-1. Open Driver Hub → pick a driver who originally submitted an application → expand **Onboarding History** → confirm the new **Submitted Application** card lists every field the driver entered, with documents previewable.
-2. Open a pre-existing operator (no `application_id`) → confirm the muted empty-state note shows instead of an error.
-3. Confirm the Pipeline drawer and Application page are unchanged.
+- Server-side draft persistence for surfaces that don't already have it.
+- Real-time collaborative editing / conflict merging — multi-tab handled by warn-and-reload.
+- Offline save queueing.
