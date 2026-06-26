@@ -357,9 +357,13 @@ export default function OperatorStatusPage({
   };
   const statusInfo = dispatchStatus ? dispatchStatusLabel[dispatchStatus] : null;
   const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
-  const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : progressPct;
+  const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : 0;
   const displayCompletedStages = stages.length > 0 ? derivedCompletedStages : completedStages;
   const displayProgressPct = stages.length > 0 ? derivedProgressPct : progressPct;
+  if (import.meta.env.DEV && stages.length > 0 && (completedStages !== derivedCompletedStages || progressPct !== derivedProgressPct)) {
+    // eslint-disable-next-line no-console
+    console.warn('[OperatorStatusPage] progress prop drift', { propCompleted: completedStages, derivedCompletedStages, propPct: progressPct, derivedProgressPct });
+  }
 
   // Critical docs: only ≤30 days or expired — these warrant the top banner
   const criticalDocs = [

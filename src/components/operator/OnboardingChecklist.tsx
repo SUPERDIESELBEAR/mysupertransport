@@ -315,9 +315,14 @@ export default function OnboardingChecklist({
   onMessageCoordinator,
 }: OnboardingChecklistProps) {
   const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
-  const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : progressPct;
+  const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : 0;
+  // Always trust the derived value when we have stages — props are advisory only.
   const displayCompletedStages = stages.length > 0 ? derivedCompletedStages : completedStages;
   const displayProgressPct = stages.length > 0 ? derivedProgressPct : progressPct;
+  if (import.meta.env.DEV && stages.length > 0 && (completedStages !== derivedCompletedStages || progressPct !== derivedProgressPct)) {
+    // eslint-disable-next-line no-console
+    console.warn('[OnboardingChecklist] progress prop drift', { propCompleted: completedStages, derivedCompletedStages, propPct: progressPct, derivedProgressPct });
+  }
 
   // Animate the progress bar in on mount
   const [barWidth, setBarWidth] = useState(0);
