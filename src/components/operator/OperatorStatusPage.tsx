@@ -742,6 +742,13 @@ export default function OperatorStatusPage({
         </p>
       </div>
 
+      {/* Ball-in-court handoff banner (onboarding only) */}
+      {!isFullyOnboarded && (
+        <BallInCourtBanner
+          value={onboardingStatus.ball_in_court === 'staff' ? 'staff' : 'driver'}
+        />
+      )}
+
       {/* ── OPERATOR IDENTITY CARD ── */}
       {(unitNumber || hasDispatcher) && (
         <div className="bg-surface-dark rounded-2xl overflow-hidden shadow-lg border border-surface-dark-border">
