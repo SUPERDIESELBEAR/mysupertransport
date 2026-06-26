@@ -115,7 +115,11 @@ const STAGE_INFO: Record<number, StageInfo> = {
       { label: 'ICA prepared by coordinator', who: 'coordinator', done: (os) => os.ica_status === 'sent_for_signature' || os.ica_status === 'complete' },
       { label: 'ICA signed by you', who: 'operator', done: (os) => os.ica_status === 'complete' },
     ],
-    ctaLabel: (os) => os.ica_status === 'sent_for_signature' ? 'Sign ICA Now' : null,
+    ctaLabel: (os) => os.ica_status === 'complete'
+      ? 'View Signed Agreement'
+      : os.ica_status === 'sent_for_signature'
+        ? 'Sign ICA Now'
+        : null,
     ctaView: 'ica',
   },
   4: {
