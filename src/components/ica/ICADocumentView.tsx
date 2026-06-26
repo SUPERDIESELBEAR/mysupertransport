@@ -526,3 +526,21 @@ function SigLine({ label, value }: { label: string; value?: string }) {
     </div>
   );
 }
+
+function SignedAttestation({ name, signedAt }: { name?: string; signedAt?: string | null }) {
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  if (signedAt) {
+    return (
+      <div className="space-y-1 text-xs">
+        <p><span className="text-muted-foreground">Name:</span> <span className="font-semibold text-foreground">{name || '—'}</span></p>
+        <p><span className="text-muted-foreground">Signed on:</span> <span className="font-semibold text-foreground">{fmt(signedAt)}</span></p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1 text-xs">
+      <p><span className="text-muted-foreground">Name:</span> <span className="text-foreground">{name || <span className="text-muted-foreground/60">—</span>}</span></p>
+      <p className="text-muted-foreground/70 italic">Signed on: auto-filled when you tap Execute Agreement</p>
+    </div>
+  );
+}
