@@ -44,6 +44,7 @@ import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
 import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
+import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
