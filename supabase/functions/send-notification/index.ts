@@ -375,8 +375,8 @@ Deno.serve(async (req) => {
           // Deep-link ICA milestones directly to the ICA tab
           const icaMilestones = ['ica_sent', 'ica_complete'];
           const ctaUrl = icaMilestones.includes(milestoneKey ?? '')
-            ? `${appUrl}/dashboard?tab=ica`
-            : `${appUrl}/dashboard`;
+            ? `${appUrl}/operator?tab=ica`
+            : `${appUrl}/operator?tab=progress`;
           const ctaLabel = milestoneKey === 'ica_sent'
             ? 'Review & Sign Your ICA'
             : milestoneKey === 'ica_complete'
@@ -557,7 +557,7 @@ Deno.serve(async (req) => {
                 operatorSubject,
                 '🔴 Truck Down — Action Required',
                 operatorEmailBody,
-                { label: 'View My Portal', url: `${appUrl}/dashboard` }
+                { label: 'View My Portal', url: `${appUrl}/operator` }
               );
               await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
             }
@@ -692,7 +692,7 @@ Deno.serve(async (req) => {
                 "${preview.length > 300 ? preview.slice(0, 297) + '…' : preview}"
               </blockquote>
               <p>Log in to your portal to read the full message and reply.</p>`,
-              { label: 'View Message', url: `${appUrl}/dashboard?tab=messages` }
+              { label: 'View Message', url: `${appUrl}/operator?tab=messages` }
             );
             await sendEmail(recipientEmail, subject, html, RESEND_API_KEY);
           }
