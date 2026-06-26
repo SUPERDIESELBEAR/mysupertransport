@@ -6,6 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useState, useRef } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
+import BallInCourtBanner from '@/components/operator/BallInCourtBanner';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
