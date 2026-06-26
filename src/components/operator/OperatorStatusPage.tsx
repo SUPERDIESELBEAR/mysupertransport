@@ -356,6 +356,10 @@ export default function OperatorStatusPage({
     not_dispatched: { label: 'Not Dispatched',  color: 'text-muted-foreground',dot: 'bg-muted-foreground/40' },
   };
   const statusInfo = dispatchStatus ? dispatchStatusLabel[dispatchStatus] : null;
+  const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
+  const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : progressPct;
+  const displayCompletedStages = derivedCompletedStages || completedStages;
+  const displayProgressPct = derivedProgressPct || progressPct;
 
   // Critical docs: only ≤30 days or expired — these warrant the top banner
   const criticalDocs = [
@@ -945,7 +949,7 @@ export default function OperatorStatusPage({
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
             <div>
               <p className="text-surface-dark-muted text-xs font-medium uppercase tracking-widest mb-1">Overall Progress</p>
-              <p className="text-4xl font-bold text-gold leading-none">{progressPct}%</p>
+              <p className="text-4xl font-bold text-gold leading-none">{displayProgressPct}%</p>
             </div>
             <div className="text-right">
               <div className="flex gap-1.5 justify-end mb-1 flex-wrap">
@@ -964,7 +968,7 @@ export default function OperatorStatusPage({
                   />
                 ))}
               </div>
-              <p className="text-surface-dark-muted text-xs">{completedStages} of {stages.length} complete</p>
+              <p className="text-surface-dark-muted text-xs">{displayCompletedStages} of {stages.length} complete</p>
             </div>
           </div>
 
@@ -972,7 +976,7 @@ export default function OperatorStatusPage({
           <div className="h-2.5 bg-surface-dark-border rounded-full overflow-hidden">
             <div
               className="h-full bg-gold rounded-full transition-all duration-700"
-              style={{ width: `${progressPct}%` }}
+              style={{ width: `${displayProgressPct}%` }}
             />
           </div>
         </div>
