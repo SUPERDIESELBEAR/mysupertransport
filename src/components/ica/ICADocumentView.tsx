@@ -302,7 +302,6 @@ export default function ICADocumentView({
                       placeholder="Type your full name"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                 </div>
               ) : contractorSignatureUrl ? (
                 <div className="border border-border rounded-lg p-2 bg-secondary/20">
@@ -313,8 +312,10 @@ export default function ICADocumentView({
                   <span className="text-xs text-muted-foreground">Signature</span>
                 </div>
               )}
-              <SigLine label="Name" value={contractorTypedName || contractorSignedName} />
-              <SigLine label="Date" value={contractorSignedAt ? fmtDate(contractorSignedAt) : undefined} />
+              <SignedAttestation
+                name={contractorTypedName || contractorSignedName}
+                signedAt={contractorSignedAt}
+              />
             </div>
           </div>
         </section>
