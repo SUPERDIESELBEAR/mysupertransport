@@ -3234,6 +3234,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               submittedAt={op.application_submitted_at}
                               fullyOnboarded={op.fully_onboarded}
                             />
+                            <BallInCourtBadge
+                              operatorId={op.id}
+                              value={op.ball_in_court}
+                              fullyOnboarded={op.fully_onboarded}
+                              updatedAt={op.ball_in_court_updated_at}
+                            />
                             {op.unread_count > 0 && (
                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
                                  <MessageSquare className="h-2.5 w-2.5" />
