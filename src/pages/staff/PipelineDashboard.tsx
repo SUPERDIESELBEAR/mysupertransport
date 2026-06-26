@@ -1105,7 +1105,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           mo_docs_submitted,
           mo_reg_received,
           registration_status,
-          updated_at
+          updated_at,
+          ball_in_court,
+          ball_in_court_updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
       `).eq('is_active', true),
