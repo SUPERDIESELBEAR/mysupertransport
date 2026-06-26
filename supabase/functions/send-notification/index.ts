@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
 import { buildQPassportDownloadUrl } from '../_shared/qpassport-link.ts';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -178,7 +179,7 @@ Deno.serve(async (req) => {
       return user?.email ?? null;
     };
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
+    const appUrl = new URL(buildAppUrl('/')).origin;
 
     // ── Route by notification type ───────────────────────────────────────
     switch (type) {
@@ -375,8 +376,8 @@ Deno.serve(async (req) => {
           // Deep-link ICA milestones directly to the ICA tab
           const icaMilestones = ['ica_sent', 'ica_complete'];
           const ctaUrl = icaMilestones.includes(milestoneKey ?? '')
-            ? `${appUrl}/dashboard?tab=ica`
-            : `${appUrl}/dashboard`;
+            ? `${appUrl}/operator?tab=ica`
+            : `${appUrl}/operator?tab=progress`;
           const ctaLabel = milestoneKey === 'ica_sent'
             ? 'Review & Sign Your ICA'
             : milestoneKey === 'ica_complete'
@@ -557,7 +558,7 @@ Deno.serve(async (req) => {
                 operatorSubject,
                 '🔴 Truck Down — Action Required',
                 operatorEmailBody,
-                { label: 'View My Portal', url: `${appUrl}/dashboard` }
+                { label: 'View My Portal', url: `${appUrl}/operator` }
               );
               await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
             }
@@ -692,7 +693,7 @@ Deno.serve(async (req) => {
                 "${preview.length > 300 ? preview.slice(0, 297) + '…' : preview}"
               </blockquote>
               <p>Log in to your portal to read the full message and reply.</p>`,
-              { label: 'View Message', url: `${appUrl}/dashboard?tab=messages` }
+              { label: 'View Message', url: `${appUrl}/operator?tab=messages` }
             );
             await sendEmail(recipientEmail, subject, html, RESEND_API_KEY);
           }

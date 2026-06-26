@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildEmail, sendEmailStrict as sendEmail } from '../_shared/email-layout.ts';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app').replace(/\/$/, '');
+    const appUrl = new URL(buildAppUrl('/')).origin;
     const expired = days_until < 0;
     const isCritical = !expired && days_until <= 30;
 

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildEmail, sendEmailStrict, BRAND_COLOR, BRAND_DARK, ONBOARDING_EMAIL, BRAND_NAME } from '../_shared/email-layout.ts';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app').replace(/\/$/, '');
+    const appUrl = new URL(buildAppUrl('/')).origin;
 
     // Generate short-lived signed URLs for both documents
     const [overviewResult, calendarResult] = await Promise.all([

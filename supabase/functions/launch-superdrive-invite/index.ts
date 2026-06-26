@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail, BRAND_COLOR, BRAND_DARK, ONBOARDING_EMAIL } from '../_shared/email-layout.ts';
+import { buildAppUrl } from '../_shared/app-url.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app';
+const APP_URL = new URL(buildAppUrl('/')).origin;
 const COOLDOWN_DAYS = 30;
 const DEFAULT_COOLDOWN_HOURS = COOLDOWN_DAYS * 24;
 
