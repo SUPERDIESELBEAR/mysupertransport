@@ -660,7 +660,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   // ── Stage status logic ─────────────────────────────────────────────────
   const getStageStatus = (stageNum: number): StageStatus => {
-    const s = onboardingStatus;
+    const s = effectiveOnboardingStatus;
     switch (stageNum) {
       case 1:
         if (s.mvr_ch_approval === 'denied' || s.pe_screening_result === 'non_clear') return 'action_required';
