@@ -1257,6 +1257,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
         notes: op.notes ?? null,
         anticipated_start_date: op.anticipated_start_date ?? null,
+        ball_in_court: (os.ball_in_court === 'staff' ? 'staff' : 'driver') as BallInCourt,
+        ball_in_court_updated_at: os.ball_in_court_updated_at ?? null,
       };
     });
     // Keep operators in the Pipeline view if either:
