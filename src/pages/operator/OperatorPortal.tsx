@@ -749,7 +749,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       icon: <FileText className="h-4 w-4" />,
       status: getStageStatus(3),
       substeps: [
-        { label: 'ICA Status', value: isIcaComplete(onboardingStatus, latestIcaContract) ? 'Signed' : fmt(onboardingStatus.ica_status ?? 'not_issued'), status: isIcaComplete(onboardingStatus, latestIcaContract) ? 'complete' : isIcaActionRequired(onboardingStatus, latestIcaContract) ? 'action_required' : 'not_started' },
+        { label: 'ICA Status', value: isIcaComplete(effectiveOnboardingStatus, latestIcaContract) ? 'Signed' : fmt(effectiveOnboardingStatus.ica_status ?? 'not_issued'), status: isIcaComplete(effectiveOnboardingStatus, latestIcaContract) ? 'complete' : isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) ? 'action_required' : 'not_started' },
       ],
     },
     {
@@ -877,7 +877,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     icon: React.ReactNode;
   } | null = (() => {
     if (isFullyOnboarded) return null;
-    const s = onboardingStatus;
+    const s = effectiveOnboardingStatus;
 
     // 1. ICA awaiting signature — highest urgency
     if (isIcaActionRequired(s, latestIcaContract)) return {
