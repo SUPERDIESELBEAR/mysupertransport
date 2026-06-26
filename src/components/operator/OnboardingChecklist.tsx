@@ -143,7 +143,9 @@ function StageCard({
 
   // CTA logic
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
-  const showIcaCTA = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
+  const icaSent = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
+  const icaSigned = stage.number === 3 && onboardingStatus.ica_status === 'complete';
+  const showIcaCTA = icaSent || icaSigned;
   const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
 
   // Show PE timeline in Stage 1 when screening has started
@@ -263,10 +265,10 @@ function StageCard({
               <Button
                 size="sm"
                 onClick={() => onNavigateTo('ica')}
-                className="w-full bg-destructive text-white hover:bg-destructive/90 text-xs h-8 gap-1.5 font-semibold"
+                className={`w-full text-xs h-8 gap-1.5 font-semibold ${icaSigned ? 'bg-status-complete text-white hover:bg-status-complete/90' : 'bg-destructive text-white hover:bg-destructive/90'}`}
               >
                 <FileText className="h-3.5 w-3.5" />
-                Sign ICA Agreement
+                {icaSigned ? 'View Signed Agreement' : 'Sign ICA Agreement'}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </div>
