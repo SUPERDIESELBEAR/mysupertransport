@@ -18,6 +18,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
 import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
+import { BallInCourtBadge, type BallInCourt } from '@/components/staff/BallInCourtBadge';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
