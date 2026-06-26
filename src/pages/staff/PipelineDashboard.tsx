@@ -1078,7 +1078,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         pwa_installed_at,
         notes,
         anticipated_start_date,
-        applications ( email, phone, address_state ),
+        applications ( email, phone, address_state, submitted_at ),
         onboarding_status (
           mvr_status,
           ch_status,
