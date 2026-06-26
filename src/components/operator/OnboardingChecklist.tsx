@@ -314,12 +314,17 @@ export default function OnboardingChecklist({
   assignedCoordinator,
   onMessageCoordinator,
 }: OnboardingChecklistProps) {
+  const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
+  const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : progressPct;
+  const displayCompletedStages = stages.length > 0 ? derivedCompletedStages : completedStages;
+  const displayProgressPct = stages.length > 0 ? derivedProgressPct : progressPct;
+
   // Animate the progress bar in on mount
   const [barWidth, setBarWidth] = useState(0);
   useEffect(() => {
-    const t = setTimeout(() => setBarWidth(progressPct), 80);
+    const t = setTimeout(() => setBarWidth(displayProgressPct), 80);
     return () => clearTimeout(t);
-  }, [progressPct]);
+  }, [displayProgressPct]);
 
   const actionCount = stages.filter(s => s.status === 'action_required').length;
 
@@ -337,9 +342,9 @@ export default function OnboardingChecklist({
             </p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-xl font-black text-gold leading-none">{progressPct}%</p>
+            <p className="text-xl font-black text-gold leading-none">{displayProgressPct}%</p>
             <p className="text-[10px] text-surface-dark-muted mt-0.5">
-              {completedStages} of {stages.length} done
+              {displayCompletedStages} of {stages.length} done
             </p>
           </div>
         </div>
