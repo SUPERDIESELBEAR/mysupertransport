@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
@@ -68,9 +68,27 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const [docPreview, setDocPreview] = useState<{ url: string; name: string } | null>(null);
   const [decalPhotoDs, setDecalPhotoDs] = useState<string | null>(onboardingStatus.decal_photo_ds_url ?? null);
   const [decalPhotoPs, setDecalPhotoPs] = useState<string | null>(onboardingStatus.decal_photo_ps_url ?? null);
+  const [decalExtras, setDecalExtras] = useState<Array<{ url: string; label?: string }>>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const decalDsRef = useRef<HTMLInputElement | null>(null);
   const decalPsRef = useRef<HTMLInputElement | null>(null);
+  const decalExtraRef = useRef<HTMLInputElement | null>(null);
+
+  // Hydrate extra angles from onboarding_status.decal_photos (jsonb)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('onboarding_status')
+        .select('decal_photos')
+        .eq('operator_id', operatorId)
+        .maybeSingle();
+      if (cancelled) return;
+      const raw = (data?.decal_photos as unknown) as Array<{ url: string; label?: string }> | null;
+      if (Array.isArray(raw)) setDecalExtras(raw);
+    })();
+    return () => { cancelled = true; };
+  }, [operatorId]);
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
 
