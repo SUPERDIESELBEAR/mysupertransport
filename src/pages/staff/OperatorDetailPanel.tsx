@@ -43,6 +43,7 @@ import SettlementForecast from '@/components/operator/SettlementForecast';
 import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
 import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 import TruckOwnerCard from '@/components/management/TruckOwnerCard';
+import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -6397,13 +6398,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="flex items-center gap-2">
               <History className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-semibold text-foreground text-sm">Onboarding History</h3>
-              <span className="text-[11px] text-muted-foreground">(Stages 1–7, Costs, Progress)</span>
+              <span className="text-[11px] text-muted-foreground">(Application, Stages 1–7, Costs, Progress)</span>
             </div>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${onboardingHistoryExpanded ? 'rotate-180' : ''}`} />
           </button>
         </div>
       )}
 
+      {/* ── Submitted Application snapshot (inside Onboarding History) ── */}
+      {(!isQuickView || onboardingHistoryExpanded) && (
+        <div style={isQuickView ? { order: 19 } : undefined}>
+          <SubmittedApplicationSnapshot
+            application={applicationData}
+            onPreview={(url, name) => setPreviewDoc({ url, title: name })}
+          />
+        </div>
+      )}
 
       {previewDoc && (
         <FilePreviewModal
