@@ -337,6 +337,7 @@ interface OperatorRow {
   never_logged_in: boolean;
   invited_at: string | null;
   pwa_installed_at: string | null;
+  application_submitted_at: string | null;
   current_stage: string;
   fully_onboarded: boolean;
   mvr_status: string;
