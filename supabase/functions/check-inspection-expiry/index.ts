@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -68,8 +69,7 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    const rawAppUrl = Deno.env.get("APP_URL") ?? "https://mysupertransport.com";
-    const appUrl = rawAppUrl.endsWith("/") ? rawAppUrl.slice(0, -1) : rawAppUrl;
+    const appUrl = new URL(buildAppUrl('/')).origin;
 
     // ── Helper: check email preference ────────────────────────────────────
     const userEmailEnabled = async (userId: string, eventType: string): Promise<boolean> => {

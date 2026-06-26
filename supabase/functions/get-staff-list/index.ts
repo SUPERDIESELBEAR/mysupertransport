@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -316,7 +317,7 @@ Deno.serve(async (req) => {
 
         // Trigger the standard recovery email via the auth-email-hook
         // (uses the branded SUPERTRANSPORT recovery template, 1-hour TTL).
-        const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
+        const appUrl = new URL(buildAppUrl('/')).origin;
         const anonClient = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_ANON_KEY')!,

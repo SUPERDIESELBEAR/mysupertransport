@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
     // Create or find user
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { first_name: first_name ?? '', last_name: last_name ?? '', invited_as: 'management' },
-      redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app'}/reset-password`,
+      redirectTo: `${new URL(buildAppUrl('/')).origin}/reset-password`,
     });
 
     let userId: string | null = inviteData?.user?.id ?? null;

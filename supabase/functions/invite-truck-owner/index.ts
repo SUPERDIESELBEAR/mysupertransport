@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
             last_name: legal_last_name,
             invited_as: 'truck_owner',
           },
-          redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app'}/welcome`,
+          redirectTo: `${new URL(buildAppUrl('/')).origin}/welcome`,
         },
       );
       if (inviteError) console.error('invite error:', inviteError.message);

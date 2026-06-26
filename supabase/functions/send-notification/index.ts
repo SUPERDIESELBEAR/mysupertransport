@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
 import { buildQPassportDownloadUrl } from '../_shared/qpassport-link.ts';
 
+import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -178,7 +179,7 @@ Deno.serve(async (req) => {
       return user?.email ?? null;
     };
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
+    const appUrl = new URL(buildAppUrl('/')).origin;
 
     // ── Route by notification type ───────────────────────────────────────
     switch (type) {
