@@ -377,6 +377,9 @@ interface OperatorRow {
   anticipated_start_date: string | null;
 }
 
+// Augment with ball-in-court fields (declared separately to avoid touching the long shape above)
+interface OperatorRowExt extends OperatorRow {}
+
 // ─── Temperature ─────────────────────────────────────────────────────────────
 type TemperatureLevel = 'cold' | 'cool' | 'warm' | 'hot';
 
