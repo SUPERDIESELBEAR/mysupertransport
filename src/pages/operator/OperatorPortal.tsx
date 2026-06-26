@@ -723,7 +723,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       icon: <FileText className="h-4 w-4" />,
       status: getStageStatus(3),
       substeps: [
-        { label: 'ICA Status', value: fmt(onboardingStatus.ica_status ?? 'not_issued'), status: onboardingStatus.ica_status === 'complete' ? 'complete' : onboardingStatus.ica_status === 'sent_for_signature' ? 'action_required' : 'not_started' },
+        { label: 'ICA Status', value: isIcaComplete(onboardingStatus) ? 'Signed' : fmt(onboardingStatus.ica_status ?? 'not_issued'), status: isIcaComplete(onboardingStatus) ? 'complete' : onboardingStatus.ica_status === 'sent_for_signature' ? 'action_required' : 'not_started' },
       ],
     },
     {
@@ -854,7 +854,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const s = onboardingStatus;
 
     // 1. ICA awaiting signature — highest urgency
-    if (s.ica_status === 'sent_for_signature') return {
+    if (isIcaActionRequired(s)) return {
       label: 'Sign Your ICA Agreement',
       sublabel: 'Action required',
       action: () => setView('ica'),
@@ -914,7 +914,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     return null;
   })();
 
-  const icaActionDot = onboardingStatus.ica_status === 'sent_for_signature';
+  const icaActionDot = isIcaActionRequired(onboardingStatus);
+  const icaComplete = isIcaComplete(onboardingStatus);
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
@@ -927,7 +928,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
-    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
+    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || icaComplete, icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
@@ -943,7 +944,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // Core: Status, Binder, Messages, Doc Hub + context slot (ICA/Dispatch/FAQ)
   const mobileNavItems = (() => {
     const contextSlot =
-      onboardingStatus.ica_status === 'sent_for_signature'
+      isIcaActionRequired(onboardingStatus)
         ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
