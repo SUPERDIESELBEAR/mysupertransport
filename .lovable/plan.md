@@ -1,80 +1,81 @@
-# Unsaved Changes Protection — Staff Dashboard
+# Vehicle Hub + Pipeline Stage 5 Enhancements
 
-## What staff will see
+Three coordinated changes in `src/components/fleet/FleetRoster.tsx`, a new logging modal, the Stage 5 section in `src/pages/staff/OperatorDetailPanel.tsx` / `src/components/operator/OperatorDocumentUpload.tsx`, and one DB migration for an extensible decal-photos array.
 
-**A status pill in the header of every editing page** that tells you, at a glance, where your work stands:
+---
 
-- **Unsaved changes** (gold) — you've typed something but haven't saved
-- **Saving…** — being written now
-- **All changes saved · 2s ago** — safe to walk away
-- **Save failed — Retry** (red) — click to try again
-- **Demo mode — changes not saved** — when in demo
+## a) Vehicle Hub — "Log Update" button on each card
 
-**A warning popup when you try to leave with unsaved work** — fires whether you click another menu item, close the drawer, hit the X, swipe back on your phone, or refresh the browser:
+**UI changes (`FleetRoster.tsx` card + table footer):**
+- Keep existing `Edit` button (structural specs).
+- Add a new outline-style button `+ Log Update` next to it. Card layout becomes a two-button footer (`Edit` ghost-outline + `Log Update` outline w/ Plus icon).
+- In table view: add a second small icon button (Plus) in the Edit column.
 
-> You have unsaved changes.
-> [Save & continue]  [Discard changes]  [Keep editing]
+**New component: `src/components/fleet/LogUpdateModal.tsx`**
 
-Same wording everywhere. Same three buttons everywhere.
+Single modal with tab selector (matches existing modal patterns like `QuickTruckEditModal`):
 
-**Cmd+S / Ctrl+S saves on every protected page** — and stops the browser's "save this webpage" dialog from hijacking it.
+1. **Repair / Maintenance tab** — writes to existing `truck_maintenance_records`
+   - amount, service_date, vendor (optional), description, category dropdown
+   - Reuses logic from `MaintenanceRecordModal.tsx` (extract shared form if cleanest, otherwise call its insert path).
+2. **Inspection tab** — writes to existing `truck_dot_inspections`
+   - inspection_type (DOT / Annual / Roadside / Other), inspection_date, result (pass/fail/notes), next_due_date, notes
+   - Reuses `DOTInspectionModal.tsx` form fields.
+3. **Quick Note tab** — writes a row to `truck_maintenance_records` with category `note` and `amount = 0` so it surfaces in history without needing a new table.
 
-**Quiet auto-save on long-form writing pages** (broadcast emails, FAQs, release notes, document templates, email templates). Saves every ~1.5s after you stop typing, plus a hard flush every 15s. "Send" and "Publish" stay as separate, deliberate clicks — auto-save only protects the draft.
+On save → toast + call `onSaved()` to refetch the roster (refreshes repair cost + DOT badge).
 
-**Multi-tab safety banner** — if the same record is open in two tabs and one saves, the other shows: *"This record was updated in another tab — reload to see latest."*
+---
 
-## Pages covered
+## b) Vehicle Hub — Additional fields on each card
 
-**Warning-popup pages (Tier 2):**
-- Driver Hub (operator detail panel)
-- Applicant Pipeline (application review, propose changes, revert revision)
-- PEI Queue (queue panel, GFE modal, response viewer)
-- Vehicle Hub (roster, detail drawer, quick edit, DOT inspection, maintenance record)
-- Equipment (inventory, item modal, assign, return)
-- MO Plate Registry (registry, form, assign)
-- Pipeline Config Editor
-- Resource Library + Service Library (manager + form modals + help requests)
-- ICA / Lease Termination builders
-- Carrier Signature Settings
-- Staff Directory edit modal, Truck Owner edit
-- Inspection Binder admin
-- Staff Application modal
-- Notification preferences modals (staff + operator)
-- Edit Profile, Change Password
+**Equipment serials** (ELD / Dash Cam / BestPass / Fuel Card):
+- Source: `equipment_assignments` joined to `equipment_items` filtered by `operator_id` and `returned_at IS NULL`, grouped by `device_type`.
+- Extend `buildRows()` in `FleetRoster.tsx` to fetch active assignments for each operator and attach `eldSerial`, `dashCamSerial`, `bestPassNumber`, `fuelCardNumber` to `FleetRow`.
+- Display in card as a compact 2-col grid row under VIN (label + monospaced value, "—" if unassigned). In table view, add an expandable detail or skip (already wide); keep equipment info card-only.
 
-**Auto-save pages (Tier 1):**
-- Operator Broadcast (already drafts — migrating to the shared pill)
-- Email Templates editor
-- Release Notes Manager
-- FAQ Manager
-- Document Editor (TipTap)
+**Truck photo gallery on card:**
+- Source: `operator_documents` rows where `document_type = 'truck_photos'` for the operator (Stage 2 uploads).
+- Show up to 4 small (40x40) thumbnails in a horizontal strip with a `+N` chip if more, plus a small "View all" link.
+- Clicking opens the existing `TruckPhotoGridModal` (already in `src/components/staff/`).
+- Also append decal photos from Stage 5 into the same gallery (visually grouped: "Truck Photos" + "Decal Photos" sections in the modal).
 
-**Not touched:** read-only dashboards, queues without inline edits, log panels, document viewers.
+---
 
-## UX rules applied everywhere
+## c) Pipeline Stage 5 — Decal photo uploads (extensible) + Vehicle Hub sync
 
-1. One dialog, one set of button labels — **Save & continue / Discard changes / Keep editing**.
-2. Browser "Leave site?" prompt only attaches **while dirty** — no spurious prompts on clean pages.
-3. Route changes (clicking a sidebar link) trigger the same dialog as closing a drawer.
-4. Android hardware back / swipe-back composes with the existing `useBackButton` hook so the guard fires on gestures too.
-5. Auto-save never writes when a required field is invalid — pill shows *"Waiting to save — fix errors"*.
-6. Failed saves keep your dirty state intact — nothing is lost to a transient network error.
-7. Nested modals only show one dialog (innermost wins) — no double-warning.
-8. Demo mode suppresses auto-save and short-circuits manual save with the existing toast.
-9. Optional audit event when a user chooses **Discard** so admins can spot forms with high abandonment.
+**Current state:** DS/PS decal slots already exist via `onboarding_status.decal_photo_ds_url` / `decal_photo_ps_url`, uploaded from the driver portal. Staff side (`OperatorDetailPanel.tsx`) only views them.
 
-## Technical structure
+**Changes:**
 
-- **`src/hooks/useUnsavedChanges.ts`** — single hook powering both tiers. Tracks dirty state, attaches `beforeunload`, exposes a `guard(action)` helper and an `autoSave` mode with debounce + status states (`idle | dirty | saving | saved | error`).
-- **`src/components/shared/UnsavedChangesDialog.tsx`** — the one AlertDialog used everywhere.
-- **`src/components/shared/UnsavedStatusPill.tsx`** — the status badge, themed with existing tokens, aria-live polite for screen readers.
-- React Router `useBlocker` for in-app navigation guards.
-- `BroadcastChannel('superdrive:record-saved')` for cross-tab invalidation.
-- Migrate `OperatorDetailPanel` and `OperatorBroadcast` first (they already implement custom versions of this) to validate the API, then roll out in batches: Vehicle Hub → Equipment → MO Plates → PEI → Pipeline → content editors → smaller modals.
-- Adding protection to a future page is one line: `const { dirty, guard, statusPill } = useUnsavedChanges({ dirty: isDirty, onSave });`
+1. **DB migration** — add `decal_photos jsonb default '[]'::jsonb` to `onboarding_status` for extra angles beyond DS/PS. Each entry: `{ url, label, uploaded_at, uploaded_by }`. Keep DS/PS columns intact for backwards compatibility (treated as the first two required slots).
 
-## Out of scope
+2. **Stage 5 staff section in `OperatorDetailPanel.tsx`:**
+   - Convert the read-only decal viewer (~line 5320) into an editable gallery with staff upload buttons for DS and PS (mirroring driver upload logic, writing to `truck-photos` bucket and updating the same columns).
+   - Add an "Add Angle" button that uploads to storage and appends to `decal_photos` jsonb (with optional label like "Front", "Rear", "Hood").
+   - Each extra photo gets remove + relabel controls (staff-only).
 
-- Server-side draft persistence for surfaces that don't already have it.
-- Real-time collaborative editing / conflict merging — multi-tab handled by warn-and-reload.
-- Offline save queueing.
+3. **Driver portal `OperatorDocumentUpload.tsx`** — same "Add another angle" affordance under the existing DS/PS slots, so drivers can also add extras.
+
+4. **Vehicle Hub sync** — `FleetRoster.buildRows()` already pulls `onboarding_status`; extend the select to include `decal_photo_ds_url`, `decal_photo_ps_url`, `decal_photos` and surface them in the card gallery as described in (b). No duplicate upload needed.
+
+---
+
+## Technical notes
+
+- Storage: reuse the existing `truck-photos` bucket (or whichever bucket the current decal upload uses — confirmed `decal_photos/` path under operator folder).
+- All DB writes follow the loud-failure pattern (throw on Supabase errors) and strip managed columns.
+- Refetch strategy: pass `onSaved` callbacks through the new modal so `FleetRoster.fetchFleet()` reruns after a log entry; Stage 5 changes trigger the existing OperatorDetailPanel refresh.
+- Real-time: `onboarding_status` is already on the realtime publication, so a Stage 5 decal upload will reflect in Vehicle Hub on the next refetch (we don't need a subscription on the roster).
+
+## Files touched
+
+- `src/components/fleet/FleetRoster.tsx` — new button, equipment fetch, photo strip
+- `src/components/fleet/LogUpdateModal.tsx` — **new**
+- `src/components/fleet/MaintenanceRecordModal.tsx` / `DOTInspectionModal.tsx` — extract or reuse form bodies
+- `src/components/staff/TruckPhotoGridModal.tsx` — accept combined truck + decal photo lists
+- `src/pages/staff/OperatorDetailPanel.tsx` — Stage 5 staff upload + extra-angles UI
+- `src/components/operator/OperatorDocumentUpload.tsx` — extra-angles UI in driver portal
+- One migration adding `onboarding_status.decal_photos jsonb`
+
+Ready to implement on approval.
