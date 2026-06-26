@@ -2234,6 +2234,7 @@ export type Database = {
           decal_method: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url: string | null
           decal_photo_ps_url: string | null
+          decal_photos: Json
           dispatch_ready_consortium: boolean
           dispatch_ready_first_assigned: boolean
           dispatch_ready_orientation: boolean
@@ -2327,6 +2328,7 @@ export type Database = {
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
           decal_photo_ps_url?: string | null
+          decal_photos?: Json
           dispatch_ready_consortium?: boolean
           dispatch_ready_first_assigned?: boolean
           dispatch_ready_orientation?: boolean
@@ -2420,6 +2422,7 @@ export type Database = {
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
           decal_photo_ps_url?: string | null
+          decal_photos?: Json
           dispatch_ready_consortium?: boolean
           dispatch_ready_first_assigned?: boolean
           dispatch_ready_orientation?: boolean

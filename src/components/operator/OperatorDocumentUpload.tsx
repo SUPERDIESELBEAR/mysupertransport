@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
@@ -68,9 +68,27 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const [docPreview, setDocPreview] = useState<{ url: string; name: string } | null>(null);
   const [decalPhotoDs, setDecalPhotoDs] = useState<string | null>(onboardingStatus.decal_photo_ds_url ?? null);
   const [decalPhotoPs, setDecalPhotoPs] = useState<string | null>(onboardingStatus.decal_photo_ps_url ?? null);
+  const [decalExtras, setDecalExtras] = useState<Array<{ url: string; label?: string }>>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const decalDsRef = useRef<HTMLInputElement | null>(null);
   const decalPsRef = useRef<HTMLInputElement | null>(null);
+  const decalExtraRef = useRef<HTMLInputElement | null>(null);
+
+  // Hydrate extra angles from onboarding_status.decal_photos (jsonb)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('onboarding_status')
+        .select('decal_photos')
+        .eq('operator_id', operatorId)
+        .maybeSingle();
+      if (cancelled) return;
+      const raw = (data?.decal_photos as unknown) as Array<{ url: string; label?: string }> | null;
+      if (Array.isArray(raw)) setDecalExtras(raw);
+    })();
+    return () => { cancelled = true; };
+  }, [operatorId]);
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
 
@@ -252,6 +270,40 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   };
 
   const decalApplied = onboardingStatus.decal_applied === 'yes';
+
+  const handleDecalExtra = async (file: File) => {
+    const { valid, error: validationError } = validateFile(file, false);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+    setUploading('decal_extra');
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${operatorId}/decal_photos/extra_${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: signedData } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
+      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl ?? '';
+      const next = [...decalExtras, { url: fileUrl, label: `Angle ${decalExtras.length + 1}` }];
+      const { error: updErr } = await supabase
+        .from('onboarding_status')
+        .update({ decal_photos: next })
+        .eq('operator_id', operatorId);
+      if (updErr) throw updErr;
+      setDecalExtras(next);
+      toast({ title: 'Angle added' });
+    } catch (err: unknown) {
+      toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setUploading(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -843,6 +895,41 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
               </Button>
             </div>
           </div>
+
+          {/* Additional angles */}
+          {decalExtras.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+              {decalExtras.map((p, idx) => (
+                <a key={idx} href={p.url} target="_blank" rel="noopener noreferrer" className="space-y-1">
+                  <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                  <p className="text-[11px] text-muted-foreground text-center">{p.label ?? `Angle ${idx + 1}`}</p>
+                </a>
+              ))}
+            </div>
+          )}
+          <input
+            ref={decalExtraRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.heic"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleDecalExtra(file);
+              e.target.value = '';
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={uploading === 'decal_extra'}
+            onClick={() => decalExtraRef.current?.click()}
+            className="text-xs gap-1.5 mt-3"
+          >
+            {uploading === 'decal_extra'
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+              : <><Plus className="h-3.5 w-3.5" /> Add Another Angle</>
+            }
+          </Button>
         </div>
       )}
 

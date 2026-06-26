@@ -1,0 +1,1 @@
+ALTER TABLE public.onboarding_status ADD COLUMN IF NOT EXISTS decal_photos jsonb NOT NULL DEFAULT '[]'::jsonb;

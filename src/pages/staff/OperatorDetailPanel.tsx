@@ -44,6 +44,7 @@ import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
 import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
+import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -83,6 +84,7 @@ type OnboardingStatus = {
   decal_applied: string;
   decal_photo_ds_url: string | null;
   decal_photo_ps_url: string | null;
+  decal_photos?: Array<{ url: string; label?: string; uploaded_at?: string; uploaded_by?: string }> | null;
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
@@ -5318,40 +5320,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                     {/* Decal photo thumbnails — shown once decal is applied */}
                     {status.decal_applied === 'yes' && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Install Photos</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {/* Driver Side */}
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground font-medium">Driver Side</p>
-                            {status.decal_photo_ds_url ? (
-                              <a href={status.decal_photo_ds_url} target="_blank" rel="noopener noreferrer" className="block">
-                                <img src={status.decal_photo_ds_url} alt="Decal — Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-                              </a>
-                            ) : (
-                              <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center">
-                                <span className="text-[11px] text-muted-foreground">No photo yet</span>
-                              </div>
-                            )}
-                          </div>
-                          {/* Passenger Side */}
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground font-medium">Passenger Side</p>
-                            {status.decal_photo_ps_url ? (
-                              <a href={status.decal_photo_ps_url} target="_blank" rel="noopener noreferrer" className="block">
-                                <img src={status.decal_photo_ps_url} alt="Decal — Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-                              </a>
-                            ) : (
-                              <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center">
-                                <span className="text-[11px] text-muted-foreground">No photo yet</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {(!status.decal_photo_ds_url || !status.decal_photo_ps_url) && (
-                          <p className="text-[11px] text-muted-foreground italic">Operator uploads decal photos from their portal after installation.</p>
-                        )}
-                      </div>
+                      <StaffDecalPhotoEditor
+                        operatorId={operatorId}
+                        decalPhotoDsUrl={status.decal_photo_ds_url ?? null}
+                        decalPhotoPsUrl={status.decal_photo_ps_url ?? null}
+                        decalPhotosExtra={Array.isArray(status.decal_photos) ? status.decal_photos : []}
+                        onChange={(patch) => setStatus(prev => ({ ...prev, ...patch }))}
+                      />
                     )}
                   </div>
 
