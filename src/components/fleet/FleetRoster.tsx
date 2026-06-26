@@ -549,7 +549,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <TableHead className="text-sm font-semibold hidden lg:table-cell">VIN</TableHead>
                   <TableHead className="text-sm font-semibold text-right">Repair Cost</TableHead>
                   <TableHead className="text-sm font-semibold text-center">DOT Status</TableHead>
-                  <TableHead className="text-sm font-semibold w-12 text-center">Edit</TableHead>
+                  <TableHead className="text-sm font-semibold w-24 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -582,15 +582,26 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       {dotStatusBadge(row.dotNextDue)}
                     </TableCell>
                     <TableCell className="text-center" onClick={e => e.stopPropagation()}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => setEditTarget(row)}
-                        title="Quick edit truck specs"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => setEditTarget(row)}
+                          title="Edit truck specs"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-7 w-7"
+                          onClick={() => setLogUpdateTarget(row)}
+                          title="Log update (repair, inspection, note)"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -623,6 +634,51 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         onClose={() => setIntervalDialogOpen(false)}
         onSaved={fetchFleet}
       />
+      {logUpdateTarget && (
+        <LogUpdateModal
+          open={!!logUpdateTarget}
+          onClose={() => setLogUpdateTarget(null)}
+          operatorId={logUpdateTarget.operatorId}
+          driverName={logUpdateTarget.driverName}
+          onSaved={fetchFleet}
+        />
+      )}
+      {photoGridTarget && (() => {
+        // Build a combined file list: truck photos + decal photos rendered as virtual rows
+        const decalRows: Array<{ id: string; file_name: string | null; file_url: string | null; uploaded_at: string }> = [];
+        if (photoGridTarget.decalPhotoDsUrl) {
+          decalRows.push({
+            id: `decal-ds-${photoGridTarget.operatorId}`,
+            file_name: 'Decal — Driver Side',
+            file_url: photoGridTarget.decalPhotoDsUrl,
+            uploaded_at: new Date().toISOString(),
+          });
+        }
+        if (photoGridTarget.decalPhotoPsUrl) {
+          decalRows.push({
+            id: `decal-ps-${photoGridTarget.operatorId}`,
+            file_name: 'Decal — Passenger Side',
+            file_url: photoGridTarget.decalPhotoPsUrl,
+            uploaded_at: new Date().toISOString(),
+          });
+        }
+        photoGridTarget.decalPhotosExtra.forEach((p, idx) => {
+          decalRows.push({
+            id: `decal-extra-${photoGridTarget.operatorId}-${idx}`,
+            file_name: `Decal — ${p.label || `Angle ${idx + 1}`}`,
+            file_url: p.url,
+            uploaded_at: new Date().toISOString(),
+          });
+        });
+        return (
+          <TruckPhotoGridModal
+            open={!!photoGridTarget}
+            onClose={() => setPhotoGridTarget(null)}
+            files={[...photoGridTarget.truckPhotos, ...decalRows]}
+            alreadyReceived
+          />
+        );
+      })()}
     </div>
   );
 }
