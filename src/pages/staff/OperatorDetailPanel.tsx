@@ -83,6 +83,7 @@ type OnboardingStatus = {
   decal_applied: string;
   decal_photo_ds_url: string | null;
   decal_photo_ps_url: string | null;
+  decal_photos: Array<{ url: string; label?: string; uploaded_at?: string; uploaded_by?: string }>;
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
