@@ -1,25 +1,40 @@
-## Plan
+# Onboarding progress counter — root cause + fix
 
-1. **Fix the database source of truth for ICA completion**
-   - Add a backend migration trigger so when an ICA contract is marked `fully_executed` or receives `contractor_signed_at`, the matching `onboarding_status.ica_status` is automatically set to `complete`.
-   - This addresses the root cause shown by the test data: Emma’s `ica_contracts.status` is `fully_executed`, but `onboarding_status.ica_status` is still `sent_for_signature`.
-   - Include a one-time backfill to repair existing mismatched rows like Emma’s.
+## What the data says
 
-2. **Stop relying only on `onboarding_status.ica_status` in the driver portal**
-   - Have `OperatorPortal.tsx` fetch the latest ICA contract status/signature timestamp alongside onboarding status.
-   - Pass both sources into the existing `isIcaComplete` / `isIcaActionRequired` helpers.
-   - Update Stage 3 status, ICA substep value, top banner, sticky bottom CTA, ICA nav dot, and next-step logic to use the combined source of truth.
+I queried Emma's live `onboarding_status` row. Stages 1–4 evaluate to `complete` under the existing logic (MVR/CH approved + PE clear, all four Stage‑2 docs received, ICA `complete`, registration `own_registration`). Stages 5–8 are not started. The correct count is **4 of 8 (50%)**.
 
-3. **Make ICA updates real-time in the portal**
-   - Add an `ica_contracts` real-time subscription filtered by `operator_id`, in addition to the existing `onboarding_status` subscription.
-   - When contract signing updates arrive, update local ICA contract state and refetch portal data so all ICA buttons/banners change immediately without a refresh.
+## Why the screenshot shows 0% even though the dots are green
 
-4. **Fix onboarding progress calculation consistency**
-   - Derive `completedStages` and `progressPct` directly from the same `stages` array that renders the stage cards.
-   - Add a defensive fallback inside `OperatorStatusPage` / `OnboardingChecklist` so if parent progress props are stale or zero while rendered stages are complete, the displayed count/percentage recalculates locally from visible stage statuses.
-   - Expected Emma result after Stage 1 and Stage 2 complete: `2 of 8 done`, `25%`.
+Both the dot bar and the header text in `OnboardingChecklist` already derive from the **same** `stages` array via the fix added last turn:
 
-5. **Validate with the current test data**
-   - Re-query the database to confirm Emma’s mismatched ICA row is repaired by the migration/backfill.
-   - Use the driver portal preview with an authenticated session if available; otherwise verify via source-level/data-level checks and explain any limitation.
-   - Confirm the UI no longer shows red/gold ICA signing actions once the contract is fully executed and the progress tracker reflects completed stages.
+```ts
+const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
+const displayCompletedStages  = stages.length > 0 ? derivedCompletedStages : completedStages;
+const displayProgressPct      = stages.length > 0 ? derivedProgressPct    : progressPct;
+```
+
+It is mathematically impossible for the dots to show 4 green and the same render to print "0 of 8" — unless the running bundle is **not** the fixed bundle. The ICA green banner is rendered by code added in that same patch set, so the page is clearly running newer code… but the progress strip is rendered by a separate lazy chunk (`OnboardingChecklist` / `OperatorStatusPage` mobile branch) which the installed PWA service worker is still serving from cache. `public/version.json` has not been bumped since the previous patch, so the version-check hook never prompts a reload.
+
+## Fix
+
+1. **Force PWA clients to pick up the patched chunks.** Bump `public/version.json` (`version` + `buildTime`). `useVersionCheck` / `useAppRefresh` will detect the new build and reload all installed clients on next focus.
+
+2. **Collapse to a single source of truth at the portal level** so a stale child prop can never disagree with the dots again:
+   - In `src/pages/operator/OperatorPortal.tsx`, the existing `completedStages` / `progressPct` (lines 836–837) already derive from `stages.filter(s => s.status === 'complete')`. Wrap them in `useMemo([stages])` and keep that as the only place the math lives.
+   - In `src/components/operator/OnboardingChecklist.tsx` and `src/components/operator/OperatorStatusPage.tsx`, **always** use the derived values when `stages.length > 0` (drop the `progressPct`/`completedStages` fallback branch entirely — props become advisory only). This kills any path where a stale prop could surface a zero.
+   - Add a one-line dev-only `console.warn` if `props.completedStages !== derivedCompletedStages` to catch any future drift.
+
+3. **Verification**
+   - Re-run the stage math query for Emma (`c49e2427-…`) → expect 4 complete.
+   - Pick a second live driver in onboarding (any operator with `mvr_ch_approval='approved'` AND `pe_screening_result='clear'` but `insurance_added_date IS NULL`) and confirm their derived count matches what their portal renders.
+   - On Emma's PWA: pull to refresh / reopen → header should read **50% · 4 of 8 done**, dots unchanged, no other UI side-effects.
+
+## Files touched
+
+- `public/version.json` — bump version + buildTime
+- `src/pages/operator/OperatorPortal.tsx` — memoize `completedStages` / `progressPct`
+- `src/components/operator/OnboardingChecklist.tsx` — make derived values authoritative
+- `src/components/operator/OperatorStatusPage.tsx` — make derived values authoritative
+
+No DB migration, no business‑logic change to which stages count as complete.
