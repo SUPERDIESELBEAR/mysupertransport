@@ -17,8 +17,11 @@ export function isIcaComplete(
   os?: { ica_status?: string | null } | null,
   contract?: { status?: string | null; contractor_signed_at?: string | null } | null,
 ): boolean {
-  if (os?.ica_status === 'complete') return true;
-  if (contract?.status === 'fully_executed') return true;
+  const onboardingStatus = String(os?.ica_status ?? '').trim().toLowerCase();
+  const contractStatus = String(contract?.status ?? '').trim().toLowerCase();
+
+  if (['complete', 'completed', 'signed', 'fully_executed'].includes(onboardingStatus)) return true;
+  if (['fully_executed', 'completed', 'complete', 'signed'].includes(contractStatus)) return true;
   if (contract?.contractor_signed_at) return true;
   return false;
 }
@@ -29,5 +32,5 @@ export function isIcaActionRequired(
   contract?: { status?: string | null; contractor_signed_at?: string | null } | null,
 ): boolean {
   if (isIcaComplete(os, contract)) return false;
-  return os?.ica_status === 'sent_for_signature';
+  return String(os?.ica_status ?? '').trim().toLowerCase() === 'sent_for_signature';
 }
