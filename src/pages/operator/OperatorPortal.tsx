@@ -654,6 +654,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   }, [user, fetchUnreadNotifCount, fireNotification]);
 
   const displayName = profile?.first_name ?? 'Operator';
+  const effectiveOnboardingStatus = isIcaComplete(onboardingStatus, latestIcaContract)
+    ? { ...onboardingStatus, ica_status: 'complete' }
+    : onboardingStatus;
 
   // ── Stage status logic ─────────────────────────────────────────────────
   const getStageStatus = (stageNum: number): StageStatus => {
@@ -937,8 +940,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     return null;
   })();
 
-  const icaActionDot = isIcaActionRequired(onboardingStatus, latestIcaContract);
-  const icaComplete = isIcaComplete(onboardingStatus, latestIcaContract);
+  const icaActionDot = isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract);
+  const icaComplete = isIcaComplete(effectiveOnboardingStatus, latestIcaContract);
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
@@ -951,7 +954,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
-    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: isIcaActionRequired(onboardingStatus, latestIcaContract) || icaComplete, icaDot: icaActionDot },
+    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) || icaComplete, icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
@@ -967,7 +970,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // Core: Status, Binder, Messages, Doc Hub + context slot (ICA/Dispatch/FAQ)
   const mobileNavItems = (() => {
     const contextSlot =
-      isIcaActionRequired(onboardingStatus, latestIcaContract)
+      isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract)
         ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
@@ -1336,7 +1339,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA ACTION-REQUIRED BANNER ── */}
-        {isIcaActionRequired(onboardingStatus, latestIcaContract) && view !== 'ica' && (
+        {isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) && view !== 'ica' && (
           <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
             <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
@@ -1511,7 +1514,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               progressPct={progressPct}
               completedStages={completedStages}
               currentStage={currentStage}
-              onboardingStatus={onboardingStatus}
+              onboardingStatus={effectiveOnboardingStatus}
               onNavigateTo={(v) => {
                 const target = v as OperatorView;
                 setView(target);
@@ -1654,7 +1657,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           <OperatorDocumentUpload
             operatorId={operatorId}
             uploadedDocs={uploadedDocs}
-            onboardingStatus={onboardingStatus}
+            onboardingStatus={effectiveOnboardingStatus}
             onUploadComplete={fetchData}
           />
         )}
