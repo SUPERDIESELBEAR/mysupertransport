@@ -895,6 +895,41 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
               </Button>
             </div>
           </div>
+
+          {/* Additional angles */}
+          {decalExtras.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+              {decalExtras.map((p, idx) => (
+                <a key={idx} href={p.url} target="_blank" rel="noopener noreferrer" className="space-y-1">
+                  <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                  <p className="text-[11px] text-muted-foreground text-center">{p.label ?? `Angle ${idx + 1}`}</p>
+                </a>
+              ))}
+            </div>
+          )}
+          <input
+            ref={decalExtraRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.heic"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleDecalExtra(file);
+              e.target.value = '';
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={uploading === 'decal_extra'}
+            onClick={() => decalExtraRef.current?.click()}
+            className="text-xs gap-1.5 mt-3"
+          >
+            {uploading === 'decal_extra'
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+              : <><Plus className="h-3.5 w-3.5" /> Add Another Angle</>
+            }
+          </Button>
         </div>
       )}
 
