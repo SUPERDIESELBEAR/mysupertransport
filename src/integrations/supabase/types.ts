@@ -2219,9 +2219,6 @@ export type Database = {
       }
       onboarding_status: {
         Row: {
-          ball_in_court: string
-          ball_in_court_updated_at: string | null
-          ball_in_court_updated_by: string | null
           bestpass_number: string | null
           bg_check_notes: string | null
           ch_received_date: string | null
@@ -2316,9 +2313,6 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          ball_in_court?: string
-          ball_in_court_updated_at?: string | null
-          ball_in_court_updated_by?: string | null
           bestpass_number?: string | null
           bg_check_notes?: string | null
           ch_received_date?: string | null
@@ -2413,9 +2407,6 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          ball_in_court?: string
-          ball_in_court_updated_at?: string | null
-          ball_in_court_updated_by?: string | null
           bestpass_number?: string | null
           bg_check_notes?: string | null
           ch_received_date?: string | null
