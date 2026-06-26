@@ -3638,6 +3638,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         {name}
                       </button>
 
+                      <OnboardingDaysPill
+                        submittedAt={op.application_submitted_at}
+                        fullyOnboarded={op.fully_onboarded}
+                      />
+
                       {/* Hold date */}
                       {op.on_hold_date && (
                         <span className="text-xs text-muted-foreground shrink-0">
