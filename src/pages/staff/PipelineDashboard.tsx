@@ -17,6 +17,7 @@ import { differenceInDays, parseISO, format, formatDistanceToNowStrict, startOfT
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
+import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
