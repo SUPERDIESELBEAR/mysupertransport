@@ -271,6 +271,40 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
 
   const decalApplied = onboardingStatus.decal_applied === 'yes';
 
+  const handleDecalExtra = async (file: File) => {
+    const { valid, error: validationError } = validateFile(file, false);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+    setUploading('decal_extra');
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${operatorId}/decal_photos/extra_${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: signedData } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
+      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl ?? '';
+      const next = [...decalExtras, { url: fileUrl, label: `Angle ${decalExtras.length + 1}` }];
+      const { error: updErr } = await supabase
+        .from('onboarding_status')
+        .update({ decal_photos: next })
+        .eq('operator_id', operatorId);
+      if (updErr) throw updErr;
+      setDecalExtras(next);
+      toast({ title: 'Angle added' });
+    } catch (err: unknown) {
+      toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setUploading(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
