@@ -17,6 +17,7 @@ import { differenceInDays, parseISO, format, formatDistanceToNowStrict, startOfT
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
+import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -337,6 +338,7 @@ interface OperatorRow {
   never_logged_in: boolean;
   invited_at: string | null;
   pwa_installed_at: string | null;
+  application_submitted_at: string | null;
   current_stage: string;
   fully_onboarded: boolean;
   mvr_status: string;
@@ -1078,7 +1080,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         pwa_installed_at,
         notes,
         anticipated_start_date,
-        applications ( email, phone, address_state ),
+        applications ( email, phone, address_state, submitted_at ),
         onboarding_status (
           mvr_status,
           ch_status,
@@ -1216,6 +1218,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         never_logged_in: (profile.account_status ?? 'pending') === 'pending',
         invited_at: op.created_at ?? null,
         pwa_installed_at: op.pwa_installed_at ?? null,
+        application_submitted_at: appRecord?.submitted_at ?? null,
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_status: os.mvr_status ?? 'not_started',
@@ -3220,6 +3223,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 </span>
                               );
                             })()}
+                            <OnboardingDaysPill
+                              submittedAt={op.application_submitted_at}
+                              fullyOnboarded={op.fully_onboarded}
+                            />
                             {op.unread_count > 0 && (
                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
                                  <MessageSquare className="h-2.5 w-2.5" />
@@ -3630,6 +3637,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       >
                         {name}
                       </button>
+
+                      <OnboardingDaysPill
+                        submittedAt={op.application_submitted_at}
+                        fullyOnboarded={op.fully_onboarded}
+                      />
 
                       {/* Hold date */}
                       {op.on_hold_date && (
