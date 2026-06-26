@@ -1313,7 +1313,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA ACTION-REQUIRED BANNER ── */}
-        {onboardingStatus.ica_status === 'sent_for_signature' && view !== 'ica' && (
+        {isIcaActionRequired(onboardingStatus) && view !== 'ica' && (
           <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
             <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
@@ -1335,6 +1335,34 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               >
                 <FileText className="h-3.5 w-3.5" />
                 Review &amp; Sign Now
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── ICA SIGNED CONFIRMATION ── */}
+        {icaComplete && view !== 'ica' && (
+          <div className="bg-status-complete/10 border border-status-complete/40 rounded-xl px-4 py-4 animate-fade-in">
+            <div className="flex flex-col items-start gap-3">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-status-complete/15 shrink-0">
+                  <CheckCircle2 className="h-5 w-5 text-status-complete" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-status-complete leading-tight">
+                    ICA Agreement Signed — Thank You!
+                  </p>
+                  <p className="text-xs text-status-complete/80 mt-0.5 leading-snug">
+                    Your Independent Contractor Agreement is on file. You can view it any time.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setView('ica')}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-status-complete text-white text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-status-complete/90 transition-colors shadow-sm"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                View Signed Agreement
               </button>
             </div>
           </div>
