@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail, ONBOARDING_EMAIL } from '../_shared/email-layout.ts';
+import { buildAppUrl } from '../_shared/app-url.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +21,7 @@ const MILESTONE_COPY: Record<string, {
       <p>Great news — your <strong>MVR and Clearinghouse background checks</strong> have been reviewed and <strong>approved</strong> by our team.</p>
       <p>You're cleared to continue the onboarding process. Your coordinator will be reaching out shortly with next steps.</p>
       <p>Log in to your portal anytime to check your current onboarding progress.</p>`,
-    cta: (appUrl) => ({ label: 'View My Onboarding Status', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'View My Onboarding Status', url: buildAppUrl('/operator?tab=progress') }),
   },
   background_check_flagged: {
     subject: 'Background Check — Action Required | SUPERTRANSPORT',
@@ -29,7 +30,7 @@ const MILESTONE_COPY: Record<string, {
       <p>Our team has reviewed your MVR and Clearinghouse results and found an item that requires follow-up.</p>
       <p>Your onboarding coordinator will reach out to you directly with details and next steps.</p>
       <p>If you have questions in the meantime, please contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
-    cta: (appUrl) => ({ label: 'Log In to Your Portal', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'Log In to Your Portal', url: buildAppUrl('/operator?tab=progress') }),
   },
   ica_ready_to_sign: {
     subject: 'Action Required: Your ICA Agreement is Ready to Sign',
@@ -38,7 +39,7 @@ const MILESTONE_COPY: Record<string, {
       <p>Your <strong>Independent Contractor Agreement (ICA)</strong> has been prepared by your onboarding coordinator and is now ready for your signature.</p>
       <p>Please log in to your operator portal and navigate to the <strong>ICA</strong> tab to review and sign your agreement at your earliest convenience.</p>
       <p>Completing your ICA is required before moving forward with Missouri registration and equipment setup.</p>`,
-    cta: (appUrl) => ({ label: 'Review & Sign My ICA', url: `${appUrl}/dashboard?tab=ica` }),
+    cta: () => ({ label: 'Review & Sign My ICA', url: buildAppUrl('/operator?tab=ica') }),
   },
   ica_complete: {
     subject: 'ICA Agreement Signed & Complete — SUPERTRANSPORT',
@@ -46,7 +47,7 @@ const MILESTONE_COPY: Record<string, {
     body: (name) => `<p>Hi ${name},</p>
       <p>Your <strong>Independent Contractor Agreement (ICA)</strong> is now fully signed and on file with SUPERTRANSPORT.</p>
       <p>This is a major milestone in your onboarding journey. Our team will now proceed with Missouri registration and equipment setup.</p>`,
-    cta: (appUrl) => ({ label: 'View My Onboarding Progress', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'View My Onboarding Progress', url: buildAppUrl('/operator?tab=progress') }),
   },
   drug_screening_scheduled: {
     subject: 'Drug Screening Scheduled — SUPERTRANSPORT',
@@ -55,7 +56,7 @@ const MILESTONE_COPY: Record<string, {
       <p>Your <strong>pre-employment drug screening</strong> has been scheduled.</p>
       <p>You should receive a separate email with the clinic location and instructions. Please complete your screening as soon as possible to keep your onboarding on track.</p>
       <p>If you have any questions, contact your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
-    cta: (appUrl) => ({ label: 'View My Portal', url: `${appUrl}/dashboard?tab=progress` }),
+    cta: () => ({ label: 'View My Portal', url: buildAppUrl('/operator?tab=progress') }),
   },
   mo_reg_filed: {
     subject: 'Missouri Registration Filed — SUPERTRANSPORT',
@@ -64,7 +65,7 @@ const MILESTONE_COPY: Record<string, {
       <p>Your <strong>Missouri apportioned registration</strong> documents have been submitted to the state on your behalf.</p>
       <p>State approval typically takes <strong>2–4 weeks</strong>. We'll notify you as soon as it's received.</p>
       <p>In the meantime, you can check your onboarding status in your portal.</p>`,
-    cta: (appUrl) => ({ label: 'View My Onboarding Progress', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'View My Onboarding Progress', url: buildAppUrl('/operator?tab=progress') }),
   },
   mo_reg_received: {
     subject: 'Missouri Registration Approved — SUPERTRANSPORT',
@@ -72,7 +73,7 @@ const MILESTONE_COPY: Record<string, {
     body: (name) => `<p>Hi ${name},</p>
       <p>Your <strong>Missouri apportioned registration</strong> has been approved and is now on file.</p>
       <p>Our team will now move forward with your equipment setup — ELD installation, decal, and fuel card.</p>`,
-    cta: (appUrl) => ({ label: 'View My Onboarding Progress', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'View My Onboarding Progress', url: buildAppUrl('/operator?tab=progress') }),
   },
   fully_onboarded: {
     subject: "🎉 You're Fully Onboarded — Welcome to SUPERTRANSPORT!",
@@ -86,7 +87,7 @@ const MILESTONE_COPY: Record<string, {
         <li>Questions? Our team is always here at <a href="mailto:dispatch@mysupertransport.com" style="color:#C9A84C;">dispatch@mysupertransport.com</a>.</li>
       </ul>
       <p style="margin-top:16px;">We're thrilled to have you on the road with us. Welcome to the family!</p>`,
-    cta: (appUrl) => ({ label: 'Go to My Portal', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'Go to My Portal', url: buildAppUrl('/operator') }),
   },
   document_received: {
     subject: 'Document Received — SUPERTRANSPORT',
@@ -94,7 +95,7 @@ const MILESTONE_COPY: Record<string, {
     body: (name) => `<p>Hi ${name},</p>
       <p>Your onboarding coordinator has confirmed receipt of one of your required documents.</p>
       <p>Log in to your portal to see your updated document status and any remaining items.</p>`,
-    cta: (appUrl) => ({ label: 'View My Documents', url: `${appUrl}/operator?tab=documents` }),
+    cta: () => ({ label: 'View My Documents', url: buildAppUrl('/operator?tab=documents') }),
   },
   decal_photos_requested: {
     subject: 'Action Required: Upload Decal Installation Photos — SUPERTRANSPORT',
@@ -107,7 +108,7 @@ const MILESTONE_COPY: Record<string, {
         <li><strong>Passenger-side</strong> photo showing the decal clearly visible</li>
       </ul>
       <p>Log in to your portal and go to the <strong>Documents</strong> tab to upload your photos.</p>`,
-    cta: (appUrl) => ({ label: 'Upload Decal Photos', url: `${appUrl}/operator?tab=documents` }),
+    cta: () => ({ label: 'Upload Decal Photos', url: buildAppUrl('/operator?tab=documents') }),
   },
   go_live_set: {
     subject: '🚛 Your Go-Live Date is Confirmed — SUPERTRANSPORT',
@@ -122,7 +123,7 @@ const MILESTONE_COPY: Record<string, {
         <li>Questions before your start date? Reach your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</li>
       </ul>
       <p style="margin-top:16px;">We're excited to have you on the road with us. Welcome to the SUPERTRANSPORT family!</p>`,
-    cta: (appUrl) => ({ label: 'Go to My Portal', url: `${appUrl}/dashboard` }),
+    cta: () => ({ label: 'Go to My Portal', url: buildAppUrl('/operator') }),
   },
 };
 
@@ -231,8 +232,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
-    const ctaConfig = copy.cta(appUrl);
+    const ctaConfig = copy.cta('');
 
     // ── Fetch extra context for specific milestones ───────────────────────
     let extraContext: string | undefined;
