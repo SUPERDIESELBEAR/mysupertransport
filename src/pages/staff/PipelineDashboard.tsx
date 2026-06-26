@@ -3656,6 +3656,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         fullyOnboarded={op.fully_onboarded}
                       />
 
+                      <BallInCourtBadge
+                        operatorId={op.id}
+                        value={op.ball_in_court}
+                        fullyOnboarded={op.fully_onboarded}
+                        updatedAt={op.ball_in_court_updated_at}
+                      />
+
                       {/* Hold date */}
                       {op.on_hold_date && (
                         <span className="text-xs text-muted-foreground shrink-0">
