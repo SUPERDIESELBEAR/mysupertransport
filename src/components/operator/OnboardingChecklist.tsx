@@ -316,8 +316,8 @@ export default function OnboardingChecklist({
 }: OnboardingChecklistProps) {
   const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
   const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : progressPct;
-  const displayCompletedStages = derivedCompletedStages || completedStages;
-  const displayProgressPct = derivedProgressPct || progressPct;
+  const displayCompletedStages = stages.length > 0 ? derivedCompletedStages : completedStages;
+  const displayProgressPct = stages.length > 0 ? derivedProgressPct : progressPct;
 
   // Animate the progress bar in on mount
   const [barWidth, setBarWidth] = useState(0);
