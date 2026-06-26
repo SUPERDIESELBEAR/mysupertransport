@@ -4,11 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2 } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Image as ImageIcon } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
 import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
+import LogUpdateModal from './LogUpdateModal';
+import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +36,14 @@ interface FleetRow {
   trailerNumber: string | null;
   totalRepairCost: number;
   dotNextDue: string | null;
+  eldSerial: string | null;
+  dashCamSerial: string | null;
+  bestPassNumber: string | null;
+  fuelCardNumber: string | null;
+  truckPhotos: Array<{ id: string; file_name: string | null; file_url: string | null; uploaded_at: string }>;
+  decalPhotoDsUrl: string | null;
+  decalPhotoPsUrl: string | null;
+  decalPhotosExtra: Array<{ url: string; label?: string }>;
 }
 
 interface FleetRosterProps {
@@ -56,6 +66,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [search, setSearch] = useState('');
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
+  const [logUpdateTarget, setLogUpdateTarget] = useState<FleetRow | null>(null);
+  const [photoGridTarget, setPhotoGridTarget] = useState<FleetRow | null>(null);
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
   const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
@@ -75,7 +87,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         unit_number,
         applications(first_name, last_name),
-        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date),
+        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
       `)
       .eq('is_active', isActive);
@@ -93,9 +105,22 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
 
     const opIds = filteredOperators.map(o => o.id);
 
-    const [{ data: maintenance }, { data: dotInspections }] = await Promise.all([
+    const [{ data: maintenance }, { data: dotInspections }, { data: assignments }, { data: truckPhotoDocs }] = await Promise.all([
       supabase.from('truck_maintenance_records').select('operator_id, amount').in('operator_id', opIds),
       supabase.from('truck_dot_inspections').select('operator_id, next_due_date').order('inspection_date', { ascending: false }).in('operator_id', opIds),
+      supabase
+        .from('equipment_assignments')
+        .select('operator_id, assigned_at, equipment_items(device_type, serial_number)')
+        .is('returned_at', null)
+        .in('operator_id', opIds)
+        .order('assigned_at', { ascending: false }),
+      supabase
+        .from('operator_documents')
+        .select('id, operator_id, file_name, file_url, uploaded_at, document_type, deleted_at')
+        .eq('document_type', 'truck_photos')
+        .is('deleted_at', null)
+        .in('operator_id', opIds)
+        .order('uploaded_at', { ascending: false }),
     ]);
 
     const costMap = new Map<string, number>();
@@ -108,6 +133,26 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       if (!dotMap.has(r.operator_id)) dotMap.set(r.operator_id, r.next_due_date);
     });
 
+    // Most-recent serial per (operator, device_type)
+    const equipMap = new Map<string, Record<string, string>>();
+    (assignments ?? []).forEach((a: any) => {
+      const dt = a.equipment_items?.device_type;
+      const sn = a.equipment_items?.serial_number;
+      if (!dt || !sn) return;
+      const cur = equipMap.get(a.operator_id) ?? {};
+      if (!cur[dt]) {
+        cur[dt] = sn;
+        equipMap.set(a.operator_id, cur);
+      }
+    });
+
+    const photoMap = new Map<string, FleetRow['truckPhotos']>();
+    (truckPhotoDocs ?? []).forEach((d: any) => {
+      const list = photoMap.get(d.operator_id) ?? [];
+      list.push({ id: d.id, file_name: d.file_name, file_url: d.file_url, uploaded_at: d.uploaded_at });
+      photoMap.set(d.operator_id, list);
+    });
+
     const fleet: FleetRow[] = filteredOperators.map(op => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
@@ -115,6 +160,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
 
       const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown';
       const ownerName = ica?.owner_name || ica?.owner_business_name || driverName;
+      const equip = equipMap.get(op.id) ?? {};
+      const decalExtraRaw = Array.isArray(os?.decal_photos) ? os.decal_photos : [];
+      const decalPhotosExtra = decalExtraRaw
+        .map((p: any) => (typeof p === 'string' ? { url: p } : { url: p?.url, label: p?.label }))
+        .filter((p: any) => !!p.url);
 
       return {
         operatorId: op.id,
@@ -129,6 +179,14 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         trailerNumber: os?.trailer_number || ica?.trailer_number || null,
         totalRepairCost: costMap.get(op.id) ?? 0,
         dotNextDue: dotMap.get(op.id) ?? null,
+        eldSerial: equip.eld ?? null,
+        dashCamSerial: equip.dash_cam ?? null,
+        bestPassNumber: equip.bestpass ?? null,
+        fuelCardNumber: equip.fuel_card ?? null,
+        truckPhotos: photoMap.get(op.id) ?? [],
+        decalPhotoDsUrl: os?.decal_photo_ds_url ?? null,
+        decalPhotoPsUrl: os?.decal_photo_ps_url ?? null,
+        decalPhotosExtra,
       };
     });
 
