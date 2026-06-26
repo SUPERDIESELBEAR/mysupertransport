@@ -7,7 +7,8 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app';
+import { buildAppUrl } from '../_shared/app-url.ts';
+const APP_URL = new URL(buildAppUrl('/')).origin;
 const COOLDOWN_DAYS = 30;
 const DEFAULT_COOLDOWN_HOURS = COOLDOWN_DAYS * 24;
 
