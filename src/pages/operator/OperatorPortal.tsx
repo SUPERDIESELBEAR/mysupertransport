@@ -550,7 +550,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             status: payload.new.status ?? null,
             contractor_signed_at: payload.new.contractor_signed_at ?? null,
           });
-          if (isIcaComplete(onboardingStatus, payload.new)) {
+          if (isIcaComplete(null, payload.new)) {
             setOnboardingStatus((prev: any) => ({ ...(prev ?? {}), ica_status: 'complete' }));
           }
         }
