@@ -444,6 +444,61 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </div>
               </div>
 
+              {/* Equipment serials */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-border pt-2.5">
+                <div>
+                  <div className="text-muted-foreground">ELD Serial</div>
+                  <div className="font-mono text-foreground truncate">{row.eldSerial || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Dash Cam</div>
+                  <div className="font-mono text-foreground truncate">{row.dashCamSerial || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">BestPass</div>
+                  <div className="font-mono text-foreground truncate">{row.bestPassNumber || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Fuel Card</div>
+                  <div className="font-mono text-foreground truncate">{row.fuelCardNumber || '—'}</div>
+                </div>
+              </div>
+
+              {/* Truck + decal photos strip */}
+              {(() => {
+                const totalDecals = (row.decalPhotoDsUrl ? 1 : 0) + (row.decalPhotoPsUrl ? 1 : 0) + row.decalPhotosExtra.length;
+                const totalPhotos = row.truckPhotos.length + totalDecals;
+                return (
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setPhotoGridTarget(row); }}
+                    className="border-t border-border pt-2.5 flex items-center gap-2 text-left hover:bg-muted/30 rounded-md px-1 -mx-1 py-1 transition-colors"
+                    title="View truck photos"
+                  >
+                    <div className="flex -space-x-2">
+                      {row.truckPhotos.slice(0, 3).map(p => (
+                        <div key={p.id} className="h-10 w-10 rounded-md border-2 border-card bg-muted overflow-hidden flex items-center justify-center">
+                          <Camera className="h-4 w-4 text-muted-foreground/50" />
+                        </div>
+                      ))}
+                      {totalPhotos === 0 && (
+                        <div className="h-10 w-10 rounded-md border-2 border-dashed border-border bg-muted/40 flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs">
+                      <div className="font-medium text-foreground">Photos</div>
+                      <div className="text-muted-foreground">
+                        {totalPhotos === 0
+                          ? 'No photos yet'
+                          : `${row.truckPhotos.length} truck · ${totalDecals} decal`}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })()}
+
               {/* Footer: Repair cost + Edit */}
               <div className="flex items-center justify-between border-t border-border pt-2.5">
                 <div>
@@ -454,16 +509,28 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       : '—'}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5"
-                  onClick={e => { e.stopPropagation(); setEditTarget(row); }}
-                  title="Quick edit truck specs"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 gap-1.5"
+                    onClick={e => { e.stopPropagation(); setEditTarget(row); }}
+                    title="Edit truck specs (VIN, plate, unit #)"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5"
+                    onClick={e => { e.stopPropagation(); setLogUpdateTarget(row); }}
+                    title="Log a repair, inspection, or note"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Log Update
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
