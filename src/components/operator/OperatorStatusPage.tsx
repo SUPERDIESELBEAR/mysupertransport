@@ -358,8 +358,8 @@ export default function OperatorStatusPage({
   const statusInfo = dispatchStatus ? dispatchStatusLabel[dispatchStatus] : null;
   const derivedCompletedStages = stages.filter(s => s.status === 'complete').length;
   const derivedProgressPct = stages.length > 0 ? Math.round((derivedCompletedStages / stages.length) * 100) : progressPct;
-  const displayCompletedStages = derivedCompletedStages || completedStages;
-  const displayProgressPct = derivedProgressPct || progressPct;
+  const displayCompletedStages = stages.length > 0 ? derivedCompletedStages : completedStages;
+  const displayProgressPct = stages.length > 0 ? derivedProgressPct : progressPct;
 
   // Critical docs: only ≤30 days or expired — these warrant the top banner
   const criticalDocs = [
