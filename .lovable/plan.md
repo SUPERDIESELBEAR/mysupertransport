@@ -1,60 +1,57 @@
-# Remove redundant/editable‑looking Date field from the ICA contractor signature block
+## Fix: ICA "Execute Agreement" surfaces raw RLS error to driver
 
-## What's actually on screen
+### Root cause
 
-The "Date:" the user circled is **not** an `<input>` — it's the `SigLine` component at `src/components/ica/ICADocumentView.tsx:317`:
+Tapping **Execute Agreement** runs `UPDATE ica_contracts SET status='fully_executed', contractor_signed_at=…`. That fires the `AFTER UPDATE` trigger `sync_ica_completion_to_onboarding`, which cascades an `UPDATE onboarding_status SET ica_status='complete'`. Although the sync trigger is `SECURITY DEFINER`, `auth.uid()` is still the driver, so the `BEFORE UPDATE` enforcement triggers on `onboarding_status` block the cascade with:
 
-```tsx
-<SigLine label="Date" value={contractorSignedAt ? fmtDate(contractorSignedAt) : undefined} />
-```
+> Operators may only update their own decal photos, truck_photos, and ica_status
 
-`SigLine` renders a label plus a bottom‑border `<span>` (lines 518–527). Pre‑execution `contractorSignedAt` is `null`, so the span is empty and visually reads as a blank fill‑in line. It is read‑only in code, but it looks editable — the user's concern is valid.
+That raw Postgres message is then rendered straight into the driver's toast. A redundant explicit `UPDATE onboarding_status SET ica_status='complete'` from the client (lines 206–213 of `OperatorICASign.tsx`) compounds the risk.
 
-Immediately above it (line 305) there is also a redundant inline string:
+### Changes
 
-```tsx
-<p className="text-xs text-muted-foreground">Date: {new Date().toLocaleDateString(...)}</p>
-```
+**1. DB migration — `app.ica_sync_cascade` session-local bypass**
 
-This prints today's wall‑clock date the instant the page renders, not the true submission moment — also wrong for a legal artifact.
+- Recreate `public.sync_ica_completion_to_onboarding()` so it wraps the inner `UPDATE onboarding_status` with `set_config('app.ica_sync_cascade', '1', true)` before and `set_config('app.ica_sync_cascade', '', true)` after. The `true` makes it transaction-scoped, so it can't leak to other sessions.
+- Recreate `public.enforce_onboarding_status_operator_update()` and `public.enforce_onboarding_status_operator_column_whitelist()` so that, immediately after the `is_staff` short-circuit, they check:
+  ```sql
+  IF current_setting('app.ica_sync_cascade', true) = '1' THEN
+    RETURN NEW;
+  END IF;
+  ```
+  All other logic is preserved verbatim.
 
-## Fix (scope: `src/components/ica/ICADocumentView.tsx` only)
+Scope is narrow: the bypass only flips during the single `UPDATE onboarding_status` that the sync trigger itself issues. Any operator-initiated update from the app, API, or another trigger path still goes through the existing enforcement.
 
-1. **Delete the inline "Date: …" `<p>` at line 305.** It duplicates the signature date below and shows browser‑local time rather than the server‑recorded execution timestamp.
+**2. `src/components/operator/OperatorICASign.tsx`**
 
-2. **Replace the contractor `SigLine` Date row (line 317) with explicit, non‑underlined rendering** driven solely by `contractorSignedAt`:
-   - Before execution: muted helper text `"Signed on: — auto‑filled when you tap Execute Agreement"`, no underline, no input affordance.
-   - After execution: bold label `"Signed on: <fmtDate(contractorSignedAt)>"`, no underline.
-   - `contractorSignedAt` already comes from the server (`ica_contracts.signed_at` / `executed_at` set inside the `execute-ica` flow), so the timestamp is the true submission moment and cannot be altered by the driver.
+- Delete the redundant `supabase.from('onboarding_status').update({ ica_status: 'complete', ... })` block (currently ~lines 206–213). The DB trigger is now the single source of truth for that flip.
+- In the catch block, keep the existing `logIcaEvent('ica_upload_failed', { error: err?.message, ... })` so staff retain the raw diagnostic. Replace the driver-facing toast with:
+  > "Something went wrong while saving your signature. Please try again, and contact support if the issue persists."
 
-3. **Apply the same "label, not underline" treatment to the contractor `SigLine` Name row (line 316)** so the post‑signature block reads as a clean attestation summary rather than a second set of blanks:
-   - Pre‑execution: muted `"Name: <typed name as they type, or '—'>"`.
-   - Post‑execution: bold `"Name: <contractorTypedName>"`.
-   - Value is still bound to the typed‑name input above — no new editable surface.
+**3. `public/version.json`**
 
-4. **Leave the Carrier block (lines 271–273) alone.** Name/Title/Date there already auto‑populate from carrier settings + `carrierSignedAt` and the screenshot confirms they render correctly ("Marc Mueller / Owner / June 26, 2026"). Optional polish: swap those three `SigLine`s for the same flat‑label style for visual parity — call this out but only do it if the user wants matching styling.
+- Bump `version` to force installed PWAs to pick up the new client immediately.
 
-## Audit of other date/name fields in the ICA flow
+### Verification (run all four before closing)
 
-Scanned `src/components/ica/` and the operator portal:
+1. **End-to-end as Emma Mueller** — open the pending ICA (`fca18922-3810-4b8c-bedb-3e15f1f44297`) in the operator portal, draw signature, type name, tap **Execute Agreement**. Confirm the success toast appears (no raw RLS text) and the UI flips to "Signed on: …".
+2. **SQL spot-check**:
+   ```sql
+   SELECT status, contractor_signed_at
+     FROM ica_contracts
+     WHERE id = 'fca18922-3810-4b8c-bedb-3e15f1f44297';
 
-| Location | Field | Status |
-| --- | --- | --- |
-| `ICADocumentView.tsx:190` Deposit Initials + Date | Contractor‑elected deposit option date | **Intentionally driver‑entered** (it records *when the driver elected the deposit plan*, a separate datum from the signature). Leave as is — flag for user confirmation. |
-| `ICABuilderModal.tsx:779` carrier preview "Date: <today>" | Staff‑side carrier countersign preview | Same `new Date()` anti‑pattern but on the **staff side** and only shown in the builder preview before the contract is generated. Out of scope for this driver‑facing fix; happy to follow up if wanted. |
-| `CarrierSignatureSettings.tsx` Typed Full Name | Staff settings, not part of the driver signing flow | Out of scope. |
-| Operator portal ICA acknowledgement page | No manual date inputs | OK. |
+   SELECT ica_status
+     FROM onboarding_status
+     WHERE operator_id = 'c49e2427-11cf-4765-a48b-36b28cd150a2';
+   ```
+   Expect `status = 'fully_executed'`, `contractor_signed_at` populated, `ica_status = 'complete'`.
+3. **Regression — bypass is not a wide hole** — simulate a driver UPDATE on `onboarding_status` from a path that is NOT the sync trigger (e.g. attempt to set a non-whitelisted column via the client). Confirm the enforcement trigger still raises and the write is rejected. Confirms `current_setting('app.ica_sync_cascade', true)` is only `'1'` inside the trigger.
+4. **Forced error path** — temporarily induce a failure (e.g. revoke storage access to `ica-signatures` for a single test, or stub a 500 from `execute-ica`). Confirm the driver sees the friendly toast, the raw error string never reaches the UI, and `logIcaEvent('ica_upload_failed', ...)` still records `err.message` for staff.
 
-No other manually‑editable date fields exist in the driver‑facing ICA signing path.
+### Files touched
 
-## Verification
-
-- Open `/operator?tab=ica` as a test driver pre‑signature → the contractor block shows the helper text, no blank underline, no inline duplicate date.
-- Tap **Execute Agreement** → the same row immediately reads `Signed on: <today>` using the server‑returned `signed_at`, matching the timestamp written to `ica_contracts`.
-- Re‑open the signed agreement (read‑only path, `contractorSignatureUrl` branch) → same flat `Signed on: …` line; no extra blanks.
-
-## Out of scope / confirm before doing
-
-- Restyling the **carrier** Name/Title/Date trio to match (currently still uses underline `SigLine`s, but values are correct).
-- Cleaning up the deposit‑election Date on line 190 (this is a different legal field, not a signature date).
-- Staff‑side `ICABuilderModal` preview date.
+- New migration: `supabase/migrations/<timestamp>_ica_sync_cascade_bypass.sql`
+- `src/components/operator/OperatorICASign.tsx`
+- `public/version.json`
