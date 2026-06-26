@@ -1,41 +1,75 @@
-## Total Onboarding Days Ticker
+## "Ball in Court" Status Indicator
 
-Add a staff-only "days in onboarding" indicator on the Applicant Pipeline for drivers who haven't completed onboarding (no go-live yet). Counts days elapsed since `applications.submitted_at`.
+A lightweight handoff signal on every active onboarding driver — visible to staff in the Applicant Pipeline and to the driver in their portal.
 
-### Placement
+### Recommendation: Manual toggle with a smart default
 
-**Applicant Pipeline only** (`src/pages/staff/PipelineDashboard.tsx`) — both the card view and the table view. This is where staff triage follow-ups, so the ticker lives directly on each in-progress operator as a small color-coded pill (e.g. `Day 14`) next to the existing stage badge.
+A fully automated rule would require tagging every pipeline item as "driver-owned" vs "staff-owned" — that's a fragile classification effort across 8 stages and ~30+ items, and it would still be wrong any time staff are waiting on an off-system action (a callback, a vendor, an external doc). A single manual toggle, seeded with a sensible default, is simpler, more honest, and matches how onboarding coordinators actually think.
 
-Hidden as soon as the operator is `fully_onboarded` (i.e., they have a go-live), matching your "no longer needed once onboarding completes" rule.
+**Tradeoff:** Staff have to flip it (one click) when handoff changes. In return, the signal stays accurate and doesn't fight the data.
 
-**Deferred (noted, not built now):** an Overview widget like "X drivers > 30 days in onboarding". Easy follow-up once the shared component exists. The Driver Hub is intentionally **not** included — that surface is for post-go-live operations, where this metric no longer applies.
+To remove busywork, we'll auto-default the value (no manual action needed for the common case) and only ask staff to flip it when they truly hand off.
 
-### Ticker behavior
+---
 
-- Source of truth: `applications.submitted_at` (already on the pipeline query — needs to be added to the select list).
-- Label: `Day N` where `N = floor((now - submitted_at) / 1 day) + 1` (Day 1 = submission day, US Central, matching existing date policy).
-- Color thresholds (using existing semantic status tokens, no hardcoded colors):
-  - 1–14 days → green (`status-complete` family)
-  - 15–30 days → amber (existing warning tokens)
-  - 31+ days → red (`status-alert` / destructive)
-- Tooltip on hover: "Application submitted Mon DD, YYYY" (existing `Tooltip` component).
-- Renders nothing when `submitted_at` is null (draft) or the operator is `fully_onboarded`.
+### Data model
 
-### Implementation outline
+Add one column to `onboarding_status`:
 
-1. New shared component `src/components/staff/OnboardingDaysPill.tsx`
-   - Props: `submittedAt: string | null`, `fullyOnboarded: boolean`, optional `size`.
-   - Computes day count + threshold class, wraps a `Tooltip`. Returns `null` when it shouldn't render.
-   - Uses CT noon-anchoring helper consistent with existing date policy.
+- `ball_in_court text` — values: `'driver' | 'staff'`. Default `'driver'` on row creation (a freshly-invited driver always owes the first move).
 
-2. `PipelineDashboard.tsx`
-   - Extend the `applications (...)` sub-select on the operators query to include `submitted_at`.
-   - Add `submitted_at` to the row mapping.
-   - Render `<OnboardingDaysPill />` in the operator card header and the table-view name cell.
+No new table, no per-item ownership tagging, no enum (keeps migrations cheap).
 
-### Out of scope
+Optional small additions:
+- `ball_in_court_updated_at timestamptz`
+- `ball_in_court_updated_by uuid` (staff user id; null when system-set)
 
-- No schema changes — `submitted_at` already exists.
-- No operator-facing UI touched.
-- No Driver Hub changes.
-- No new RLS / edge functions.
+RLS: staff (existing onboarding roles) can update; drivers read-only via their existing onboarding_status select policy.
+
+### Auto-default rule (no manual action in the common case)
+
+A tiny DB trigger flips the value automatically in the two unambiguous moments:
+
+1. When a driver submits any onboarding step that completes a stage → set to `'staff'` (driver did their part, staff needs to review).
+2. When staff request a correction / revert a step → set to `'driver'` (action bounces back).
+
+Everywhere else, staff can override with a single click. The trigger respects manual overrides made in the last 30 minutes (don't fight the human).
+
+If implementation of the trigger turns out to be more invasive than expected, we ship the manual toggle alone — still simple, still useful.
+
+### Staff UI (Applicant Pipeline only)
+
+A single small badge on each operator card / row, placed next to the existing progress %:
+
+- **Ball: Driver** — muted/neutral chip with a small user icon, label "Waiting on driver"
+- **Ball: Staff** — accent/gold chip with a staff icon, label "Needs staff action"
+
+Clicking the badge flips it (with a toast: "Marked as waiting on staff"). Hover shows last-updated timestamp + who set it.
+
+Placement: inline in the existing pipeline table row and the card view — no new column, no new panel, no filter UI in v1 (we can add a "Needs staff action" filter later if it proves useful).
+
+Hidden when `fully_onboarded = true` (matches the OnboardingDaysPill pattern).
+
+### Driver UI (Operator Portal)
+
+A single dismissible banner at the top of the onboarding checklist:
+
+- **Ball in driver's court:** gold-accent banner — "Action required — please complete your pending steps to continue onboarding." Links to the first incomplete stage.
+- **Ball in staff's court:** neutral/success banner — "You're all caught up. Our team is reviewing your information."
+
+No new page, no notification spam — just the existing onboarding screen surface.
+
+### Files touched
+
+- **Migration:** add columns + trigger to `onboarding_status`.
+- **`src/components/staff/BallInCourtBadge.tsx`** (new) — presentational chip + click-to-flip handler.
+- **`src/pages/staff/PipelineDashboard.tsx`** — select `ball_in_court`, render badge in row + card.
+- **`src/pages/operator/OperatorPortal.tsx`** (or the onboarding checklist component) — read `ball_in_court`, render the driver banner.
+- Types regenerate after the migration.
+
+### Out of scope (deferrable)
+
+- Pipeline filter chip "Needs staff action"
+- Driver Hub display (not in onboarding context per earlier decision)
+- Per-stage ownership classification / full automation
+- Notifications when the ball flips (existing onboarding emails already cover handoffs)

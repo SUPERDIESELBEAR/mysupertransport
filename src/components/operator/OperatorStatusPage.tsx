@@ -6,6 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useState, useRef } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
+import BallInCourtBanner from '@/components/operator/BallInCourtBanner';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -740,6 +741,13 @@ export default function OperatorStatusPage({
             : 'Track your onboarding progress below.'}
         </p>
       </div>
+
+      {/* Ball-in-court handoff banner (onboarding only) */}
+      {!isFullyOnboarded && (
+        <BallInCourtBanner
+          value={onboardingStatus.ball_in_court === 'staff' ? 'staff' : 'driver'}
+        />
+      )}
 
       {/* ── OPERATOR IDENTITY CARD ── */}
       {(unitNumber || hasDispatcher) && (

@@ -18,6 +18,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
 import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
+import { BallInCourtBadge, type BallInCourt } from '@/components/staff/BallInCourtBadge';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -374,6 +375,8 @@ interface OperatorRow {
   on_hold_date: string | null;
   notes: string | null;
   anticipated_start_date: string | null;
+  ball_in_court: BallInCourt;
+  ball_in_court_updated_at: string | null;
 }
 
 // ─── Temperature ─────────────────────────────────────────────────────────────
@@ -1102,7 +1105,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           mo_docs_submitted,
           mo_reg_received,
           registration_status,
-          updated_at
+          updated_at,
+          ball_in_court,
+          ball_in_court_updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
       `).eq('is_active', true),
@@ -1252,6 +1257,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
         notes: op.notes ?? null,
         anticipated_start_date: op.anticipated_start_date ?? null,
+        ball_in_court: (os.ball_in_court === 'staff' ? 'staff' : 'driver') as BallInCourt,
+        ball_in_court_updated_at: os.ball_in_court_updated_at ?? null,
       };
     });
     // Keep operators in the Pipeline view if either:
@@ -3227,6 +3234,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               submittedAt={op.application_submitted_at}
                               fullyOnboarded={op.fully_onboarded}
                             />
+                            <BallInCourtBadge
+                              operatorId={op.id}
+                              value={op.ball_in_court}
+                              fullyOnboarded={op.fully_onboarded}
+                              updatedAt={op.ball_in_court_updated_at}
+                            />
                             {op.unread_count > 0 && (
                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
                                  <MessageSquare className="h-2.5 w-2.5" />
@@ -3641,6 +3654,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <OnboardingDaysPill
                         submittedAt={op.application_submitted_at}
                         fullyOnboarded={op.fully_onboarded}
+                      />
+
+                      <BallInCourtBadge
+                        operatorId={op.id}
+                        value={op.ball_in_court}
+                        fullyOnboarded={op.fully_onboarded}
+                        updatedAt={op.ball_in_court_updated_at}
                       />
 
                       {/* Hold date */}
