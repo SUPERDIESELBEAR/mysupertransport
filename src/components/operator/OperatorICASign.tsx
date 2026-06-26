@@ -201,16 +201,10 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
 
       if (error) throw error;
 
-      // Update onboarding ICA status to complete
-      stage = 'status_update';
-      const { data: os } = await supabase
-        .from('onboarding_status')
-        .select('id')
-        .eq('operator_id', operatorId!)
-        .maybeSingle();
-      if (os?.id) {
-        await supabase.from('onboarding_status').update({ ica_status: 'complete' }).eq('id', os.id);
-      }
+      // onboarding_status.ica_status is now flipped to 'complete' automatically by
+      // the sync_ica_completion_to_onboarding trigger on ica_contracts. We no
+      // longer issue a redundant client-side update (which previously could
+      // surface a raw RLS error to the driver).
 
       // Write audit log entry for ica_signed via SECURITY DEFINER RPC
       logIcaEvent('ica_signed', operatorId, contract.id, {
@@ -256,7 +250,11 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         error_message: err?.message ?? String(err),
         error_code: err?.code ?? err?.statusCode ?? null,
       });
-      toast.error(err.message || 'Error signing agreement');
+      // Never surface raw DB/RLS error text to the driver. The full error is
+      // captured via logIcaEvent above for staff debugging.
+      toast.error(
+        'Something went wrong while saving your signature. Please try again, and contact support if the issue persists.'
+      );
     } finally {
       setSigning(false);
     }
