@@ -148,6 +148,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     navigate({ pathname: window.location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
   }, [view, binderView, navigate]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
+  const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -389,7 +390,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           .maybeSingle(),
         supabase
           .from('ica_contracts')
-          .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .select('status, contractor_signed_at, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', opId)
           .order('updated_at', { ascending: false })
           .limit(1)
@@ -412,6 +413,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       // Store ICA truck info
       const ica = icaResult.data as any;
       if (ica) {
+        setLatestIcaContract({
+          status: ica.status ?? null,
+          contractor_signed_at: ica.contractor_signed_at ?? null,
+        });
         setIcaTruckInfo({
           truck_year: ica.truck_year ?? null,
           truck_make: ica.truck_make ?? null,
@@ -421,6 +426,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           trailer_number: ica.trailer_number ?? null,
         });
       } else {
+        setLatestIcaContract(null);
         setIcaTruckInfo(null);
       }
     }
@@ -532,6 +538,23 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           else list[idx] = { ...list[idx], ...row };
           return list;
         });
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'ica_contracts',
+        filter: `operator_id=eq.${operatorId}`,
+      }, (payload: any) => {
+        if (payload.new) {
+          setLatestIcaContract({
+            status: payload.new.status ?? null,
+            contractor_signed_at: payload.new.contractor_signed_at ?? null,
+          });
+          if (isIcaComplete(onboardingStatus, payload.new)) {
+            setOnboardingStatus((prev: any) => ({ ...(prev ?? {}), ica_status: 'complete' }));
+          }
+        }
+        fetchData();
       })
       .subscribe((status) => {
         // When the channel (re)connects, immediately resync from the DB so any
@@ -648,8 +671,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         if (s.form_2290 !== 'not_started' || s.truck_title !== 'not_started' || uploadedDocs.length > 0) return 'in_progress';
         return 'not_started';
       case 3:
-        if (s.ica_status === 'complete') return 'complete';
-        if (s.ica_status === 'sent_for_signature') return 'action_required';
+        if (isIcaComplete(s, latestIcaContract)) return 'complete';
+        if (isIcaActionRequired(s, latestIcaContract)) return 'action_required';
         return 'not_started';
       case 4:
         if (s.registration_status === 'own_registration') return 'complete';
@@ -723,7 +746,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       icon: <FileText className="h-4 w-4" />,
       status: getStageStatus(3),
       substeps: [
-        { label: 'ICA Status', value: isIcaComplete(onboardingStatus) ? 'Signed' : fmt(onboardingStatus.ica_status ?? 'not_issued'), status: isIcaComplete(onboardingStatus) ? 'complete' : onboardingStatus.ica_status === 'sent_for_signature' ? 'action_required' : 'not_started' },
+        { label: 'ICA Status', value: isIcaComplete(onboardingStatus, latestIcaContract) ? 'Signed' : fmt(onboardingStatus.ica_status ?? 'not_issued'), status: isIcaComplete(onboardingStatus, latestIcaContract) ? 'complete' : isIcaActionRequired(onboardingStatus, latestIcaContract) ? 'action_required' : 'not_started' },
       ],
     },
     {
@@ -854,7 +877,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const s = onboardingStatus;
 
     // 1. ICA awaiting signature — highest urgency
-    if (isIcaActionRequired(s)) return {
+    if (isIcaActionRequired(s, latestIcaContract)) return {
       label: 'Sign Your ICA Agreement',
       sublabel: 'Action required',
       action: () => setView('ica'),
@@ -914,8 +937,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     return null;
   })();
 
-  const icaActionDot = isIcaActionRequired(onboardingStatus);
-  const icaComplete = isIcaComplete(onboardingStatus);
+  const icaActionDot = isIcaActionRequired(onboardingStatus, latestIcaContract);
+  const icaComplete = isIcaComplete(onboardingStatus, latestIcaContract);
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
@@ -928,7 +951,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
-    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || icaComplete, icaDot: icaActionDot },
+    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: isIcaActionRequired(onboardingStatus, latestIcaContract) || icaComplete, icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
@@ -944,7 +967,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // Core: Status, Binder, Messages, Doc Hub + context slot (ICA/Dispatch/FAQ)
   const mobileNavItems = (() => {
     const contextSlot =
-      isIcaActionRequired(onboardingStatus)
+      isIcaActionRequired(onboardingStatus, latestIcaContract)
         ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
@@ -1313,7 +1336,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA ACTION-REQUIRED BANNER ── */}
-        {isIcaActionRequired(onboardingStatus) && view !== 'ica' && (
+        {isIcaActionRequired(onboardingStatus, latestIcaContract) && view !== 'ica' && (
           <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
             <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
