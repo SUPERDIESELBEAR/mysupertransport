@@ -40,6 +40,27 @@ export default function DriverICAAcknowledgment({ contractId }: Props) {
         .from('ica_driver_acknowledgments')
         .insert({ contract_id: contractId, driver_user_id: user.id });
       if (error) throw error;
+
+      // Flip the onboarding ICA status so every CTA/banner across the driver
+      // portal moves out of "action required". Best-effort — never block the
+      // ack toast on this side-effect.
+      try {
+        const { data: contract } = await supabase
+          .from('ica_contracts')
+          .select('operator_id')
+          .eq('id', contractId)
+          .maybeSingle();
+        const operatorId = (contract as any)?.operator_id;
+        if (operatorId) {
+          await supabase
+            .from('onboarding_status')
+            .update({ ica_status: 'complete' })
+            .eq('operator_id', operatorId);
+        }
+      } catch (syncErr) {
+        console.warn('[DriverICAAcknowledgment] ica_status sync failed (non-blocking):', syncErr);
+      }
+
       toast.success('Acknowledgment recorded.');
       refresh();
     } catch (err: any) {
