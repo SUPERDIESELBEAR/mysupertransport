@@ -129,7 +129,10 @@ export function ApplicationPEITab({ applicationId }: Props) {
   }
 
   async function saveEdit(r: PEIRequest) {
-    const email = edit.email.trim().toLowerCase();
+    // Extract first email-shaped token in case the user pasted email+phone.
+    const rawEmail = edit.email.trim();
+    const match = rawEmail.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const email = match ? match[0].toLowerCase() : rawEmail.toLowerCase();
     const city = toTitleCase(edit.city.trim());
     const state = edit.state.trim().toUpperCase();
     if (email && !EMAIL_RE.test(email)) {
