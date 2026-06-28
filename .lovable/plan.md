@@ -1,35 +1,46 @@
-## What's actually happening
+# Initiate PEI from the Applicant Pipeline
 
-This is not a system bug — it's a data issue we can both clean up and guard against.
+Reuse the existing `pei_requests` system end-to-end. No schema, RLS, or edge function changes — every entry point ultimately calls the same `autoBuildPEIRequests` / `sendPEIEmail` / `fetchPEIRequestsByApplication` helpers used by `ApplicationPEITab` and `PEIQueuePanel` today.
 
-Delease Carter's PEI rows have `employer_contact_email` values like:
+## 1. Card-level action on PipelineDashboard
 
-- `paperwork@tcservices.biz  219-476-1300`
-- `support@cloudtrucks.com   (415) 480-2336`
+On each applicant card in `src/pages/staff/PipelineDashboard.tsx`:
 
-That string contains a valid email **plus** a phone number jammed into the same field. The send-email validator requires a single clean address (no spaces, no extra characters), so it correctly rejects these and shows "missing or invalid." The same combined value lives in `applications.employers` JSONB and was copied into `pei_requests` when the queue rows were created — so editing the PEI row alone won't help future applicants if the form keeps accepting it.
+- Add a "PEI" button (icon: `ShieldCheck`, gold accent) into the existing action row, available at every stage with no gating.
+- Clicking it opens a lightweight `PEIQuickDrawer` (new file, `src/components/management/PEIQuickDrawer.tsx`) that mounts the existing `ApplicationPEITab` for the selected `applicationId` inside a `Sheet`. This keeps the staff in pipeline context, avoids opening the full Application Review drawer, and inherits all current PEI behavior (auto-build, send, GFE, find-with-AI, edit contact, view response, delete).
+- If no employers exist on the application yet, `ApplicationPEITab`'s existing "No PEI requests yet" empty state already guides staff to Auto-build — no new copy needed.
 
-## Fix in three coordinated parts
+## 2. PEI tab inside the Application Review drawer
 
-### 1. Sanitize on send (defensive, helps existing rows immediately)
-`src/components/pei/sendPEIEmail.ts`
-- Before validating, extract the first email-shaped token from `employer_contact_email` with a strict regex (`[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}`). If found and valid, use that as `recipient`.
-- If still nothing valid, throw a clearer message: *"The previous employer's email looks invalid (it may contain extra text like a phone number). Open the applicant's PEI tab and click Edit on this employer to correct it."*
+In `src/components/management/ApplicationReviewDrawer.tsx`:
 
-### 2. Sanitize on PEI row creation and on inline edit
-- `src/lib/pei/api.ts` (line ~187): extract the email-shaped token from `e.contact_email || e.email` before inserting into `pei_requests`.
-- `src/components/pei/ApplicationPEITab.tsx` `saveEdit`: same extraction so staff can paste "email + phone" and the system stores just the email.
+- The `'pei'` tab already exists (used by the PEI Queue's `initialTab` deep-link). Confirm it is rendered for every applicant regardless of pipeline stage — currently it shows for all; just verify no stage-conditional hide exists and remove it if so.
+- No new code needed beyond the verification pass.
 
-### 3. Backfill existing bad rows (one-time SQL)
-Migration that scans `pei_requests` where `employer_contact_email ~ '\s'` and rewrites it to the first email-shaped substring (or NULL if none). Affects Delease's two rows plus any others created the same way.
+## 3. PEI status pill on the card
 
-## What's not changing
-- No edge-function changes.
-- No email-template, queue, domain, or DNS changes.
-- Application form Step 3 still uses the existing email field; we just clean the value on the boundary rather than rewriting the form schema.
+New tiny component `src/components/staff/PEIStatusPill.tsx`:
 
-## Verification
-1. Re-run "Send First Attempt" for Delease's Keystone Lines and Cloud Trucks rows — both should send and advance to `sent`.
-2. Inline-edit a PEI row with `"foo@bar.com 555-1212"` and confirm only `foo@bar.com` is stored.
-3. Create a fresh PEI request from an applicant whose employer JSONB has a polluted email and confirm `employer_contact_email` is stored clean.
-4. Confirm a row with truly no email still surfaces the friendly error.
+- Counts derived from `pei_requests` for the application: pending / sent (incl. follow_up_sent, final_notice_sent) / completed (incl. gfe_documented).
+- Renders compact `2/3 PEI` style pill with color tiers:
+  - Hidden entirely when 0 rows exist (keeps pipeline clean for fresh applicants).
+  - Amber when any are pending or awaiting response.
+  - Green when all completed/GFE'd.
+- Tooltip on hover lists per-employer status.
+- Data fetched in one batched query at PipelineDashboard level (single `select application_id, status from pei_requests where application_id in (...)`) and passed down — avoids N queries per card.
+- Realtime: subscribe once at the dashboard to `pei_requests` changes scoped to the visible application IDs so the pill refreshes when staff send or receive responses.
+
+## Files touched
+
+```text
+src/pages/staff/PipelineDashboard.tsx          (action button, batched PEI fetch, realtime sub, pass counts down)
+src/components/management/PEIQuickDrawer.tsx   (new — Sheet wrapper around ApplicationPEITab)
+src/components/staff/PEIStatusPill.tsx         (new — counts pill + tooltip)
+src/components/management/ApplicationReviewDrawer.tsx (verify PEI tab is unconditionally available)
+```
+
+## Out of scope
+
+- No changes to `pei_requests` schema, RLS, edge functions, or the PEI Queue page.
+- No automatic PEI triggering — staff explicitly initiate via the button.
+- No notifications/automation tied to pipeline stage transitions.
