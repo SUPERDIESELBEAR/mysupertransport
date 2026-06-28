@@ -3577,6 +3577,30 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                        )}
                      </td>
                      <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                      {op.application_id && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPeiDrawerFor({
+                                  applicationId: op.application_id!,
+                                  name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Applicant',
+                                })}
+                                className="text-gold hover:text-gold-light hover:bg-gold/10 h-7 px-1.5"
+                                aria-label="Open PEI panel"
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              Initiate / manage Previous Employment Investigations
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -3585,6 +3609,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       >
                         Open →
                       </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
