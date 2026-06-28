@@ -3592,7 +3592,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 className="text-gold hover:text-gold-light hover:bg-gold/10 h-7 px-1.5"
                                 aria-label="Open PEI panel"
                               >
-                                <ShieldCheck className="h-3.5 w-3.5" />
+                                <span className="inline-flex items-center justify-center w-5 h-5 bg-white border border-gold rounded-sm text-[9px] font-bold tracking-tight">
+                                  PEI
+                                </span>
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs">
