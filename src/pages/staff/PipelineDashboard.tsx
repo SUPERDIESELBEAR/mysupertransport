@@ -18,6 +18,8 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
 import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
+import { PEIStatusPill, summarizePEIRows, type PEICounts } from '@/components/staff/PEIStatusPill';
+import { PEIQuickDrawer } from '@/components/management/PEIQuickDrawer';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -328,6 +330,7 @@ const DISPATCH_BADGE: Record<DispatchStatus, { label: string; className: string;
 interface OperatorRow {
   id: string;
   user_id: string;
+  application_id: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
@@ -665,6 +668,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [stageConfigs, setStageConfigs] = useState<PipelineStageConfig[]>([]);
+  const [peiCountsByApp, setPeiCountsByApp] = useState<Record<string, PEICounts>>({});
+  const [peiDrawerFor, setPeiDrawerFor] = useState<{ applicationId: string; name: string } | null>(null);
   // Track which operator rows are currently saving a coordinator assignment
   const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
@@ -1056,6 +1061,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
   };
 
+  // ─── PEI counts: load + realtime sync per visible application ──────────────
+  const refreshPEICounts = useCallback(async (appIds: string[]) => {
+    if (appIds.length === 0) { setPeiCountsByApp({}); return; }
+    const { data } = await supabase
+      .from('pei_requests')
+      .select('application_id, status, employer_name')
+      .in('application_id', appIds);
+    setPeiCountsByApp(summarizePEIRows((data ?? []) as any[]));
+  }, []);
+
+  useEffect(() => {
+    const appIds = Array.from(new Set(operators.map(o => o.application_id).filter(Boolean) as string[]));
+    refreshPEICounts(appIds);
+  }, [operators, refreshPEICounts]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-pei-watch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pei_requests' }, () => {
+        const appIds = Array.from(new Set(operators.map(o => o.application_id).filter(Boolean) as string[]));
+        refreshPEICounts(appIds);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operators.map(o => o.application_id).filter(Boolean).join(',')]);
+
   // Build a lookup: operator_id → worst ComplianceAlert for that operator
   const complianceByOperator: Record<string, ComplianceAlert> = {};
   complianceAlerts.forEach(alert => {
@@ -1072,6 +1104,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       supabase.from('operators').select(`
         id,
         user_id,
+        application_id,
         created_at,
         assigned_onboarding_staff,
         on_hold,
@@ -1208,6 +1241,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return {
         id: op.id,
         user_id: op.user_id,
+        application_id: op.application_id ?? null,
         first_name: appRecord?.first_name || profile.first_name || null,
         last_name: appRecord?.last_name || profile.last_name || null,
         email: appEmail,
@@ -3227,6 +3261,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               submittedAt={op.application_submitted_at}
                               fullyOnboarded={op.fully_onboarded}
                             />
+                            {op.application_id && (
+                              <PEIStatusPill
+                                counts={peiCountsByApp[op.application_id]}
+                                onClick={() => setPeiDrawerFor({
+                                  applicationId: op.application_id!,
+                                  name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Applicant',
+                                })}
+                              />
+                            )}
                             {op.unread_count > 0 && (
                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
                                  <MessageSquare className="h-2.5 w-2.5" />
@@ -3534,6 +3577,30 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                        )}
                      </td>
                      <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                      {op.application_id && (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPeiDrawerFor({
+                                  applicationId: op.application_id!,
+                                  name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Applicant',
+                                })}
+                                className="text-gold hover:text-gold-light hover:bg-gold/10 h-7 px-1.5"
+                                aria-label="Open PEI panel"
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              Initiate / manage Previous Employment Investigations
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -3542,6 +3609,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       >
                         Open →
                       </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -3818,6 +3886,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       </AlertDialog>
 
       <ScrollJumpButton />
+      <PEIQuickDrawer
+        open={!!peiDrawerFor}
+        applicationId={peiDrawerFor?.applicationId ?? null}
+        applicantName={peiDrawerFor?.name}
+        onClose={() => setPeiDrawerFor(null)}
+      />
     </div>
   );
 }
