@@ -1061,6 +1061,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
   };
 
+  // ─── PEI counts: load + realtime sync per visible application ──────────────
+  const refreshPEICounts = useCallback(async (appIds: string[]) => {
+    if (appIds.length === 0) { setPeiCountsByApp({}); return; }
+    const { data } = await supabase
+      .from('pei_requests')
+      .select('application_id, status, employer_name')
+      .in('application_id', appIds);
+    setPeiCountsByApp(summarizePEIRows((data ?? []) as any[]));
+  }, []);
+
+  useEffect(() => {
+    const appIds = Array.from(new Set(operators.map(o => o.application_id).filter(Boolean) as string[]));
+    refreshPEICounts(appIds);
+  }, [operators, refreshPEICounts]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-pei-watch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pei_requests' }, () => {
+        const appIds = Array.from(new Set(operators.map(o => o.application_id).filter(Boolean) as string[]));
+        refreshPEICounts(appIds);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operators.map(o => o.application_id).filter(Boolean).join(',')]);
+
   // Build a lookup: operator_id → worst ComplianceAlert for that operator
   const complianceByOperator: Record<string, ComplianceAlert> = {};
   complianceAlerts.forEach(alert => {
