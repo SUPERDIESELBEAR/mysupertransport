@@ -330,6 +330,7 @@ const DISPATCH_BADGE: Record<DispatchStatus, { label: string; className: string;
 interface OperatorRow {
   id: string;
   user_id: string;
+  application_id: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
