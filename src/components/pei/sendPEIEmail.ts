@@ -12,6 +12,16 @@ import { supabase } from '@/integrations/supabase/client';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Extract the first email-shaped token from a free-form string. Staff
+// sometimes paste "email + phone" into a single field; this lets us
+// recover the email cleanly instead of rejecting the whole value.
+const EMAIL_EXTRACT_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+function extractEmail(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const m = String(raw).match(EMAIL_EXTRACT_RE);
+  return m ? m[0].trim().toLowerCase() : '';
+}
+
 const TEMPLATE_BY_KIND: Record<
   'initial' | 'follow_up' | 'final_notice',
   string
@@ -52,10 +62,10 @@ export async function sendPEIEmail(
   if (!reqRow) throw new Error('PEI request not found');
   const req = reqRow as any;
 
-  const recipient = (req.employer_contact_email || '').trim().toLowerCase();
+  const recipient = extractEmail(req.employer_contact_email);
   if (!recipient || !EMAIL_RE.test(recipient)) {
     throw new Error(
-      'Previous employer email address is missing or invalid. Add it before sending.'
+      "The previous employer's email looks invalid (it may contain extra text like a phone number). Open the applicant's PEI tab and click Edit on this employer to correct it."
     );
   }
 

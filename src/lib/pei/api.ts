@@ -180,11 +180,16 @@ export async function autoBuildPEIRequests(applicationId: string): Promise<{
     return { created: 1, gfeAuto: true };
   }
 
+  const extractEmail = (raw: unknown): string | null => {
+    if (!raw) return null;
+    const m = String(raw).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    return m ? m[0].trim().toLowerCase() : null;
+  };
   const rows = dotRegulated.map((e) => ({
     application_id: applicationId,
     employer_name: String(e.company_name || e.employer_name || e.name || 'Previous Employer').trim(),
     employer_contact_name: e.contact_name || null,
-    employer_contact_email: e.contact_email || e.email || null,
+    employer_contact_email: extractEmail(e.contact_email || e.email),
     employer_phone: e.phone || null,
     employer_address: e.address || null,
     employer_city: e.city || null,
