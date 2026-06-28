@@ -1047,10 +1047,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, []);
 
   const refreshUnreadCounts = async () => {
-    return refreshUnreadCountsImpl();
-  };
-
-  async function refreshUnreadCountsImpl() {
     if (!user?.id) return;
     const { data } = await supabase
       .from('messages')
@@ -1063,7 +1059,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       map[m.sender_id] = (map[m.sender_id] ?? 0) + 1;
     });
     setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
-  }
+  };
 
   // Build a lookup: operator_id → worst ComplianceAlert for that operator
   const complianceByOperator: Record<string, ComplianceAlert> = {};
