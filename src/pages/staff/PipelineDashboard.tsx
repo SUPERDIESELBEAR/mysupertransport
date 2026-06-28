@@ -3886,6 +3886,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       </AlertDialog>
 
       <ScrollJumpButton />
+      <PEIQuickDrawer
+        open={!!peiDrawerFor}
+        applicationId={peiDrawerFor?.applicationId ?? null}
+        applicantName={peiDrawerFor?.name}
+        onClose={() => setPeiDrawerFor(null)}
+      />
     </div>
   );
 }
