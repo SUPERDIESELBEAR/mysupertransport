@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -17,13 +17,14 @@ import { validateFile } from '@/lib/validateFile';
 import { format, parseISO } from 'date-fns';
 
 type AssignmentState = 'prior' | 'during' | 'not_assigned';
+type DeliveryMethod = 'shipped' | 'orientation' | 'on_site' | 'awaiting_return' | 'not_assigned';
 type EquipmentLine = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card' | 'decal';
 
 interface LineConfig {
   key: EquipmentLine;
   label: string;
   icon: React.ReactNode;
-  serialColumn: string | null; // null = no serial field (decal)
+  serialColumn: string | null;
 }
 
 const LINES: LineConfig[] = [
@@ -46,9 +47,24 @@ const STATE_BADGE: Record<AssignmentState, string> = {
   not_assigned: 'bg-muted text-muted-foreground border-border',
 };
 
+const DELIVERY_OPTIONS: { value: DeliveryMethod; label: string }[] = [
+  { value: 'shipped',         label: 'Shipped to Driver' },
+  { value: 'orientation',     label: 'Installed at Orientation' },
+  { value: 'on_site',         label: 'Installed On Site' },
+  { value: 'awaiting_return', label: 'Awaiting Return Shipment' },
+  { value: 'not_assigned',    label: 'Not Assigned' },
+];
+
+const DELIVERY_LABEL: Record<DeliveryMethod, string> = DELIVERY_OPTIONS.reduce(
+  (acc, o) => { acc[o.value] = o.label; return acc; },
+  {} as Record<DeliveryMethod, string>,
+);
+
+const CARRIER_OPTIONS = ['UPS', 'USPS', 'FedEx', 'Other'] as const;
+
 interface Receipt {
   id: string;
-  equipment_line: EquipmentLine;
+  equipment_line: EquipmentLine | null;
   direction: 'inbound' | 'return';
   carrier: string | null;
   tracking_number: string | null;
@@ -63,24 +79,11 @@ interface Receipt {
 export interface EquipmentAssetSheetProps {
   mode: 'driver' | 'management';
   operatorId: string;
-  /** Full onboarding_status record — pass through what you have loaded. */
   status: Record<string, any> | null;
-  /** Called after a status field is saved so the parent can refresh. */
   onStatusRefresh?: () => void;
-  /** Optional visible-only override (e.g. driver hub renders read-only). */
   readOnly?: boolean;
 }
 
-/**
- * Shared Equipment Asset Sheet.
- *
- * - Driver mode: shows all equipment lines (read-only serials & status),
- *   signature block for the ELD acknowledgment, and shipping-receipt upload
- *   ONLY for lines management flagged as shipped/awaiting return.
- * - Management mode: adds the three-way assignment status selector, editable
- *   serial inputs (locked once the driver signs), shipped/awaiting toggles,
- *   the return-date block, and unrestricted receipt uploads.
- */
 export default function EquipmentAssetSheet({
   mode,
   operatorId,
@@ -88,18 +91,17 @@ export default function EquipmentAssetSheet({
   onStatusRefresh,
   readOnly,
 }: EquipmentAssetSheetProps) {
-  const { session, user } = useAuth();
+  const { user } = useAuth();
   const { guardDemo } = useDemoMode();
 
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>('Shipping Receipt');
-  const [savingField, setSavingField] = useState<string | null>(null);
+  const [, setSavingField] = useState<string | null>(null);
 
   const signed = !!status?.eld_signature_signed_at;
   const canManage = mode === 'management' && !readOnly;
 
-  // Local edit buffer for management mode (so typing feels snappy; save on blur)
   const [buffer, setBuffer] = useState<Record<string, any>>({});
   useEffect(() => { setBuffer({}); }, [operatorId]);
 
@@ -158,7 +160,7 @@ export default function EquipmentAssetSheet({
 
   useEffect(() => { fetchReceipts(); }, [fetchReceipts]);
 
-  // ── Signature refs ──
+  // ── Signature ──
   const sigRef = useRef<SignatureCanvas>(null);
   const [typedName, setTypedName] = useState('');
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -177,10 +179,10 @@ export default function EquipmentAssetSheet({
         .from('operator-documents')
         .upload(path, blob, { contentType: 'image/png', upsert: true });
       if (upErr) throw upErr;
-      const { data: signed } = await supabase.storage
+      const { data: signedUrl } = await supabase.storage
         .from('operator-documents')
         .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-      const imageUrl = signed?.signedUrl ?? null;
+      const imageUrl = signedUrl?.signedUrl ?? null;
       if (!imageUrl) throw new Error('signed url failed');
 
       const { error } = await supabase
@@ -203,29 +205,35 @@ export default function EquipmentAssetSheet({
   };
 
   // ── Receipt upload ──
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const uploadReceipt = async (line: EquipmentLine, direction: 'inbound' | 'return', file: File, carrier: string | null, tracking: string | null) => {
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const uploadShipmentReceipt = async (
+    direction: 'inbound' | 'return',
+    formId: string,
+    file: File,
+    carrier: string | null,
+    tracking: string | null,
+  ) => {
     if (guardDemo()) return;
     if (!user?.id) { toast.error('You must be signed in.'); return; }
     const check = validateFile(file, true);
     if (!check.valid) { toast.error(check.error ?? 'Invalid file'); return; }
-    setUploadingFor(`${line}-${direction}`);
+    setUploadingKey(`${direction}-${formId}`);
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
-      const path = `equipment-receipts/${operatorId}/${line}/${direction}-${Date.now()}.${ext}`;
+      const path = `equipment-receipts/${operatorId}/${direction}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('operator-documents')
         .upload(path, file, { upsert: true });
       if (upErr) throw upErr;
-      const { data: signed } = await supabase.storage
+      const { data: signedUrl } = await supabase.storage
         .from('operator-documents')
         .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-      const url = signed?.signedUrl;
+      const url = signedUrl?.signedUrl;
       if (!url) throw new Error('signed url failed');
 
       const { error } = await supabase.from('equipment_receipts').insert({
         operator_id: operatorId,
-        equipment_line: line,
+        equipment_line: null,
         direction,
         carrier: carrier || null,
         tracking_number: tracking || null,
@@ -241,18 +249,24 @@ export default function EquipmentAssetSheet({
       console.error('[EquipmentAssetSheet] receipt upload failed', err);
       toast.error("We couldn't upload that receipt. Please try again.");
     } finally {
-      setUploadingFor(null);
+      setUploadingKey(null);
     }
   };
 
-  // Grouped receipts by line
-  const receiptsByLine = useMemo(() => {
-    const map: Record<string, Receipt[]> = {};
-    for (const r of receipts) {
-      (map[r.equipment_line] ??= []).push(r);
-    }
-    return map;
-  }, [receipts]);
+  const inboundReceipts = useMemo(() => receipts.filter(r => r.direction === 'inbound'), [receipts]);
+  const returnReceipts  = useMemo(() => receipts.filter(r => r.direction === 'return'),  [receipts]);
+
+  const anyAwaitingReturn = useMemo(
+    () => LINES.some(l => (status?.[`${l.key}_delivery_method`] as DeliveryMethod | undefined) === 'awaiting_return'),
+    [status],
+  );
+
+  const showInboundBlock = mode === 'management' || inboundReceipts.length > 0;
+  // Driver may upload return receipts when at least one line is awaiting return.
+  const driverMayUploadReturn = mode === 'driver' && !readOnly && anyAwaitingReturn;
+  const showReturnBlock = mode === 'management' || driverMayUploadReturn || returnReceipts.length > 0;
+
+  const openPreview = (url: string, name: string) => { setPreviewUrl(url); setPreviewName(name); };
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-5">
@@ -280,6 +294,20 @@ export default function EquipmentAssetSheet({
         )}
       </div>
 
+      {/* Outbound Shipment Receipts */}
+      {showInboundBlock && (
+        <ShipmentReceiptsBlock
+          direction="inbound"
+          title="Outbound Shipment Receipts"
+          subtitle="One or more receipts covering equipment shipped to the driver."
+          canUpload={mode === 'management' && !readOnly}
+          uploadingKey={uploadingKey}
+          receipts={inboundReceipts}
+          onUpload={(formId, file, carrier, tracking) => uploadShipmentReceipt('inbound', formId, file, carrier, tracking)}
+          onPreview={openPreview}
+        />
+      )}
+
       {/* Equipment lines */}
       <div className="space-y-3">
         {LINES.map(cfg => (
@@ -292,27 +320,34 @@ export default function EquipmentAssetSheet({
             state={(status?.[`${cfg.key}_assignment_state`] as AssignmentState | undefined) ?? 'not_assigned'}
             serialColumn={cfg.serialColumn}
             serialValue={cfg.serialColumn ? (value(cfg.serialColumn) as string ?? '') : ''}
-            shippedToDriver={!!status?.[`${cfg.key}_shipped_to_driver`]}
-            awaitingReturn={!!status?.[`${cfg.key}_awaiting_return_shipment`]}
-            onStateChange={s => patchStatus({ [`${cfg.key}_assignment_state`]: s, ...(s === 'not_assigned' && cfg.serialColumn ? { [cfg.serialColumn]: null } : {}) })}
+            deliveryMethod={(status?.[`${cfg.key}_delivery_method`] as DeliveryMethod | undefined) ?? null}
+            onStateChange={s => patchStatus({
+              [`${cfg.key}_assignment_state`]: s,
+              ...(s === 'not_assigned' && cfg.serialColumn ? { [cfg.serialColumn]: null } : {}),
+            })}
             onSerialChange={v => setBuffer(b => ({ ...b, [cfg.serialColumn!]: v }))}
             onSerialCommit={() => cfg.serialColumn && buffer[cfg.serialColumn] !== undefined && patchStatus({ [cfg.serialColumn]: buffer[cfg.serialColumn] || null })}
-            onToggleShipped={v => patchStatus({ [`${cfg.key}_shipped_to_driver`]: v })}
-            onToggleAwaiting={v => patchStatus({ [`${cfg.key}_awaiting_return_shipment`]: v })}
-            receipts={receiptsByLine[cfg.key] ?? []}
-            onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-            onUploadReceipt={(dir, file, carrier, tracking) => uploadReceipt(cfg.key, dir, file, carrier, tracking)}
-            uploadingKey={uploadingFor}
-            saving={savingField}
+            onDeliveryChange={m => {
+              const patch: Record<string, any> = { [`${cfg.key}_delivery_method`]: m };
+              // Keep the legacy boolean flags in sync so any older readers still work.
+              patch[`${cfg.key}_shipped_to_driver`] = m === 'shipped';
+              patch[`${cfg.key}_awaiting_return_shipment`] = m === 'awaiting_return';
+              // Selecting "Not Assigned" here also flips the assignment status.
+              if (m === 'not_assigned') {
+                patch[`${cfg.key}_assignment_state`] = 'not_assigned';
+                if (cfg.serialColumn) patch[cfg.serialColumn] = null;
+              }
+              patchStatus(patch);
+            }}
           />
         ))}
       </div>
 
-      {/* Signature block */}
+      {/* Driver Acknowledgment signature block */}
       <div className="rounded-lg border border-border bg-surface/50 p-4">
         <div className="flex items-center gap-2 mb-2">
           <Pen className="h-4 w-4 text-primary" />
-          <h4 className="text-sm font-semibold text-foreground">Driver Acknowledgment</h4>
+          <h4 className="text-sm font-semibold text-foreground">Owner Operator Equipment Receipt Acknowledgment</h4>
         </div>
         {signed ? (
           <div className="space-y-2">
@@ -377,7 +412,7 @@ export default function EquipmentAssetSheet({
         )}
       </div>
 
-      {/* Management-only: Equipment return date */}
+      {/* Management: Equipment return date */}
       {mode === 'management' && !readOnly && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -409,6 +444,24 @@ export default function EquipmentAssetSheet({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Return Shipment Receipts */}
+      {showReturnBlock && (
+        <ShipmentReceiptsBlock
+          direction="return"
+          title="Return Shipment Receipts"
+          subtitle={
+            mode === 'driver'
+              ? 'Upload a receipt for equipment you shipped back.'
+              : 'One or more receipts covering equipment returned by the driver.'
+          }
+          canUpload={(mode === 'management' && !readOnly) || driverMayUploadReturn}
+          uploadingKey={uploadingKey}
+          receipts={returnReceipts}
+          onUpload={(formId, file, carrier, tracking) => uploadShipmentReceipt('return', formId, file, carrier, tracking)}
+          onPreview={openPreview}
+        />
       )}
 
       {/* Read-only return summary for driver hub */}
@@ -446,32 +499,18 @@ interface RowProps {
   state: AssignmentState;
   serialColumn: string | null;
   serialValue: string;
-  shippedToDriver: boolean;
-  awaitingReturn: boolean;
+  deliveryMethod: DeliveryMethod | null;
   onStateChange: (s: AssignmentState) => void;
   onSerialChange: (v: string) => void;
   onSerialCommit: () => void;
-  onToggleShipped: (v: boolean) => void;
-  onToggleAwaiting: (v: boolean) => void;
-  receipts: Receipt[];
-  onPreview: (url: string, name: string) => void;
-  onUploadReceipt: (dir: 'inbound' | 'return', file: File, carrier: string | null, tracking: string | null) => void;
-  uploadingKey: string | null;
-  saving: string | null;
+  onDeliveryChange: (m: DeliveryMethod) => void;
 }
 
 function EquipmentLineRow(props: RowProps) {
   const {
     cfg, mode, canManage, signedLock, state, serialColumn, serialValue,
-    shippedToDriver, awaitingReturn,
-    onStateChange, onSerialChange, onSerialCommit, onToggleShipped, onToggleAwaiting,
-    receipts, onPreview, onUploadReceipt, uploadingKey,
+    deliveryMethod, onStateChange, onSerialChange, onSerialCommit, onDeliveryChange,
   } = props;
-
-  // Driver sees the upload only when management flagged this line as shipped or awaiting return.
-  const showDriverUpload = mode === 'driver' && (shippedToDriver || awaitingReturn);
-  const showManagementUpload = mode === 'management';
-  const uploadDirection: 'inbound' | 'return' = awaitingReturn ? 'return' : 'inbound';
 
   return (
     <div className="rounded-lg border border-border bg-background p-3 space-y-3">
@@ -482,9 +521,16 @@ function EquipmentLineRow(props: RowProps) {
           </span>
           <span className="text-sm font-semibold text-foreground">{cfg.label}</span>
         </div>
-        <Badge variant="outline" className={`text-[10px] ${STATE_BADGE[state]}`}>
-          {STATE_LABELS[state]}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={`text-[10px] ${STATE_BADGE[state]}`}>
+            {STATE_LABELS[state]}
+          </Badge>
+          {deliveryMethod && (
+            <Badge variant="outline" className="text-[10px] bg-muted/60 border-border">
+              {DELIVERY_LABEL[deliveryMethod]}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Management controls */}
@@ -514,25 +560,27 @@ function EquipmentLineRow(props: RowProps) {
               />
             </div>
           )}
-          <div className="sm:col-span-2 flex flex-wrap gap-3 text-xs">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={shippedToDriver}
-                onChange={e => onToggleShipped(e.target.checked)}
-                className="h-3.5 w-3.5"
-              />
-              Shipped to driver
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={awaitingReturn}
-                onChange={e => onToggleAwaiting(e.target.checked)}
-                className="h-3.5 w-3.5"
-              />
-              Awaiting return shipment
-            </label>
+          <div className="sm:col-span-2 space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Delivery Method</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {DELIVERY_OPTIONS.map(opt => {
+                const active = deliveryMethod === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onDeliveryChange(opt.value)}
+                    className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                      active
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-foreground border-border hover:bg-muted/60'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -553,13 +601,56 @@ function EquipmentLineRow(props: RowProps) {
           <span className="ml-2 text-[10px] text-muted-foreground/70">(locked after signature)</span>
         </p>
       )}
+    </div>
+  );
+}
 
-      {/* Shipping receipts */}
-      {(showDriverUpload || showManagementUpload || receipts.length > 0) && (
-        <div className="pt-2 border-t border-border/60 space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-            <Package className="h-3 w-3" /> Shipping Receipt
-          </div>
+// ─────────────────────────────────────────────────────────────
+// Shipment receipts block (outbound or return)
+// ─────────────────────────────────────────────────────────────
+
+interface ShipmentBlockProps {
+  direction: 'inbound' | 'return';
+  title: string;
+  subtitle: string;
+  canUpload: boolean;
+  uploadingKey: string | null;
+  receipts: Receipt[];
+  onUpload: (formId: string, file: File, carrier: string | null, tracking: string | null) => void;
+  onPreview: (url: string, name: string) => void;
+}
+
+function ShipmentReceiptsBlock({
+  direction, title, subtitle, canUpload, uploadingKey, receipts, onUpload, onPreview,
+}: ShipmentBlockProps) {
+  const [formIds, setFormIds] = useState<string[]>(() => canUpload ? ['0'] : []);
+
+  useEffect(() => {
+    if (canUpload && formIds.length === 0) setFormIds(['0']);
+  }, [canUpload, formIds.length]);
+
+  const removeForm = (id: string) => {
+    setFormIds(ids => ids.length > 1 ? ids.filter(x => x !== id) : ids);
+  };
+  const addForm = () => setFormIds(ids => [...ids, String(Date.now())]);
+  const resetForm = (id: string) => {
+    // Replace the id so the form re-mounts with fresh state
+    setFormIds(ids => ids.map(x => x === id ? String(Date.now()) + '_' + Math.random().toString(36).slice(2, 6) : x));
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-surface/40 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Package className="h-4 w-4 text-primary" />
+        <div className="min-w-0">
+          <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+          <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
+        </div>
+      </div>
+
+      {/* Existing receipts */}
+      {receipts.length > 0 && (
+        <div className="space-y-1.5">
           {receipts.map(r => (
             <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5 text-xs">
               <div className="min-w-0">
@@ -577,7 +668,6 @@ function EquipmentLineRow(props: RowProps) {
                   {r.uploader_display} · {format(parseISO(r.uploaded_at), 'MMM d, yyyy')}
                   {r.carrier && ` · ${r.carrier}`}
                   {r.tracking_number && ` · ${r.tracking_number}`}
-                  {' · '}{r.direction === 'inbound' ? 'To driver' : 'Return'}
                 </div>
               </div>
               <a
@@ -591,61 +681,115 @@ function EquipmentLineRow(props: RowProps) {
               </a>
             </div>
           ))}
-          {(showDriverUpload || showManagementUpload) && (
-            <ReceiptUploader
-              direction={uploadDirection}
-              uploading={uploadingKey === `${cfg.key}-${uploadDirection}`}
-              allowMeta={mode === 'management'}
-              onUpload={(file, carrier, tracking) => onUploadReceipt(uploadDirection, file, carrier, tracking)}
-            />
-          )}
         </div>
+      )}
+
+      {/* Upload forms */}
+      {canUpload && (
+        <div className="space-y-2">
+          {formIds.map((id, i) => (
+            <ReceiptForm
+              key={id}
+              formId={id}
+              direction={direction}
+              uploading={uploadingKey === `${direction}-${id}`}
+              onUpload={(file, carrier, tracking) => {
+                onUpload(id, file, carrier, tracking);
+                resetForm(id);
+              }}
+              onRemove={formIds.length > 1 ? () => removeForm(id) : undefined}
+              isFirst={i === 0}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addForm}
+            className="h-8 text-xs gap-1"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Another Receipt
+          </Button>
+        </div>
+      )}
+
+      {!canUpload && receipts.length === 0 && (
+        <p className="text-xs text-muted-foreground italic">No receipts uploaded yet.</p>
       )}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// Receipt uploader
+// One receipt upload form (carrier + tracking + file)
 // ─────────────────────────────────────────────────────────────
-function ReceiptUploader({
-  direction, uploading, allowMeta, onUpload,
+function ReceiptForm({
+  formId, direction, uploading, onUpload, onRemove, isFirst,
 }: {
+  formId: string;
   direction: 'inbound' | 'return';
   uploading: boolean;
-  allowMeta: boolean;
   onUpload: (file: File, carrier: string | null, tracking: string | null) => void;
+  onRemove?: () => void;
+  isFirst: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [carrier, setCarrier] = useState('');
+  const [carrierChoice, setCarrierChoice] = useState<string>('');
+  const [carrierOther, setCarrierOther] = useState('');
   const [tracking, setTracking] = useState('');
 
   const submit = () => {
     if (!file) return;
-    onUpload(file, carrier || null, tracking || null);
-    setFile(null); setCarrier(''); setTracking('');
+    const carrier = carrierChoice === 'Other' ? (carrierOther.trim() || null) : (carrierChoice || null);
+    onUpload(file, carrier, tracking.trim() || null);
+    setFile(null); setCarrierChoice(''); setCarrierOther(''); setTracking('');
   };
 
   return (
-    <div className="space-y-1.5">
-      {allowMeta && (
-        <div className="grid grid-cols-2 gap-1.5">
-          <Input
-            value={carrier}
-            onChange={e => setCarrier(e.target.value)}
-            placeholder="Carrier (optional)"
-            className="h-7 text-xs"
-          />
+    <div className="rounded border border-border bg-card p-2.5 space-y-2">
+      {!isFirst && (
+        <div className="flex justify-end -mb-1">
+          {onRemove && (
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground" onClick={onRemove}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Carrier</Label>
+          <Select value={carrierChoice} onValueChange={setCarrierChoice}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select carrier" />
+            </SelectTrigger>
+            <SelectContent>
+              {CARRIER_OPTIONS.map(c => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {carrierChoice === 'Other' && (
+            <Input
+              value={carrierOther}
+              onChange={e => setCarrierOther(e.target.value)}
+              placeholder="Enter carrier name"
+              className="h-8 text-xs"
+            />
+          )}
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tracking #</Label>
           <Input
             value={tracking}
             onChange={e => setTracking(e.target.value)}
-            placeholder="Tracking # (optional)"
-            className="h-7 text-xs font-mono"
+            placeholder="Tracking number"
+            className="h-8 text-xs font-mono"
           />
         </div>
-      )}
+      </div>
       {file ? (
-        <div className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1 text-xs">
+        <div className="flex items-center justify-between gap-2 rounded border border-border bg-background px-2 py-1 text-xs">
           <div className="flex items-center gap-1.5 min-w-0">
             <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
             <span className="truncate">{file.name}</span>
@@ -660,7 +804,7 @@ function ReceiptUploader({
           </div>
         </div>
       ) : (
-        <label className="flex items-center justify-center gap-2 rounded border border-dashed border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
+        <label className="flex items-center justify-center gap-2 rounded border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground hover:bg-muted/40 cursor-pointer transition-colors">
           <Upload className="h-3.5 w-3.5" />
           {direction === 'inbound' ? 'Upload Shipping Receipt' : 'Upload Return Shipping Receipt'}
           <input
