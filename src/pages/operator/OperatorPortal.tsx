@@ -1574,6 +1574,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               shippingInfo={equipmentShipping}
             />
 
+            {/* ── EQUIPMENT ASSET SHEET (Driver signature + shipping receipts) ── */}
+            {operatorId && (
+              <EquipmentAssetSheet
+                mode="driver"
+                operatorId={operatorId}
+                status={onboardingStatus as Record<string, any>}
+                onStatusRefresh={fetchData}
+              />
+            )}
+
             {/* ── CONTACT SECTION ── */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">
               <div className="flex items-center gap-2">
