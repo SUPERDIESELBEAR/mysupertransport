@@ -315,6 +315,8 @@ export default function ICADocumentView({
               <SignedAttestation
                 name={contractorTypedName || contractorSignedName}
                 signedAt={contractorSignedAt}
+                previewMode={previewMode}
+                fallbackName={contractorLabel}
               />
             </div>
           </div>
