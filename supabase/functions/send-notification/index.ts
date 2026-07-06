@@ -371,7 +371,7 @@ Deno.serve(async (req) => {
           || await getOperatorEmail(operatorId);
         const copy = milestoneKey ? MILESTONE_OPERATOR_COPY[milestoneKey] : null;
 
-        if (operatorEmail && copy) {
+        if (operatorEmail && copy && milestoneKey !== 'ica_complete') {
           const operatorSubject = copy.heading.replace(/^[^\w]+/, ''); // strip emoji for subject
           // Deep-link ICA milestones directly to the ICA tab
           const icaMilestones = ['ica_sent', 'ica_complete'];
@@ -390,6 +390,9 @@ Deno.serve(async (req) => {
             { label: ctaLabel, url: ctaUrl }
           );
           await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
+        }
+        if (milestoneKey === 'ica_complete') {
+          console.log('[send-notification] Skipping operator ica_complete email — sent by notify-onboarding-update to avoid duplicate.');
         }
 
         // ── 2b. Audit log ICA signing-link routing ───────────────────────
