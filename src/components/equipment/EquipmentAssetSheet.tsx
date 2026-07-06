@@ -50,7 +50,6 @@ const STATE_BADGE: Record<AssignmentState, string> = {
 const DELIVERY_OPTIONS: { value: DeliveryMethod; label: string }[] = [
   { value: 'shipped',     label: 'Shipped to Driver' },
   { value: 'orientation', label: 'Installed at Orientation' },
-  { value: 'not_assigned',    label: 'Not Assigned' },
 ];
 
 const DELIVERY_LABEL: Record<DeliveryMethod, string> = DELIVERY_OPTIONS.reduce(
