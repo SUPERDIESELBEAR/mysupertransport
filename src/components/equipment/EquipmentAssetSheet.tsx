@@ -168,20 +168,24 @@ export default function EquipmentAssetSheet({
     if (!typedName.trim()) { toast.error('Please type your full name.'); return; }
     if (!sigRef.current || sigRef.current.isEmpty()) { toast.error('Please draw your signature.'); return; }
     setSigning(true);
+    let step: 'upload' | 'signed_url' | 'update' = 'upload';
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
       const path = `${operatorId}/equipment-asset-sheet/signature-${Date.now()}.png`;
+      step = 'upload';
       const { error: upErr } = await supabase.storage
         .from('operator-documents')
         .upload(path, blob, { contentType: 'image/png', upsert: true });
       if (upErr) throw upErr;
+      step = 'signed_url';
       const { data: signedUrl } = await supabase.storage
         .from('operator-documents')
         .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
       const imageUrl = signedUrl?.signedUrl ?? null;
       if (!imageUrl) throw new Error('signed url failed');
 
+      step = 'update';
       const { error } = await supabase
         .from('onboarding_status')
         .update({
@@ -194,8 +198,9 @@ export default function EquipmentAssetSheet({
       toast.success('Signature recorded.');
       onStatusRefresh?.();
     } catch (err: any) {
-      console.error('[EquipmentAssetSheet] signature save failed', err);
-      toast.error("Something went wrong while saving your signature. Please try again.");
+      console.error(`[EquipmentAssetSheet] signature save failed at step=${step}`, err);
+      const msg = err?.message || err?.error_description || err?.error || null;
+      toast.error(msg ? `Couldn't save signature (${step}): ${msg}` : 'Something went wrong while saving your signature. Please try again.');
     } finally {
       setSigning(false);
     }
