@@ -519,13 +519,27 @@ function EquipmentLineRow(props: RowProps) {
           <span className="text-sm font-semibold text-foreground">{cfg.label}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={`text-[10px] ${STATE_BADGE[state]}`}>
-            {STATE_LABELS[state]}
-          </Badge>
-          {deliveryMethod && (
-            <Badge variant="outline" className="text-[10px] bg-muted/60 border-border">
-              {DELIVERY_LABEL[deliveryMethod]}
-            </Badge>
+          {mode === 'driver' ? (
+            deliveryMethod && deliveryMethod !== 'not_assigned' ? (
+              <Badge variant="outline" className="text-[10px] bg-muted/60 border-border">
+                {DELIVERY_LABEL[deliveryMethod]}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className={`text-[10px] ${STATE_BADGE[state]}`}>
+                {STATE_LABELS[state]}
+              </Badge>
+            )
+          ) : (
+            <>
+              <Badge variant="outline" className={`text-[10px] ${STATE_BADGE[state]}`}>
+                {STATE_LABELS[state]}
+              </Badge>
+              {deliveryMethod && deliveryMethod !== 'not_assigned' && (
+                <Badge variant="outline" className="text-[10px] bg-muted/60 border-border">
+                  {DELIVERY_LABEL[deliveryMethod]}
+                </Badge>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -1,32 +1,30 @@
 ## Change
+Show a **single pill per equipment row on the driver view**, and backfill legacy `not_assigned` delivery values.
 
-In `src/components/equipment/EquipmentAssetSheet.tsx`, reduce the per-line **Delivery Method** selector to only two buttons:
+## Frontend (`src/components/equipment/EquipmentAssetSheet.tsx`)
+In `EquipmentLineRow` header (lines 521–530), replace the two-badge block with mode-aware rendering:
 
-- **Shipped to Driver**
-- **Installed at Orientation**
+- **`mode === 'driver'`**: render exactly one badge.
+  - If `deliveryMethod` is set and not `'not_assigned'` → show `DELIVERY_LABEL[deliveryMethod]` with the neutral badge style.
+  - Else → show the Status pill (`STATE_LABELS[state]` + `STATE_BADGE[state]`).
+- **`mode === 'management'`**: keep both pills exactly as today (Status + Delivery Method when set), so editors keep full context.
 
-Remove: *Installed On Site*, *Awaiting Return Shipment*, *Not Assigned*.
+No other component logic changes.
 
-## Implementation
+## Backfill migration
+One-time cleanup so the legacy literal "Not Assigned" delivery values stop rendering:
 
-Edit the `DELIVERY_OPTIONS` array (currently ~lines 50–56) down to just the two kept entries:
-
-```ts
-const DELIVERY_OPTIONS: { value: DeliveryMethod; label: string }[] = [
-  { value: 'shipped',     label: 'Shipped to Driver' },
-  { value: 'orientation', label: 'Installed at Orientation' },
-];
+```sql
+UPDATE public.onboarding_status
+SET
+  eld_delivery_method       = NULL WHERE eld_delivery_method       = 'not_assigned';
+-- repeated for: dash_cam_delivery_method, bestpass_delivery_method,
+-- fuel_card_delivery_method, decal_delivery_method
 ```
 
-No other code changes needed:
-
-- `DeliveryMethod` union stays intact so any historical rows still deserialize cleanly.
-- `DELIVERY_LABEL` is derived from `DELIVERY_OPTIONS`, so it auto-updates.
-- The `anyAwaitingReturn` / return-shipment upload logic (line 260) keeps working for legacy data but no new value can be set to `awaiting_return` from the UI — acceptable per request.
-- The `onDeliveryChange` handler's branches for `'not_assigned'`, `'awaiting_return'`, etc. become dead but harmless; leaving them avoids touching unrelated logic.
+(Executed as a single migration touching all five columns.)
 
 ## Not changed
-
-- Database schema, migrations, and the assignment **Status** dropdown (which already has its own "Not Assigned" option).
-- Driver signature / lock behavior.
-- Shipment receipt blocks.
+- `DeliveryMethod` union or `DELIVERY_OPTIONS` (already trimmed to Shipped / Orientation).
+- Management editor controls, receipts blocks, signature flow, or RLS.
+- Assignment `Status` dropdown values.
