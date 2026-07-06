@@ -171,7 +171,7 @@ export default function EquipmentAssetSheet({
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
-      const path = `equipment-asset-sheet/${operatorId}/signature-${Date.now()}.png`;
+      const path = `${operatorId}/equipment-asset-sheet/signature-${Date.now()}.png`;
       const { error: upErr } = await supabase.storage
         .from('operator-documents')
         .upload(path, blob, { contentType: 'image/png', upsert: true });
