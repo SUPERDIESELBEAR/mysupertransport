@@ -1,86 +1,77 @@
-# Equipment Asset Sheet — Signature, Status, Return & Shipping Receipts
+# Equipment Asset Sheet — v2 Refinements
 
-## Recommendation on where it lives
+Five targeted changes to `src/components/equipment/EquipmentAssetSheet.tsx` and the `equipment_receipts` schema. No new components; the sheet stays a single shared file rendered in driver and management modes.
 
-There is no "Equipment Asset Sheet" screen today. The closest surface is the shared **Truck & Equipment card** (`TruckInfoCard`) — which already renders on both the management operator detail and the driver's SUPERDRIVE portal. I recommend building the Asset Sheet as **one component** that mounts in **two places**:
+## 1. Consolidated Shipment Receipts
 
-1. **Driver (SUPERDRIVE portal)** — inside `OperatorPortal`, right below the existing Truck & Equipment card. Driver sees their equipment list, signs once, and (only when applicable) uploads a shipping receipt.
-2. **Management (Staff Operator Detail Panel)** — inside `OperatorDetailPanel`, replacing the read-only device grid on `TruckInfoCard` with the same Asset Sheet in "management mode" (edit status, edit serials, log return date, upload receipts, view the signed block).
+Remove per-item Carrier / Tracking # / Upload Receipt UI from each `EquipmentLineRow`. Replace with two shipment-level blocks on the sheet:
 
-Same data, one source of truth, role-gated controls.
+- **Outbound Shipment Receipts** — rendered at the top of the sheet, above the equipment list.
+- **Return Shipment Receipts** — rendered alongside the Equipment Return (Management) block near the bottom.
 
-## Scope
+Each block shows:
+- A form row with Carrier dropdown, Tracking # input, file picker, and Save button.
+- A stacked list of previously uploaded receipts (Carrier · Tracking # · uploader label · date · file thumbnail/link opening `FilePreviewModal`).
+- An **Add Another Receipt** button that reveals a fresh empty form row so multiple receipts stack without overwriting.
 
-### Part 1 — ELD electronic signature (one per driver)
+Data model: `equipment_receipts.equipment_line` becomes nullable (a shipment covers the whole box, not a single line). Existing rows are preserved; new consolidated uploads write `equipment_line = null`. The per-line list in the timeline groups nulls under "Shipment".
 
-- New driver signature block on the Asset Sheet, mirroring `OperatorICASign` (typed name + finger-drawn signature canvas + Execute button).
-- Executed date is stamped by a Postgres trigger from `now()` (server time), never from the client.
-- Once signed: typed name, signature image URL, and signed timestamp are read-only for everyone (driver + management). All equipment rows in the ELD section lock to read-only.
-- Signature image uploaded to `operator-documents` bucket under `equipment-asset-sheet/{operator_id}/signature-{timestamp}.png` via the existing pattern.
-- Friendly error handling: wrap the save in try/catch; on failure show a toast "Couldn't save your signature. Please try again." — raw Supabase error text is only logged to console, never surfaced to the driver. Uses the same column-whitelist trigger pattern the ICA flow settled on.
+## 2. Carrier Dropdown
 
-### Part 2 — Per-equipment assignment status (all equipment types)
+Replace the free-text Carrier input with a shadcn `Select`:
+1. UPS
+2. USPS
+3. FedEx
+4. Other → reveals an inline free-text field, stored in `carrier` as the typed value.
 
-For each equipment line (ELD, Dash Cam, BestPass, Fuel Card, Decal, etc.) management picks one of:
+Applies to both outbound and return receipt forms.
 
-- **Assigned Prior to Onboarding** — serial/number fields editable now, saved to `onboarding_status`.
-- **Assigned During Onboarding** — same, tagged with a different status.
-- **Not Assigned** — row stays visible, fields blank + greyed, badge "Not Assigned".
+## 3. Delivery Method per Equipment Item
 
-Management can switch between the three states any time **before** the driver signs. After signature, all rows lock. Status + serial edits save immediately (existing `TruckInfoCardEditPayload` save path is extended).
+Replace the two shipped/awaiting checkboxes on each `EquipmentLineRow` with a single mutually-exclusive selector (segmented control / radio group) with options:
 
-### Part 3 — Equipment return date (management only)
+- Shipped to Driver
+- Installed at Orientation
+- Installed On Site
+- Awaiting Return Shipment
+- Not Assigned (mirrors the existing assignment status — selecting this here also flips the row's assignment_state to `not_assigned`)
 
-Below the signature block, a management-only section with:
+Stored in a new `onboarding_status.<line>_delivery_method` text column per line (enum-like: `shipped`, `orientation`, `on_site`, `awaiting_return`, `not_assigned`). Existing boolean flags are migrated: rows with `_shipped_to_driver = true` → `shipped`; `_awaiting_return_shipment = true` → `awaiting_return`; else `null`.
 
-- `Equipment Return Date` date picker (shadcn Datepicker with `pointer-events-auto`).
-- Optional notes textarea.
-- Saves to `onboarding_status.equipment_return_date` + `equipment_return_notes`.
-- Hidden from the driver's view entirely. Visible in Driver Hub / Onboarding History.
+## 4. Driver Acknowledgment Signature Block (build-out)
 
-### Part 4 — Shipping receipt uploads (management + driver)
+The placeholder ("Waiting on the driver to sign") already exists in driver mode with a signature canvas. Verify and finalize:
+- Typed full name input + signature canvas + Execute button (already wired to `handleExecute`).
+- Server timestamp: `eld_signature_signed_at` is stamped by the existing trigger from `now()` — client never sends it. Confirmed present from prior migration.
+- After execute: name, signature image, and date are permanently displayed and locked. All equipment serial inputs and delivery method selectors flip to read-only for both driver and management (already gated by `signed` — extend gate to cover the new delivery-method selector).
+- Errors surface only as friendly toasts; raw Supabase errors stay in `console.error`.
 
-- Upload field labeled "Shipping Receipt" accepting image + PDF (uses `validateFile`).
-- Optional carrier dropdown + tracking number input alongside upload.
-- **Management** can always upload (inbound or return shipments) per equipment line.
-- **Driver auto-visibility rule:** the driver only sees the upload for a given equipment line **when management has flagged that line as shipped** (carrier + tracking present OR management toggled a "Shipped to driver" checkbox on that row). When that condition is not met, the block is hidden from the driver. On the driver's departure flow (equipment return), management can toggle "Awaiting return shipment" on the row which re-exposes the upload to the driver for a return receipt.
-- Each receipt entry stored long-term as its own row in a new `equipment_receipts` table with: `operator_id`, `equipment_line` (eld/dash_cam/bestpass/fuel_card/decal), `direction` (inbound/return), `carrier`, `tracking_number`, `file_url`, `uploaded_by` (user id), `uploader_role` (management/driver), `uploaded_at`.
-- Timeline display on the Asset Sheet and in Driver Hub / Onboarding History shows: upload date, uploader label ("Management — Jane D." vs "Driver"), carrier + tracking (if entered), and a thumbnail (images) or file icon (PDFs) that opens `FilePreviewModal`.
+Also mount the same block in management mode as read-only once signed (currently only rendered "Waiting on the driver to sign" for management pre-signature — keep that copy).
 
-## Data model
+## 5. Driver-Side Return Receipt Upload
 
-New / changed columns on `onboarding_status`:
-- `eld_signature_typed_name text`
-- `eld_signature_image_url text`
-- `eld_signature_signed_at timestamptz` (set only by trigger from `now()`)
-- `equipment_return_date date`
-- `equipment_return_notes text`
-- Per equipment line assignment state: `eld_assignment_state`, `dash_cam_assignment_state`, `bestpass_assignment_state`, `fuel_card_assignment_state`, `decal_assignment_state` — enum `equipment_assignment_state` with values `prior`, `during`, `not_assigned`.
-- Per equipment line shipment flags: `<line>_shipped_to_driver boolean`, `<line>_awaiting_return_shipment boolean`.
+The Return Shipment Receipts block becomes visible in the driver's SUPERDRIVE portal when **any** equipment line has `delivery_method = 'awaiting_return'`. Driver can then upload return receipts (Carrier + Tracking + file), stacked identically to management uploads. `uploader_role` is stamped `driver`.
 
-New table `public.equipment_receipts` with full GRANT + RLS block per project conventions (management can insert for any operator; driver can insert only for their own `operator_id`; all can SELECT their own rows; service_role full access).
+The Outbound Shipment Receipts block remains read-only for the driver — they view uploaded outbound receipts but cannot create them.
 
-Trigger `set_eld_signature_signed_at` on `onboarding_status`: when `eld_signature_typed_name` and `eld_signature_image_url` transition from null to set, stamp `eld_signature_signed_at = now()`. Also blocks updates to signature columns once `eld_signature_signed_at IS NOT NULL` (mirrors ICA lock pattern) so no client can rewrite the date or overwrite the signature.
+## Technical Details
 
-RLS on `onboarding_status`: extend existing update policy to whitelist the new columns for the driver (only their own row, only when unsigned) and management. Follows the same column-whitelist trigger the ICA flow ended on.
+### Migration
+- `ALTER TABLE public.equipment_receipts ALTER COLUMN equipment_line DROP NOT NULL;`
+- `ALTER TABLE public.onboarding_status ADD COLUMN eld_delivery_method text, ADD COLUMN dash_cam_delivery_method text, ADD COLUMN bestpass_delivery_method text, ADD COLUMN fuel_card_delivery_method text, ADD COLUMN decal_delivery_method text;`
+- Backfill from existing `_shipped_to_driver` / `_awaiting_return_shipment` booleans.
+- Extend the `onboarding_status` column-whitelist trigger to allow driver-side updates only via the sheet path (already whitelisted for existing sheet columns — add the five new `_delivery_method` columns).
+- Extend RLS on `equipment_receipts`: driver INSERT allowed when `direction = 'return'` AND the operator has at least one line with `_delivery_method = 'awaiting_return'` (checked via a SECURITY DEFINER helper `public.operator_awaiting_return(_operator_id uuid)`).
 
-## Files touched
+### File changes
+- `src/components/equipment/EquipmentAssetSheet.tsx` — new `<ShipmentReceiptsBlock direction="inbound|return" />` sub-component rendered twice; strip receipt/carrier/tracking props from `EquipmentLineRow`; add `<DeliveryMethodSelector />` per line; extend `uploadReceipt` to accept `line: EquipmentLine | null`.
+- No new files.
 
-- New: `src/components/equipment/EquipmentAssetSheet.tsx` (shared component, `mode: 'driver' | 'management'`).
-- New: `src/components/equipment/EquipmentReceiptsList.tsx` (timeline display, reused by Driver Hub / Onboarding History).
-- New: `src/components/equipment/ELDSignatureBlock.tsx` (extracted signature canvas + typed name + Execute button, patterned on `OperatorICASign`).
-- Edit: `src/pages/operator/OperatorPortal.tsx` — mount `EquipmentAssetSheet` in driver mode below `TruckInfoCard`.
-- Edit: `src/pages/staff/OperatorDetailPanel.tsx` — mount `EquipmentAssetSheet` in management mode next to the existing Truck & Equipment card; wire it to the existing `status` state and save handlers.
-- Edit: `src/components/drivers/DriverHubView.tsx` — surface receipts + signed block + return date in the driver's long-term history.
-- Migration: new columns + `equipment_receipts` table + trigger + RLS/GRANTs.
-
-## Verification
-
-1. Sign in as a test driver in preview: type name, draw signature, tap Execute → confirm success toast, block locks, signed_at reflects server time (compare to `now()` in DB).
-2. As management: cycle each equipment row through Prior / During / Not Assigned; edit serials in Prior and During; confirm Not Assigned hides values but keeps the row.
-3. After driver signs: confirm management can no longer edit ELD-section serials or status.
-4. As management: set `equipment_return_date`; confirm it appears in Driver Hub but not in the driver's SUPERDRIVE portal.
-5. As management: mark ELD as "Shipped to driver" with carrier + tracking + receipt. Reload driver portal — receipt upload block appears on the ELD row. Upload receipt as driver → confirm row appears with uploader label "Driver".
-6. Upload the same receipt as management → confirm row appears with uploader label "Management — <name>".
-7. Both receipts visible in Driver Hub / Onboarding History timeline with correct labels, dates, thumbnails.
-8. Force a save error (e.g. offline) during signature execute → confirm friendly toast, no raw SQL/Supabase text on screen.
+### Verification
+1. Confirm ELD/Dash Cam/BestPass/Fuel Card/Decal rows no longer show Carrier, Tracking, or Upload controls.
+2. Add two outbound receipts via "Add Another Receipt" — both persist and list separately.
+3. Carrier dropdown order UPS → USPS → FedEx → Other; picking Other reveals a text input that saves as the carrier value.
+4. Toggle delivery method on two lines; confirm only one option can be active per line and Not Assigned clears serials.
+5. As a test driver, complete signature; verify `eld_signature_signed_at` is server-stamped and delivery method + serials go read-only for both driver and management.
+6. Flip one line to Awaiting Return Shipment; log in as the driver and confirm the Return Shipment Receipts block appears and accepts an upload tagged `Driver`.
+7. Confirm no raw DB error text is ever shown; forced failure (e.g., disable network) surfaces the friendly toast only.
