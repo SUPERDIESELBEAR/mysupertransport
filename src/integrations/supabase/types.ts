@@ -1327,6 +1327,59 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_receipts: {
+        Row: {
+          carrier: string | null
+          created_at: string
+          direction: string
+          equipment_line: string
+          file_name: string | null
+          file_url: string
+          id: string
+          operator_id: string
+          tracking_number: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          uploader_role: string
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string
+          direction: string
+          equipment_line: string
+          file_name?: string | null
+          file_url: string
+          id?: string
+          operator_id: string
+          tracking_number?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploader_role: string
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string
+          direction?: string
+          equipment_line?: string
+          file_name?: string | null
+          file_url?: string
+          id?: string
+          operator_id?: string
+          tracking_number?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploader_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_receipts_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faq: {
         Row: {
           answer: string
@@ -2219,7 +2272,10 @@ export type Database = {
       }
       onboarding_status: {
         Row: {
+          bestpass_assignment_state: Database["public"]["Enums"]["equipment_assignment_state"]
+          bestpass_awaiting_return_shipment: boolean
           bestpass_number: string | null
+          bestpass_shipped_to_driver: boolean
           bg_check_notes: string | null
           ch_received_date: string | null
           ch_requested_date: string | null
@@ -2229,28 +2285,45 @@ export type Database = {
           cost_notes: string | null
           cost_other: number | null
           cost_other_description: string | null
+          dash_cam_assignment_state: Database["public"]["Enums"]["equipment_assignment_state"]
+          dash_cam_awaiting_return_shipment: boolean
           dash_cam_number: string | null
+          dash_cam_shipped_to_driver: boolean
           decal_applied: Database["public"]["Enums"]["yes_no"]
+          decal_assignment_state: Database["public"]["Enums"]["equipment_assignment_state"]
+          decal_awaiting_return_shipment: boolean
           decal_method: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url: string | null
           decal_photo_ps_url: string | null
           decal_photos: Json
+          decal_shipped_to_driver: boolean
           dispatch_ready_consortium: boolean
           dispatch_ready_first_assigned: boolean
           dispatch_ready_orientation: boolean
           doc_notes: string | null
+          eld_assignment_state: Database["public"]["Enums"]["equipment_assignment_state"]
+          eld_awaiting_return_shipment: boolean
           eld_exempt: boolean
           eld_exempt_reason: string | null
           eld_installed: Database["public"]["Enums"]["yes_no"]
           eld_method: Database["public"]["Enums"]["install_method"] | null
           eld_serial_number: string | null
+          eld_shipped_to_driver: boolean
+          eld_signature_image_url: string | null
+          eld_signature_signed_at: string | null
+          eld_signature_typed_name: string | null
+          equipment_return_date: string | null
+          equipment_return_notes: string | null
           exception_approved_at: string | null
           exception_approved_by: string | null
           exception_notes: string | null
           form_2290: Database["public"]["Enums"]["document_status"]
           form_2290_owner_provided: boolean
+          fuel_card_assignment_state: Database["public"]["Enums"]["equipment_assignment_state"]
+          fuel_card_awaiting_return_shipment: boolean
           fuel_card_issued: Database["public"]["Enums"]["yes_no"]
           fuel_card_number: string | null
+          fuel_card_shipped_to_driver: boolean
           fully_onboarded: boolean | null
           go_live_date: string | null
           ica_notes: string | null
@@ -2313,7 +2386,10 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          bestpass_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          bestpass_awaiting_return_shipment?: boolean
           bestpass_number?: string | null
+          bestpass_shipped_to_driver?: boolean
           bg_check_notes?: string | null
           ch_received_date?: string | null
           ch_requested_date?: string | null
@@ -2323,28 +2399,45 @@ export type Database = {
           cost_notes?: string | null
           cost_other?: number | null
           cost_other_description?: string | null
+          dash_cam_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          dash_cam_awaiting_return_shipment?: boolean
           dash_cam_number?: string | null
+          dash_cam_shipped_to_driver?: boolean
           decal_applied?: Database["public"]["Enums"]["yes_no"]
+          decal_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          decal_awaiting_return_shipment?: boolean
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
           decal_photo_ps_url?: string | null
           decal_photos?: Json
+          decal_shipped_to_driver?: boolean
           dispatch_ready_consortium?: boolean
           dispatch_ready_first_assigned?: boolean
           dispatch_ready_orientation?: boolean
           doc_notes?: string | null
+          eld_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          eld_awaiting_return_shipment?: boolean
           eld_exempt?: boolean
           eld_exempt_reason?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
           eld_serial_number?: string | null
+          eld_shipped_to_driver?: boolean
+          eld_signature_image_url?: string | null
+          eld_signature_signed_at?: string | null
+          eld_signature_typed_name?: string | null
+          equipment_return_date?: string | null
+          equipment_return_notes?: string | null
           exception_approved_at?: string | null
           exception_approved_by?: string | null
           exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
           form_2290_owner_provided?: boolean
+          fuel_card_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          fuel_card_awaiting_return_shipment?: boolean
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fuel_card_number?: string | null
+          fuel_card_shipped_to_driver?: boolean
           fully_onboarded?: boolean | null
           go_live_date?: string | null
           ica_notes?: string | null
@@ -2407,7 +2500,10 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          bestpass_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          bestpass_awaiting_return_shipment?: boolean
           bestpass_number?: string | null
+          bestpass_shipped_to_driver?: boolean
           bg_check_notes?: string | null
           ch_received_date?: string | null
           ch_requested_date?: string | null
@@ -2417,28 +2513,45 @@ export type Database = {
           cost_notes?: string | null
           cost_other?: number | null
           cost_other_description?: string | null
+          dash_cam_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          dash_cam_awaiting_return_shipment?: boolean
           dash_cam_number?: string | null
+          dash_cam_shipped_to_driver?: boolean
           decal_applied?: Database["public"]["Enums"]["yes_no"]
+          decal_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          decal_awaiting_return_shipment?: boolean
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
           decal_photo_ps_url?: string | null
           decal_photos?: Json
+          decal_shipped_to_driver?: boolean
           dispatch_ready_consortium?: boolean
           dispatch_ready_first_assigned?: boolean
           dispatch_ready_orientation?: boolean
           doc_notes?: string | null
+          eld_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          eld_awaiting_return_shipment?: boolean
           eld_exempt?: boolean
           eld_exempt_reason?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
           eld_serial_number?: string | null
+          eld_shipped_to_driver?: boolean
+          eld_signature_image_url?: string | null
+          eld_signature_signed_at?: string | null
+          eld_signature_typed_name?: string | null
+          equipment_return_date?: string | null
+          equipment_return_notes?: string | null
           exception_approved_at?: string | null
           exception_approved_by?: string | null
           exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
           form_2290_owner_provided?: boolean
+          fuel_card_assignment_state?: Database["public"]["Enums"]["equipment_assignment_state"]
+          fuel_card_awaiting_return_shipment?: boolean
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fuel_card_number?: string | null
+          fuel_card_shipped_to_driver?: boolean
           fully_onboarded?: boolean | null
           go_live_date?: string | null
           ica_notes?: string | null
@@ -4330,6 +4443,7 @@ export type Database = {
         | "repairs_maintenance_receipt"
         | "miscellaneous"
       driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
+      equipment_assignment_state: "prior" | "during" | "not_assigned"
       faq_category:
         | "application_process"
         | "background_screening"
@@ -4555,6 +4669,7 @@ export const Constants = {
         "miscellaneous",
       ],
       driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
+      equipment_assignment_state: ["prior", "during", "not_assigned"],
       faq_category: [
         "application_process",
         "background_screening",

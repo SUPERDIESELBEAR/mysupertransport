@@ -32,6 +32,7 @@ import EditProfileModal from '@/components/EditProfileModal';
 const OperatorInspectionBinder = lazy(() => import('@/components/inspection/OperatorInspectionBinder'));
 const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
+import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
@@ -1572,6 +1573,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               }}
               shippingInfo={equipmentShipping}
             />
+
+            {/* ── EQUIPMENT ASSET SHEET (Driver signature + shipping receipts) ── */}
+            {operatorId && (
+              <EquipmentAssetSheet
+                mode="driver"
+                operatorId={operatorId}
+                status={onboardingStatus as Record<string, any>}
+                onStatusRefresh={fetchData}
+              />
+            )}
 
             {/* ── CONTACT SECTION ── */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">

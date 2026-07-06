@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature, Rocket } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -3456,6 +3457,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           shippingInfo={equipmentShipping}
           onEdit={handleTruckDeviceEdit}
           onTruckEdit={handleTruckInfoEdit}
+        />
+      </div>
+      {/* ── Equipment Asset Sheet (management) ── */}
+      <div style={isQuickView ? { order: 6 } : undefined}>
+        <EquipmentAssetSheet
+          mode="management"
+          operatorId={operatorId}
+          status={status as unknown as Record<string, any>}
+          onStatusRefresh={() => { void fetchOperatorDetail(); }}
         />
       </div>
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
