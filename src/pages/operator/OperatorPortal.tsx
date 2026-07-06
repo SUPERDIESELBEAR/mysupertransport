@@ -32,6 +32,7 @@ import EditProfileModal from '@/components/EditProfileModal';
 const OperatorInspectionBinder = lazy(() => import('@/components/inspection/OperatorInspectionBinder'));
 const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
+import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
