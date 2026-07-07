@@ -2690,7 +2690,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           'Stage 3 — ICA':             { bg: 'bg-gold/8',               border: 'border-gold/25',             text: 'text-gold',             dot: 'bg-gold',             icon: '📝' },
           'Stage 4 — MO Registration': { bg: 'bg-info/8',               border: 'border-info/25',             text: 'text-info',             dot: 'bg-info',             icon: '🗺️' },
           'Stage 5 — Equipment':       { bg: 'bg-purple-400/8',         border: 'border-purple-400/25',       text: 'text-purple-500',       dot: 'bg-purple-400',       icon: '🚛' },
-          'Stage 6 — Insurance':       { bg: 'bg-orange-400/8',         border: 'border-orange-400/25',       text: 'text-orange-500',       dot: 'bg-orange-400',       icon: '🛡️' },
+          'Stage 6 — PE Screening':    { bg: 'bg-cyan-400/8',           border: 'border-cyan-400/25',         text: 'text-cyan-600',         dot: 'bg-cyan-400',         icon: '🧪' },
+          'Stage 7 — Insurance':       { bg: 'bg-orange-400/8',         border: 'border-orange-400/25',       text: 'text-orange-500',       dot: 'bg-orange-400',       icon: '🛡️' },
         };
         const s = STAGE_BANNER[legendStageFilter] ?? STAGE_BANNER['Stage 1 — Background'];
         return (
