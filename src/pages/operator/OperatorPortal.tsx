@@ -1725,7 +1725,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <CreditCard className="h-5 w-5 text-primary" />
               </span>
               <div>
-                <h2 className="text-base font-bold text-foreground">Stage 8 — Contractor Pay Setup</h2>
+                <h2 className="text-base font-bold text-foreground">Stage 9 — Contractor Pay Setup</h2>
                 <p className="text-xs text-muted-foreground">Enter your payroll details to get your contractor account set up.</p>
               </div>
             </div>
