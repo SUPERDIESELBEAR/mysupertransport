@@ -5425,7 +5425,155 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-        {/* Stage 6 — Insurance */}
+        {/* Stage 6 — Pre-Employment Screening */}
+        {(() => {
+          const spComplete = status.pe_screening_result === 'clear';
+          const spCollapsed = collapsedStages.has('stagePE');
+          return (
+            <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stagePE')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-4 w-4 ${spComplete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 6 — Pre-Employment Screening</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {spComplete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />PE Clear</span>
+                    : status.pe_screening_result === 'non_clear'
+                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-destructive/10 text-destructive border border-destructive/30"><AlertTriangle className="h-3 w-3" />Non-Clear</span>
+                      : status.pe_screening
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />In Progress</span>
+                        : null
+                  }
+                  {spCollapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!spCollapsed && (
+                <div className="px-5 pb-5 space-y-4">
+                  {/* PE Screening */}
+                  <div className="space-y-2">
+                    <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <StageDatePicker
+                        label="PE Scheduled Date"
+                        value={status.pe_scheduled_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_scheduled_date: v }))}
+                      />
+                    )}
+                    {status.pe_screening === 'results_in' && (
+                      <StageDatePicker
+                        label="PE Results Date"
+                        value={status.pe_results_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_results_date: v }))}
+                      />
+                    )}
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <QPassportUploader
+                        operatorId={operatorId}
+                        currentUrl={status.qpassport_url}
+                        onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
+                      />
+                    )}
+                    {docFiles['pe_receipt']?.[0] && (
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const raw = docFiles['pe_receipt'][0].file_url ?? '';
+                            const storagePath = raw.startsWith('http')
+                              ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
+                              : raw;
+                            const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
+                            if (data?.signedUrl) setStage2Preview({ url: data.signedUrl, name: docFiles['pe_receipt'][0].file_name ?? 'PE Receipt', docType: 'pe_receipt' });
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                        >
+                          <Eye className="h-3 w-3" /> View Receipt
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Screening Result</Label>
+                    <Select
+                      value={(status.pe_screening_result as string) || undefined}
+                      onValueChange={v => {
+                        updateStatusAndPersist('pe_screening_result', v);
+                        if (v === 'clear') {
+                          setCollapsedStages(prev => { const next = new Set(prev); next.add('stagePE'); return next; });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        {resultOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* PE Results Document Upload */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {status.pe_results_doc_url && (
+                        <a href={status.pe_results_doc_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+                          <ExternalLink className="h-3 w-3" /> View Document
+                        </a>
+                      )}
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                        className="hidden"
+                        id={`pe-results-upload-${operatorId}`}
+                        onChange={async e => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          e.target.value = '';
+                          const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+                          const mime = f.type || '';
+                          const allowed = ['application/pdf','image/jpeg','image/png'];
+                          const allowedExt = ['pdf','jpg','jpeg','png'];
+                          if (!allowed.includes(mime) && !allowedExt.includes(ext)) {
+                            toast({ title: 'Invalid file type', description: 'Please upload a PDF, JPG, or PNG.', variant: 'destructive' });
+                            return;
+                          }
+                          if (f.size > 10 * 1024 * 1024) {
+                            toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
+                            return;
+                          }
+                          try {
+                            const path = `${operatorId}/pe-results/${Date.now()}.${ext || 'pdf'}`;
+                            const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, f, { upsert: true });
+                            if (upErr) throw upErr;
+                            const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
+                            const fileUrl = sd?.signedUrl ?? '';
+                            const { error: updateErr } = await supabase.from('onboarding_status').update({ pe_results_doc_url: fileUrl } as any).eq('operator_id', operatorId);
+                            if (updateErr) throw updateErr;
+                            setStatus(prev => ({ ...prev, pe_results_doc_url: fileUrl }));
+                            toast({ title: 'PE Results uploaded' });
+                          } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
+                            toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant={status.pe_results_doc_url ? 'outline' : 'default'}
+                        onClick={() => document.getElementById(`pe-results-upload-${operatorId}`)?.click()}
+                        className={`text-xs gap-1 h-7 px-2.5 ${!status.pe_results_doc_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                      >
+                        <Upload className="h-3 w-3" /> {status.pe_results_doc_url ? 'Replace' : 'Upload Results'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Stage 7 — Insurance */}
         {(() => {
           const s6Complete = !!status.insurance_added_date;
           const s6Collapsed = collapsedStages.has('stage6');
@@ -5435,7 +5583,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
-                  <h3 className="font-semibold text-foreground text-sm">Stage 6 — Insurance</h3>
+                  <h3 className="font-semibold text-foreground text-sm">Stage 7 — Insurance</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {s6Complete
