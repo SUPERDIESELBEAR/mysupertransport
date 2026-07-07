@@ -1157,7 +1157,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
-            <NotificationBell variant="dark" notificationsPath="/operator?tab=notifications" clearBadge={view === 'notifications'} />
+            <NotificationBell variant="dark" notificationsPath={`${location.pathname}?tab=notifications`} clearBadge={view === 'notifications'} />
             <button
               onClick={handleRefresh}
               disabled={refreshing}
