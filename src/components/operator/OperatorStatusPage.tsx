@@ -249,7 +249,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
           )}
 
           {/* Stage 8 Pay Setup CTA */}
-          {stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
+          {stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
             <div className="mt-3 pt-3 border-t border-border/50">
               <Button
                 size="sm"
