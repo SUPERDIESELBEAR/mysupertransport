@@ -384,8 +384,9 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           {onEdit && (
             <Popover open={editOpen} onOpenChange={setEditOpen}>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
                   <Pencil className="h-3.5 w-3.5" />
+                  Edit Devices
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80" align="end">
