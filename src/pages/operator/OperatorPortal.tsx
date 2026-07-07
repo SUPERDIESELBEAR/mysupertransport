@@ -1087,7 +1087,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               const btn = (
                 <button
                   key={item.view}
-                  onClick={() => setView(item.view)}
+                  onClick={() => navigateToView(item.view)}
                   className={`relative shrink-0 flex flex-col items-center justify-end gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors w-[68px] xl:w-[76px] ${
                     view === item.view
                       ? 'bg-gold/15 text-gold'
