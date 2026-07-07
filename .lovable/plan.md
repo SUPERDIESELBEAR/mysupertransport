@@ -1,32 +1,53 @@
 ## Problem
 
-In Management → Compliance → Cards view, each driver card shows CDL / Med Cert / IRP rows with: colored dot, doc badge, expiration date, then a cluster of action chips (Stale, History, Upload, Remind, CertPill). At current card widths the date (e.g. "Mar 22, 2026") is truncated to "Mar 22, 2…" because the date sits inside a `flex-1 min-w-0 truncate` span while the trailing action chips consume the remaining width.
+On the driver's mobile PWA, tapping the bell → **View all →** is meant to open the driver's dedicated Notifications history page (it does *not* go to Messages — that's a separate inbox for driver↔staff DMs and broadcasts).
 
-## File
+The bell in `src/pages/operator/OperatorPortal.tsx:1160` is wired as:
 
-`src/components/inspection/InspectionComplianceSummary.tsx` — `CertSubRow` component (lines ~930–948), used only by the Cards view.
+```tsx
+<NotificationBell variant="dark" notificationsPath="/operator?tab=notifications" ... />
+```
+
+But the driver is signed in on `/dashboard` (that route renders `OperatorPortal` for `activeRole === 'operator'`). Tapping **View all →** therefore navigates from `/dashboard` → `/operator?tab=notifications`, which triggers a full remount of `OperatorPortal` on a different pathname. On mobile PWAs this cross-path remount is the likely reason the tap "goes nowhere" for the driver — the new route mounts, the URL-writer effect fires, and any transient state (splash / crossfade overlay / initial `view = 'progress'` default) can leave the driver looking at the wrong screen.
+
+The dedicated `NotificationHistory` component (`src/components/management/NotificationHistory.tsx`) is fully built and is the correct destination — Messages is not.
 
 ## Fix
 
-Restructure `CertSubRow` into two rows so the full date always shows:
+Keep **View all →** pointed at the Notifications history page, but stay on the pathname the operator is already on so we don't remount into a sibling route.
 
-Row 1 (identity + date, never truncated):
-- status dot
-- doc badge (`CDL` / `Med Cert` / `IRP (cab card)`)
-- date via `DriverDateEditor`, wrapped in `shrink-0 whitespace-nowrap tabular-nums` (no `flex-1`, no `truncate`)
-- push `CertPill` to the far right with `ml-auto` (keeps the ✓/⚠ status pill visible on the same line as the date)
+### 1. `src/pages/operator/OperatorPortal.tsx` (~line 1160)
 
-Row 2 (compact actions):
-- `StaleChip`, `HistoryButton`, `UploadButton`, `RemindButton` grouped with `flex items-center gap-1.5` and small top margin (`mt-1`)
+Compute the notifications path from the current pathname so `/dashboard` stays `/dashboard` and `/operator` stays `/operator`:
 
-Keep `LastUpdatedLine` beneath both rows as today.
+```tsx
+const notificationsHref = `${location.pathname}?tab=notifications`;
+...
+<NotificationBell
+  variant="dark"
+  notificationsPath={notificationsHref}
+  clearBadge={view === 'notifications'}
+/>
+```
 
-No changes to `ListCertSubRow`, the fleet card, the list view, data flow, or any business logic — this is purely a layout fix scoped to the Cards row.
+`location` is already in scope from `useLocation()` at the top of the component.
+
+### 2. Sanity-check the view switcher
+
+Confirm `view === 'notifications'` in `OperatorPortal.tsx` (~line 1739) renders `<NotificationHistory />` inside `<Suspense>` — no change expected, just re-verify after the routing fix.
 
 ## Verification
 
-1. Open Management → Compliance → toggle to **Cards**.
-2. Confirm every driver card shows full dates: `Mar 22, 2026`, `Aug 2, 2027`, `Nov 3, 2028`, etc. — no ellipsis.
-3. Stale/History/Upload/Remind icons appear on a second row, still clickable.
-4. Toggle to **List** view — unchanged.
-5. Resize to md and xl breakpoints (2- and 3-column grids) — no overflow.
+1. Sign in as a test driver (Emma Mueller) on `/dashboard`.
+2. Tap the bell in the header → tap **View all →**.
+   - URL becomes `/dashboard?tab=notifications` (same pathname, tab param added).
+   - The full **Notification History** page loads (title "Notification History", filter chips All / Unread / Read, list of all past notifications with Mark all read and Refresh).
+   - Bell badge clears (`clearBadge` flag).
+3. Tap the browser / hardware back button → returns to the previous tab (Status / Progress) on `/dashboard`.
+4. Repeat from a driver who happens to be on `/operator` (e.g. management previewing as operator) → URL becomes `/operator?tab=notifications` and the same page loads.
+5. Confirm the bottom-nav **Messages** icon still opens the Messages inbox (`?tab=messages`) — unchanged.
+
+## Out of scope
+
+- No changes to `NotificationBell.tsx`, `NotificationHistory.tsx`, or the Messages hub.
+- No change to the dispatcher / staff / management bells.
