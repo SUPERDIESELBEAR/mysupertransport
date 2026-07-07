@@ -168,7 +168,7 @@ export default function EquipmentAssetSheet({
     if (!typedName.trim()) { toast.error('Please type your full name.'); return; }
     if (!sigRef.current || sigRef.current.isEmpty()) { toast.error('Please draw your signature.'); return; }
     setSigning(true);
-    let step: 'upload' | 'signed_url' | 'update' = 'upload';
+    let step: 'upload' | 'signed_url' | 'execute' = 'upload';
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
@@ -185,14 +185,12 @@ export default function EquipmentAssetSheet({
       const imageUrl = signedUrl?.signedUrl ?? null;
       if (!imageUrl) throw new Error('signed url failed');
 
-      step = 'update';
-      const { error } = await supabase
-        .from('onboarding_status')
-        .update({
-          eld_signature_typed_name: typedName.trim(),
-          eld_signature_image_url: imageUrl,
-        })
-        .eq('operator_id', operatorId);
+      step = 'execute';
+      const { error } = await (supabase as any).rpc('execute_equipment_asset_signature', {
+        p_operator_id: operatorId,
+        p_typed_name: typedName.trim(),
+        p_signature_image_url: imageUrl,
+      });
       if (error) throw error;
 
       toast.success('Signature recorded.');
