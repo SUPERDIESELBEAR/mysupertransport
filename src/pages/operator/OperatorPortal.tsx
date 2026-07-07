@@ -148,6 +148,17 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const qs = params.toString();
     navigate({ pathname: window.location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
   }, [view, binderView, navigate]);
+  // Atomic view+URL navigation used by top-level nav surfaces (desktop
+  // sidebar, mobile hamburger, bottom nav). Pushing the URL synchronously
+  // in the click handler prevents the reader effect above from racing back
+  // to a stale ?tab= value (e.g. one left behind by NotificationBell).
+  const navigateToView = useCallback((target: OperatorView) => {
+    setView(target);
+    const search = target && target !== 'progress' ? `?tab=${target}` : '';
+    if (window.location.search !== search) {
+      navigate({ pathname: '/operator', search }, { replace: false });
+    }
+  }, [navigate]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);

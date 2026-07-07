@@ -1,45 +1,61 @@
-## Findings
+## Diagnosis
 
-**Current behavior** (`src/pages/dispatch/DispatchPortal.tsx`):
-- Two "Binder" buttons on driver cards (lines 1817–1826 for one layout, 2178–2187 for the other) both call `setBinderTarget({ userId, operatorId, name })`.
-- That state opens an in-place `<Sheet>` at line 2397 that renders `<OperatorInspectionBinder>` inline over the Dispatch Board.
-- No route change happens — hence "does not navigate anywhere." On mobile especially, the sheet may open behind the mobile keyboard bar or be visually indistinguishable from staying on the page.
+The driver portal (`src/pages/operator/OperatorPortal.tsx`) manages navigation with a `view` state variable synced to `?tab=…` via two effects:
 
-**Why the user reports it as "broken":** the button never leaves the Dispatch Board and never lands on the Driver Hub. There's no missing route or undefined ID — the click handler just opens an overlay that doesn't match user expectations.
+- **Writer** (line 139): when `view` changes, `navigate({ search: '?tab=…' }, { replace: true })`.
+- **Reader** (line 126): when `location.search` changes, `setView(tab)` for whatever tab param is currently in the URL.
 
-**Correct destination:** The Driver Hub already renders a per-driver detail view via `OperatorDetailPanel` (in `src/components/drivers/DriverHubView.tsx`, line 247) and that panel already supports a `scrollToInspectionBinder` prop that lands the user directly on the binder section. There is no separate dispatch-specific binder — the Driver Hub binder is the canonical view.
+The hamburger menu handler (line 1193) is:
+```tsx
+onClick={() => { setView(item.view); setMobileMenuOpen(false); }}
+```
+It relies on the writer effect to eventually push the URL. Meanwhile, several other things can mutate `location.search` on their own — most notably `NotificationBell` (line 1160), which is wired with `notificationsPath={`${location.pathname}?tab=notifications`}` and also fires while the driver is browsing. When the URL still carries a stale `?tab=notifications` (or any other tab the reader last saw), the reader effect races the writer and calls `setView(stale)` right after the user's `setView('my-truck')`, snapping the view back or to a different tab.
 
-## Recommendation
+The code already knows this race exists. The `OperatorStatusPage.onNavigateTo` handler at line 1533 goes out of its way to work around it with the comment: *"Push the URL directly so the writer/reader effects can't race back to a stale tab (e.g. `?tab=notifications`) left over from opening the notification bell."* It imperatively `navigate('?tab=…', { replace: false })` at the same time as `setView(target)`. The `onOpenBinder` handler at line 1566 does the same thing.
 
-Replace the in-place Sheet with a real navigation to the Driver Hub, scrolled to the selected driver's Inspection Binder. Preserve the existing Sheet only as a fallback for when DispatchPortal is used standalone (its own `/dispatch` route), where no parent can navigate to a Driver Hub view.
+The hamburger menu, desktop sidebar, and mobile bottom nav all still use the naive `setView(item.view)` pattern and are therefore vulnerable to the exact same race. This matches the reported symptoms:
+- First tap: view state flips to the new value, then the reader effect immediately resets it from the stale URL → screen doesn't change.
+- Second tap: the URL is now in some intermediate state (e.g., `?tab=notifications` from an earlier bell open), so `setView('my-truck')` gets overwritten by the reader's `setView('notifications')` — but here the user sees whatever the stale tab was (ICA, in the report).
+- Nth tap: the URL and state eventually converge and the correct view sticks.
 
-## Plan
+Layout shift from the inline (non-fixed) mobile menu can compound this on some devices, but the primary cause is the writer/reader race, which is deterministic and reproducible in code review.
 
-1. **`src/components/drivers/DriverHubView.tsx`** — add two new props:
-   - `initialSelectedOperatorId?: string`
-   - `scrollToBinderOnOpen?: boolean`
-   
-   On mount / when props change, seed `selectedOperatorId` from `initialSelectedOperatorId`, and forward `scrollToInspectionBinder={scrollToBinderOnOpen}` to the existing `<OperatorDetailPanel>` (line 249).
+## Fix
 
-2. **`src/pages/dispatch/DispatchPortal.tsx`** — add prop:
-   - `onOpenDriverBinder?: (operatorId: string, userId: string, name: string) => void`
-   
-   Both Binder buttons (lines 1820 and 2181): if `onOpenDriverBinder` is provided, call it; otherwise keep the current `setBinderTarget(...)` fallback so the standalone `/dispatch` route still works.
+Adopt the same atomic pattern the Status page and Open Binder handler already use: update the URL directly at the moment of the click, so the reader effect sees the intended tab immediately and cannot race back to a stale value.
 
-3. **`src/pages/management/ManagementPortal.tsx`** — at the DispatchPortal render (line 1739):
-   - Add state `driverHubBinderTarget: { operatorId: string } | null`.
-   - Pass `onOpenDriverBinder={(operatorId) => { setDriverHubBinderTarget({ operatorId }); setView('drivers'); }}`.
-   - At the DriverHub render (line 1794–1802), pass `initialSelectedOperatorId={driverHubBinderTarget?.operatorId}` and `scrollToBinderOnOpen={!!driverHubBinderTarget}`. Clear the target when `view` changes away from `'drivers'` so a plain sidebar click into Driver Hub doesn't reopen the last driver.
+### Changes (all in `src/pages/operator/OperatorPortal.tsx`)
 
-4. **Cleanup:** Leave the existing `binderTarget` Sheet in DispatchPortal untouched (fallback for the standalone route). No changes to the Call, Message, or Edit handlers.
+1. **Add a single navigation helper** near the top of the component, right after the writer effect:
+
+   ```ts
+   const navigateToView = useCallback((target: OperatorView) => {
+     setView(target);
+     const search = target && target !== 'progress' ? `?tab=${target}` : '';
+     if (window.location.search !== search) {
+       navigate({ pathname: '/operator', search }, { replace: false });
+     }
+   }, [navigate]);
+   ```
+
+2. **Replace the four naive handlers** to call `navigateToView`:
+   - Line 1038 (preview tab bar): `onClick={() => navigateToView(item.view)}`
+   - Line 1079 (desktop sidebar): `onClick={() => navigateToView(item.view)}`
+   - Line 1193 (mobile hamburger menu): `onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}`
+   - Line 1867 (mobile bottom nav): `onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}`
+
+3. **Leave the existing handlers that already use the imperative-navigate pattern alone** (`onNavigateTo` at 1533, `onOpenBinder` at 1566, deep-link handlers). They already do the right thing; consolidating them into `navigateToView` is out of scope for a bug fix.
+
+No changes to the reader or writer effects, `NotificationBell`, `viewHistory`, or the bottom nav's visual behavior.
+
+### Other places using the same pattern
+
+The staff and management portals use separate `view` state variables but do not share the same URL sync effects with an external component (like `NotificationBell`) writing tab params, so they are not affected. No other driver-facing surface needs a matching change.
 
 ## Verification
 
-1. From Management → Dispatch Board, click **Binder** on three different driver cards. Each click should:
-   - Switch the sidebar highlight to **Driver Hub**.
-   - Open that specific driver's detail view.
-   - Auto-scroll to the Inspection Binder section.
-2. Use the OperatorDetailPanel's **Back** button; it should return to Driver Hub (roster), and the sidebar should still show Driver Hub. From there the user can click the sidebar's **Dispatch Board** to return.
-3. Confirm on the same driver cards: **Call** still opens `tel:`, **Message** still switches to `dispatch-messages` with the driver preselected, **Edit** still enters inline edit mode.
-4. Navigate directly to `/dispatch` (dispatcher-only route). Confirm the Binder button still opens the in-place Sheet fallback (nothing changes there).
-5. Sidebar-click **Driver Hub** afterwards — should open the roster (no residual pre-selected driver).
+1. As a test driver on a mobile viewport, open the hamburger menu and select each item once (My Progress, Documents, Doc Hub, Inspection Binder, My Documents, My Truck, Resource Center, Pay Setup, Settlement Forecast, FAQ, Messages). Every selection must land on the correct screen on the **first** tap.
+2. Rapidly switch between Settlement Forecast → My Truck → ICA → Doc Hub → My Truck via the hamburger. Each tap should produce exactly one navigation to the selected screen.
+3. Open the notification bell (which sets `?tab=notifications`), close it, then use the hamburger to jump to My Truck — this is the exact scenario that reproduces the reported race today. Should now go straight to My Truck.
+4. Confirm the bottom nav (Status, Binder, Messages, Doc Hub, FAQ) still highlights correctly and navigates on first tap.
+5. Confirm the header Back button (`goBack`) and hardware back button still pop the in-app view history the way they do today.
