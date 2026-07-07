@@ -664,10 +664,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const s = effectiveOnboardingStatus;
     switch (stageNum) {
       case 1:
-        if (s.mvr_ch_approval === 'denied' || s.pe_screening_result === 'non_clear') return 'action_required';
-        // Match management: Stage 1 is complete only when BOTH the MVR/CH
-        // approval is approved AND the PE screening result is clear.
-        if (s.mvr_ch_approval === 'approved' && s.pe_screening_result === 'clear') return 'complete';
+        if (s.mvr_ch_approval === 'denied') return 'action_required';
+        if (s.mvr_ch_approval === 'approved') return 'complete';
         if (s.mvr_status !== 'not_started' && s.mvr_status != null) return 'in_progress';
         return 'not_started';
       case 2:
@@ -691,13 +689,19 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         if (s.decal_applied === 'yes' || s.eld_installed === 'yes' || (s as any).eld_exempt === true) return 'in_progress';
         return 'not_started';
       case 6:
-        if (s.insurance_added_date) return 'complete';
+        if (s.pe_screening_result === 'non_clear') return 'action_required';
+        if (s.pe_screening_result === 'clear') return 'complete';
+        if (s.pe_screening === 'results_in') return 'in_progress';
+        if (s.pe_screening === 'scheduled') return 'in_progress';
         return 'not_started';
       case 7:
+        if (s.insurance_added_date) return 'complete';
+        return 'not_started';
+      case 8:
         if (s.go_live_date) return 'complete';
         if (s.dispatch_ready_orientation || s.dispatch_ready_consortium || s.dispatch_ready_first_assigned) return 'in_progress';
         return 'not_started';
-      case 8:
+      case 9:
         if (paySetupData?.submitted_at && paySetupData?.terms_accepted) return 'complete';
         if (paySetupData && !paySetupData.submitted_at) return 'in_progress';
         return 'not_started';
