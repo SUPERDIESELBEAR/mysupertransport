@@ -53,21 +53,18 @@ interface StageInfo {
 const STAGE_INFO: Record<number, StageInfo> = {
   1: {
     blockerText: (os) => {
-      if (os.mvr_ch_approval === 'denied' || os.pe_screening_result === 'non_clear')
+      if (os.mvr_ch_approval === 'denied')
         return 'An issue was found during background screening. Your coordinator will reach out with next steps.';
-      if (os.pe_screening === 'scheduled')
-        return 'Your pre-employment drug screening is scheduled. Complete it to move forward.';
       if (os.mvr_status === 'requested' || os.ch_status === 'requested')
         return 'Your MVR and Clearinghouse checks have been submitted. Results typically arrive in 2–5 business days.';
-      return 'Your coordinator will initiate your MVR, Clearinghouse check, and schedule your pre-employment screening.';
+      return 'Your coordinator will initiate your MVR and Clearinghouse check.';
     },
     responsibleParty: 'both',
-    responsibleLabel: 'Coordinator initiates · You complete screening',
+    responsibleLabel: 'Coordinator initiates',
     steps: [
       { label: 'MVR submitted', who: 'coordinator', done: (os) => os.mvr_status === 'requested' || os.mvr_status === 'received' },
       { label: 'Clearinghouse submitted', who: 'coordinator', done: (os) => os.ch_status === 'requested' || os.ch_status === 'received' },
       { label: 'Results received', who: 'coordinator', done: (os) => os.mvr_status === 'received' && os.ch_status === 'received' },
-      { label: 'PE screening completed', who: 'operator', done: (os) => os.pe_screening === 'results_in' },
       { label: 'MVR/CH approved', who: 'coordinator', done: (os) => os.mvr_ch_approval === 'approved' },
     ],
   },
@@ -158,6 +155,26 @@ const STAGE_INFO: Record<number, StageInfo> = {
   },
   6: {
     blockerText: (os) => {
+      if (os.pe_screening_result === 'non_clear')
+        return 'An issue was found on your pre-employment drug screening. Your coordinator will reach out with next steps.';
+      if (os.pe_screening_result === 'clear')
+        return 'Pre-employment screening cleared.';
+      if (os.pe_screening === 'results_in')
+        return 'Your pre-employment screening results are in. Your coordinator is reviewing them.';
+      if (os.pe_screening === 'scheduled')
+        return 'Your pre-employment drug screening is scheduled. Complete it at the clinic to move forward.';
+      return 'Your coordinator will schedule your DOT pre-employment drug screening at a nearby clinic.';
+    },
+    responsibleParty: 'both',
+    responsibleLabel: 'Coordinator schedules · You complete screening',
+    steps: [
+      { label: 'PE screening scheduled', who: 'coordinator', done: (os) => os.pe_screening === 'scheduled' || os.pe_screening === 'results_in' || os.pe_screening_result === 'clear' },
+      { label: 'PE screening completed', who: 'operator', done: (os) => os.pe_screening === 'results_in' || os.pe_screening_result === 'clear' || os.pe_screening_result === 'non_clear' },
+      { label: 'PE result cleared', who: 'coordinator', done: (os) => os.pe_screening_result === 'clear' },
+    ],
+  },
+  7: {
+    blockerText: (os) => {
       if (os.insurance_added_date)
         return `You were added to the insurance policy on ${new Date(os.insurance_added_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`;
       return 'Your coordinator will add you to the company insurance policy and assign your unit number.';
@@ -194,12 +211,11 @@ const WHATS_NEXT_STAGES: WhatsNextStage[] = [
     number: 1,
     title: 'Background Screening',
     icon: 'shield',
-    summary: 'Safety checks before you can drive. Your coordinator handles the submissions — you just need to show up for the drug screening.',
+    summary: 'Safety checks before you can drive. Your coordinator handles the MVR and Clearinghouse submissions on your behalf.',
     steps: [
       { label: 'MVR check submitted', detail: 'Your coordinator requests your Motor Vehicle Record from the state. No action needed from you.', who: 'coordinator' },
       { label: 'Clearinghouse check submitted', detail: 'A federal drug & alcohol violation check is run through FMCSA. Coordinator handles this too.', who: 'coordinator' },
       { label: 'Results received', detail: 'Results typically arrive within 2–5 business days. You\'ll be notified once in.', who: 'coordinator' },
-      { label: 'Pre-employment drug screening', detail: 'You\'ll be sent a scheduling link to complete a DOT drug test at a nearby clinic. This is required before dispatch.', who: 'operator' },
       { label: 'MVR / Clearinghouse approval', detail: 'Your coordinator reviews the results and marks approval before moving to the next stage.', who: 'coordinator' },
     ],
   },
@@ -250,6 +266,17 @@ const WHATS_NEXT_STAGES: WhatsNextStage[] = [
   },
   {
     number: 6,
+    title: 'Pre-Employment Screening',
+    icon: 'shield',
+    summary: 'DOT pre-employment drug screening. Your coordinator schedules it and you complete the test at a nearby clinic.',
+    steps: [
+      { label: 'Screening scheduled', detail: 'Your coordinator schedules the DOT drug test and sends you the QPassport form.', who: 'coordinator' },
+      { label: 'You complete the drug screening', detail: 'Visit the clinic listed on your QPassport and complete the DOT pre-employment drug test.', who: 'operator' },
+      { label: 'Results reviewed and cleared', detail: 'Your coordinator reviews the results and marks them clear before you can go live.', who: 'coordinator' },
+    ],
+  },
+  {
+    number: 7,
     title: 'Insurance & Activation',
     icon: 'insurance',
     summary: 'Final step: your coordinator adds you to the company insurance policy and assigns your unit number. Then you\'re ready to dispatch!',
@@ -680,6 +707,7 @@ export default function SmartProgressWidget({
     activeStage.number === 3 ? <FileText className="h-4 w-4" /> :
     activeStage.number === 4 ? <FileText className="h-4 w-4" /> :
     activeStage.number === 5 ? <Zap className="h-4 w-4" /> :
+    activeStage.number === 6 ? <Shield className="h-4 w-4" /> :
     <Shield className="h-4 w-4" />;
 
   // Stage 2: show inline upload if operatorId is available and docs are requested

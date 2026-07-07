@@ -249,7 +249,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
           )}
 
           {/* Stage 8 Pay Setup CTA */}
-          {stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
+          {stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
             <div className="mt-3 pt-3 border-t border-border/50">
               <Button
                 size="sm"
@@ -523,7 +523,7 @@ export default function OperatorStatusPage({
                 <p className="text-sm font-semibold text-foreground leading-tight">Your QPassport has been uploaded</p>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                   Download or view your QPassport and bring it to your drug screening appointment. The barcode confirms your identity at the facility.
-                  After your appointment, upload your receipt in the Stage 1 card below.
+                  After your appointment, upload your receipt in the Stage 6 card below.
                 </p>
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                   <button
@@ -682,7 +682,7 @@ export default function OperatorStatusPage({
               <p className="text-sm font-semibold text-foreground leading-tight">Your QPassport has been uploaded</p>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                 Download or view your QPassport and bring it to your drug screening appointment. The barcode confirms your identity at the facility.
-                After your appointment, upload your receipt in the Stage 1 card below.
+                After your appointment, upload your receipt in the Stage 6 card below.
               </p>
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <button
@@ -718,7 +718,7 @@ export default function OperatorStatusPage({
               </p>
               <p className="text-sm font-semibold text-foreground leading-tight">Don't forget to upload your receipt</p>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                After your drug screening appointment, take a photo of your receipt and upload it in Stage 1. Your coordinator needs it to process your results.
+                After your drug screening appointment, take a photo of your receipt and upload it in Stage 6. Your coordinator needs it to process your results.
               </p>
               <Button
                 size="sm"

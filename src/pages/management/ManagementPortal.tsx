@@ -921,7 +921,7 @@ export default function ManagementPortal() {
                   { label: 'ICA', count: sb.stage3_ica,        dotClass: 'bg-gold',               stageKey: 'Stage 3 — ICA',          title: 'ICA Contract' },
                   { label: 'MO',  count: sb.stage4_mo_reg,     dotClass: 'bg-info',               stageKey: 'Stage 4 — MO Reg',       title: 'MO Reg' },
                   { label: 'EQ',  count: sb.stage5_equipment,  dotClass: 'bg-purple-400',         stageKey: 'Stage 5 — Equipment',    title: 'Equipment' },
-                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: 'Stage 6 — Insurance',    title: 'Insurance' },
+                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: 'Stage 7 — Insurance',    title: 'Insurance' },
                   { label: '✓',   count: sb.fully_onboarded,   dotClass: 'bg-status-complete',    stageKey: 'all',                    title: 'Fully Onboarded' },
                 ].filter(b => b.count > 0);
                 return (

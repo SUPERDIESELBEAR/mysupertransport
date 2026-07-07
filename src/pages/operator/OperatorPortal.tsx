@@ -664,10 +664,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const s = effectiveOnboardingStatus;
     switch (stageNum) {
       case 1:
-        if (s.mvr_ch_approval === 'denied' || s.pe_screening_result === 'non_clear') return 'action_required';
-        // Match management: Stage 1 is complete only when BOTH the MVR/CH
-        // approval is approved AND the PE screening result is clear.
-        if (s.mvr_ch_approval === 'approved' && s.pe_screening_result === 'clear') return 'complete';
+        if (s.mvr_ch_approval === 'denied') return 'action_required';
+        if (s.mvr_ch_approval === 'approved') return 'complete';
         if (s.mvr_status !== 'not_started' && s.mvr_status != null) return 'in_progress';
         return 'not_started';
       case 2:
@@ -691,13 +689,19 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         if (s.decal_applied === 'yes' || s.eld_installed === 'yes' || (s as any).eld_exempt === true) return 'in_progress';
         return 'not_started';
       case 6:
-        if (s.insurance_added_date) return 'complete';
+        if (s.pe_screening_result === 'non_clear') return 'action_required';
+        if (s.pe_screening_result === 'clear') return 'complete';
+        if (s.pe_screening === 'results_in') return 'in_progress';
+        if (s.pe_screening === 'scheduled') return 'in_progress';
         return 'not_started';
       case 7:
+        if (s.insurance_added_date) return 'complete';
+        return 'not_started';
+      case 8:
         if (s.go_live_date) return 'complete';
         if (s.dispatch_ready_orientation || s.dispatch_ready_consortium || s.dispatch_ready_first_assigned) return 'in_progress';
         return 'not_started';
-      case 8:
+      case 9:
         if (paySetupData?.submitted_at && paySetupData?.terms_accepted) return 'complete';
         if (paySetupData && !paySetupData.submitted_at) return 'in_progress';
         return 'not_started';
@@ -712,17 +716,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     {
       number: 1,
       title: 'Background Check',
-      description: 'MVR, Clearinghouse, and pre-employment drug screening',
+      description: 'MVR and Clearinghouse review',
       icon: <Shield className="h-4 w-4" />,
       status: getStageStatus(1),
       substeps: [
         { label: 'MVR', value: fmt(onboardingStatus.mvr_status ?? 'not_started'), status: onboardingStatus.mvr_status === 'received' ? 'complete' : onboardingStatus.mvr_status === 'requested' ? 'in_progress' : 'not_started' },
         { label: 'Clearinghouse', value: fmt(onboardingStatus.ch_status ?? 'not_started'), status: onboardingStatus.ch_status === 'received' ? 'complete' : onboardingStatus.ch_status === 'requested' ? 'in_progress' : 'not_started' },
         { label: 'MVR/CH Approval', value: fmt(onboardingStatus.mvr_ch_approval ?? 'pending'), status: onboardingStatus.mvr_ch_approval === 'approved' ? 'complete' : onboardingStatus.mvr_ch_approval === 'denied' ? 'action_required' : 'in_progress' },
-        { label: 'PE Screening', value: onboardingStatus.pe_screening_result === 'clear' ? 'Complete' : fmt(onboardingStatus.pe_screening ?? 'not_started'), status: onboardingStatus.pe_screening_result === 'clear' || onboardingStatus.pe_screening === 'results_in' ? 'complete' : onboardingStatus.pe_screening === 'scheduled' ? 'in_progress' : 'not_started' },
-        { label: 'PE Result', value: fmt(onboardingStatus.pe_screening_result ?? 'pending'), status: onboardingStatus.pe_screening_result === 'clear' ? 'complete' : onboardingStatus.pe_screening_result === 'non_clear' ? 'action_required' : 'in_progress' },
       ],
-      hint: 'Your onboarding coordinator will initiate your MVR, Clearinghouse, and drug screening. No action needed yet.',
+      hint: 'Your onboarding coordinator will initiate your MVR and Clearinghouse checks. No action needed yet.',
     },
     {
       number: 2,
@@ -790,23 +792,35 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     },
     {
       number: 6,
+      title: 'Pre-Employment Screening',
+      description: onboardingStatus.pe_screening_result === 'clear' ? 'Drug screening cleared' : 'DOT pre-employment drug screening',
+      icon: <Shield className="h-4 w-4" />,
+      status: getStageStatus(6),
+      substeps: [
+        { label: 'PE Screening', value: onboardingStatus.pe_screening_result === 'clear' ? 'Complete' : fmt(onboardingStatus.pe_screening ?? 'not_started'), status: onboardingStatus.pe_screening_result === 'clear' || onboardingStatus.pe_screening === 'results_in' ? 'complete' : onboardingStatus.pe_screening === 'scheduled' ? 'in_progress' : 'not_started' },
+        { label: 'PE Result', value: fmt(onboardingStatus.pe_screening_result ?? 'pending'), status: onboardingStatus.pe_screening_result === 'clear' ? 'complete' : onboardingStatus.pe_screening_result === 'non_clear' ? 'action_required' : 'in_progress' },
+      ],
+      hint: 'Your coordinator will schedule your drug screening appointment and upload the QPassport form here.',
+    },
+    {
+      number: 7,
       title: 'Insurance & Activation',
       description: onboardingStatus.insurance_added_date ? `Added to policy on ${new Date(onboardingStatus.insurance_added_date).toLocaleDateString()}` : 'Added to insurance policy and assigned unit number',
       icon: <Shield className="h-4 w-4" />,
-      status: getStageStatus(6),
+      status: getStageStatus(7),
       substeps: [
         { label: 'Insurance', value: onboardingStatus.insurance_added_date ? 'Added' : 'Pending', status: onboardingStatus.insurance_added_date ? 'complete' : 'not_started' },
         ...(onboardingStatus.unit_number ? [{ label: 'Unit Number', value: onboardingStatus.unit_number, status: 'complete' as StageStatus }] : []),
       ],
     },
     {
-      number: 7,
+      number: 8,
       title: 'Go Live & Dispatch Readiness',
       description: onboardingStatus.go_live_date
         ? `Go-live confirmed on ${new Date(onboardingStatus.go_live_date + 'T12:00:00').toLocaleDateString()}`
         : 'Final readiness check before first dispatch',
       icon: <CheckCircle2 className="h-4 w-4" />,
-      status: getStageStatus(7),
+      status: getStageStatus(8),
       substeps: [
         { label: 'Orientation Call', value: onboardingStatus.dispatch_ready_orientation ? 'Completed' : 'Pending', status: onboardingStatus.dispatch_ready_orientation ? 'complete' : 'not_started' },
         { label: 'Consortium Enrolled', value: onboardingStatus.dispatch_ready_consortium ? 'Enrolled' : 'Pending', status: onboardingStatus.dispatch_ready_consortium ? 'complete' : 'not_started' },
@@ -816,13 +830,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       hint: 'Your coordinator will confirm your orientation call, consortium enrollment, and first dispatch assignment before setting your official go-live date.',
     },
     {
-      number: 8,
+      number: 9,
       title: 'Contractor Pay Setup',
       description: paySetupData?.submitted_at && paySetupData?.terms_accepted
         ? 'Payroll information submitted — account setup in progress'
         : 'Enter your payroll details so we can set up your contractor account',
       icon: <CreditCard className="h-4 w-4" />,
-      status: getStageStatus(8),
+      status: getStageStatus(9),
       substeps: [
         {
           label: 'Pay Setup',
@@ -1711,7 +1725,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <CreditCard className="h-5 w-5 text-primary" />
               </span>
               <div>
-                <h2 className="text-base font-bold text-foreground">Stage 8 — Contractor Pay Setup</h2>
+                <h2 className="text-base font-bold text-foreground">Stage 9 — Contractor Pay Setup</h2>
                 <p className="text-xs text-muted-foreground">Enter your payroll details to get your contractor account set up.</p>
               </div>
             </div>

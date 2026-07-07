@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
     const subject = `💰 Pay Setup Submitted — ${driverName}`;
     const heading = `💰 Pay Setup Ready — ${driverName}`;
     const body = `
-      <p><strong>${driverName}</strong> just completed Stage 8 (Contractor Pay Setup) and is ready for the payroll setup link.</p>
+      <p><strong>${driverName}</strong> just completed Stage 9 (Contractor Pay Setup) and is ready for the payroll setup link.</p>
 
       <table cellpadding="0" cellspacing="0" style="margin:20px 0;border-collapse:collapse;width:100%;">
         <tr><td style="padding:8px 0;color:#888;font-size:13px;width:140px;">Driver</td>

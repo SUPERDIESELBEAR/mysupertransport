@@ -129,27 +129,27 @@ function StageCard({
   const isComplete = stage.status === 'complete';
   // Stage 8 (Pay Setup) is operator-actionable from day one — treat it as live
   // even when not_started so the CTA doesn't read as disabled.
-  const isStage8NotStarted = stage.number === 8 && isNotStarted;
+  const isStage9NotStarted = stage.number === 9 && isNotStarted;
   // Complete stages start collapsed, others start expanded
   const [expanded, setExpanded] = useState(
-    isStage8NotStarted ? true : !isComplete && !isNotStarted
+    isStage9NotStarted ? true : !isComplete && !isNotStarted
   );
 
-  const showSubsteps = stage.substeps.length > 0 && (!isNotStarted || isStage8NotStarted);
+  const showSubsteps = stage.substeps.length > 0 && (!isNotStarted || isStage9NotStarted);
   // Stage 8 header acts as a deep link to the Pay Setup form instead of toggling.
-  const isStage8DeepLink = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
-  const canToggle = showSubsteps && !isStage8DeepLink;
-  const cardOpacity = isStage8NotStarted ? '' : colors.opacity;
+  const isStage9DeepLink = stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress');
+  const canToggle = showSubsteps && !isStage9DeepLink;
+  const cardOpacity = isStage9NotStarted ? '' : colors.opacity;
 
   // CTA logic
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
   const icaSent = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
   const icaSigned = stage.number === 3 && onboardingStatus.ica_status === 'complete';
   const showIcaCTA = icaSent || icaSigned;
-  const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
+  const showPaySetupCTA = stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress');
 
   // Show PE timeline in Stage 1 when screening has started
-  const showPETimeline = stage.number === 1 && onboardingStatus.pe_screening && onboardingStatus.pe_screening !== 'not_started';
+  const showPETimeline = stage.number === 6 && onboardingStatus.pe_screening && onboardingStatus.pe_screening !== 'not_started';
 
   return (
     <div
@@ -158,18 +158,18 @@ function StageCard({
       {/* Stage header */}
       <button
         onClick={() => {
-          if (isStage8DeepLink) {
+          if (isStage9DeepLink) {
             onNavigateTo('pay-setup');
           } else if (canToggle) {
             setExpanded(e => !e);
           }
         }}
         className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-          canToggle || isStage8DeepLink ? 'cursor-pointer hover:bg-muted/30 active:bg-muted/40' : 'cursor-default'
+          canToggle || isStage9DeepLink ? 'cursor-pointer hover:bg-muted/30 active:bg-muted/40' : 'cursor-default'
         } ${colors.headerBg}`}
-        disabled={!canToggle && !isStage8DeepLink}
+        disabled={!canToggle && !isStage9DeepLink}
         aria-expanded={canToggle ? expanded : undefined}
-        aria-label={isStage8DeepLink ? `Open ${stage.title}` : undefined}
+        aria-label={isStage9DeepLink ? `Open ${stage.title}` : undefined}
       >
         {/* Stage number + icon */}
         <span className={`shrink-0 ${colors.icon}`}>
@@ -194,7 +194,7 @@ function StageCard({
           <span className="shrink-0 text-muted-foreground/40">
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </span>
-        ) : isStage8DeepLink ? (
+        ) : isStage9DeepLink ? (
           <span className="shrink-0 text-gold">
             <ArrowRight className="h-3.5 w-3.5" />
           </span>

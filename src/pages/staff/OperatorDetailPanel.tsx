@@ -1149,8 +1149,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const autoCollapse = new Set<string>();
         if ((os.mvr_status === 'requested' || os.mvr_status === 'received') &&
             (os.ch_status === 'requested' || os.ch_status === 'received') &&
-            os.mvr_ch_approval === 'approved' &&
-            os.pe_screening_result === 'clear') autoCollapse.add('stage1');
+            os.mvr_ch_approval === 'approved') autoCollapse.add('stage1');
+        if (os.pe_screening_result === 'clear') autoCollapse.add('stagePE');
         if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
         if (os.ica_status === 'complete') autoCollapse.add('stage3');
         if ((os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') &&
@@ -2294,7 +2294,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             )}
             {/* Collapse/Expand All Stages */}
             {(() => {
-              const allKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
+              const allKeys = ['stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7'];
               const allCollapsed = allKeys.every(k => collapsedStages.has(k));
               return (
                 <Tooltip>
@@ -2507,11 +2507,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const _moNa = status.registration_status === 'own_registration';
         const _stageStatuses: { key: string; label: string; complete: boolean; exception?: boolean }[] = [
-          { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear' },
+          { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' },
           { key: 'stage2', label: 'Docs',  complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
           { key: 'stage3', label: 'ICA',   complete: status.ica_status === 'complete' },
           { key: 'stage4', label: 'MO',    complete: _moNa || status.mo_reg_received === 'yes' },
           { key: 'stage5', label: 'Equip', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
+          { key: 'stagePE', label: 'PE',   complete: status.pe_screening_result === 'clear' },
           { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
           { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
           { key: 'stage8', label: 'Pay',   complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
@@ -3473,11 +3474,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
-              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
@@ -3497,6 +3497,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
+              { label: 'PE Scheduled',        done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
+              { label: 'PE Screening Clear',  done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
@@ -3573,10 +3577,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       const stickyDots: { key: string; shortLabel: string; state: StickyDotState; tooltip: string; items: { label: string; done: boolean }[] }[] = [
                         {
                           key: 'stage1', shortLabel: 'BG',
-                          state: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear') ? 'complete'
-                            : ([status.mvr_status, status.ch_status].some(v => v === 'requested' || v === 'received') || status.mvr_ch_approval === 'approved' || status.pe_screening_result === 'clear') ? 'progress'
+                          state: (status.mvr_ch_approval === 'approved') ? 'complete'
+                            : ([status.mvr_status, status.ch_status].some(v => v === 'requested' || v === 'received') || status.mvr_ch_approval === 'approved') ? 'progress'
                             : 'none',
-                          tooltip: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear') ? 'Complete' : 'In Progress',
+                          tooltip: (status.mvr_ch_approval === 'approved') ? 'Complete' : 'In Progress',
                           items: stages.find(s => s.key === 'stage1')?.items ?? [],
                         },
                         {
@@ -3604,6 +3608,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
                           tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/3 done` : 'Not started'; })(),
                           items: stages.find(s => s.key === 'stage5')?.items ?? [],
+                        },
+                        {
+                          key: 'stagePE', shortLabel: 'PE',
+                          state: status.pe_screening_result === 'clear' ? 'complete'
+                            : (status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' || status.pe_screening_result === 'non_clear') ? 'progress'
+                            : 'none',
+                          tooltip: status.pe_screening_result === 'clear' ? 'Complete'
+                            : status.pe_screening_result === 'non_clear' ? 'Non-Clear — Review'
+                            : status.pe_screening === 'results_in' ? 'Results In'
+                            : status.pe_screening === 'scheduled' ? 'Scheduled'
+                            : 'Not started',
+                          items: stages.find(s => s.key === 'stagePE')?.items ?? [],
                         },
                         {
                           key: 'stage6', shortLabel: 'Ins',
@@ -3688,7 +3704,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* Collapse All / Expand All quick-action */}
                   {(() => {
-                    const stickyAllKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
+                    const stickyAllKeys = ['stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7'];
                     const stickyAllCollapsed = stickyAllKeys.every(k => collapsedStages.has(k));
                     return (
                       <Tooltip>
@@ -4186,11 +4202,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 22 } : undefined}>{(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
-              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
@@ -4210,6 +4225,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
+              { label: 'PE Scheduled',       done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
+              { label: 'PE Screening Clear', done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
@@ -4299,19 +4318,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Stage Summary Dot Row + Collapse All */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 23 } : undefined}>{(() => {
-        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'];
+        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stagePE', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
         type DotState = 'complete' | 'progress' | 'na' | 'none';
         const stageDots: { key: string; label: string; shortLabel: string; state: DotState; tooltip: string }[] = [
           {
             key: 'stage1', label: 'Background', shortLabel: 'BG',
-            state: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear')
+            state: (status.mvr_ch_approval === 'approved')
               ? 'complete'
               : ([status.mvr_status, status.ch_status].some(s => s === 'requested' || s === 'received') ||
-                 status.mvr_ch_approval === 'approved' || status.pe_screening_result === 'clear')
+                 status.mvr_ch_approval === 'approved')
               ? 'progress' : 'none',
-            tooltip: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear'
+            tooltip: status.mvr_ch_approval === 'approved'
               ? 'Complete' : 'In Progress',
           },
           {
@@ -4355,6 +4374,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               const done = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(s => s === 'yes').length;
               return done === 3 ? 'Complete' : done > 0 ? `${done}/3 done` : 'Not started';
             })(),
+          },
+          {
+            key: 'stagePE', label: 'PE Screening', shortLabel: 'PE',
+            state: status.pe_screening_result === 'clear' ? 'complete'
+              : (status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' || status.pe_screening_result === 'non_clear') ? 'progress'
+              : 'none',
+            tooltip: status.pe_screening_result === 'clear' ? 'Complete'
+              : status.pe_screening_result === 'non_clear' ? 'Non-Clear — Review'
+              : status.pe_screening === 'results_in' ? 'Results In'
+              : status.pe_screening === 'scheduled' ? 'Scheduled'
+              : 'Not started',
           },
           {
             key: 'stage6', label: 'Insurance', shortLabel: 'Ins',
@@ -4419,7 +4449,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 24 } : undefined}><div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         {(() => {
-          const s1Complete = status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear';
+          const s1Complete = status.mvr_ch_approval === 'approved';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
             <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
@@ -4436,10 +4466,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           status.mvr_status === 'requested' || status.mvr_status === 'received',
                           status.ch_status === 'requested' || status.ch_status === 'received',
                           status.mvr_ch_approval === 'approved',
-                          status.pe_screening_result === 'clear',
                         ].filter(Boolean).length;
                         return done > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/3 done</span>
                         ) : null;
                       })()
                   }
@@ -4491,7 +4520,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       value={(status.mvr_ch_approval as string) || undefined}
                       onValueChange={v => {
                         updateStatusAndPersist('mvr_ch_approval', v);
-                        if (v === 'approved' && status.pe_screening_result === 'clear') {
+                        if (v === 'approved') {
                           setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
                         }
                       }}
@@ -4501,125 +4530,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         {approvalOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  </div>
-                  {/* PE Screening */}
-                  <div className="space-y-2">
-                    <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
-                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
-                      <StageDatePicker
-                        label="PE Scheduled Date"
-                        value={status.pe_scheduled_date ?? null}
-                        onChange={v => setStatus(prev => ({ ...prev, pe_scheduled_date: v }))}
-                      />
-                    )}
-                    {status.pe_screening === 'results_in' && (
-                      <StageDatePicker
-                        label="PE Results Date"
-                        value={status.pe_results_date ?? null}
-                        onChange={v => setStatus(prev => ({ ...prev, pe_results_date: v }))}
-                      />
-                    )}
-                    {/* QPassport Upload — visible when screening is scheduled or results_in */}
-                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
-                      <QPassportUploader
-                        operatorId={operatorId}
-                        currentUrl={status.qpassport_url}
-                        onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
-                      />
-                    )}
-                    {/* PE Receipt — view via signed URL in FilePreviewModal */}
-                    {docFiles['pe_receipt']?.[0] && (
-                      <div className="space-y-1">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const raw = docFiles['pe_receipt'][0].file_url ?? '';
-                            const storagePath = raw.startsWith('http')
-                              ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
-                              : raw;
-                            const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
-                            if (data?.signedUrl) setStage2Preview({ url: data.signedUrl, name: docFiles['pe_receipt'][0].file_name ?? 'PE Receipt', docType: 'pe_receipt' });
-                          }}
-                          className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
-                        >
-                          <Eye className="h-3 w-3" /> View Receipt
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Screening Result</Label>
-                    <Select
-                      value={(status.pe_screening_result as string) || undefined}
-                      onValueChange={v => {
-                        updateStatusAndPersist('pe_screening_result', v);
-                        if (v === 'clear' && status.mvr_ch_approval === 'approved') {
-                          setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        {resultOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {/* PE Results Document Upload */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {status.pe_results_doc_url && (
-                        <a href={status.pe_results_doc_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
-                          <ExternalLink className="h-3 w-3" /> View Document
-                        </a>
-                      )}
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                        className="hidden"
-                        id={`pe-results-upload-${operatorId}`}
-                        onChange={async e => {
-                          const f = e.target.files?.[0];
-                          if (!f) return;
-                          e.target.value = '';
-                          const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
-                          const mime = f.type || '';
-                          const allowed = ['application/pdf','image/jpeg','image/png'];
-                          const allowedExt = ['pdf','jpg','jpeg','png'];
-                          if (!allowed.includes(mime) && !allowedExt.includes(ext)) {
-                            toast({ title: 'Invalid file type', description: 'Please upload a PDF, JPG, or PNG.', variant: 'destructive' });
-                            return;
-                          }
-                          if (f.size > 10 * 1024 * 1024) {
-                            toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
-                            return;
-                          }
-                          try {
-                            const path = `${operatorId}/pe-results/${Date.now()}.${ext || 'pdf'}`;
-                            const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, f, { upsert: true });
-                            if (upErr) throw upErr;
-                            const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
-                            const fileUrl = sd?.signedUrl ?? '';
-                            const { error: updateErr } = await supabase.from('onboarding_status').update({ pe_results_doc_url: fileUrl } as any).eq('operator_id', operatorId);
-                            if (updateErr) throw updateErr;
-                            setStatus(prev => ({ ...prev, pe_results_doc_url: fileUrl }));
-                            toast({ title: 'PE Results uploaded' });
-                          } catch (err: unknown) {
-                            const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
-                            toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant={status.pe_results_doc_url ? 'outline' : 'default'}
-                        onClick={() => document.getElementById(`pe-results-upload-${operatorId}`)?.click()}
-                        className={`text-xs gap-1 h-7 px-2.5 ${!status.pe_results_doc_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                      >
-                        <Upload className="h-3 w-3" /> {status.pe_results_doc_url ? 'Replace' : 'Upload Results'}
-                      </Button>
-                    </div>
                   </div>
                   {/* Notes */}
                   <div className="space-y-1.5">
@@ -5515,7 +5425,155 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-        {/* Stage 6 — Insurance */}
+        {/* Stage 6 — Pre-Employment Screening */}
+        {(() => {
+          const spComplete = status.pe_screening_result === 'clear';
+          const spCollapsed = collapsedStages.has('stagePE');
+          return (
+            <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stagePE')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-4 w-4 ${spComplete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 6 — Pre-Employment Screening</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {spComplete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />PE Clear</span>
+                    : status.pe_screening_result === 'non_clear'
+                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-destructive/10 text-destructive border border-destructive/30"><AlertTriangle className="h-3 w-3" />Non-Clear</span>
+                      : status.pe_screening
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />In Progress</span>
+                        : null
+                  }
+                  {spCollapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!spCollapsed && (
+                <div className="px-5 pb-5 space-y-4">
+                  {/* PE Screening */}
+                  <div className="space-y-2">
+                    <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <StageDatePicker
+                        label="PE Scheduled Date"
+                        value={status.pe_scheduled_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_scheduled_date: v }))}
+                      />
+                    )}
+                    {status.pe_screening === 'results_in' && (
+                      <StageDatePicker
+                        label="PE Results Date"
+                        value={status.pe_results_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_results_date: v }))}
+                      />
+                    )}
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <QPassportUploader
+                        operatorId={operatorId}
+                        currentUrl={status.qpassport_url}
+                        onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
+                      />
+                    )}
+                    {docFiles['pe_receipt']?.[0] && (
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const raw = docFiles['pe_receipt'][0].file_url ?? '';
+                            const storagePath = raw.startsWith('http')
+                              ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
+                              : raw;
+                            const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
+                            if (data?.signedUrl) setStage2Preview({ url: data.signedUrl, name: docFiles['pe_receipt'][0].file_name ?? 'PE Receipt', docType: 'pe_receipt' });
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                        >
+                          <Eye className="h-3 w-3" /> View Receipt
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Screening Result</Label>
+                    <Select
+                      value={(status.pe_screening_result as string) || undefined}
+                      onValueChange={v => {
+                        updateStatusAndPersist('pe_screening_result', v);
+                        if (v === 'clear') {
+                          setCollapsedStages(prev => { const next = new Set(prev); next.add('stagePE'); return next; });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        {resultOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* PE Results Document Upload */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {status.pe_results_doc_url && (
+                        <a href={status.pe_results_doc_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+                          <ExternalLink className="h-3 w-3" /> View Document
+                        </a>
+                      )}
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                        className="hidden"
+                        id={`pe-results-upload-${operatorId}`}
+                        onChange={async e => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          e.target.value = '';
+                          const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+                          const mime = f.type || '';
+                          const allowed = ['application/pdf','image/jpeg','image/png'];
+                          const allowedExt = ['pdf','jpg','jpeg','png'];
+                          if (!allowed.includes(mime) && !allowedExt.includes(ext)) {
+                            toast({ title: 'Invalid file type', description: 'Please upload a PDF, JPG, or PNG.', variant: 'destructive' });
+                            return;
+                          }
+                          if (f.size > 10 * 1024 * 1024) {
+                            toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
+                            return;
+                          }
+                          try {
+                            const path = `${operatorId}/pe-results/${Date.now()}.${ext || 'pdf'}`;
+                            const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, f, { upsert: true });
+                            if (upErr) throw upErr;
+                            const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
+                            const fileUrl = sd?.signedUrl ?? '';
+                            const { error: updateErr } = await supabase.from('onboarding_status').update({ pe_results_doc_url: fileUrl } as any).eq('operator_id', operatorId);
+                            if (updateErr) throw updateErr;
+                            setStatus(prev => ({ ...prev, pe_results_doc_url: fileUrl }));
+                            toast({ title: 'PE Results uploaded' });
+                          } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
+                            toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant={status.pe_results_doc_url ? 'outline' : 'default'}
+                        onClick={() => document.getElementById(`pe-results-upload-${operatorId}`)?.click()}
+                        className={`text-xs gap-1 h-7 px-2.5 ${!status.pe_results_doc_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                      >
+                        <Upload className="h-3 w-3" /> {status.pe_results_doc_url ? 'Replace' : 'Upload Results'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Stage 7 — Insurance */}
         {(() => {
           const s6Complete = !!status.insurance_added_date;
           const s6Collapsed = collapsedStages.has('stage6');
@@ -5525,7 +5583,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
-                  <h3 className="font-semibold text-foreground text-sm">Stage 6 — Insurance</h3>
+                  <h3 className="font-semibold text-foreground text-sm">Stage 7 — Insurance</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {s6Complete
@@ -5905,7 +5963,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-        {/* Stage 7 — Go Live & Dispatch Readiness */}
+        {/* Stage 8 — Go Live & Dispatch Readiness */}
         {(() => {
           const s7Complete = !!status.go_live_date;
           const s7Collapsed = collapsedStages.has('stage7');
@@ -5914,7 +5972,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
-                  <h3 className="font-semibold text-foreground text-sm">Stage 7 — Go Live & Dispatch Readiness</h3>
+                  <h3 className="font-semibold text-foreground text-sm">Stage 8 — Go Live & Dispatch Readiness</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {s7Complete && (
@@ -6153,7 +6211,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>)}
 
 
-      {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
+      {/* Stage 9 — Contractor Pay Setup (read-only, uses component-level state) */}
       <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
@@ -6169,7 +6227,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <CreditCard className={`h-4 w-4 ${isComplete ? 'text-status-complete' : 'text-muted-foreground'}`} />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Stage 8 — Contractor Pay Setup</p>
+                <p className="text-sm font-semibold text-foreground">Stage 9 — Contractor Pay Setup</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {!paySetupLoaded ? 'Loading…' : isComplete ? `Submitted ${new Date(ps.submitted_at).toLocaleDateString()}` : ps ? 'In progress — not yet submitted' : 'Not started'}
                 </p>
@@ -6383,7 +6441,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="flex items-center gap-2">
               <History className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-semibold text-foreground text-sm">Onboarding History</h3>
-              <span className="text-[11px] text-muted-foreground">(Application, Stages 1–7, Costs, Progress)</span>
+              <span className="text-[11px] text-muted-foreground">(Application, Stages 1–8, Costs, Progress)</span>
             </div>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${onboardingHistoryExpanded ? 'rotate-180' : ''}`} />
           </button>

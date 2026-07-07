@@ -150,6 +150,7 @@ const STAGE_KEY_TO_DETAIL: Record<string, string> = {
   ica:       'stage3',
   mo:        'stage4',
   equip:     'stage5',
+  pe:        'stagePE',
   ins:       'stage6',
   dispatch:  'stage7',
   pay_setup: 'stage8',
@@ -491,7 +492,8 @@ interface PipelineDashboardProps {
 
 
 function computeStage(os: Record<string, string | boolean | null>): string {
-  if (os.insurance_added_date) return 'Stage 6 — Insurance';
+  if (os.insurance_added_date) return 'Stage 7 — Insurance';
+  if (os.pe_screening_result === 'clear') return 'Stage 6 — PE Screening';
   if (os.decal_applied === 'yes' && (os.eld_exempt === true || os.eld_installed === 'yes') && os.fuel_card_issued === 'yes') return 'Stage 5 — Equipment';
   if (os.ica_status === 'complete') return 'Stage 4 — MO Registration';
   if (os.ica_status === 'in_progress' || os.ica_status === 'sent_for_signature') return 'Stage 3 — ICA';
@@ -505,8 +507,9 @@ const STAGES = [
   'Stage 3 — ICA',
   'Stage 4 — MO Registration',
   'Stage 5 — Equipment',
-  'Stage 6 — Insurance',
-  'Stage 8 — Pay Setup',
+  'Stage 6 — PE Screening',
+  'Stage 7 — Insurance',
+  'Stage 9 — Pay Setup',
 ];
 
 const STAGE_ABBR: Record<string, string> = {
@@ -515,8 +518,9 @@ const STAGE_ABBR: Record<string, string> = {
   'Stage 3 — ICA':            'ICA',
   'Stage 4 — MO Registration':'MO',
   'Stage 5 — Equipment':      'Equip',
-  'Stage 6 — Insurance':      'Ins',
-  'Stage 8 — Pay Setup':      'Pay',
+  'Stage 6 — PE Screening':   'PE',
+  'Stage 7 — Insurance':      'Ins',
+  'Stage 9 — Pay Setup':      'Pay',
 };
 
 // Owner test accounts — excluded from main pipeline, shown in their own section
@@ -2686,7 +2690,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           'Stage 3 — ICA':             { bg: 'bg-gold/8',               border: 'border-gold/25',             text: 'text-gold',             dot: 'bg-gold',             icon: '📝' },
           'Stage 4 — MO Registration': { bg: 'bg-info/8',               border: 'border-info/25',             text: 'text-info',             dot: 'bg-info',             icon: '🗺️' },
           'Stage 5 — Equipment':       { bg: 'bg-purple-400/8',         border: 'border-purple-400/25',       text: 'text-purple-500',       dot: 'bg-purple-400',       icon: '🚛' },
-          'Stage 6 — Insurance':       { bg: 'bg-orange-400/8',         border: 'border-orange-400/25',       text: 'text-orange-500',       dot: 'bg-orange-400',       icon: '🛡️' },
+          'Stage 6 — PE Screening':    { bg: 'bg-cyan-400/8',           border: 'border-cyan-400/25',         text: 'text-cyan-600',         dot: 'bg-cyan-400',         icon: '🧪' },
+          'Stage 7 — Insurance':       { bg: 'bg-orange-400/8',         border: 'border-orange-400/25',       text: 'text-orange-500',       dot: 'bg-orange-400',       icon: '🛡️' },
         };
         const s = STAGE_BANNER[legendStageFilter] ?? STAGE_BANNER['Stage 1 — Background'];
         return (

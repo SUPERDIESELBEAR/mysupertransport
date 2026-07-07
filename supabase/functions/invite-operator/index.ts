@@ -164,8 +164,6 @@ Deno.serve(async (req) => {
             mvr_status: 'received',
             ch_status: 'received',
             mvr_ch_approval: 'approved',
-            pe_screening: 'results_in',
-            pe_screening_result: 'clear',
             // Stage 2 — Documents
             form_2290: 'received',
             truck_title: 'received',
@@ -180,9 +178,12 @@ Deno.serve(async (req) => {
             decal_applied: 'yes',
             eld_installed: 'yes',
             fuel_card_issued: 'yes',
-            // Stage 6 — Insurance (triggers fully_onboarded)
+            // Stage 6 — Pre-Employment Screening
+            pe_screening: 'results_in',
+            pe_screening_result: 'clear',
+            // Stage 7 — Insurance (triggers fully_onboarded)
             insurance_added_date: today,
-            // Stage 7 — Go Live
+            // Stage 8 — Go Live
             go_live_date: today,
           });
           // Create active_dispatch row server-side
