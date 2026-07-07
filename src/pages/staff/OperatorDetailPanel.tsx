@@ -1149,8 +1149,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const autoCollapse = new Set<string>();
         if ((os.mvr_status === 'requested' || os.mvr_status === 'received') &&
             (os.ch_status === 'requested' || os.ch_status === 'received') &&
-            os.mvr_ch_approval === 'approved' &&
-            os.pe_screening_result === 'clear') autoCollapse.add('stage1');
+            os.mvr_ch_approval === 'approved') autoCollapse.add('stage1');
+        if (os.pe_screening_result === 'clear') autoCollapse.add('stagePE');
         if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
         if (os.ica_status === 'complete') autoCollapse.add('stage3');
         if ((os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') &&
@@ -2294,7 +2294,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             )}
             {/* Collapse/Expand All Stages */}
             {(() => {
-              const allKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
+              const allKeys = ['stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7'];
               const allCollapsed = allKeys.every(k => collapsedStages.has(k));
               return (
                 <Tooltip>
@@ -2507,11 +2507,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const _moNa = status.registration_status === 'own_registration';
         const _stageStatuses: { key: string; label: string; complete: boolean; exception?: boolean }[] = [
-          { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear' },
+          { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' },
           { key: 'stage2', label: 'Docs',  complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
           { key: 'stage3', label: 'ICA',   complete: status.ica_status === 'complete' },
           { key: 'stage4', label: 'MO',    complete: _moNa || status.mo_reg_received === 'yes' },
           { key: 'stage5', label: 'Equip', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
+          { key: 'stagePE', label: 'PE',   complete: status.pe_screening_result === 'clear' },
           { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
           { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
           { key: 'stage8', label: 'Pay',   complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
