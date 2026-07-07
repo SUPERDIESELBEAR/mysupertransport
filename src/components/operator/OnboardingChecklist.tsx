@@ -129,7 +129,7 @@ function StageCard({
   const isComplete = stage.status === 'complete';
   // Stage 8 (Pay Setup) is operator-actionable from day one — treat it as live
   // even when not_started so the CTA doesn't read as disabled.
-  const isStage8NotStarted = stage.number === 8 && isNotStarted;
+  const isStage9NotStarted = stage.number === 9 && isNotStarted;
   // Complete stages start collapsed, others start expanded
   const [expanded, setExpanded] = useState(
     isStage8NotStarted ? true : !isComplete && !isNotStarted
@@ -137,7 +137,7 @@ function StageCard({
 
   const showSubsteps = stage.substeps.length > 0 && (!isNotStarted || isStage8NotStarted);
   // Stage 8 header acts as a deep link to the Pay Setup form instead of toggling.
-  const isStage8DeepLink = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
+  const isStage9DeepLink = stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress');
   const canToggle = showSubsteps && !isStage8DeepLink;
   const cardOpacity = isStage8NotStarted ? '' : colors.opacity;
 
@@ -146,10 +146,10 @@ function StageCard({
   const icaSent = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
   const icaSigned = stage.number === 3 && onboardingStatus.ica_status === 'complete';
   const showIcaCTA = icaSent || icaSigned;
-  const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
+  const showPaySetupCTA = stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress');
 
   // Show PE timeline in Stage 1 when screening has started
-  const showPETimeline = stage.number === 1 && onboardingStatus.pe_screening && onboardingStatus.pe_screening !== 'not_started';
+  const showPETimeline = stage.number === 6 && onboardingStatus.pe_screening && onboardingStatus.pe_screening !== 'not_started';
 
   return (
     <div
