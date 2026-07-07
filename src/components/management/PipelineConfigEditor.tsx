@@ -45,6 +45,7 @@ const NODE_COLORS: Record<string, string> = {
   ica:   'bg-purple-500/15 text-purple-700 border-purple-200',
   mo:    'bg-green-500/15 text-green-700 border-green-200',
   equip: 'bg-orange-500/15 text-orange-700 border-orange-200',
+  pe:    'bg-cyan-500/15 text-cyan-700 border-cyan-200',
   ins:   'bg-teal-500/15 text-teal-700 border-teal-200',
 };
 
@@ -54,6 +55,7 @@ const NODE_DOT_COLORS: Record<string, string> = {
   ica:   'bg-purple-500',
   mo:    'bg-green-500',
   equip: 'bg-orange-500',
+  pe:    'bg-cyan-500',
   ins:   'bg-teal-500',
 };
 
