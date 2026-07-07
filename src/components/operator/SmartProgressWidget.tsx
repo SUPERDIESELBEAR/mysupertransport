@@ -53,21 +53,18 @@ interface StageInfo {
 const STAGE_INFO: Record<number, StageInfo> = {
   1: {
     blockerText: (os) => {
-      if (os.mvr_ch_approval === 'denied' || os.pe_screening_result === 'non_clear')
+      if (os.mvr_ch_approval === 'denied')
         return 'An issue was found during background screening. Your coordinator will reach out with next steps.';
-      if (os.pe_screening === 'scheduled')
-        return 'Your pre-employment drug screening is scheduled. Complete it to move forward.';
       if (os.mvr_status === 'requested' || os.ch_status === 'requested')
         return 'Your MVR and Clearinghouse checks have been submitted. Results typically arrive in 2–5 business days.';
-      return 'Your coordinator will initiate your MVR, Clearinghouse check, and schedule your pre-employment screening.';
+      return 'Your coordinator will initiate your MVR and Clearinghouse check.';
     },
     responsibleParty: 'both',
-    responsibleLabel: 'Coordinator initiates · You complete screening',
+    responsibleLabel: 'Coordinator initiates',
     steps: [
       { label: 'MVR submitted', who: 'coordinator', done: (os) => os.mvr_status === 'requested' || os.mvr_status === 'received' },
       { label: 'Clearinghouse submitted', who: 'coordinator', done: (os) => os.ch_status === 'requested' || os.ch_status === 'received' },
       { label: 'Results received', who: 'coordinator', done: (os) => os.mvr_status === 'received' && os.ch_status === 'received' },
-      { label: 'PE screening completed', who: 'operator', done: (os) => os.pe_screening === 'results_in' },
       { label: 'MVR/CH approved', who: 'coordinator', done: (os) => os.mvr_ch_approval === 'approved' },
     ],
   },
