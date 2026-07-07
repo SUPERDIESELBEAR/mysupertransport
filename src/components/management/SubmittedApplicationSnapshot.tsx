@@ -407,11 +407,17 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
         {a.signature_image_url && (
           <div className="pt-2">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Signature image</div>
-            <img
-              src={a.signature_image_url}
-              alt="Applicant signature"
-              className="max-h-24 border border-border rounded-md bg-white p-1"
-            />
+            {signatureDataUrl ? (
+              <img
+                src={signatureDataUrl}
+                alt="Applicant signature"
+                className="max-h-24 border border-border rounded-md bg-white p-1"
+              />
+            ) : (
+              <div className="h-24 w-48 border border-border rounded-md bg-muted/30 flex items-center justify-center text-[11px] text-muted-foreground">
+                Loading signature…
+              </div>
+            )}
           </div>
         )}
       </Section>
