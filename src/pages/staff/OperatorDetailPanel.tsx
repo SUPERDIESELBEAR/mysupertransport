@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature, Rocket } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { PreviewLink } from '@/components/documents/PreviewLink';
 import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
@@ -225,9 +226,9 @@ function QPassportUploader({
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport PDF</Label>
       <div className="flex items-center gap-2 flex-wrap">
         {currentUrl && (
-          <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+          <PreviewLink url={currentUrl} name="QPassport.pdf" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
             <ExternalLink className="h-3 w-3" /> View QPassport PDF
-          </a>
+          </PreviewLink>
         )}
         <input
           ref={inputRef}
@@ -5516,9 +5517,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
                     <div className="flex items-center gap-2 flex-wrap">
                       {status.pe_results_doc_url && (
-                        <a href={status.pe_results_doc_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+                        <PreviewLink url={status.pe_results_doc_url} name="PE Results" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
                           <ExternalLink className="h-3 w-3" /> View Document
-                        </a>
+                        </PreviewLink>
                       )}
                       <input
                         type="file"

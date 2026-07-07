@@ -6,6 +6,7 @@ import { validateFile } from '@/lib/validateFile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Upload, Loader2, Plus, Trash2 } from 'lucide-react';
+import { PreviewLink } from '@/components/documents/PreviewLink';
 
 export interface DecalPhotoExtra {
   url: string;
@@ -134,9 +135,9 @@ export default function StaffDecalPhotoEditor({
             <div key={side} className="space-y-1.5">
               <p className="text-xs text-muted-foreground font-medium">{label}</p>
               {url ? (
-                <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                <PreviewLink url={url} name={`Decal — ${label}`} className="block">
                   <img src={url} alt={`Decal — ${label}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-                </a>
+                </PreviewLink>
               ) : (
                 <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center">
                   <span className="text-[11px] text-muted-foreground">No photo yet</span>
@@ -179,9 +180,9 @@ export default function StaffDecalPhotoEditor({
                 placeholder={`Angle ${idx + 1}`}
                 className="h-7 text-[11px]"
               />
-              <a href={p.url} target="_blank" rel="noopener noreferrer" className="block">
+              <PreviewLink url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="block">
                 <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-              </a>
+              </PreviewLink>
               <Button
                 size="sm"
                 variant="ghost"

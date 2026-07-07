@@ -1,112 +1,48 @@
+# Open images & files in an in-app modal
 
-# Move PE Screening into its own stage (new Stage 6)
+## Goal
+Stop image/file links in the authenticated app from opening in a new browser tab. Reuse the existing `FilePreviewModal` (exported from `src/components/inspection/DocRow.tsx`) so users stay inside SUPERDRIVE. Keep public share pages (PEI Respond, Inspection Share) and print/export routes as new-tab — those are out of scope.
 
-Split all Pre-Employment Screening fields out of **Stage 1 — Background Check** into a new dedicated stage inserted between the current Equipment Setup and Insurance stages. Renumber downstream stages accordingly.
+## Approach
+`FilePreviewModal` already handles images, PDFs (inline iframe with fallback), signed-URL resolution, and unsupported types (download card). It's used in ~24 places today. The remaining anchor tags and `window.open` calls in authenticated surfaces need to be converted to open the same modal, keeping an "Open in new tab" escape hatch inside the modal for iOS PDF reliability and printing.
 
-## Final stage order
+## In-scope conversions
 
-```text
-Stage 1 — Background Check           (MVR + CH only)
-Stage 2 — Documents
-Stage 3 — ICA
-Stage 4 — Missouri Registration
-Stage 5 — Equipment Setup
-Stage 6 — Pre-Employment Screening   ← NEW
-Stage 7 — Insurance                  (was 6)
-Stage 8 — Go Live & Dispatch         (was 7)
-Stage 9 — Contractor Pay Setup       (was 8)
-```
+Each item below currently uses `<a target="_blank">` or `window.open(url)` and will switch to opening `FilePreviewModal`:
 
-New stage key: `pe` (label `PE`, short badge `PE`, teal-adjacent color to sit between Equip orange and Ins teal — proposed `bg-cyan-500`).
+- **Staff — Operator Detail Panel** (`src/pages/staff/OperatorDetailPanel.tsx`)
+  - Stage 6 PE results doc link (~line 5519)
+  - Current-doc link (~line 228)
+- **Operator — Document Upload** (`src/components/operator/OperatorDocumentUpload.tsx`)
+  - Driver decal photo, passenger decal photo, truck photo thumbnails (lines ~825, 865, 903)
+- **Staff — Decal Photo Editor** (`src/components/staff/StaffDecalPhotoEditor.tsx`) — thumbnails (137, 182)
+- **Staff — Truck Photo Grid** (`src/components/staff/TruckPhotoGridModal.tsx`) — file links (218, 307)
+- **Operator — Truck Info Card** (`src/components/operator/TruckInfoCard.tsx`) — truck photo (118)
+- **Equipment — Asset Sheet** (`src/components/equipment/EquipmentAssetSheet.tsx`) — attachment link (689)
+- **Equipment — History Modal** (`src/components/equipment/EquipmentHistoryModal.tsx`) — attachment (281)
+- **Management — Application PEI Tab** (`src/components/pei/ApplicationPEITab.tsx`) — attachment (404)
+- **Documents — Editor Modal** (`src/components/documents/DocumentEditorModal.tsx`) — doc link (934)
 
-## What moves into the new stage
+**Fallback inside modal:** `FilePreviewModal` already renders an "Open in new tab" link (see `DocRow.tsx:601, 847`, `BinderFlipbook.tsx:178, 196`). Confirm it's visible in every trigger surface and rendered for image, PDF, and unsupported types.
 
-The following fields (currently rendered inside the Stage 1 card in `OperatorDetailPanel.tsx`) move as a single block into the new Stage 6 card:
+## Explicitly out of scope (staying as new-tab)
 
-- `pe_screening` (status select)
-- `pe_scheduled_date`
-- `pe_results_date`
-- `qpassport_url` (QPassport PDF viewer + replace)
-- `pe_receipt_url` / `pe_receipt` operator-uploaded doc row
-- `pe_screening_result`
-- `pe_results_doc_url` (PE Results Document upload)
+- **Chat attachments** — `MessageBubble.tsx`, `PinnedMessagesSheet.tsx` (per user answer)
+- **Public share pages** — `InspectionSharePage.tsx`, `PEIRespond.tsx`, `PEIResponseViewer.tsx`
+- **Print/HTML export routes** — `printDocument.ts`, `equipmentExport.ts`, `SubmittedApplicationSnapshot.tsx` (these open a print window, not a file)
+- **`mailto:` / `sms:` / external links** — BinderFlipbook, DocRow, OperatorInspectionBinder, ServiceLibraryManager external-confirm, ServiceDetailPage support chat, EmailCatalog route preview
 
-Stage 1 will retain only MVR, Clearinghouse, MVR/CH Approval, and Background Check Notes.
+## Technical notes
 
-## Completion rule changes
-
-- **Stage 1 (Background) complete** = `mvr_ch_approval === 'approved'` (PE clear no longer required).
-- **Stage 6 (PE Screening) complete** = `pe_screening_result === 'clear'`.
-- Alert flag stays: `pe_screening_result === 'non_clear'` still surfaces a warning, but now attributed to Stage 6.
-
-## Database changes
-
-Single migration:
-
-1. `INSERT` new `pipeline_config` row: `stage_key='pe'`, `stage_order=6`, `label='PE'`, `full_name='Pre-Employment Screening'`, items = the PE checklist entries (was_scheduled, receipt_uploaded, result_clear).
-2. Shift existing rows: `ins` → order 7, `dispatch` → order 8, `pay_setup` → order 9 (idempotent-guarded).
-3. No `onboarding_status` column changes — PE fields already exist.
-4. No changes to milestone trigger keys (`background_check_cleared`/`background_check_flagged`); the underlying trigger already keys on `pe_screening = 'scheduled'` and can remain — it just now represents the new stage's kickoff.
-
-## Frontend renumbering (mechanical)
-
-Files touched and the shape of each edit:
-
-- **`src/pages/staff/OperatorDetailPanel.tsx`** (largest touch)
-  - Lift the PE subsection (~lines 4507–4620) out of the Stage 1 card and drop it into a new Stage 6 card rendered between the current Stage 5 (Equipment) and Stage 6 (Insurance) blocks.
-  - Rename the following existing headings: `Stage 6 — Insurance` → `Stage 7`, `Stage 7 — Go Live & Dispatch Readiness` → `Stage 8`, `Stage 8 — Contractor Pay Setup` → `Stage 9`.
-  - Add `stage6` (new PE) to every stage-key array: `autoCollapse` set, `allKeys`, `stickyAllKeys`, `allStageKeys`, both `stages[]` arrays, all three dot/pill strips (2510, 3575, 4308), and shift existing `stage6→stage7`, `stage7→stage8`, `stage8→stage9` throughout.
-  - Update refs (`stage1Ref`…`stage8Ref`) and toggle handlers accordingly.
-  - Update `s1Complete` to drop the PE clause; add `s6Complete = pe_screening_result === 'clear'`.
-  - Update the two inline auto-collapse blocks (post-MVR-approval, post-CH-approval) so they no longer wait on PE.
-
-- **`src/pages/staff/PipelineDashboard.tsx`**
-  - `STAGE_KEY_TO_DETAIL`: add `pe: 'stage6'`, remap `ins/dispatch/pay_setup` to `stage7/8/9`.
-  - `STAGES` array: insert `'Stage 6 — Pre-Employment'`, renumber later entries.
-  - `STAGE_ABBR`: add `PE`, keep existing abbreviations otherwise.
-  - `computeStage()`: add a branch for `pe_screening_result === 'clear'` returning the new Stage 6 label, positioned between Equipment and Insurance.
-  - `computeTemperature()` tooltip strings that enumerate "Stages 1 & 2" etc. — leave text ranges unchanged (they describe early-pipeline heat, not the new stage).
-
-- **`src/pages/management/ManagementPortal.tsx`**
-  - Pill strip labels (`:919–924`): insert `'Stage 6 — PE'` in order; keep short-form `PE`.
-  - `StageBreakdown` type + accumulator (`:65–70`, `:168`, `:500–517`): add `stage6_pe_screening` bucket, rename existing `stage6_insurance` → `stage7_insurance`, add `stage8_go_live` and `stage9_pay_setup` if we want breakdown parity (out of scope — leave existing 6-bucket summary alone, only renaming `stage6_insurance` key/label to Stage 7).
-
-- **`src/pages/operator/OperatorPortal.tsx`**
-  - `stages[]` (`:713–825`): insert new entry `{ number: 6, title: 'Pre-Employment Screening', ... }`, renumber Insurance/Go Live/Pay to 7/8/9.
-  - `getStageStatus(1)`: remove `pe_screening_result` requirement; add a new `getStageStatus(6)` covering PE.
-  - Stage 8 heading string (`:1714`) becomes `Stage 9 — Contractor Pay Setup`.
-
-- **`src/components/operator/SmartProgressWidget.tsx`**
-  - Add a `WHATS_NEXT_STAGES` entry for number 6 (PE) between Equipment (5) and Insurance (which becomes 7). Move existing entry 6 (Insurance) to 7. Leave 8/9 absent as today.
-  - `STAGE_INFO[1]` blocker: drop `pe_screening_result === 'non_clear'` and `pe_screening === 'scheduled'` clauses (they belong to Stage 6).
-  - Icon switch (`:678–682`): add a case for `activeStage.number === 6`.
-
-- **`src/components/operator/OperatorStatusPage.tsx`**
-  - Three "Stage 1 card" strings for receipt-upload prompt (`:526`, `:685`, `:721`) → "Stage 6 card".
-
-- **`src/components/operator/OnboardingChecklist.tsx`**
-  - PE timeline trigger (`:152`): change from `stage.number === 1` to `stage.number === 6`.
-  - Deep-link/not-started special cases for `stage.number === 8` → `stage.number === 9`.
-
-- **`src/components/management/PipelineConfigEditor.tsx`**
-  - `NODE_COLORS` / `NODE_DOT_COLORS`: add `pe: 'bg-cyan-500/15 text-cyan-700 border-cyan-200'` and `pe: 'bg-cyan-500'`.
-
-- **Edge functions (string-only edits)**
-  - `supabase/functions/invite-operator/index.ts` — update the "Stage X —" comments to match new numbering (test-operator seed already sets `pe_screening: 'results_in'`, `pe_screening_result: 'clear'`, no logic change).
-  - `supabase/functions/send-insurance-request/index.ts:199` — `"Please add recipients in Stage 6."` → `"Stage 7"`.
-  - `supabase/functions/send-lease-termination/index.ts:152` — `"Stage 6 Insurance Settings"` → `"Stage 7 Insurance Settings"`.
-  - `supabase/functions/notify-pay-setup-submitted/index.ts:151` — `"Stage 8 (Contractor Pay Setup)"` → `"Stage 9 (Contractor Pay Setup)"`.
-
-## Out of scope
-
-- No changes to notification milestone keys, PE email templates, PE queue behavior, or any of the PEI (previous-employer investigation) system — that's a separate feature.
-- No new columns on `onboarding_status` or `pipeline_config`.
-- Header dot/pill strip does not gain a Stage 9 dot on views that currently stop at 6 or 8 — parity with existing coverage.
+- **Signed URLs:** any converted call site that references `/storage/v1/` must resolve URLs through the existing signed-URL helper (see `mem://arch/file-handling/signed-url-resolution`). Public buckets pass their URL through unchanged.
+- **iOS PDF quirk:** inline `<iframe>` PDF rendering is unreliable on iOS Safari. The modal already falls back to a download button; the "Open in new tab" escape hatch remains for print/download.
+- **Non-previewable types** (docx/xlsx/zip): `FilePreviewModal` already shows a download card — no change needed.
+- **Trigger pattern:** each call site adopts a local `const [preview, setPreview] = useState<{url, name} | null>(null)` and renders `{preview && <FilePreviewModal ... onClose={() => setPreview(null)} />}` at the component root. Click handler becomes `onClick={(e) => { e.preventDefault(); setPreview({url, name}); }}` on the existing anchor (keeps right-click "open in new tab" for power users).
 
 ## Verification
 
-- Load Emma Mueller's detail panel and confirm Stage 1 shows only MVR + CH; new Stage 6 card renders with all PE fields, and stages 7/8/9 display correctly.
-- With MVR/CH approved and PE not clear: Stage 1 pill becomes green, Stage 6 pill remains amber.
-- Toggle PE result to `clear` and confirm Stage 6 pill flips to green and the operator-facing progress widget advances.
-- Confirm the operator portal shows an active Stage 6 card with the QPassport / receipt / results controls.
-- Run the Supabase linter and confirm no new warnings.
+- Emma's operator detail: click PE results doc → modal opens with PDF preview + "Open in new tab" button.
+- Operator PWA: tap decal / truck photo → modal opens with image; ESC and hardware back close it (per `useBackButton` pattern).
+- Equipment Asset Sheet attachment: image + PDF both preview inline; docx shows download card.
+- Right-click on any converted link still offers "Open link in new tab" (native browser behavior — we're not removing `href`).
+- Typecheck passes; no runtime console errors on modal open/close cycle.
