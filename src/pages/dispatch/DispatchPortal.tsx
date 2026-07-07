@@ -145,9 +145,11 @@ function formatStreak(entry: { days: number; since: string } | null | undefined)
 interface DispatchPortalProps {
   embedded?: boolean;
   defaultFilter?: FilterTab;
+  /** If provided, the Binder button on driver cards navigates via this callback instead of opening the in-place sheet. */
+  onOpenDriverBinder?: (operatorId: string, userId: string, name: string) => void;
 }
 
-export default function DispatchPortal({ embedded = false, defaultFilter }: DispatchPortalProps) {
+export default function DispatchPortal({ embedded = false, defaultFilter, onOpenDriverBinder }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
