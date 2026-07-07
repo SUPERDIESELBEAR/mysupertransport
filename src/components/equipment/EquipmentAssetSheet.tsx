@@ -684,15 +684,13 @@ function ShipmentReceiptsBlock({
                   {r.tracking_number && ` · ${r.tracking_number}`}
                 </div>
               </div>
-              <a
-                href={r.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <PreviewLink
+                url={r.file_url}
+                name={`Receipt — ${r.uploader_display}`}
                 className="shrink-0 text-primary hover:text-primary/80"
-                title="Open"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              </PreviewLink>
             </div>
           ))}
         </div>
