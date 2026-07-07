@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { PreviewLink } from '@/components/documents/PreviewLink';
 import { validateFile } from '@/lib/validateFile';
 import { format, parseISO } from 'date-fns';
 
