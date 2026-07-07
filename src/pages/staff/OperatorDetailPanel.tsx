@@ -226,9 +226,9 @@ function QPassportUploader({
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport PDF</Label>
       <div className="flex items-center gap-2 flex-wrap">
         {currentUrl && (
-          <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+          <PreviewLink url={currentUrl} name="QPassport.pdf" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
             <ExternalLink className="h-3 w-3" /> View QPassport PDF
-          </a>
+          </PreviewLink>
         )}
         <input
           ref={inputRef}
@@ -5517,9 +5517,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
                     <div className="flex items-center gap-2 flex-wrap">
                       {status.pe_results_doc_url && (
-                        <a href={status.pe_results_doc_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+                        <PreviewLink url={status.pe_results_doc_url} name="PE Results" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
                           <ExternalLink className="h-3 w-3" /> View Document
-                        </a>
+                        </PreviewLink>
                       )}
                       <input
                         type="file"
