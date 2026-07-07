@@ -145,9 +145,11 @@ function formatStreak(entry: { days: number; since: string } | null | undefined)
 interface DispatchPortalProps {
   embedded?: boolean;
   defaultFilter?: FilterTab;
+  /** If provided, the Binder button on driver cards navigates via this callback instead of opening the in-place sheet. */
+  onOpenDriverBinder?: (operatorId: string, userId: string, name: string) => void;
 }
 
-export default function DispatchPortal({ embedded = false, defaultFilter }: DispatchPortalProps) {
+export default function DispatchPortal({ embedded = false, defaultFilter, onOpenDriverBinder }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -1817,7 +1819,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                        onClick={() => {
+                          if (onOpenDriverBinder) onOpenDriverBinder(row.operator_id, row.operator_user_id, fullName);
+                          else setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName });
+                        }}
                         className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10"
                         title="Inspection Binder"
                       >
@@ -2178,7 +2183,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                              onClick={() => {
+                                if (onOpenDriverBinder) onOpenDriverBinder(row.operator_id, row.operator_user_id, fullName);
+                                else setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName });
+                              }}
                               className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
                               title="Inspection Binder"
                             >
