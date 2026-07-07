@@ -718,7 +718,7 @@ export default function OperatorStatusPage({
               </p>
               <p className="text-sm font-semibold text-foreground leading-tight">Don't forget to upload your receipt</p>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                After your drug screening appointment, take a photo of your receipt and upload it in Stage 1. Your coordinator needs it to process your results.
+                After your drug screening appointment, take a photo of your receipt and upload it in Stage 6. Your coordinator needs it to process your results.
               </p>
               <Button
                 size="sm"
