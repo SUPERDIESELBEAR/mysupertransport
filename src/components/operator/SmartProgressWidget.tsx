@@ -707,6 +707,7 @@ export default function SmartProgressWidget({
     activeStage.number === 3 ? <FileText className="h-4 w-4" /> :
     activeStage.number === 4 ? <FileText className="h-4 w-4" /> :
     activeStage.number === 5 ? <Zap className="h-4 w-4" /> :
+    activeStage.number === 6 ? <Shield className="h-4 w-4" /> :
     <Shield className="h-4 w-4" />;
 
   // Stage 2: show inline upload if operatorId is available and docs are requested
