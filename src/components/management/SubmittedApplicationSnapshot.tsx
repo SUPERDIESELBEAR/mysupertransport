@@ -132,6 +132,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function SubmittedApplicationSnapshot({ application, onPreview }: Props) {
   const { toast } = useToast();
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const raw = application?.signature_image_url ?? null;
+    setSignatureDataUrl(null);
+    if (!raw) return;
+    preloadSignatureDataUrl(raw, 'signatures').then((dataUrl) => {
+      if (!cancelled) setSignatureDataUrl(dataUrl);
+    });
+    return () => { cancelled = true; };
+  }, [application?.signature_image_url]);
 
   if (!application || !application.id) {
     return (
