@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Printer, FileText, Loader2 } from 'lucide-react';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { preloadSignatureDataUrl } from '@/lib/printDocument';
 
 interface EmployerRecord {
   name?: string;
@@ -131,6 +132,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function SubmittedApplicationSnapshot({ application, onPreview }: Props) {
   const { toast } = useToast();
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const raw = application?.signature_image_url ?? null;
+    setSignatureDataUrl(null);
+    if (!raw) return;
+    preloadSignatureDataUrl(raw, 'signatures').then((dataUrl) => {
+      if (!cancelled) setSignatureDataUrl(dataUrl);
+    });
+    return () => { cancelled = true; };
+  }, [application?.signature_image_url]);
 
   if (!application || !application.id) {
     return (
@@ -394,11 +407,17 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
         {a.signature_image_url && (
           <div className="pt-2">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Signature image</div>
-            <img
-              src={a.signature_image_url}
-              alt="Applicant signature"
-              className="max-h-24 border border-border rounded-md bg-white p-1"
-            />
+            {signatureDataUrl ? (
+              <img
+                src={signatureDataUrl}
+                alt="Applicant signature"
+                className="max-h-24 border border-border rounded-md bg-white p-1"
+              />
+            ) : (
+              <div className="h-24 w-48 border border-border rounded-md bg-muted/30 flex items-center justify-center text-[11px] text-muted-foreground">
+                Loading signature…
+              </div>
+            )}
           </div>
         )}
       </Section>
