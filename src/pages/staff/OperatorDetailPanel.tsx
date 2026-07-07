@@ -4202,11 +4202,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 22 } : undefined}>{(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
-              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
@@ -4226,6 +4225,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
+              { label: 'PE Scheduled',       done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
+              { label: 'PE Screening Clear', done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
@@ -4315,19 +4318,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Stage Summary Dot Row + Collapse All */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 23 } : undefined}>{(() => {
-        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'];
+        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stagePE', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
         type DotState = 'complete' | 'progress' | 'na' | 'none';
         const stageDots: { key: string; label: string; shortLabel: string; state: DotState; tooltip: string }[] = [
           {
             key: 'stage1', label: 'Background', shortLabel: 'BG',
-            state: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear')
+            state: (status.mvr_ch_approval === 'approved')
               ? 'complete'
               : ([status.mvr_status, status.ch_status].some(s => s === 'requested' || s === 'received') ||
-                 status.mvr_ch_approval === 'approved' || status.pe_screening_result === 'clear')
+                 status.mvr_ch_approval === 'approved')
               ? 'progress' : 'none',
-            tooltip: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear'
+            tooltip: status.mvr_ch_approval === 'approved'
               ? 'Complete' : 'In Progress',
           },
           {
@@ -4371,6 +4374,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               const done = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(s => s === 'yes').length;
               return done === 3 ? 'Complete' : done > 0 ? `${done}/3 done` : 'Not started';
             })(),
+          },
+          {
+            key: 'stagePE', label: 'PE Screening', shortLabel: 'PE',
+            state: status.pe_screening_result === 'clear' ? 'complete'
+              : (status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' || status.pe_screening_result === 'non_clear') ? 'progress'
+              : 'none',
+            tooltip: status.pe_screening_result === 'clear' ? 'Complete'
+              : status.pe_screening_result === 'non_clear' ? 'Non-Clear — Review'
+              : status.pe_screening === 'results_in' ? 'Results In'
+              : status.pe_screening === 'scheduled' ? 'Scheduled'
+              : 'Not started',
           },
           {
             key: 'stage6', label: 'Insurance', shortLabel: 'Ins',
