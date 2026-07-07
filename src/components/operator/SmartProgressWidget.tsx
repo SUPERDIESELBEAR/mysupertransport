@@ -211,12 +211,11 @@ const WHATS_NEXT_STAGES: WhatsNextStage[] = [
     number: 1,
     title: 'Background Screening',
     icon: 'shield',
-    summary: 'Safety checks before you can drive. Your coordinator handles the submissions — you just need to show up for the drug screening.',
+    summary: 'Safety checks before you can drive. Your coordinator handles the MVR and Clearinghouse submissions on your behalf.',
     steps: [
       { label: 'MVR check submitted', detail: 'Your coordinator requests your Motor Vehicle Record from the state. No action needed from you.', who: 'coordinator' },
       { label: 'Clearinghouse check submitted', detail: 'A federal drug & alcohol violation check is run through FMCSA. Coordinator handles this too.', who: 'coordinator' },
       { label: 'Results received', detail: 'Results typically arrive within 2–5 business days. You\'ll be notified once in.', who: 'coordinator' },
-      { label: 'Pre-employment drug screening', detail: 'You\'ll be sent a scheduling link to complete a DOT drug test at a nearby clinic. This is required before dispatch.', who: 'operator' },
       { label: 'MVR / Clearinghouse approval', detail: 'Your coordinator reviews the results and marks approval before moving to the next stage.', who: 'coordinator' },
     ],
   },
@@ -267,6 +266,17 @@ const WHATS_NEXT_STAGES: WhatsNextStage[] = [
   },
   {
     number: 6,
+    title: 'Pre-Employment Screening',
+    icon: 'shield',
+    summary: 'DOT pre-employment drug screening. Your coordinator schedules it and you complete the test at a nearby clinic.',
+    steps: [
+      { label: 'Screening scheduled', detail: 'Your coordinator schedules the DOT drug test and sends you the QPassport form.', who: 'coordinator' },
+      { label: 'You complete the drug screening', detail: 'Visit the clinic listed on your QPassport and complete the DOT pre-employment drug test.', who: 'operator' },
+      { label: 'Results reviewed and cleared', detail: 'Your coordinator reviews the results and marks them clear before you can go live.', who: 'coordinator' },
+    ],
+  },
+  {
+    number: 7,
     title: 'Insurance & Activation',
     icon: 'insurance',
     summary: 'Final step: your coordinator adds you to the company insurance policy and assigns your unit number. Then you\'re ready to dispatch!',
