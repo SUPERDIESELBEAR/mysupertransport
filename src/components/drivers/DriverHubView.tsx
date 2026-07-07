@@ -38,6 +38,10 @@ interface DriverHubViewProps {
   onMessageDriver?: (userId: string) => void;
   /** Initial compliance filter to pre-apply when this view mounts */
   defaultComplianceFilter?: ComplianceFilter;
+  /** If provided, immediately open the given driver's detail panel on mount */
+  initialSelectedOperatorId?: string | null;
+  /** If true, scroll the opened driver detail panel to the Inspection Binder section */
+  scrollToBinderOnOpen?: boolean;
 }
 
 interface BulkReminderTarget {
@@ -50,9 +54,13 @@ interface BulkReminderTarget {
 
 const RATE_LIMIT_MS = 600;
 
-export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter }: DriverHubViewProps) {
+export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter, initialSelectedOperatorId, scrollToBinderOnOpen }: DriverHubViewProps) {
   const { toast } = useToast();
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  // Sync external "open this driver" requests (e.g. from Dispatch Board → Binder button)
+  useEffect(() => {
+    if (initialSelectedOperatorId) setSelectedOperatorId(initialSelectedOperatorId);
+  }, [initialSelectedOperatorId]);
   const [pendingFocusField, setPendingFocusField] = useState<'cdl' | 'medcert' | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -250,6 +258,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         backLabel="Driver Hub"
         operatorId={selectedOperatorId}
         onBack={() => { setSelectedOperatorId(null); setPendingFocusField(null); }}
+        scrollToInspectionBinder={scrollToBinderOnOpen && selectedOperatorId === initialSelectedOperatorId}
         onMessageOperator={userId => {
           setSelectedOperatorId(null);
           setPendingFocusField(null);
