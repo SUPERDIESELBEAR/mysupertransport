@@ -936,11 +936,18 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
             {DOC_DISPLAY[entry.docKey]}
           </span>
-          <span className="flex-1 min-w-0 truncate">
+          <span className="shrink-0 whitespace-nowrap tabular-nums">
             <DriverDateEditor entry={entry} />
           </span>
-          <StaleChip entry={entry} /><HistoryButton entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
-          <CertPill entry={entry} />
+          <span className="ml-auto shrink-0">
+            <CertPill entry={entry} />
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-1.5 pl-4">
+          <StaleChip entry={entry} />
+          <HistoryButton entry={entry} />
+          <UploadButton entry={entry} />
+          <RemindButton entry={entry} />
         </div>
         <LastUpdatedLine entry={entry} />
       </div>
