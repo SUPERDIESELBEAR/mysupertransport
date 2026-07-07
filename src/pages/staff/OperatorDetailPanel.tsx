@@ -5963,7 +5963,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-        {/* Stage 7 — Go Live & Dispatch Readiness */}
+        {/* Stage 8 — Go Live & Dispatch Readiness */}
         {(() => {
           const s7Complete = !!status.go_live_date;
           const s7Collapsed = collapsedStages.has('stage7');
@@ -5972,7 +5972,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
-                  <h3 className="font-semibold text-foreground text-sm">Stage 7 — Go Live & Dispatch Readiness</h3>
+                  <h3 className="font-semibold text-foreground text-sm">Stage 8 — Go Live & Dispatch Readiness</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {s7Complete && (
@@ -6211,7 +6211,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>)}
 
 
-      {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
+      {/* Stage 9 — Contractor Pay Setup (read-only, uses component-level state) */}
       <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
@@ -6227,7 +6227,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <CreditCard className={`h-4 w-4 ${isComplete ? 'text-status-complete' : 'text-muted-foreground'}`} />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Stage 8 — Contractor Pay Setup</p>
+                <p className="text-sm font-semibold text-foreground">Stage 9 — Contractor Pay Setup</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {!paySetupLoaded ? 'Loading…' : isComplete ? `Submitted ${new Date(ps.submitted_at).toLocaleDateString()}` : ps ? 'In progress — not yet submitted' : 'Not started'}
                 </p>
