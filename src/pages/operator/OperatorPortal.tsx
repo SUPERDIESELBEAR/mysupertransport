@@ -148,6 +148,17 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const qs = params.toString();
     navigate({ pathname: window.location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
   }, [view, binderView, navigate]);
+  // Atomic view+URL navigation used by top-level nav surfaces (desktop
+  // sidebar, mobile hamburger, bottom nav). Pushing the URL synchronously
+  // in the click handler prevents the reader effect above from racing back
+  // to a stale ?tab= value (e.g. one left behind by NotificationBell).
+  const navigateToView = useCallback((target: OperatorView) => {
+    setView(target);
+    const search = target && target !== 'progress' ? `?tab=${target}` : '';
+    if (window.location.search !== search) {
+      navigate({ pathname: '/operator', search }, { replace: false });
+    }
+  }, [navigate]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -1035,7 +1046,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           {navItems.map(item => (
             <button
               key={item.view}
-              onClick={() => setView(item.view)}
+              onClick={() => navigateToView(item.view)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 view === item.view
                   ? 'bg-primary text-primary-foreground'
@@ -1076,7 +1087,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               const btn = (
                 <button
                   key={item.view}
-                  onClick={() => setView(item.view)}
+                  onClick={() => navigateToView(item.view)}
                   className={`relative shrink-0 flex flex-col items-center justify-end gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors w-[68px] xl:w-[76px] ${
                     view === item.view
                       ? 'bg-gold/15 text-gold'
@@ -1190,7 +1201,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               {navItems.map(item => (
                 <button
                   key={item.view}
-                  onClick={() => { setView(item.view); setMobileMenuOpen(false); }}
+                  onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}
                   className={`relative flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
                     view === item.view ? 'bg-gold/15 text-gold' : 'text-surface-dark-muted'
                   }`}
@@ -1864,7 +1875,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             return (
               <button
                 key={item.view}
-                onClick={() => { setView(item.view); setMobileMenuOpen(false); }}
+                onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
                   ${isActive ? 'text-gold' : 'text-surface-dark-muted hover:text-surface-dark-foreground'}`}
               >
