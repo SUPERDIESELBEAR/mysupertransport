@@ -155,6 +155,26 @@ const STAGE_INFO: Record<number, StageInfo> = {
   },
   6: {
     blockerText: (os) => {
+      if (os.pe_screening_result === 'non_clear')
+        return 'An issue was found on your pre-employment drug screening. Your coordinator will reach out with next steps.';
+      if (os.pe_screening_result === 'clear')
+        return 'Pre-employment screening cleared.';
+      if (os.pe_screening === 'results_in')
+        return 'Your pre-employment screening results are in. Your coordinator is reviewing them.';
+      if (os.pe_screening === 'scheduled')
+        return 'Your pre-employment drug screening is scheduled. Complete it at the clinic to move forward.';
+      return 'Your coordinator will schedule your DOT pre-employment drug screening at a nearby clinic.';
+    },
+    responsibleParty: 'both',
+    responsibleLabel: 'Coordinator schedules · You complete screening',
+    steps: [
+      { label: 'PE screening scheduled', who: 'coordinator', done: (os) => os.pe_screening === 'scheduled' || os.pe_screening === 'results_in' || os.pe_screening_result === 'clear' },
+      { label: 'PE screening completed', who: 'operator', done: (os) => os.pe_screening === 'results_in' || os.pe_screening_result === 'clear' || os.pe_screening_result === 'non_clear' },
+      { label: 'PE result cleared', who: 'coordinator', done: (os) => os.pe_screening_result === 'clear' },
+    ],
+  },
+  7: {
+    blockerText: (os) => {
       if (os.insurance_added_date)
         return `You were added to the insurance policy on ${new Date(os.insurance_added_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`;
       return 'Your coordinator will add you to the company insurance policy and assign your unit number.';
