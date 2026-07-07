@@ -1046,7 +1046,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           {navItems.map(item => (
             <button
               key={item.view}
-              onClick={() => setView(item.view)}
+              onClick={() => navigateToView(item.view)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 view === item.view
                   ? 'bg-primary text-primary-foreground'
