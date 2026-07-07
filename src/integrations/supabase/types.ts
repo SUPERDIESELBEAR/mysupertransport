@@ -4064,6 +4064,19 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      execute_equipment_asset_signature: {
+        Args: {
+          p_operator_id: string
+          p_signature_image_url: string
+          p_typed_name: string
+        }
+        Returns: {
+          eld_signature_image_url: string
+          eld_signature_signed_at: string
+          eld_signature_typed_name: string
+          operator_id: string
+        }[]
+      }
       get_application_by_draft_token: {
         Args: { p_token: string }
         Returns: {
