@@ -3474,11 +3474,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
-              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
@@ -3498,6 +3497,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
+              { label: 'PE Scheduled',        done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
+              { label: 'PE Screening Clear',  done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
@@ -3574,10 +3577,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       const stickyDots: { key: string; shortLabel: string; state: StickyDotState; tooltip: string; items: { label: string; done: boolean }[] }[] = [
                         {
                           key: 'stage1', shortLabel: 'BG',
-                          state: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear') ? 'complete'
-                            : ([status.mvr_status, status.ch_status].some(v => v === 'requested' || v === 'received') || status.mvr_ch_approval === 'approved' || status.pe_screening_result === 'clear') ? 'progress'
+                          state: (status.mvr_ch_approval === 'approved') ? 'complete'
+                            : ([status.mvr_status, status.ch_status].some(v => v === 'requested' || v === 'received') || status.mvr_ch_approval === 'approved') ? 'progress'
                             : 'none',
-                          tooltip: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear') ? 'Complete' : 'In Progress',
+                          tooltip: (status.mvr_ch_approval === 'approved') ? 'Complete' : 'In Progress',
                           items: stages.find(s => s.key === 'stage1')?.items ?? [],
                         },
                         {
@@ -3605,6 +3608,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
                           tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/3 done` : 'Not started'; })(),
                           items: stages.find(s => s.key === 'stage5')?.items ?? [],
+                        },
+                        {
+                          key: 'stagePE', shortLabel: 'PE',
+                          state: status.pe_screening_result === 'clear' ? 'complete'
+                            : (status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' || status.pe_screening_result === 'non_clear') ? 'progress'
+                            : 'none',
+                          tooltip: status.pe_screening_result === 'clear' ? 'Complete'
+                            : status.pe_screening_result === 'non_clear' ? 'Non-Clear — Review'
+                            : status.pe_screening === 'results_in' ? 'Results In'
+                            : status.pe_screening === 'scheduled' ? 'Scheduled'
+                            : 'Not started',
+                          items: stages.find(s => s.key === 'stagePE')?.items ?? [],
                         },
                         {
                           key: 'stage6', shortLabel: 'Ins',
@@ -3689,7 +3704,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* Collapse All / Expand All quick-action */}
                   {(() => {
-                    const stickyAllKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
+                    const stickyAllKeys = ['stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7'];
                     const stickyAllCollapsed = stickyAllKeys.every(k => collapsedStages.has(k));
                     return (
                       <Tooltip>
