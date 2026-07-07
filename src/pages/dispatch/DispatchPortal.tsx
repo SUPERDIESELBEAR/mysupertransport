@@ -1819,7 +1819,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                        onClick={() => {
+                          if (onOpenDriverBinder) onOpenDriverBinder(row.operator_id, row.operator_user_id, fullName);
+                          else setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName });
+                        }}
                         className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10"
                         title="Inspection Binder"
                       >
@@ -2180,7 +2183,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                              onClick={() => {
+                                if (onOpenDriverBinder) onOpenDriverBinder(row.operator_id, row.operator_user_id, fullName);
+                                else setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName });
+                              }}
                               className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
                               title="Inspection Binder"
                             >
