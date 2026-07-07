@@ -1,53 +1,31 @@
-## Problem
+## Findings
 
-On the driver's mobile PWA, tapping the bell → **View all →** is meant to open the driver's dedicated Notifications history page (it does *not* go to Messages — that's a separate inbox for driver↔staff DMs and broadcasts).
+The ICA banners live in `src/pages/operator/OperatorPortal.tsx` (~lines 1356–1410), in a shared header region rendered above every view. They're only gated on `view !== 'ica'`, which is why the "ICA Agreement Signed" (green) and "Action Required — Sign Your ICA" (gold) banners appear on FAQ, Messages, Binder, Doc Hub, etc.
 
-The bell in `src/pages/operator/OperatorPortal.tsx:1160` is wired as:
+The "Documents Requested" banner (~line 1412) sits in the exact same region with the same pattern — currently gated only on `view !== 'documents'`, so it also leaks onto FAQ/Messages/Binder/etc.
 
-```tsx
-<NotificationBell variant="dark" notificationsPath="/operator?tab=notifications" ... />
-```
+## Answers to your questions
 
-But the driver is signed in on `/dashboard` (that route renders `OperatorPortal` for `activeRole === 'operator'`). Tapping **View all →** therefore navigates from `/dashboard` → `/operator?tab=notifications`, which triggers a full remount of `OperatorPortal` on a different pathname. On mobile PWAs this cross-path remount is the likely reason the tap "goes nowhere" for the driver — the new route mounts, the URL-writer effect fires, and any transient state (splash / crossfade overlay / initial `view = 'progress'` default) can leave the driver looking at the wrong screen.
+1. **Global or per-page?** Global — rendered once in the OperatorPortal shell above the view switcher, gated only against the destination view.
+2. **Dismissible signed banner?** Technically easy (localStorage flag keyed by contract id, or a `dismissed_at` column on `ica_driver_acknowledgments`/`ica_contracts`). But once we scope it to Status only, it becomes a small, appropriate piece of the onboarding summary and doesn't need to be dismissible. **Recommend: skip dismiss for now** — revisit only if drivers complain after scoping.
+3. **Other leaky banners?** Yes — the **"Documents Requested"** banner directly below has the same bug and should be scoped to Status too. The **"Action Required — Sign Your ICA"** (gold) banner has the same shape; scoping it to Status keeps behavior consistent (drivers still see it on the Status landing when they open the app, and the bottom-nav Status tab is the natural home).
 
-The dedicated `NotificationHistory` component (`src/components/management/NotificationHistory.tsx`) is fully built and is the correct destination — Messages is not.
+## Recommendation
 
-## Fix
+Scope all three shell banners (ICA signed, ICA action-required, Documents requested) to the Status view only.
 
-Keep **View all →** pointed at the Notifications history page, but stay on the pathname the operator is already on so we don't remount into a sibling route.
+## Plan
 
-### 1. `src/pages/operator/OperatorPortal.tsx` (~line 1160)
+Edit `src/pages/operator/OperatorPortal.tsx`:
 
-Compute the notifications path from the current pathname so `/dashboard` stays `/dashboard` and `/operator` stays `/operator`:
+- **~line 1357** — ICA action-required banner: change gate from `view !== 'ica'` to `view === 'status'`.
+- **~line 1385** — ICA signed banner: change gate from `view !== 'ica'` to `view === 'status'`.
+- **~line 1427** — Documents-requested banner: change gate from `view !== 'documents'` to `view === 'status'`.
 
-```tsx
-const notificationsHref = `${location.pathname}?tab=notifications`;
-...
-<NotificationBell
-  variant="dark"
-  notificationsPath={notificationsHref}
-  clearBadge={view === 'notifications'}
-/>
-```
-
-`location` is already in scope from `useLocation()` at the top of the component.
-
-### 2. Sanity-check the view switcher
-
-Confirm `view === 'notifications'` in `OperatorPortal.tsx` (~line 1739) renders `<NotificationHistory />` inside `<Suspense>` — no change expected, just re-verify after the routing fix.
+No other files change. No business logic, data, or dismiss state added.
 
 ## Verification
 
-1. Sign in as a test driver (Emma Mueller) on `/dashboard`.
-2. Tap the bell in the header → tap **View all →**.
-   - URL becomes `/dashboard?tab=notifications` (same pathname, tab param added).
-   - The full **Notification History** page loads (title "Notification History", filter chips All / Unread / Read, list of all past notifications with Mark all read and Refresh).
-   - Bell badge clears (`clearBadge` flag).
-3. Tap the browser / hardware back button → returns to the previous tab (Status / Progress) on `/dashboard`.
-4. Repeat from a driver who happens to be on `/operator` (e.g. management previewing as operator) → URL becomes `/operator?tab=notifications` and the same page loads.
-5. Confirm the bottom-nav **Messages** icon still opens the Messages inbox (`?tab=messages`) — unchanged.
-
-## Out of scope
-
-- No changes to `NotificationBell.tsx`, `NotificationHistory.tsx`, or the Messages hub.
-- No change to the dispatcher / staff / management bells.
+1. Sign in as a driver with a signed ICA → Status tab shows green banner; FAQ / Messages / Binder / Doc Hub / ICA views show none.
+2. Sign in as a driver with an unsigned ICA → Status shows gold "Action Required" banner; other tabs clean; ICA tab clean.
+3. Driver with outstanding requested docs → banner visible only on Status; Doc Hub and others clean.

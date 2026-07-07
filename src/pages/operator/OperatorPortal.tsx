@@ -1354,7 +1354,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA ACTION-REQUIRED BANNER ── */}
-        {isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) && view !== 'ica' && (
+        {isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) && view === 'status' && (
           <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
             <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
@@ -1382,7 +1382,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA SIGNED CONFIRMATION ── */}
-        {icaComplete && view !== 'ica' && (
+        {icaComplete && view === 'status' && (
           <div className="bg-status-complete/10 border border-status-complete/40 rounded-xl px-4 py-4 animate-fade-in">
             <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
