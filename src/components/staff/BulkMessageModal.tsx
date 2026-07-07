@@ -52,7 +52,8 @@ const STAGES = [
   'Stage 3 — ICA',
   'Stage 4 — MO Registration',
   'Stage 5 — Equipment',
-  'Stage 6 — Insurance',
+  'Stage 6 — PE Screening',
+  'Stage 7 — Insurance',
 ];
 
 const DISPATCH_LABELS: Record<DispatchStatus, string> = {
