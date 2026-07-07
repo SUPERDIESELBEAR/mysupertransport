@@ -1,31 +1,32 @@
-# Fix: applicant signature image not displaying in Submitted Application snapshot
-
 ## Problem
-In `src/components/management/SubmittedApplicationSnapshot.tsx` (lines 394–403), the signature image is rendered with the raw stored path:
 
-```tsx
-<img src={a.signature_image_url} alt="Applicant signature" ... />
-```
+In Management → Compliance → Cards view, each driver card shows CDL / Med Cert / IRP rows with: colored dot, doc badge, expiration date, then a cluster of action chips (Stale, History, Upload, Remind, CertPill). At current card widths the date (e.g. "Mar 22, 2026") is truncated to "Mar 22, 2…" because the date sits inside a `flex-1 min-w-0 truncate` span while the trailing action chips consume the remaining width.
 
-The `signatures` storage bucket is private. Browsers hit that URL without a token, get **403 Forbidden**, and show a broken-image icon. The user's screenshot confirms this on Emma Mueller's submitted application.
+## File
 
-`ApplicationReviewDrawer.tsx` renders the same image correctly by preloading a signed URL through `preloadSignatureDataUrl` (`src/lib/printDocument.ts`). Only the Snapshot view was missed.
+`src/components/inspection/InspectionComplianceSummary.tsx` — `CertSubRow` component (lines ~930–948), used only by the Cards view.
 
 ## Fix
-Update `SubmittedApplicationSnapshot.tsx` to resolve the signature to a data URL before rendering, using the existing helper — no new API surface, no schema changes.
 
-Concretely:
-1. Import `preloadSignatureDataUrl` from `@/lib/printDocument`.
-2. Add local state `const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)`.
-3. In a `useEffect` keyed on `a.signature_image_url`, call `preloadSignatureDataUrl(a.signature_image_url, 'signatures').then(setSignatureDataUrl)`.
-4. Render `<img src={signatureDataUrl ?? undefined}>` and hide the block until the data URL resolves (or show a small "Loading signature…" placeholder while pending).
+Restructure `CertSubRow` into two rows so the full date always shows:
 
-## Out of scope
-- DL front/rear and medical cert (they use `docButton`, which handles signing already).
-- ICA / EFT signatures elsewhere in the app.
-- Any storage bucket policy changes — the bucket stays private; we sign at read time.
+Row 1 (identity + date, never truncated):
+- status dot
+- doc badge (`CDL` / `Med Cert` / `IRP (cab card)`)
+- date via `DriverDateEditor`, wrapped in `shrink-0 whitespace-nowrap tabular-nums` (no `flex-1`, no `truncate`)
+- push `CertPill` to the far right with `ml-auto` (keeps the ✓/⚠ status pill visible on the same line as the date)
+
+Row 2 (compact actions):
+- `StaleChip`, `HistoryButton`, `UploadButton`, `RemindButton` grouped with `flex items-center gap-1.5` and small top margin (`mt-1`)
+
+Keep `LastUpdatedLine` beneath both rows as today.
+
+No changes to `ListCertSubRow`, the fleet card, the list view, data flow, or any business logic — this is purely a layout fix scoped to the Cards row.
 
 ## Verification
-- Open Emma Mueller's submitted application → scroll to the Signature section → signature image renders (was broken before).
-- Signed URL is short-lived (300s) but converted to a data URL for stable in-place render.
-- Typecheck passes.
+
+1. Open Management → Compliance → toggle to **Cards**.
+2. Confirm every driver card shows full dates: `Mar 22, 2026`, `Aug 2, 2027`, `Nov 3, 2028`, etc. — no ellipsis.
+3. Stale/History/Upload/Remind icons appear on a second row, still clickable.
+4. Toggle to **List** view — unchanged.
+5. Resize to md and xl breakpoints (2- and 3-column grids) — no overflow.
