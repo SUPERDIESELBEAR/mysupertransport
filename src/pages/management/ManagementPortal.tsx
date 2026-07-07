@@ -163,6 +163,12 @@ export default function ManagementPortal() {
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const [driverComplianceFilter, setDriverComplianceFilter] = useState<ComplianceFilter>('all');
+  // Target driver whose Inspection Binder should auto-open when navigating into Driver Hub
+  // (set by the Dispatch Board Binder button, cleared when leaving Driver Hub).
+  const [driverHubBinderTarget, setDriverHubBinderTarget] = useState<{ operatorId: string } | null>(null);
+  useEffect(() => {
+    if (view !== 'drivers' && driverHubBinderTarget) setDriverHubBinderTarget(null);
+  }, [view, driverHubBinderTarget]);
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
