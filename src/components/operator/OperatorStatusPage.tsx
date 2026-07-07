@@ -682,7 +682,7 @@ export default function OperatorStatusPage({
               <p className="text-sm font-semibold text-foreground leading-tight">Your QPassport has been uploaded</p>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                 Download or view your QPassport and bring it to your drug screening appointment. The barcode confirms your identity at the facility.
-                After your appointment, upload your receipt in the Stage 1 card below.
+                After your appointment, upload your receipt in the Stage 6 card below.
               </p>
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <button
