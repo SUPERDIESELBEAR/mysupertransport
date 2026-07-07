@@ -1742,7 +1742,15 @@ export default function ManagementPortal() {
         )}
 
         {view === 'dispatch' && (
-          <DispatchPortal embedded defaultFilter={dispatchDefaultFilter} />
+          <DispatchPortal
+            embedded
+            defaultFilter={dispatchDefaultFilter}
+            onOpenDriverBinder={(operatorId) => {
+              setDriverHubBinderTarget({ operatorId });
+              setDriverComplianceFilter('all');
+              setView('drivers');
+            }}
+          />
         )}
 
         {view === 'staff' && (
@@ -1801,6 +1809,8 @@ export default function ManagementPortal() {
           <DriverHubView
             canAddDriver={true}
             defaultComplianceFilter={driverComplianceFilter}
+            initialSelectedOperatorId={driverHubBinderTarget?.operatorId ?? null}
+            scrollToBinderOnOpen={!!driverHubBinderTarget}
             onMessageDriver={() => {
               setView('dispatch');
             }}
