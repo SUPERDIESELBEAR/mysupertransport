@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CheckCircle2, Camera, ExternalLink, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { PreviewLink } from '@/components/documents/PreviewLink';
 
 // Must match the labels used in TruckPhotoGuideModal PHOTO_SLOTS
 const PHOTO_POSITIONS = [
@@ -215,9 +216,9 @@ export default function TruckPhotoGridModal({
                           <li key={f.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-md bg-muted/40">
                             <span className="truncate text-foreground max-w-[260px]">{f.file_name ?? 'Unnamed'}</span>
                             {signedUrls[f.id] && (
-                              <a href={signedUrls[f.id]} target="_blank" rel="noopener noreferrer" className="text-gold hover:text-gold-light shrink-0 ml-2">
+                              <PreviewLink url={signedUrls[f.id]} name={f.file_name ?? 'File'} className="text-gold hover:text-gold-light shrink-0 ml-2">
                                 <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
+                              </PreviewLink>
                             )}
                           </li>
                         ))}
@@ -302,15 +303,13 @@ function PhotoCell({ pos, file, resolvedUrl, onOpenLightbox }: PhotoCellProps) {
           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2">
             <span className="text-2xl">{pos.icon}</span>
             {resolvedUrl && (
-              <a
-                href={resolvedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
+              <PreviewLink
+                url={resolvedUrl}
+                name={pos.key}
                 className="flex items-center gap-1 text-[10px] text-gold hover:text-gold-light font-medium"
               >
                 View file <ExternalLink className="h-2.5 w-2.5" />
-              </a>
+              </PreviewLink>
             )}
           </div>
         ) : (
