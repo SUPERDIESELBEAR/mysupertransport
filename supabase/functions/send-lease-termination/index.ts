@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
 
     const recipients: string[] = settingsRes.data?.recipient_emails ?? [];
     if (!recipients.length) {
-      return new Response(JSON.stringify({ error: 'No insurance recipients configured. Add them in Stage 6 Insurance Settings.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'No insurance recipients configured. Add them in Stage 7 Insurance Settings.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const callerName = callerProfRes.data

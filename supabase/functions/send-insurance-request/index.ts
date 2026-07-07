@@ -196,7 +196,7 @@ Deno.serve(async (req) => {
 
     const recipients: string[] = settingsResult.data?.recipient_emails ?? [];
     if (!recipients.length) {
-      return new Response(JSON.stringify({ error: 'No insurance email recipients configured. Please add recipients in Stage 6.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'No insurance email recipients configured. Please add recipients in Stage 7.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const policyType = os?.insurance_policy_type ?? 'add_to_supertransport';
