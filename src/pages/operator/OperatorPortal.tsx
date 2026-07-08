@@ -44,6 +44,8 @@ import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
+const OPERATOR_VIEWS: OperatorView[] = ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'];
+const isOperatorView = (value: string | null): value is OperatorView => !!value && OPERATOR_VIEWS.includes(value as OperatorView);
 
 interface Stage {
   number: number;
@@ -102,8 +104,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
+    const tab = params.get('tab');
+    if (isOperatorView(tab)) return tab;
     return 'progress';
   });
   // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
@@ -119,46 +121,46 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     onNavigate: (link) => navigate(link),
   });
 
-  // React to in-app notification deep-links: when navigate() is called with a
-  // new ?tab=... while the portal is already mounted, adopt that tab once. We
-  // gate this on the tab actually being present in the URL so it never fights
-  // the writer effect below (which clears the param when on the default view).
+  // React to external/deep-link URL changes only. Top-level portal navigation
+  // writes state + URL atomically through navigateToView below, so there is no
+  // render-late writer effect that can race a stale ?tab= back into state.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) {
+    const tab = params.get('tab');
+    if (isOperatorView(tab)) {
       setView(tab);
+      setBinderView(tab === 'inspection-binder' && params.get('binderView') === 'pages' ? 'pages' : undefined);
+    } else {
+      setView('progress');
+      setBinderView(undefined);
     }
-    const bv = params.get('binderView');
-    if (bv === 'pages') setBinderView('pages');
   }, [location.search]);
 
-  // Writer: persist current view/binderView to the URL so browser refresh
-  // restores the section. Reads the URL imperatively and does NOT depend on
-  // location.search, so it can never feed back into itself.
-  useEffect(() => {
+  const syncViewUrl = useCallback((target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
     const params = new URLSearchParams(window.location.search);
-    const desiredTab = view && view !== 'progress' ? view : '';
-    const desiredBinder = binderView === 'pages' ? 'pages' : '';
-    const currentTab = params.get('tab') ?? '';
-    const currentBinder = params.get('binderView') ?? '';
-    if (desiredTab === currentTab && desiredBinder === currentBinder) return;
-    if (desiredTab) params.set('tab', desiredTab); else params.delete('tab');
-    if (desiredBinder) params.set('binderView', desiredBinder); else params.delete('binderView');
-    const qs = params.toString();
-    navigate({ pathname: window.location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
-  }, [view, binderView, navigate]);
-  // Atomic view+URL navigation used by top-level nav surfaces (desktop
-  // sidebar, mobile hamburger, bottom nav). Pushing the URL synchronously
-  // in the click handler prevents the reader effect above from racing back
-  // to a stale ?tab= value (e.g. one left behind by NotificationBell).
-  const navigateToView = useCallback((target: OperatorView) => {
-    setView(target);
-    const search = target && target !== 'progress' ? `?tab=${target}` : '';
-    if (window.location.search !== search) {
-      navigate({ pathname: '/operator', search }, { replace: false });
+    if (target && target !== 'progress') params.set('tab', target); else params.delete('tab');
+    if (target === 'inspection-binder' && options.binderView === 'pages') {
+      params.set('binderView', 'pages');
+    } else {
+      params.delete('binderView');
     }
-  }, [navigate]);
+
+    const pathname = window.location.pathname || location.pathname || '/dashboard';
+    const search = params.toString();
+    const nextSearch = search ? `?${search}` : '';
+    if (window.location.pathname !== pathname || window.location.search !== nextSearch) {
+      navigate({ pathname, search: nextSearch }, { replace: options.replace ?? false });
+    }
+  }, [location.pathname, navigate]);
+
+  // Atomic view+URL navigation used by all driver portal navigation surfaces.
+  // It preserves the current route alias (/dashboard, /operator, or /owner)
+  // instead of forcing /operator, which avoids guarded route remounts.
+  const navigateToView = useCallback((target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
+    setView(target);
+    setBinderView(target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined);
+    if (!isPreview) syncViewUrl(target, options);
+  }, [isPreview, syncViewUrl]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -205,9 +207,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       const target = h[h.length - 1];
       isGoingBackRef.current = true;
       setView(target);
+      setBinderView(undefined);
+      if (!isPreview) syncViewUrl(target);
       return next;
     });
-  }, []);
+  }, [isPreview, syncViewUrl]);
   // Esc key triggers Back when there's history.
   useEffect(() => {
     if (viewHistory.length === 0) return;
@@ -871,9 +875,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (Object.keys(onboardingStatus).length === 0) return; // not loaded yet
     const params = new URLSearchParams(window.location.search);
     if (params.get('tab')) { homeAutoRedirected.current = true; return; }
-    if (view === 'progress') setView('home');
+    if (view === 'progress') navigateToView('home', { replace: true });
     homeAutoRedirected.current = true;
-  }, [isFullyOnboarded, onboardingStatus, view]);
+  }, [isFullyOnboarded, onboardingStatus, view, navigateToView]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
@@ -909,7 +913,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (isIcaActionRequired(s, latestIcaContract)) return {
       label: 'Sign Your ICA Agreement',
       sublabel: 'Action required',
-      action: () => setView('ica'),
+      action: () => navigateToView('ica'),
       variant: 'urgent' as const,
       icon: <FileText className="h-4 w-4" />,
     };
@@ -930,7 +934,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (requestedDocs.length > 0) return {
       label: requestedDocs.length === 1 ? `Upload ${requestedDocs[0]}` : `Upload ${requestedDocs.length} Documents`,
       sublabel: 'Your coordinator is waiting',
-      action: () => setView('documents'),
+      action: () => navigateToView('documents'),
       variant: 'action' as const,
       icon: <Upload className="h-4 w-4" />,
     };
@@ -939,7 +943,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (hasCriticalExpiry && expiryDotInfo) return {
       label: expiryDotInfo.count === 1 ? '1 Document Expiring Soon' : `${expiryDotInfo.count} Documents Expiring`,
       sublabel: expiryDotInfo.tooltip,
-      action: () => setView('progress'),
+      action: () => navigateToView('progress'),
       variant: 'urgent' as const,
       icon: <AlertTriangle className="h-4 w-4" />,
     };
@@ -948,7 +952,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (getStageStatus(2) === 'in_progress') return {
       label: 'Continue Document Upload',
       sublabel: 'Stage 2 in progress',
-      action: () => setView('documents'),
+      action: () => navigateToView('documents'),
       variant: 'info' as const,
       icon: <Upload className="h-4 w-4" />,
     };
@@ -958,7 +962,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (active) return {
       label: `Stage ${active.number}: ${active.title}`,
       sublabel: 'In progress — keep going',
-      action: () => setView('progress'),
+      action: () => navigateToView('progress'),
       variant: 'info' as const,
       icon: <ArrowRight className="h-4 w-4" />,
     };
@@ -1321,7 +1325,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </button>
                 )}
                 <button
-                  onClick={() => setView('messages')}
+                  onClick={() => navigateToView('messages')}
                   className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-1 sm:flex-none justify-center ${
                     truckDownAcked
                       ? 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -1382,7 +1386,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </div>
               </div>
               <button
-                onClick={() => setView('ica')}
+                onClick={() => navigateToView('ica')}
                 className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
               >
                 <FileText className="h-3.5 w-3.5" />
@@ -1410,7 +1414,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </div>
               </div>
               <button
-                onClick={() => setView('ica')}
+                onClick={() => navigateToView('ica')}
                 className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-status-complete text-white text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-status-complete/90 transition-colors shadow-sm"
               >
                 <FileText className="h-3.5 w-3.5" />
@@ -1454,7 +1458,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </div>
                 </div>
                 <button
-                  onClick={() => setView('documents')}
+                  onClick={() => navigateToView('documents')}
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-info text-info-foreground text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-info/90 transition-colors shadow-sm"
                 >
                   <Upload className="h-3.5 w-3.5" />
@@ -1474,9 +1478,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             label: string;
             sublabel: string;
             icon: React.ReactNode;
-            extraAction?: () => void;
           }> = [
-            { view: 'inspection-binder', label: '3-Ring Binder', sublabel: 'DOT inspection-ready documents', icon: <Shield className="h-8 w-8" />, extraAction: () => setBinderView('pages') },
+            { view: 'inspection-binder', label: '3-Ring Binder', sublabel: 'DOT inspection-ready documents', icon: <Shield className="h-8 w-8" /> },
             { view: 'forecast', label: 'Settlement Forecast', sublabel: "This week's projected pay", icon: <Calculator className="h-8 w-8" /> },
             { view: 'my-truck', label: 'My Truck', sublabel: 'Equipment, specs & maintenance', icon: <Truck className="h-8 w-8" /> },
             { view: 'resource-center', label: 'Resource Center', sublabel: 'Guides, how-tos & references', icon: <BookOpen className="h-8 w-8" /> },
@@ -1499,8 +1502,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                       // Start crossfade: skeleton overlay covers the destination
                       // until it fires onReady (or the 6s safety net trips).
                       setTransitionOverlay({ tile: t.view, phase: 'visible' });
-                      if (t.extraAction) t.extraAction();
-                      setView(t.view);
+                      navigateToView(t.view, { binderView: t.view === 'inspection-binder' ? 'pages' : undefined });
                     }}
                     style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
                     className="group relative flex items-center gap-4 p-5 rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in"
@@ -1520,7 +1522,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               {/* Secondary link back to onboarding status */}
               <div className="flex justify-center pt-1">
                 <button
-                  onClick={() => setView('progress')}
+                  onClick={() => navigateToView('progress')}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   View onboarding status
@@ -1542,15 +1544,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               currentStage={currentStage}
               onboardingStatus={effectiveOnboardingStatus}
               onNavigateTo={(v) => {
-                const target = v as OperatorView;
-                setView(target);
-                // Push the URL directly so the writer/reader effects can't race
-                // back to a stale tab (e.g. ?tab=notifications) left over from
-                // opening the notification bell.
-                const search = target && target !== 'progress' ? `?tab=${target}` : '';
-                if (window.location.search !== search) {
-                  navigate({ pathname: '/operator', search }, { replace: false });
-                }
+                if (isOperatorView(v)) navigateToView(v);
               }}
               displayName={displayName}
               assignedDispatcher={assignedDispatcher}
@@ -1566,23 +1560,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 if (assignedDispatcher?.userId) {
                   setMessageInitialUserId(assignedDispatcher.userId);
                 }
-                setView('messages');
+                navigateToView('messages');
               }}
               onMessageCoordinator={() => {
                 if (assignedCoordinator?.userId) {
                   setMessageInitialUserId(assignedCoordinator.userId);
                 }
-                setView('messages');
+                navigateToView('messages');
               }}
               onOpenBinder={(mode) => {
-                setView('inspection-binder');
-                setBinderView(mode === 'pages' ? 'pages' : undefined);
-                if (!isPreview) {
-                  const next = mode === 'pages'
-                    ? '/operator?tab=inspection-binder&binderView=pages'
-                    : '/operator?tab=inspection-binder';
-                  navigate(next, { replace: false });
-                }
+                navigateToView('inspection-binder', { binderView: mode === 'pages' ? 'pages' : undefined });
               }}
             />
 
@@ -1671,7 +1658,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
-            <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
+            <FleetDetailDrawer operatorId={operatorId} onBack={() => navigateToView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
           </Suspense>
         )}
 
@@ -1686,7 +1673,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA SIGN VIEW ── */}
-        {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); setView('progress'); }} />}
+        {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />}
 
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
@@ -1766,7 +1753,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {view === 'dispatch' && operatorId && (
           <OperatorDispatchStatus
             operatorId={operatorId}
-            onMessageDispatcher={() => setView('messages')}
+            onMessageDispatcher={() => navigateToView('messages')}
           />
         )}
         {view === 'dispatch' && !operatorId && (
