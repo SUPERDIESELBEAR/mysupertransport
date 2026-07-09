@@ -548,6 +548,8 @@ interface RowProps {
   serialColumn: string | null;
   serialValue: string;
   deliveryMethod: DeliveryMethod | null;
+  verifiedAt: string | null;
+  onToggleVerified: (verified: boolean) => void;
   onStateChange: (s: AssignmentState) => void;
   onSerialChange: (v: string) => void;
   onSerialCommit: () => void;
@@ -557,8 +559,14 @@ interface RowProps {
 function EquipmentLineRow(props: RowProps) {
   const {
     cfg, mode, canManage, signedLock, state, serialColumn, serialValue,
-    deliveryMethod, onStateChange, onSerialChange, onSerialCommit, onDeliveryChange,
+    deliveryMethod, verifiedAt, onToggleVerified,
+    onStateChange, onSerialChange, onSerialCommit, onDeliveryChange,
   } = props;
+
+  const supportsVerification = !!cfg.verifiedAtColumn;
+  const isAssigned = state !== 'not_assigned';
+  const isVerified = !!verifiedAt;
+  const showVerificationUI = supportsVerification && isAssigned;
 
   return (
     <div className="rounded-lg border border-border bg-background p-3 space-y-3">
@@ -568,6 +576,19 @@ function EquipmentLineRow(props: RowProps) {
             {cfg.icon}
           </span>
           <span className="text-sm font-semibold text-foreground">{cfg.label}</span>
+          {showVerificationUI && (
+            isVerified ? (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-status-complete/10 text-status-complete border-status-complete/30">
+                <ShieldCheck className="h-3 w-3" />
+                Verified {format(parseISO(verifiedAt!), 'MMM d')}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-amber-500/10 text-amber-700 border-amber-500/30">
+                <ShieldAlert className="h-3 w-3" />
+                Unverified
+              </Badge>
+            )
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {mode === 'driver' ? (
@@ -594,6 +615,13 @@ function EquipmentLineRow(props: RowProps) {
           )}
         </div>
       </div>
+
+      {/* Auto-filled hint (management, before verification) */}
+      {mode === 'management' && showVerificationUI && !isVerified && serialValue && (
+        <p className="text-[11px] text-muted-foreground italic">
+          Auto-filled from Inventory — review the serial and mark Verified to confirm.
+        </p>
+      )}
 
       {/* Management controls */}
       {canManage && (
@@ -645,6 +673,21 @@ function EquipmentLineRow(props: RowProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Staff verified checkbox */}
+      {canManage && showVerificationUI && (
+        <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isVerified}
+            onChange={e => onToggleVerified(e.target.checked)}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          <span>
+            Verified — I confirm this {cfg.label.toLowerCase()} serial matches the device in the driver's possession.
+          </span>
+        </label>
       )}
 
       {/* Driver read-only summary */}
