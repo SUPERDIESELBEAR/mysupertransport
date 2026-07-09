@@ -25,7 +25,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
-  CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
+  CheckCircle2, Clock, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock,
@@ -55,6 +55,7 @@ import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } fro
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -194,7 +195,12 @@ export default function ManagementPortal() {
   const [noReminderCount, setNoReminderCount] = useState(0);
 
   // App install tracking (operator PWA installs)
-  const [installStats, setInstallStats] = useState<{ installed: number; webOnly: number; neverSignedIn: number; total: number }>({ installed: 0, webOnly: 0, neverSignedIn: 0, total: 0 });
+  type InstallDriver = { id: string; name: string };
+  const [installStats, setInstallStats] = useState<{
+    installed: number; webOnly: number; neverSignedIn: number; total: number;
+    installedDrivers: InstallDriver[]; webOnlyDrivers: InstallDriver[]; neverSignedInDrivers: InstallDriver[];
+  }>({ installed: 0, webOnly: 0, neverSignedIn: 0, total: 0, installedDrivers: [], webOnlyDrivers: [], neverSignedInDrivers: [] });
+  const [installExpanded, setInstallExpanded] = useState<{ installed: boolean; webOnly: boolean; neverSignedIn: boolean }>({ installed: false, webOnly: false, neverSignedIn: false });
   const [installSendOpen, setInstallSendOpen] = useState(false);
   const [installSending, setInstallSending] = useState(false);
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
@@ -631,13 +637,25 @@ export default function ManagementPortal() {
   const fetchInstallStats = useCallback(async () => {
     const { data } = await supabase
       .from('operators')
-      .select('id, pwa_installed_at, last_web_seen_at')
+      .select('id, pwa_installed_at, last_web_seen_at, applications!inner(first_name, last_name)')
       .eq('is_active', true);
-    const rows = (data as Array<{ id: string; pwa_installed_at: string | null; last_web_seen_at: string | null }> | null) ?? [];
-    const installed = rows.filter(r => !!r.pwa_installed_at).length;
-    const webOnly = rows.filter(r => !r.pwa_installed_at && !!r.last_web_seen_at).length;
-    const neverSignedIn = rows.filter(r => !r.pwa_installed_at && !r.last_web_seen_at).length;
-    setInstallStats({ installed, webOnly, neverSignedIn, total: rows.length });
+    type Row = { id: string; pwa_installed_at: string | null; last_web_seen_at: string | null; applications: { first_name: string | null; last_name: string | null } | null };
+    const rows = (data as Row[] | null) ?? [];
+    const toDriver = (r: Row): InstallDriver => ({
+      id: r.id,
+      name: [r.applications?.first_name, r.applications?.last_name].filter(Boolean).join(' ').trim() || 'Unknown',
+    });
+    const byName = (a: InstallDriver, b: InstallDriver) => a.name.localeCompare(b.name);
+    const installedDrivers = rows.filter(r => !!r.pwa_installed_at).map(toDriver).sort(byName);
+    const webOnlyDrivers = rows.filter(r => !r.pwa_installed_at && !!r.last_web_seen_at).map(toDriver).sort(byName);
+    const neverSignedInDrivers = rows.filter(r => !r.pwa_installed_at && !r.last_web_seen_at).map(toDriver).sort(byName);
+    setInstallStats({
+      installed: installedDrivers.length,
+      webOnly: webOnlyDrivers.length,
+      neverSignedIn: neverSignedInDrivers.length,
+      total: rows.length,
+      installedDrivers, webOnlyDrivers, neverSignedInDrivers,
+    });
   }, []);
 
   useEffect(() => {
@@ -1281,9 +1299,14 @@ export default function ManagementPortal() {
 
             {/* App Install Status */}
             {(() => {
-              const { installed, webOnly, neverSignedIn, total } = installStats;
+              const { installed, webOnly, neverSignedIn, total, installedDrivers, webOnlyDrivers, neverSignedInDrivers } = installStats;
               const remaining = Math.max(0, total - installed);
               const pct = total > 0 ? Math.round((installed / total) * 100) : 0;
+              const tiles: Array<{ key: 'installed' | 'webOnly' | 'neverSignedIn'; count: number; label: string; countCls: string; drivers: InstallDriver[] }> = [
+                { key: 'installed', count: installed, label: 'Installed', countCls: 'text-emerald-600', drivers: installedDrivers },
+                { key: 'webOnly', count: webOnly, label: 'Web only', countCls: 'text-amber-600', drivers: webOnlyDrivers },
+                { key: 'neverSignedIn', count: neverSignedIn, label: 'Never signed in', countCls: 'text-muted-foreground', drivers: neverSignedInDrivers },
+              ];
               return (
                 <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
                   <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
@@ -1339,20 +1362,58 @@ export default function ManagementPortal() {
                       )}
                     </div>
                     {total > 0 && (
-                      <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
-                        <div className="text-center">
-                          <div className="text-base font-semibold text-emerald-600">{installed}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">Installed</div>
+                      <>
+                        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
+                          {tiles.map(t => {
+                            const isOpen = installExpanded[t.key];
+                            return (
+                              <button
+                                key={t.key}
+                                type="button"
+                                onClick={() => setInstallExpanded(prev => ({ ...prev, [t.key]: !prev[t.key] }))}
+                                aria-expanded={isOpen}
+                                aria-label={`${isOpen ? 'Hide' : 'Show'} ${t.label} drivers`}
+                                className={cn(
+                                  'text-center rounded-md px-2 py-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                  isOpen ? 'bg-secondary/60' : 'hover:bg-secondary/40'
+                                )}
+                              >
+                                <div className={cn('text-base font-semibold', t.countCls)}>{t.count}</div>
+                                <div className="text-[11px] text-muted-foreground mt-0.5 inline-flex items-center gap-1">
+                                  {t.label}
+                                  {isOpen
+                                    ? <ChevronUp className="h-3 w-3" />
+                                    : <ChevronDown className="h-3 w-3" />}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="text-center">
-                          <div className="text-base font-semibold text-amber-600">{webOnly}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">Web only</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-base font-semibold text-muted-foreground">{neverSignedIn}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">Never signed in</div>
-                        </div>
-                      </div>
+                        {tiles.filter(t => installExpanded[t.key]).map(t => (
+                          <div key={`${t.key}-list`} className="mt-3 border border-border rounded-lg overflow-hidden">
+                            <div className="px-3 py-2 bg-secondary/40 text-xs font-medium text-foreground flex items-center justify-between">
+                              <span>{t.label}</span>
+                              <span className="text-muted-foreground">{t.count} driver{t.count === 1 ? '' : 's'}</span>
+                            </div>
+                            {t.drivers.length === 0 ? (
+                              <div className="px-3 py-4 text-center text-xs text-muted-foreground">No drivers</div>
+                            ) : (
+                              <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                                {t.drivers.map(d => (
+                                  <button
+                                    key={d.id}
+                                    type="button"
+                                    onClick={() => { setSelectedOperatorId(d.id); setView('operator-detail'); }}
+                                    className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary/40 transition-colors"
+                                  >
+                                    {d.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
