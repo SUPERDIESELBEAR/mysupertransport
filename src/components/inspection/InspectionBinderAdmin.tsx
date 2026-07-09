@@ -9,7 +9,7 @@ import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
   Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check, GripVertical,
-  BookOpen, UserCircle2,
+  BookOpen, UserCircle2, Shield,
 } from 'lucide-react';
 import BinderFlipbook, { type FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
@@ -1204,7 +1204,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           <FileText className="h-5 w-5 text-gold" />
         </div>
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">DOT Inspection Binder</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Shield className="h-6 w-6 text-gold shrink-0" />
+            DOT Inspection Binder
+          </h1>
           {selectedDriverName && <p className="text-xs text-muted-foreground">{selectedDriverName}</p>}
         </div>
       </div>
