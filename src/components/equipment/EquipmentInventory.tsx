@@ -220,7 +220,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
               </div>
               <p className="text-lg font-bold text-foreground">{t.total}</p>
               <p className="text-xs text-muted-foreground">
-                {t.available} avail · {t.assigned} assigned
+                {t.available} Available · {t.assigned} Assigned
               </p>
             </button>
           );
@@ -239,7 +239,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
           />
         </div>
         <div className="flex gap-1">
-          {(['all', 'available', 'assigned', 'damaged', 'lost'] as const).map(s => (
+          {(['all', 'available', 'assigned', 'damaged', 'lost', 'deactivated'] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
