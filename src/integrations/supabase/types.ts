@@ -2322,6 +2322,7 @@ export type Database = {
           eld_signature_typed_name: string | null
           eld_verified_at: string | null
           eld_verified_by: string | null
+          equipment_return_completed_at: string | null
           equipment_return_date: string | null
           equipment_return_notes: string | null
           exception_approved_at: string | null
@@ -2383,6 +2384,8 @@ export type Database = {
           registration_status:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          return_instructions_sent_at: string | null
+          return_instructions_sent_by: string | null
           temp_decal_approved: boolean
           trailer_number: string | null
           truck_inspection: Database["public"]["Enums"]["document_status"]
@@ -2449,6 +2452,7 @@ export type Database = {
           eld_signature_typed_name?: string | null
           eld_verified_at?: string | null
           eld_verified_by?: string | null
+          equipment_return_completed_at?: string | null
           equipment_return_date?: string | null
           equipment_return_notes?: string | null
           exception_approved_at?: string | null
@@ -2510,6 +2514,8 @@ export type Database = {
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          return_instructions_sent_at?: string | null
+          return_instructions_sent_by?: string | null
           temp_decal_approved?: boolean
           trailer_number?: string | null
           truck_inspection?: Database["public"]["Enums"]["document_status"]
@@ -2576,6 +2582,7 @@ export type Database = {
           eld_signature_typed_name?: string | null
           eld_verified_at?: string | null
           eld_verified_by?: string | null
+          equipment_return_completed_at?: string | null
           equipment_return_date?: string | null
           equipment_return_notes?: string | null
           exception_approved_at?: string | null
@@ -2637,6 +2644,8 @@ export type Database = {
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          return_instructions_sent_at?: string | null
+          return_instructions_sent_by?: string | null
           temp_decal_approved?: boolean
           trailer_number?: string | null
           truck_inspection?: Database["public"]["Enums"]["document_status"]
