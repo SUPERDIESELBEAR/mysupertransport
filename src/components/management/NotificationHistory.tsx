@@ -177,7 +177,7 @@ export default function NotificationHistory() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Notification History</h1>
+          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-1">
             All notifications sent to your account — {total} total
           </p>

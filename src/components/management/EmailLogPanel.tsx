@@ -187,7 +187,7 @@ export default function EmailLogPanel() {
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Email Log & Resend</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Email Log</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Track all transactional emails. Resend application links if an applicant reports a broken or expired URL.
           </p>
