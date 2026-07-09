@@ -9,18 +9,19 @@ import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
   ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
-  Pencil, Loader2, Download
+  Pencil, Loader2, Download, Archive
 } from 'lucide-react';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
+import FuelCardDeactivateModal from './FuelCardDeactivateModal';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 
 export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
-export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost';
+export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost' | 'deactivated';
 
 export interface EquipmentItem {
   id: string;
@@ -48,6 +49,7 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
   damaged:   { label: 'Damaged / Needs Repair', color: 'bg-warning/15 text-warning border-warning/30',              icon: <AlertTriangle className="h-3 w-3" /> },
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
+  deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
 
 export default function EquipmentInventory({ isManagement = false }: { isManagement?: boolean }) {
@@ -67,6 +69,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
   const [assignItem, setAssignItem] = useState<EquipmentItem | null>(null);
   const [returnItem, setReturnItem] = useState<EquipmentItem | null>(null);
+  const [deactivateItem, setDeactivateItem] = useState<EquipmentItem | null>(null);
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
 
   const fetchItems = useCallback(async () => {
@@ -135,6 +138,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
     assigned: items.filter(i => i.status === 'assigned').length,
     damaged: items.filter(i => i.status === 'damaged').length,
     lost: items.filter(i => i.status === 'lost').length,
+    deactivated: items.filter(i => i.status === 'deactivated').length,
   };
 
   const perType: Record<DeviceType, { total: number; available: number; assigned: number }> = {
@@ -216,7 +220,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
               </div>
               <p className="text-lg font-bold text-foreground">{t.total}</p>
               <p className="text-xs text-muted-foreground">
-                {t.available} avail · {t.assigned} assigned
+                {t.available} Available · {t.assigned} Assigned
               </p>
             </button>
           );
@@ -235,7 +239,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
           />
         </div>
         <div className="flex gap-1">
-          {(['all', 'available', 'assigned', 'damaged', 'lost'] as const).map(s => (
+          {(['all', 'available', 'assigned', 'damaged', 'lost', 'deactivated'] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -276,14 +280,17 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     {typeItems.length} device{typeItems.length !== 1 ? 's' : ''}
                   </span>
                   <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="text-status-complete font-medium">{typeItems.filter(i => i.status === 'available').length} avail</span>
+                    <span className="text-status-complete font-medium">{typeItems.filter(i => i.status === 'available').length} Available</span>
                     <span>·</span>
-                    <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} assigned</span>
+                    <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} Assigned</span>
                     {typeItems.filter(i => i.status === 'damaged').length > 0 && (
                       <><span>·</span><span className="text-warning font-medium">{typeItems.filter(i => i.status === 'damaged').length} damaged</span></>
                     )}
                     {typeItems.filter(i => i.status === 'lost').length > 0 && (
                       <><span>·</span><span className="text-destructive font-medium">{typeItems.filter(i => i.status === 'lost').length} lost</span></>
+                    )}
+                    {typeItems.filter(i => i.status === 'deactivated').length > 0 && (
+                      <><span>·</span><span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span></>
                     )}
                   </div>
                 </div>
@@ -293,6 +300,17 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     No {cfg.label} devices found
                   </div>
+                ) : type === 'fuel_card' ? (
+                  <FuelCardSections
+                    items={displayItems}
+                    viewMode={viewMode}
+                    isManagement={isManagement}
+                    onEdit={setEditItem}
+                    onAssign={setAssignItem}
+                    onReturn={setReturnItem}
+                    onDeactivate={setDeactivateItem}
+                    onHistory={setHistoryItem}
+                  />
                 ) : (
                   <>
                     {viewMode === 'cards' ? (
@@ -304,6 +322,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                             onEdit={() => setEditItem(item)}
                             onAssign={() => setAssignItem(item)}
                             onReturn={() => setReturnItem(item)}
+                            onDeactivate={() => setDeactivateItem(item)}
                             onHistory={() => setHistoryItem(item)}
                           />
                         ))}
@@ -318,6 +337,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                             onEdit={() => setEditItem(item)}
                             onAssign={() => setAssignItem(item)}
                             onReturn={() => setReturnItem(item)}
+                            onDeactivate={() => setDeactivateItem(item)}
                             onHistory={() => setHistoryItem(item)}
                           />
                         ))}
@@ -372,6 +392,12 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
         onClose={() => setReturnItem(null)}
         onSaved={fetchItems}
       />
+      <FuelCardDeactivateModal
+        open={!!deactivateItem}
+        item={deactivateItem}
+        onClose={() => setDeactivateItem(null)}
+        onSaved={fetchItems}
+      />
       <EquipmentHistoryModal
         open={!!historyItem}
         item={historyItem}
@@ -391,6 +417,7 @@ function EquipmentRow({
   onEdit,
   onAssign,
   onReturn,
+  onDeactivate,
   onHistory,
 }: {
   item: EquipmentItem;
@@ -398,10 +425,12 @@ function EquipmentRow({
   onEdit: () => void;
   onAssign: () => void;
   onReturn: () => void;
+  onDeactivate: () => void;
   onHistory: () => void;
 }) {
   const cfg = STATUS_CONFIG[item.status];
   const devCfg = DEVICE_CONFIG[item.device_type];
+  const isFuelCard = item.device_type === 'fuel_card';
 
   return (
     <div className="px-4 py-3 flex items-center gap-3 hover:bg-muted/20 transition-colors group">
@@ -447,7 +476,7 @@ function EquipmentRow({
             Assign
           </Button>
         )}
-        {item.status === 'assigned' && (
+        {item.status === 'assigned' && !isFuelCard && (
           <Button
             variant="outline"
             size="sm"
@@ -456,6 +485,17 @@ function EquipmentRow({
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Return
+          </Button>
+        )}
+        {isFuelCard && item.status !== 'deactivated' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDeactivate}
+            className="h-8 px-2.5 text-xs border-border text-muted-foreground hover:bg-muted"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            Deactivate
           </Button>
         )}
       </div>
@@ -468,16 +508,19 @@ function EquipmentCard({
   onEdit,
   onAssign,
   onReturn,
+  onDeactivate,
   onHistory,
 }: {
   item: EquipmentItem;
   onEdit: () => void;
   onAssign: () => void;
   onReturn: () => void;
+  onDeactivate: () => void;
   onHistory: () => void;
 }) {
   const cfg = STATUS_CONFIG[item.status];
   const devCfg = DEVICE_CONFIG[item.device_type];
+  const isFuelCard = item.device_type === 'fuel_card';
 
   return (
     <div className="bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all p-3.5 flex flex-col gap-2.5">
@@ -519,12 +562,101 @@ function EquipmentCard({
             <UserCheck className="h-3 w-3" />Assign
           </Button>
         )}
-        {item.status === 'assigned' && (
+        {item.status === 'assigned' && !isFuelCard && (
           <Button variant="outline" size="sm" onClick={onReturn} className="h-7 px-2 text-xs gap-1 border-status-complete/40 text-status-complete hover:bg-status-complete/10 hover:text-status-complete">
             <RotateCcw className="h-3 w-3" />Return
           </Button>
         )}
+        {isFuelCard && item.status !== 'deactivated' && (
+          <Button variant="outline" size="sm" onClick={onDeactivate} className="h-7 px-2 text-xs gap-1 border-border text-muted-foreground hover:bg-muted">
+            <Archive className="h-3 w-3" />Deactivate
+          </Button>
+        )}
       </div>
+    </div>
+  );
+}
+
+function FuelCardSections({
+  items,
+  viewMode,
+  isManagement,
+  onEdit,
+  onAssign,
+  onReturn,
+  onDeactivate,
+  onHistory,
+}: {
+  items: EquipmentItem[];
+  viewMode: 'cards' | 'table';
+  isManagement: boolean;
+  onEdit: (item: EquipmentItem) => void;
+  onAssign: (item: EquipmentItem) => void;
+  onReturn: (item: EquipmentItem) => void;
+  onDeactivate: (item: EquipmentItem) => void;
+  onHistory: (item: EquipmentItem) => void;
+}) {
+  const assigned = items.filter(i => i.status === 'assigned');
+  const unassigned = items.filter(i => i.status === 'available' || i.status === 'damaged' || i.status === 'lost');
+  const deactivated = items.filter(i => i.status === 'deactivated');
+
+  const sections: { title: string; subtitle: string; items: EquipmentItem[] }[] = [
+    { title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
+    { title: 'Unassigned Inventory', subtitle: 'Available fuel cards not yet assigned to a driver', items: unassigned },
+    { title: 'Deactivated', subtitle: 'Archived fuel cards no longer in use', items: deactivated },
+  ];
+
+  return (
+    <div className="divide-y divide-border">
+      {sections.map(section => (
+        <div key={section.title}>
+          <div className="px-4 py-2 bg-muted/20 border-b border-border">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                {section.title}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {section.items.length} card{section.items.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{section.subtitle}</p>
+          </div>
+          {section.items.length === 0 ? (
+            <div className="px-4 py-5 text-center text-xs text-muted-foreground">
+              No cards in this section
+            </div>
+          ) : viewMode === 'cards' ? (
+            <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {section.items.map(item => (
+                <EquipmentCard
+                  key={item.id}
+                  item={item}
+                  onEdit={() => onEdit(item)}
+                  onAssign={() => onAssign(item)}
+                  onReturn={() => onReturn(item)}
+                  onDeactivate={() => onDeactivate(item)}
+                  onHistory={() => onHistory(item)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {section.items.map(item => (
+                <EquipmentRow
+                  key={item.id}
+                  item={item}
+                  isManagement={isManagement}
+                  onEdit={() => onEdit(item)}
+                  onAssign={() => onAssign(item)}
+                  onReturn={() => onReturn(item)}
+                  onDeactivate={() => onDeactivate(item)}
+                  onHistory={() => onHistory(item)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
