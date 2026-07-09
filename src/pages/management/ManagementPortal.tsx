@@ -25,7 +25,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
-  CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
+  CheckCircle2, Clock, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock,
@@ -194,7 +194,12 @@ export default function ManagementPortal() {
   const [noReminderCount, setNoReminderCount] = useState(0);
 
   // App install tracking (operator PWA installs)
-  const [installStats, setInstallStats] = useState<{ installed: number; webOnly: number; neverSignedIn: number; total: number }>({ installed: 0, webOnly: 0, neverSignedIn: 0, total: 0 });
+  type InstallDriver = { id: string; name: string };
+  const [installStats, setInstallStats] = useState<{
+    installed: number; webOnly: number; neverSignedIn: number; total: number;
+    installedDrivers: InstallDriver[]; webOnlyDrivers: InstallDriver[]; neverSignedInDrivers: InstallDriver[];
+  }>({ installed: 0, webOnly: 0, neverSignedIn: 0, total: 0, installedDrivers: [], webOnlyDrivers: [], neverSignedInDrivers: [] });
+  const [installExpanded, setInstallExpanded] = useState<{ installed: boolean; webOnly: boolean; neverSignedIn: boolean }>({ installed: false, webOnly: false, neverSignedIn: false });
   const [installSendOpen, setInstallSendOpen] = useState(false);
   const [installSending, setInstallSending] = useState(false);
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
