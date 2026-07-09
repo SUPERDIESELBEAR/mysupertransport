@@ -292,9 +292,8 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     {typeItems.filter(i => i.status === 'lost').length > 0 && (
                       <><span>·</span><span className="text-destructive font-medium">{typeItems.filter(i => i.status === 'lost').length} lost</span></>
                     )}
-                    {typeItems.filter(i => i.status === 'deactivated').length > 0 && (
-                      <><span>·</span><span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span></>
-                    )}
+                    <span>·</span>
+                    <span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span>
                   </div>
                 </div>
 
@@ -305,7 +304,8 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                   </div>
                 ) : type === 'fuel_card' ? (
                   <FuelCardSections
-                    items={displayItems}
+                    items={typeItems}
+                    statusFilter={statusFilter}
                     viewMode={viewMode}
                     isManagement={isManagement}
                     onEdit={setEditItem}
@@ -582,6 +582,7 @@ function EquipmentCard({
 
 function FuelCardSections({
   items,
+  statusFilter,
   viewMode,
   isManagement,
   onEdit,
@@ -591,6 +592,7 @@ function FuelCardSections({
   onHistory,
 }: {
   items: EquipmentItem[];
+  statusFilter: 'all' | EquipmentStatus;
   viewMode: 'cards' | 'table';
   isManagement: boolean;
   onEdit: (item: EquipmentItem) => void;
@@ -600,14 +602,26 @@ function FuelCardSections({
   onHistory: (item: EquipmentItem) => void;
 }) {
   const assigned = items.filter(i => i.status === 'assigned');
-  const unassigned = items.filter(i => i.status === 'available' || i.status === 'damaged' || i.status === 'lost');
+  const available = items.filter(i => i.status === 'available' || i.status === 'damaged');
+  const lost = items.filter(i => i.status === 'lost');
   const deactivated = items.filter(i => i.status === 'deactivated');
 
-  const sections: { title: string; subtitle: string; items: EquipmentItem[] }[] = [
-    { title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
-    { title: 'Unassigned Inventory', subtitle: 'Available fuel cards not yet assigned to a driver', items: unassigned },
-    { title: 'Deactivated', subtitle: 'Archived fuel cards no longer in use', items: deactivated },
+  const allSections: { key: EquipmentStatus | 'available_group'; title: string; subtitle: string; items: EquipmentItem[] }[] = [
+    { key: 'assigned', title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
+    { key: 'available_group', title: 'Unassigned Inventory', subtitle: 'Available fuel cards not yet assigned to a driver', items: available },
+    { key: 'lost', title: 'Lost/Missing', subtitle: 'Fuel cards reported lost or missing', items: lost },
+    { key: 'deactivated', title: 'Deactivated', subtitle: 'Archived fuel cards no longer in use', items: deactivated },
   ];
+
+  const sections = allSections.filter(s => {
+    if (statusFilter === 'all') {
+      // Always show Assigned, Unassigned, Deactivated; hide Lost when empty.
+      if (s.key === 'lost') return s.items.length > 0;
+      return true;
+    }
+    if (statusFilter === 'available' || statusFilter === 'damaged') return s.key === 'available_group';
+    return s.key === statusFilter;
+  });
 
   return (
     <div className="divide-y divide-border">
@@ -629,7 +643,7 @@ function FuelCardSections({
               No cards in this section
             </div>
           ) : viewMode === 'cards' ? (
-            <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[560px] overflow-y-auto">
               {section.items.map(item => (
                 <EquipmentCard
                   key={item.id}
@@ -643,7 +657,7 @@ function FuelCardSections({
               ))}
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
               {section.items.map(item => (
                 <EquipmentRow
                   key={item.id}
