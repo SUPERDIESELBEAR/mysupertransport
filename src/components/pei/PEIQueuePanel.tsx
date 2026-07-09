@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight, Beaker, Trash2 } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight, Beaker, Trash2, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -188,7 +188,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-              <ShieldCheck className="h-6 w-6 text-gold" />
+              <Briefcase className="h-6 w-6 text-gold" />
               Previous Employment Investigations
             </h1>
             <p className="text-sm text-muted-foreground mt-1">49 CFR §391.23 Compliance Tracking</p>
