@@ -289,7 +289,10 @@ export default function FormsCatalog() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Forms Catalog</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <FileText className="h-6 w-6 text-gold shrink-0" />
+          Forms Catalog
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Browse and preview all operational forms. Click a form to page through its sections with sample data.
         </p>
