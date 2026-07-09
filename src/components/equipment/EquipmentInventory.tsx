@@ -280,14 +280,17 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     {typeItems.length} device{typeItems.length !== 1 ? 's' : ''}
                   </span>
                   <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="text-status-complete font-medium">{typeItems.filter(i => i.status === 'available').length} avail</span>
+                    <span className="text-status-complete font-medium">{typeItems.filter(i => i.status === 'available').length} Available</span>
                     <span>·</span>
-                    <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} assigned</span>
+                    <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} Assigned</span>
                     {typeItems.filter(i => i.status === 'damaged').length > 0 && (
                       <><span>·</span><span className="text-warning font-medium">{typeItems.filter(i => i.status === 'damaged').length} damaged</span></>
                     )}
                     {typeItems.filter(i => i.status === 'lost').length > 0 && (
                       <><span>·</span><span className="text-destructive font-medium">{typeItems.filter(i => i.status === 'lost').length} lost</span></>
+                    )}
+                    {typeItems.filter(i => i.status === 'deactivated').length > 0 && (
+                      <><span>·</span><span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span></>
                     )}
                   </div>
                 </div>
@@ -297,6 +300,17 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     No {cfg.label} devices found
                   </div>
+                ) : type === 'fuel_card' ? (
+                  <FuelCardSections
+                    items={displayItems}
+                    viewMode={viewMode}
+                    isManagement={isManagement}
+                    onEdit={setEditItem}
+                    onAssign={setAssignItem}
+                    onReturn={setReturnItem}
+                    onDeactivate={setDeactivateItem}
+                    onHistory={setHistoryItem}
+                  />
                 ) : (
                   <>
                     {viewMode === 'cards' ? (
@@ -308,6 +322,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                             onEdit={() => setEditItem(item)}
                             onAssign={() => setAssignItem(item)}
                             onReturn={() => setReturnItem(item)}
+                            onDeactivate={() => setDeactivateItem(item)}
                             onHistory={() => setHistoryItem(item)}
                           />
                         ))}
@@ -322,6 +337,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                             onEdit={() => setEditItem(item)}
                             onAssign={() => setAssignItem(item)}
                             onReturn={() => setReturnItem(item)}
+                            onDeactivate={() => setDeactivateItem(item)}
                             onHistory={() => setHistoryItem(item)}
                           />
                         ))}
