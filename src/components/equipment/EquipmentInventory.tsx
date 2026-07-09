@@ -69,6 +69,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
   const [assignItem, setAssignItem] = useState<EquipmentItem | null>(null);
   const [returnItem, setReturnItem] = useState<EquipmentItem | null>(null);
+  const [deactivateItem, setDeactivateItem] = useState<EquipmentItem | null>(null);
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
 
   const fetchItems = useCallback(async () => {
@@ -137,6 +138,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
     assigned: items.filter(i => i.status === 'assigned').length,
     damaged: items.filter(i => i.status === 'damaged').length,
     lost: items.filter(i => i.status === 'lost').length,
+    deactivated: items.filter(i => i.status === 'deactivated').length,
   };
 
   const perType: Record<DeviceType, { total: number; available: number; assigned: number }> = {
