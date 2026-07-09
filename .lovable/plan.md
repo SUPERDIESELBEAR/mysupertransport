@@ -1,70 +1,39 @@
 
 ## Goal
 
-For **Fuel Cards only**:
-- Replace the "Return" action with "Deactivate" (no return-condition choice — a deactivated card is retired).
-- Allow deactivating both assigned and unassigned cards.
-- Show an **Unassigned Inventory** subsection and an **Archived / Deactivated** subsection inside the Fuel Card group.
-- Rename the "avail" label to "Available" across the Equipment Inventory summary.
+Every management page header shows the same lucide icon that appears next to its label in the sidebar, positioned to the immediate left of the H1 title. Sidebar and header stay in visual lockstep.
 
-Other device types (ELD, Dash Cam, BestPass) are unchanged — they keep the existing Return → Good / Damaged / Lost flow.
+## Approach
 
-## Changes
+Single source of truth: the icon list already lives on `navItems` in `src/pages/management/ManagementPortal.tsx`. I'll:
 
-### 1. Database (schema-only migration)
+1. Extract each nav entry's icon into a shared map keyed by the view path (e.g. `'overview' → LayoutDashboard`, `'pipeline' → Users`, `'compliance' → ShieldCheck`, etc.). Kept in a small new file `src/pages/management/navIcons.tsx` so both the sidebar and page headers import from the same place.
+2. Update `navItems` to reference this map (no visual change to the sidebar).
+3. Add the icon to the left of each page H1. Icon size: `h-6 w-6` on desktop, `h-5 w-5` on mobile, colored `text-primary` (gold) to match the active-nav accent. Wrap title + icon in a `flex items-center gap-2` row.
 
-Add a new value to the `equipment_items.status` domain:
+## Header locations to update
 
-- If `status` is a Postgres `CHECK` constraint, drop and re-add it to include `'deactivated'`.
-- If `status` is a native enum, `ALTER TYPE ... ADD VALUE 'deactivated'`.
-- Do the same for `equipment_assignments.return_condition` so we can record `'deactivated'` as the closing reason when an assigned fuel card is retired.
+Headers rendered directly in `ManagementPortal.tsx` (inline in the switch/route block): Management Overview, Applications, Messages, What's New, plus any others currently declared there.
 
-No data backfill needed — existing rows keep their current status.
+Headers owned by child page components — one edit each to prepend the icon:
+- `PipelineDashboard.tsx` → Onboarding Pipeline
+- `NotificationHistory.tsx` → Notifications
+- `EmailLogPanel.tsx` → Email Log
+- `OperatorBroadcast.tsx` → Broadcast Email
+- `InspectionBinderAdmin.tsx` → DOT Inspection Binder
+- `EquipmentInventory.tsx` → Equipment Inventory
+- Fleet Compliance, Dispatch Board, Driver Hub, Vehicle Hub, Document Hub, MO Plate Registry, Resource Center, Staff Directory, FAQ Manager, Pipeline Config, Activity Log, Content Manager, Forms Catalog, Carrier Signature, Lease Terminations, PEI Queue, Demo Mode — each page component gets the same one-line change.
 
-### 2. `EquipmentInventory.tsx`
-
-- Add `'deactivated'` to the `EquipmentStatus` type and to `STATUS_CONFIG` (muted gray badge, `Archive` icon, label "Deactivated").
-- Rename per-type summary text from `"{n} avail · {n} assigned"` to `"{n} Available · {n} Assigned"`.
-- Rename group-header text from `"{n} avail"` to `"{n} Available"`.
-- Add a Fuel Card–only rendering block **inside** the Fuel Card group card (only when `type === 'fuel_card'`), splitting `typeItems` into three ordered subsections, each with a small subtitle header:
-  1. **Assigned** — cards currently issued to a driver.
-  2. **Unassigned Inventory** — status `available`, not attached to any driver.
-  3. **Deactivated** — status `deactivated` (archived list).
-  Other device types render exactly as today (single flat list).
-- Add `'deactivated'` as a chip in the status filter row so staff can filter to just archived cards.
-
-### 3. Deactivate action (Fuel Card only)
-
-- In `EquipmentRow` and `EquipmentCard`, when `item.device_type === 'fuel_card'`:
-  - Replace the "Return" button (shown for `assigned` cards today) with a **Deactivate** button.
-  - Also show the **Deactivate** button for `available` (unassigned) fuel cards, so unused inventory can be retired.
-  - Hide the button entirely for cards already in `deactivated` status.
-- Non–fuel-card rows keep the existing Assign / Return buttons unchanged.
-
-### 4. New `FuelCardDeactivateModal.tsx`
-
-Small dedicated confirm dialog (does not reuse the multi-condition Return modal):
-
-- Header: "Deactivate Fuel Card".
-- Body: shows card serial, current assignee (if any), a short warning ("This card will be archived and can no longer be assigned."), and an optional notes textarea.
-- On confirm:
-  - If the card is currently assigned: close the open row in `equipment_assignments` (`returned_at = now()`, `return_condition = 'deactivated'`, notes), and clear `onboarding_status.fuel_card_number` for that operator (same clearing logic the Return modal uses today).
-  - Update `equipment_items.status = 'deactivated'`.
-  - Toast "Fuel card deactivated".
-- Respect `useDemoMode().guardDemo()` and show `DemoLockIcon`, matching the Return modal patterns.
-
-### 5. `EquipmentReturnModal.tsx`
-
-No functional change — it stays the Return flow for ELD / Dash Cam / BestPass. We just stop opening it for fuel cards.
+For any header I find that lives inside a component shared with non-management contexts (e.g. Messages reused in the driver app), the icon prefix will be conditional or scoped to the management wrapper so the driver-facing view is not affected.
 
 ## Out of scope
 
-- No changes to ELD, Dash Cam, or BestPass behavior.
-- No change to history/audit — deactivation is naturally captured by the closed assignment row + status change.
-- No renaming of the top-level "Equipment" section (parked from earlier discussion).
+- No change to sidebar visuals, ordering, labels, or grouping.
+- No change to page content, filters, or actions — only the header row.
+- Driver-facing / operator-facing headers are not touched.
 
 ## Technical notes
 
-- File touch list: `supabase/migrations/<new>.sql`, `src/components/equipment/EquipmentInventory.tsx`, `src/components/equipment/FuelCardDeactivateModal.tsx` (new). `EquipmentReturnModal.tsx` untouched.
-- `STATUS_CONFIG.deactivated` styling: `bg-muted text-muted-foreground border-border` with an `Archive` lucide icon, to visually distinguish "retired" from "available".
-- Filter/search logic already keys off `item.status`, so adding `'deactivated'` flows through the existing filter chip and search bar with no extra work beyond adding the chip.
+- New file: `src/pages/management/navIcons.tsx` exporting `NAV_ICONS: Record<string, LucideIcon>` and a small `<PageHeaderIcon path="..." />` helper for consistent sizing.
+- Icons must not shrink on narrow widths — add `shrink-0` on each icon.
+- If a header uses a custom color (e.g. `text-foreground` on a dark section), the icon inherits or is explicitly set to match — no white-on-white surprises.
