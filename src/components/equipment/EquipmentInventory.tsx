@@ -164,7 +164,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <HardDrive className="h-6 w-6 text-gold shrink-0" />
-            Equipment Inventory
+            Onboard Systems
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Track ELDs, Dash Cams, BestPass tags, and Fuel Cards
