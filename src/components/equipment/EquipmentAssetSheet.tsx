@@ -213,6 +213,81 @@ export default function EquipmentAssetSheet({
 
   // ── Receipt upload ──
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+
+  // ── Send Return Instructions (management) ──
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendingInstructions, setSendingInstructions] = useState(false);
+  const assignedForReturn = useMemo(
+    () => LINES.filter(l => {
+      const state = status?.[`${l.key}_assignment_state`] as AssignmentState | undefined;
+      return state && state !== 'not_assigned';
+    }),
+    [status],
+  );
+  const sendReturnInstructions = async () => {
+    if (guardDemo()) return;
+    if (!operatorId) return;
+    setSendingInstructions(true);
+    try {
+      // 1. Flip assigned lines to awaiting_return so the driver sees the uploader.
+      const patch: Record<string, any> = {
+        return_instructions_sent_at: new Date().toISOString(),
+        return_instructions_sent_by: user?.id ?? null,
+      };
+      for (const l of assignedForReturn) {
+        const dm = status?.[`${l.key}_delivery_method`] as DeliveryMethod | undefined;
+        if (dm !== 'awaiting_return') {
+          patch[`${l.key}_delivery_method`] = 'awaiting_return';
+          patch[`${l.key}_awaiting_return_shipment`] = true;
+          patch[`${l.key}_shipped_to_driver`] = false;
+        }
+      }
+      const { error: patchErr } = await supabase
+        .from('onboarding_status')
+        .update(patch)
+        .eq('operator_id', operatorId);
+      if (patchErr) throw patchErr;
+
+      // 2. Look up driver email + name.
+      const { data: op } = await supabase
+        .from('operators')
+        .select('applications(first_name, last_name, email)')
+        .eq('id', operatorId)
+        .maybeSingle();
+      const app = (op as any)?.applications;
+      const email = app?.email as string | undefined;
+      const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Driver';
+      if (!email) {
+        toast.error("We saved the return flags but couldn't find the driver's email on file.");
+        return;
+      }
+
+      // 3. Fire email via transactional-email function.
+      const items = assignedForReturn.map(l => ({
+        label: l.label,
+        serial: l.serialColumn ? ((status?.[l.serialColumn] as string | null) ?? null) : null,
+      }));
+      const portalUrl = `${window.location.origin}/status`;
+      const { error: fnErr } = await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'equipment-return-instructions',
+          recipientEmail: email,
+          templateData: { driverName, items, portalUrl },
+        },
+      });
+      if (fnErr) throw fnErr;
+
+      toast.success(`Return instructions emailed to ${email}.`);
+      onStatusRefresh?.();
+      setSendDialogOpen(false);
+    } catch (err: any) {
+      console.error('[EquipmentAssetSheet] send return instructions failed', err);
+      toast.error(err?.message || "Couldn't send return instructions. Please try again.");
+    } finally {
+      setSendingInstructions(false);
+    }
+  };
+
   const uploadShipmentReceipt = async (
     direction: 'inbound' | 'return',
     formId: string,
