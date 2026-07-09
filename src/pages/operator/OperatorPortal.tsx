@@ -131,11 +131,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   } | null>(null);
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
-  // Desktop push notifications for high-priority events
-  const { fireNotification } = useDesktopNotifications({
-    onNavigate: (link) => navigate(link),
-  });
-
   // React to external/deep-link URL changes only. Top-level portal navigation
   // writes state + URL atomically through navigateToView below, so there is no
   // render-late writer effect that can race a stale ?tab= back into state.
@@ -212,6 +207,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     setMobileMenuOpen(false);
     navigate(path);
   }, [navigate, navigateToView]);
+
+  // Desktop push notifications for high-priority events use the same tab-aware
+  // router as the bell dropdown so notification clicks cannot bypass view state.
+  const { fireNotification } = useDesktopNotifications({
+    onNavigate: navigateWithinOperatorPortal,
+  });
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
