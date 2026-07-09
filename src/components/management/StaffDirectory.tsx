@@ -105,7 +105,10 @@ export default function StaffDirectory() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Staff Directory</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <UserPlus className="h-6 w-6 text-gold shrink-0" />
+            Staff Directory
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {staff.length} staff member{staff.length !== 1 ? 's' : ''} across all roles
           </p>

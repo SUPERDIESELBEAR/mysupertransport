@@ -278,7 +278,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         <div className="flex items-center gap-3">
           <Truck className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Vehicle Hub</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+              <Truck className="h-6 w-6 text-gold shrink-0" />
+              Vehicle Hub
+            </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
               {activeRows.length} active vehicle{activeRows.length !== 1 ? 's' : ''}
               {deactivatedRows.length > 0 && ` · ${deactivatedRows.length} deactivated`}

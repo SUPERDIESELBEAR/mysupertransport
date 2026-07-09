@@ -9,7 +9,7 @@ import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
   ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
-  Pencil, Loader2, Download, Archive
+  Pencil, Loader2, Download, Archive, HardDrive
 } from 'lucide-react';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
@@ -162,7 +162,10 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Equipment Inventory</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <HardDrive className="h-6 w-6 text-gold shrink-0" />
+            Equipment Inventory
+          </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Track ELDs, Dash Cams, BestPass tags, and Fuel Cards
           </p>

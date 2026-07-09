@@ -198,7 +198,10 @@ export default function CarrierSignatureSettings() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Carrier Signature</h1>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Pen className="h-6 w-6 text-gold shrink-0" />
+          Carrier Signature
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           The default signature, name, and title applied to every Independent Contractor Agreement on behalf of SUPERTRANSPORT, LLC.
         </p>

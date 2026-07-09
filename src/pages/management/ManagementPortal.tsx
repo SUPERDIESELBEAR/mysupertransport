@@ -918,7 +918,10 @@ export default function ManagementPortal() {
         {view === 'overview' && (
           <div className="space-y-5 sm:space-y-6 animate-fade-in">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Management Overview</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <LayoutDashboard className="h-6 w-6 text-gold shrink-0" />
+                Management Overview
+              </h1>
               <p className="text-muted-foreground text-sm mt-1">Company-wide snapshot and pending reviews</p>
             </div>
 
@@ -1482,7 +1485,10 @@ export default function ManagementPortal() {
           <div className="space-y-5 animate-fade-in">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Applications</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                  <ClipboardList className="h-6 w-6 text-gold shrink-0" />
+                  Applications
+                </h1>
                 <p className="text-sm text-muted-foreground mt-1">Review applications and manage outreach invites</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1839,7 +1845,10 @@ export default function ManagementPortal() {
         {view === 'resource-center' && (
           <div className="space-y-4 animate-fade-in">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Resource Center</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <BookOpen className="h-6 w-6 text-gold shrink-0" />
+                Resource Center
+              </h1>
               <p className="text-muted-foreground text-sm mt-1">Manage service guides and company documents in one place</p>
             </div>
             <Tabs defaultValue="services" className="w-full">
@@ -1916,7 +1925,10 @@ export default function ManagementPortal() {
         {view === 'whats-new' && (
           <div className="space-y-5 animate-fade-in">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">What's New</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <Megaphone className="h-6 w-6 text-gold shrink-0" />
+                What's New
+              </h1>
               <p className="text-muted-foreground text-sm mt-1">Post release notes and announcements for staff</p>
             </div>
             <ReleaseNotesManager />
@@ -1952,7 +1964,10 @@ export default function ManagementPortal() {
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
             <div className="flex items-center justify-between mb-3 shrink-0 gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messages</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6 text-gold shrink-0" />
+                  Messages
+                </h1>
                 <p className="text-xs text-muted-foreground mt-1">
                   Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
                 </p>
@@ -1976,7 +1991,10 @@ export default function ManagementPortal() {
         {view === 'compliance' && (
           <div className="flex flex-col gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fleet Compliance</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <ShieldCheck className="h-6 w-6 text-gold shrink-0" />
+                Fleet Compliance
+              </h1>
               <p className="text-muted-foreground text-sm mt-1">Monitor CDL, Medical Cert, and fleet document expiries</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">

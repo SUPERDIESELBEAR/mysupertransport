@@ -305,7 +305,10 @@ export default function FaqManager() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">FAQ Manager</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <HelpCircle className="h-6 w-6 text-gold shrink-0" />
+            FAQ Manager
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {publishedCount} of {faqs.length} entries published · operators see these in their portal
           </p>

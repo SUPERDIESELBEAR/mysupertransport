@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle, Check, FileSearch
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle, Check, FileSearch, ScrollText
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -968,7 +968,10 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <ScrollText className="h-6 w-6 text-gold shrink-0" />
+            Activity Log
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">Audit trail of all significant actions across the platform</p>
         </div>
         {/* Search + actions */}
