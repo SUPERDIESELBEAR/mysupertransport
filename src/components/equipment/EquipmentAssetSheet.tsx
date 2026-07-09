@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -16,6 +16,10 @@ import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
 import { validateFile } from '@/lib/validateFile';
 import { format, parseISO } from 'date-fns';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type AssignmentState = 'prior' | 'during' | 'not_assigned';
 type DeliveryMethod = 'shipped' | 'orientation' | 'on_site' | 'awaiting_return' | 'not_assigned';
@@ -209,6 +213,81 @@ export default function EquipmentAssetSheet({
 
   // ── Receipt upload ──
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+
+  // ── Send Return Instructions (management) ──
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendingInstructions, setSendingInstructions] = useState(false);
+  const assignedForReturn = useMemo(
+    () => LINES.filter(l => {
+      const state = status?.[`${l.key}_assignment_state`] as AssignmentState | undefined;
+      return state && state !== 'not_assigned';
+    }),
+    [status],
+  );
+  const sendReturnInstructions = async () => {
+    if (guardDemo()) return;
+    if (!operatorId) return;
+    setSendingInstructions(true);
+    try {
+      // 1. Flip assigned lines to awaiting_return so the driver sees the uploader.
+      const patch: Record<string, any> = {
+        return_instructions_sent_at: new Date().toISOString(),
+        return_instructions_sent_by: user?.id ?? null,
+      };
+      for (const l of assignedForReturn) {
+        const dm = status?.[`${l.key}_delivery_method`] as DeliveryMethod | undefined;
+        if (dm !== 'awaiting_return') {
+          patch[`${l.key}_delivery_method`] = 'awaiting_return';
+          patch[`${l.key}_awaiting_return_shipment`] = true;
+          patch[`${l.key}_shipped_to_driver`] = false;
+        }
+      }
+      const { error: patchErr } = await supabase
+        .from('onboarding_status')
+        .update(patch)
+        .eq('operator_id', operatorId);
+      if (patchErr) throw patchErr;
+
+      // 2. Look up driver email + name.
+      const { data: op } = await supabase
+        .from('operators')
+        .select('applications(first_name, last_name, email)')
+        .eq('id', operatorId)
+        .maybeSingle();
+      const app = (op as any)?.applications;
+      const email = app?.email as string | undefined;
+      const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Driver';
+      if (!email) {
+        toast.error("We saved the return flags but couldn't find the driver's email on file.");
+        return;
+      }
+
+      // 3. Fire email via transactional-email function.
+      const items = assignedForReturn.map(l => ({
+        label: l.label,
+        serial: l.serialColumn ? ((status?.[l.serialColumn] as string | null) ?? null) : null,
+      }));
+      const portalUrl = `${window.location.origin}/status`;
+      const { error: fnErr } = await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'equipment-return-instructions',
+          recipientEmail: email,
+          templateData: { driverName, items, portalUrl },
+        },
+      });
+      if (fnErr) throw fnErr;
+
+      toast.success(`Return instructions emailed to ${email}.`);
+      onStatusRefresh?.();
+      setSendDialogOpen(false);
+    } catch (err: any) {
+      console.error('[EquipmentAssetSheet] send return instructions failed', err);
+      toast.error(err?.message || "Couldn't send return instructions. Please try again.");
+    } finally {
+      setSendingInstructions(false);
+    }
+  };
+
   const uploadShipmentReceipt = async (
     direction: 'inbound' | 'return',
     formId: string,
@@ -476,6 +555,34 @@ export default function EquipmentAssetSheet({
             <Package className="h-4 w-4 text-amber-700" />
             <h4 className="text-sm font-semibold text-amber-900">Equipment Return (Management)</h4>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setSendDialogOpen(true)}
+              disabled={assignedForReturn.length === 0}
+              className="h-8 gap-2 bg-amber-600 text-white hover:bg-amber-700"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              {status?.return_instructions_sent_at ? 'Resend Return Instructions' : 'Send Return Instructions'}
+            </Button>
+            {status?.return_instructions_sent_at && (
+              <span className="text-[11px] text-amber-900/80">
+                Emailed {format(parseISO(status.return_instructions_sent_at as string), 'MMM d, yyyy · h:mm a')}
+              </span>
+            )}
+            {status?.equipment_return_completed_at && (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-status-complete/10 text-status-complete border-status-complete/30">
+                <CheckCircle2 className="h-3 w-3" />
+                Return receipt received {format(parseISO(status.equipment_return_completed_at as string), 'MMM d')}
+              </Badge>
+            )}
+          </div>
+          {assignedForReturn.length === 0 && (
+            <p className="text-[11px] text-amber-900/70">
+              No equipment is currently marked as assigned to this driver — nothing to send return instructions for.
+            </p>
+          )}
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Return Date</Label>
@@ -505,20 +612,32 @@ export default function EquipmentAssetSheet({
 
       {/* Return Shipment Receipts */}
       {showReturnBlock && (
-        <ShipmentReceiptsBlock
-          direction="return"
-          title="Return Shipment Receipts"
-          subtitle={
-            mode === 'driver'
-              ? 'Upload a receipt for equipment you shipped back.'
-              : 'One or more receipts covering equipment returned by the driver.'
-          }
-          canUpload={(mode === 'management' && !readOnly) || driverMayUploadReturn}
-          uploadingKey={uploadingKey}
-          receipts={returnReceipts}
-          onUpload={(formId, file, carrier, tracking) => uploadShipmentReceipt('return', formId, file, carrier, tracking)}
-          onPreview={openPreview}
-        />
+        <div className="space-y-2">
+          {status?.return_instructions_sent_at && (
+            <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
+              <Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+              <span>
+                {mode === 'driver'
+                  ? `We emailed you the mailing instructions on ${format(parseISO(status.return_instructions_sent_at as string), 'MMM d, yyyy')}. Ship your equipment to the UPS Store or the P.O. Box listed in that email, then upload your shipping receipt below.`
+                  : `Return instructions emailed to the driver on ${format(parseISO(status.return_instructions_sent_at as string), 'MMM d, yyyy · h:mm a')}.`}
+              </span>
+            </div>
+          )}
+          <ShipmentReceiptsBlock
+            direction="return"
+            title="Return Shipment Receipts"
+            subtitle={
+              mode === 'driver'
+                ? 'Upload a receipt for equipment you shipped back.'
+                : 'One or more receipts covering equipment returned by the driver.'
+            }
+            canUpload={(mode === 'management' && !readOnly) || driverMayUploadReturn}
+            uploadingKey={uploadingKey}
+            receipts={returnReceipts}
+            onUpload={(formId, file, carrier, tracking) => uploadShipmentReceipt('return', formId, file, carrier, tracking)}
+            onPreview={openPreview}
+          />
+        </div>
       )}
 
       {/* Read-only return summary for driver hub */}
@@ -540,6 +659,45 @@ export default function EquipmentAssetSheet({
           bucketName="operator-documents"
         />
       )}
+
+      <AlertDialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send return instructions to driver?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will email the driver the Equipment Asset Sheet and both mailing
+              addresses (UPS Store #4564 in Russellville and the Dover P.O. Box), and
+              flip the items below to "Awaiting Return" so the driver can upload a
+              shipping receipt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1">
+            {assignedForReturn.length === 0 ? (
+              <span className="text-muted-foreground">No assigned equipment on file.</span>
+            ) : (
+              assignedForReturn.map(l => {
+                const serial = l.serialColumn ? (status?.[l.serialColumn] as string | null) : null;
+                return (
+                  <div key={l.key} className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{l.label}</span>
+                    <span className="text-muted-foreground">{serial ? `Serial ${serial}` : '—'}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sendingInstructions}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); sendReturnInstructions(); }}
+              disabled={sendingInstructions || assignedForReturn.length === 0}
+              className="gap-2"
+            >
+              {sendingInstructions ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</> : <><Mail className="h-4 w-4" /> Send Email</>}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
