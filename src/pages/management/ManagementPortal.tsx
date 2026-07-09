@@ -636,13 +636,25 @@ export default function ManagementPortal() {
   const fetchInstallStats = useCallback(async () => {
     const { data } = await supabase
       .from('operators')
-      .select('id, pwa_installed_at, last_web_seen_at')
+      .select('id, pwa_installed_at, last_web_seen_at, applications!inner(first_name, last_name)')
       .eq('is_active', true);
-    const rows = (data as Array<{ id: string; pwa_installed_at: string | null; last_web_seen_at: string | null }> | null) ?? [];
-    const installed = rows.filter(r => !!r.pwa_installed_at).length;
-    const webOnly = rows.filter(r => !r.pwa_installed_at && !!r.last_web_seen_at).length;
-    const neverSignedIn = rows.filter(r => !r.pwa_installed_at && !r.last_web_seen_at).length;
-    setInstallStats({ installed, webOnly, neverSignedIn, total: rows.length });
+    type Row = { id: string; pwa_installed_at: string | null; last_web_seen_at: string | null; applications: { first_name: string | null; last_name: string | null } | null };
+    const rows = (data as Row[] | null) ?? [];
+    const toDriver = (r: Row): InstallDriver => ({
+      id: r.id,
+      name: [r.applications?.first_name, r.applications?.last_name].filter(Boolean).join(' ').trim() || 'Unknown',
+    });
+    const byName = (a: InstallDriver, b: InstallDriver) => a.name.localeCompare(b.name);
+    const installedDrivers = rows.filter(r => !!r.pwa_installed_at).map(toDriver).sort(byName);
+    const webOnlyDrivers = rows.filter(r => !r.pwa_installed_at && !!r.last_web_seen_at).map(toDriver).sort(byName);
+    const neverSignedInDrivers = rows.filter(r => !r.pwa_installed_at && !r.last_web_seen_at).map(toDriver).sort(byName);
+    setInstallStats({
+      installed: installedDrivers.length,
+      webOnly: webOnlyDrivers.length,
+      neverSignedIn: neverSignedInDrivers.length,
+      total: rows.length,
+      installedDrivers, webOnlyDrivers, neverSignedInDrivers,
+    });
   }, []);
 
   useEffect(() => {
