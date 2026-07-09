@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -16,6 +16,10 @@ import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
 import { validateFile } from '@/lib/validateFile';
 import { format, parseISO } from 'date-fns';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type AssignmentState = 'prior' | 'during' | 'not_assigned';
 type DeliveryMethod = 'shipped' | 'orientation' | 'on_site' | 'awaiting_return' | 'not_assigned';
