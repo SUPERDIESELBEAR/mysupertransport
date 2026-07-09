@@ -1246,7 +1246,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               {navItems.map(item => (
                 <button
                   key={item.view}
-                  onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}
+                  onClick={() => handleMobileNavigate(item.view)}
                   className={`relative flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
                     view === item.view ? 'bg-gold/15 text-gold' : 'text-surface-dark-muted'
                   }`}
@@ -1903,7 +1903,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             return (
               <button
                 key={item.view}
-                onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}
+                onClick={() => handleMobileNavigate(item.view)}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
                   ${isActive ? 'text-gold' : 'text-surface-dark-muted hover:text-surface-dark-foreground'}`}
               >
