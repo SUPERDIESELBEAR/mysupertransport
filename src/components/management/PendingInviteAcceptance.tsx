@@ -66,10 +66,11 @@ export default function PendingInviteAcceptance({ onResent }: Props) {
     // of truth for "actually never signed in" and will no-op if not.
     const userIds = (data ?? []).map((a: any) => a.user_id).filter(Boolean);
     let installedSet = new Set<string>();
+    let deactivatedSet = new Set<string>();
     if (userIds.length > 0) {
       const { data: ops } = await supabase
         .from('operators')
-        .select('user_id, pwa_installed_at, last_web_seen_at')
+        .select('user_id, pwa_installed_at, last_web_seen_at, is_active')
         .in('user_id', userIds);
       installedSet = new Set(
         (ops ?? [])
@@ -77,10 +78,15 @@ export default function PendingInviteAcceptance({ onResent }: Props) {
           .filter((o: any) => !!o.pwa_installed_at || !!o.last_web_seen_at)
           .map((o: any) => o.user_id as string),
       );
+      deactivatedSet = new Set(
+        (ops ?? [])
+          .filter((o: any) => o.is_active === false)
+          .map((o: any) => o.user_id as string),
+      );
     }
 
     const candidates: StuckApplicant[] = (data ?? [])
-      .filter((a: any) => !installedSet.has(a.user_id))
+      .filter((a: any) => !installedSet.has(a.user_id) && !deactivatedSet.has(a.user_id))
       .map((a: any) => ({
         id: a.id,
         first_name: a.first_name,
