@@ -417,6 +417,7 @@ function EquipmentRow({
   onEdit,
   onAssign,
   onReturn,
+  onDeactivate,
   onHistory,
 }: {
   item: EquipmentItem;
@@ -424,10 +425,12 @@ function EquipmentRow({
   onEdit: () => void;
   onAssign: () => void;
   onReturn: () => void;
+  onDeactivate: () => void;
   onHistory: () => void;
 }) {
   const cfg = STATUS_CONFIG[item.status];
   const devCfg = DEVICE_CONFIG[item.device_type];
+  const isFuelCard = item.device_type === 'fuel_card';
 
   return (
     <div className="px-4 py-3 flex items-center gap-3 hover:bg-muted/20 transition-colors group">
@@ -473,7 +476,7 @@ function EquipmentRow({
             Assign
           </Button>
         )}
-        {item.status === 'assigned' && (
+        {item.status === 'assigned' && !isFuelCard && (
           <Button
             variant="outline"
             size="sm"
@@ -482,6 +485,17 @@ function EquipmentRow({
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Return
+          </Button>
+        )}
+        {isFuelCard && item.status !== 'deactivated' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDeactivate}
+            className="h-8 px-2.5 text-xs border-border text-muted-foreground hover:bg-muted"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            Deactivate
           </Button>
         )}
       </div>
@@ -494,16 +508,19 @@ function EquipmentCard({
   onEdit,
   onAssign,
   onReturn,
+  onDeactivate,
   onHistory,
 }: {
   item: EquipmentItem;
   onEdit: () => void;
   onAssign: () => void;
   onReturn: () => void;
+  onDeactivate: () => void;
   onHistory: () => void;
 }) {
   const cfg = STATUS_CONFIG[item.status];
   const devCfg = DEVICE_CONFIG[item.device_type];
+  const isFuelCard = item.device_type === 'fuel_card';
 
   return (
     <div className="bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all p-3.5 flex flex-col gap-2.5">
@@ -545,12 +562,101 @@ function EquipmentCard({
             <UserCheck className="h-3 w-3" />Assign
           </Button>
         )}
-        {item.status === 'assigned' && (
+        {item.status === 'assigned' && !isFuelCard && (
           <Button variant="outline" size="sm" onClick={onReturn} className="h-7 px-2 text-xs gap-1 border-status-complete/40 text-status-complete hover:bg-status-complete/10 hover:text-status-complete">
             <RotateCcw className="h-3 w-3" />Return
           </Button>
         )}
+        {isFuelCard && item.status !== 'deactivated' && (
+          <Button variant="outline" size="sm" onClick={onDeactivate} className="h-7 px-2 text-xs gap-1 border-border text-muted-foreground hover:bg-muted">
+            <Archive className="h-3 w-3" />Deactivate
+          </Button>
+        )}
       </div>
+    </div>
+  );
+}
+
+function FuelCardSections({
+  items,
+  viewMode,
+  isManagement,
+  onEdit,
+  onAssign,
+  onReturn,
+  onDeactivate,
+  onHistory,
+}: {
+  items: EquipmentItem[];
+  viewMode: 'cards' | 'table';
+  isManagement: boolean;
+  onEdit: (item: EquipmentItem) => void;
+  onAssign: (item: EquipmentItem) => void;
+  onReturn: (item: EquipmentItem) => void;
+  onDeactivate: (item: EquipmentItem) => void;
+  onHistory: (item: EquipmentItem) => void;
+}) {
+  const assigned = items.filter(i => i.status === 'assigned');
+  const unassigned = items.filter(i => i.status === 'available' || i.status === 'damaged' || i.status === 'lost');
+  const deactivated = items.filter(i => i.status === 'deactivated');
+
+  const sections: { title: string; subtitle: string; items: EquipmentItem[] }[] = [
+    { title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
+    { title: 'Unassigned Inventory', subtitle: 'Available fuel cards not yet assigned to a driver', items: unassigned },
+    { title: 'Deactivated', subtitle: 'Archived fuel cards no longer in use', items: deactivated },
+  ];
+
+  return (
+    <div className="divide-y divide-border">
+      {sections.map(section => (
+        <div key={section.title}>
+          <div className="px-4 py-2 bg-muted/20 border-b border-border">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                {section.title}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {section.items.length} card{section.items.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{section.subtitle}</p>
+          </div>
+          {section.items.length === 0 ? (
+            <div className="px-4 py-5 text-center text-xs text-muted-foreground">
+              No cards in this section
+            </div>
+          ) : viewMode === 'cards' ? (
+            <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {section.items.map(item => (
+                <EquipmentCard
+                  key={item.id}
+                  item={item}
+                  onEdit={() => onEdit(item)}
+                  onAssign={() => onAssign(item)}
+                  onReturn={() => onReturn(item)}
+                  onDeactivate={() => onDeactivate(item)}
+                  onHistory={() => onHistory(item)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {section.items.map(item => (
+                <EquipmentRow
+                  key={item.id}
+                  item={item}
+                  isManagement={isManagement}
+                  onEdit={() => onEdit(item)}
+                  onAssign={() => onAssign(item)}
+                  onReturn={() => onReturn(item)}
+                  onDeactivate={() => onDeactivate(item)}
+                  onHistory={() => onHistory(item)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
