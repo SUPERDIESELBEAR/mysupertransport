@@ -1446,8 +1446,8 @@ export default function ManagementPortal() {
                   <p className="text-sm text-muted-foreground mt-1">No applications pending review.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-border">
-                  {pendingApps.slice(0, 5).map(app => {
+                <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
+                  {pendingApps.map(app => {
                     const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
                     return (
                       <div key={app.id} className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 hover:bg-secondary/30 transition-colors gap-3">
