@@ -25,9 +25,11 @@ interface NotificationBellProps {
   notificationsPath?: string;
   /** When true, clears the bell's unread badge (e.g. when the notifications history page is open) */
   clearBadge?: boolean;
+  /** Optional portal-specific navigation handler for apps with internal tab routing */
+  onNavigate?: (path: string) => void;
 }
 
-export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false }: NotificationBellProps) {
+export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false, onNavigate }: NotificationBellProps) {
   const { session, activeRole } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -135,6 +137,12 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
         <Icon className={`h-3.5 w-3.5 ${cfg.color}`} strokeWidth={2.5} />
       </span>
     );
+  };
+
+  const navigateToPath = (path: string) => {
+    setOpen(false);
+    if (onNavigate) onNavigate(path);
+    else navigate(path);
   };
 
   // Detect which portal the user belongs to based on their active role.
@@ -319,8 +327,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
                         <button
                           onClick={() => {
                             if (!n.read_at) markRead(n.id);
-                            setOpen(false);
-                            navigate(route);
+                            navigateToPath(route);
                           }}
                           className={itemClass(!n.read_at)}
                         >
@@ -368,8 +375,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
               )}
               <button
                 onClick={() => {
-                  setOpen(false);
-                  navigate(notificationsPath);
+                  navigateToPath(notificationsPath);
                 }}
                 className={`text-xs font-medium transition-colors ${isDark ? 'text-gold hover:text-gold-light' : 'text-gold hover:text-gold-light'}`}
               >
