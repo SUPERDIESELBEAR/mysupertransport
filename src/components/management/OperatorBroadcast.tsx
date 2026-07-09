@@ -458,7 +458,7 @@ export function OperatorBroadcast() {
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Mail className="h-6 w-6 text-gold" /> Operator Broadcast
+          <Mail className="h-6 w-6 text-gold" /> Broadcast Email
         </h2>
         <p className="text-sm text-muted-foreground">
           Send a branded email now, save it as a draft, or schedule it for a future date and time.
