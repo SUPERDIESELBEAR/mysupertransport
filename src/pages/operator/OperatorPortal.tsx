@@ -49,6 +49,22 @@ const isOperatorView = (value: string | null): value is OperatorView => !!value 
 type OperatorViewState = { view: OperatorView; binderView?: 'pages' };
 type OperatorNavigateOptions = { binderView?: 'pages'; replace?: boolean; closeMobileMenu?: boolean };
 
+const buildOperatorViewUrl = (pathname: string, search: string, target: OperatorView, options: OperatorNavigateOptions = {}) => {
+  const params = new URLSearchParams(search);
+  if (target !== 'progress') params.set('tab', target); else params.delete('tab');
+  if (target === 'inspection-binder' && options.binderView === 'pages') {
+    params.set('binderView', 'pages');
+  } else {
+    params.delete('binderView');
+  }
+  const nextSearch = params.toString();
+  return {
+    pathname: pathname || '/dashboard',
+    search: nextSearch ? `?${nextSearch}` : '',
+    binderView: target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' as const : undefined,
+  };
+};
+
 const getViewStateFromSearch = (search: string): OperatorViewState => {
   const params = new URLSearchParams(search);
   const tab = params.get('tab');
@@ -121,63 +137,36 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [binderView, setBinderView] = useState<'list' | 'pages' | undefined>(() => {
     return getViewStateFromSearch(location.search).binderView;
   });
-  // Tracks an in-flight in-app navigation so a stale ?tab= value arriving from
-  // React Router's location update can't overwrite the just-selected view.
-  const pendingViewNavigationRef = useRef<{
-    view: OperatorView;
-    binderView?: 'pages';
-    search: string;
-    startedAt: number;
-  } | null>(null);
+  // Tracks the exact URL written by in-app navigation. If React Router echoes
+  // that same URL back, we accept it and clear the marker; every other URL
+  // change is treated as external/deep-link/browser-back navigation.
+  const appWrittenSearchRef = useRef<string | null>(null);
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
-  // React to external/deep-link URL changes only. Top-level portal navigation
-  // writes state + URL atomically through navigateToView below, so there is no
-  // render-late writer effect that can race a stale ?tab= back into state.
+  // React to external/deep-link/browser-back URL changes. Top-level portal
+  // navigation writes URL + state atomically through navigateToView below.
   useEffect(() => {
     const next = getViewStateFromSearch(location.search);
-    const pending = pendingViewNavigationRef.current;
-    if (pending) {
-      const matched =
-        next.view === pending.view &&
-        next.binderView === pending.binderView &&
-        location.search === pending.search;
-      if (matched) {
-        pendingViewNavigationRef.current = null;
-      } else if (Date.now() - pending.startedAt < 1500) {
-        // Stale URL echo during transition — ignore.
-        return;
-      } else {
-        pendingViewNavigationRef.current = null;
-      }
+    if (appWrittenSearchRef.current === location.search) {
+      appWrittenSearchRef.current = null;
     }
     setView((current) => (current === next.view ? current : next.view));
     setBinderView((current) => (current === next.binderView ? current : next.binderView));
   }, [location.search]);
 
   const syncViewUrl = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
-    const params = new URLSearchParams(location.search);
-    if (target && target !== 'progress') params.set('tab', target); else params.delete('tab');
-    if (target === 'inspection-binder' && options.binderView === 'pages') {
-      params.set('binderView', 'pages');
+    const next = buildOperatorViewUrl(location.pathname, window.location.search, target, options);
+    if (window.location.search !== next.search || window.location.pathname !== next.pathname) {
+      const nextHref = `${next.pathname}${next.search}${window.location.hash}`;
+      if (options.replace) {
+        window.history.replaceState(window.history.state, '', nextHref);
+      } else {
+        window.history.pushState(window.history.state, '', nextHref);
+      }
+      appWrittenSearchRef.current = next.search;
+      navigate({ pathname: next.pathname, search: next.search }, { replace: true });
     } else {
-      params.delete('binderView');
-    }
-
-    const pathname = location.pathname || '/dashboard';
-    const search = params.toString();
-    const nextSearch = search ? `?${search}` : '';
-    const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
-    pendingViewNavigationRef.current = {
-      view: target,
-      binderView: nextBinderView,
-      search: nextSearch,
-      startedAt: Date.now(),
-    };
-    if (location.search !== nextSearch) {
-      navigate({ pathname, search: nextSearch }, { replace: options.replace ?? false });
-    } else {
-      pendingViewNavigationRef.current = null;
+      appWrittenSearchRef.current = null;
     }
   }, [location.pathname, location.search, navigate]);
 
@@ -186,11 +175,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // instead of forcing /operator, which avoids guarded route remounts.
   const navigateToView = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
     const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
-    setMobileMenuOpen(false);
+    if (!isPreview) syncViewUrl(target, options);
+    if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
     setView(target);
     viewRef.current = target;
     setBinderView(nextBinderView);
-    if (!isPreview) syncViewUrl(target, options);
   }, [isPreview, syncViewUrl]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
@@ -259,14 +248,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       const next = h.slice(0, -1);
       const target = h[h.length - 1];
       isGoingBackRef.current = true;
-      setMobileMenuOpen(false);
-      setView(target);
-      viewRef.current = target;
-      setBinderView(undefined);
-      if (!isPreview) syncViewUrl(target, { replace: true });
+      navigateToView(target, { replace: true });
       return next;
     });
-  }, [isPreview, syncViewUrl]);
+  }, [navigateToView]);
   // Esc key triggers Back when there's history.
   useEffect(() => {
     if (viewHistory.length === 0) return;
