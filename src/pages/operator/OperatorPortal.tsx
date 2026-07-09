@@ -46,8 +46,10 @@ type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required
 type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
 const OPERATOR_VIEWS: OperatorView[] = ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'];
 const isOperatorView = (value: string | null): value is OperatorView => !!value && OPERATOR_VIEWS.includes(value as OperatorView);
+type OperatorViewState = { view: OperatorView; binderView?: 'pages' };
+type OperatorNavigateOptions = { binderView?: 'pages'; replace?: boolean; closeMobileMenu?: boolean };
 
-const getViewStateFromSearch = (search: string): { view: OperatorView; binderView?: 'pages' } => {
+const getViewStateFromSearch = (search: string): OperatorViewState => {
   const params = new URLSearchParams(search);
   const tab = params.get('tab');
   const view = isOperatorView(tab) ? tab : 'progress';
@@ -113,11 +115,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const location = useLocation();
   const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
-    return getViewStateFromSearch(window.location.search).view;
+    return getViewStateFromSearch(location.search).view;
   });
   // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
   const [binderView, setBinderView] = useState<'list' | 'pages' | undefined>(() => {
-    return getViewStateFromSearch(window.location.search).binderView;
+    return getViewStateFromSearch(location.search).binderView;
   });
   // Tracks an in-flight in-app navigation so a stale ?tab= value arriving from
   // React Router's location update can't overwrite the just-selected view.
@@ -158,8 +160,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     setBinderView((current) => (current === next.binderView ? current : next.binderView));
   }, [location.search]);
 
-  const syncViewUrl = useCallback((target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
-    const params = new URLSearchParams(window.location.search);
+  const syncViewUrl = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
+    const params = new URLSearchParams(location.search);
     if (target && target !== 'progress') params.set('tab', target); else params.delete('tab');
     if (target === 'inspection-binder' && options.binderView === 'pages') {
       params.set('binderView', 'pages');
@@ -167,7 +169,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       params.delete('binderView');
     }
 
-    const pathname = window.location.pathname || location.pathname || '/dashboard';
+    const pathname = location.pathname || '/dashboard';
     const search = params.toString();
     const nextSearch = search ? `?${search}` : '';
     const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
@@ -177,19 +179,22 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       search: nextSearch,
       startedAt: Date.now(),
     };
-    if (window.location.pathname !== pathname || window.location.search !== nextSearch) {
+    if (location.search !== nextSearch) {
       navigate({ pathname, search: nextSearch }, { replace: options.replace ?? false });
     } else {
       pendingViewNavigationRef.current = null;
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, location.search, navigate]);
 
   // Atomic view+URL navigation used by all driver portal navigation surfaces.
   // It preserves the current route alias (/dashboard, /operator, or /owner)
   // instead of forcing /operator, which avoids guarded route remounts.
-  const navigateToView = useCallback((target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
+  const navigateToView = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
+    const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
+    setMobileMenuOpen(false);
     setView(target);
-    setBinderView(target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined);
+    viewRef.current = target;
+    setBinderView(nextBinderView);
     if (!isPreview) syncViewUrl(target, options);
   }, [isPreview, syncViewUrl]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
@@ -217,13 +222,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // Atomic mobile-menu-safe navigation: closes the drawer and commits the
   // destination in a single callback so a stale menu state can't stomp the
   // navigation target.
-  const handleMobileNavigate = useCallback(
-    (target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
-      setMobileMenuOpen(false);
-      navigateToView(target, options);
-    },
-    [navigateToView],
-  );
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button history ─────────────────────────────────────────────
