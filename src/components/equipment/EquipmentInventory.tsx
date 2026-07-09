@@ -392,6 +392,12 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
         onClose={() => setReturnItem(null)}
         onSaved={fetchItems}
       />
+      <FuelCardDeactivateModal
+        open={!!deactivateItem}
+        item={deactivateItem}
+        onClose={() => setDeactivateItem(null)}
+        onSaved={fetchItems}
+      />
       <EquipmentHistoryModal
         open={!!historyItem}
         item={historyItem}
