@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -26,14 +26,16 @@ interface LineConfig {
   label: string;
   icon: React.ReactNode;
   serialColumn: string | null;
+  verifiedAtColumn: string | null;
+  verifiedByColumn: string | null;
 }
 
 const LINES: LineConfig[] = [
-  { key: 'eld',       label: 'ELD Unit',    icon: <Cpu className="h-4 w-4" />,        serialColumn: 'eld_serial_number' },
-  { key: 'dash_cam',  label: 'Dash Cam',    icon: <Camera className="h-4 w-4" />,     serialColumn: 'dash_cam_number' },
-  { key: 'bestpass',  label: 'BestPass',    icon: <Gauge className="h-4 w-4" />,      serialColumn: 'bestpass_number' },
-  { key: 'fuel_card', label: 'Fuel Card',   icon: <CreditCard className="h-4 w-4" />, serialColumn: 'fuel_card_number' },
-  { key: 'decal',     label: 'Decal',       icon: <Truck className="h-4 w-4" />,      serialColumn: null },
+  { key: 'eld',       label: 'ELD Unit',    icon: <Cpu className="h-4 w-4" />,        serialColumn: 'eld_serial_number',  verifiedAtColumn: 'eld_verified_at',       verifiedByColumn: 'eld_verified_by' },
+  { key: 'dash_cam',  label: 'Dash Cam',    icon: <Camera className="h-4 w-4" />,     serialColumn: 'dash_cam_number',    verifiedAtColumn: 'dash_cam_verified_at',  verifiedByColumn: 'dash_cam_verified_by' },
+  { key: 'bestpass',  label: 'BestPass',    icon: <Gauge className="h-4 w-4" />,      serialColumn: 'bestpass_number',    verifiedAtColumn: 'bestpass_verified_at',  verifiedByColumn: 'bestpass_verified_by' },
+  { key: 'fuel_card', label: 'Fuel Card',   icon: <CreditCard className="h-4 w-4" />, serialColumn: 'fuel_card_number',   verifiedAtColumn: 'fuel_card_verified_at', verifiedByColumn: 'fuel_card_verified_by' },
+  { key: 'decal',     label: 'Decal',       icon: <Truck className="h-4 w-4" />,      serialColumn: null,                 verifiedAtColumn: null,                    verifiedByColumn: null },
 ];
 
 const STATE_LABELS: Record<AssignmentState, string> = {
