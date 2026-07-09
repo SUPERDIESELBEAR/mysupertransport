@@ -47,6 +47,16 @@ type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-c
 const OPERATOR_VIEWS: OperatorView[] = ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'];
 const isOperatorView = (value: string | null): value is OperatorView => !!value && OPERATOR_VIEWS.includes(value as OperatorView);
 
+const getViewStateFromSearch = (search: string): { view: OperatorView; binderView?: 'pages' } => {
+  const params = new URLSearchParams(search);
+  const tab = params.get('tab');
+  const view = isOperatorView(tab) ? tab : 'progress';
+  return {
+    view,
+    binderView: view === 'inspection-binder' && params.get('binderView') === 'pages' ? 'pages' : undefined,
+  };
+};
+
 interface Stage {
   number: number;
   title: string;
@@ -103,17 +113,20 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const location = useLocation();
   const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab');
-    if (isOperatorView(tab)) return tab;
-    return 'progress';
+    return getViewStateFromSearch(window.location.search).view;
   });
   // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
   const [binderView, setBinderView] = useState<'list' | 'pages' | undefined>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const bv = params.get('binderView');
-    return bv === 'pages' ? 'pages' : undefined;
+    return getViewStateFromSearch(window.location.search).binderView;
   });
+  // Tracks an in-flight in-app navigation so a stale ?tab= value arriving from
+  // React Router's location update can't overwrite the just-selected view.
+  const pendingViewNavigationRef = useRef<{
+    view: OperatorView;
+    binderView?: 'pages';
+    search: string;
+    startedAt: number;
+  } | null>(null);
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
   // Desktop push notifications for high-priority events
@@ -125,15 +138,24 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // writes state + URL atomically through navigateToView below, so there is no
   // render-late writer effect that can race a stale ?tab= back into state.
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tab = params.get('tab');
-    if (isOperatorView(tab)) {
-      setView(tab);
-      setBinderView(tab === 'inspection-binder' && params.get('binderView') === 'pages' ? 'pages' : undefined);
-    } else {
-      setView('progress');
-      setBinderView(undefined);
+    const next = getViewStateFromSearch(location.search);
+    const pending = pendingViewNavigationRef.current;
+    if (pending) {
+      const matched =
+        next.view === pending.view &&
+        next.binderView === pending.binderView &&
+        location.search === pending.search;
+      if (matched) {
+        pendingViewNavigationRef.current = null;
+      } else if (Date.now() - pending.startedAt < 1500) {
+        // Stale URL echo during transition — ignore.
+        return;
+      } else {
+        pendingViewNavigationRef.current = null;
+      }
     }
+    setView((current) => (current === next.view ? current : next.view));
+    setBinderView((current) => (current === next.binderView ? current : next.binderView));
   }, [location.search]);
 
   const syncViewUrl = useCallback((target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
@@ -148,8 +170,17 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const pathname = window.location.pathname || location.pathname || '/dashboard';
     const search = params.toString();
     const nextSearch = search ? `?${search}` : '';
+    const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
+    pendingViewNavigationRef.current = {
+      view: target,
+      binderView: nextBinderView,
+      search: nextSearch,
+      startedAt: Date.now(),
+    };
     if (window.location.pathname !== pathname || window.location.search !== nextSearch) {
       navigate({ pathname, search: nextSearch }, { replace: options.replace ?? false });
+    } else {
+      pendingViewNavigationRef.current = null;
     }
   }, [location.pathname, navigate]);
 
@@ -183,6 +214,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [medicalCertExpiration, setMedicalCertExpiration] = useState<string | null>(null);
   const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
+  // Atomic mobile-menu-safe navigation: closes the drawer and commits the
+  // destination in a single callback so a stale menu state can't stomp the
+  // navigation target.
+  const handleMobileNavigate = useCallback(
+    (target: OperatorView, options: { binderView?: 'pages'; replace?: boolean } = {}) => {
+      setMobileMenuOpen(false);
+      navigateToView(target, options);
+    },
+    [navigateToView],
+  );
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button history ─────────────────────────────────────────────
@@ -1205,7 +1246,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               {navItems.map(item => (
                 <button
                   key={item.view}
-                  onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}
+                  onClick={() => handleMobileNavigate(item.view)}
                   className={`relative flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
                     view === item.view ? 'bg-gold/15 text-gold' : 'text-surface-dark-muted'
                   }`}
@@ -1862,7 +1903,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             return (
               <button
                 key={item.view}
-                onClick={() => { navigateToView(item.view); setMobileMenuOpen(false); }}
+                onClick={() => handleMobileNavigate(item.view)}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
                   ${isActive ? 'text-gold' : 'text-surface-dark-muted hover:text-surface-dark-foreground'}`}
               >
