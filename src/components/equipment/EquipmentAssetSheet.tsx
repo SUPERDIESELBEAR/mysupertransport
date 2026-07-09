@@ -412,9 +412,18 @@ export default function EquipmentAssetSheet({
           </div>
         ) : mode === 'driver' && !readOnly ? (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              I acknowledge receipt of the equipment listed above. The signed date will be applied automatically.
-            </p>
+            {!allAssignedVerified ? (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+                <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  Staff is still verifying your equipment ({unverifiedLines.map(l => l.label).join(', ')}). You'll be able to sign once verification is complete.
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                I acknowledge receipt of the equipment listed above. The signed date will be applied automatically.
+              </p>
+            )}
             <div className="space-y-1">
               <Label htmlFor="eld-typed-name" className="text-xs">Type your full name</Label>
               <Input
@@ -447,7 +456,7 @@ export default function EquipmentAssetSheet({
             </div>
             <Button
               onClick={handleExecute}
-              disabled={signing || !typedName.trim() || !hasDrawn}
+              disabled={signing || !typedName.trim() || !hasDrawn || !allAssignedVerified}
               className="w-full h-11 bg-primary text-primary-foreground font-semibold gap-2"
             >
               {signing ? <><Loader2 className="h-4 w-4 animate-spin" /> Executing…</> : <><CheckCircle2 className="h-4 w-4" /> Execute</>}
