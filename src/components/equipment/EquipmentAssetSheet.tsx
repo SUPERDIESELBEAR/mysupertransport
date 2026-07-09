@@ -271,6 +271,41 @@ export default function EquipmentAssetSheet({
 
   const openPreview = (url: string, name: string) => { setPreviewUrl(url); setPreviewName(name); };
 
+  // Verification helpers ─────────────────────────────────────
+  const isLineAssigned = (cfg: LineConfig) => {
+    const state = (status?.[`${cfg.key}_assignment_state`] as AssignmentState | undefined) ?? 'not_assigned';
+    return state !== 'not_assigned';
+  };
+  const isLineVerified = (cfg: LineConfig) => {
+    if (!cfg.verifiedAtColumn) return true; // Decal has no verification
+    return !!status?.[cfg.verifiedAtColumn];
+  };
+  const requiresVerification = (cfg: LineConfig) => cfg.verifiedAtColumn && isLineAssigned(cfg);
+  const unverifiedLines = LINES.filter(cfg => requiresVerification(cfg) && !isLineVerified(cfg));
+  const allAssignedVerified = unverifiedLines.length === 0;
+
+  const setVerified = (cfg: LineConfig, verified: boolean) => {
+    if (!cfg.verifiedAtColumn || !cfg.verifiedByColumn) return;
+    patchStatus({
+      [cfg.verifiedAtColumn]: verified ? new Date().toISOString() : null,
+      [cfg.verifiedByColumn]: verified ? (user?.id ?? null) : null,
+    });
+  };
+
+  // When a serial changes, clear its verified stamp so staff must re-verify.
+  const commitSerial = (cfg: LineConfig) => {
+    if (!cfg.serialColumn) return;
+    if (buffer[cfg.serialColumn] === undefined) return;
+    const newSerial = buffer[cfg.serialColumn] || null;
+    const prevSerial = (status?.[cfg.serialColumn] as string | null) ?? null;
+    const patch: Record<string, any> = { [cfg.serialColumn]: newSerial };
+    if (newSerial !== prevSerial && cfg.verifiedAtColumn && cfg.verifiedByColumn) {
+      patch[cfg.verifiedAtColumn] = null;
+      patch[cfg.verifiedByColumn] = null;
+    }
+    patchStatus(patch);
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-5">
       {/* Header */}
