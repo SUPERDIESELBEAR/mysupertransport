@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
-import { syncAllDeviceFields } from '@/lib/equipmentSync';
+import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
@@ -1480,6 +1480,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             await syncAllDeviceFields(operatorId, oldDevices, newDevices, session?.user?.id ?? null);
           } catch (syncErr) {
             console.error('[OperatorDetailPanel] Equipment Inventory sync failed:', syncErr);
+            if (syncErr instanceof DuplicateAssignmentError) {
+              toast({ title: 'Duplicate equipment blocked', description: syncErr.message, variant: 'destructive' });
+              // Revert the offending field in local state so the UI matches DB reality.
+              setStatus(prev => ({ ...prev, ...oldDevices }));
+            }
           }
         }
       }
