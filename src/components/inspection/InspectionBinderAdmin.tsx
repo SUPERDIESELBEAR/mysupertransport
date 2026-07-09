@@ -1201,10 +1201,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-9 w-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
-          <FileText className="h-4 w-4 text-gold" />
+          <FileText className="h-5 w-5 text-gold" />
         </div>
         <div>
-          <h2 className="text-base font-bold text-foreground">Inspection Binder</h2>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">DOT Inspection Binder</h1>
           {selectedDriverName && <p className="text-xs text-muted-foreground">{selectedDriverName}</p>}
         </div>
       </div>
