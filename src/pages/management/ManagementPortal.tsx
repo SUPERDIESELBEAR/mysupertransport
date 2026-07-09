@@ -1298,9 +1298,14 @@ export default function ManagementPortal() {
 
             {/* App Install Status */}
             {(() => {
-              const { installed, webOnly, neverSignedIn, total } = installStats;
+              const { installed, webOnly, neverSignedIn, total, installedDrivers, webOnlyDrivers, neverSignedInDrivers } = installStats;
               const remaining = Math.max(0, total - installed);
               const pct = total > 0 ? Math.round((installed / total) * 100) : 0;
+              const tiles: Array<{ key: 'installed' | 'webOnly' | 'neverSignedIn'; count: number; label: string; countCls: string; drivers: InstallDriver[] }> = [
+                { key: 'installed', count: installed, label: 'Installed', countCls: 'text-emerald-600', drivers: installedDrivers },
+                { key: 'webOnly', count: webOnly, label: 'Web only', countCls: 'text-amber-600', drivers: webOnlyDrivers },
+                { key: 'neverSignedIn', count: neverSignedIn, label: 'Never signed in', countCls: 'text-muted-foreground', drivers: neverSignedInDrivers },
+              ];
               return (
                 <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
                   <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
@@ -1356,20 +1361,58 @@ export default function ManagementPortal() {
                       )}
                     </div>
                     {total > 0 && (
-                      <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
-                        <div className="text-center">
-                          <div className="text-base font-semibold text-emerald-600">{installed}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">Installed</div>
+                      <>
+                        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
+                          {tiles.map(t => {
+                            const isOpen = installExpanded[t.key];
+                            return (
+                              <button
+                                key={t.key}
+                                type="button"
+                                onClick={() => setInstallExpanded(prev => ({ ...prev, [t.key]: !prev[t.key] }))}
+                                aria-expanded={isOpen}
+                                aria-label={`${isOpen ? 'Hide' : 'Show'} ${t.label} drivers`}
+                                className={cn(
+                                  'text-center rounded-md px-2 py-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                  isOpen ? 'bg-secondary/60' : 'hover:bg-secondary/40'
+                                )}
+                              >
+                                <div className={cn('text-base font-semibold', t.countCls)}>{t.count}</div>
+                                <div className="text-[11px] text-muted-foreground mt-0.5 inline-flex items-center gap-1">
+                                  {t.label}
+                                  {isOpen
+                                    ? <ChevronUp className="h-3 w-3" />
+                                    : <ChevronDown className="h-3 w-3" />}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="text-center">
-                          <div className="text-base font-semibold text-amber-600">{webOnly}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">Web only</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-base font-semibold text-muted-foreground">{neverSignedIn}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">Never signed in</div>
-                        </div>
-                      </div>
+                        {tiles.filter(t => installExpanded[t.key]).map(t => (
+                          <div key={`${t.key}-list`} className="mt-3 border border-border rounded-lg overflow-hidden">
+                            <div className="px-3 py-2 bg-secondary/40 text-xs font-medium text-foreground flex items-center justify-between">
+                              <span>{t.label}</span>
+                              <span className="text-muted-foreground">{t.count} driver{t.count === 1 ? '' : 's'}</span>
+                            </div>
+                            {t.drivers.length === 0 ? (
+                              <div className="px-3 py-4 text-center text-xs text-muted-foreground">No drivers</div>
+                            ) : (
+                              <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                                {t.drivers.map(d => (
+                                  <button
+                                    key={d.id}
+                                    type="button"
+                                    onClick={() => { setSelectedOperatorId(d.id); setView('operator-detail'); }}
+                                    className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary/40 transition-colors"
+                                  >
+                                    {d.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
