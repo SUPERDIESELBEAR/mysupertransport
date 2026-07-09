@@ -278,7 +278,10 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               <Users2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground leading-tight">Driver Hub</h1>
+              <h1 className="text-xl font-bold text-foreground leading-tight flex items-center gap-2">
+                <Users2 className="h-6 w-6 text-gold shrink-0" />
+                Driver Hub
+              </h1>
               <p className="text-xs text-muted-foreground mt-0.5">Manage active and archived operators</p>
             </div>
           </div>

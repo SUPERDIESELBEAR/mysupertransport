@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, FileText, ShieldCheck, LayoutList } from 'lucide-react';
+import { Search, Plus, FileText, ShieldCheck, LayoutList, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -173,7 +173,10 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Document Hub</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+              <Library className="h-6 w-6 text-gold shrink-0" />
+              Document Hub
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">Manage driver documents and track acknowledgments</p>
           </div>
           <Button onClick={() => { setEditDoc(null); setEditorOpen(true); }} className="gap-2 shrink-0">
@@ -266,7 +269,10 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
       {/* Header */}
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Document Hub</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Library className="h-6 w-6 text-gold shrink-0" />
+            Document Hub
+          </h1>
           {unackedRequired > 0 && (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
               {unackedRequired} action{unackedRequired !== 1 ? 's' : ''} required

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus, Pencil, Save, RotateCcw } from 'lucide-react';
+import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus, Pencil, Save, RotateCcw, LayoutTemplate } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -1034,7 +1034,10 @@ export default function EmailCatalog() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Content Manager</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <LayoutTemplate className="h-6 w-6 text-gold shrink-0" />
+          Content Manager
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Browse app pages and automated email templates
         </p>

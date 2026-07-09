@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Mail, RefreshCw, Send, Search, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Mail, MailPlus, RefreshCw, Send, Search, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -187,7 +187,10 @@ export default function EmailLogPanel() {
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Email Log</h1>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <MailPlus className="h-6 w-6 text-gold shrink-0" />
+            Email Log
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Track all transactional emails. Resend application links if an applicant reports a broken or expired URL.
           </p>
