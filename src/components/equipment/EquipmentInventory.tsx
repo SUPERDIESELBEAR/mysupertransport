@@ -9,18 +9,19 @@ import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
   ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
-  Pencil, Loader2, Download
+  Pencil, Loader2, Download, Archive
 } from 'lucide-react';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
+import FuelCardDeactivateModal from './FuelCardDeactivateModal';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 
 export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
-export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost';
+export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost' | 'deactivated';
 
 export interface EquipmentItem {
   id: string;
@@ -48,6 +49,7 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
   damaged:   { label: 'Damaged / Needs Repair', color: 'bg-warning/15 text-warning border-warning/30',              icon: <AlertTriangle className="h-3 w-3" /> },
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
+  deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
 
 export default function EquipmentInventory({ isManagement = false }: { isManagement?: boolean }) {
