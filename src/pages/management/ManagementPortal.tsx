@@ -1914,7 +1914,13 @@ export default function ManagementPortal() {
         )}
 
         {view === 'whats-new' && (
-          <ReleaseNotesManager />
+          <div className="space-y-5 animate-fade-in">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">What's New</h1>
+              <p className="text-muted-foreground text-sm mt-1">Post release notes and announcements for staff</p>
+            </div>
+            <ReleaseNotesManager />
+          </div>
         )}
 
         {view === 'broadcast' && (
@@ -1944,10 +1950,13 @@ export default function ManagementPortal() {
 
         {view === 'messages' && (
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
-            <div className="flex items-center justify-between mb-3 shrink-0">
-              <p className="text-xs text-muted-foreground">
-                Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
-              </p>
+            <div className="flex items-center justify-between mb-3 shrink-0 gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messages</h1>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
+                </p>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
