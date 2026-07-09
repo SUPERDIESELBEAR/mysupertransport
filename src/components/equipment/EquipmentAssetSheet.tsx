@@ -359,12 +359,18 @@ export default function EquipmentAssetSheet({
             serialColumn={cfg.serialColumn}
             serialValue={cfg.serialColumn ? (value(cfg.serialColumn) as string ?? '') : ''}
             deliveryMethod={(status?.[`${cfg.key}_delivery_method`] as DeliveryMethod | undefined) ?? null}
+            verifiedAt={cfg.verifiedAtColumn ? (status?.[cfg.verifiedAtColumn] as string | null) ?? null : null}
+            onToggleVerified={(v) => setVerified(cfg, v)}
             onStateChange={s => patchStatus({
               [`${cfg.key}_assignment_state`]: s,
               ...(s === 'not_assigned' && cfg.serialColumn ? { [cfg.serialColumn]: null } : {}),
+              // Clearing to "not_assigned" also clears the verified stamp for this line.
+              ...(s === 'not_assigned' && cfg.verifiedAtColumn && cfg.verifiedByColumn
+                ? { [cfg.verifiedAtColumn]: null, [cfg.verifiedByColumn]: null }
+                : {}),
             })}
             onSerialChange={v => setBuffer(b => ({ ...b, [cfg.serialColumn!]: v }))}
-            onSerialCommit={() => cfg.serialColumn && buffer[cfg.serialColumn] !== undefined && patchStatus({ [cfg.serialColumn]: buffer[cfg.serialColumn] || null })}
+            onSerialCommit={() => commitSerial(cfg)}
             onDeliveryChange={m => {
               const patch: Record<string, any> = { [`${cfg.key}_delivery_method`]: m };
               // Keep the legacy boolean flags in sync so any older readers still work.
@@ -374,6 +380,10 @@ export default function EquipmentAssetSheet({
               if (m === 'not_assigned') {
                 patch[`${cfg.key}_assignment_state`] = 'not_assigned';
                 if (cfg.serialColumn) patch[cfg.serialColumn] = null;
+                if (cfg.verifiedAtColumn && cfg.verifiedByColumn) {
+                  patch[cfg.verifiedAtColumn] = null;
+                  patch[cfg.verifiedByColumn] = null;
+                }
               }
               patchStatus(patch);
             }}
