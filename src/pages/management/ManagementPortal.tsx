@@ -856,7 +856,7 @@ export default function ManagementPortal() {
     { label: 'Vehicle Hub',       icon: <Truck className="h-4 w-4" />,           path: 'vehicle-hub' },
     { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,      path: 'inspection-binder' },
     { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
-    { label: 'Equipment Inventory', icon: <HardDrive className="h-4 w-4" />,     path: 'equipment' },
+    { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />,     path: 'equipment' },
     { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
     { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
     { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
