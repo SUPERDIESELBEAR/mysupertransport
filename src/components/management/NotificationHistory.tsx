@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
-  Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
+  Bell, BellRing, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
   FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight, Banknote, ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -177,7 +177,10 @@ export default function NotificationHistory() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <BellRing className="h-6 w-6 text-gold shrink-0" />
+            Notifications
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             All notifications sent to your account — {total} total
           </p>
