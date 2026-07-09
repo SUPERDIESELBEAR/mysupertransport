@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -26,14 +26,16 @@ interface LineConfig {
   label: string;
   icon: React.ReactNode;
   serialColumn: string | null;
+  verifiedAtColumn: string | null;
+  verifiedByColumn: string | null;
 }
 
 const LINES: LineConfig[] = [
-  { key: 'eld',       label: 'ELD Unit',    icon: <Cpu className="h-4 w-4" />,        serialColumn: 'eld_serial_number' },
-  { key: 'dash_cam',  label: 'Dash Cam',    icon: <Camera className="h-4 w-4" />,     serialColumn: 'dash_cam_number' },
-  { key: 'bestpass',  label: 'BestPass',    icon: <Gauge className="h-4 w-4" />,      serialColumn: 'bestpass_number' },
-  { key: 'fuel_card', label: 'Fuel Card',   icon: <CreditCard className="h-4 w-4" />, serialColumn: 'fuel_card_number' },
-  { key: 'decal',     label: 'Decal',       icon: <Truck className="h-4 w-4" />,      serialColumn: null },
+  { key: 'eld',       label: 'ELD Unit',    icon: <Cpu className="h-4 w-4" />,        serialColumn: 'eld_serial_number',  verifiedAtColumn: 'eld_verified_at',       verifiedByColumn: 'eld_verified_by' },
+  { key: 'dash_cam',  label: 'Dash Cam',    icon: <Camera className="h-4 w-4" />,     serialColumn: 'dash_cam_number',    verifiedAtColumn: 'dash_cam_verified_at',  verifiedByColumn: 'dash_cam_verified_by' },
+  { key: 'bestpass',  label: 'BestPass',    icon: <Gauge className="h-4 w-4" />,      serialColumn: 'bestpass_number',    verifiedAtColumn: 'bestpass_verified_at',  verifiedByColumn: 'bestpass_verified_by' },
+  { key: 'fuel_card', label: 'Fuel Card',   icon: <CreditCard className="h-4 w-4" />, serialColumn: 'fuel_card_number',   verifiedAtColumn: 'fuel_card_verified_at', verifiedByColumn: 'fuel_card_verified_by' },
+  { key: 'decal',     label: 'Decal',       icon: <Truck className="h-4 w-4" />,      serialColumn: null,                 verifiedAtColumn: null,                    verifiedByColumn: null },
 ];
 
 const STATE_LABELS: Record<AssignmentState, string> = {
@@ -269,6 +271,41 @@ export default function EquipmentAssetSheet({
 
   const openPreview = (url: string, name: string) => { setPreviewUrl(url); setPreviewName(name); };
 
+  // Verification helpers ─────────────────────────────────────
+  const isLineAssigned = (cfg: LineConfig) => {
+    const state = (status?.[`${cfg.key}_assignment_state`] as AssignmentState | undefined) ?? 'not_assigned';
+    return state !== 'not_assigned';
+  };
+  const isLineVerified = (cfg: LineConfig) => {
+    if (!cfg.verifiedAtColumn) return true; // Decal has no verification
+    return !!status?.[cfg.verifiedAtColumn];
+  };
+  const requiresVerification = (cfg: LineConfig) => cfg.verifiedAtColumn && isLineAssigned(cfg);
+  const unverifiedLines = LINES.filter(cfg => requiresVerification(cfg) && !isLineVerified(cfg));
+  const allAssignedVerified = unverifiedLines.length === 0;
+
+  const setVerified = (cfg: LineConfig, verified: boolean) => {
+    if (!cfg.verifiedAtColumn || !cfg.verifiedByColumn) return;
+    patchStatus({
+      [cfg.verifiedAtColumn]: verified ? new Date().toISOString() : null,
+      [cfg.verifiedByColumn]: verified ? (user?.id ?? null) : null,
+    });
+  };
+
+  // When a serial changes, clear its verified stamp so staff must re-verify.
+  const commitSerial = (cfg: LineConfig) => {
+    if (!cfg.serialColumn) return;
+    if (buffer[cfg.serialColumn] === undefined) return;
+    const newSerial = buffer[cfg.serialColumn] || null;
+    const prevSerial = (status?.[cfg.serialColumn] as string | null) ?? null;
+    const patch: Record<string, any> = { [cfg.serialColumn]: newSerial };
+    if (newSerial !== prevSerial && cfg.verifiedAtColumn && cfg.verifiedByColumn) {
+      patch[cfg.verifiedAtColumn] = null;
+      patch[cfg.verifiedByColumn] = null;
+    }
+    patchStatus(patch);
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-5">
       {/* Header */}
@@ -322,12 +359,18 @@ export default function EquipmentAssetSheet({
             serialColumn={cfg.serialColumn}
             serialValue={cfg.serialColumn ? (value(cfg.serialColumn) as string ?? '') : ''}
             deliveryMethod={(status?.[`${cfg.key}_delivery_method`] as DeliveryMethod | undefined) ?? null}
+            verifiedAt={cfg.verifiedAtColumn ? (status?.[cfg.verifiedAtColumn] as string | null) ?? null : null}
+            onToggleVerified={(v) => setVerified(cfg, v)}
             onStateChange={s => patchStatus({
               [`${cfg.key}_assignment_state`]: s,
               ...(s === 'not_assigned' && cfg.serialColumn ? { [cfg.serialColumn]: null } : {}),
+              // Clearing to "not_assigned" also clears the verified stamp for this line.
+              ...(s === 'not_assigned' && cfg.verifiedAtColumn && cfg.verifiedByColumn
+                ? { [cfg.verifiedAtColumn]: null, [cfg.verifiedByColumn]: null }
+                : {}),
             })}
             onSerialChange={v => setBuffer(b => ({ ...b, [cfg.serialColumn!]: v }))}
-            onSerialCommit={() => cfg.serialColumn && buffer[cfg.serialColumn] !== undefined && patchStatus({ [cfg.serialColumn]: buffer[cfg.serialColumn] || null })}
+            onSerialCommit={() => commitSerial(cfg)}
             onDeliveryChange={m => {
               const patch: Record<string, any> = { [`${cfg.key}_delivery_method`]: m };
               // Keep the legacy boolean flags in sync so any older readers still work.
@@ -337,6 +380,10 @@ export default function EquipmentAssetSheet({
               if (m === 'not_assigned') {
                 patch[`${cfg.key}_assignment_state`] = 'not_assigned';
                 if (cfg.serialColumn) patch[cfg.serialColumn] = null;
+                if (cfg.verifiedAtColumn && cfg.verifiedByColumn) {
+                  patch[cfg.verifiedAtColumn] = null;
+                  patch[cfg.verifiedByColumn] = null;
+                }
               }
               patchStatus(patch);
             }}
@@ -365,9 +412,18 @@ export default function EquipmentAssetSheet({
           </div>
         ) : mode === 'driver' && !readOnly ? (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              I acknowledge receipt of the equipment listed above. The signed date will be applied automatically.
-            </p>
+            {!allAssignedVerified ? (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+                <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  Staff is still verifying your equipment ({unverifiedLines.map(l => l.label).join(', ')}). You'll be able to sign once verification is complete.
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                I acknowledge receipt of the equipment listed above. The signed date will be applied automatically.
+              </p>
+            )}
             <div className="space-y-1">
               <Label htmlFor="eld-typed-name" className="text-xs">Type your full name</Label>
               <Input
@@ -400,7 +456,7 @@ export default function EquipmentAssetSheet({
             </div>
             <Button
               onClick={handleExecute}
-              disabled={signing || !typedName.trim() || !hasDrawn}
+              disabled={signing || !typedName.trim() || !hasDrawn || !allAssignedVerified}
               className="w-full h-11 bg-primary text-primary-foreground font-semibold gap-2"
             >
               {signing ? <><Loader2 className="h-4 w-4 animate-spin" /> Executing…</> : <><CheckCircle2 className="h-4 w-4" /> Execute</>}
@@ -501,6 +557,8 @@ interface RowProps {
   serialColumn: string | null;
   serialValue: string;
   deliveryMethod: DeliveryMethod | null;
+  verifiedAt: string | null;
+  onToggleVerified: (verified: boolean) => void;
   onStateChange: (s: AssignmentState) => void;
   onSerialChange: (v: string) => void;
   onSerialCommit: () => void;
@@ -510,8 +568,14 @@ interface RowProps {
 function EquipmentLineRow(props: RowProps) {
   const {
     cfg, mode, canManage, signedLock, state, serialColumn, serialValue,
-    deliveryMethod, onStateChange, onSerialChange, onSerialCommit, onDeliveryChange,
+    deliveryMethod, verifiedAt, onToggleVerified,
+    onStateChange, onSerialChange, onSerialCommit, onDeliveryChange,
   } = props;
+
+  const supportsVerification = !!cfg.verifiedAtColumn;
+  const isAssigned = state !== 'not_assigned';
+  const isVerified = !!verifiedAt;
+  const showVerificationUI = supportsVerification && isAssigned;
 
   return (
     <div className="rounded-lg border border-border bg-background p-3 space-y-3">
@@ -521,6 +585,19 @@ function EquipmentLineRow(props: RowProps) {
             {cfg.icon}
           </span>
           <span className="text-sm font-semibold text-foreground">{cfg.label}</span>
+          {showVerificationUI && (
+            isVerified ? (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-status-complete/10 text-status-complete border-status-complete/30">
+                <ShieldCheck className="h-3 w-3" />
+                Verified {format(parseISO(verifiedAt!), 'MMM d')}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-amber-500/10 text-amber-700 border-amber-500/30">
+                <ShieldAlert className="h-3 w-3" />
+                Unverified
+              </Badge>
+            )
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {mode === 'driver' ? (
@@ -547,6 +624,13 @@ function EquipmentLineRow(props: RowProps) {
           )}
         </div>
       </div>
+
+      {/* Auto-filled hint (management, before verification) */}
+      {mode === 'management' && showVerificationUI && !isVerified && serialValue && (
+        <p className="text-[11px] text-muted-foreground italic">
+          Auto-filled from Inventory — review the serial and mark Verified to confirm.
+        </p>
+      )}
 
       {/* Management controls */}
       {canManage && (
@@ -598,6 +682,21 @@ function EquipmentLineRow(props: RowProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Staff verified checkbox */}
+      {canManage && showVerificationUI && (
+        <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isVerified}
+            onChange={e => onToggleVerified(e.target.checked)}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          <span>
+            Verified — I confirm this {cfg.label.toLowerCase()} serial matches the device in the driver's possession.
+          </span>
+        </label>
       )}
 
       {/* Driver read-only summary */}

@@ -130,15 +130,38 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
 
     setSaving(true);
 
-    // Check for active assignment (prevent double-assign)
+    // Block if item is lost / deactivated
+    if (item.status === 'lost' || item.status === 'deactivated') {
+      toast({
+        title: `Cannot assign — item is ${item.status}`,
+        description: `Restore ${item.serial_number} to Available before assigning.`,
+        variant: 'destructive',
+      });
+      setSaving(false);
+      return;
+    }
+
+    // Check for active assignment (prevent double-assign) — resolve holder's name
     const { data: activeAssign } = await supabase
       .from('equipment_assignments')
-      .select('id')
+      .select('id, operator_id')
       .eq('equipment_id', item.id)
       .is('returned_at', null)
       .limit(1);
     if (activeAssign && activeAssign.length > 0) {
-      toast({ title: 'This device is already assigned to another operator', variant: 'destructive' });
+      const holderId = (activeAssign[0] as any).operator_id as string;
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('applications(first_name, last_name)')
+        .eq('id', holderId)
+        .maybeSingle();
+      const app = (opRow as any)?.applications;
+      const holderName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'another driver';
+      toast({
+        title: 'Duplicate assignment blocked',
+        description: `Serial ${item.serial_number} is already assigned to ${holderName}. Return or deactivate it from that driver before reassigning.`,
+        variant: 'destructive',
+      });
       setSaving(false);
       return;
     }

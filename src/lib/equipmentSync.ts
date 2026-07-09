@@ -3,6 +3,49 @@ import { supabase } from '@/integrations/supabase/client';
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 
 /**
+ * Thrown when the requested serial+device is already actively assigned to
+ * another driver, or the underlying inventory item is not in an assignable
+ * state (lost / deactivated). Callers should catch this and surface a
+ * user-friendly toast.
+ */
+export class DuplicateAssignmentError extends Error {
+  deviceType: DeviceType;
+  serial: string;
+  currentHolderName: string | null;
+  reason: 'assigned_elsewhere' | 'lost' | 'deactivated';
+  constructor(opts: {
+    deviceType: DeviceType;
+    serial: string;
+    currentHolderName: string | null;
+    reason: 'assigned_elsewhere' | 'lost' | 'deactivated';
+  }) {
+    const label =
+      opts.reason === 'assigned_elsewhere'
+        ? `Serial ${opts.serial} is already assigned${opts.currentHolderName ? ` to ${opts.currentHolderName}` : ''}. Return or deactivate it from that driver before reassigning.`
+        : opts.reason === 'lost'
+          ? `Serial ${opts.serial} is marked LOST in inventory. Restore it to Available before assigning.`
+          : `Serial ${opts.serial} is DEACTIVATED. Reactivate it in inventory before assigning.`;
+    super(label);
+    this.name = 'DuplicateAssignmentError';
+    this.deviceType = opts.deviceType;
+    this.serial = opts.serial;
+    this.currentHolderName = opts.currentHolderName;
+    this.reason = opts.reason;
+  }
+}
+
+async function resolveOperatorName(operatorId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('operators')
+    .select('applications(first_name, last_name)')
+    .eq('id', operatorId)
+    .maybeSingle();
+  const app = (data as any)?.applications;
+  const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ');
+  return name || null;
+}
+
+/**
  * Syncs a device serial number from onboarding_status to the Equipment Inventory.
  *
  * - If serialNumber is provided and a matching device exists → assigns it (if not already)
@@ -64,6 +107,34 @@ export async function syncDeviceToInventory(
       .maybeSingle();
 
     if (existingAssignment) return; // Already assigned — no-op
+
+    // Block if assigned to a different active driver
+    const { data: activeElsewhere } = await supabase
+      .from('equipment_assignments')
+      .select('operator_id')
+      .eq('equipment_id', equipmentId)
+      .is('returned_at', null)
+      .limit(1);
+    if (activeElsewhere && activeElsewhere.length > 0) {
+      const holderId = (activeElsewhere[0] as any).operator_id as string;
+      const holderName = await resolveOperatorName(holderId);
+      throw new DuplicateAssignmentError({
+        deviceType,
+        serial,
+        currentHolderName: holderName,
+        reason: 'assigned_elsewhere',
+      });
+    }
+
+    // Block lost / deactivated items
+    if (existingDevice.status === 'lost' || existingDevice.status === 'deactivated') {
+      throw new DuplicateAssignmentError({
+        deviceType,
+        serial,
+        currentHolderName: null,
+        reason: existingDevice.status as 'lost' | 'deactivated',
+      });
+    }
 
     // Set device to assigned
     await supabase
