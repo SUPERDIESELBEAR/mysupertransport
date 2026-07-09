@@ -197,6 +197,21 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     setBinderView(nextBinderView);
     if (!isPreview) syncViewUrl(target, options);
   }, [isPreview, syncViewUrl]);
+
+  const navigateWithinOperatorPortal = useCallback((path: string) => {
+    try {
+      const url = new URL(path, window.location.origin);
+      const next = getViewStateFromSearch(url.search);
+      if (url.origin === window.location.origin && isOperatorView(new URLSearchParams(url.search).get('tab'))) {
+        navigateToView(next.view, { binderView: next.binderView });
+        return;
+      }
+    } catch {
+      // Fall through to router navigation for malformed/legacy paths.
+    }
+    setMobileMenuOpen(false);
+    navigate(path);
+  }, [navigate, navigateToView]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -219,9 +234,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [medicalCertExpiration, setMedicalCertExpiration] = useState<string | null>(null);
   const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
-  // Atomic mobile-menu-safe navigation: closes the drawer and commits the
-  // destination in a single callback so a stale menu state can't stomp the
-  // navigation target.
+  // Latest committed view, used by navigation callbacks to avoid stale closures.
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button history ─────────────────────────────────────────────
@@ -905,11 +918,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (homeAutoRedirected.current) return;
     if (!isFullyOnboarded) return;
     if (Object.keys(onboardingStatus).length === 0) return; // not loaded yet
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     if (params.get('tab')) { homeAutoRedirected.current = true; return; }
     if (view === 'progress') navigateToView('home', { replace: true });
     homeAutoRedirected.current = true;
-  }, [isFullyOnboarded, onboardingStatus, view, navigateToView]);
+  }, [isFullyOnboarded, onboardingStatus, view, navigateToView, location.search]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
@@ -1204,7 +1217,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
-            <NotificationBell variant="dark" notificationsPath={`${location.pathname}?tab=notifications`} clearBadge={view === 'notifications'} />
+            <NotificationBell
+              variant="dark"
+              notificationsPath={`${location.pathname}?tab=notifications`}
+              clearBadge={view === 'notifications'}
+              onNavigate={navigateWithinOperatorPortal}
+            />
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -1237,7 +1255,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               {navItems.map(item => (
                 <button
                   key={item.view}
-                  onClick={() => handleMobileNavigate(item.view)}
+                  onClick={() => navigateToView(item.view)}
                   className={`relative flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
                     view === item.view ? 'bg-gold/15 text-gold' : 'text-surface-dark-muted'
                   }`}
@@ -1894,7 +1912,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             return (
               <button
                 key={item.view}
-                onClick={() => handleMobileNavigate(item.view)}
+                onClick={() => navigateToView(item.view)}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
                   ${isActive ? 'text-gold' : 'text-surface-dark-muted hover:text-surface-dark-foreground'}`}
               >
