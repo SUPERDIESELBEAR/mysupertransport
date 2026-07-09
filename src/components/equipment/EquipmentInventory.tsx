@@ -346,7 +346,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                         ))}
                       </div>
                     )}
-                    {showToggle && type !== 'fuel_card' && (
+                    {showToggle && (
                       <button
                         onClick={() => setExpandedType(isExpanded ? null : type)}
                         className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1 border-t border-border"
