@@ -1974,7 +1974,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         bestpass_number: payload.bestpass_number,
         fuel_card_number: payload.fuel_card_number,
       };
-      await syncAllDeviceFields(operatorId, oldValues, newValues, session?.user?.id ?? null);
+      try {
+        await syncAllDeviceFields(operatorId, oldValues, newValues, session?.user?.id ?? null);
+      } catch (syncErr) {
+        if (syncErr instanceof DuplicateAssignmentError) {
+          toast({ title: 'Duplicate equipment blocked', description: syncErr.message, variant: 'destructive' });
+          throw syncErr;
+        }
+        throw syncErr;
+      }
     }
 
     setStatus(prev => ({
