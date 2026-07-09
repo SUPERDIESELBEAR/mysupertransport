@@ -292,9 +292,8 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     {typeItems.filter(i => i.status === 'lost').length > 0 && (
                       <><span>·</span><span className="text-destructive font-medium">{typeItems.filter(i => i.status === 'lost').length} lost</span></>
                     )}
-                    {typeItems.filter(i => i.status === 'deactivated').length > 0 && (
-                      <><span>·</span><span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span></>
-                    )}
+                    <span>·</span>
+                    <span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span>
                   </div>
                 </div>
 
@@ -305,7 +304,8 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                   </div>
                 ) : type === 'fuel_card' ? (
                   <FuelCardSections
-                    items={displayItems}
+                    items={typeItems}
+                    statusFilter={statusFilter}
                     viewMode={viewMode}
                     isManagement={isManagement}
                     onEdit={setEditItem}
@@ -346,7 +346,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                         ))}
                       </div>
                     )}
-                    {showToggle && (
+                    {showToggle && type !== 'fuel_card' && (
                       <button
                         onClick={() => setExpandedType(isExpanded ? null : type)}
                         className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1 border-t border-border"
