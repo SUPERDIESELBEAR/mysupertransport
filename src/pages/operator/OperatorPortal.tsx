@@ -245,9 +245,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       const next = h.slice(0, -1);
       const target = h[h.length - 1];
       isGoingBackRef.current = true;
+      setMobileMenuOpen(false);
       setView(target);
+      viewRef.current = target;
       setBinderView(undefined);
-      if (!isPreview) syncViewUrl(target);
+      if (!isPreview) syncViewUrl(target, { replace: true });
       return next;
     });
   }, [isPreview, syncViewUrl]);
@@ -260,17 +262,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [viewHistory.length, goBack]);
-  // Hardware/browser back: when there's history, intercept popstate to pop the
-  // in-app view stack instead of leaving the portal.
-  useEffect(() => {
-    if (viewHistory.length === 0) return;
-    window.history.pushState({ operatorBack: true }, '');
-    const onPop = () => goBack();
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-    };
-  }, [viewHistory.length, goBack]);
+  // Browser/hardware back is handled by the URL history naturally. Avoid
+  // pushState interception here because it can race against tab navigation.
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
   // Crossfade overlay shown while a destination view loads its first data.
