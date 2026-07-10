@@ -13,6 +13,8 @@ import {
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { formatPhoneDisplay, formatPhoneInput } from '@/lib/utils';
+import { sanitizeRichHtml } from '@/lib/sanitize';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ── Company payroll reference documents ──────────────────────────────────────
 const COMPANY_DOCS = [
@@ -31,6 +33,28 @@ const COMPANY_DOCS = [
 ] as const;
 
 type DocKey = typeof COMPANY_DOCS[number]['key'];
+
+// ── Document Hub procedure docs sourced live from driver_documents ──────────
+// IDs are hardcoded to specific Document Hub entries (verified to exist and
+// be visible). If any of these are deleted in the Hub, the row will render
+// as unavailable rather than break the whole form.
+const HUB_DOC_IDS = {
+  handbook: 'b1275efe-05b3-4a4d-9b24-2289c3f43ec1',
+  bol_pod: 'b2e5d4d7-17f4-4ab5-968b-2c1b3fca404e',
+  loadout: 'c424935c-142d-4671-957a-84d867f48780',
+} as const;
+const HUB_DOC_ID_LIST = Object.values(HUB_DOC_IDS);
+
+interface HubDoc {
+  id: string;
+  title: string;
+  description: string | null;
+  body: string | null;
+  content_type: 'rich_text' | 'pdf' | 'video';
+  pdf_url: string | null;
+  pdf_path: string | null;
+  version: number;
+}
 
 interface ContractorPaySetupProps {
   operatorId: string;
