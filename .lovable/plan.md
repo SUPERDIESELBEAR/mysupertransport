@@ -1,55 +1,48 @@
-# Return Equipment Mailing Flow
 
-## Confirmed with user
-- **Trigger:** manual "Send Return Instructions" button on the staff Operator page (no auto-fire on termination/deactivation).
-- **Delivery:** email only — no in-app banner.
-- **Address:** both addresses shown; driver picks either, uploads a receipt with tracking.
-- **Access after departure:** driver login stays active until at least one return receipt is on file (or staff overrides).
+## Goal
 
-## What already exists (verified — no rebuild)
-- `EquipmentAssetSheet.tsx` already shows a **Return Shipment Receipts** block to the driver when any equipment line's `*_delivery_method = 'awaiting_return'`. Driver can upload a receipt image/PDF with carrier + tracking number. Files land in `operator-documents` and rows in `equipment_receipts` (`direction = 'return'`). Management sees the same block read/write.
+Let staff manually add a Previous Employer PEI record for applicants like Ryan Martinez who predate the in-app application flow — then send, track, and document those PEIs exactly like auto-built ones.
 
-## What we'll build
+## Where this lives
 
-### 1. "Send Return Instructions" staff action
-- Add a button on `OperatorDetailPanel.tsx` in the Stage 5 / Equipment area, visible for any operator that has ≥ 1 assigned device.
-- Clicking it:
-  1. Flips every currently-assigned device line to `*_delivery_method = 'awaiting_return'` (skipping lines already marked returned) so the driver's Asset Sheet immediately surfaces the return-receipt uploader.
-  2. Stamps `return_instructions_sent_at` / `return_instructions_sent_by` on `onboarding_status` (new columns).
-  3. Invokes a new edge function `send-equipment-return-instructions` to email the driver.
-- Confirmation modal lists which devices will be flagged for return before sending; re-send is allowed and re-stamps the timestamp.
+The PEI tab (`src/components/pei/ApplicationPEITab.tsx`) already handles sending, follow-ups, GFE, and status tracking. Today it only gets rows via **Auto-build from employment history**, which reads `applications.employers`. Legacy applicants have no employment history to auto-build from, so the tab shows the empty state and there is no way to add one manually.
 
-### 2. Email
-- New edge function `supabase/functions/send-equipment-return-instructions/index.ts` using existing Resend connector pattern.
-- To: driver's email on `applications`. Reply-to: sender staff email.
-- Body includes:
-  - Personalized greeting + short instructions ("mail back within X days, include tracking").
-  - Table of equipment to return (label + serial) pulled from `onboarding_status`.
-  - **Both mailing addresses** side by side:
-    - **The UPS Store #4564** — 608 W. Parkway Dr., Russellville, AR 72801 (hours + phone).
-    - **USPS** — SuperTransport c/o Craig Pate, P.O. Box 718, Dover, AR 72837.
-  - Deep link back to the driver Asset Sheet upload screen (existing `OperatorPortal` route).
-  - Reminder that they must attach the shipping receipt + tracking number after mailing.
-- Log the send to `email_send_log` following the project's existing pattern.
+## Option A — Recommended: "Add Previous Employer" button on the PEI tab
 
-### 3. Keep-login-alive guard
-- New helper column `equipment_return_completed_at` on `onboarding_status` (nullable).
-- Migration adds a trigger on `equipment_receipts`: on the first `direction='return'` insert for an operator, set `equipment_return_completed_at = now()` (if null).
-- Update the existing operator deactivation logic (in `on_operator_deactivated` trigger — referenced in memory) so that when an operator is set inactive/archived:
-  - If `return_instructions_sent_at IS NOT NULL AND equipment_return_completed_at IS NULL`, keep their auth account enabled and set a new flag `login_retained_for_return = true`.
-  - Once the return receipt lands (trigger above fires), a follow-up trigger clears `login_retained_for_return` and applies the normal deactivation side effects.
-- Staff override: small "Force close return window" button on the same card that clears `login_retained_for_return` and finishes deactivation manually.
-- Login gate in `useAuth` / route guards: allow sign-in for inactive operators only when `login_retained_for_return = true`, and restrict them to the Asset Sheet view (rest of the driver portal shows a "Your account is closed — please finish returning equipment" screen).
+Add a second button next to **Auto-build**, labeled **+ Add Previous Employer**. It opens a small modal with the exact fields we already send and track:
 
-### 4. Small UI polish on Asset Sheet
-- When `return_instructions_sent_at` is set, show a compact "Return instructions emailed on <date>" line at the top of the Return Shipment Receipts block for both roles. No behavior change to the existing uploader.
+- Employer name *(required)*
+- Contact name *(optional)*
+- Contact email *(required to send; can be filled later)* — with the same **Find with AI** button used elsewhere
+- City *(required)*
+- State *(required, US_STATES dropdown)*
+- Employment start date *(optional, MM/YYYY)*
+- Employment end date *(optional, MM/YYYY, blank = present)*
+- DOT-regulated toggle *(default on)*
 
-## Technical notes
-- Migration: add `return_instructions_sent_at timestamptz`, `return_instructions_sent_by uuid`, `equipment_return_completed_at timestamptz`, `login_retained_for_return boolean default false` to `onboarding_status`; add trigger `mark_equipment_return_completed` on `equipment_receipts`; amend `on_operator_deactivated` to respect the new flag.
-- Addresses stored as constants in the edge function (not in DB) since they're fixed company addresses; easy to edit later.
-- Reuse existing `email_send_log` + Resend gateway pattern (no new secrets needed if Resend is already connected).
+On save, insert one row into `pei_requests` with `status = 'pending'`, and set `applications.pei_deadline` to today + 30 days if it isn't already set. From that point the row behaves like any other: Send, follow-up, final notice, GFE, delete, response viewer — all existing code paths already handle it.
 
-## Out of scope
-- Automatic termination trigger (user chose manual only).
-- Driver preference selection UI for UPS vs USPS.
-- SMS notification.
+**Why this is the right fit**
+- Zero changes to auto-build, send, tracking, or GFE logic.
+- Staff can add one employer or many, in any order.
+- Works for any legacy applicant, not just Ryan — anyone whose `employers` JSONB is empty or incomplete.
+- The Edit contact / Find with AI / Send / GFE controls on each row already cover follow-up edits.
+
+## Option B — Backfill `applications.employers` first, then Auto-build
+
+Add a UI to edit the applicant's employer list on the application itself, then rely on the existing Auto-build. Heavier: it requires an application-editing surface and re-runs the 3-year / DOT-regulated filter, which can silently skip employers staff intentionally want investigated. Not recommended.
+
+## Option C — Bulk paste
+
+A textarea where staff paste "Name, City, State, Email" lines and we create many rows at once. Useful only if the owner regularly onboards batches of legacy drivers. Can be added later on top of Option A.
+
+## Recommendation
+
+Ship **Option A** now. It is the smallest change that fully solves Ryan's case and any future legacy driver, and it reuses every piece of the existing PEI pipeline.
+
+## Technical notes (for the build step)
+
+- New component: `src/components/pei/AddPreviousEmployerModal.tsx` (Dialog with the fields above, reuses `US_STATES`, `toTitleCase`, and `lookupEmployerEmail`).
+- `ApplicationPEITab.tsx`: add the button + modal state; on submit, `supabase.from('pei_requests').insert({...})` then `reload()`.
+- If `applications.pei_deadline` is null, set it to today + 30 days in the same save (mirrors `autoBuildPEIRequests`).
+- No schema changes. No RLS changes — existing `pei_requests` policies already permit staff inserts.
