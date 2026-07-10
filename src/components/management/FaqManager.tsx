@@ -50,6 +50,16 @@ import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
 
 type FaqCategory = Database['public']['Enums']['faq_category'];
+type FaqAudience = Database['public']['Enums']['faq_audience'];
+
+const AUDIENCE_OPTIONS: { value: FaqAudience; label: string }[] = [
+  { value: 'owner_operator', label: 'Owner-Operator' },
+  { value: 'staff', label: 'Staff' },
+];
+const AUDIENCE_LABEL: Record<FaqAudience, string> = {
+  owner_operator: 'Owner-Operator',
+  staff: 'Staff',
+};
 
 const CATEGORY_OPTIONS: { value: FaqCategory; label: string }[] = [
   { value: 'application_process', label: 'Application Process' },
@@ -71,6 +81,7 @@ interface FaqRow {
   question: string;
   answer: string;
   category: FaqCategory;
+  audience: FaqAudience;
   is_published: boolean;
   sort_order: number;
   created_at: string;
@@ -103,7 +114,12 @@ const CHANGE_TYPE_COLOR: Record<string, string> = {
   unpublish: 'bg-amber-100 text-amber-700 border-amber-300',
 };
 
-const EMPTY_FORM = { question: '', answer: '', category: 'general_owner_operator' as FaqCategory };
+const EMPTY_FORM = {
+  question: '',
+  answer: '',
+  category: 'general_owner_operator' as FaqCategory,
+  audience: 'owner_operator' as FaqAudience,
+};
 
 export default function FaqManager() {
   const { guardDemo } = useDemoMode();
@@ -111,6 +127,7 @@ export default function FaqManager() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<FaqCategory | 'all'>('all');
+  const [audienceView, setAudienceView] = useState<FaqAudience>('owner_operator');
 
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -132,7 +149,7 @@ export default function FaqManager() {
     setLoading(true);
     const { data, error } = await supabase
       .from('faq')
-      .select('id, question, answer, category, is_published, sort_order, created_at')
+      .select('id, question, answer, category, audience, is_published, sort_order, created_at')
       .order('sort_order', { ascending: true });
     if (!error) setFaqs((data as FaqRow[]) ?? []);
     setLoading(false);
@@ -142,6 +159,7 @@ export default function FaqManager() {
 
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = faqs.filter(f => {
+    if (f.audience !== audienceView) return false;
     const matchSearch = !search ||
       f.question.toLowerCase().includes(search.toLowerCase()) ||
       f.answer.toLowerCase().includes(search.toLowerCase());
@@ -170,6 +188,7 @@ export default function FaqManager() {
     overrideAnswer?: string,
     overrideCategory?: string,
     overridePublished?: boolean,
+    overrideAudience?: FaqAudience,
   ) => {
     const { data: { user } } = await supabase.auth.getUser();
     let name: string | null = null;
@@ -186,6 +205,7 @@ export default function FaqManager() {
       question: overrideQuestion ?? faq.question,
       answer: overrideAnswer ?? faq.answer,
       category: overrideCategory ?? faq.category,
+      audience: overrideAudience ?? faq.audience,
       is_published: overridePublished ?? faq.is_published,
       changed_by: user?.id ?? null,
       changed_by_name: name,
@@ -196,13 +216,13 @@ export default function FaqManager() {
   // ── Open dialog ───────────────────────────────────────────────────────────
   const openCreate = () => {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, audience: audienceView });
     setDialogOpen(true);
   };
 
   const openEdit = (faq: FaqRow) => {
     setEditing(faq);
-    setForm({ question: faq.question, answer: faq.answer, category: faq.category });
+    setForm({ question: faq.question, answer: faq.answer, category: faq.category, audience: faq.audience });
     setDialogOpen(true);
   };
 
@@ -217,10 +237,10 @@ export default function FaqManager() {
     if (editing) {
       const { error } = await supabase
         .from('faq')
-        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category })
+        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update FAQ.'); setSaving(false); return; }
-      await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published);
+      await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published, form.audience);
       toast.success('FAQ updated.');
     } else {
       const maxOrder = faqs.length ? Math.max(...faqs.map(f => f.sort_order)) : -1;
@@ -231,14 +251,15 @@ export default function FaqManager() {
           question: form.question.trim(),
           answer: form.answer.trim(),
           category: form.category,
+          audience: form.audience,
           is_published: false,
           sort_order: maxOrder + 1,
           created_by: user?.id ?? null,
         })
-        .select('id, question, answer, category, is_published, sort_order, created_at')
+        .select('id, question, answer, category, audience, is_published, sort_order, created_at')
         .single();
       if (error || !inserted) { toast.error('Failed to create FAQ.'); setSaving(false); return; }
-      await writeHistory(inserted as FaqRow, 'create', form.question.trim(), form.answer.trim(), form.category, false);
+      await writeHistory(inserted as FaqRow, 'create', form.question.trim(), form.answer.trim(), form.category, false, form.audience);
       toast.success('FAQ created (unpublished).');
     }
     setSaving(false);
