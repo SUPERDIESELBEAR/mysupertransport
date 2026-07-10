@@ -469,6 +469,17 @@ export default function FaqManager() {
                   >
                     {faq.is_published ? 'Published' : 'Draft'}
                   </Badge>
+                  {isStale(faq.last_verified_at) && (
+                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Needs review
+                    </Badge>
+                  )}
+                  {(faq.tags ?? []).slice(0, 3).map(t => (
+                    <Badge key={t} variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                      #{t}
+                    </Badge>
+                  ))}
                 </div>
                 <p className="text-sm font-semibold text-foreground">{faq.question}</p>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{faq.answer}</p>
@@ -476,6 +487,17 @@ export default function FaqManager() {
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => markVerified(faq)}
+                  title={`Mark as verified (last: ${format(new Date(faq.last_verified_at), 'MMM d, yyyy')})`}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isStale(faq.last_verified_at)
+                      ? 'text-orange-600 hover:bg-orange-50'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => loadHistory(faq)}
                   title="View edit history"
