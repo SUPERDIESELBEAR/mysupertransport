@@ -126,6 +126,7 @@ const EMPTY_FORM = {
   category: 'general_owner_operator' as FaqCategory,
   audience: 'owner_operator' as FaqAudience,
   tags: '' as string,
+  sort_order: '' as string,
 };
 
 const STALE_DAYS = 90;
@@ -256,6 +257,7 @@ export default function FaqManager() {
       category: faq.category,
       audience: faq.audience,
       tags: (faq.tags ?? []).join(', '),
+      sort_order: String(faq.sort_order),
     });
     setDialogOpen(true);
   };
@@ -273,15 +275,19 @@ export default function FaqManager() {
       .map(t => t.trim().toLowerCase())
       .filter(Boolean);
     if (editing) {
+      const parsedOrder = form.sort_order.trim() === '' ? editing.sort_order : Number(form.sort_order);
+      const nextOrder = Number.isFinite(parsedOrder) ? parsedOrder : editing.sort_order;
       const { error } = await supabase
         .from('faq')
-        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience, tags: tagsArr })
+        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience, tags: tagsArr, sort_order: nextOrder })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update FAQ.'); setSaving(false); return; }
       await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published, form.audience);
       toast.success('FAQ updated.');
     } else {
       const maxOrder = faqs.length ? Math.max(...faqs.map(f => f.sort_order)) : -1;
+      const parsedOrder = form.sort_order.trim() === '' ? maxOrder + 1 : Number(form.sort_order);
+      const nextOrder = Number.isFinite(parsedOrder) ? parsedOrder : maxOrder + 1;
       const { data: { user } } = await supabase.auth.getUser();
       const { data: inserted, error } = await supabase
         .from('faq')
@@ -292,7 +298,7 @@ export default function FaqManager() {
           audience: form.audience,
           tags: tagsArr,
           is_published: false,
-          sort_order: maxOrder + 1,
+          sort_order: nextOrder,
           created_by: user?.id ?? null,
         })
         .select('id, question, answer, category, audience, is_published, sort_order, created_at, tags, last_verified_at')
