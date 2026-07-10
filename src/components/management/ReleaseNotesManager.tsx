@@ -129,6 +129,71 @@ export default function ReleaseNotesManager() {
             rows={4}
             maxLength={2000}
           />
+
+          {/* Flag staff FAQs for re-verification */}
+          {staffFaqs.length > 0 && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <span className="text-xs font-semibold text-foreground">
+                  Flag Staff Help articles that need re-verification
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Optional. Selected articles will be marked stale so content owners re-review them.
+              </p>
+
+              {flaggedIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {flaggedIds.map(id => {
+                    const f = staffFaqs.find(s => s.id === id);
+                    if (!f) return null;
+                    return (
+                      <Badge key={id} variant="secondary" className="gap-1 max-w-full">
+                        <span className="truncate max-w-[220px]">{f.question}</span>
+                        <button
+                          onClick={() => setFlaggedIds(prev => prev.filter(x => x !== id))}
+                          className="hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+
+              <Input
+                value={flagSearch}
+                onChange={e => setFlagSearch(e.target.value)}
+                placeholder="Search staff FAQs to flag…"
+                className="h-8 text-xs"
+              />
+              {flagSearch.trim() && (
+                <div className="max-h-40 overflow-y-auto rounded border border-border bg-white divide-y divide-border">
+                  {staffFaqs
+                    .filter(f =>
+                      !flaggedIds.includes(f.id) &&
+                      f.question.toLowerCase().includes(flagSearch.toLowerCase())
+                    )
+                    .slice(0, 8)
+                    .map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          setFlaggedIds(prev => [...prev, f.id]);
+                          setFlagSearch('');
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+                      >
+                        {f.question}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end">
             <Button onClick={handlePost} disabled={saving || !title.trim() || !body.trim()} className="gap-2">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
