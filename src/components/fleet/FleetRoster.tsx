@@ -276,7 +276,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Truck className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
               <Truck className="h-6 w-6 text-gold shrink-0" />

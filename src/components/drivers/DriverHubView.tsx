@@ -273,17 +273,12 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="space-y-2">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Users2 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground leading-tight flex items-center gap-2">
-                <Users2 className="h-6 w-6 text-gold shrink-0" />
-                Driver Hub
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Manage active and archived operators</p>
-            </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight flex items-center gap-2">
+              <Users2 className="h-6 w-6 text-gold shrink-0" />
+              Driver Hub
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Manage active and archived operators</p>
           </div>
 
           {/* Compliance summary chips — only in non-dispatch mode */}

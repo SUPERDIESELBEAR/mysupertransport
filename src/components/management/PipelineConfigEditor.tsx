@@ -438,7 +438,7 @@ export default function PipelineConfigEditor() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <Settings2 className="h-5 w-5 text-muted-foreground" />
+            <Settings2 className="h-6 w-6 text-gold shrink-0" />
             Pipeline Config
           </h1>
           <p className="text-muted-foreground text-sm mt-1">

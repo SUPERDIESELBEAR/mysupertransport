@@ -1200,9 +1200,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
-          <FileText className="h-5 w-5 text-gold" />
-        </div>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <Shield className="h-6 w-6 text-gold shrink-0" />
