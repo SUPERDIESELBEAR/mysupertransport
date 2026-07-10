@@ -458,23 +458,19 @@ export default function FaqManager() {
               key={faq.id}
               className="bg-white border border-border rounded-xl p-4 flex gap-3 items-start shadow-sm hover:shadow-md transition-shadow"
             >
-              {/* Reorder arrows */}
+              {/* Expand / collapse answer */}
               <div className="flex flex-col gap-0.5 shrink-0 mt-0.5">
                 <button
-                  onClick={() => moveItem(faq, 'up')}
-                  disabled={idx === 0}
-                  title="Move up in sort order"
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+                  onClick={() => toggleExpanded(faq.id)}
+                  title={expandedIds.has(faq.id) ? 'Collapse answer' : 'Expand answer'}
+                  aria-label={expandedIds.has(faq.id) ? 'Collapse answer' : 'Expand answer'}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
-                  <ChevronUp className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => moveItem(faq, 'down')}
-                  disabled={idx === sortedFiltered.length - 1}
-                  title="Move down in sort order"
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  {expandedIds.has(faq.id) ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
                 </button>
               </div>
 
@@ -510,23 +506,6 @@ export default function FaqManager() {
                 >
                   {faq.answer}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(faq.id)}
-                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-gold hover:text-gold-light transition-colors"
-                >
-                  {expandedIds.has(faq.id) ? (
-                    <>
-                      <ChevronUp className="h-3 w-3" />
-                      Hide full answer
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-3 w-3" />
-                      Show full answer
-                    </>
-                  )}
-                </button>
               </div>
 
               {/* Actions */}
