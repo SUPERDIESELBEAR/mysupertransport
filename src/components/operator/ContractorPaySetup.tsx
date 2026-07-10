@@ -105,6 +105,101 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
   });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
 
+  // Hub docs (Handbook, BOL/POD, Loadout Trailer Guide)
+  const [hubDocs, setHubDocs] = useState<HubDoc[]>([]);
+  const [hubAcks, setHubAcks] = useState<Record<string, number>>({}); // doc_id -> acknowledged version
+  const [hubPdfUrls, setHubPdfUrls] = useState<Record<string, string | null>>({});
+  const [richTextDoc, setRichTextDoc] = useState<HubDoc | null>(null);
+  const [hubTogglingId, setHubTogglingId] = useState<string | null>(null);
+
+  // Fetch hub docs + this user's acknowledgments
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [{ data: docs }, { data: acks }] = await Promise.all([
+        supabase
+          .from('driver_documents')
+          .select('id,title,description,body,content_type,pdf_url,pdf_path,version')
+          .in('id', HUB_DOC_ID_LIST),
+        supabase
+          .from('document_acknowledgments')
+          .select('document_id, document_version')
+          .eq('user_id', user.id)
+          .in('document_id', HUB_DOC_ID_LIST),
+      ]);
+      const list = (docs ?? []) as HubDoc[];
+      // Preserve display order: Handbook, BOL/POD, Loadout
+      const orderedIds = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+      list.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+      setHubDocs(list);
+
+      const ackMap: Record<string, number> = {};
+      (acks ?? []).forEach((a: any) => { ackMap[a.document_id] = a.document_version; });
+      setHubAcks(ackMap);
+
+      // Resolve signed URLs for PDF-type hub docs
+      const urlEntries = await Promise.all(
+        list.filter(d => d.content_type === 'pdf' && d.pdf_path).map(async d => {
+          const { data } = await supabase.storage
+            .from('operator-documents')
+            .createSignedUrl(d.pdf_path!, 3600);
+          return [d.id, data?.signedUrl ?? d.pdf_url ?? null] as const;
+        })
+      );
+      const urls: Record<string, string | null> = {};
+      urlEntries.forEach(([id, url]) => { urls[id] = url; });
+      setHubPdfUrls(urls);
+    })();
+  }, [user]);
+
+  const isHubDocAcked = (doc: HubDoc) =>
+    (hubAcks[doc.id] ?? -1) >= doc.version;
+
+  const allHubDocsAcknowledged = hubDocs.length === HUB_DOC_ID_LIST.length &&
+    hubDocs.every(isHubDocAcked);
+
+  const toggleHubAck = async (doc: HubDoc) => {
+    if (!user || hubTogglingId) return;
+    setHubTogglingId(doc.id);
+    const currentlyAcked = isHubDocAcked(doc);
+    try {
+      if (currentlyAcked) {
+        const { error } = await supabase
+          .from('document_acknowledgments')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('document_id', doc.id);
+        if (error) throw error;
+        setHubAcks(prev => {
+          const next = { ...prev };
+          delete next[doc.id];
+          return next;
+        });
+      } else {
+        // Remove any stale older-version ack first, then insert current
+        await supabase
+          .from('document_acknowledgments')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('document_id', doc.id);
+        const { error } = await supabase
+          .from('document_acknowledgments')
+          .insert({
+            user_id: user.id,
+            document_id: doc.id,
+            document_version: doc.version,
+            acknowledged_at: new Date().toISOString(),
+          });
+        if (error) throw error;
+        setHubAcks(prev => ({ ...prev, [doc.id]: doc.version }));
+      }
+    } catch (err: any) {
+      toast({ title: 'Could not update acknowledgment', description: err.message, variant: 'destructive' });
+    } finally {
+      setHubTogglingId(null);
+    }
+  };
+
   // Fetch signed URLs for company reference docs
   useEffect(() => {
     Promise.all(
