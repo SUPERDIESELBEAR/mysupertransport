@@ -349,10 +349,10 @@ export default function MoPlateRegistry() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Car className="h-5 w-5 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Car className="h-6 w-6 text-gold shrink-0" />
             MO Plate Registry
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Track Missouri-issued registrations and plates as they move between drivers.
           </p>
