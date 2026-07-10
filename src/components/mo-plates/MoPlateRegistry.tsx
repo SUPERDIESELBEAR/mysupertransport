@@ -19,9 +19,13 @@ import {
 } from 'lucide-react';
 
 // ── Expiry helpers (mirrors Inspection Binder logic) ──────────────────────────
+// Anchor YYYY-MM-DD dates at local noon so timezone offset never shifts the day.
+function parseLocalDate(s: string): Date {
+  return new Date(`${s}T12:00:00`);
+}
 function getExpiryStatus(expiresAt: string | null): 'valid' | 'expiring_soon' | 'expired' | null {
   if (!expiresAt) return null;
-  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  const days = Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000);
   if (days < 0) return 'expired';
   if (days <= 30) return 'expiring_soon';
   return 'valid';
@@ -29,7 +33,7 @@ function getExpiryStatus(expiresAt: string | null): 'valid' | 'expiring_soon' | 
 
 function daysUntilExpiry(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
-  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  return Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000);
 }
 import MoPlateFormModal, { type MoPlate } from './MoPlateFormModal';
 import MoPlateAssignModal from './MoPlateAssignModal';
