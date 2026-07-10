@@ -1,48 +1,68 @@
 
-## Goal
+## Recommendation: Yes — add a small typed helper
 
-Let staff manually add a Previous Employer PEI record for applicants like Ryan Martinez who predate the in-app application flow — then send, track, and document those PEIs exactly like auto-built ones.
+The `as any` casts we just sprinkled work, but they turn off **all** type checking for that payload — a typo like `emplyer_name` or a wrong-type value would compile silently. A tiny helper keeps the escape hatch for dynamic keys while preserving column-name and value-type checking for the static parts.
 
-## Where this lives
+## What to add
 
-The PEI tab (`src/components/pei/ApplicationPEITab.tsx`) already handles sending, follow-ups, GFE, and status tracking. Today it only gets rows via **Auto-build from employment history**, which reads `applications.employers`. Legacy applicants have no employment history to auto-build from, so the tab shows the empty state and there is no way to add one manually.
+New file: `src/integrations/supabase/helpers.ts`
 
-## Option A — Recommended: "Add Previous Employer" button on the PEI tab
+```ts
+import type { Database } from './types';
 
-Add a second button next to **Auto-build**, labeled **+ Add Previous Employer**. It opens a small modal with the exact fields we already send and track:
+type PublicSchema = Database['public'];
+type TableName = keyof PublicSchema['Tables'];
 
-- Employer name *(required)*
-- Contact name *(optional)*
-- Contact email *(required to send; can be filled later)* — with the same **Find with AI** button used elsewhere
-- City *(required)*
-- State *(required, US_STATES dropdown)*
-- Employment start date *(optional, MM/YYYY)*
-- Employment end date *(optional, MM/YYYY, blank = present)*
-- DOT-regulated toggle *(default on)*
+type UpdateOf<T extends TableName> = PublicSchema['Tables'][T]['Update'];
+type InsertOf<T extends TableName> = PublicSchema['Tables'][T]['Insert'];
 
-On save, insert one row into `pei_requests` with `status = 'pending'`, and set `applications.pei_deadline` to today + 30 days if it isn't already set. From that point the row behaves like any other: Send, follow-up, final notice, GFE, delete, response viewer — all existing code paths already handle it.
+/**
+ * Typed passthrough for Supabase .update() payloads that are built with
+ * dynamic keys (e.g. `{ [col]: value }`). Preserves column-name checking
+ * for the known fields while allowing computed keys, without falling back
+ * to `as any` which disables all type safety.
+ */
+export function updatePayload<T extends TableName>(
+  _table: T,
+  patch: Partial<UpdateOf<T>> & Record<string, unknown>,
+): UpdateOf<T> {
+  return patch as UpdateOf<T>;
+}
 
-**Why this is the right fit**
-- Zero changes to auto-build, send, tracking, or GFE logic.
-- Staff can add one employer or many, in any order.
-- Works for any legacy applicant, not just Ryan — anyone whose `employers` JSONB is empty or incomplete.
-- The Edit contact / Find with AI / Send / GFE controls on each row already cover follow-up edits.
+export function insertPayload<T extends TableName>(
+  _table: T,
+  row: Partial<InsertOf<T>> & Record<string, unknown>,
+): InsertOf<T> {
+  return row as InsertOf<T>;
+}
+```
 
-## Option B — Backfill `applications.employers` first, then Auto-build
+Usage replaces `as any`:
 
-Add a UI to edit the applicant's employer list on the application itself, then rely on the existing Auto-build. Heavier: it requires an application-editing surface and re-runs the 3-year / DOT-regulated filter, which can silently skip employers staff intentionally want investigated. Not recommended.
+```ts
+// before
+.update({ [col]: newDateStr } as any)
 
-## Option C — Bulk paste
+// after
+.update(updatePayload('applications', { [col]: newDateStr }))
+```
 
-A textarea where staff paste "Name, City, State, Email" lines and we create many rows at once. Useful only if the owner regularly onboards batches of legacy drivers. Can be added later on top of Option A.
+The `_table` argument ties the payload to a specific table, so any statically-known field still gets checked against that table's schema. Dynamic `[col]` keys are permitted by the `Record<string, unknown>` intersection.
 
-## Recommendation
+## Migration plan
 
-Ship **Option A** now. It is the smallest change that fully solves Ryan's case and any future legacy driver, and it reuses every piece of the existing PEI pipeline.
+1. Add `helpers.ts` (does not touch `client.ts` or `types.ts` — those stay auto-generated).
+2. Convert the ~22 sites we just cast:
+   - `.update(x as any)` → `.update(updatePayload('<table>', x))`
+   - `.insert(x as any)` → `.insert(insertPayload('<table>', x))`
+3. Add a short note under `mem://arch/database-patterns/managed-columns-handling` (or a new memory) telling future edits to use these helpers instead of `as any`.
 
-## Technical notes (for the build step)
+## Scope note
 
-- New component: `src/components/pei/AddPreviousEmployerModal.tsx` (Dialog with the fields above, reuses `US_STATES`, `toTitleCase`, and `lookupEmployerEmail`).
-- `ApplicationPEITab.tsx`: add the button + modal state; on submit, `supabase.from('pei_requests').insert({...})` then `reload()`.
-- If `applications.pei_deadline` is null, set it to today + 30 days in the same save (mirrors `autoBuildPEIRequests`).
-- No schema changes. No RLS changes — existing `pei_requests` policies already permit staff inserts.
+Only touch call sites currently using `as any` for insert/update. Existing typed calls (`.update({ status: 'sent' })` with no dynamic keys) don't need changes — they already type-check today.
+
+## Trade-offs
+
+- **Cost**: ~30 lines of helper + one-time refactor of the ~22 sites we just patched.
+- **Benefit**: dynamic-key writes stay ergonomic *and* any statically-typed field in the same payload gets column/value validation. Typos in known fields will fail the build again.
+- **Risk**: none — helpers are pure identity functions at runtime.
