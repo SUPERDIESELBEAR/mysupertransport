@@ -306,6 +306,28 @@ export function ApplicationPEITab({ applicationId }: Props) {
                           Missing {missing.join(', ')}
                         </span>
                       )}
+                      {(() => {
+                        if (r.status !== 'sent' && r.status !== 'follow_up_sent') return null;
+                        if (r.auto_paused_reason) {
+                          return (
+                            <span className="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded" title="Automatic follow-ups paused">
+                              Auto-paused: {r.auto_paused_reason}
+                            </span>
+                          );
+                        }
+                        if (!r.date_sent) return null;
+                        const sent = new Date(r.date_sent).getTime();
+                        const days = Math.floor((Date.now() - sent) / 86_400_000);
+                        const milestones = [5, 10, 15, 20, 25, 30];
+                        const next = milestones.find((m) => m > days);
+                        if (!next) return null;
+                        const label = next === 30 ? `Auto-GFE in ${next - days}d` : `Auto follow-up in ${next - days}d`;
+                        return (
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Scheduled by PEI auto-cadence">
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 space-x-3">
                       {(r.employer_city || r.employer_state) && <span>{[r.employer_city, r.employer_state].filter(Boolean).join(', ')}</span>}
