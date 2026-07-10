@@ -133,6 +133,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   const { toast } = useToast();
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -289,18 +290,27 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   return (
     <div className="bg-white border border-border rounded-xl p-5 space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setExpanded(prev => !prev)}
+          className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
+          aria-expanded={expanded}
+        >
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
           <FileText className="h-4 w-4 text-muted-foreground" />
           <h3 className="font-semibold text-foreground text-sm">Submitted Application</h3>
           {a.submitted_by_staff && (
             <Badge variant="outline" className="border-gold/40 text-foreground text-[10px]">Staff-assisted</Badge>
           )}
-        </div>
-        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={handlePrint}>
-          <Printer className="h-3.5 w-3.5" /> Print application
-        </Button>
+        </button>
+        {expanded && (
+          <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={handlePrint}>
+            <Printer className="h-3.5 w-3.5" /> Print application
+          </Button>
+        )}
       </div>
 
+      {expanded && (<>
       <Section title="Personal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Name">{val(`${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || undefined)}</Field>
@@ -421,6 +431,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           </div>
         )}
       </Section>
+      </>)}
     </div>
   );
 }
