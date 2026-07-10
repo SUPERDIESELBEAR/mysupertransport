@@ -1,68 +1,15 @@
+## Problem
+On the PEI tab, the header row has three buttons (Refresh, Add Previous Employer, Auto-build from employment history) in a single non-wrapping flex row. In the narrower PEI drawer the last button overflows and forces a horizontal scrollbar.
 
-## Recommendation: Yes — add a small typed helper
+## Fix
+Small, presentation-only change in `src/components/pei/ApplicationPEITab.tsx` (the header block around lines 261–278):
 
-The `as any` casts we just sprinkled work, but they turn off **all** type checking for that payload — a typo like `emplyer_name` or a wrong-type value would compile silently. A tiny helper keeps the escape hatch for dynamic keys while preserving column-name and value-type checking for the static parts.
+1. Allow the header to wrap: change the outer `flex items-center justify-between` to `flex flex-wrap items-center justify-between gap-3`, and add `flex-wrap` + `gap-2` to the button group so buttons drop to a second line before overflowing.
+2. Shorten the long button's label from **"Auto-build from employment history"** to **"Auto-build"**, and add a `title="Auto-build from employment history"` tooltip so the meaning is preserved on hover.
+3. Keep the `+` icon and the loading spinner behavior unchanged.
 
-## What to add
+No logic, data, or other components change.
 
-New file: `src/integrations/supabase/helpers.ts`
-
-```ts
-import type { Database } from './types';
-
-type PublicSchema = Database['public'];
-type TableName = keyof PublicSchema['Tables'];
-
-type UpdateOf<T extends TableName> = PublicSchema['Tables'][T]['Update'];
-type InsertOf<T extends TableName> = PublicSchema['Tables'][T]['Insert'];
-
-/**
- * Typed passthrough for Supabase .update() payloads that are built with
- * dynamic keys (e.g. `{ [col]: value }`). Preserves column-name checking
- * for the known fields while allowing computed keys, without falling back
- * to `as any` which disables all type safety.
- */
-export function updatePayload<T extends TableName>(
-  _table: T,
-  patch: Partial<UpdateOf<T>> & Record<string, unknown>,
-): UpdateOf<T> {
-  return patch as UpdateOf<T>;
-}
-
-export function insertPayload<T extends TableName>(
-  _table: T,
-  row: Partial<InsertOf<T>> & Record<string, unknown>,
-): InsertOf<T> {
-  return row as InsertOf<T>;
-}
-```
-
-Usage replaces `as any`:
-
-```ts
-// before
-.update({ [col]: newDateStr } as any)
-
-// after
-.update(updatePayload('applications', { [col]: newDateStr }))
-```
-
-The `_table` argument ties the payload to a specific table, so any statically-known field still gets checked against that table's schema. Dynamic `[col]` keys are permitted by the `Record<string, unknown>` intersection.
-
-## Migration plan
-
-1. Add `helpers.ts` (does not touch `client.ts` or `types.ts` — those stay auto-generated).
-2. Convert the ~22 sites we just cast:
-   - `.update(x as any)` → `.update(updatePayload('<table>', x))`
-   - `.insert(x as any)` → `.insert(insertPayload('<table>', x))`
-3. Add a short note under `mem://arch/database-patterns/managed-columns-handling` (or a new memory) telling future edits to use these helpers instead of `as any`.
-
-## Scope note
-
-Only touch call sites currently using `as any` for insert/update. Existing typed calls (`.update({ status: 'sent' })` with no dynamic keys) don't need changes — they already type-check today.
-
-## Trade-offs
-
-- **Cost**: ~30 lines of helper + one-time refactor of the ~22 sites we just patched.
-- **Benefit**: dynamic-key writes stay ergonomic *and* any statically-typed field in the same payload gets column/value validation. Typos in known fields will fail the build again.
-- **Risk**: none — helpers are pure identity functions at runtime.
+## Result
+- On wide screens: all three buttons sit on one line, just shorter.
+- On the drawer / narrow screens: buttons wrap cleanly under the title with no horizontal scrollbar.
