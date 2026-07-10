@@ -1548,7 +1548,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
                 const { error } = await supabase
                   .from('applications')
-                  .update({ [editingDoc.key]: path })
+                  .update({ [editingDoc.key]: path } as any)
                   .eq('id', app.id);
 
                 if (error) {

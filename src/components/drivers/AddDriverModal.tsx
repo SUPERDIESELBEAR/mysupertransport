@@ -166,7 +166,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
             .from('onboarding_status')
-            .update(onboardingUpdate)
+            .update(onboardingUpdate as any)
             .eq('operator_id', operator.id);
         }
 

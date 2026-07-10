@@ -337,7 +337,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         try {
           const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
           const oldDateStr = (appData as any)?.[col] ?? null;
-          const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
+          const { error } = await supabase.from('applications').update({ [col]: newDateStr } as any).eq('id', appId);
           if (error) throw error;
           await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: operatorId, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name, bulk: true } });
           successCount++;
@@ -365,7 +365,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       if (!appId) throw new Error('No application found');
       const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
       const oldDateStr = (appData as any)?.[col] ?? null;
-      const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
+      const { error } = await supabase.from('applications').update({ [col]: newDateStr } as any).eq('id', appId);
       if (error) throw error;
       await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: alert.operator_id, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name } });
       const renewedNow = new Date().toISOString();

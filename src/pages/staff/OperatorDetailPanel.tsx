@@ -788,7 +788,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // Resolve actor display name in parallel with the update
     const actorId = session?.user?.id ?? null;
     const [{ error }, actorProfile] = await Promise.all([
-      supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId),
+      supabase.from('applications').update({ [col]: newDateStr } as any).eq('id', appId),
       actorId
         ? supabase.from('profiles').select('first_name, last_name').eq('user_id', actorId).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -2057,7 +2057,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     try {
       const { error } = await supabase
         .from('onboarding_status')
-        .update({ [field]: 'requested' })
+        .update({ [field]: 'requested' } as any)
         .eq('id', statusId);
       if (error) throw error;
 
@@ -4638,7 +4638,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 if (!statusId) return;
                 setMarkingReceived(field as string);
                 try {
-                  const { error: markErr } = await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                  const { error: markErr } = await supabase.from('onboarding_status').update({ [field]: 'received' } as any).eq('id', statusId);
                   if (markErr) throw markErr;
                    const updated = { ...status, [field]: 'received' };
                   setStatus(prev => ({ ...prev, [field]: 'received' }));
@@ -6521,7 +6521,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               if (idx !== -1) {
                 storagePath = decodeURIComponent(newUrl.slice(idx + marker.length).split('?')[0]);
               }
-              const { error } = await supabase.from('applications').update({ [field]: storagePath }).eq('id', appId);
+              const { error } = await supabase.from('applications').update({ [field]: storagePath } as any).eq('id', appId);
               if (error) {
                 throw new Error(error.message);
               }

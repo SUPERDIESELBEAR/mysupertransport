@@ -79,7 +79,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
         if (assignment) {
           const { error: clearErr } = await supabase
             .from('onboarding_status')
-            .update({ [field]: null })
+            .update({ [field]: null } as any)
             .eq('operator_id', assignment.operator_id);
           if (clearErr) throw clearErr;
         }

@@ -249,7 +249,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       const column = side === 'ds' ? 'decal_photo_ds_url' : 'decal_photo_ps_url';
       const { error: updateError } = await supabase
         .from('onboarding_status')
-        .update({ [column]: fileUrl })
+        .update({ [column]: fileUrl } as any)
         .eq('operator_id', operatorId);
 
       if (updateError) throw updateError;
