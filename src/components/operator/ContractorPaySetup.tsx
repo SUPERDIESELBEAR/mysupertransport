@@ -887,6 +887,21 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
           onClose={() => setPreviewDoc(null)}
         />
       )}
+
+      {/* ── RICH-TEXT DOC MODAL (e.g. Loadout Trailer Guide) ── */}
+      <Dialog open={!!richTextDoc} onOpenChange={(open) => !open && setRichTextDoc(null)}>
+        <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{richTextDoc?.title}</DialogTitle>
+          </DialogHeader>
+          {richTextDoc?.body && (
+            <div
+              className="prose prose-sm max-w-none text-foreground [&_a]:text-primary"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(richTextDoc.body) }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
