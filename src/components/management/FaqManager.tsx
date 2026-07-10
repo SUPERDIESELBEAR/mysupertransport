@@ -161,6 +161,16 @@ export default function FaqManager() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [aiOnly, setAiOnly] = useState(false);
 
+  // Per-row inline expand for the answer preview
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = async () => {
     setLoading(true);
@@ -471,6 +481,7 @@ export default function FaqManager() {
                 <button
                   onClick={() => moveItem(faq, 'up')}
                   disabled={idx === 0}
+                  title="Move up in sort order"
                   className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
@@ -478,6 +489,7 @@ export default function FaqManager() {
                 <button
                   onClick={() => moveItem(faq, 'down')}
                   disabled={idx === sortedFiltered.length - 1}
+                  title="Move down in sort order"
                   className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
@@ -509,7 +521,30 @@ export default function FaqManager() {
                   ))}
                 </div>
                 <p className="text-sm font-semibold text-foreground">{faq.question}</p>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{faq.answer}</p>
+                <p
+                  className={`text-xs text-muted-foreground mt-1 whitespace-pre-wrap ${
+                    expandedIds.has(faq.id) ? '' : 'line-clamp-2'
+                  }`}
+                >
+                  {faq.answer}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(faq.id)}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-gold hover:text-gold-light transition-colors"
+                >
+                  {expandedIds.has(faq.id) ? (
+                    <>
+                      <ChevronUp className="h-3 w-3" />
+                      Hide full answer
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3" />
+                      Show full answer
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Actions */}
