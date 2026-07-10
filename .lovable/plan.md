@@ -1,24 +1,29 @@
-## Goal
-Make the Equipment Asset Sheet card collapsed by default in both the staff (management) and driver (operator) views. Users tap the header to expand. If the sheet is already signed/locked, it opens expanded so the completed record is immediately visible.
+## Problem
 
-## Changes
+The Compliance Summary card on the Management → Overview page currently lists every operator that has any CDL / Med Cert expiry within 90 days — including applicants still in onboarding, archived drivers, and operators who have never reached Go Live. Screenshot shows `Laura Johnson` (expired 376d ago) even though she is not a live driver.
 
-**File:** `src/components/equipment/EquipmentAssetSheet.tsx`
+## Fix
 
-1. Add local state `expanded`, initialized from `signed` (true when signed, false otherwise).
-2. Convert the existing header row (icon + title + subtitle + Locked badge) into a clickable button that toggles `expanded`. Add a chevron (ChevronDown / ChevronRight) on the right side to indicate state. Preserve the current visual style; only wrap it in a button and add the chevron.
-3. Wrap all body sections (Outbound Shipment Receipts, equipment lines, verification UI, signature area, return-instructions modal trigger area, inbound receipts, etc.) in a conditional `{expanded && (...)}` block. The card container, header, and Locked badge stay visible when collapsed.
-4. Add accessible attributes: `aria-expanded`, `aria-controls`, and a region wrapper `id` on the collapsible body.
-5. When collapsed and unsigned, show a small hint under the title like "Tap to open" (subtle, muted). When collapsed and signed, keep the existing "Signed {date}" subtitle.
+In `src/pages/management/ManagementPortal.tsx` → `fetchCriticalExpiries` (~line 340):
 
-## Behavior summary
+1. Extend the `operators` select to include the fields needed to gate the row:
+   - `is_active`
+   - `onboarding_status(fully_onboarded, go_live_date, insurance_added_date)`
 
-| State | Default | Notes |
-|---|---|---|
-| Unsigned, staff view | Collapsed | Tap header to expand |
-| Unsigned, driver view | Collapsed | Tap header to expand |
-| Signed (locked) | Expanded | Auto-expands so the record is visible |
+2. Before pushing a row into `rows` (the array that feeds `complianceSummary`), require ALL of:
+   - `op.is_active === true`
+   - `os?.fully_onboarded === true`
+   - `os?.go_live_date` is set AND `<= today` (past Go Live, not merely scheduled)
+   - `os?.insurance_added_date` is set (matches the same rule already applied to `v_compliance_items` per prior migration `20260707153625_update_compliance_view_filter.sql`, so both surfaces agree)
 
-## Out of scope
-- No changes to persistence, RLS, signing logic, receipts, verification, or return-instructions flow.
-- No changes to `OperatorDetailPanel.tsx` or `OperatorPortal.tsx` — the component is self-contained.
+3. Leave the existing count tiles (`criticalExpiryCount`, `expiredCount`, `noReminderCount`, `driverComplianceCounts`) unchanged — they already respect `fully_onboarded` for the driver breakdown, and the raw expired/critical counts on the top tiles are still useful platform-wide signals. Only the visible **Compliance Summary list** rows get the stricter gate.
+
+## Result
+
+The card will only show drivers who are active, fully onboarded, insured, and past Go Live — matching the definition used everywhere else. Laura Johnson and other pre–Go Live entries drop off.
+
+## Files touched
+
+- `src/pages/management/ManagementPortal.tsx` (single function edit)
+
+No DB migration, no changes to `v_compliance_items`, no API changes.

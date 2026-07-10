@@ -341,7 +341,7 @@ export default function ManagementPortal() {
     const [{ data }, { data: reminders }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select('id, user_id, onboarding_status(fully_onboarded), applications(first_name, last_name)')
+        .select('id, user_id, is_active, onboarding_status(fully_onboarded, go_live_date, insurance_added_date), applications(first_name, last_name)')
         .not('application_id', 'is', null),
       supabase.from('cert_reminders').select('operator_id, doc_type'),
       // #11: inspection_documents is the sole source of truth for cert expiry
@@ -373,6 +373,11 @@ export default function ManagementPortal() {
       if (!app) return;
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const isFullyOnboarded = os?.fully_onboarded === true;
+      const goLiveDate = os?.go_live_date ? startOfDay(parseISO(os.go_live_date)) : null;
+      const isPastGoLive = !!goLiveDate && goLiveDate.getTime() <= today.getTime();
+      const isInsured = !!os?.insurance_added_date;
+      const eligibleForSummary =
+        op.is_active === true && isFullyOnboarded && isPastGoLive && isInsured;
       const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
       const docs: { field: string; label: 'CDL' | 'Med Cert'; docType: string }[] = [
         { field: 'cdl_expiration', label: 'CDL', docType: 'CDL' },
@@ -389,7 +394,7 @@ export default function ManagementPortal() {
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
         if (days < 0) expired++;
         if (days <= 30) count++;
-        if (days <= 90) {
+        if (days <= 90 && eligibleForSummary) {
           rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
         }
         const key = `${op.id}|${docType}`;
