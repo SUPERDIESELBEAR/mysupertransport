@@ -37,6 +37,29 @@ const DispatchPortal = lazy(() => import("./pages/dispatch/DispatchPortal"));
 
 const queryClient = new QueryClient();
 
+// TEMP: Instrument all history writes to catch anyone stripping ?tab= from /dashboard.
+if (typeof window !== 'undefined' && !(window as any).__navDebugPatched) {
+  (window as any).__navDebugPatched = true;
+  const origPush = window.history.pushState.bind(window.history);
+  const origReplace = window.history.replaceState.bind(window.history);
+  window.history.pushState = function (state: any, title: string, url?: string | null) {
+    const u = typeof url === 'string' ? url : window.location.href;
+    if (u.includes('/dashboard') && !u.includes('tab=')) {
+      console.log('[NAV-DEBUG] pushState /dashboard without tab=', u);
+      console.trace('[NAV-DEBUG] pushState caller');
+    }
+    return origPush(state, title, url as any);
+  } as any;
+  window.history.replaceState = function (state: any, title: string, url?: string | null) {
+    const u = typeof url === 'string' ? url : window.location.href;
+    if (u.includes('/dashboard') && !u.includes('tab=')) {
+      console.log('[NAV-DEBUG] replaceState /dashboard without tab=', u);
+      console.trace('[NAV-DEBUG] replaceState caller');
+    }
+    return origReplace(state, title, url as any);
+  } as any;
+}
+
 function PortalFallback() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-surface-dark">

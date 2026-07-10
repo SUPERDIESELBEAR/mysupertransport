@@ -147,6 +147,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // navigation writes URL + state atomically through navigateToView below.
   useEffect(() => {
     const next = getViewStateFromSearch(location.search);
+    console.log('[NAV-DEBUG] url-sync effect', {
+      locationSearch: location.search,
+      windowSearch: window.location.search,
+      windowPathname: window.location.pathname,
+      appWrittenSearchRef: appWrittenSearchRef.current,
+      computedView: next.view,
+    });
     if (appWrittenSearchRef.current === location.search) {
       appWrittenSearchRef.current = null;
     }
@@ -156,6 +163,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const syncViewUrl = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
     const next = buildOperatorViewUrl(location.pathname, window.location.search, target, options);
+    console.log('[NAV-DEBUG] syncViewUrl', {
+      target,
+      locationPathname: location.pathname,
+      windowPathname: window.location.pathname,
+      windowSearchBefore: window.location.search,
+      nextPathname: next.pathname,
+      nextSearch: next.search,
+      willWrite: window.location.search !== next.search || window.location.pathname !== next.pathname,
+    });
     if (window.location.search !== next.search || window.location.pathname !== next.pathname) {
       const nextHref = `${next.pathname}${next.search}${window.location.hash}`;
       if (options.replace) {
@@ -174,6 +190,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // It preserves the current route alias (/dashboard, /operator, or /owner)
   // instead of forcing /operator, which avoids guarded route remounts.
   const navigateToView = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
+    console.log('[NAV-DEBUG] navigateToView', {
+      target,
+      currentPathname: window.location.pathname,
+      currentSearch: window.location.search,
+      isPreview,
+    });
     const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
     if (!isPreview) syncViewUrl(target, options);
     if (options.closeMobileMenu !== false) setMobileMenuOpen(false);

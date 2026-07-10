@@ -1,67 +1,49 @@
-## Goal
+## What's happening
 
-Populate the existing FAQ system with high-quality, hand-authored Q&As covering the core workflows of both portals. Everything lands as **drafts** in the existing FAQ Manager for staff review before publishing.
+You confirmed:
+- You're on the **Progress** (Status) screen as a driver account (not fully onboarded).
+- Tapping a nav item briefly changes the URL then **bounces back to `/dashboard` with the `?tab=` stripped**.
 
-## Approach: hand-authored from a codebase scan
+Because the URL is losing its `?tab=` parameter, the URL-sync effect in `OperatorPortal.tsx` reads the search string, sees no tab, defaults `view` back to `'progress'`, and the screen never changes. Every navigation surface (bottom bar, top bar, drop-down menu) goes through the same `navigateToView` helper, which is why *all* of them fail identically.
 
-You asked what's most accurate. **Hand-authoring from a codebase scan is the most accurate.** The AI doc-generator works well when the source is a self-contained PDF, but the portals are living UI — button labels, tab names, gating rules, and status logic only exist in the components. Reading those components directly and writing the Q&As myself avoids the AI hallucinating buttons or flows that don't exist. Trade-off: slower than pure AI, but you spend far less time correcting drafts.
+The question is **who is stripping `?tab=`**. Three plausible culprits, in order:
 
-## Coverage
+1. **A role-guarded route re-render.** If `location.pathname` isn't `/dashboard` (e.g. `/owner` or `/operator`), the route falls into `<Navigate to="/dashboard" replace />` in `App.tsx`, which drops the search string. Matches your symptom exactly.
+2. **A stale-URL race in `syncViewUrl`.** The helper calls `window.history.pushState` and then `navigate({...}, {replace:true})`. On some renders `location.pathname` from `useLocation()` is stale and the replace overwrites the good URL with a bad one.
+3. **Auth `loading` flipping mid-click.** `AppRoutes` returns a spinner while `loading` is true. If auth re-hydrates during a tap, `<Routes>` unmounts and the reset path drops the search.
 
-**Core workflows only**, roughly 20-25 per audience. I'll bias toward the tasks staff and drivers actually hit weekly. If, while scanning, I find a workflow that's non-obvious and high-risk (e.g. equipment return receipts, PEI cadence, ICA signing gotchas), I'll add it even if it's outside "core" — those are the ones a FAQ pays back the most. I'll flag any such additions in the summary when I hand off.
+## Fix approach
 
-## Scope
+**Step 1 — Instrument, reproduce once, remove instrumentation.**
 
-### Staff (Management Portal) — audience: `staff`, tagged for Staff Help Portal
-Topics I'll cover based on the sidebar and existing features:
+Add temporary `console.log` calls in code (they run for everyone, no account targeting needed):
+- Every `navigateToView` invocation: log target, `location.pathname`, `window.location.search`.
+- The URL-sync `useEffect`: log `location.search`, `appWrittenSearchRef.current`, computed `next.view`.
+- A one-shot dev-only `history.pushState/replaceState` monkey-patch that logs the caller/stack for any `/dashboard` nav without `?tab=`.
 
-- Onboarding Pipeline: moving a driver through stages, reverting a revision, propose-changes drawer, courtesy email defaults
-- Applications: reviewing a submitted application, PEI tab, add previous employer, auto-cadence behavior
-- Driver Hub / Vehicle Hub: editing driver docs, IRP ↔ MO Plate sync behavior
-- Fleet Compliance & Compliance Summary: who appears, why a driver is/isn't listed, expiry thresholds
-- Dispatch Board: opening a driver binder, daily log
-- Onboard Systems (Fuel Cards, ELDs, BestPass): assigning, deactivating, inventory of unassigned
-- Equipment Asset Sheet: verified-by-staff toggle, signature gating, return instructions + receipts
-- MO Plate Registry: assigning plates, expiry sync
-- Document Hub + FAQ Manager: uploading a handbook, generating FAQs from a document, publishing drafts, audience toggle
-- Staff Help Portal itself: how to search, how re-verification prompts work
-- Release Notes: composing a note, flagging FAQs for re-verification
-- Messaging & broadcasts, notifications
-- Roles & permissions: who can do what
+**How I get the logs:** you reload the driver portal in your current preview, tap a broken nav item once, then send your next message. Your browser console is automatically snapshotted and delivered to me — no account setup required.
 
-### Owner-Operator (Driver App) — audience: `owner_operator`
-Topics based on `OperatorPortal.tsx` and driver-facing components:
+**Step 2 — Apply the targeted fix.**
 
-- Installing the PWA (iOS + Android), why install prompts appear
-- Signing in, session timeout, forgot password
-- Status page: reading progress stages, what "Go Live" means
-- Uploading documents: CDL, Med Cert, IRP, truck photos, camera vs file upload
-- ICA signing: signature canvas tips, why re-signing is required
-- Equipment Asset Sheet: verifying items, signing, what happens if something's missing
-- Messages: inbox, notifications tab, viewing full history
-- Notifications: opening "View all", tab deep-link behavior
-- Truck-down alerts: what the chime means, how to clear
-- PEI: what it is, why previous employers get emails
-- Compliance timeline: reading expiry warnings
-- Returning equipment when leaving: mailing instructions + receipt upload gate
-- Viewing binder / documents in-app modal (no more new-tab)
-- Where to find the handbook, BOL/POD, other resources
+Based on the logs, one of:
+- **Pathname wrong:** hard-anchor `buildOperatorViewUrl` to always emit `/dashboard` for driver accounts so a stale pathname can't route into `<Navigate to="/dashboard" replace/>` and drop the query. Or change the role-guarded `Navigate` to preserve `location.search`.
+- **Race in `syncViewUrl`:** drop the redundant `navigate({...})` after `pushState` (the `useEffect` on `location.search` already reconciles React Router), or switch to `navigate(nextHref, {replace:true})` as the single source of URL truth and remove the manual `pushState`.
+- **Auth remount:** add a guard so a mid-click `loading` flip doesn't clear params.
 
-## Delivery
-
-1. Read each portal's entry points and key components to ground every answer in real UI labels and behavior.
-2. Draft ~20-25 Q&As per audience as a batch insert into `faq` with `status = 'draft'`, correct `audience`, and useful `tags` for search.
-3. Set `source_document = 'hand-authored codebase scan'` and `source_section` to the portal area (e.g. "Onboarding Pipeline", "Driver Status Page") so you can filter and audit them in FAQ Manager.
-4. No new UI, no schema changes. Everything reuses the existing FAQ Manager review/publish flow.
+Then remove the temporary logs.
 
 ## Technical section
 
-- Single migration-free change: SQL insert batch via existing `faq` table.
-- Fields per row: `question`, `answer` (markdown), `audience`, `tags[]`, `status='draft'`, `source_document`, `source_section`, `created_by = current staff user or null`.
-- Owner-operator rows tagged so they surface in `OperatorResourcesAndFAQ` after staff publish.
-- Staff rows tagged so they're searchable in `StaffHelpPortal` full-text search once published.
-- No changes to `faq-generate-from-doc` edge function or the AI pipeline.
+Files touched in step 1 (~10 added lines, all `console.log` / `console.trace`):
+- `src/pages/operator/OperatorPortal.tsx` — `navigateToView`, `syncViewUrl`, URL-sync `useEffect`.
+- `src/App.tsx` — dev-only mount-time history monkey-patch.
 
-## What you'll do after I hand off
+Files touched in step 2 depend on log outcome; expected to be one of:
+- `src/pages/operator/OperatorPortal.tsx` — tighten `buildOperatorViewUrl` and/or `syncViewUrl`.
+- `src/App.tsx` — adjust the `/dashboard` element or role-guarded routes to preserve search on redirect.
 
-Open **Management → FAQ Manager**, filter by `source_document = 'hand-authored codebase scan'`, review each draft, edit anything that's off, and click publish. Nothing goes live to drivers or the Staff Help Portal until you publish.
+## What you'll do
+
+1. I ship the instrumentation.
+2. You reload the driver app in your current preview, tap a broken nav item once, then send the next message.
+3. I read your session's console logs, identify the culprit, apply the real fix, and remove the logs.
