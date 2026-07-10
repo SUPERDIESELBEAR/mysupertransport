@@ -50,6 +50,8 @@ import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import GenerateFaqsFromDocModal from './GenerateFaqsFromDocModal';
+import { Sparkles } from 'lucide-react';
 
 type FaqCategory = Database['public']['Enums']['faq_category'];
 type FaqAudience = Database['public']['Enums']['faq_audience'];
@@ -155,6 +157,10 @@ export default function FaqManager() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // AI generation modal
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [aiOnly, setAiOnly] = useState(false);
+
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = async () => {
     setLoading(true);
@@ -175,7 +181,8 @@ export default function FaqManager() {
       f.question.toLowerCase().includes(search.toLowerCase()) ||
       f.answer.toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCategory === 'all' || f.category === filterCategory;
-    return matchSearch && matchCat;
+    const matchAi = !aiOnly || (f.tags ?? []).includes('ai-draft');
+    return matchSearch && matchCat && matchAi;
   });
 
   // ── History helpers ───────────────────────────────────────────────────────
@@ -373,9 +380,18 @@ export default function FaqManager() {
               : ' · internal only — never shown to drivers'}
           </p>
         </div>
-        <Button onClick={openCreate} className="bg-gold hover:bg-gold-light text-surface-dark font-semibold shrink-0">
-          <Plus className="h-4 w-4 mr-1.5" /> New FAQ
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => setGenerateOpen(true)}
+            className="font-semibold border-gold/40 text-foreground hover:bg-gold/10"
+          >
+            <Sparkles className="h-4 w-4 mr-1.5 text-gold" /> Generate from document
+          </Button>
+          <Button onClick={openCreate} className="bg-gold hover:bg-gold-light text-surface-dark font-semibold">
+            <Plus className="h-4 w-4 mr-1.5" /> New FAQ
+          </Button>
+        </div>
       </div>
 
       {/* Audience toggle */}
@@ -420,6 +436,17 @@ export default function FaqManager() {
             ))}
           </SelectContent>
         </Select>
+        <button
+          onClick={() => setAiOnly(v => !v)}
+          className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors inline-flex items-center gap-1.5 ${
+            aiOnly
+              ? 'bg-gold/10 text-foreground border-gold/40'
+              : 'bg-white text-muted-foreground border-border hover:text-foreground'
+          }`}
+          title="Show only AI-generated drafts"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-gold" /> AI drafts
+        </button>
       </div>
 
       {/* List */}
