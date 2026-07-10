@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
-import { sanitizeText } from '@/lib/sanitize';
+import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { reminderErrorToast } from '@/lib/reminderError';
@@ -501,6 +501,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
   const [sendingPayrollDocs, setSendingPayrollDocs] = useState(false);
+
+  // ── Stage 9 procedure docs sourced live from Document Hub ──
+  const HUB_DOC_IDS = {
+    handbook: 'b1275efe-05b3-4a4d-9b24-2289c3f43ec1',
+    bol_pod: 'b2e5d4d7-17f4-4ab5-968b-2c1b3fca404e',
+    loadout: 'c424935c-142d-4671-957a-84d867f48780',
+  } as const;
+  const HUB_DOC_ID_LIST: string[] = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+  const [hubDocs, setHubDocs] = useState<Array<{ id: string; title: string; description: string | null; body: string | null; content_type: 'rich_text' | 'pdf' | 'video'; pdf_url: string | null; pdf_path: string | null; version: number }>>([]);
+  const [hubAcks, setHubAcks] = useState<Record<string, { version: number; acknowledged_at: string | null }>>({});
+  const [hubPdfUrls, setHubPdfUrls] = useState<Record<string, string | null>>({});
+  const [richTextDoc, setRichTextDoc] = useState<{ title: string; body: string | null } | null>(null);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
