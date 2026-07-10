@@ -3830,6 +3830,41 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_event_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          event_date: string
+          event_type: string
+          id: string
+          operator_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          event_date: string
+          event_type: string
+          id?: string
+          operator_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          event_date?: string
+          event_type?: string
+          id?: string
+          operator_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_event_acknowledgments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
