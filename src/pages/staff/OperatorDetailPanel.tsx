@@ -691,6 +691,47 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   }, [paySetupLoaded, paySetupRecord]);
 
+  // Load Stage 9 procedure docs (Handbook / BOL/POD / Loadout) + this operator's acknowledgments
+  useEffect(() => {
+    (async () => {
+      const [{ data: docs }, acksRes] = await Promise.all([
+        supabase
+          .from('driver_documents')
+          .select('id,title,description,body,content_type,pdf_url,pdf_path,version')
+          .in('id', HUB_DOC_ID_LIST),
+        operatorUserId
+          ? supabase
+              .from('document_acknowledgments')
+              .select('document_id, document_version, acknowledged_at')
+              .eq('user_id', operatorUserId)
+              .in('document_id', HUB_DOC_ID_LIST)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+      const list = (docs ?? []) as any[];
+      const order = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+      list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      setHubDocs(list);
+
+      const ackMap: Record<string, { version: number; acknowledged_at: string | null }> = {};
+      (acksRes?.data ?? []).forEach((a: any) => {
+        ackMap[a.document_id] = { version: a.document_version, acknowledged_at: a.acknowledged_at ?? null };
+      });
+      setHubAcks(ackMap);
+
+      const urlEntries = await Promise.all(
+        list.filter(d => d.content_type === 'pdf' && d.pdf_path).map(async d => {
+          const { data } = await supabase.storage
+            .from('operator-documents')
+            .createSignedUrl(d.pdf_path!, 3600);
+          return [d.id, data?.signedUrl ?? d.pdf_url ?? null] as const;
+        })
+      );
+      const urls: Record<string, string | null> = {};
+      urlEntries.forEach(([id, url]) => { urls[id] = url; });
+      setHubPdfUrls(urls);
+    })();
+  }, [operatorUserId]);
+
 
 
   // Notify parent of unsaved changes state
