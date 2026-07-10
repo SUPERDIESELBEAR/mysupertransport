@@ -1,56 +1,67 @@
-# Generate FAQs from Documents
+## Goal
 
-Turn uploaded policy PDFs (Handbook v2.0, BOL/POD Procedures, and future documents) into reviewable **draft** FAQs in the existing FAQ Manager. Nothing publishes automatically — staff review, edit, and publish.
+Populate the existing FAQ system with high-quality, hand-authored Q&As covering the core workflows of both portals. Everything lands as **drafts** in the existing FAQ Manager for staff review before publishing.
 
-## How it works
+## Approach: hand-authored from a codebase scan
 
-1. Staff opens **Management → FAQ Manager** and clicks a new **"Generate from document"** button.
-2. A modal lets them pick:
-   - A PDF from the `resource-library` bucket (Handbook, BOL/POD, etc.) or upload a new one.
-   - Target audience: **Owner-Operator** (default) or **Staff**.
-   - Optional category hint (auto-detected if left blank).
-3. Backend extracts the PDF text, chunks it by section, and asks Lovable AI (Gemini) to draft 3-8 Q&A pairs per section grounded strictly in that section's text.
-4. Each generated Q&A is embedded and compared against existing FAQs; near-duplicates are skipped.
-5. Survivors are inserted into the existing `faq` table as **drafts** (`is_published = false`), tagged with the source document filename and section so staff can trace them.
-6. Staff reviews in the current FAQ Manager list — edit, retag, publish, or delete like any other FAQ.
+You asked what's most accurate. **Hand-authoring from a codebase scan is the most accurate.** The AI doc-generator works well when the source is a self-contained PDF, but the portals are living UI — button labels, tab names, gating rules, and status logic only exist in the components. Reading those components directly and writing the Q&As myself avoids the AI hallucinating buttons or flows that don't exist. Trade-off: slower than pure AI, but you spend far less time correcting drafts.
 
-## Where results land
+## Coverage
 
-The **existing FAQ Manager page**. New drafts appear alongside hand-written FAQs, filtered by the current audience toggle. A "Draft" badge is already shown; drafts also get a small "AI • <source doc>" tag so staff can bulk-filter them.
+**Core workflows only**, roughly 20-25 per audience. I'll bias toward the tasks staff and drivers actually hit weekly. If, while scanning, I find a workflow that's non-obvious and high-risk (e.g. equipment return receipts, PEI cadence, ICA signing gotchas), I'll add it even if it's outside "core" — those are the ones a FAQ pays back the most. I'll flag any such additions in the summary when I hand off.
 
-## Backend
+## Scope
 
-- **Edge function `faq-generate-from-doc`** (verify_jwt = false, staff-authenticated in code):
-  - Input: `{ storage_path, audience, category_hint? }`
-  - Downloads PDF from `resource-library`, extracts text with `pdfjs-dist` (npm:), splits by headings.
-  - For each section: calls `google/gemini-3-flash-preview` via the Lovable AI Gateway with a strict prompt ("Only use facts from the passage; questions must be things a driver would actually ask; answer in ≤120 words; no invented policy").
-  - Embeds each candidate Q with `google/gemini-embedding-2` and compares (cosine ≥ 0.88) against embeddings of existing published + draft FAQs for the same audience; drops duplicates.
-  - Inserts survivors into `faq` with `is_published=false`, `audience`, `category`, `tags=[source_filename, section_title, 'ai-draft']`, `source_document`, `source_section`.
-  - Returns counts: `{ generated, inserted, skipped_duplicate }`.
+### Staff (Management Portal) — audience: `staff`, tagged for Staff Help Portal
+Topics I'll cover based on the sidebar and existing features:
 
-- **Migration** (schema only — no bulk data):
-  - Add `source_document TEXT`, `source_section TEXT` to `faq`.
-  - Add `faq_embeddings` table (`faq_id`, `embedding vector(768)`) or reuse `search_vector`; use a lightweight `numeric[]` column if pgvector isn't enabled. Confirmed approach: `numeric[]` + in-function cosine to avoid adding pgvector.
-  - Standard GRANTs + RLS: staff-only read/write, mirroring existing `faq` policies.
+- Onboarding Pipeline: moving a driver through stages, reverting a revision, propose-changes drawer, courtesy email defaults
+- Applications: reviewing a submitted application, PEI tab, add previous employer, auto-cadence behavior
+- Driver Hub / Vehicle Hub: editing driver docs, IRP ↔ MO Plate sync behavior
+- Fleet Compliance & Compliance Summary: who appears, why a driver is/isn't listed, expiry thresholds
+- Dispatch Board: opening a driver binder, daily log
+- Onboard Systems (Fuel Cards, ELDs, BestPass): assigning, deactivating, inventory of unassigned
+- Equipment Asset Sheet: verified-by-staff toggle, signature gating, return instructions + receipts
+- MO Plate Registry: assigning plates, expiry sync
+- Document Hub + FAQ Manager: uploading a handbook, generating FAQs from a document, publishing drafts, audience toggle
+- Staff Help Portal itself: how to search, how re-verification prompts work
+- Release Notes: composing a note, flagging FAQs for re-verification
+- Messaging & broadcasts, notifications
+- Roles & permissions: who can do what
 
-## Frontend
+### Owner-Operator (Driver App) — audience: `owner_operator`
+Topics based on `OperatorPortal.tsx` and driver-facing components:
 
-- `src/components/management/FaqManager.tsx`:
-  - Add **"Generate from document"** button next to "New FAQ".
-  - New modal `GenerateFaqsFromDocModal.tsx`: PDF picker (lists `resource-library` PDFs), audience selector, "Generate" button, progress + result summary.
-  - After success: refetch FAQ list, scroll to newest drafts, show toast `"Created N drafts (skipped M duplicates)"`.
-  - Add a "AI drafts only" filter chip in the manager.
+- Installing the PWA (iOS + Android), why install prompts appear
+- Signing in, session timeout, forgot password
+- Status page: reading progress stages, what "Go Live" means
+- Uploading documents: CDL, Med Cert, IRP, truck photos, camera vs file upload
+- ICA signing: signature canvas tips, why re-signing is required
+- Equipment Asset Sheet: verifying items, signing, what happens if something's missing
+- Messages: inbox, notifications tab, viewing full history
+- Notifications: opening "View all", tab deep-link behavior
+- Truck-down alerts: what the chime means, how to clear
+- PEI: what it is, why previous employers get emails
+- Compliance timeline: reading expiry warnings
+- Returning equipment when leaving: mailing instructions + receipt upload gate
+- Viewing binder / documents in-app modal (no more new-tab)
+- Where to find the handbook, BOL/POD, other resources
 
-## Run against current PDFs
+## Delivery
 
-After the flow ships, I run it once for:
-- `SUPERTRANSPORT_Handbook_2.0_2026_July-2.pdf` → Owner-Operator drafts.
-- `BOL_POD_Procedures_2.0.pdf` → Owner-Operator drafts.
+1. Read each portal's entry points and key components to ground every answer in real UI labels and behavior.
+2. Draft ~20-25 Q&As per audience as a batch insert into `faq` with `status = 'draft'`, correct `audience`, and useful `tags` for search.
+3. Set `source_document = 'hand-authored codebase scan'` and `source_section` to the portal area (e.g. "Onboarding Pipeline", "Driver Status Page") so you can filter and audit them in FAQ Manager.
+4. No new UI, no schema changes. Everything reuses the existing FAQ Manager review/publish flow.
 
-Then report draft counts so you can start reviewing in FAQ Manager.
+## Technical section
 
-## Out of scope
+- Single migration-free change: SQL insert batch via existing `faq` table.
+- Fields per row: `question`, `answer` (markdown), `audience`, `tags[]`, `status='draft'`, `source_document`, `source_section`, `created_by = current staff user or null`.
+- Owner-operator rows tagged so they surface in `OperatorResourcesAndFAQ` after staff publish.
+- Staff rows tagged so they're searchable in `StaffHelpPortal` full-text search once published.
+- No changes to `faq-generate-from-doc` edge function or the AI pipeline.
 
-- Auto-publishing. Everything stays a draft.
-- Editing the driver-facing FAQ page (no changes needed — existing publish flow surfaces approved items).
-- Re-generating on every PDF edit; staff triggers manually per document.
+## What you'll do after I hand off
+
+Open **Management → FAQ Manager**, filter by `source_document = 'hand-authored codebase scan'`, review each draft, edit anything that's off, and click publish. Nothing goes live to drivers or the Staff Help Portal until you publish.
