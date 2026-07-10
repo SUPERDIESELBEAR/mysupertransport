@@ -160,7 +160,7 @@ export default function FaqManager() {
     setLoading(true);
     const { data, error } = await supabase
       .from('faq')
-      .select('id, question, answer, category, audience, is_published, sort_order, created_at')
+      .select('id, question, answer, category, audience, is_published, sort_order, created_at, tags, last_verified_at')
       .order('sort_order', { ascending: true });
     if (!error) setFaqs((data as FaqRow[]) ?? []);
     setLoading(false);
@@ -233,7 +233,13 @@ export default function FaqManager() {
 
   const openEdit = (faq: FaqRow) => {
     setEditing(faq);
-    setForm({ question: faq.question, answer: faq.answer, category: faq.category, audience: faq.audience });
+    setForm({
+      question: faq.question,
+      answer: faq.answer,
+      category: faq.category,
+      audience: faq.audience,
+      tags: (faq.tags ?? []).join(', '),
+    });
     setDialogOpen(true);
   };
 
@@ -245,10 +251,14 @@ export default function FaqManager() {
       return;
     }
     setSaving(true);
+    const tagsArr = form.tags
+      .split(',')
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean);
     if (editing) {
       const { error } = await supabase
         .from('faq')
-        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience })
+        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience, tags: tagsArr })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update FAQ.'); setSaving(false); return; }
       await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published, form.audience);
@@ -263,11 +273,12 @@ export default function FaqManager() {
           answer: form.answer.trim(),
           category: form.category,
           audience: form.audience,
+          tags: tagsArr,
           is_published: false,
           sort_order: maxOrder + 1,
           created_by: user?.id ?? null,
         })
-        .select('id, question, answer, category, audience, is_published, sort_order, created_at')
+        .select('id, question, answer, category, audience, is_published, sort_order, created_at, tags, last_verified_at')
         .single();
       if (error || !inserted) { toast.error('Failed to create FAQ.'); setSaving(false); return; }
       await writeHistory(inserted as FaqRow, 'create', form.question.trim(), form.answer.trim(), form.category, false, form.audience);
