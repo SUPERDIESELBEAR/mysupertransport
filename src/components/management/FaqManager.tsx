@@ -607,6 +607,20 @@ export default function FaqManager() {
                 className="min-h-[120px]"
               />
             </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Tags <span className="text-muted-foreground font-normal">(comma-separated)</span>
+              </label>
+              <Input
+                value={form.tags}
+                onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+                placeholder="e.g. onboarding, pipeline, dispatch"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Improves search matches in the Staff Help portal.
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="gap-2">
