@@ -12,6 +12,7 @@ import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import { BuildInfo } from '@/components/BuildInfo';
+import BirthdayAnniversaryPopup from '@/components/staff/BirthdayAnniversaryPopup';
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -451,6 +452,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
         <div className="h-safe-bottom bg-surface-dark" />
       </nav>
     </div>
+    <BirthdayAnniversaryPopup />
     </>
   );
 }
