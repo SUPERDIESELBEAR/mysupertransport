@@ -56,7 +56,7 @@ export default function StaffDecalPhotoEditor({
   const [uploading, setUploading] = useState<string | null>(null);
 
   const persistOnboarding = async (patch: Record<string, unknown>) => {
-    const { error } = await supabase.from('onboarding_status').update(patch).eq('operator_id', operatorId);
+    const { error } = await supabase.from('onboarding_status').update(patch as any).eq('operator_id', operatorId);
     if (error) throw error;
   };
 

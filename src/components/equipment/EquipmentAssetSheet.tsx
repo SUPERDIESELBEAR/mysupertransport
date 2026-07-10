@@ -121,7 +121,7 @@ export default function EquipmentAssetSheet({
     try {
       const { error } = await supabase
         .from('onboarding_status')
-        .update(patch)
+        .update(patch as any)
         .eq('operator_id', operatorId);
       if (error) throw error;
       onStatusRefresh?.();
@@ -244,7 +244,7 @@ export default function EquipmentAssetSheet({
       }
       const { error: patchErr } = await supabase
         .from('onboarding_status')
-        .update(patch)
+        .update(patch as any)
         .eq('operator_id', operatorId);
       if (patchErr) throw patchErr;
 

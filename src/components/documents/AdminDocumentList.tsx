@@ -341,7 +341,7 @@ export default function AdminDocumentList({
 
     const { error } = await supabase
       .from('driver_documents')
-      .update({ [field]: newVal })
+      .update({ [field]: newVal } as any)
       .eq('id', doc.id);
 
     setToggling(null);

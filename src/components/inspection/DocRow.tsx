@@ -701,7 +701,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                   }
                   const { error: dbErr } = await supabase
                     .from('inspection_documents')
-                    .update(updates)
+                    .update(updates as any)
                     .eq('file_path', effectivePath);
                   if (dbErr) console.error('Failed to update inspection_documents.file_url:', dbErr);
 

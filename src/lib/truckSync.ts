@@ -161,7 +161,7 @@ export async function saveTruckSpecs(
     if (Object.keys(icaPayload).length > 0) {
       await supabase
         .from('ica_contracts')
-        .update(icaPayload)
+        .update(icaPayload as any)
         .eq('operator_id', operatorId)
         .in('status', ['draft', 'sent_to_operator']);
       // Don't fail the entire op if mirror fails — onboarding_status is the source of truth

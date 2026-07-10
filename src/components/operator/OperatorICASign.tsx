@@ -196,7 +196,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       }
       const { error } = await supabase
         .from('ica_contracts')
-        .update(updatePayload)
+        .update(updatePayload as any)
         .eq('id', contract.id);
 
       if (error) throw error;

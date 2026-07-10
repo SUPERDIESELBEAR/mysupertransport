@@ -230,7 +230,7 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
       if (os) {
         await supabase
           .from('onboarding_status')
-          .update({ [field]: item.serial_number })
+          .update({ [field]: item.serial_number } as any)
           .eq('operator_id', selectedOperator);
       }
     }
