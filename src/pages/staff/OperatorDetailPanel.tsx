@@ -6226,7 +6226,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>)}
 
 
-      {/* Stage 9 — Contractor Pay Setup (read-only, uses component-level state) */}
+      {/* Stage 9 — Payroll and Procedures (read-only, uses component-level state) */}
       <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
@@ -6242,7 +6242,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <CreditCard className={`h-4 w-4 ${isComplete ? 'text-status-complete' : 'text-muted-foreground'}`} />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Stage 9 — Contractor Pay Setup</p>
+                <p className="text-sm font-semibold text-foreground">Stage 9 — Payroll and Procedures</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {!paySetupLoaded ? 'Loading…' : isComplete ? `Submitted ${new Date(ps.submitted_at).toLocaleDateString()}` : ps ? 'In progress — not yet submitted' : 'Not started'}
                 </p>
