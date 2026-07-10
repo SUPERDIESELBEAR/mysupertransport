@@ -6453,6 +6453,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         {[
                           { label: 'Payroll Deposit Overview', acked: !!ps.deposit_overview_acknowledged, ackedAt: ps.deposit_overview_acknowledged_at ?? null },
                           { label: 'Payroll Calendar', acked: !!ps.payroll_calendar_acknowledged, ackedAt: ps.payroll_calendar_acknowledged_at ?? null },
+                          ...hubDocs.map(d => {
+                            const ack = hubAcks[d.id];
+                            const acked = !!ack && ack.version >= d.version;
+                            return { label: d.title, acked, ackedAt: ack?.acknowledged_at ?? null };
+                          }),
                         ].map(({ label, acked, ackedAt }) => (
                           <div key={label} className="flex items-center gap-2 flex-wrap">
                             <span
