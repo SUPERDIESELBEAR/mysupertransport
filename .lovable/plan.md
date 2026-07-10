@@ -1,38 +1,39 @@
-## Plan 1 — Handbook + BOL/POD upload in Document Hub
+## FAQ Manager — Owner-Operator vs. Staff views
 
-Adds the two uploaded PDFs into the existing Document Hub (Documents tab) as first-class driver documents, using the current PDF content type — no new UI or schema. FAQ generation ships as **Plan 2** after this is approved.
+Split the management FAQ tab into two audiences. Staff FAQs stay internal and never surface to operators.
 
-## What ships
+### UX
+- **Segmented pill toggle** at the top of the FAQ Manager: **Owner-Operator FAQs** | **Staff FAQs**. Matches the existing gold-pill styling and keeps search / "Add FAQ" / history in one shared row.
+- Each row shows a small audience pill next to the existing category pill so authors always see which audience they're editing.
+- "Add FAQ" and "Edit FAQ" dialogs get an **Audience** select (Owner-Operator / Staff), defaulting to the active view.
+- Search, sort, publish/unpublish, reorder, and history all scope to the active audience.
 
-Two new records in `driver_documents`, each with `content_type = 'pdf'`:
+### Data model
+Add a `faq_audience` enum + column rather than overloading category — keeps the existing eight owner-operator categories intact.
 
-| # | Title | Category | Required | Blocks Go Live | Visible | Pinned | Source |
-|---|-------|----------|----------|----------------|---------|--------|--------|
-| 1 | SUPERTRANSPORT Handbook | Onboarding | Yes | Yes | Yes | Yes | `SUPERTRANSPORT_Handbook_2.0_2026_July.pdf` |
-| 2 | BOL / POD Procedures | Compliance | Yes | No | Yes | No | `SUPERTRANSPORT_BOL_POD_Procedures_v2.0_2026_July.pdf` |
+```
+CREATE TYPE public.faq_audience AS ENUM ('owner_operator', 'staff');
+ALTER TABLE public.faq
+  ADD COLUMN audience public.faq_audience NOT NULL DEFAULT 'owner_operator';
+ALTER TABLE public.faq_history
+  ADD COLUMN audience public.faq_audience;
+```
 
-Only the Handbook blocks Go Live (per your answer). BOL/POD is required-to-acknowledge but does not gate Go Live — flag if you want it to gate too.
+All existing rows stay `owner_operator` via the default.
 
-Description text (short, appears on the card):
-- Handbook: "Company policies, expectations, and driver conduct standards. Review and acknowledge."
-- BOL/POD: "How to handle Bills of Lading and Proofs of Delivery on every load."
+### Access control
+- Operator-facing FAQ (`OperatorResourcesAndFAQ.tsx`) filters `audience = 'owner_operator'` — belt-and-suspenders so staff FAQs never leak to the driver PWA.
+- RLS on `faq`:
+  - Public read policy scoped to `audience = 'owner_operator' AND is_published = true`.
+  - New staff-only read policy for `audience = 'staff'` visible to `admin`, `management`, `dispatch` via `has_role` (matches existing "Staff" gating elsewhere in the app).
+  - Existing staff write policies unchanged.
 
-`estimated_read_minutes`: Handbook ~20, BOL/POD ~8 (rough page-count estimate; adjustable).
+### Files touched
+- `supabase/migrations/<new>_faq_audience.sql` — enum, column, backfill, updated RLS + GRANTs.
+- `src/components/management/FaqManager.tsx` — toggle, audience filter, audience field in modal, audience pill on rows, pass `audience` on insert/update.
+- `src/components/operator/OperatorResourcesAndFAQ.tsx` — add `.eq('audience', 'owner_operator')`.
+- `src/integrations/supabase/types.ts` — regenerates after migration.
 
-## Steps
-
-1. **Upload both PDFs to storage** — bucket `resource-library`, path prefix `doc-hub-pdfs/` (matches the current editor's convention). Use `supabase--storage_upload` from the local `/mnt/user-uploads/...` files.
-2. **Insert two rows** into `public.driver_documents` via the insert tool, populating `title`, `description`, `category`, `content_type='pdf'`, `pdf_url` (public URL), `pdf_path` (storage key), `is_visible=true`, `is_required=true`, `blocks_go_live` per table, `is_pinned` per table, `estimated_read_minutes`, `version=1`, `sort_order` (Handbook first).
-3. **No code changes.** Records show up in the admin Documents tab and the driver Document Hub via existing queries. Handbook triggers the existing "action required" pill on the driver side and the Go Live gate on staff.
-
-## Verification
-
-- Admin → Document Hub → Documents tab: both cards appear, editable via the existing "New Document" modal.
-- Driver → Document Hub: both cards appear in their categories; opening either loads the PDF in the viewer.
-- Handbook shows in the Go Live requirements list until acknowledged.
-
-## Out of scope (deferred to Plan 2)
-
-- Parsing Handbook content into individual FAQ entries.
-- Adding a `handbook` value to the `faq_category` enum.
-- Any FaqManager changes.
+### Out of scope
+- No new categories yet — staff can reuse existing category names; a "Staff — Internal" category can follow later if wanted.
+- Driver-app how-to FAQs are not part of this change (management/staff-only scope you selected).
