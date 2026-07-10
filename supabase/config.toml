@@ -31,6 +31,8 @@ project_id = "qgxpkcudwjmacrdcyvhj"
     verify_jwt = false
   [functions.email-track-open]
     verify_jwt = false
+  [functions.pei-auto-cadence]
+    verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = true
