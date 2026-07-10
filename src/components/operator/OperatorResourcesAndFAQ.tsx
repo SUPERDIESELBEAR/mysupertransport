@@ -198,6 +198,7 @@ export function OperatorFAQ() {
       .from('faq')
       .select('id, question, answer, category, sort_order')
       .eq('is_published', true)
+      .eq('audience', 'owner_operator')
       .order('sort_order')
       .then(({ data }) => {
         setFaqs((data as FaqItem[]) ?? []);
