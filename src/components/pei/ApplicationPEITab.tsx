@@ -25,6 +25,7 @@ import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
 import { PEIResponseViewer } from './PEIResponseViewer';
+import { AddPreviousEmployerModal } from './AddPreviousEmployerModal';
 
 interface Props {
   applicationId: string;
@@ -52,6 +53,7 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [candidates, setCandidates] = useState<EmailCandidate[]>([]);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [candidatesWebsite, setCandidatesWebsite] = useState<string | undefined>(undefined);
+  const [addOpen, setAddOpen] = useState(false);
 
   async function handleDelete() {
     if (!deletingFor) return;
@@ -265,6 +267,9 @@ export function ApplicationPEITab({ applicationId }: Props) {
           <Button size="sm" variant="outline" onClick={reload} disabled={loading}>
             <RefreshCw className="h-3 w-3 mr-1" />Refresh
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+            <Plus className="h-3 w-3 mr-1" />Add Previous Employer
+          </Button>
           <Button size="sm" onClick={handleAutoBuild} disabled={building}>
             {building ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
             Auto-build from employment history
@@ -276,7 +281,7 @@ export function ApplicationPEITab({ applicationId }: Props) {
         <Card className="p-8 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />Loading…</Card>
       ) : rows.length === 0 ? (
         <Card className="p-8 text-center text-sm text-muted-foreground">
-          No PEI requests yet. Click <strong>Auto-build</strong> to generate them from the applicant's employment history.
+          No PEI requests yet. Click <strong>Auto-build</strong> to generate them from the applicant's employment history, or <strong>Add Previous Employer</strong> to add one manually (for drivers who joined before the in-app application).
         </Card>
       ) : (
         <div className="space-y-2">
@@ -485,6 +490,13 @@ export function ApplicationPEITab({ applicationId }: Props) {
         />
       )}
       <PEIResponseViewer open={!!viewing} request={viewing} onClose={() => setViewing(null)} />
+
+      <AddPreviousEmployerModal
+        open={addOpen}
+        applicationId={applicationId}
+        onClose={() => setAddOpen(false)}
+        onCreated={reload}
+      />
 
       <AlertDialog open={!!deletingFor} onOpenChange={(o) => { if (!o) setDeletingFor(null); }}>
         <AlertDialogContent>
