@@ -352,30 +352,6 @@ export default function FaqManager() {
     load();
   };
 
-  // ── Reorder ───────────────────────────────────────────────────────────────
-  const moveItem = async (faq: FaqRow, direction: 'up' | 'down') => {
-    if (guardDemo()) return;
-    const sortedAll = [...faqs].sort((a, b) => a.sort_order - b.sort_order);
-    const idx = sortedAll.findIndex(f => f.id === faq.id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sortedAll.length) return;
-
-    const swapTarget = sortedAll[swapIdx];
-    const newOrderA = swapTarget.sort_order;
-    const newOrderB = faq.sort_order;
-
-    const [r1, r2] = await Promise.all([
-      supabase.from('faq').update({ sort_order: newOrderA }).eq('id', faq.id),
-      supabase.from('faq').update({ sort_order: newOrderB }).eq('id', swapTarget.id),
-    ]);
-    if (r1.error || r2.error) { toast.error('Failed to reorder.'); return; }
-    setFaqs(prev => prev.map(f => {
-      if (f.id === faq.id) return { ...f, sort_order: newOrderA };
-      if (f.id === swapTarget.id) return { ...f, sort_order: newOrderB };
-      return f;
-    }));
-  };
-
   const sortedFiltered = [...filtered].sort((a, b) => a.sort_order - b.sort_order);
   const audienceFaqs = faqs.filter(f => f.audience === audienceView);
   const publishedCount = audienceFaqs.filter(f => f.is_published).length;
