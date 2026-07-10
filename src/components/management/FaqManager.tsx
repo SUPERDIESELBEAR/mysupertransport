@@ -126,6 +126,7 @@ const EMPTY_FORM = {
   category: 'general_owner_operator' as FaqCategory,
   audience: 'owner_operator' as FaqAudience,
   tags: '' as string,
+  sort_order: '' as string,
 };
 
 const STALE_DAYS = 90;
@@ -256,6 +257,7 @@ export default function FaqManager() {
       category: faq.category,
       audience: faq.audience,
       tags: (faq.tags ?? []).join(', '),
+      sort_order: String(faq.sort_order),
     });
     setDialogOpen(true);
   };
@@ -273,15 +275,19 @@ export default function FaqManager() {
       .map(t => t.trim().toLowerCase())
       .filter(Boolean);
     if (editing) {
+      const parsedOrder = form.sort_order.trim() === '' ? editing.sort_order : Number(form.sort_order);
+      const nextOrder = Number.isFinite(parsedOrder) ? parsedOrder : editing.sort_order;
       const { error } = await supabase
         .from('faq')
-        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience, tags: tagsArr })
+        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience, tags: tagsArr, sort_order: nextOrder })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update FAQ.'); setSaving(false); return; }
       await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published, form.audience);
       toast.success('FAQ updated.');
     } else {
       const maxOrder = faqs.length ? Math.max(...faqs.map(f => f.sort_order)) : -1;
+      const parsedOrder = form.sort_order.trim() === '' ? maxOrder + 1 : Number(form.sort_order);
+      const nextOrder = Number.isFinite(parsedOrder) ? parsedOrder : maxOrder + 1;
       const { data: { user } } = await supabase.auth.getUser();
       const { data: inserted, error } = await supabase
         .from('faq')
@@ -292,7 +298,7 @@ export default function FaqManager() {
           audience: form.audience,
           tags: tagsArr,
           is_published: false,
-          sort_order: maxOrder + 1,
+          sort_order: nextOrder,
           created_by: user?.id ?? null,
         })
         .select('id, question, answer, category, audience, is_published, sort_order, created_at, tags, last_verified_at')
@@ -344,30 +350,6 @@ export default function FaqManager() {
     setDeleting(false);
     setDeleteTarget(null);
     load();
-  };
-
-  // ── Reorder ───────────────────────────────────────────────────────────────
-  const moveItem = async (faq: FaqRow, direction: 'up' | 'down') => {
-    if (guardDemo()) return;
-    const sortedAll = [...faqs].sort((a, b) => a.sort_order - b.sort_order);
-    const idx = sortedAll.findIndex(f => f.id === faq.id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sortedAll.length) return;
-
-    const swapTarget = sortedAll[swapIdx];
-    const newOrderA = swapTarget.sort_order;
-    const newOrderB = faq.sort_order;
-
-    const [r1, r2] = await Promise.all([
-      supabase.from('faq').update({ sort_order: newOrderA }).eq('id', faq.id),
-      supabase.from('faq').update({ sort_order: newOrderB }).eq('id', swapTarget.id),
-    ]);
-    if (r1.error || r2.error) { toast.error('Failed to reorder.'); return; }
-    setFaqs(prev => prev.map(f => {
-      if (f.id === faq.id) return { ...f, sort_order: newOrderA };
-      if (f.id === swapTarget.id) return { ...f, sort_order: newOrderB };
-      return f;
-    }));
   };
 
   const sortedFiltered = [...filtered].sort((a, b) => a.sort_order - b.sort_order);
@@ -476,23 +458,19 @@ export default function FaqManager() {
               key={faq.id}
               className="bg-white border border-border rounded-xl p-4 flex gap-3 items-start shadow-sm hover:shadow-md transition-shadow"
             >
-              {/* Reorder arrows */}
+              {/* Expand / collapse answer */}
               <div className="flex flex-col gap-0.5 shrink-0 mt-0.5">
                 <button
-                  onClick={() => moveItem(faq, 'up')}
-                  disabled={idx === 0}
-                  title="Move up in sort order"
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+                  onClick={() => toggleExpanded(faq.id)}
+                  title={expandedIds.has(faq.id) ? 'Collapse answer' : 'Expand answer'}
+                  aria-label={expandedIds.has(faq.id) ? 'Collapse answer' : 'Expand answer'}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
-                  <ChevronUp className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => moveItem(faq, 'down')}
-                  disabled={idx === sortedFiltered.length - 1}
-                  title="Move down in sort order"
-                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  {expandedIds.has(faq.id) ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
                 </button>
               </div>
 
@@ -528,23 +506,6 @@ export default function FaqManager() {
                 >
                   {faq.answer}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(faq.id)}
-                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-gold hover:text-gold-light transition-colors"
-                >
-                  {expandedIds.has(faq.id) ? (
-                    <>
-                      <ChevronUp className="h-3 w-3" />
-                      Hide full answer
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-3 w-3" />
-                      Show full answer
-                    </>
-                  )}
-                </button>
               </div>
 
               {/* Actions */}
@@ -681,6 +642,22 @@ export default function FaqManager() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Improves search matches in the Staff Help portal.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Sort order <span className="text-muted-foreground font-normal">(lower = higher in list)</span>
+              </label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={form.sort_order}
+                onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
+                placeholder={editing ? String(editing.sort_order) : 'Auto (added to end)'}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank to keep the current position{editing ? '' : ' (new entries go to the end)'}.
               </p>
             </div>
           </div>
