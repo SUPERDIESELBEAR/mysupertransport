@@ -129,7 +129,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       ]);
       const list = (docs ?? []) as HubDoc[];
       // Preserve display order: Handbook, BOL/POD, Loadout
-      const orderedIds = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+      const orderedIds: string[] = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
       list.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
       setHubDocs(list);
 
