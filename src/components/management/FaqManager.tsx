@@ -42,6 +42,8 @@ import {
   X,
   Clock,
   User,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -85,6 +87,8 @@ interface FaqRow {
   is_published: boolean;
   sort_order: number;
   created_at: string;
+  tags: string[];
+  last_verified_at: string;
 }
 
 interface HistoryEntry {
@@ -119,6 +123,13 @@ const EMPTY_FORM = {
   answer: '',
   category: 'general_owner_operator' as FaqCategory,
   audience: 'owner_operator' as FaqAudience,
+  tags: '' as string,
+};
+
+const STALE_DAYS = 90;
+const isStale = (iso: string) => {
+  const ms = Date.now() - new Date(iso).getTime();
+  return ms > STALE_DAYS * 24 * 60 * 60 * 1000;
 };
 
 export default function FaqManager() {
