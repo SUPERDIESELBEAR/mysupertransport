@@ -1,50 +1,41 @@
-## Goal
-After staff clicks the initial Send on a PEI request, automate follow-ups every 5 days (days 5/10/15/20/25) and auto-create a GFE at day 30 if no response was received. All timing is anchored to `date_sent`.
+# Sync IRP Expiration: Driver Hub → MO Plate Registry
 
-## Cadence
-| Day since initial send | Action | Template |
-|---|---|---|
-| 5, 10, 15, 20, 25 | Send follow-up email | `pei-request-follow-up` |
-| 30 | Auto-create GFE (reason `no_response`, signed by "System (Auto-GFE)") | none |
+## Problem
 
-The existing `pei-request-final-notice` template stays available for manual staff use but is not part of the auto cadence (per your choice of the "Day 5,10,15,20,25 follow-ups; day 30 auto-GFE" option).
+The IRP Registration (cab card) expiration date lives in `inspection_documents` (name = `IRP Registration (cab card)`, scope = `per_driver`, keyed by `driver_id`). The MO Plate Registry stores its own `mo_plates.expires_at` on the plate row. These two fields are edited independently, so recently-uploaded IRP dates in Driver Hub never propagate to the plate row shown in MO Plate Registry.
 
-## Stop conditions (skip and don't advance the schedule)
-- Row status is anything other than `sent` or `follow_up_sent` (staff already advanced it to `completed`, `gfe_documented`, or `final_notice_sent`).
-- A response has been received (`date_response_received IS NOT NULL`).
-- Recipient email is on `suppressed_emails` (bounced/complaint/unsubscribe) — mark the row with a note and stop future auto sends; staff can intervene manually.
-- Applicant application is archived/rejected (join `applications` and skip when not in an active review state).
+There are also multiple entry points where a staff member can change the IRP expiry (staff `InspectionBinderAdmin`, operator `OperatorBinderPanel`, `DocRow` inline edit), so a client-side patch alone would be fragile.
 
-## Implementation
+## Fix — database-side sync + one-time backfill
 
-### 1. New edge function `pei-auto-cadence`
-Runs on a cron schedule. For each candidate `pei_requests` row:
-1. Compute `daysSinceSent = floor((now - date_sent)/day)`.
-2. Determine which milestones (5,10,15,20,25) have been reached but not yet sent, using `date_follow_up_sent` plus a new `auto_send_count` column to know how many auto follow-ups already went out.
-3. For each due milestone, call the existing `send-transactional-email` with `templateName: 'pei-request-follow-up'` and idempotency key `pei-<requestId>-auto-<dayN>`, then increment `auto_send_count`, stamp `date_follow_up_sent`, set status to `follow_up_sent`.
-4. At `daysSinceSent >= 30`, insert the GFE update (`status='gfe_documented'`, `gfe_reason='no_response'`, `gfe_signed_by_name='System (Auto-GFE)'`, `date_gfe_created=now()`) — mirroring `createGoodFaithEffort`.
-5. Skip rows that hit any stop condition; on suppression, write `auto_paused_reason='suppressed'` and stop.
+Do this in a single migration so every existing and future edit stays consistent regardless of which UI wrote it.
 
-Idempotency keys on both the email send and a per-milestone marker prevent duplicate sends if cron runs twice.
+### 1. Trigger on `inspection_documents`
+- `AFTER INSERT OR UPDATE OF expires_at` on `public.inspection_documents`
+- When `NEW.name = 'IRP Registration (cab card)'` and `NEW.scope = 'per_driver'` and `NEW.driver_id` is set:
+  - Look up the driver's `operator_id` (`operators.user_id = NEW.driver_id`).
+  - Find the current open plate assignment: `mo_plate_assignments` where `operator_id` matches, `event_type = 'assignment'`, `returned_at IS NULL`, most recent.
+  - `UPDATE mo_plates SET expires_at = NEW.expires_at WHERE id = <assignment.plate_id>` (only when the value actually differs, to avoid trigger noise).
+- `SECURITY DEFINER`, `SET search_path = public`.
 
-### 2. Schema migration
-Add to `pei_requests`:
-- `auto_send_count int not null default 0`
-- `auto_paused_reason text` (nullable: `suppressed`, `manual_override`, etc.)
-- `last_auto_send_at timestamptz`
+### 2. One-time backfill in the same migration
+For every currently-assigned plate whose driver has an IRP doc with a non-null `expires_at`, copy that date onto `mo_plates.expires_at`. This immediately fixes the reported symptom for the recently-uploaded IRPs.
 
-No new tables. RLS unchanged.
+### 3. Reverse direction — leave alone
+Do not sync MO Plate Registry edits back into `inspection_documents`. Driver Hub / binder is the source of truth (the cab card PDF drives the date). This matches the pattern used by `syncInspectionBinderDateFromVehicleHub` (one-way, vehicle hub authoritative).
 
-### 3. Cron job
-`pg_cron` schedule at hourly cadence (`0 * * * *`) invoking the edge function via `net.http_post` with the anon key. Hourly is enough since milestones are 5 days apart — avoids nightly-only drift and keeps sends within business hours per row's timezone (US Central).
+## Optional UI polish (small, same PR)
 
-### 4. UI touches (minimal)
-- `PEIQueuePanel.tsx` / `ApplicationPEITab.tsx`: show a small "Auto: next send in Nd" or "Auto-paused: suppressed" pill next to the status badge, driven by the new columns.
-- No changes to the manual Send / Follow-up / Final Notice / GFE buttons — staff can still override at any time, which naturally stops the cadence via the stop conditions.
+In `MoPlateRegistry.tsx` where the plate's expiration is shown, append a subtle "Synced from Driver Hub IRP" tooltip on rows where a current assignment exists, so staff understand where the date came from and don't try to edit it on the plate row. No functional change beyond the tooltip.
 
-## Technical notes
-- All timestamps compared server-side in the edge function using `date_sent` as the anchor.
-- Uses existing `send-transactional-email` pipeline (queue, suppression check, logging) — no new email infra.
-- Suppression is already checked inside `send-transactional-email`; the auto function additionally pre-checks `suppressed_emails` so it can set `auto_paused_reason` and stop future runs instead of retrying every hour.
-- Auto-GFE writes match `createGoodFaithEffort` semantics so the row surfaces identically in existing UI.
-- Config toml: add `[functions.pei-auto-cadence]` with `verify_jwt = false` (called by cron).
+## What we are NOT changing
+
+- No schema changes to `mo_plates` or `inspection_documents` columns.
+- No changes to the plate assign/return flows.
+- No changes to how expiration reminders are sent (they already read from `inspection_documents`).
+
+## Verification
+
+- Load MO Plate Registry after migration → recently-updated IRP dates now show on the assigned plates (backfill).
+- Edit an IRP `expires_at` in Driver Hub (staff binder), refresh MO Plate Registry → plate row's expiration updates.
+- Assign a plate to a different driver → next IRP edit updates the new plate, not the old one (trigger uses current open assignment).
