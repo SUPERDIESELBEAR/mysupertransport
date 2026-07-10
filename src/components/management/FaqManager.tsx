@@ -494,6 +494,28 @@ export default function FaqManager() {
 
           <div className="space-y-4 py-2">
             <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Audience</label>
+              <Select
+                value={form.audience}
+                onValueChange={v => setForm(f => ({ ...f, audience: v as FaqAudience }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AUDIENCE_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.audience === 'staff'
+                  ? 'Internal only — never shown to drivers.'
+                  : 'Visible to drivers in their portal when published.'}
+              </p>
+            </div>
+
+            <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Category</label>
               <Select
                 value={form.category}
