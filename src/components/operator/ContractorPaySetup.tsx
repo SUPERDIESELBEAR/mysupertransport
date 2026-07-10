@@ -43,7 +43,7 @@ const HUB_DOC_IDS = {
   bol_pod: 'b2e5d4d7-17f4-4ab5-968b-2c1b3fca404e',
   loadout: 'c424935c-142d-4671-957a-84d867f48780',
 } as const;
-const HUB_DOC_ID_LIST = Object.values(HUB_DOC_IDS);
+const HUB_DOC_ID_LIST: string[] = Object.values(HUB_DOC_IDS);
 
 interface HubDoc {
   id: string;
