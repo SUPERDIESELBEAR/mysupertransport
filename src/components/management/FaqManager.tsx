@@ -303,6 +303,19 @@ export default function FaqManager() {
     setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, is_published: newVal } : f));
   };
 
+  // ── Mark verified (reset staleness) ───────────────────────────────────────
+  const markVerified = async (faq: FaqRow) => {
+    if (guardDemo()) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('faq')
+      .update({ last_verified_at: now })
+      .eq('id', faq.id);
+    if (error) { toast.error('Failed to mark as verified.'); return; }
+    setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, last_verified_at: now } : f));
+    toast.success('Marked as verified.');
+  };
+
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
