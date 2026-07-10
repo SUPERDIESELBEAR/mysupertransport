@@ -3035,6 +3035,8 @@ export type Database = {
       pei_requests: {
         Row: {
           application_id: string
+          auto_paused_reason: string | null
+          auto_send_count: number
           created_at: string
           date_final_notice_sent: string | null
           date_follow_up_sent: string | null
@@ -3060,6 +3062,7 @@ export type Database = {
           gfe_signed_by_staff_id: string | null
           id: string
           is_dot_regulated: boolean
+          last_auto_send_at: string | null
           last_email_message_id: string | null
           response_document_url: string | null
           response_token: string
@@ -3070,6 +3073,8 @@ export type Database = {
         }
         Insert: {
           application_id: string
+          auto_paused_reason?: string | null
+          auto_send_count?: number
           created_at?: string
           date_final_notice_sent?: string | null
           date_follow_up_sent?: string | null
@@ -3095,6 +3100,7 @@ export type Database = {
           gfe_signed_by_staff_id?: string | null
           id?: string
           is_dot_regulated?: boolean
+          last_auto_send_at?: string | null
           last_email_message_id?: string | null
           response_document_url?: string | null
           response_token?: string
@@ -3105,6 +3111,8 @@ export type Database = {
         }
         Update: {
           application_id?: string
+          auto_paused_reason?: string | null
+          auto_send_count?: number
           created_at?: string
           date_final_notice_sent?: string | null
           date_follow_up_sent?: string | null
@@ -3130,6 +3138,7 @@ export type Database = {
           gfe_signed_by_staff_id?: string | null
           id?: string
           is_dot_regulated?: boolean
+          last_auto_send_at?: string | null
           last_email_message_id?: string | null
           response_document_url?: string | null
           response_token?: string
