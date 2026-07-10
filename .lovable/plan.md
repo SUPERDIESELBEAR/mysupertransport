@@ -1,49 +1,23 @@
-## What's happening
+## What's actually happening
 
-You confirmed:
-- You're on the **Progress** (Status) screen as a driver account (not fully onboarded).
-- Tapping a nav item briefly changes the URL then **bounces back to `/dashboard` with the `?tab=` stripped**.
+In **Management → FAQ Manager**, each row shows the answer clipped to two lines (`line-clamp-2` at `FaqManager.tsx:512`). The chevron up/down icons on the left of each card are **reorder arrows** (move sort order up/down), not expand toggles. There is no built-in way to view the full answer inline — you have to open the Edit dialog. That's why "expanding" appears to do nothing: the arrows are re-sorting the row.
 
-Because the URL is losing its `?tab=` parameter, the URL-sync effect in `OperatorPortal.tsx` reads the search string, sees no tab, defaults `view` back to `'progress'`, and the screen never changes. Every navigation surface (bottom bar, top bar, drop-down menu) goes through the same `navigateToView` helper, which is why *all* of them fail identically.
+## Fix
 
-The question is **who is stripping `?tab=`**. Three plausible culprits, in order:
+Add a real per-row expand/collapse in the FAQ Manager list.
 
-1. **A role-guarded route re-render.** If `location.pathname` isn't `/dashboard` (e.g. `/owner` or `/operator`), the route falls into `<Navigate to="/dashboard" replace />` in `App.tsx`, which drops the search string. Matches your symptom exactly.
-2. **A stale-URL race in `syncViewUrl`.** The helper calls `window.history.pushState` and then `navigate({...}, {replace:true})`. On some renders `location.pathname` from `useLocation()` is stale and the replace overwrites the good URL with a bad one.
-3. **Auth `loading` flipping mid-click.** `AppRoutes` returns a spinner while `loading` is true. If auth re-hydrates during a tap, `<Routes>` unmounts and the reset path drops the search.
+- Add a small chevron button to the right of the question text (clearly labeled "Show full answer" / "Hide full answer").
+- Clicking it toggles that row's answer between clamped preview (`line-clamp-2`) and full text (`whitespace-pre-wrap`, no clamp).
+- Track expanded state locally by faq id in a `Set<string>`.
+- Reorder arrows keep their current behavior; a tooltip is added to disambiguate them ("Move up in sort order" / "Move down").
+- Applies in both audience views (Owner-Operator and Staff toggle) since it's the same list component.
 
-## Fix approach
-
-**Step 1 — Instrument, reproduce once, remove instrumentation.**
-
-Add temporary `console.log` calls in code (they run for everyone, no account targeting needed):
-- Every `navigateToView` invocation: log target, `location.pathname`, `window.location.search`.
-- The URL-sync `useEffect`: log `location.search`, `appWrittenSearchRef.current`, computed `next.view`.
-- A one-shot dev-only `history.pushState/replaceState` monkey-patch that logs the caller/stack for any `/dashboard` nav without `?tab=`.
-
-**How I get the logs:** you reload the driver portal in your current preview, tap a broken nav item once, then send your next message. Your browser console is automatically snapshotted and delivered to me — no account setup required.
-
-**Step 2 — Apply the targeted fix.**
-
-Based on the logs, one of:
-- **Pathname wrong:** hard-anchor `buildOperatorViewUrl` to always emit `/dashboard` for driver accounts so a stale pathname can't route into `<Navigate to="/dashboard" replace/>` and drop the query. Or change the role-guarded `Navigate` to preserve `location.search`.
-- **Race in `syncViewUrl`:** drop the redundant `navigate({...})` after `pushState` (the `useEffect` on `location.search` already reconciles React Router), or switch to `navigate(nextHref, {replace:true})` as the single source of URL truth and remove the manual `pushState`.
-- **Auth remount:** add a guard so a mid-click `loading` flip doesn't clear params.
-
-Then remove the temporary logs.
+No changes to the driver-facing FAQ (that one already expands correctly). No DB or backend changes.
 
 ## Technical section
 
-Files touched in step 1 (~10 added lines, all `console.log` / `console.trace`):
-- `src/pages/operator/OperatorPortal.tsx` — `navigateToView`, `syncViewUrl`, URL-sync `useEffect`.
-- `src/App.tsx` — dev-only mount-time history monkey-patch.
-
-Files touched in step 2 depend on log outcome; expected to be one of:
-- `src/pages/operator/OperatorPortal.tsx` — tighten `buildOperatorViewUrl` and/or `syncViewUrl`.
-- `src/App.tsx` — adjust the `/dashboard` element or role-guarded routes to preserve search on redirect.
-
-## What you'll do
-
-1. I ship the instrumentation.
-2. You reload the driver app in your current preview, tap a broken nav item once, then send the next message.
-3. I read your session's console logs, identify the culprit, apply the real fix, and remove the logs.
+File: `src/components/management/FaqManager.tsx`
+- Add `expanded: Set<string>` state and a `toggleExpanded(id)` helper.
+- Wrap `<p className="… line-clamp-2 …">{faq.answer}</p>` (line 512) so that when the id is expanded, drop `line-clamp-2` and render full.
+- Add an inline "Show full / Hide" chevron button under the question text or beside it (distinct from action-column icons).
+- Add `title` attributes to the reorder arrows to remove ambiguity.
