@@ -1389,9 +1389,13 @@ export type Database = {
           created_by: string | null
           id: string
           is_published: boolean
+          last_verified_at: string
           question: string
+          search_vector: unknown
           sort_order: number
+          tags: string[]
           updated_at: string
+          verified_by: string | null
         }
         Insert: {
           answer: string
@@ -1401,9 +1405,13 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean
+          last_verified_at?: string
           question: string
+          search_vector?: unknown
           sort_order?: number
+          tags?: string[]
           updated_at?: string
+          verified_by?: string | null
         }
         Update: {
           answer?: string
@@ -1413,9 +1421,13 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean
+          last_verified_at?: string
           question?: string
+          search_vector?: unknown
           sort_order?: number
+          tags?: string[]
           updated_at?: string
+          verified_by?: string | null
         }
         Relationships: []
       }
@@ -3443,6 +3455,7 @@ export type Database = {
           body: string
           created_at: string
           created_by: string
+          flagged_faq_ids: string[]
           id: string
           title: string
         }
@@ -3450,6 +3463,7 @@ export type Database = {
           body: string
           created_at?: string
           created_by: string
+          flagged_faq_ids?: string[]
           id?: string
           title: string
         }
@@ -3457,6 +3471,7 @@ export type Database = {
           body?: string
           created_at?: string
           created_by?: string
+          flagged_faq_ids?: string[]
           id?: string
           title?: string
         }
@@ -4450,10 +4465,26 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      search_staff_faqs: {
+        Args: { q: string }
+        Returns: {
+          answer: string
+          category: Database["public"]["Enums"]["faq_category"]
+          headline: string
+          id: string
+          is_published: boolean
+          last_verified_at: string
+          question: string
+          rank: number
+          tags: string[]
+        }[]
+      }
       set_go_live_with_override: {
         Args: { _go_live_date: string; _operator_id: string; _reason?: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       submit_application_correction: {
         Args: {
           p_application_id: string
