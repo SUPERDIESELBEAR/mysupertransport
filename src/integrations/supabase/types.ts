@@ -1383,6 +1383,7 @@ export type Database = {
       faq: {
         Row: {
           answer: string
+          audience: Database["public"]["Enums"]["faq_audience"]
           category: Database["public"]["Enums"]["faq_category"]
           created_at: string
           created_by: string | null
@@ -1394,6 +1395,7 @@ export type Database = {
         }
         Insert: {
           answer: string
+          audience?: Database["public"]["Enums"]["faq_audience"]
           category: Database["public"]["Enums"]["faq_category"]
           created_at?: string
           created_by?: string | null
@@ -1405,6 +1407,7 @@ export type Database = {
         }
         Update: {
           answer?: string
+          audience?: Database["public"]["Enums"]["faq_audience"]
           category?: Database["public"]["Enums"]["faq_category"]
           created_at?: string
           created_by?: string | null
@@ -1419,6 +1422,7 @@ export type Database = {
       faq_history: {
         Row: {
           answer: string
+          audience: Database["public"]["Enums"]["faq_audience"] | null
           category: string
           change_type: string
           changed_at: string
@@ -1431,6 +1435,7 @@ export type Database = {
         }
         Insert: {
           answer: string
+          audience?: Database["public"]["Enums"]["faq_audience"] | null
           category: string
           change_type?: string
           changed_at?: string
@@ -1443,6 +1448,7 @@ export type Database = {
         }
         Update: {
           answer?: string
+          audience?: Database["public"]["Enums"]["faq_audience"] | null
           category?: string
           change_type?: string
           changed_at?: string
@@ -4518,6 +4524,7 @@ export type Database = {
         | "miscellaneous"
       driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
       equipment_assignment_state: "prior" | "during" | "not_assigned"
+      faq_audience: "owner_operator" | "staff"
       faq_category:
         | "application_process"
         | "background_screening"
@@ -4744,6 +4751,7 @@ export const Constants = {
       ],
       driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
       equipment_assignment_state: ["prior", "during", "not_assigned"],
+      faq_audience: ["owner_operator", "staff"],
       faq_category: [
         "application_process",
         "background_screening",
