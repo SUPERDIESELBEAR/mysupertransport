@@ -779,6 +779,13 @@ export default function FaqManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <GenerateFaqsFromDocModal
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        defaultAudience={audienceView}
+        onCompleted={load}
+      />
     </div>
   );
 }
