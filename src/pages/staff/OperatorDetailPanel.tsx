@@ -6373,6 +6373,53 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   ))}
                 </div>
 
+                {/* ── Operational Procedure Documents (from Document Hub) ── */}
+                <div className="px-5 py-4 space-y-3">
+                  <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1">Operational Procedure Documents</p>
+                  {hubDocs.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground italic">Loading…</p>
+                  ) : hubDocs.map(doc => {
+                    const isPdf = doc.content_type === 'pdf';
+                    const url = isPdf ? hubPdfUrls[doc.id] : null;
+                    return (
+                      <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 bg-primary/10">
+                          <BookOpen className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground">{doc.title}</p>
+                          {doc.description && <p className="text-[11px] text-muted-foreground">{doc.description}</p>}
+                        </div>
+                        {isPdf ? (
+                          url ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                              onClick={() => setPreviewDoc({ title: doc.title, url })}
+                            >
+                              <ZoomIn className="h-3 w-3" />
+                              View
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">Loading…</span>
+                          )
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                            onClick={() => setRichTextDoc({ title: doc.title, body: doc.body })}
+                          >
+                            <ZoomIn className="h-3 w-3" />
+                            View
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {/* ── Operator pay setup data (only when a record exists) ── */}
                 {!paySetupLoaded ? (
                   <div className="px-5 py-4 text-xs text-muted-foreground">Loading…</div>
