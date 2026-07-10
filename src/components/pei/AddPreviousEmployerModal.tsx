@@ -174,12 +174,12 @@ export function AddPreviousEmployerModal({ open, applicationId, onClose, onCreat
         <div className="space-y-3">
           <div>
             <Label className="text-xs">Employer name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ABC Trucking, Inc." />
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div>
             <Label className="text-xs">Contact name</Label>
-            <Input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Jane Doe" />
+            <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
           </div>
 
           <div>
@@ -199,14 +199,13 @@ export function AddPreviousEmployerModal({ open, applicationId, onClose, onCreat
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="hr@company.com (can be added later)"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
               <Label className="text-xs">City *</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Dallas" />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">State *</Label>
@@ -224,11 +223,11 @@ export function AddPreviousEmployerModal({ open, applicationId, onClose, onCreat
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">Start (MM/YYYY)</Label>
-              <Input value={startDate} onChange={(e) => setStartDate(e.target.value)} placeholder="06/2020" />
+              <Input value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">End (MM/YYYY)</Label>
-              <Input value={endDate} onChange={(e) => setEndDate(e.target.value)} placeholder="09/2023 (blank = present)" />
+              <Input value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
 
