@@ -6596,6 +6596,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       )}
 
+      {/* Rich-text procedure doc (e.g. Loadout Trailer Guide) */}
+      <Dialog open={!!richTextDoc} onOpenChange={(o) => { if (!o) setRichTextDoc(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{richTextDoc?.title}</DialogTitle>
+          </DialogHeader>
+          {richTextDoc?.body ? (
+            <div
+              className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(richTextDoc.body) }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No content available.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Stage 2 Doc Preview Modal */}
       {stage2Preview && (
         <FilePreviewModal
