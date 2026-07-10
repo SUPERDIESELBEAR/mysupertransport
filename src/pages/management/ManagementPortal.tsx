@@ -13,6 +13,7 @@ import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
+import StaffHelpPortal from '@/components/management/StaffHelpPortal';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import PipelineConfigEditor from '@/components/management/PipelineConfigEditor';
 import ActivityLog from '@/components/management/ActivityLog';
@@ -28,7 +29,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -81,7 +82,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -112,7 +113,7 @@ export default function ManagementPortal() {
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
-    const ALLOWED = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'];
+    const ALLOWED = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'];
     const urlView = searchParams.get('view') as ManagementView | null;
     const hasDeepLink = !!(searchParams.get('op') || searchParams.get('app'));
     // Honor URL only when it's an explicit deep-link from a notification/email.
@@ -866,6 +867,7 @@ export default function ManagementPortal() {
     { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
     { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
+    { label: 'Staff Help',        icon: <LifeBuoy className="h-4 w-4" />,        path: 'staff-help' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
     { label: 'Activity Log',      icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
     { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
@@ -1845,6 +1847,10 @@ export default function ManagementPortal() {
 
         {view === 'faq' && (
           <FaqManager />
+        )}
+
+        {view === 'staff-help' && (
+          <StaffHelpPortal />
         )}
 
         {view === 'resource-center' && (

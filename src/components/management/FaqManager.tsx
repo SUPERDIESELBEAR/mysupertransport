@@ -42,6 +42,8 @@ import {
   X,
   Clock,
   User,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -85,6 +87,8 @@ interface FaqRow {
   is_published: boolean;
   sort_order: number;
   created_at: string;
+  tags: string[];
+  last_verified_at: string;
 }
 
 interface HistoryEntry {
@@ -119,6 +123,13 @@ const EMPTY_FORM = {
   answer: '',
   category: 'general_owner_operator' as FaqCategory,
   audience: 'owner_operator' as FaqAudience,
+  tags: '' as string,
+};
+
+const STALE_DAYS = 90;
+const isStale = (iso: string) => {
+  const ms = Date.now() - new Date(iso).getTime();
+  return ms > STALE_DAYS * 24 * 60 * 60 * 1000;
 };
 
 export default function FaqManager() {
@@ -149,7 +160,7 @@ export default function FaqManager() {
     setLoading(true);
     const { data, error } = await supabase
       .from('faq')
-      .select('id, question, answer, category, audience, is_published, sort_order, created_at')
+      .select('id, question, answer, category, audience, is_published, sort_order, created_at, tags, last_verified_at')
       .order('sort_order', { ascending: true });
     if (!error) setFaqs((data as FaqRow[]) ?? []);
     setLoading(false);
@@ -222,7 +233,13 @@ export default function FaqManager() {
 
   const openEdit = (faq: FaqRow) => {
     setEditing(faq);
-    setForm({ question: faq.question, answer: faq.answer, category: faq.category, audience: faq.audience });
+    setForm({
+      question: faq.question,
+      answer: faq.answer,
+      category: faq.category,
+      audience: faq.audience,
+      tags: (faq.tags ?? []).join(', '),
+    });
     setDialogOpen(true);
   };
 
@@ -234,10 +251,14 @@ export default function FaqManager() {
       return;
     }
     setSaving(true);
+    const tagsArr = form.tags
+      .split(',')
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean);
     if (editing) {
       const { error } = await supabase
         .from('faq')
-        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience })
+        .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category, audience: form.audience, tags: tagsArr })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update FAQ.'); setSaving(false); return; }
       await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published, form.audience);
@@ -252,11 +273,12 @@ export default function FaqManager() {
           answer: form.answer.trim(),
           category: form.category,
           audience: form.audience,
+          tags: tagsArr,
           is_published: false,
           sort_order: maxOrder + 1,
           created_by: user?.id ?? null,
         })
-        .select('id, question, answer, category, audience, is_published, sort_order, created_at')
+        .select('id, question, answer, category, audience, is_published, sort_order, created_at, tags, last_verified_at')
         .single();
       if (error || !inserted) { toast.error('Failed to create FAQ.'); setSaving(false); return; }
       await writeHistory(inserted as FaqRow, 'create', form.question.trim(), form.answer.trim(), form.category, false, form.audience);
@@ -279,6 +301,19 @@ export default function FaqManager() {
     await writeHistory(faq, newVal ? 'publish' : 'unpublish', undefined, undefined, undefined, newVal);
     toast.success(faq.is_published ? 'FAQ unpublished.' : 'FAQ published.');
     setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, is_published: newVal } : f));
+  };
+
+  // ── Mark verified (reset staleness) ───────────────────────────────────────
+  const markVerified = async (faq: FaqRow) => {
+    if (guardDemo()) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('faq')
+      .update({ last_verified_at: now })
+      .eq('id', faq.id);
+    if (error) { toast.error('Failed to mark as verified.'); return; }
+    setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, last_verified_at: now } : f));
+    toast.success('Marked as verified.');
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
@@ -434,6 +469,17 @@ export default function FaqManager() {
                   >
                     {faq.is_published ? 'Published' : 'Draft'}
                   </Badge>
+                  {isStale(faq.last_verified_at) && (
+                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Needs review
+                    </Badge>
+                  )}
+                  {(faq.tags ?? []).slice(0, 3).map(t => (
+                    <Badge key={t} variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                      #{t}
+                    </Badge>
+                  ))}
                 </div>
                 <p className="text-sm font-semibold text-foreground">{faq.question}</p>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{faq.answer}</p>
@@ -441,6 +487,17 @@ export default function FaqManager() {
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => markVerified(faq)}
+                  title={`Mark as verified (last: ${format(new Date(faq.last_verified_at), 'MMM d, yyyy')})`}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isStale(faq.last_verified_at)
+                      ? 'text-orange-600 hover:bg-orange-50'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => loadHistory(faq)}
                   title="View edit history"
@@ -549,6 +606,20 @@ export default function FaqManager() {
                 placeholder="Write a clear, helpful answer…"
                 className="min-h-[120px]"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Tags <span className="text-muted-foreground font-normal">(comma-separated)</span>
+              </label>
+              <Input
+                value={form.tags}
+                onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+                placeholder="e.g. onboarding, pipeline, dispatch"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Improves search matches in the Staff Help portal.
+              </p>
             </div>
           </div>
 
