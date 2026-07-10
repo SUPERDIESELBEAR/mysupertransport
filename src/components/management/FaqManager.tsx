@@ -319,7 +319,8 @@ export default function FaqManager() {
   };
 
   const sortedFiltered = [...filtered].sort((a, b) => a.sort_order - b.sort_order);
-  const publishedCount = faqs.filter(f => f.is_published).length;
+  const audienceFaqs = faqs.filter(f => f.audience === audienceView);
+  const publishedCount = audienceFaqs.filter(f => f.is_published).length;
 
   return (
     <div className="space-y-6">
@@ -331,12 +332,35 @@ export default function FaqManager() {
             FAQ Manager
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {publishedCount} of {faqs.length} entries published · operators see these in their portal
+            {publishedCount} of {audienceFaqs.length} {AUDIENCE_LABEL[audienceView]} entries published
+            {audienceView === 'owner_operator'
+              ? ' · operators see these in their portal'
+              : ' · internal only — never shown to drivers'}
           </p>
         </div>
         <Button onClick={openCreate} className="bg-gold hover:bg-gold-light text-surface-dark font-semibold shrink-0">
           <Plus className="h-4 w-4 mr-1.5" /> New FAQ
         </Button>
+      </div>
+
+      {/* Audience toggle */}
+      <div className="inline-flex rounded-lg border border-border bg-white p-1 shadow-sm">
+        {AUDIENCE_OPTIONS.map(opt => {
+          const active = audienceView === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setAudienceView(opt.value)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                active
+                  ? 'bg-gold text-surface-dark shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {opt.label} FAQs
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
