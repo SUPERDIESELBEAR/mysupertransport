@@ -548,7 +548,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border bg-muted/30 flex items-center justify-between">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Payroll Reference Documents</p>
-          {allDocsAcknowledged && (
+          {allCompanyDocsAcknowledged && (
             <span className="flex items-center gap-1 text-[11px] font-semibold text-status-complete">
               <CheckCircle2 className="h-3.5 w-3.5" /> Both acknowledged
             </span>
@@ -556,7 +556,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         </div>
         <div className="p-4 space-y-3">
           <p className="text-xs text-muted-foreground leading-relaxed px-1">
-            Please review both documents below and toggle each acknowledgment to confirm you have read them. <span className="font-semibold text-foreground">You must acknowledge both documents before you can fill in the setup form below.</span>
+            Please review both documents below and toggle each acknowledgment to confirm you have read them.
           </p>
           {COMPANY_DOCS.map(doc => {
             const acked = docAcknowledged[doc.key];
