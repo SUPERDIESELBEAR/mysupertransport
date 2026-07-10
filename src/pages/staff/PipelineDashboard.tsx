@@ -510,7 +510,7 @@ const STAGES = [
   'Stage 5 — Equipment',
   'Stage 6 — PE Screening',
   'Stage 7 — Insurance',
-  'Stage 9 — Pay Setup',
+  'Stage 9 — Payroll and Procedures',
 ];
 
 const STAGE_ABBR: Record<string, string> = {
@@ -521,7 +521,7 @@ const STAGE_ABBR: Record<string, string> = {
   'Stage 5 — Equipment':      'Equip',
   'Stage 6 — PE Screening':   'PE',
   'Stage 7 — Insurance':      'Ins',
-  'Stage 9 — Pay Setup':      'Pay',
+  'Stage 9 — Payroll and Procedures': 'Pay',
 };
 
 // Owner test accounts — excluded from main pipeline, shown in their own section
