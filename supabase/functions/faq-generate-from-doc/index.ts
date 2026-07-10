@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .in('role', ['admin', 'owner', 'super_admin', 'staff', 'compliance', 'dispatch']);
+      .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner']);
     if (!roles || roles.length === 0) return json(403, { error: 'Staff role required' });
 
     // Parse body
