@@ -52,6 +52,9 @@ export interface PEIRequest {
   deadline_date: string | null;
   created_at: string;
   updated_at: string;
+  auto_send_count?: number | null;
+  auto_paused_reason?: string | null;
+  last_auto_send_at?: string | null;
 }
 
 export interface PEIQueueRow {
