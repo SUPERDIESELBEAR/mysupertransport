@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
-import { sanitizeText } from '@/lib/sanitize';
+import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { reminderErrorToast } from '@/lib/reminderError';
@@ -502,6 +502,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
   const [sendingPayrollDocs, setSendingPayrollDocs] = useState(false);
 
+  // ── Stage 9 procedure docs sourced live from Document Hub ──
+  const HUB_DOC_IDS = {
+    handbook: 'b1275efe-05b3-4a4d-9b24-2289c3f43ec1',
+    bol_pod: 'b2e5d4d7-17f4-4ab5-968b-2c1b3fca404e',
+    loadout: 'c424935c-142d-4671-957a-84d867f48780',
+  } as const;
+  const HUB_DOC_ID_LIST: string[] = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+  const [hubDocs, setHubDocs] = useState<Array<{ id: string; title: string; description: string | null; body: string | null; content_type: 'rich_text' | 'pdf' | 'video'; pdf_url: string | null; pdf_path: string | null; version: number }>>([]);
+  const [hubAcks, setHubAcks] = useState<Record<string, { version: number; acknowledged_at: string | null }>>({});
+  const [hubPdfUrls, setHubPdfUrls] = useState<Record<string, string | null>>({});
+  const [richTextDoc, setRichTextDoc] = useState<{ title: string; body: string | null } | null>(null);
+
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
@@ -678,6 +690,47 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
     }
   }, [paySetupLoaded, paySetupRecord]);
+
+  // Load Stage 9 procedure docs (Handbook / BOL/POD / Loadout) + this operator's acknowledgments
+  useEffect(() => {
+    (async () => {
+      const [{ data: docs }, acksRes] = await Promise.all([
+        supabase
+          .from('driver_documents')
+          .select('id,title,description,body,content_type,pdf_url,pdf_path,version')
+          .in('id', HUB_DOC_ID_LIST),
+        operatorUserId
+          ? supabase
+              .from('document_acknowledgments')
+              .select('document_id, document_version, acknowledged_at')
+              .eq('user_id', operatorUserId)
+              .in('document_id', HUB_DOC_ID_LIST)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+      const list = (docs ?? []) as any[];
+      const order = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+      list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      setHubDocs(list);
+
+      const ackMap: Record<string, { version: number; acknowledged_at: string | null }> = {};
+      (acksRes?.data ?? []).forEach((a: any) => {
+        ackMap[a.document_id] = { version: a.document_version, acknowledged_at: a.acknowledged_at ?? null };
+      });
+      setHubAcks(ackMap);
+
+      const urlEntries = await Promise.all(
+        list.filter(d => d.content_type === 'pdf' && d.pdf_path).map(async d => {
+          const { data } = await supabase.storage
+            .from('operator-documents')
+            .createSignedUrl(d.pdf_path!, 3600);
+          return [d.id, data?.signedUrl ?? d.pdf_url ?? null] as const;
+        })
+      );
+      const urls: Record<string, string | null> = {};
+      urlEntries.forEach(([id, url]) => { urls[id] = url; });
+      setHubPdfUrls(urls);
+    })();
+  }, [operatorUserId]);
 
 
 
@@ -6320,6 +6373,53 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   ))}
                 </div>
 
+                {/* ── Operational Procedure Documents (from Document Hub) ── */}
+                <div className="px-5 py-4 space-y-3">
+                  <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1">Operational Procedure Documents</p>
+                  {hubDocs.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground italic">Loading…</p>
+                  ) : hubDocs.map(doc => {
+                    const isPdf = doc.content_type === 'pdf';
+                    const url = isPdf ? hubPdfUrls[doc.id] : null;
+                    return (
+                      <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 bg-primary/10">
+                          <BookOpen className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground">{doc.title}</p>
+                          {doc.description && <p className="text-[11px] text-muted-foreground">{doc.description}</p>}
+                        </div>
+                        {isPdf ? (
+                          url ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                              onClick={() => setPreviewDoc({ title: doc.title, url })}
+                            >
+                              <ZoomIn className="h-3 w-3" />
+                              View
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">Loading…</span>
+                          )
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                            onClick={() => setRichTextDoc({ title: doc.title, body: doc.body })}
+                          >
+                            <ZoomIn className="h-3 w-3" />
+                            View
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {/* ── Operator pay setup data (only when a record exists) ── */}
                 {!paySetupLoaded ? (
                   <div className="px-5 py-4 text-xs text-muted-foreground">Loading…</div>
@@ -6353,6 +6453,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         {[
                           { label: 'Payroll Deposit Overview', acked: !!ps.deposit_overview_acknowledged, ackedAt: ps.deposit_overview_acknowledged_at ?? null },
                           { label: 'Payroll Calendar', acked: !!ps.payroll_calendar_acknowledged, ackedAt: ps.payroll_calendar_acknowledged_at ?? null },
+                          ...hubDocs.map(d => {
+                            const ack = hubAcks[d.id];
+                            const acked = !!ack && ack.version >= d.version;
+                            return { label: d.title, acked, ackedAt: ack?.acknowledged_at ?? null };
+                          }),
                         ].map(({ label, acked, ackedAt }) => (
                           <div key={label} className="flex items-center gap-2 flex-wrap">
                             <span
@@ -6490,6 +6595,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           }}
         />
       )}
+
+      {/* Rich-text procedure doc (e.g. Loadout Trailer Guide) */}
+      <Dialog open={!!richTextDoc} onOpenChange={(o) => { if (!o) setRichTextDoc(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{richTextDoc?.title}</DialogTitle>
+          </DialogHeader>
+          {richTextDoc?.body ? (
+            <div
+              className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(richTextDoc.body) }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No content available.</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Stage 2 Doc Preview Modal */}
       {stage2Preview && (
