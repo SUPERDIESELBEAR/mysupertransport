@@ -644,6 +644,22 @@ export default function FaqManager() {
                 Improves search matches in the Staff Help portal.
               </p>
             </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Sort order <span className="text-muted-foreground font-normal">(lower = higher in list)</span>
+              </label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={form.sort_order}
+                onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
+                placeholder={editing ? String(editing.sort_order) : 'Auto (added to end)'}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank to keep the current position{editing ? '' : ' (new entries go to the end)'}.
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="gap-2">
