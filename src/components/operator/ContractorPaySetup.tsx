@@ -269,7 +269,8 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
   const isSubmitted = !!existing?.submitted_at && existing?.terms_accepted;
 
-  const allDocsAcknowledged = COMPANY_DOCS.every(doc => docAcknowledged[doc.key]);
+  const allCompanyDocsAcknowledged = COMPANY_DOCS.every(doc => docAcknowledged[doc.key]);
+  const allDocsAcknowledged = allCompanyDocsAcknowledged && allHubDocsAcknowledged;
 
   const requiredFilled = (() => {
     if (!firstName.trim() || !lastName.trim()) return false;
