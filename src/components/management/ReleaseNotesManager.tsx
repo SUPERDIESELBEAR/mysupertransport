@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Megaphone, Send, Loader2, Trash2 } from 'lucide-react';
+import { Megaphone, Send, Loader2, Trash2, AlertTriangle, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -23,6 +23,12 @@ interface ReleaseNote {
   created_at: string;
 }
 
+interface StaffFaqOption {
+  id: string;
+  question: string;
+  category: string;
+}
+
 export default function ReleaseNotesManager() {
   const { session } = useAuth();
   const { toast } = useToast();
@@ -32,6 +38,9 @@ export default function ReleaseNotesManager() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [staffFaqs, setStaffFaqs] = useState<StaffFaqOption[]>([]);
+  const [flagSearch, setFlagSearch] = useState('');
+  const [flaggedIds, setFlaggedIds] = useState<string[]>([]);
 
   const fetchNotes = async () => {
     const { data } = await supabase
@@ -45,6 +54,18 @@ export default function ReleaseNotesManager() {
 
   useEffect(() => { fetchNotes(); }, []);
 
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('faq')
+        .select('id, question, category')
+        .eq('audience', 'staff')
+        .eq('is_published', true)
+        .order('question');
+      setStaffFaqs((data as StaffFaqOption[]) ?? []);
+    })();
+  }, []);
+
   const handlePost = async () => {
     if (!title.trim() || !body.trim()) {
       toast({ title: 'Title and body are required', variant: 'destructive' });
@@ -55,14 +76,22 @@ export default function ReleaseNotesManager() {
       title: title.trim(),
       body: body.trim(),
       created_by: session?.user?.id,
+      flagged_faq_ids: flaggedIds,
     });
     setSaving(false);
     if (error) {
       toast({ title: 'Failed to post announcement', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Announcement posted!', description: 'All staff will be notified via bell icon and email.' });
+      toast({
+        title: 'Announcement posted!',
+        description: flaggedIds.length
+          ? `Notified staff and flagged ${flaggedIds.length} FAQ${flaggedIds.length === 1 ? '' : 's'} for re-verification.`
+          : 'All staff will be notified via bell icon and email.',
+      });
       setTitle('');
       setBody('');
+      setFlaggedIds([]);
+      setFlagSearch('');
       fetchNotes();
     }
   };
