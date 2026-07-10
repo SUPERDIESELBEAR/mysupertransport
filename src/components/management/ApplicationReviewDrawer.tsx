@@ -800,7 +800,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       entity_label: [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email,
                       actor_user_id: user?.id ?? null,
                       metadata: { previous_reason: previousValue, new_reason: nextValue },
-                    });
+                    } as any);
                     setReasonOverride(nextValue);
                     setReasonEditing(false);
                     setReasonDraft('');
