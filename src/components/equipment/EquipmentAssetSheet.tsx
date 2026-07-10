@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { toast } from 'sonner';
@@ -121,7 +122,7 @@ export default function EquipmentAssetSheet({
     try {
       const { error } = await supabase
         .from('onboarding_status')
-        .update(patch as any)
+        .update(updatePayload('onboarding_status', patch))
         .eq('operator_id', operatorId);
       if (error) throw error;
       onStatusRefresh?.();
@@ -244,7 +245,7 @@ export default function EquipmentAssetSheet({
       }
       const { error: patchErr } = await supabase
         .from('onboarding_status')
-        .update(patch as any)
+        .update(updatePayload('onboarding_status', patch))
         .eq('operator_id', operatorId);
       if (patchErr) throw patchErr;
 

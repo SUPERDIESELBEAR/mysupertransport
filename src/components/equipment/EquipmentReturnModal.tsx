@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -79,7 +80,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
         if (assignment) {
           const { error: clearErr } = await supabase
             .from('onboarding_status')
-            .update({ [field]: null } as any)
+            .update(updatePayload('onboarding_status', { [field]: null }))
             .eq('operator_id', assignment.operator_id);
           if (clearErr) throw clearErr;
         }

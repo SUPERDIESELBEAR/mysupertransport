@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -177,7 +178,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       if (uploadErr) throw uploadErr;
 
       stage = 'contract_update';
-      const updatePayload: Record<string, unknown> = {
+      const icaUpdatePayload: Record<string, unknown> = {
         contractor_typed_name: signedName,
         contractor_signature_url: path,
         contractor_signed_at: new Date().toISOString(),
@@ -187,16 +188,16 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         deposit_elected_date: depositElectedDate || null,
       };
       if (signerRole === 'truck_owner') {
-        updatePayload.owner_address = ownerEdits.owner_address || null;
-        updatePayload.owner_city = ownerEdits.owner_city || null;
-        updatePayload.owner_state = ownerEdits.owner_state || null;
-        updatePayload.owner_zip = ownerEdits.owner_zip || null;
-        updatePayload.owner_phone = ownerEdits.owner_phone || null;
-        updatePayload.owner_email = ownerEdits.owner_email || null;
+        icaUpdatePayload.owner_address = ownerEdits.owner_address || null;
+        icaUpdatePayload.owner_city = ownerEdits.owner_city || null;
+        icaUpdatePayload.owner_state = ownerEdits.owner_state || null;
+        icaUpdatePayload.owner_zip = ownerEdits.owner_zip || null;
+        icaUpdatePayload.owner_phone = ownerEdits.owner_phone || null;
+        icaUpdatePayload.owner_email = ownerEdits.owner_email || null;
       }
       const { error } = await supabase
         .from('ica_contracts')
-        .update(updatePayload as any)
+        .update(updatePayload('ica_contracts', icaUpdatePayload))
         .eq('id', contract.id);
 
       if (error) throw error;

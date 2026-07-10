@@ -3,6 +3,7 @@ import { pdfToImage } from '@/lib/pdfToImage';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
@@ -701,7 +702,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                   }
                   const { error: dbErr } = await supabase
                     .from('inspection_documents')
-                    .update(updates as any)
+                    .update(updatePayload('inspection_documents', updates))
                     .eq('file_path', effectivePath);
                   if (dbErr) console.error('Failed to update inspection_documents.file_url:', dbErr);
 

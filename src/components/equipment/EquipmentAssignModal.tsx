@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -230,7 +231,7 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
       if (os) {
         await supabase
           .from('onboarding_status')
-          .update({ [field]: item.serial_number } as any)
+          .update(updatePayload('onboarding_status', { [field]: item.serial_number }))
           .eq('operator_id', selectedOperator);
       }
     }

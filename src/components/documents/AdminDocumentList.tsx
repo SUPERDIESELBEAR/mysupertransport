@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
@@ -341,7 +342,7 @@ export default function AdminDocumentList({
 
     const { error } = await supabase
       .from('driver_documents')
-      .update({ [field]: newVal } as any)
+      .update(updatePayload('driver_documents', { [field]: newVal }))
       .eq('id', doc.id);
 
     setToggling(null);
