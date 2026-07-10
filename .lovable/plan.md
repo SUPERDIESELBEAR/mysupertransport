@@ -1,46 +1,38 @@
-## Goal
+## Plan 1 — Handbook + BOL/POD upload in Document Hub
 
-Every management page header shows exactly one icon, in the same style, matching its sidebar entry.
+Adds the two uploaded PDFs into the existing Document Hub (Documents tab) as first-class driver documents, using the current PDF content type — no new UI or schema. FAQ generation ships as **Plan 2** after this is approved.
 
-Standard pattern (already used on most pages like Overview, Onboarding Pipeline, Resource Library, etc.):
+## What ships
 
-```tsx
-<h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-  <Icon className="h-6 w-6 text-gold shrink-0" />
-  Page Title
-</h1>
-```
+Two new records in `driver_documents`, each with `content_type = 'pdf'`:
 
-Sidebar icons stay unchanged (they set the source of truth); page headers are aligned to them.
+| # | Title | Category | Required | Blocks Go Live | Visible | Pinned | Source |
+|---|-------|----------|----------|----------------|---------|--------|--------|
+| 1 | SUPERTRANSPORT Handbook | Onboarding | Yes | Yes | Yes | Yes | `SUPERTRANSPORT_Handbook_2.0_2026_July.pdf` |
+| 2 | BOL / POD Procedures | Compliance | Yes | No | Yes | No | `SUPERTRANSPORT_BOL_POD_Procedures_v2.0_2026_July.pdf` |
 
-## Fixes
+Only the Handbook blocks Go Live (per your answer). BOL/POD is required-to-acknowledge but does not gate Go Live — flag if you want it to gate too.
 
-1. **Driver Hub** — `src/components/drivers/DriverHubView.tsx` (~lines 274–287)
-   - Duplicate `Users2`: one in a `h-9 w-9 rounded-lg bg-primary/10` box, one inside the `<h1>`.
-   - Remove the outer icon box wrapper; keep only the `Users2` inside the `<h1>` (already `h-6 w-6 text-gold`).
+Description text (short, appears on the card):
+- Handbook: "Company policies, expectations, and driver conduct standards. Review and acknowledge."
+- BOL/POD: "How to handle Bills of Lading and Proofs of Delivery on every load."
 
-2. **Vehicle Hub** — `src/components/fleet/FleetRoster.tsx` (~lines 278–289)
-   - Duplicate `Truck`: one outside (`text-primary`) and one inside `<h1>` (`text-gold`).
-   - Remove the outer `<Truck className="h-6 w-6 text-primary" />`; keep the gold one inside the heading.
+`estimated_read_minutes`: Handbook ~20, BOL/POD ~8 (rough page-count estimate; adjustable).
 
-3. **DOT Inspection Binder** — `src/components/inspection/InspectionBinderAdmin.tsx` (~lines 1202–1213)
-   - Two different icons: `FileText` in a gold rounded box + `Shield` inside `<h1>`. Sidebar uses `Shield`.
-   - Remove the `FileText` box wrapper; keep only `<Shield className="h-6 w-6 text-gold shrink-0" />` inside the `<h1>`.
+## Steps
 
-4. **MO Plate Registry** — `src/components/mo-plates/MoPlateRegistry.tsx` (~lines 352–355)
-   - Currently `<h2>` with `Car h-5 w-5 text-primary` (smaller and wrong color).
-   - Change to `<h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">` with `<Car className="h-6 w-6 text-gold shrink-0" />` to match other headers.
-
-5. **Pipeline Config** — `src/components/management/PipelineConfigEditor.tsx` (~lines 440–443)
-   - Currently `<Settings2 className="h-5 w-5 text-muted-foreground" />` (gray, small).
-   - Change to `<Settings2 className="h-6 w-6 text-gold shrink-0" />`.
-
-## Out of scope
-
-- Sidebar icons (already correct — they're the reference).
-- Other page headers already matching the standard pattern (Overview, Onboarding Pipeline, Resource Library, Forms Catalog, Announcements, Messages, Compliance, FAQ Manager, Notification History, Staff Directory, Onboard Systems, etc.).
-- Non-header uses of these icons (buttons, cards, list rows).
+1. **Upload both PDFs to storage** — bucket `resource-library`, path prefix `doc-hub-pdfs/` (matches the current editor's convention). Use `supabase--storage_upload` from the local `/mnt/user-uploads/...` files.
+2. **Insert two rows** into `public.driver_documents` via the insert tool, populating `title`, `description`, `category`, `content_type='pdf'`, `pdf_url` (public URL), `pdf_path` (storage key), `is_visible=true`, `is_required=true`, `blocks_go_live` per table, `is_pinned` per table, `estimated_read_minutes`, `version=1`, `sort_order` (Handbook first).
+3. **No code changes.** Records show up in the admin Documents tab and the driver Document Hub via existing queries. Handbook triggers the existing "action required" pill on the driver side and the Go Live gate on staff.
 
 ## Verification
 
-After edits: visually confirm each of the five pages shows exactly one gold `h-6 w-6` icon left of its title, matching the sidebar glyph.
+- Admin → Document Hub → Documents tab: both cards appear, editable via the existing "New Document" modal.
+- Driver → Document Hub: both cards appear in their categories; opening either loads the PDF in the viewer.
+- Handbook shows in the Go Live requirements list until acknowledged.
+
+## Out of scope (deferred to Plan 2)
+
+- Parsing Handbook content into individual FAQ entries.
+- Adding a `handbook` value to the `faq_category` enum.
+- Any FaqManager changes.
