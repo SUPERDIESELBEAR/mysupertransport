@@ -258,21 +258,21 @@ export function ApplicationPEITab({ applicationId }: Props) {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-gold" />Previous Employment Investigations</h3>
           <p className="text-xs text-muted-foreground mt-0.5">49 CFR §391.23 — investigate each DOT-regulated employer in the preceding 3 years.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={reload} disabled={loading}>
             <RefreshCw className="h-3 w-3 mr-1" />Refresh
           </Button>
           <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
             <Plus className="h-3 w-3 mr-1" />Add Previous Employer
           </Button>
-          <Button size="sm" onClick={handleAutoBuild} disabled={building}>
+          <Button size="sm" onClick={handleAutoBuild} disabled={building} title="Auto-build from employment history">
             {building ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-            Auto-build from employment history
+            Auto-build
           </Button>
         </div>
       </div>
