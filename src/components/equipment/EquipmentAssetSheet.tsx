@@ -105,6 +105,12 @@ export default function EquipmentAssetSheet({
   const [, setSavingField] = useState<string | null>(null);
 
   const signed = !!status?.eld_signature_signed_at;
+  // Collapsed by default; auto-expand once the sheet has been signed so the
+  // completed record is immediately visible on load.
+  const [expanded, setExpanded] = useState<boolean>(signed);
+  // If the signed flag flips (e.g. driver signs while the card is open), keep
+  // the card open so the confirmation is visible without an extra tap.
+  useEffect(() => { if (signed) setExpanded(true); }, [signed]);
   const canManage = mode === 'management' && !readOnly;
 
   const [buffer, setBuffer] = useState<Record<string, any>>({});
