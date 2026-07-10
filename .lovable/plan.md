@@ -1,21 +1,24 @@
-# Fix MO Plate Registry Off-By-One Date Display
+## Goal
+Make the Equipment Asset Sheet card collapsed by default in both the staff (management) and driver (operator) views. Users tap the header to expand. If the sheet is already signed/locked, it opens expanded so the completed record is immediately visible.
 
-## Root cause
+## Changes
 
-Not a data mismatch. The database `mo_plates.expires_at` is `2027-06-30` (correct, in sync with Driver Hub). `MoPlateRegistry.tsx` renders it with `format(new Date(plate.expires_at), ...)`. `new Date('2027-06-30')` parses as UTC midnight, which in US Central time becomes **June 29, 2027** — the classic project timezone bug covered by the "Local Midnight Dates" core rule (append `T12:00:00` to anchor at noon).
+**File:** `src/components/equipment/EquipmentAssetSheet.tsx`
 
-`MoPlateFormModal.tsx` also uses the raw `YYYY-MM-DD` string in its date input, which is fine — the bug is display-side only.
+1. Add local state `expanded`, initialized from `signed` (true when signed, false otherwise).
+2. Convert the existing header row (icon + title + subtitle + Locked badge) into a clickable button that toggles `expanded`. Add a chevron (ChevronDown / ChevronRight) on the right side to indicate state. Preserve the current visual style; only wrap it in a button and add the chevron.
+3. Wrap all body sections (Outbound Shipment Receipts, equipment lines, verification UI, signature area, return-instructions modal trigger area, inbound receipts, etc.) in a conditional `{expanded && (...)}` block. The card container, header, and Locked badge stay visible when collapsed.
+4. Add accessible attributes: `aria-expanded`, `aria-controls`, and a region wrapper `id` on the collapsible body.
+5. When collapsed and unsigned, show a small hint under the title like "Tap to open" (subtle, muted). When collapsed and signed, keep the existing "Signed {date}" subtitle.
 
-## Fix
+## Behavior summary
 
-In `src/components/mo-plates/MoPlateRegistry.tsx`, wrap every `new Date(plate.expires_at)` with a noon-anchored parse:
+| State | Default | Notes |
+|---|---|---|
+| Unsigned, staff view | Collapsed | Tap header to expand |
+| Unsigned, driver view | Collapsed | Tap header to expand |
+| Signed (locked) | Expanded | Auto-expands so the record is visible |
 
-- Add a tiny local helper `parseLocalDate(s: string) => new Date(`${s}T12:00:00`)`.
-- Replace the five sites (lines 24, 32, 467, 522, 524, 525) so both the day-count math and the `format(...)` output use the noon-anchored Date.
-
-No schema, trigger, or two-way-sync work needed — the previously-shipped Driver Hub → MO Plate trigger is already keeping the underlying values equal; only the display was lying.
-
-## Verification
-
-- Reload MO Plate Registry: plate now reads `Jun 30, 2027`, matching Driver Hub.
-- "Expires in Nd" pill still shows the correct day count.
+## Out of scope
+- No changes to persistence, RLS, signing logic, receipts, verification, or return-instructions flow.
+- No changes to `OperatorDetailPanel.tsx` or `OperatorPortal.tsx` — the component is self-contained.

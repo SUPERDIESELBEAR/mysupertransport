@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { CheckCircle2, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Pen, Upload, X, ExternalLink, Truck, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
@@ -105,6 +105,12 @@ export default function EquipmentAssetSheet({
   const [, setSavingField] = useState<string | null>(null);
 
   const signed = !!status?.eld_signature_signed_at;
+  // Collapsed by default; auto-expand once the sheet has been signed so the
+  // completed record is immediately visible on load.
+  const [expanded, setExpanded] = useState<boolean>(signed);
+  // If the signed flag flips (e.g. driver signs while the card is open), keep
+  // the card open so the confirmation is visible without an extra tap.
+  useEffect(() => { if (signed) setExpanded(true); }, [signed]);
   const canManage = mode === 'management' && !readOnly;
 
   const [buffer, setBuffer] = useState<Record<string, any>>({});
@@ -388,8 +394,14 @@ export default function EquipmentAssetSheet({
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      {/* Header — click to expand/collapse */}
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+        aria-controls="equipment-asset-sheet-body"
+        className="w-full flex items-start justify-between gap-3 text-left -m-1 p-1 rounded-lg hover:bg-muted/40 transition-colors"
+      >
         <div className="flex items-center gap-2 min-w-0">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
             <ClipboardList className="h-4 w-4 text-primary" />
@@ -399,19 +411,28 @@ export default function EquipmentAssetSheet({
             <p className="text-xs text-muted-foreground truncate">
               {signed
                 ? `Signed ${format(parseISO(status!.eld_signature_signed_at), 'MMM d, yyyy')}`
-                : mode === 'driver'
-                  ? 'Review your equipment, then sign below.'
-                  : 'Set assignment status and log return details.'}
+                : expanded
+                  ? mode === 'driver'
+                    ? 'Review your equipment, then sign below.'
+                    : 'Set assignment status and log return details.'
+                  : 'Tap to open'}
             </p>
           </div>
         </div>
-        {signed && (
-          <Badge variant="outline" className="text-[10px] gap-1 bg-status-complete/10 text-status-complete border-status-complete/30">
-            <Lock className="h-3 w-3" /> Locked
-          </Badge>
-        )}
-      </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {signed && (
+            <Badge variant="outline" className="text-[10px] gap-1 bg-status-complete/10 text-status-complete border-status-complete/30">
+              <Lock className="h-3 w-3" /> Locked
+            </Badge>
+          )}
+          {expanded
+            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </button>
 
+      {expanded && (
+      <div id="equipment-asset-sheet-body" className="space-y-5">
       {/* Outbound Shipment Receipts */}
       {showInboundBlock && (
         <ShipmentReceiptsBlock
@@ -659,6 +680,8 @@ export default function EquipmentAssetSheet({
           onClose={() => setPreviewUrl(null)}
           bucketName="operator-documents"
         />
+      )}
+      </div>
       )}
 
       <AlertDialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
