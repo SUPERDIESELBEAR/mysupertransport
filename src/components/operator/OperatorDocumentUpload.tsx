@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -249,7 +250,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       const column = side === 'ds' ? 'decal_photo_ds_url' : 'decal_photo_ps_url';
       const { error: updateError } = await supabase
         .from('onboarding_status')
-        .update({ [column]: fileUrl } as any)
+        .update(updatePayload('onboarding_status', { [column]: fileUrl }))
         .eq('operator_id', operatorId);
 
       if (updateError) throw updateError;

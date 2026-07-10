@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload, insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument';
@@ -793,14 +794,14 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       .update({ reviewer_notes: nextValue })
                       .eq('id', app.id);
                     if (updErr) throw updErr;
-                    await supabase.from('audit_log').insert({
+                    await supabase.from('audit_log').insert(insertPayload('audit_log', {
                       action: 'application_denial_reason_edited',
                       entity_type: 'application',
                       entity_id: app.id,
                       entity_label: [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email,
                       actor_user_id: user?.id ?? null,
                       metadata: { previous_reason: previousValue, new_reason: nextValue },
-                    } as any);
+                    }));
                     setReasonOverride(nextValue);
                     setReasonEditing(false);
                     setReasonDraft('');
@@ -1548,7 +1549,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
                 const { error } = await supabase
                   .from('applications')
-                  .update({ [editingDoc.key]: path } as any)
+                  .update(updatePayload('applications', { [editingDoc.key]: path }))
                   .eq('id', app.id);
 
                 if (error) {

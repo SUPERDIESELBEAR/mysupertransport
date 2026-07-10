@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { Button } from '@/components/ui/button';
@@ -1336,7 +1337,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         }
         const { error: appErr } = await supabase
           .from('applications')
-          .update(appPatch as any)
+          .update(updatePayload('applications', appPatch))
           .eq('id', opRow.application_id);
         if (appErr) throw appErr;
       }
@@ -1733,7 +1734,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             const oldDateStr = (appData as any)?.[col] ?? null;
             const { error } = await supabase
               .from('applications')
-              .update({ [col]: newDateStr } as any)
+              .update(updatePayload('applications', { [col]: newDateStr }))
               .eq('id', appId);
             if (error) throw error;
             await supabase.from('audit_log').insert({
@@ -1809,7 +1810,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
       const { error } = await supabase
         .from('applications')
-        .update({ [col]: newDateStr } as any)
+        .update(updatePayload('applications', { [col]: newDateStr }))
         .eq('id', appId);
       if (error) throw error;
 

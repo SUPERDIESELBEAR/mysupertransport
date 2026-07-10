@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { validateFile } from '@/lib/validateFile';
@@ -56,7 +57,7 @@ export default function StaffDecalPhotoEditor({
   const [uploading, setUploading] = useState<string | null>(null);
 
   const persistOnboarding = async (patch: Record<string, unknown>) => {
-    const { error } = await supabase.from('onboarding_status').update(patch as any).eq('operator_id', operatorId);
+    const { error } = await supabase.from('onboarding_status').update(updatePayload('onboarding_status', patch)).eq('operator_id', operatorId);
     if (error) throw error;
   };
 

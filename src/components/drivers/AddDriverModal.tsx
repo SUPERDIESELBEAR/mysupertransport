@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -166,7 +167,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
             .from('onboarding_status')
-            .update(onboardingUpdate as any)
+            .update(updatePayload('onboarding_status', onboardingUpdate))
             .eq('operator_id', operator.id);
         }
 
