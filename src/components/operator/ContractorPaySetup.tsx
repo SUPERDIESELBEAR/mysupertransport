@@ -13,6 +13,8 @@ import {
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { formatPhoneDisplay, formatPhoneInput } from '@/lib/utils';
+import { sanitizeRichHtml } from '@/lib/sanitize';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ── Company payroll reference documents ──────────────────────────────────────
 const COMPANY_DOCS = [
@@ -31,6 +33,28 @@ const COMPANY_DOCS = [
 ] as const;
 
 type DocKey = typeof COMPANY_DOCS[number]['key'];
+
+// ── Document Hub procedure docs sourced live from driver_documents ──────────
+// IDs are hardcoded to specific Document Hub entries (verified to exist and
+// be visible). If any of these are deleted in the Hub, the row will render
+// as unavailable rather than break the whole form.
+const HUB_DOC_IDS = {
+  handbook: 'b1275efe-05b3-4a4d-9b24-2289c3f43ec1',
+  bol_pod: 'b2e5d4d7-17f4-4ab5-968b-2c1b3fca404e',
+  loadout: 'c424935c-142d-4671-957a-84d867f48780',
+} as const;
+const HUB_DOC_ID_LIST: string[] = Object.values(HUB_DOC_IDS);
+
+interface HubDoc {
+  id: string;
+  title: string;
+  description: string | null;
+  body: string | null;
+  content_type: 'rich_text' | 'pdf' | 'video';
+  pdf_url: string | null;
+  pdf_path: string | null;
+  version: number;
+}
 
 interface ContractorPaySetupProps {
   operatorId: string;
@@ -80,6 +104,101 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
     payroll_calendar: null,
   });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
+
+  // Hub docs (Handbook, BOL/POD, Loadout Trailer Guide)
+  const [hubDocs, setHubDocs] = useState<HubDoc[]>([]);
+  const [hubAcks, setHubAcks] = useState<Record<string, number>>({}); // doc_id -> acknowledged version
+  const [hubPdfUrls, setHubPdfUrls] = useState<Record<string, string | null>>({});
+  const [richTextDoc, setRichTextDoc] = useState<HubDoc | null>(null);
+  const [hubTogglingId, setHubTogglingId] = useState<string | null>(null);
+
+  // Fetch hub docs + this user's acknowledgments
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [{ data: docs }, { data: acks }] = await Promise.all([
+        supabase
+          .from('driver_documents')
+          .select('id,title,description,body,content_type,pdf_url,pdf_path,version')
+          .in('id', HUB_DOC_ID_LIST),
+        supabase
+          .from('document_acknowledgments')
+          .select('document_id, document_version')
+          .eq('user_id', user.id)
+          .in('document_id', HUB_DOC_ID_LIST),
+      ]);
+      const list = (docs ?? []) as HubDoc[];
+      // Preserve display order: Handbook, BOL/POD, Loadout
+      const orderedIds: string[] = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+      list.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+      setHubDocs(list);
+
+      const ackMap: Record<string, number> = {};
+      (acks ?? []).forEach((a: any) => { ackMap[a.document_id] = a.document_version; });
+      setHubAcks(ackMap);
+
+      // Resolve signed URLs for PDF-type hub docs
+      const urlEntries = await Promise.all(
+        list.filter(d => d.content_type === 'pdf' && d.pdf_path).map(async d => {
+          const { data } = await supabase.storage
+            .from('operator-documents')
+            .createSignedUrl(d.pdf_path!, 3600);
+          return [d.id, data?.signedUrl ?? d.pdf_url ?? null] as const;
+        })
+      );
+      const urls: Record<string, string | null> = {};
+      urlEntries.forEach(([id, url]) => { urls[id] = url; });
+      setHubPdfUrls(urls);
+    })();
+  }, [user]);
+
+  const isHubDocAcked = (doc: HubDoc) =>
+    (hubAcks[doc.id] ?? -1) >= doc.version;
+
+  const allHubDocsAcknowledged = hubDocs.length === HUB_DOC_ID_LIST.length &&
+    hubDocs.every(isHubDocAcked);
+
+  const toggleHubAck = async (doc: HubDoc) => {
+    if (!user || hubTogglingId) return;
+    setHubTogglingId(doc.id);
+    const currentlyAcked = isHubDocAcked(doc);
+    try {
+      if (currentlyAcked) {
+        const { error } = await supabase
+          .from('document_acknowledgments')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('document_id', doc.id);
+        if (error) throw error;
+        setHubAcks(prev => {
+          const next = { ...prev };
+          delete next[doc.id];
+          return next;
+        });
+      } else {
+        // Remove any stale older-version ack first, then insert current
+        await supabase
+          .from('document_acknowledgments')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('document_id', doc.id);
+        const { error } = await supabase
+          .from('document_acknowledgments')
+          .insert({
+            user_id: user.id,
+            document_id: doc.id,
+            document_version: doc.version,
+            acknowledged_at: new Date().toISOString(),
+          });
+        if (error) throw error;
+        setHubAcks(prev => ({ ...prev, [doc.id]: doc.version }));
+      }
+    } catch (err: any) {
+      toast({ title: 'Could not update acknowledgment', description: err.message, variant: 'destructive' });
+    } finally {
+      setHubTogglingId(null);
+    }
+  };
 
   // Fetch signed URLs for company reference docs
   useEffect(() => {
@@ -150,7 +269,8 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
   const isSubmitted = !!existing?.submitted_at && existing?.terms_accepted;
 
-  const allDocsAcknowledged = COMPANY_DOCS.every(doc => docAcknowledged[doc.key]);
+  const allCompanyDocsAcknowledged = COMPANY_DOCS.every(doc => docAcknowledged[doc.key]);
+  const allDocsAcknowledged = allCompanyDocsAcknowledged && allHubDocsAcknowledged;
 
   const requiredFilled = (() => {
     if (!firstName.trim() || !lastName.trim()) return false;
@@ -428,7 +548,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border bg-muted/30 flex items-center justify-between">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Payroll Reference Documents</p>
-          {allDocsAcknowledged && (
+          {allCompanyDocsAcknowledged && (
             <span className="flex items-center gap-1 text-[11px] font-semibold text-status-complete">
               <CheckCircle2 className="h-3.5 w-3.5" /> Both acknowledged
             </span>
@@ -436,7 +556,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         </div>
         <div className="p-4 space-y-3">
           <p className="text-xs text-muted-foreground leading-relaxed px-1">
-            Please review both documents below and toggle each acknowledgment to confirm you have read them. <span className="font-semibold text-foreground">You must acknowledge both documents before you can fill in the setup form below.</span>
+            Please review both documents below and toggle each acknowledgment to confirm you have read them.
           </p>
           {COMPANY_DOCS.map(doc => {
             const acked = docAcknowledged[doc.key];
@@ -503,12 +623,96 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         </div>
       </div>
 
+      {/* ── OPERATIONAL PROCEDURE DOCUMENTS (from Document Hub) ── */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-border bg-muted/30 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Operational Procedure Documents</p>
+          {allHubDocsAcknowledged && (
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-status-complete">
+              <CheckCircle2 className="h-3.5 w-3.5" /> All acknowledged
+            </span>
+          )}
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-muted-foreground leading-relaxed px-1">
+            Review each document and toggle the acknowledgment to confirm you have read it. These are the same documents available in your Document Hub.
+          </p>
+          {hubDocs.length === 0 && (
+            <p className="text-xs text-muted-foreground italic px-1 py-4 text-center">Loading documents…</p>
+          )}
+          {hubDocs.map(doc => {
+            const acked = isHubDocAcked(doc);
+            const isPdf = doc.content_type === 'pdf';
+            const url = isPdf ? hubPdfUrls[doc.id] : null;
+            const canView = isPdf ? !!url : (doc.content_type === 'rich_text' && !!doc.body);
+            const handleView = () => {
+              if (isPdf && url) setPreviewDoc({ title: doc.title, url });
+              else if (doc.content_type === 'rich_text') setRichTextDoc(doc);
+            };
+            return (
+              <div
+                key={doc.id}
+                className={`rounded-lg border-2 transition-colors ${acked ? 'border-status-complete/40 bg-status-complete/5' : 'border-border bg-background'}`}
+              >
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${acked ? 'bg-status-complete/15' : 'bg-muted'}`}>
+                    <FileText className={`h-4 w-4 ${acked ? 'text-status-complete' : 'text-muted-foreground'}`} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-snug">{doc.title}</p>
+                    {doc.description && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{doc.description}</p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!canView}
+                    onClick={(e) => { e.stopPropagation(); handleView(); }}
+                    className="shrink-0 text-xs h-8 px-3"
+                  >
+                    View
+                  </Button>
+                </div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleHubAck(doc)}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault();
+                      toggleHubAck(doc);
+                    }
+                  }}
+                  className="border-t border-border/60 px-4 py-3 flex items-center gap-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                >
+                  <Switch
+                    checked={acked}
+                    disabled={hubTogglingId === doc.id}
+                    onCheckedChange={() => toggleHubAck(doc)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0"
+                  />
+                  <span className="flex-1">
+                    <p className={`text-xs font-semibold ${acked ? 'text-status-complete' : 'text-foreground'}`}>
+                      I have read and acknowledged this document
+                    </p>
+                  </span>
+                  {acked && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── GATE BANNER ── */}
       {!allDocsAcknowledged && (
         <div className="rounded-xl border border-amber-400/50 bg-amber-50/70 px-5 py-4 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-800 leading-relaxed font-medium">
-            Acknowledge both documents above to unlock the setup form.
+            Acknowledge all documents above to unlock the setup form.
           </p>
         </div>
       )}
@@ -683,6 +887,21 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
           onClose={() => setPreviewDoc(null)}
         />
       )}
+
+      {/* ── RICH-TEXT DOC MODAL (e.g. Loadout Trailer Guide) ── */}
+      <Dialog open={!!richTextDoc} onOpenChange={(open) => !open && setRichTextDoc(null)}>
+        <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{richTextDoc?.title}</DialogTitle>
+          </DialogHeader>
+          {richTextDoc?.body && (
+            <div
+              className="prose prose-sm max-w-none text-foreground [&_a]:text-primary"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(richTextDoc.body) }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
