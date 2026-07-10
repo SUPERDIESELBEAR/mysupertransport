@@ -1393,6 +1393,8 @@ export type Database = {
           question: string
           search_vector: unknown
           sort_order: number
+          source_document: string | null
+          source_section: string | null
           tags: string[]
           updated_at: string
           verified_by: string | null
@@ -1409,6 +1411,8 @@ export type Database = {
           question: string
           search_vector?: unknown
           sort_order?: number
+          source_document?: string | null
+          source_section?: string | null
           tags?: string[]
           updated_at?: string
           verified_by?: string | null
@@ -1425,6 +1429,8 @@ export type Database = {
           question?: string
           search_vector?: unknown
           sort_order?: number
+          source_document?: string | null
+          source_section?: string | null
           tags?: string[]
           updated_at?: string
           verified_by?: string | null
