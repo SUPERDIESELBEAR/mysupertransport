@@ -49,19 +49,70 @@ const isOperatorView = (value: string | null): value is OperatorView => !!value 
 type OperatorViewState = { view: OperatorView; binderView?: 'pages' };
 type OperatorNavigateOptions = { binderView?: 'pages'; replace?: boolean; closeMobileMenu?: boolean };
 
+const VIEW_TO_ROUTE: Record<OperatorView, string> = {
+  home: 'home',
+  progress: 'status',
+  documents: 'documents',
+  messages: 'messages',
+  'resource-center': 'resources',
+  faq: 'faq',
+  dispatch: 'dispatch',
+  ica: 'ica',
+  notifications: 'notifications',
+  'docs-hub': 'doc-hub',
+  'inspection-binder': 'binder',
+  'pay-setup': 'pay-setup',
+  'my-docs': 'my-docs',
+  'my-truck': 'my-truck',
+  forecast: 'forecast',
+};
+
+const ROUTE_TO_VIEW: Record<string, OperatorView> = {
+  home: 'home',
+  status: 'progress',
+  progress: 'progress',
+  documents: 'documents',
+  messages: 'messages',
+  resources: 'resource-center',
+  'resource-center': 'resource-center',
+  faq: 'faq',
+  dispatch: 'dispatch',
+  ica: 'ica',
+  notifications: 'notifications',
+  'doc-hub': 'docs-hub',
+  'docs-hub': 'docs-hub',
+  binder: 'inspection-binder',
+  'inspection-binder': 'inspection-binder',
+  'pay-setup': 'pay-setup',
+  'my-docs': 'my-docs',
+  'my-truck': 'my-truck',
+  forecast: 'forecast',
+};
+
+const getOperatorBasePath = (pathname: string) => {
+  if (pathname === '/owner' || pathname.startsWith('/owner/')) return '/owner';
+  return '/operator';
+};
+
+const getRouteSegments = (pathname: string) => {
+  const base = getOperatorBasePath(pathname);
+  if (pathname === base) return [];
+  if (!pathname.startsWith(`${base}/`)) return [];
+  return pathname.slice(base.length + 1).split('/').filter(Boolean);
+};
+
 const buildOperatorViewUrl = (pathname: string, search: string, target: OperatorView, options: OperatorNavigateOptions = {}) => {
   const params = new URLSearchParams(search);
-  // Always write an explicit tab param — no "empty search means progress"
-  // collapse, which was the root of the tap-reverts-to-Status bug.
-  params.set('tab', target);
-  if (target === 'inspection-binder' && options.binderView === 'pages') {
-    params.set('binderView', 'pages');
-  } else {
-    params.delete('binderView');
-  }
+  params.delete('tab');
+  params.delete('binderView');
   const nextSearch = params.toString();
+  const base = getOperatorBasePath(pathname);
+  const route = VIEW_TO_ROUTE[target];
+  const nextPath = target === 'inspection-binder' && options.binderView === 'pages'
+    ? `${base}/${route}/pages`
+    : `${base}/${route}`;
   return {
-    pathname: pathname || '/dashboard',
+    pathname: nextPath,
     search: nextSearch ? `?${nextSearch}` : '',
     binderView: target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' as const : undefined,
   };
@@ -75,6 +126,24 @@ const getViewStateFromSearch = (search: string): OperatorViewState => {
     view,
     binderView: view === 'inspection-binder' && params.get('binderView') === 'pages' ? 'pages' : undefined,
   };
+};
+
+const getViewStateFromLocation = (pathname: string, search: string): OperatorViewState => {
+  const segments = getRouteSegments(pathname);
+  const routeView = segments[0] ? ROUTE_TO_VIEW[segments[0]] : null;
+  if (routeView) {
+    return {
+      view: routeView,
+      binderView: routeView === 'inspection-binder' && segments[1] === 'pages' ? 'pages' : undefined,
+    };
+  }
+  return getViewStateFromSearch(search);
+};
+
+const isKnownOperatorRoute = (pathname: string) => {
+  const segments = getRouteSegments(pathname);
+  if (segments.length === 0) return true;
+  return !!ROUTE_TO_VIEW[segments[0]];
 };
 
 const appendNavTrace = (entry: Record<string, unknown>) => {
@@ -146,10 +215,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const location = useLocation();
   const navigate = useNavigate();
   const urlViewState = useMemo(
-    () => getViewStateFromSearch(location.search),
-    [location.search],
+    () => getViewStateFromLocation(location.pathname, location.search),
+    [location.pathname, location.search],
   );
-  const [previewViewState, setPreviewViewState] = useState<OperatorViewState>(() => getViewStateFromSearch(location.search));
+  const [previewViewState, setPreviewViewState] = useState<OperatorViewState>(() => getViewStateFromLocation(location.pathname, location.search));
 
   // URL-only source of truth. Avoid a second "requested tab" state because it
   // can race against auth/data refreshes and visually snap drivers back to Status.
@@ -203,6 +272,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       const next = getViewStateFromSearch(url.search);
       if (url.origin === window.location.origin && isOperatorView(new URLSearchParams(url.search).get('tab'))) {
         navigateToView(next.view, { binderView: next.binderView });
+        return;
+      }
+      if (url.origin === window.location.origin && (url.pathname.startsWith('/operator') || url.pathname.startsWith('/owner'))) {
+        const routeState = getViewStateFromLocation(url.pathname, url.search);
+        navigateToView(routeState.view, { binderView: routeState.binderView });
         return;
       }
     } catch {
@@ -909,21 +983,39 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const progressPct = Math.round((completedStages / stages.length) * 100);
   const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
 
-  // Normalize empty driver portal URLs once after status loads. This keeps
-  // /dashboard, /operator, and /owner from relying on an implicit default tab
-  // that can differ across remounts or stale route state.
+  // Redirect legacy query-param tabs and empty driver portal URLs to stable
+  // route paths. Once a real /operator/<screen> path is present, data refreshes
+  // cannot rewrite the route and snap drivers back to Status.
   useEffect(() => {
     if (isPreview) return;
+    const base = getOperatorBasePath(location.pathname);
+    const segments = getRouteSegments(location.pathname);
     if (Object.keys(onboardingStatus).length === 0) return;
     const params = new URLSearchParams(location.search);
     const currentTab = params.get('tab');
-    if (isOperatorView(currentTab)) return;
+    if (isOperatorView(currentTab)) {
+      const legacyState = getViewStateFromSearch(location.search);
+      const next = buildOperatorViewUrl(location.pathname, location.search, legacyState.view, { binderView: legacyState.binderView });
+      appendNavTrace({
+        event: 'redirect-legacy-tab-route',
+        fromTab: view,
+        toTab: legacyState.view,
+        fromSearch: window.location.search,
+        toSearch: next.search,
+        href: `${next.pathname}${next.search}`,
+        renderedTab: legacyState.view,
+        url: window.location.href,
+      });
+      navigate(`${next.pathname}${next.search}`, { replace: true });
+      return;
+    }
 
+    if (segments.length > 0 && isKnownOperatorRoute(location.pathname)) return;
     const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
-    const next = buildOperatorViewUrl(location.pathname, location.search, target);
+    const next = buildOperatorViewUrl(base, location.search, target);
     const href = `${next.pathname}${next.search}`;
     appendNavTrace({
-      event: currentTab ? 'normalize-invalid-tab' : 'normalize-empty-tab',
+      event: segments.length > 0 ? 'redirect-invalid-route' : 'redirect-empty-route',
       fromTab: view,
       toTab: target,
       fromSearch: window.location.search,
@@ -1105,6 +1197,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         <div className="flex flex-wrap gap-1.5 mb-4">
           {navItems.map(item => (
             <button
+              type="button"
               key={item.view}
               onClick={() => navigateToView(item.view)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

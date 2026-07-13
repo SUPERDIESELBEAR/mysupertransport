@@ -576,6 +576,7 @@ export default function OperatorStatusPage({
                   After your drug screening appointment, take a photo of your receipt and upload it below. Your coordinator needs it to process your results.
                 </p>
                 <Button
+                  type="button"
                   size="sm"
                   onClick={openReceiptPicker}
                   disabled={uploadingReceipt}
@@ -738,6 +739,7 @@ export default function OperatorStatusPage({
                 After your drug screening appointment, take a photo of your receipt and upload it in Stage 6. Your coordinator needs it to process your results.
               </p>
               <Button
+                type="button"
                 size="sm"
                 onClick={openReceiptPicker}
                 disabled={uploadingReceipt}
@@ -934,6 +936,7 @@ export default function OperatorStatusPage({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Button
+                type="button"
                 onClick={() => (onOpenBinder ? onOpenBinder('list') : onNavigateTo('inspection-binder'))}
                 className="bg-gold text-surface-dark hover:bg-gold-light h-12 font-bold text-sm gap-2"
               >
@@ -941,6 +944,7 @@ export default function OperatorStatusPage({
                 Open Binder
               </Button>
               <Button
+                type="button"
                 onClick={() => (onOpenBinder ? onOpenBinder('pages') : onNavigateTo('inspection-binder'))}
                 variant="outline"
                 className="h-12 font-bold text-sm gap-2 border-gold/40 bg-gold/10 text-gold hover:bg-gold/20 hover:text-gold"

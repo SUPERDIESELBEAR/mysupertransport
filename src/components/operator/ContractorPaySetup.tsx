@@ -423,6 +423,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       {/* ── PAYROLL INSTRUCTIONS ── */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 overflow-hidden">
         <button
+          type="button"
           onClick={() => setInstructionsOpen(o => !o)}
           className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-primary/8 transition-colors"
         >
@@ -755,6 +756,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         <div className="p-5 flex gap-3">
           {(['individual', 'business'] as const).map(type => (
             <button
+              type="button"
               key={type}
               onClick={() => setContractorType(type)}
               className={`flex-1 flex flex-col items-center gap-2.5 rounded-xl border-2 px-4 py-4 transition-all ${
@@ -882,6 +884,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
       {/* ── SUBMIT BUTTON ── */}
       <Button
+        type="button"
         onClick={handleSubmit}
         disabled={!requiredFilled || saving}
         className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-sm font-bold gap-2"
