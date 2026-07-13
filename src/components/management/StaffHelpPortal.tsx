@@ -48,8 +48,7 @@ export default function StaffHelpPortal() {
   const runSearch = async (q: string) => {
     setLoading(true);
     const { data, error } = await supabase.rpc('search_staff_faqs', {
-      q: q.trim() || null,
-      match_limit: 100,
+      q: q.trim() || '',
     });
     if (error) {
       console.error('search_staff_faqs failed', error);
