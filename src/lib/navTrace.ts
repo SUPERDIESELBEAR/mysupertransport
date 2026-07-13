@@ -34,6 +34,11 @@ export function appendRouteTrace(entry: Record<string, unknown>): void {
   appendNavTrace({ kind: 'route', ...entry });
 }
 
+/** Thin wrapper — tags an entry as a useBackButton lifecycle event. */
+export function appendBackButtonTrace(entry: Record<string, unknown>): void {
+  appendNavTrace({ kind: 'back-button', ...entry });
+}
+
 export function readNavTrace(): NavTraceEntry[] {
   if (typeof window === 'undefined') return [];
   try {
