@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -51,7 +51,9 @@ type OperatorNavigateOptions = { binderView?: 'pages'; replace?: boolean; closeM
 
 const buildOperatorViewUrl = (pathname: string, search: string, target: OperatorView, options: OperatorNavigateOptions = {}) => {
   const params = new URLSearchParams(search);
-  if (target !== 'progress') params.set('tab', target); else params.delete('tab');
+  // Always write an explicit tab param — no "empty search means progress"
+  // collapse, which was the root of the tap-reverts-to-Status bug.
+  params.set('tab', target);
   if (target === 'inspection-binder' && options.binderView === 'pages') {
     params.set('binderView', 'pages');
   } else {
@@ -130,79 +132,37 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const profile = isPreview ? previewProfile : authProfile;
   const location = useLocation();
   const navigate = useNavigate();
-  const [view, setView] = useState<OperatorView>(() => {
-    return getViewStateFromSearch(location.search).view;
-  });
-  // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
-  const [binderView, setBinderView] = useState<'list' | 'pages' | undefined>(() => {
-    return getViewStateFromSearch(location.search).binderView;
-  });
-  // Tracks the exact URL written by in-app navigation. If React Router echoes
-  // that same URL back, we accept it and clear the marker; every other URL
-  // change is treated as external/deep-link/browser-back navigation.
-  const appWrittenSearchRef = useRef<string | null>(null);
+  // URL is the single source of truth for the active view. Deriving instead of
+  // mirroring into local state eliminates the state/URL race that was trapping
+  // drivers on the Status page when onboarding_status refetched mid-navigation.
+  const { view, binderView } = useMemo(
+    () => getViewStateFromSearch(location.search),
+    [location.search],
+  );
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
-  // React to external/deep-link/browser-back URL changes. Top-level portal
-  // navigation writes URL + state atomically through navigateToView below.
-  useEffect(() => {
-    const next = getViewStateFromSearch(location.search);
-    console.log('[NAV-DEBUG] url-sync effect', {
-      locationSearch: location.search,
-      windowSearch: window.location.search,
-      windowPathname: window.location.pathname,
-      appWrittenSearchRef: appWrittenSearchRef.current,
-      computedView: next.view,
-    });
-    if (appWrittenSearchRef.current === location.search) {
-      appWrittenSearchRef.current = null;
-    }
-    setView((current) => (current === next.view ? current : next.view));
-    setBinderView((current) => (current === next.binderView ? current : next.binderView));
-  }, [location.search]);
-
-  const syncViewUrl = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
-    const next = buildOperatorViewUrl(location.pathname, window.location.search, target, options);
-    console.log('[NAV-DEBUG] syncViewUrl', {
-      target,
-      locationPathname: location.pathname,
-      windowPathname: window.location.pathname,
-      windowSearchBefore: window.location.search,
-      nextPathname: next.pathname,
-      nextSearch: next.search,
-      willWrite: window.location.search !== next.search || window.location.pathname !== next.pathname,
-    });
-    if (window.location.search !== next.search || window.location.pathname !== next.pathname) {
-      const nextHref = `${next.pathname}${next.search}${window.location.hash}`;
-      if (options.replace) {
-        window.history.replaceState(window.history.state, '', nextHref);
-      } else {
-        window.history.pushState(window.history.state, '', nextHref);
-      }
-      appWrittenSearchRef.current = next.search;
-      navigate({ pathname: next.pathname, search: next.search }, { replace: true });
-    } else {
-      appWrittenSearchRef.current = null;
-    }
-  }, [location.pathname, location.search, navigate]);
-
-  // Atomic view+URL navigation used by all driver portal navigation surfaces.
-  // It preserves the current route alias (/dashboard, /operator, or /owner)
-  // instead of forcing /operator, which avoids guarded route remounts.
+  // Single navigation entry point for the driver portal. Writes the URL once
+  // via React Router; view/binderView update on the next render because they
+  // are derived from location.search.
   const navigateToView = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
-    console.log('[NAV-DEBUG] navigateToView', {
-      target,
-      currentPathname: window.location.pathname,
-      currentSearch: window.location.search,
-      isPreview,
-    });
-    const nextBinderView = target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined;
-    if (!isPreview) syncViewUrl(target, options);
+    if (isPreview) {
+      // Preview mode (staff impersonation) intentionally doesn't touch the URL.
+      // Nothing to do — the picker manages its own local state.
+      if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
+      return;
+    }
+    const next = buildOperatorViewUrl(location.pathname, location.search, target, options);
+    const href = `${next.pathname}${next.search}`;
     if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
-    setView(target);
-    viewRef.current = target;
-    setBinderView(nextBinderView);
-  }, [isPreview, syncViewUrl]);
+    // Nav tracer (temporary — remove after one week if no more reports).
+    try {
+      const raw = localStorage.getItem('sd-nav-trace');
+      const arr = raw ? JSON.parse(raw) : [];
+      arr.push({ ts: Date.now(), from: window.location.search, to: next.search, href });
+      localStorage.setItem('sd-nav-trace', JSON.stringify(arr.slice(-50)));
+    } catch { /* storage unavailable — ignore */ }
+    navigate(href, { replace: !!options.replace });
+  }, [isPreview, location.pathname, location.search, navigate]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
     try {
