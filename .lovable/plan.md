@@ -1,41 +1,85 @@
-## Diagnosis
+## What the video shows
 
-**Where the individual position prompts live:** `src/components/operator/TruckPhotoGuideModal.tsx` renders 10 guided slots — Front, Driver Side, Rear, Passenger Side + 6 tire angles. Each slot has its own step, hint, camera prompt, and upload.
+Emma is on **Status**. She taps **Doc Hub**, then **FAQ**, then Doc Hub again in the bottom nav. Each tap:
 
-**Where the guided flow correctly launches:** Stage 3 documents page (`OperatorDocumentUpload.tsx`, lines 445-505). The `truck_photos` slot skips the generic upload button and shows a gold **"Take Truck Photos (10 Required)"** CTA that opens `TruckPhotoGuideModal`. This path is fine.
+1. Page scrolls a little
+2. Gold **ONBOARDING PROGRESS** bar re-animates from 0 → 67% (the `SmartProgressWidget` ring/bar is remounting)
+3. She lands back on Status
 
-**Where the bug is:** `src/components/operator/SmartProgressWidget.tsx`, lines 449-454. The `INLINE_SLOTS` array on the driver dashboard lists `truck_photos` alongside `form_2290` / `truck_title` / `truck_inspection` and renders a plain single-file picker (line 613-624). When staff mark truck photos "requested", the widget shows one generic **Upload** button on the dashboard. Drivers tap it, pick one photo, see the ✓ success flash, and believe they're done — the 10-slot guided modal is never opened.
+The URL and view state briefly change to the tapped tab, then get rewritten back to Status before the destination view can render. This is the reported "stuck on one page" bug.
 
-Answers to the diagnostic questions:
-1. Both — the prompts are present in the codebase and render on the Stage 3 page, but they are entirely bypassed on the dashboard widget path.
-2. Not a mobile-only display issue; the widget renders the same broken single-slot on all viewports.
-3. Yes — when the dashboard `InlineDocUpload` widget was added, `truck_photos` was included in `INLINE_SLOTS` without a special-case branch to launch `TruckPhotoGuideModal`.
+## Root cause
+
+`src/pages/operator/OperatorPortal.tsx` keeps the active view in **two sources of truth** that fight each other:
+
+1. React `useState<OperatorView>` initialized from the URL (line 133)
+2. The URL itself (`?tab=...`)
+
+Reconciled by three overlapping mechanisms:
+
+- **`syncViewUrl`** (line 164) writes the URL twice — once with `window.history.pushState` and again with `navigate({...}, { replace: true })` — and tracks the write with an `appWrittenSearchRef` marker.
+- A **`useEffect` on `location.search`** (line 148) re-reads `getViewStateFromSearch` and calls `setView(next.view)`.
+- The **auto-redirect** at lines 923-933 (`if (view === 'progress') navigateToView('home', { replace: true })`) fires whenever `isFullyOnboarded`, `onboardingStatus`, or `location.search` changes.
+
+Emma's account is 67% onboarded → `isFullyOnboarded === false` because `onboardingStatus.insurance_added_date == null`. But `onboardingStatus` is refetched by real-time subscriptions and by `fetchData()` calls that fire on every view change. When the object reference changes, the redirect effect re-evaluates, and because `buildOperatorViewUrl(..., 'progress')` **deletes** the `tab` param (line 54), any later re-read of the URL that lands on an empty search collapses back to `'progress'`. The `useEffect` at line 148 then calls `setView('progress')`, cancelling the tap.
+
+The double history write (`pushState` + `navigate replace`) also means React Router's internal location cache can echo a stale `location.search` back into the effect, which is what causes the "screen goes white for a split second" — the destination view mounts, then unmounts as `view` is force-reset.
+
+Because `SmartProgressWidget` lives inside the Status/Progress branch, resetting `view` back to `progress` remounts the widget → the gold ring replays from 0. This matches the video frame-for-frame.
 
 ## Fix
 
-In `SmartProgressWidget.tsx → InlineDocUpload`:
+Make the URL the single source of truth. Delete the mirrored `useState`, delete the manual `pushState`, always write an explicit `?tab=` for every view.
 
-1. Add a `showTruckGuide` boolean state.
-2. When the current requested slot is `truck_photos`, render a dedicated CTA row that reads **"Take Truck Photos (10 Required)"** (or **"Continue Truck Photos (N left)"** if some are already uploaded) instead of the generic file input + Upload button. The button opens `TruckPhotoGuideModal`.
-3. Compute the "N of 10 uploaded" count from `uploadedDocs` filtered by `document_type === 'truck_photos'` and distinct `file_name` prefix (same logic used in `OperatorDocumentUpload.tsx` line 448-452).
-4. Render `<TruckPhotoGuideModal>` at the end of `InlineDocUpload`, wired to `operatorId`, `alreadyUploadedLabels`, and `onUploadComplete`.
-5. All other slots (`form_2290`, `truck_title`, `truck_inspection`) keep the existing single-file picker behavior.
+### 1. `src/pages/operator/OperatorPortal.tsx` — navigation rewrite
 
-No schema changes. No changes to `TruckPhotoGuideModal.tsx` itself. No changes to `OperatorDocumentUpload.tsx`.
+- **Delete** `useState<OperatorView>` for `view` and `binderView` (lines 133-139) and the `useEffect` at line 148 that mirrors `location.search` into state. Replace with:
+  ```ts
+  const { view, binderView } = useMemo(
+    () => getViewStateFromSearch(location.search),
+    [location.search],
+  );
+  ```
+- **Rewrite** `buildOperatorViewUrl` (line 52) so **every** view — including `progress` — writes an explicit `?tab=` param. Remove the "no tab means progress" branch that lets stripped URLs collapse back to Status.
+- **Rewrite** `navigateToView` (line 192):
+  ```ts
+  const navigateToView = useCallback((target, options = {}) => {
+    const next = buildOperatorViewUrl(location.pathname, location.search, target, options);
+    if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
+    navigate(`${next.pathname}${next.search}`, { replace: !!options.replace });
+  }, [location.pathname, location.search, navigate]);
+  ```
+  No `window.history.pushState`, no `appWrittenSearchRef`, no double write.
+- **Delete** `appWrittenSearchRef`, `viewRef`, `prevViewRef`, and the reconciliation `useEffect` at lines 258-266 — these only existed to paper over the dual-state model. Derive `viewHistory` from `location.key` transitions instead.
+- **Guard** the onboarded auto-redirect (lines 923-933) with `homeAutoRedirected.current` so it fires **once per session** and only when `params.get('tab') === null`, never based on the derived `view` value. This stops it from fighting a deliberate tap.
 
-## Verification
+### 2. `src/App.tsx` — remove the debug pushState wrapper
 
-- `bunx tsgo --noEmit` clean.
-- Manual walk-through in Playwright when a driver session is available:
-  1. As two seeded drivers, ensure `onboarding_status.truck_photos = 'requested'`.
-  2. Open the driver dashboard on mobile viewport (390×844) and desktop.
-  3. Confirm the widget shows **"Take Truck Photos (10 Required)"** — not a generic Upload button.
-  4. Tap it → guided modal opens → each of the 4 body positions (Front, DS, Rear, PS) plus 6 tire angles has its own step.
-  5. Upload two photos, close, reopen — progress persists and the widget label updates to "Continue Truck Photos (8 left)".
-  6. Staff view: confirm each uploaded photo carries its position label ("Front — file.jpg") in the management side.
+Delete the `__navDebugPatched` block (lines 40-63). Wrapping `window.history.pushState`/`replaceState` interferes with React Router's own history bookkeeping. Keep the `console.log` calls inside `OperatorPortal` for one release so we can confirm the fix in the field.
 
-## Technical notes
+### 3. Persistent nav tracer (temporary, one week)
 
-- The staff-side "N of 10 required" gate already exists in `OperatorDocumentUpload.tsx` (line 391-408) and uses `distinctSlotsUploaded = new Set(uploaded.map(d => (d.file_name ?? '').split(' — ')[0].trim()))` — the fix reuses that logic verbatim so both surfaces stay in sync.
-- `TruckPhotoGuideModal` already writes `file_name` prefixed with the position label (`${currentSlot.label} — ${file.name}`), so staff mirroring is unchanged.
-- The dashboard widget's existing `justUploaded` flash animation is dropped for the truck_photos row since the guided modal handles its own success UX.
+Inside the new `navigateToView`, append `{ ts, from, to, href }` to `localStorage['sd-nav-trace']` (cap 50 entries). If any driver still reports the issue after deploy, staff can pull it from a hidden Debug row in the operator profile drawer. Remove after one week along with the leftover `[NAV-DEBUG]` logs.
+
+### 4. Regression test
+
+Add `src/pages/operator/__tests__/OperatorPortal.nav.test.tsx` (Vitest + RTL inside `MemoryRouter`) covering:
+
+- Tapping each bottom-nav item (Status, Binder, Messages, Doc Hub, FAQ) updates `location.search` to the expected `?tab=` and renders the destination.
+- Tapping Progress writes `?tab=progress` — no empty-search collapse.
+- Deep link `/operator?tab=documents` mounts on Doc Hub and **stays** there when `onboardingStatus` refetches mid-render.
+- Onboarded driver landing on `/operator` with no query auto-redirects to `?tab=home` exactly once, and a subsequent tap on `?tab=progress` is not fought back.
+
+## Files touched
+
+- `src/pages/operator/OperatorPortal.tsx` — navigation rewrite (primary)
+- `src/App.tsx` — remove `__navDebugPatched` wrapper
+- `src/pages/operator/__tests__/OperatorPortal.nav.test.tsx` — new test
+
+No DB, edge function, or auth changes. Staff/management/dispatch portals unchanged.
+
+## Rollout
+
+1. Ship as a straight bug fix — no flag.
+2. Ask Emma and the second reporting driver to hard-refresh once after deploy and confirm all five bottom-nav tabs open their destinations.
+3. Watch `sd-nav-trace` from any repeat reports for a week, then delete the tracer.
