@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import { appendAuthTrace } from '@/lib/navTrace';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -13,6 +14,8 @@ interface AuthContextType {
   setActiveRole: (role: AppRole) => void;
   profile: ProfileData | null;
   loading: boolean;
+  /** True once fetchRoles has completed at least once for the current user. */
+  rolesLoaded: boolean;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
