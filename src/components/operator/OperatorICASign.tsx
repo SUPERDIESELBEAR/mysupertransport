@@ -10,6 +10,7 @@ import ICADocumentView from '@/components/ica/ICADocumentView';
 import DriverICAAcknowledgment from './DriverICAAcknowledgment';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { withTimeout } from '@/lib/withTimeout';
 
 interface ICAData {
   id: string;
@@ -174,7 +175,11 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
       const path = `contractor/${operatorId}-${Date.now()}.png`;
-      const { error: uploadErr } = await supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true });
+      const { error: uploadErr } = await withTimeout(
+        supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true }),
+        60000,
+        'Signature upload',
+      );
       if (uploadErr) throw uploadErr;
 
       stage = 'contract_update';
@@ -396,6 +401,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
             : '✅ Ready to execute'}
         </p>
         <Button
+          type="button"
           onClick={handleSign}
           disabled={signing || !signedName || !hasDrawn}
           className="w-full bg-gold text-surface-dark font-bold hover:bg-gold-light gap-2 h-12"

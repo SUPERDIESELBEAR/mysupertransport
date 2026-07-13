@@ -335,7 +335,7 @@ function WhatsNextModal({
                 <p className="text-[11px] text-muted-foreground mt-0.5">Your full onboarding roadmap</p>
               </div>
             </div>
-            <button onClick={onClose} className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <button type="button" onClick={onClose} className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -417,6 +417,7 @@ function WhatsNextModal({
                             <p className="text-[11px] text-muted-foreground leading-snug">{step.detail}</p>
                             {step.actionView && !isDone && status !== 'not_started' && (
                               <button
+                                type="button"
                                 onClick={() => { onNavigateTo(step.actionView!); onClose(); }}
                                 className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80 transition-colors"
                               >
@@ -436,7 +437,7 @@ function WhatsNextModal({
           {/* Footer note */}
           <div className="px-4 pb-5">
             <p className="text-center text-[10px] text-muted-foreground">
-              Questions? Message your coordinator from the <button onClick={() => { onNavigateTo('messages'); onClose(); }} className="underline text-primary">Messages tab</button>.
+              Questions? Message your coordinator from the <button type="button" onClick={() => { onNavigateTo('messages'); onClose(); }} className="underline text-primary">Messages tab</button>.
             </p>
           </div>
         </ScrollArea>
@@ -910,6 +911,7 @@ export default function SmartProgressWidget({
 
         {showNavCta && (
           <Button
+            type="button"
             size="sm"
             onClick={() => onNavigateTo(info.ctaView!)}
             className={`shrink-0 text-xs h-8 gap-1.5 font-semibold ${

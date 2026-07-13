@@ -1,43 +1,51 @@
+## Findings
 
-## Goal
+Two separate driver reports point to the same fragile area: the front-facing driver portal currently mixes URL-based navigation, temporary requested view state, automatic default-tab normalization, and refresh/version logic. That can make a tap flash white, refill the progress tracker, then land back on Status instead of the selected page.
 
-Replace the current keyword-search Staff Help page with a conversational AI assistant that answers "how do I use SUPERDRIVE" questions for staff, grounded in FAQs but able to answer general SUPERDRIVE usage questions too. FAQ Manager remains the authoring surface.
+For the ICA report, the **Sign ICA Now** button is a navigation CTA into the ICA tab. If navigation bounces back, it appears as if the button “refreshes” the page. There is also a backend signing-path risk for truck-owner/owner-operator ICA signing: the UI can submit owner contact edits, but the backend column whitelist currently rejects those non-staff field changes.
 
-## Behavior
+## Plan
 
-- Chat UI on the Staff Help page. Fresh conversation each visit (no persistence).
-- Assistant priorities in order:
-  1. Answer from retrieved staff-audience FAQ articles when relevant.
-  2. Otherwise answer from general SUPERDRIVE product knowledge (dashboard layout, roles, onboarding stages, pipeline, driver app, compliance, PEI, equipment, MO plates, messaging).
-  3. When it uses an FAQ, cite the source(s) as chips under the answer.
-  4. When it can't answer, say so plainly and suggest opening FAQ Manager to add the article — no draft button.
-- Suggested starter prompts (e.g. "How do I revert an application?", "How do I add a new driver?", "Where do I edit pipeline stages?", "How do I send a PEI request?").
-- Streamed markdown responses, typing indicator, friendly error handling for 429/402/network.
+1. **Stabilize driver navigation as URL-only**
+   - Remove the extra “requested view” override layer that can get stuck or be cleared by data refreshes.
+   - Make the rendered driver page derive from one source of truth: `?tab=` in the URL.
+   - Keep the existing explicit tab URLs (`/dashboard?tab=...`, `/operator?tab=...`) but stop any data refresh from forcing the user back to Status unless the URL truly has no tab.
 
-## Changes
+2. **Make default-tab normalization one-time and safe**
+   - Only auto-normalize an empty driver URL once on first load.
+   - Never normalize over a valid requested tab like `?tab=ica`, `?tab=messages`, `?tab=documents`, etc.
+   - Preserve non-tab query params such as `source=pwa` without letting them reset the screen.
 
-1. **`src/components/management/StaffHelpPortal.tsx`** — rebuild as a chat surface using AI Elements (`conversation`, `message`, `prompt-input`, `shimmer`, `tool` not needed). Uses `useChat` + `DefaultChatTransport` against the new edge function. Renders assistant markdown and a small "Sources" row of FAQ chips that deep-link to FAQ Manager.
+3. **Fix all driver CTA buttons that navigate between views**
+   - Ensure CTA buttons such as **Sign ICA Now**, **Review & Sign Now**, mobile menu buttons, and status action buttons explicitly use non-submit button behavior.
+   - This prevents accidental browser form submission/page reload behavior if any CTA is rendered inside or near a form-like container.
 
-2. **`supabase/functions/staff-help-chat/index.ts`** (new):
-   - CORS + OPTIONS handler.
-   - Auth: validate JWT via `getClaims`, require a staff role (`admin`, `manager`, `owner`, `staff`) via `user_roles` with `.limit(1)`.
-   - Retrieval: call the existing `search_staff_faqs` RPC with the latest user message, take top ~8 hits, and pack them into the system prompt as titled snippets with their ids.
-   - Model: Lovable AI Gateway, `google/gemini-3-flash-preview`, via `streamText` from `npm:ai` using the shared `../_shared/ai-gateway.ts` helper.
-   - System prompt: assistant is the SUPERDRIVE staff guide; prefer FAQ context when relevant; may answer general SUPERDRIVE how-to using product knowledge; be concise, use step lists for procedures; when nothing fits, say it isn't documented and suggest FAQ Manager; cite `[[FAQ:<id>]]` inline for anything drawn from FAQ context.
-   - Response: `toUIMessageStreamResponse()` including a data part `{ sources: [{ id, question }] }` so the client can render source chips.
-   - 429/402 handled with structured errors.
+4. **Fix ICA tab entry and signing reliability**
+   - Keep **Sign ICA Now** as an in-app navigation to the ICA tab, not a page refresh.
+   - Add a direct fallback: if navigation to ICA fails to confirm, force-replace the URL to `?tab=ica` instead of staying on Status.
+   - Improve ICA save handling so the user sees a friendly message if the agreement cannot be loaded or saved.
 
-3. **AI Elements install** — add `conversation`, `message`, `prompt-input`, `shimmer` if not already present.
+5. **Patch owner-operator ICA signing backend rule**
+   - Update the backend whitelist so owner-operator signers can save the owner contact fields the ICA screen intentionally allows them to edit.
+   - Keep all protected contract fields locked for drivers/owners.
+   - Preserve the existing staff/admin full-access behavior.
 
-## Out of scope
+6. **Clean up stale installed-app behavior**
+   - Add a safe one-time cleanup for stale app-shell service workers/caches on the published installed web app, without adding offline mode.
+   - This addresses drivers who removed/reinstalled the home-screen app but may still be affected by old browser-controlled app state.
 
-- Persisting chat history or threads.
-- Drafting new FAQs from chat.
-- Answering on operational data (drivers, applications) — usage guidance only.
+7. **Add targeted diagnostics for this issue**
+   - Keep lightweight navigation tracing, but add clearer entries for: tap received, URL written, tab rendered, and unexpected tab reset.
+   - Add ICA-specific trace entries for CTA click, ICA screen mounted, contract loaded, and signing save failure stage.
+   - These traces stay local/non-sensitive and help confirm whether a future report is a route reset, stale installed app, or backend save failure.
 
-## Technical notes
+8. **Verify with browser testing**
+   - Test public driver portal navigation between Status, Documents, Messages, Doc Hub, ICA, Binder, and FAQ.
+   - Test direct deep links like `/dashboard?tab=ica` and `/operator?tab=ica`.
+   - Test mobile-size navigation behavior and confirm the progress tracker no longer refills unless the user intentionally returns to Status.
 
-- No schema changes. Reuses `faq` and `search_staff_faqs`.
-- `LOVABLE_API_KEY` already provisioned.
-- Client transport hits `${VITE_SUPABASE_URL}/functions/v1/staff-help-chat` with the publishable-key `Authorization` header, same pattern as other chat surfaces.
-- Source chips deep-link to `/staff/faq?faqId=<id>` (already supported by FAQ Manager) to open the article.
+## Expected result
+
+- The driver who is stuck on one page should be able to move between app screens without the white flash/reset loop.
+- The driver clicking **Sign ICA Now** should land on the ICA screen consistently.
+- Owner-operator ICA signing should no longer be rejected by the backend when allowed owner contact fields are included.
