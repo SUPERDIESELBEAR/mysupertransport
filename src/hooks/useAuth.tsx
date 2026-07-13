@@ -214,11 +214,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isApplicant = roles.includes('applicant');
   const isStaff = isManagement || isOnboardingStaff || isDispatcher;
   const isTruckOwner = roles.includes('truck_owner');
+  const rolesLoaded = !!user && rolesLoadedFor === user.id;
 
   return (
     <AuthContext.Provider value={{
       user, session, roles, activeRole, setActiveRole,
-      profile, loading, refreshProfile,
+      profile, loading, rolesLoaded, refreshProfile,
       signIn, signOut,
       isOwner, isManagement, isOnboardingStaff, isDispatcher,
       isOperator, isApplicant, isStaff, isTruckOwner,
