@@ -134,6 +134,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       view: target,
       binderView: target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined,
     };
+    lastRequestedViewRef.current = target;
     if (isPreview) {
       setPreviewViewState(nextState);
       if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
@@ -953,12 +954,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     });
   }, [isPreview, location.pathname, location.search]);
 
-  // If the last CTA target does not match what the URL resolved to, log it —
-  // this is our smoking gun for a "tapped X, ended up on Y" bounce.
-  const lastRequestedViewRef = useRef<OperatorView | null>(null);
+  // Compare on next render: navigateToView sets requestedRef to the target;
+  // if the URL resolves to a different view, log the mismatch and clear.
   useEffect(() => {
     const requested = lastRequestedViewRef.current;
-    if (requested && requested !== view) {
+    if (requested == null) return;
+    if (requested !== view) {
       appendNavTrace({
         event: 'view-mismatch',
         requested,
@@ -967,7 +968,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         search: location.search,
       });
     }
-    lastRequestedViewRef.current = view;
+    lastRequestedViewRef.current = null;
   }, [view, location.pathname, location.search]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
