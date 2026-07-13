@@ -1197,6 +1197,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         <div className="flex flex-wrap gap-1.5 mb-4">
           {navItems.map(item => (
             <button
+              type="button"
               key={item.view}
               onClick={() => navigateToView(item.view)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
