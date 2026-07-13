@@ -218,6 +218,7 @@ function StageCard({
           <Button
             type="button"
             size="sm"
+            data-nav-cta="checklist-complete-pay-setup"
             onClick={(event) => {
               event.preventDefault();
               onNavigateTo('pay-setup');
@@ -258,6 +259,7 @@ function StageCard({
               <Button
                 type="button"
                 size="sm"
+                data-nav-cta="checklist-upload-documents"
                 onClick={(event) => {
                   event.preventDefault();
                   onNavigateTo('documents');
@@ -275,6 +277,7 @@ function StageCard({
               <Button
                 type="button"
                 size="sm"
+                data-nav-cta="checklist-sign-ica"
                 onClick={(event) => {
                   event.preventDefault();
                   onNavigateTo('ica');

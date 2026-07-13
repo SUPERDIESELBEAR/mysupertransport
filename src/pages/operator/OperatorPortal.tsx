@@ -41,6 +41,7 @@ import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
+import { appendNavTrace, ensurePointerTraceInstalled } from '@/lib/navTrace';
 import {
   type OperatorNavigateOptions,
   type OperatorView,
@@ -55,19 +56,6 @@ import {
 } from '@/lib/operatorRoutes';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-
-const appendNavTrace = (entry: Record<string, unknown>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = window.localStorage.getItem('sd-nav-trace');
-    const parsed = raw ? JSON.parse(raw) : [];
-    const arr = Array.isArray(parsed) ? parsed : [];
-    arr.push({ ts: Date.now(), ...entry });
-    window.localStorage.setItem('sd-nav-trace', JSON.stringify(arr.slice(-50)));
-  } catch {
-    // Local diagnostics only — never block navigation.
-  }
-};
 
 interface Stage {
   number: number;
@@ -138,6 +126,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const confirmedView = viewState.view;
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
+  // Records the target the driver last asked to navigate to via `navigateToView`.
+  // Compared against the URL-derived `view` after the next render to detect
+  // "tapped X, ended up on Y" bounces (see the view-mismatch effect below).
+  const lastRequestedViewRef = useRef<OperatorView | null>(null);
+
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
   // are derived from location.search.
@@ -146,6 +139,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       view: target,
       binderView: target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined,
     };
+    lastRequestedViewRef.current = target;
     if (isPreview) {
       setPreviewViewState(nextState);
       if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
@@ -947,6 +941,40 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       url: window.location.href,
     });
   }, [binderView, location.pathname, location.search, view]);
+
+  // Global pointer-tap trace + per-location trace. Registered once when the
+  // driver portal mounts. `ensurePointerTraceInstalled` is idempotent.
+  useEffect(() => {
+    if (isPreview) return;
+    const dispose = ensurePointerTraceInstalled();
+    return dispose;
+  }, [isPreview]);
+
+  useEffect(() => {
+    if (isPreview) return;
+    appendNavTrace({
+      event: 'location-change',
+      path: location.pathname,
+      search: location.search,
+    });
+  }, [isPreview, location.pathname, location.search]);
+
+  // Compare on next render: navigateToView sets requestedRef to the target;
+  // if the URL resolves to a different view, log the mismatch and clear.
+  useEffect(() => {
+    const requested = lastRequestedViewRef.current;
+    if (requested == null) return;
+    if (requested !== view) {
+      appendNavTrace({
+        event: 'view-mismatch',
+        requested,
+        rendered: view,
+        path: location.pathname,
+        search: location.search,
+      });
+    }
+    lastRequestedViewRef.current = null;
+  }, [view, location.pathname, location.search]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
@@ -1959,6 +1987,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <button
                 type="button"
                 key={item.view}
+                data-nav-cta={`bottom-nav-${item.view}`}
                 onClick={() => navigateToView(item.view)}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
                   ${isActive ? 'text-gold' : 'text-surface-dark-muted hover:text-surface-dark-foreground'}`}
