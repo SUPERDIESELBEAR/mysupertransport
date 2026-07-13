@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight, BookOpen } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight, BookOpen, Camera } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { validateFile } from '@/lib/validateFile';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -491,6 +492,21 @@ function InlineDocUpload({
   const [uploading, setUploading] = useState<SlotKey | null>(null);
   const [justUploaded, setJustUploaded] = useState<Set<SlotKey>>(new Set());
   const fileRefs = useRef<Partial<Record<SlotKey, HTMLInputElement | null>>>({});
+  const [showTruckGuide, setShowTruckGuide] = useState(false);
+
+  // Distinct truck-photo positions already uploaded (Front, Driver Side, PS Steer Tire, …)
+  // The guided modal prefixes each file_name with `${label} — `, so we split on that.
+  const truckPhotoLabelsUploaded = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of uploadedDocs) {
+      if (d.document_type !== 'truck_photos') continue;
+      const label = (d.file_name ?? '').split(' — ')[0].trim();
+      if (label) set.add(label);
+    }
+    return Array.from(set);
+  }, [uploadedDocs]);
+  const REQUIRED_TRUCK_PHOTOS = 10;
+  const truckPhotosRemaining = Math.max(0, REQUIRED_TRUCK_PHOTOS - truckPhotoLabelsUploaded.length);
 
   // Only show slots that are currently requested by staff
   const requestedSlots = INLINE_SLOTS.filter(s => onboardingStatus[s.key] === 'requested');
@@ -576,6 +592,52 @@ function InlineDocUpload({
           const isSuccess = justUploaded.has(slot.key);
           const hasUploaded = uploaded.length > 0 || isSuccess;
 
+          // ── Special case: truck_photos needs the guided 10-position flow ──
+          // Without this branch the driver sees a single generic "Upload"
+          // button and uploads only one photo, missing Front / DS / PS / Rear
+          // + tire angles entirely.
+          if (slot.key === 'truck_photos') {
+            const complete = truckPhotosRemaining === 0;
+            return (
+              <div key={slot.key} className="flex items-center gap-3 px-3 py-2.5">
+                {complete ? (
+                  <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                ) : (
+                  <AlertTriangle className={`h-4 w-4 shrink-0 ${isActionRequired ? 'text-destructive' : 'text-gold'}`} />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold leading-tight ${complete ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                    {slot.label}
+                  </p>
+                  <p className={`text-[10px] mt-0.5 ${complete ? 'text-status-complete' : 'text-muted-foreground'}`}>
+                    {complete
+                      ? `✓ All ${REQUIRED_TRUCK_PHOTOS} positions uploaded`
+                      : `${truckPhotoLabelsUploaded.length} of ${REQUIRED_TRUCK_PHOTOS} positions uploaded — Front, Driver Side, Passenger Side, Rear + tires`}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={complete ? 'outline' : 'default'}
+                  onClick={() => setShowTruckGuide(true)}
+                  className={`shrink-0 text-xs h-8 px-3 gap-1.5 font-semibold ${
+                    complete
+                      ? 'border-status-complete text-status-complete bg-status-complete/10'
+                      : isActionRequired
+                      ? 'bg-destructive text-white hover:bg-destructive/90'
+                      : 'bg-gold text-surface-dark hover:bg-gold-light'
+                  }`}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  {truckPhotoLabelsUploaded.length === 0
+                    ? 'Start (10 photos)'
+                    : complete
+                    ? 'Review'
+                    : `Continue (${truckPhotosRemaining} left)`}
+                </Button>
+              </div>
+            );
+          }
+
           return (
             <div
               key={slot.key}
@@ -650,6 +712,19 @@ function InlineDocUpload({
           );
         })}
       </div>
+
+      {operatorId && (
+        <TruckPhotoGuideModal
+          open={showTruckGuide}
+          onClose={() => setShowTruckGuide(false)}
+          operatorId={operatorId}
+          onComplete={() => {
+            setShowTruckGuide(false);
+            onUploadComplete();
+          }}
+          alreadyUploadedLabels={truckPhotoLabelsUploaded}
+        />
+      )}
     </div>
   );
 }
