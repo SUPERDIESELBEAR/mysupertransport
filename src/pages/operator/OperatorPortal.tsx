@@ -936,6 +936,40 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     });
   }, [binderView, location.pathname, location.search, view]);
 
+  // Global pointer-tap trace + per-location trace. Registered once when the
+  // driver portal mounts. `ensurePointerTraceInstalled` is idempotent.
+  useEffect(() => {
+    if (isPreview) return;
+    const dispose = ensurePointerTraceInstalled();
+    return dispose;
+  }, [isPreview]);
+
+  useEffect(() => {
+    if (isPreview) return;
+    appendNavTrace({
+      event: 'location-change',
+      path: location.pathname,
+      search: location.search,
+    });
+  }, [isPreview, location.pathname, location.search]);
+
+  // If the last CTA target does not match what the URL resolved to, log it —
+  // this is our smoking gun for a "tapped X, ended up on Y" bounce.
+  const lastRequestedViewRef = useRef<OperatorView | null>(null);
+  useEffect(() => {
+    const requested = lastRequestedViewRef.current;
+    if (requested && requested !== view) {
+      appendNavTrace({
+        event: 'view-mismatch',
+        requested,
+        rendered: view,
+        path: location.pathname,
+        search: location.search,
+      });
+    }
+    lastRequestedViewRef.current = view;
+  }, [view, location.pathname, location.search]);
+
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
