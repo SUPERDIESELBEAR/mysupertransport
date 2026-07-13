@@ -41,6 +41,7 @@ import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
+import { appendNavTrace, ensurePointerTraceInstalled } from '@/lib/navTrace';
 import {
   type OperatorNavigateOptions,
   type OperatorView,
@@ -55,19 +56,6 @@ import {
 } from '@/lib/operatorRoutes';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-
-const appendNavTrace = (entry: Record<string, unknown>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = window.localStorage.getItem('sd-nav-trace');
-    const parsed = raw ? JSON.parse(raw) : [];
-    const arr = Array.isArray(parsed) ? parsed : [];
-    arr.push({ ts: Date.now(), ...entry });
-    window.localStorage.setItem('sd-nav-trace', JSON.stringify(arr.slice(-50)));
-  } catch {
-    // Local diagnostics only — never block navigation.
-  }
-};
 
 interface Stage {
   number: number;
