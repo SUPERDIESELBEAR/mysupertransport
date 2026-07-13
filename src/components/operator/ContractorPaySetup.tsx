@@ -14,6 +14,7 @@ import PayrollCalendar from '@/components/operator/PayrollCalendar';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { formatPhoneDisplay, formatPhoneInput } from '@/lib/utils';
 import { sanitizeRichHtml } from '@/lib/sanitize';
+import { withTimeout } from '@/lib/withTimeout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ── Company payroll reference documents ──────────────────────────────────────
