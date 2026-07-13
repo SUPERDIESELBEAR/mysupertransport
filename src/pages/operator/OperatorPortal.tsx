@@ -931,17 +931,31 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const progressPct = Math.round((completedStages / stages.length) * 100);
   const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
 
-  // Auto-redirect onboarded operators to the Home dashboard on first load,
-  // unless they came in via an explicit ?tab= deep-link.
+  // Normalize empty driver portal URLs once after status loads. This keeps
+  // /dashboard, /operator, and /owner from relying on an implicit default tab
+  // that can differ across remounts or stale route state.
   useEffect(() => {
-    if (homeAutoRedirected.current) return;
-    if (!isFullyOnboarded) return;
-    if (Object.keys(onboardingStatus).length === 0) return; // not loaded yet
+    if (isPreview) return;
+    if (Object.keys(onboardingStatus).length === 0) return;
     const params = new URLSearchParams(location.search);
-    if (params.get('tab')) { homeAutoRedirected.current = true; return; }
-    if (view === 'progress') navigateToView('home', { replace: true });
-    homeAutoRedirected.current = true;
-  }, [isFullyOnboarded, onboardingStatus, view, navigateToView, location.search]);
+    if (params.get('tab')) return;
+
+    const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
+    const next = buildOperatorViewUrl(location.pathname, location.search, target);
+    const href = `${next.pathname}${next.search}`;
+    setRequestedViewState({ view: target, binderView: next.binderView });
+    appendNavTrace({
+      event: 'normalize-empty-tab',
+      fromTab: view,
+      toTab: target,
+      fromSearch: window.location.search,
+      toSearch: next.search,
+      href,
+      renderedTab: target,
+      url: window.location.href,
+    });
+    navigate(href, { replace: true });
+  }, [isPreview, isFullyOnboarded, onboardingStatus, location.pathname, location.search, navigate, view]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
