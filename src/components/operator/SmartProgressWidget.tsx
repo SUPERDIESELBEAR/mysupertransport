@@ -617,6 +617,7 @@ function InlineDocUpload({
                   </p>
                 </div>
                 <Button
+                  type="button"
                   size="sm"
                   variant={complete ? 'outline' : 'default'}
                   onClick={() => setShowTruckGuide(true)}
@@ -686,6 +687,7 @@ function InlineDocUpload({
                 }}
               />
               <Button
+                type="button"
                 size="sm"
                 variant={hasUploaded ? 'outline' : 'default'}
                 disabled={isUploading || isSuccess}
@@ -955,6 +957,7 @@ export default function SmartProgressWidget({
         {/* CTA */}
         <div className="px-4 pt-2 pb-3.5">
           <Button
+            type="button"
             size="sm"
             onClick={() => onNavigateTo('docs-hub')}
             className="w-full text-xs h-8 gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"

@@ -134,7 +134,7 @@ function AppRoutes() {
       } />
       <Route path="/operator/*" element={
         !user ? <LoginRedirect /> :
-        (isOperator || isManagement) ? <OperatorPortal /> :
+        (isOperator || isTruckOwner || isManagement) ? <OperatorPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/owner/*" element={

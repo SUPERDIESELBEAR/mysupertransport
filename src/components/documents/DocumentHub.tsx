@@ -209,7 +209,7 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Manage driver documents and track acknowledgments</p>
           </div>
-          <Button onClick={() => { setEditDoc(null); setEditorOpen(true); }} className="gap-2 shrink-0">
+          <Button type="button" onClick={() => { setEditDoc(null); setEditorOpen(true); }} className="gap-2 shrink-0">
             <Plus className="h-4 w-4" />
             New Document
           </Button>
@@ -222,6 +222,7 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
             { key: 'compliance', label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" /> },
           ] as { key: AdminTab; label: string; icon: React.ReactNode }[]).map(tab => (
             <button
+              type="button"
               key={tab.key}
               onClick={() => setAdminTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
@@ -329,6 +330,7 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
       <div className="flex gap-1.5 flex-wrap">
         {(['All', ...CATEGORIES] as (DocCategory | 'All')[]).map(cat => (
           <button
+            type="button"
             key={cat}
             onClick={() => setActiveCategory(cat)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
