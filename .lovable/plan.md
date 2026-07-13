@@ -1,51 +1,62 @@
-## Findings
+## Goal
+Fix the recurring driver app issue where buttons appear to reload the screen and leave the driver stuck on the Status page, including actions like **Review & Acknowledge Documents**, **Complete Pay Setup**, **Sign ICA Now**, and other portal navigation buttons.
 
-Two separate driver reports point to the same fragile area: the front-facing driver portal currently mixes URL-based navigation, temporary requested view state, automatic default-tab normalization, and refresh/version logic. That can make a tap flash white, refill the progress tracker, then land back on Status instead of the selected page.
+## Diagnosis
+The driver portal still depends on a fragile `?tab=` query-parameter navigation system inside one large mounted page. Several effects refresh data, normalize URLs, and re-render the Status page while navigation is happening. On mobile/PWA installs, this can look like a page reload: white flash, progress tracker refills, and the driver remains on Status.
 
-For the ICA report, the **Sign ICA Now** button is a navigation CTA into the ICA tab. If navigation bounces back, it appears as if the button “refreshes” the page. There is also a backend signing-path risk for truck-owner/owner-operator ICA signing: the UI can submit owner contact edits, but the backend column whitelist currently rejects those non-staff field changes.
+Because multiple smaller fixes have not resolved it, the next fix should remove the fragile pattern instead of patching individual buttons again.
 
 ## Plan
 
-1. **Stabilize driver navigation as URL-only**
-   - Remove the extra “requested view” override layer that can get stuck or be cleared by data refreshes.
-   - Make the rendered driver page derive from one source of truth: `?tab=` in the URL.
-   - Keep the existing explicit tab URLs (`/dashboard?tab=...`, `/operator?tab=...`) but stop any data refresh from forcing the user back to Status unless the URL truly has no tab.
+1. **Convert driver app navigation to real nested routes**
+   - Replace `?tab=docs-hub`, `?tab=pay-setup`, `?tab=ica`, etc. with stable paths like:
+     ```text
+     /operator/status
+     /operator/documents
+     /operator/doc-hub
+     /operator/pay-setup
+     /operator/ica
+     /operator/messages
+     /operator/binder
+     ```
+   - Keep backward compatibility so old links like `/operator?tab=docs-hub` automatically redirect once to the matching route.
 
-2. **Make default-tab normalization one-time and safe**
-   - Only auto-normalize an empty driver URL once on first load.
-   - Never normalize over a valid requested tab like `?tab=ica`, `?tab=messages`, `?tab=documents`, etc.
-   - Preserve non-tab query params such as `source=pwa` without letting them reset the screen.
+2. **Remove the tab-normalization race**
+   - Eliminate the effect that rewrites empty or invalid `?tab=` URLs after onboarding data loads.
+   - Make the route path the single source of truth for the current screen.
+   - This prevents data refreshes from forcing the app back to Status.
 
-3. **Fix all driver CTA buttons that navigate between views**
-   - Ensure CTA buttons such as **Sign ICA Now**, **Review & Sign Now**, mobile menu buttons, and status action buttons explicitly use non-submit button behavior.
-   - This prevents accidental browser form submission/page reload behavior if any CTA is rendered inside or near a form-like container.
+3. **Create a safe driver navigation helper**
+   - Replace button calls like `navigateToView('docs-hub')` with a route helper that maps each destination to a real path.
+   - Use this same helper for top nav, mobile menu, status-page CTAs, document review, pay setup, ICA signing, notifications, and message links.
 
-4. **Fix ICA tab entry and signing reliability**
-   - Keep **Sign ICA Now** as an in-app navigation to the ICA tab, not a page refresh.
-   - Add a direct fallback: if navigation to ICA fails to confirm, force-replace the URL to `?tab=ica` instead of staying on Status.
-   - Improve ICA save handling so the user sees a friendly message if the agreement cannot be loaded or saved.
+4. **Harden action buttons against accidental submit/reload behavior**
+   - Audit driver-facing CTAs in `OperatorPortal`, `OperatorStatusPage`, `SmartProgressWidget`, ICA signing, document hub, and pay setup.
+   - Ensure all navigation/action buttons explicitly use `type="button"` and do not rely on form submit behavior.
 
-5. **Patch owner-operator ICA signing backend rule**
-   - Update the backend whitelist so owner-operator signers can save the owner contact fields the ICA screen intentionally allows them to edit.
-   - Keep all protected contract fields locked for drivers/owners.
-   - Preserve the existing staff/admin full-access behavior.
+5. **Remove forced refresh behavior from driver navigation paths**
+   - Keep manual refresh available, but ensure normal navigation does not call `window.location.reload()` or trigger a full app reload.
+   - Leave update notifications as manual “Refresh now” prompts only.
 
-6. **Clean up stale installed-app behavior**
-   - Add a safe one-time cleanup for stale app-shell service workers/caches on the published installed web app, without adding offline mode.
-   - This addresses drivers who removed/reinstalled the home-screen app but may still be affected by old browser-controlled app state.
+6. **Add driver-safe route fallbacks**
+   - If a driver opens `/operator`, redirect to `/operator/status` or `/operator/home` based on onboarding status.
+   - If a driver opens an unknown driver sub-route, show a friendly fallback with a button back to Status instead of dumping them into a broken state.
 
-7. **Add targeted diagnostics for this issue**
-   - Keep lightweight navigation tracing, but add clearer entries for: tap received, URL written, tab rendered, and unexpected tab reset.
-   - Add ICA-specific trace entries for CTA click, ICA screen mounted, contract loaded, and signing save failure stage.
-   - These traces stay local/non-sensitive and help confirm whether a future report is a route reset, stale installed app, or backend save failure.
+7. **Verify the highest-risk flows**
+   - Test direct navigation and button clicks for:
+     - Status → Review & Acknowledge Documents
+     - Status → Complete Pay Setup
+     - Status → Sign ICA Now
+     - Mobile hamburger menu → any page
+     - Bottom nav → Doc Hub / Messages / Binder
+   - Confirm the URL changes to a real path and does not snap back to Status.
 
-8. **Verify with browser testing**
-   - Test public driver portal navigation between Status, Documents, Messages, Doc Hub, ICA, Binder, and FAQ.
-   - Test direct deep links like `/dashboard?tab=ica` and `/operator?tab=ica`.
-   - Test mobile-size navigation behavior and confirm the progress tracker no longer refills unless the user intentionally returns to Status.
+## Files expected to change
+- `src/App.tsx`
+- `src/pages/operator/OperatorPortal.tsx`
+- `src/components/operator/OperatorStatusPage.tsx`
+- `src/components/operator/SmartProgressWidget.tsx`
+- Possibly `DocumentHub`, `ContractorPaySetup`, and `OperatorICASign` if they contain internal navigation CTAs.
 
 ## Expected result
-
-- The driver who is stuck on one page should be able to move between app screens without the white flash/reset loop.
-- The driver clicking **Sign ICA Now** should land on the ICA screen consistently.
-- Owner-operator ICA signing should no longer be rejected by the backend when allowed owner contact fields are included.
+Driver app navigation becomes route-based and resilient. Tapping a button should move to the intended screen without a white flash/snap-back loop, even for installed home-screen users and drivers with stale sessions.
