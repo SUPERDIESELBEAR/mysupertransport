@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useRef, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -92,7 +92,7 @@ function NavTraceRouterListener() {
 }
 
 /** Records which branch a role-gated route rendered on each pass. */
-function GuardTrace({ route, branch, children }: { route: string; branch: string; children: React.ReactNode }) {
+function GuardTrace({ route, branch, children }: { route: string; branch: string; children: ReactNode }) {
   useEffect(() => {
     appendRouteTrace({ event: 'guard-render', route, branch });
   }, [route, branch]);
