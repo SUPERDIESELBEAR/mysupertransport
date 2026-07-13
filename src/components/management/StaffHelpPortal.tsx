@@ -1,191 +1,187 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { LifeBuoy, Search, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { LifeBuoy, Send, BookOpen, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
 
-interface StaffFaqHit {
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
-  tags: string[];
-  last_verified_at: string;
-  rank: number;
-  headline: string;
+interface Source { id: string; question: string; category: string }
+interface ChatMsg {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: Source[];
 }
 
-const STALE_DAYS = 90;
-const isStale = (iso: string) =>
-  Date.now() - new Date(iso).getTime() > STALE_DAYS * 24 * 60 * 60 * 1000;
-
-const CATEGORY_LABEL: Record<string, string> = {
-  application_process: 'Application Process',
-  background_screening: 'Background Screening',
-  documents_requirements: 'Documents & Requirements',
-  ica_contracts: 'ICA Contracts',
-  missouri_registration: 'Missouri Registration',
-  equipment: 'Equipment',
-  dispatch_operations: 'Dispatch & Operations',
-  general_owner_operator: 'General',
-};
+const SUGGESTIONS = [
+  'How do I revert an application?',
+  'How do I send a PEI request?',
+  'How do I add a new driver?',
+  'Where do I edit the onboarding pipeline stages?',
+  'How do I deactivate a fuel card?',
+  'How do I open a driver’s inspection binder from Dispatch?',
+];
 
 export default function StaffHelpPortal() {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<StaffFaqHit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState<string>('all');
-
-  const runSearch = async (q: string) => {
-    setLoading(true);
-    const { data, error } = await supabase.rpc('search_staff_faqs', {
-      q: q.trim() || '',
-    });
-    if (error) {
-      console.error('search_staff_faqs failed', error);
-      toast.error('Search failed.');
-      setResults([]);
-    } else {
-      setResults((data as StaffFaqHit[]) ?? []);
-    }
-    setLoading(false);
-  };
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => runSearch(query), 200);
-    return () => clearTimeout(t);
-  }, [query]);
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, sending]);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    results.forEach(r => set.add(r.category));
-    return ['all', ...Array.from(set)];
-  }, [results]);
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
-  const filtered = results.filter(r =>
-    category === 'all' ? true : r.category === category
-  );
+  const send = async (text: string) => {
+    const content = text.trim();
+    if (!content || sending) return;
+    const nextMessages: ChatMsg[] = [...messages, { role: 'user', content }];
+    setMessages(nextMessages);
+    setInput('');
+    setSending(true);
 
-  const staleCount = results.filter(r => isStale(r.last_verified_at)).length;
+    try {
+      const { data, error } = await supabase.functions.invoke('staff-help-chat', {
+        body: {
+          messages: nextMessages.map(({ role, content }) => ({ role, content })),
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const answer = (data as any)?.answer as string;
+      const sources = ((data as any)?.sources ?? []) as Source[];
+      setMessages(prev => [...prev, { role: 'assistant', content: answer || '(no response)', sources }]);
+    } catch (err: any) {
+      console.error('staff-help-chat failed', err);
+      const msg = err?.message?.includes('rate') ? 'The assistant is busy. Please retry in a moment.'
+        : err?.message?.includes('credits') ? 'AI credits are exhausted. Add credits in workspace billing.'
+        : 'Assistant unavailable. Please try again.';
+      toast.error(msg);
+      setMessages(prev => [...prev, { role: 'assistant', content: `_${msg}_` }]);
+    } finally {
+      setSending(false);
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send(input);
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="flex flex-col h-[calc(100dvh-8rem)] animate-fade-in">
       {/* Header */}
-      <div>
+      <div className="mb-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
           <LifeBuoy className="h-6 w-6 text-gold shrink-0" />
           Staff Help
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Searchable knowledge base for how to do things in SUPERDRIVE.
+          Ask anything about using the SUPERDRIVE dashboard and driver app. Answers draw from
+          published FAQs and general product knowledge.
         </p>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="How do I revert an application, add a driver, edit pipeline stages…"
-          className="pl-9 h-11 text-base"
-        />
+      {/* Transcript */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto rounded-xl border border-border bg-muted/20 p-4"
+      >
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-4">
+            <div className="h-14 w-14 rounded-full bg-gold/15 flex items-center justify-center mb-4">
+              <LifeBuoy className="h-7 w-7 text-gold" />
+            </div>
+            <p className="text-sm text-muted-foreground max-w-sm mb-6">
+              I can walk you through workflows, sidebar features, and driver-app steps. Try one
+              of these to start:
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => send(s)}
+                  disabled={sending}
+                  className="text-xs px-3 py-2 rounded-full border border-border bg-white hover:border-gold/60 hover:bg-gold/5 text-foreground transition-colors disabled:opacity-50"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((m, i) => (
+              <div key={i} className={m.role === 'user' ? 'flex justify-end' : ''}>
+                {m.role === 'user' ? (
+                  <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-surface-dark text-white px-4 py-2 text-sm whitespace-pre-wrap">
+                    {m.content}
+                  </div>
+                ) : (
+                  <div className="max-w-[95%]">
+                    <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-gold prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:rounded">
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                    {m.sources && m.sources.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" /> Sources:
+                        </span>
+                        {m.sources.map(s => (
+                          <Badge
+                            key={s.id}
+                            variant="outline"
+                            className="text-[11px] font-normal max-w-[280px] truncate"
+                            title={s.question}
+                          >
+                            {s.question}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {sending && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Category chips */}
-      {categories.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {categories.map(c => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                category === c
-                  ? 'bg-gold text-surface-dark border-gold'
-                  : 'bg-white text-muted-foreground border-border hover:border-gold/50'
-              }`}
-            >
-              {c === 'all' ? 'All' : CATEGORY_LABEL[c] ?? c}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Stale banner */}
-      {staleCount > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          {staleCount} article{staleCount === 1 ? '' : 's'} not verified in the last {STALE_DAYS} days.
-          Content owners should re-review from the FAQ Manager.
-        </div>
-      )}
-
-      {/* Results */}
-      {loading ? (
-        <div className="py-16 text-center text-muted-foreground text-sm">Searching…</div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center">
-          <Sparkles className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">
-            {query ? 'No matches. Try different keywords.' : 'No staff articles yet.'}
-          </p>
-        </div>
-      ) : (
-        <Accordion type="multiple" className="space-y-2">
-          {filtered.map(hit => (
-            <AccordionItem
-              key={hit.id}
-              value={hit.id}
-              className="bg-white border border-border rounded-xl px-4 shadow-sm data-[state=open]:shadow-md transition-shadow"
-            >
-              <AccordionTrigger className="hover:no-underline py-3">
-                <div className="flex-1 text-left min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      {CATEGORY_LABEL[hit.category] ?? hit.category}
-                    </Badge>
-                    {isStale(hit.last_verified_at) ? (
-                      <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Needs review
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Verified
-                      </Badge>
-                    )}
-                    {(hit.tags ?? []).slice(0, 3).map(t => (
-                      <Badge key={t} variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-                        #{t}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p
-                    className="text-sm font-semibold text-foreground [&_mark]:bg-gold/30 [&_mark]:text-inherit [&_mark]:rounded [&_mark]:px-0.5"
-                    dangerouslySetInnerHTML={{ __html: hit.headline || hit.question }}
-                  />
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pb-4">
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                  {hit.answer}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-3">
-                  Last verified {formatDistanceToNow(new Date(hit.last_verified_at), { addSuffix: true })}
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      )}
+      {/* Composer */}
+      <div className="mt-3 flex gap-2 items-end">
+        <Textarea
+          ref={textareaRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={onKeyDown}
+          disabled={sending}
+          placeholder="Ask how to do something in SUPERDRIVE…"
+          rows={2}
+          className="resize-none text-sm"
+        />
+        <Button
+          onClick={() => send(input)}
+          disabled={sending || !input.trim()}
+          size="icon"
+          className="h-11 w-11 shrink-0 bg-gold hover:bg-gold/90 text-surface-dark"
+        >
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+      </div>
     </div>
   );
 }
