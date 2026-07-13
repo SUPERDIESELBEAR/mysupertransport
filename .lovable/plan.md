@@ -1,90 +1,38 @@
-## What Emma's diagnostics actually tell us
+## Root cause
 
-The trace is a smoking gun, but not the smoking gun we expected.
+Emma's diagnostics show every tap forward followed 26–30ms later by a bounce entry with `historyStateKey: null` and `historyLen` unchanged. React Router pushes always include a router-generated key — a null key with unchanged length is the fingerprint of `window.history.back()`.
 
-```
-T+0ms    tap  "review-acknowledge-documents"  →  navigate("/operator/doc-hub")
-T+23ms   rendered-route  view=docs-hub  path=/operator/doc-hub   ← the tap worked
-T+23ms   location-change              path=/operator/doc-hub
-T+38ms   rendered-route  view=progress path=/operator/status     ← BOUNCE
-T+38ms   location-change              path=/operator/status
-```
+The only place in the app that calls `history.back()` is `src/hooks/useBackButton.ts`. It fires from:
 
-So the tap **did** register, `navigateToView('docs-hub')` **did** fire, the URL **did** flip to `/operator/doc-hub`, and `OperatorPortal` **did** render the Doc Hub view. Then, 38ms later, the URL was rewritten to `/operator/status` — and crucially, **none of our existing "redirect-*" trace events fired**. That means the second navigation did *not* come from `navigateToView` or from the "known operator route" redirect effect inside `OperatorPortal`. It came from somewhere else — most likely one of:
+1. The effect cleanup when the hook unmounts while `pushedRef.current === true`.
+2. The `if (!isOpen)` branch when `isOpen` flips false.
 
-1. A brief auth-state change (visibility/token refresh) that made `App.tsx`'s `/operator/*` guard render `<Navigate to="/dashboard" replace />`, which then flowed into the dashboard→operator redirect and landed on `/operator/status`.
-2. A history push from a component that isn't currently instrumented (Suspense boundary, error boundary, or a hook we haven't audited).
-3. The browser back/forward cache on iOS 18.7 Safari standalone replaying a prior history entry.
+Every Radix `Dialog` / `Sheet` in the app auto-sets its internal `isOpen` to `true` on mount, then calls `useBackButton(isOpen, ...)`. `FilePreviewModal` passes hardcoded `true`. When any of those unmount as a side effect of a route change — a Radix portal still mounted for a beat, a toast/notification popover, a modal inside a route subtree — the cleanup fires `history.back()` and reverses the navigation the driver just made. No portal-level trace fires, which matches the trace exactly.
 
-The next step is to make it impossible for the next recording to be ambiguous.
+## Fix
 
-## Plan
+Make `useBackButton` safe: never call `history.back()` if doing so would reverse a real navigation. It should only pop its virtual entry when the current URL is still the URL that was there when the entry was pushed.
 
-### 1. App-level history tracing (catches every navigation, no matter the source)
+## Changes
 
-Add a tiny `NavTraceRouterListener` component mounted inside `<BrowserRouter>` in `src/App.tsx`. It subscribes to `useLocation()` and, on every change, records:
+### `src/hooks/useBackButton.ts`
+- On the `pushState` push, capture `pushedHref = window.location.href` in a ref.
+- Wrap all `history.back()` calls in a guard: `if (window.location.href === pushedHrefRef.current) window.history.back();` otherwise just clear the ref. The user (or router) has already moved past our virtual entry, so popping it would over-pop and rewind their real navigation.
+- Keep existing popstate handling — that path is user-initiated back and stays correct.
+- Add a nav trace entry (`kind: 'back-button'`, event: `skipped-back` vs `fired-back`) so future diagnostics show exactly when this hook fires.
 
-- new pathname + search
-- `history.state` (so we can see React Router's key/idx and detect popstate/back-forward)
-- `performance.navigation`-style hint (`navigation.type` from the Performance API when available)
-- current `document.visibilityState`
-- previous pathname (from a ref)
+### `src/lib/navTrace.ts`
+- Add small `appendBackButtonTrace` helper mirroring the existing `appendAuthTrace` / `appendRouteTrace` wrappers.
 
-This runs above `OperatorPortal`, so it captures URL changes that happen *between* portal renders (i.e. during unmount/remount), which the current in-portal trace misses.
+### No other files change
+- `dialog.tsx`, `sheet.tsx`, `DocRow.tsx` (FilePreviewModal), `DocRow.tsx:411` all keep their existing calls. The behavior stays identical when the modal is closed by the user on the same page; only the destructive unmount-during-navigation path is neutralized.
 
-### 2. Auth-event tracing
+## Verification
 
-In `src/hooks/useAuth.tsx`, log every `onAuthStateChange` event (`event` string only — never the token) plus `fetchRoles` start/end and the resulting role array length. This will confirm or rule out the "token refresh briefly drops role flags" hypothesis.
+- Reproduce Emma's tap sequence (`/operator/status` → tap "Review & Acknowledge Documents") in Playwright with an iPhone viewport and confirm `/operator/doc-hub` is reached and stays.
+- Confirm hardware back on an open modal still closes it (unit-style check: mount, push virtual entry, dispatch popstate → `onClose` called; unmount while on same URL → `back()` still fires; unmount after URL change → `back()` skipped).
+- Ask Emma to reinstall/reload the PWA and retry. Diagnostics will now show `back-button:skipped-back` entries at the moments where the old bug fired.
 
-### 3. Route-guard render tracing in `App.tsx`
+## Follow-ups (not in this change)
 
-Wrap the `/operator/*` route element in a small logger that records which branch it renders on each pass: `LoginRedirect`, `OperatorPortal`, or `<Navigate to="/dashboard" replace />`. Same for `/dashboard`. This directly answers "did we bounce out of /operator/* because the guard briefly said no?".
-
-### 4. Harden the `/operator/*` guard against transient auth flicker (the likely fix)
-
-Today:
-```tsx
-<Route path="/operator/*" element={
-  !user ? <LoginRedirect /> :
-  (isOperator || isTruckOwner || isManagement) ? <OperatorPortal /> :
-  <Navigate to="/dashboard" replace />
-} />
-```
-
-The `<Navigate>` fallback fires the instant `roles` is briefly empty (e.g. right after a `TOKEN_REFRESHED` event, before `fetchRoles` resolves). Change to:
-
-- If `user` exists but `roles.length === 0` and we've previously seen this user with roles, keep rendering `<OperatorPortal />` (or a neutral loading state) instead of redirecting away. Track "roles have loaded at least once for this user" via a ref/state in `useAuth`.
-- Only fall through to `<Navigate to="/dashboard" />` when roles have loaded and genuinely lack operator/truck_owner/management — never during a refetch.
-
-Apply the same guard to `/owner/*`, `/staff/*`, `/dispatch/*`, `/management/*` and the `/dashboard` role-switch to prevent the same class of flicker elsewhere.
-
-### 5. Kill the `OperatorPortal` "redirect empty/invalid route" as a *second* safety net
-
-The redirect effect at `OperatorPortal.tsx:895` is defensive — it normalizes `/operator` or `/dashboard` into `/operator/status`. Once the guard in (4) is in place, this effect should never see a `/dashboard` URL. To be safe, tighten it so it only fires when `segments.length === 0` **and** the base path is `/operator` or `/owner` (not `/dashboard`). This closes the loop even if the guard hypothesis is wrong.
-
-### 6. Prominent in-app "Support Diagnostics" button (already partially done last turn)
-
-Keep the visible "Support" link next to the version footer so Emma can copy the new, richer trace in one tap. No behavior change beyond what shipped previously.
-
-## Files to change
-
-- `src/App.tsx` — add `NavTraceRouterListener`; wrap route guards with tracing; harden `/operator/*` and sibling guards to tolerate transient empty `roles`.
-- `src/hooks/useAuth.tsx` — trace auth events + role fetch lifecycle; expose "rolesEverLoaded" flag for the guards.
-- `src/pages/operator/OperatorPortal.tsx` — narrow the redirect effect so it only normalizes when actually on `/operator`/`/owner` base with empty segments.
-- `src/lib/navTrace.ts` — small helpers for `appendAuthTrace` and `appendRouteTrace` (thin wrappers around `appendNavTrace` so they share the same ring buffer).
-
-## What Emma will see
-
-No visual change. Next time she taps a broken button and copies diagnostics, the trace will include:
-
-- exactly which router listener rewrote the URL back to `/operator/status`
-- whether an auth event fired in the same window
-- which guard branch `App.tsx` rendered before and after the bounce
-
-That will either confirm the auth-flicker theory (in which case the guard change in step 4 is the fix) or point us at the real culprit within one more round-trip.
-
-## Out of scope
-
-- Rewriting the driver portal's routing model further.
-- Changing PWA / service worker behavior (her diagnostics confirm no SW registered).
-- Any UI polish or non-diagnostic behavior changes.
+- Once the fix is confirmed, we can trim the temporary `guard-render`, `router-location`, and auth-lifecycle traces added earlier this week down to a much smaller ring buffer.
