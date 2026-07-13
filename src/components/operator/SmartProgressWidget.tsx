@@ -592,6 +592,52 @@ function InlineDocUpload({
           const isSuccess = justUploaded.has(slot.key);
           const hasUploaded = uploaded.length > 0 || isSuccess;
 
+          // ── Special case: truck_photos needs the guided 10-position flow ──
+          // Without this branch the driver sees a single generic "Upload"
+          // button and uploads only one photo, missing Front / DS / PS / Rear
+          // + tire angles entirely.
+          if (slot.key === 'truck_photos') {
+            const complete = truckPhotosRemaining === 0;
+            return (
+              <div key={slot.key} className="flex items-center gap-3 px-3 py-2.5">
+                {complete ? (
+                  <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                ) : (
+                  <AlertTriangle className={`h-4 w-4 shrink-0 ${isActionRequired ? 'text-destructive' : 'text-gold'}`} />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold leading-tight ${complete ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                    {slot.label}
+                  </p>
+                  <p className={`text-[10px] mt-0.5 ${complete ? 'text-status-complete' : 'text-muted-foreground'}`}>
+                    {complete
+                      ? `✓ All ${REQUIRED_TRUCK_PHOTOS} positions uploaded`
+                      : `${truckPhotoLabelsUploaded.length} of ${REQUIRED_TRUCK_PHOTOS} positions uploaded — Front, Driver Side, Passenger Side, Rear + tires`}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={complete ? 'outline' : 'default'}
+                  onClick={() => setShowTruckGuide(true)}
+                  className={`shrink-0 text-xs h-8 px-3 gap-1.5 font-semibold ${
+                    complete
+                      ? 'border-status-complete text-status-complete bg-status-complete/10'
+                      : isActionRequired
+                      ? 'bg-destructive text-white hover:bg-destructive/90'
+                      : 'bg-gold text-surface-dark hover:bg-gold-light'
+                  }`}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  {truckPhotoLabelsUploaded.length === 0
+                    ? 'Start (10 photos)'
+                    : complete
+                    ? 'Review'
+                    : `Continue (${truckPhotosRemaining} left)`}
+                </Button>
+              </div>
+            );
+          }
+
           return (
             <div
               key={slot.key}
@@ -666,6 +712,19 @@ function InlineDocUpload({
           );
         })}
       </div>
+
+      {operatorId && (
+        <TruckPhotoGuideModal
+          open={showTruckGuide}
+          onClose={() => setShowTruckGuide(false)}
+          operatorId={operatorId}
+          onComplete={() => {
+            setShowTruckGuide(false);
+            onUploadComplete();
+          }}
+          alreadyUploadedLabels={truckPhotoLabelsUploaded}
+        />
+      )}
     </div>
   );
 }
