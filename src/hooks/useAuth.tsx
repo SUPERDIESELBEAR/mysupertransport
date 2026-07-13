@@ -147,6 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // IMPORTANT: No await inside onAuthStateChange — causes deadlock with Supabase client
     // Use fire-and-forget pattern for subsequent auth events (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      appendAuthTrace({
+        event: 'auth-state-change',
+        supabaseEvent: event,
+        hasSession: !!session,
+        userId: session?.user?.id?.slice(0, 8) ?? null,
+      });
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -158,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
         setActiveRoleState(null);
         setProfile(null);
+        setRolesLoadedFor(null);
         setLoading(false);
       }
     });
