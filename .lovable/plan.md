@@ -1,23 +1,47 @@
-# Add Procedure Docs to Stage 9 (Staff View)
+## Diagnosis (already confirmed)
 
-## Why the docs aren't showing
-The earlier change only updated the **driver-facing** Stage 9 (`ContractorPaySetup.tsx`). The **staff-side** Stage 9 in `OperatorDetailPanel.tsx` (the screen in the screenshot) has its own hardcoded doc list that still only shows Payroll Deposit Overview and Payroll Calendar. Handbook, BOL/POD Procedures, and Loadout Trailer Guide were never added there.
+The driver-facing document flows have a shared bug pattern: async calls to storage and the database don't have timeouts, and their errors are silently swallowed. On a flaky mobile connection this shows as an infinite spinner with no toast — matching the reported behavior.
 
-## What to change
-Edit `src/pages/staff/OperatorDetailPanel.tsx` (Stage 9 block, ~lines 6229–6380):
+Concrete offenders:
 
-1. **Add a new "Operational Procedure Documents" section** directly below the Payroll Reference Documents block, listing:
-   - SUPERTRANSPORT Handbook (PDF)
-   - BOL / POD Procedures (PDF)
-   - Loadout Trailer Guide (rich text)
-   
-   Docs are fetched live from `driver_documents` by the same three IDs used in `ContractorPaySetup.tsx` (`HUB_DOC_IDS`). PDF rows open in the existing `previewDoc` modal; the rich-text row opens in a small dialog using `sanitizeRichHtml` (same pattern as the operator component).
+- `DocumentHub.tsx` — `fetchDocuments`, `fetchAcknowledgments`, `fetchAckCounts` all destructure only `data`, throw away `error`, and never set `loading = false` in a `finally`.
+- `OperatorDocumentUpload.tsx` — `handleUpload` (and the two decal upload variants) have no timeout on the storage `upload()` call, so if the network stalls the button spins forever.
+- `ContractorPaySetup.tsx` — Stage 9 fetch of the three hub docs added last turn uses the same swallow-errors pattern.
 
-2. **Extend the Doc Acknowledgments summary** to also show acknowledgment status (and timestamp) for each of the 3 hub docs, pulled from `document_acknowledgments` for this operator's `user_id` — matching the driver-side gating so staff can see all 5 required acknowledgments in one place.
+RLS and storage policies were verified against the DB and are not the cause. `driver_documents` returns 6 rows for a signed-in driver.
 
-3. **Data fetch**: add one `useEffect` in the panel that loads the 3 hub docs + this operator's acknowledgments + signed URLs for PDF paths, storing them in local state (`hubDocs`, `hubAcks`, `hubPdfUrls`). Keyed off the selected operator's `user_id`.
+## What to build
 
-No schema changes, no driver-side changes, no gating changes — this is purely surfacing the same data on the staff panel.
+1. **New helper** `src/lib/withTimeout.ts`
+   - `withTimeout(promise, ms, label)` — rejects with a friendly `Error` after `ms` if the wrapped promise doesn't settle. Used to wrap storage uploads and long-running fetches.
 
-## Files touched
-- `src/pages/staff/OperatorDetailPanel.tsx` — add fetch effect + render 3 procedure rows + extend ack summary
+2. **`src/components/documents/DocumentHub.tsx`**
+   - Wrap `fetchDocuments`, `fetchAcknowledgments`, `fetchAckCounts` in `try / catch / finally`.
+   - Capture the Supabase `{ data, error }` tuple; if `error` is set, toast a friendly message ("Couldn't load documents. Pull to refresh or check your connection.").
+   - `finally { setLoading(false) }` so the skeleton always clears.
+   - Add a 15 s `withTimeout` around each query.
+
+3. **`src/components/operator/OperatorDocumentUpload.tsx`**
+   - Wrap `supabase.storage...upload(...)` in `withTimeout(..., 60_000, 'Upload')` for `handleUpload`, `handleDecalPhoto`, `handleDecalExtra`.
+   - Keep the existing `try/catch` — timeouts now surface as the standard "Upload failed" toast with the friendly message.
+   - No change to storage buckets or RLS.
+
+4. **`src/components/operator/ContractorPaySetup.tsx`**
+   - Same `try / catch / finally` treatment on the Stage 9 hub-doc fetch added last turn.
+   - Toast on failure so the page doesn't sit in a loading state forever.
+
+5. **Friendly error messages only**
+   - All toasts use human-readable copy ("Couldn't load documents", "Upload failed — check your connection"). Raw Supabase error strings are never surfaced.
+
+## Verification
+
+- Sim a slow network in DevTools (offline / throttled) and confirm:
+  - Document Hub shows the empty state + a toast instead of an eternal skeleton.
+  - Onboarding upload button releases in ≤ 60 s with a toast instead of spinning forever.
+- Sign in as two different driver accounts, upload a small PDF to each of Form 2290 and Truck Title, confirm the doc appears in the slot with a green check and the correct filename.
+- Confirm no raw `Error: ...` text shows in any toast.
+
+## Out of scope
+
+- No changes to storage policies, RLS, or bucket configuration.
+- No visual redesign of the Document Hub or upload cards — only error-path behavior.
