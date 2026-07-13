@@ -126,6 +126,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const confirmedView = viewState.view;
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
+  // Records the target the driver last asked to navigate to via `navigateToView`.
+  // Compared against the URL-derived `view` after the next render to detect
+  // "tapped X, ended up on Y" bounces (see the view-mismatch effect below).
+  const lastRequestedViewRef = useRef<OperatorView | null>(null);
+
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
   // are derived from location.search.
