@@ -1,32 +1,41 @@
-## Approved scope — ready to execute on build mode
+## Diagnosis
 
-Running the full document-upload audit end-to-end:
+**Where the individual position prompts live:** `src/components/operator/TruckPhotoGuideModal.tsx` renders 10 guided slots — Front, Driver Side, Rear, Passenger Side + 6 tire angles. Each slot has its own step, hint, camera prompt, and upload.
 
-1. **Code audit pass (read-only)** — grep every `supabase.storage.from(...).upload(` and `.uploadToSignedUrl(` call site and verify each has:
-   - `withTimeout` wrapper (60s ceiling for uploads, 15s for fetches)
-   - `try/catch/finally` that resets local `uploading`/`loading` state
-   - Friendly toast on failure (no raw `err.message` leaks)
-   - Orphan protection: DB insert inside the same try block; best-effort storage cleanup if the DB write fails
-   - Any miss = fix ticket logged in the report before manual QA starts
+**Where the guided flow correctly launches:** Stage 3 documents page (`OperatorDocumentUpload.tsx`, lines 445-505). The `truck_photos` slot skips the generic upload button and shows a gold **"Take Truck Photos (10 Required)"** CTA that opens `TruckPhotoGuideModal`. This path is fine.
 
-2. **Test account provisioning** — call the `create-test-operator` edge function twice to create two isolated throwaway operators. Confirmed isolation: the function tags accounts with a test flag, uses synthetic emails, and does not touch any production driver records. Accounts will be listed by ID in the report and can be deleted after the run.
+**Where the bug is:** `src/components/operator/SmartProgressWidget.tsx`, lines 449-454. The `INLINE_SLOTS` array on the driver dashboard lists `truck_photos` alongside `form_2290` / `truck_title` / `truck_inspection` and renders a plain single-file picker (line 613-624). When staff mark truck photos "requested", the widget shows one generic **Upload** button on the dashboard. Drivers tap it, pick one photo, see the ✓ success flash, and believe they're done — the 10-slot guided modal is never opened.
 
-3. **Automated Playwright coverage** — script under `/tmp/browser/upload-audit/` that logs in as both test operators and walks every upload surface listed below, capturing screenshots at: file picker, mid-upload, post-upload list, and post-reload. Assertions: no `role="status"` spinner remains after 65s; DB row exists; storage object exists.
+Answers to the diagnostic questions:
+1. Both — the prompts are present in the codebase and render on the Stage 3 page, but they are entirely bypassed on the dashboard widget path.
+2. Not a mobile-only display issue; the widget renders the same broken single-slot on all viewports.
+3. Yes — when the dashboard `InlineDocUpload` widget was added, `truck_photos` was included in `INLINE_SLOTS` without a special-case branch to launch `TruckPhotoGuideModal`.
 
-4. **Manual QA checklist** per surface: happy path, large file (~9 MB), slow-3G throttle, failure injection, cross-account, cross-device (desktop Chrome / iOS Safari PWA / Android Chrome PWA for representative flows + all camera captures), reload persistence, staff mirror.
+## Fix
 
-**Surfaces covered:**
-- Onboarding Stages 1, 2, 3 (incl. truck photos w/ environment camera), 4, 5, 5A, 6, 8, 9 (voided check / direct deposit)
-- Document Hub uploads + re-uploads
-- Driver Vault uploads
-- Optional docs (`driver_optional_docs`)
-- Decal photo capture (front/side + extras)
-- Equipment Asset Sheet return shipping receipt
-- Truck DOT inspection / maintenance record uploads
-- Message attachments (if driver-attachable)
-- ICA signature image write
-- Application resume attachments during revision
+In `SmartProgressWidget.tsx → InlineDocUpload`:
 
-5. **Deliverable** — `/mnt/documents/upload-audit-report.md` with per-surface rows containing: surface, path tested, device, result (pass/fail), screenshot links, DB/storage evidence, plus a prioritized fix list. All code-audit findings appear at the top before the manual QA results.
+1. Add a `showTruckGuide` boolean state.
+2. When the current requested slot is `truck_photos`, render a dedicated CTA row that reads **"Take Truck Photos (10 Required)"** (or **"Continue Truck Photos (N left)"** if some are already uploaded) instead of the generic file input + Upload button. The button opens `TruckPhotoGuideModal`.
+3. Compute the "N of 10 uploaded" count from `uploadedDocs` filtered by `document_type === 'truck_photos'` and distinct `file_name` prefix (same logic used in `OperatorDocumentUpload.tsx` line 448-452).
+4. Render `<TruckPhotoGuideModal>` at the end of `InlineDocUpload`, wired to `operatorId`, `alreadyUploadedLabels`, and `onUploadComplete`.
+5. All other slots (`form_2290`, `truck_title`, `truck_inspection`) keep the existing single-file picker behavior.
 
-Approve to switch to build mode and I'll start with the code audit pass immediately.
+No schema changes. No changes to `TruckPhotoGuideModal.tsx` itself. No changes to `OperatorDocumentUpload.tsx`.
+
+## Verification
+
+- `bunx tsgo --noEmit` clean.
+- Manual walk-through in Playwright when a driver session is available:
+  1. As two seeded drivers, ensure `onboarding_status.truck_photos = 'requested'`.
+  2. Open the driver dashboard on mobile viewport (390×844) and desktop.
+  3. Confirm the widget shows **"Take Truck Photos (10 Required)"** — not a generic Upload button.
+  4. Tap it → guided modal opens → each of the 4 body positions (Front, DS, Rear, PS) plus 6 tire angles has its own step.
+  5. Upload two photos, close, reopen — progress persists and the widget label updates to "Continue Truck Photos (8 left)".
+  6. Staff view: confirm each uploaded photo carries its position label ("Front — file.jpg") in the management side.
+
+## Technical notes
+
+- The staff-side "N of 10 required" gate already exists in `OperatorDocumentUpload.tsx` (line 391-408) and uses `distinctSlotsUploaded = new Set(uploaded.map(d => (d.file_name ?? '').split(' — ')[0].trim()))` — the fix reuses that logic verbatim so both surfaces stay in sync.
+- `TruckPhotoGuideModal` already writes `file_name` prefixed with the position label (`${currentSlot.label} — ${file.name}`), so staff mirroring is unchanged.
+- The dashboard widget's existing `justUploaded` flash animation is dropped for the truck_photos row since the guided modal handles its own success UX.
