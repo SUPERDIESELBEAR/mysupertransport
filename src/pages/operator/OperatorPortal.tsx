@@ -903,8 +903,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const base = getOperatorBasePath(location.pathname);
     const segments = getRouteSegments(location.pathname);
     const params = new URLSearchParams(location.search);
-    const currentTab = params.get('tab');
-    if (isOperatorView(currentTab)) {
+    if (params.has('tab')) {
       const legacyState = getViewStateFromSearch(location.search);
       const next = buildOperatorViewUrl(location.pathname, location.search, legacyState.view, { binderView: legacyState.binderView });
       appendNavTrace({
