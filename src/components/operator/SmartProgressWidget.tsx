@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight, BookOpen } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight, BookOpen, Camera } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { validateFile } from '@/lib/validateFile';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -491,6 +492,21 @@ function InlineDocUpload({
   const [uploading, setUploading] = useState<SlotKey | null>(null);
   const [justUploaded, setJustUploaded] = useState<Set<SlotKey>>(new Set());
   const fileRefs = useRef<Partial<Record<SlotKey, HTMLInputElement | null>>>({});
+  const [showTruckGuide, setShowTruckGuide] = useState(false);
+
+  // Distinct truck-photo positions already uploaded (Front, Driver Side, PS Steer Tire, …)
+  // The guided modal prefixes each file_name with `${label} — `, so we split on that.
+  const truckPhotoLabelsUploaded = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of uploadedDocs) {
+      if (d.document_type !== 'truck_photos') continue;
+      const label = (d.file_name ?? '').split(' — ')[0].trim();
+      if (label) set.add(label);
+    }
+    return Array.from(set);
+  }, [uploadedDocs]);
+  const REQUIRED_TRUCK_PHOTOS = 10;
+  const truckPhotosRemaining = Math.max(0, REQUIRED_TRUCK_PHOTOS - truckPhotoLabelsUploaded.length);
 
   // Only show slots that are currently requested by staff
   const requestedSlots = INLINE_SLOTS.filter(s => onboardingStatus[s.key] === 'requested');
