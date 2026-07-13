@@ -1,85 +1,52 @@
-## What the video shows
+## Goal
+Fix the front-facing driver app so drivers can move between Status, Binder, Messages, Doc Hub, FAQ, and other tabs without getting bounced back to the same screen.
 
-Emma is on **Status**. She taps **Doc Hub**, then **FAQ**, then Doc Hub again in the bottom nav. Each tap:
+## Updated diagnosis
+Since the driver has signed out/in, refreshed, removed the home-screen app, and re-added it, this is unlikely to be only a stale home-screen cache issue.
 
-1. Page scrolls a little
-2. Gold **ONBOARDING PROGRESS** bar re-animates from 0 → 67% (the `SmartProgressWidget` ring/bar is remounting)
-3. She lands back on Status
+The current code still has a likely failure path: `OperatorPortal` uses the URL as the main tab source, but navigation can still be interrupted by portal remounts, `/dashboard` redirects, account-status data refreshes, and the custom in-memory back/history logic. For affected accounts, a data refresh can still make the portal re-render before the destination tab is committed, which matches the white flash and progress tracker replay.
 
-The URL and view state briefly change to the tapped tab, then get rewritten back to Status before the destination view can render. This is the reported "stuck on one page" bug.
+## Implementation plan
 
-## Root cause
+### 1. Add an immediate navigation lock inside `OperatorPortal`
+- Add a `requestedView` / `requestedBinderView` state that is set as soon as the driver taps a nav item.
+- Render from `requestedView` immediately, instead of waiting for React Router to finish updating `location.search`.
+- Clear `requestedView` only after the URL confirms the requested `?tab=`.
+- Result: even if onboarding data refreshes mid-tap, the UI cannot snap back to the old tab.
 
-`src/pages/operator/OperatorPortal.tsx` keeps the active view in **two sources of truth** that fight each other:
+### 2. Normalize empty driver URLs once, explicitly
+- If a driver reaches `/dashboard`, `/operator`, or `/owner` with no `?tab=`, write a real tab URL immediately:
+  - onboarding driver: `?tab=progress`
+  - fully onboarded driver: `?tab=home`
+- Do this as a one-time URL normalization, not as an ongoing redirect that can fight user taps.
+- Result: there is no longer a hidden “empty URL means Status” fallback that can reappear during remounts.
 
-1. React `useState<OperatorView>` initialized from the URL (line 133)
-2. The URL itself (`?tab=...`)
+### 3. Remove remaining fragile in-memory navigation stack behavior
+- Simplify the custom `viewHistory` tracking so it cannot push the old page back into state during a tab transition.
+- Make top-bar Back use router history or a safe previous-tab fallback only after a confirmed tab change.
+- Result: a stale previous page cannot become the active page again after a tap.
 
-Reconciled by three overlapping mechanisms:
+### 4. Fix preview/staff impersonation navigation state
+- The current preview mode short-circuits `navigateToView` without changing any local tab state.
+- Add a separate local preview tab state so staff previewing an operator can actually switch tabs during testing.
+- Result: staff can verify the exact driver portal behavior without relying on URL changes.
 
-- **`syncViewUrl`** (line 164) writes the URL twice — once with `window.history.pushState` and again with `navigate({...}, { replace: true })` — and tracks the write with an `appWrittenSearchRef` marker.
-- A **`useEffect` on `location.search`** (line 148) re-reads `getViewStateFromSearch` and calls `setView(next.view)`.
-- The **auto-redirect** at lines 923-933 (`if (view === 'progress') navigateToView('home', { replace: true })`) fires whenever `isFullyOnboarded`, `onboardingStatus`, or `location.search` changes.
+### 5. Add stronger field diagnostics, temporarily
+- Extend `sd-nav-trace` to capture:
+  - tapped tab
+  - previous tab
+  - rendered tab
+  - current URL
+  - whether a URL normalization or auto-home redirect happened
+- Keep this local-only and capped to 50 entries.
+- Result: if one driver still reports the issue, staff can see exactly what changed the tab.
 
-Emma's account is 67% onboarded → `isFullyOnboarded === false` because `onboardingStatus.insurance_added_date == null`. But `onboardingStatus` is refetched by real-time subscriptions and by `fetchData()` calls that fire on every view change. When the object reference changes, the redirect effect re-evaluates, and because `buildOperatorViewUrl(..., 'progress')` **deletes** the `tab` param (line 54), any later re-read of the URL that lands on an empty search collapses back to `'progress'`. The `useEffect` at line 148 then calls `setView('progress')`, cancelling the tap.
+### 6. Validate locally before rollout
+- Use browser automation against the driver portal routing to confirm:
+  - tapping each bottom-nav item updates the URL and rendered view
+  - `?tab=documents`, `?tab=docs-hub`, and `?tab=faq` stay mounted after data refresh/focus events
+  - the Status progress tracker does not replay unless intentionally returning to Status
+  - empty `/dashboard` normalizes to an explicit tab once, then does not fight later taps
 
-The double history write (`pushState` + `navigate replace`) also means React Router's internal location cache can echo a stale `location.search` back into the effect, which is what causes the "screen goes white for a split second" — the destination view mounts, then unmounts as `view` is force-reset.
-
-Because `SmartProgressWidget` lives inside the Status/Progress branch, resetting `view` back to `progress` remounts the widget → the gold ring replays from 0. This matches the video frame-for-frame.
-
-## Fix
-
-Make the URL the single source of truth. Delete the mirrored `useState`, delete the manual `pushState`, always write an explicit `?tab=` for every view.
-
-### 1. `src/pages/operator/OperatorPortal.tsx` — navigation rewrite
-
-- **Delete** `useState<OperatorView>` for `view` and `binderView` (lines 133-139) and the `useEffect` at line 148 that mirrors `location.search` into state. Replace with:
-  ```ts
-  const { view, binderView } = useMemo(
-    () => getViewStateFromSearch(location.search),
-    [location.search],
-  );
-  ```
-- **Rewrite** `buildOperatorViewUrl` (line 52) so **every** view — including `progress` — writes an explicit `?tab=` param. Remove the "no tab means progress" branch that lets stripped URLs collapse back to Status.
-- **Rewrite** `navigateToView` (line 192):
-  ```ts
-  const navigateToView = useCallback((target, options = {}) => {
-    const next = buildOperatorViewUrl(location.pathname, location.search, target, options);
-    if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
-    navigate(`${next.pathname}${next.search}`, { replace: !!options.replace });
-  }, [location.pathname, location.search, navigate]);
-  ```
-  No `window.history.pushState`, no `appWrittenSearchRef`, no double write.
-- **Delete** `appWrittenSearchRef`, `viewRef`, `prevViewRef`, and the reconciliation `useEffect` at lines 258-266 — these only existed to paper over the dual-state model. Derive `viewHistory` from `location.key` transitions instead.
-- **Guard** the onboarded auto-redirect (lines 923-933) with `homeAutoRedirected.current` so it fires **once per session** and only when `params.get('tab') === null`, never based on the derived `view` value. This stops it from fighting a deliberate tap.
-
-### 2. `src/App.tsx` — remove the debug pushState wrapper
-
-Delete the `__navDebugPatched` block (lines 40-63). Wrapping `window.history.pushState`/`replaceState` interferes with React Router's own history bookkeeping. Keep the `console.log` calls inside `OperatorPortal` for one release so we can confirm the fix in the field.
-
-### 3. Persistent nav tracer (temporary, one week)
-
-Inside the new `navigateToView`, append `{ ts, from, to, href }` to `localStorage['sd-nav-trace']` (cap 50 entries). If any driver still reports the issue after deploy, staff can pull it from a hidden Debug row in the operator profile drawer. Remove after one week along with the leftover `[NAV-DEBUG]` logs.
-
-### 4. Regression test
-
-Add `src/pages/operator/__tests__/OperatorPortal.nav.test.tsx` (Vitest + RTL inside `MemoryRouter`) covering:
-
-- Tapping each bottom-nav item (Status, Binder, Messages, Doc Hub, FAQ) updates `location.search` to the expected `?tab=` and renders the destination.
-- Tapping Progress writes `?tab=progress` — no empty-search collapse.
-- Deep link `/operator?tab=documents` mounts on Doc Hub and **stays** there when `onboardingStatus` refetches mid-render.
-- Onboarded driver landing on `/operator` with no query auto-redirects to `?tab=home` exactly once, and a subsequent tap on `?tab=progress` is not fought back.
-
-## Files touched
-
-- `src/pages/operator/OperatorPortal.tsx` — navigation rewrite (primary)
-- `src/App.tsx` — remove `__navDebugPatched` wrapper
-- `src/pages/operator/__tests__/OperatorPortal.nav.test.tsx` — new test
-
-No DB, edge function, or auth changes. Staff/management/dispatch portals unchanged.
-
-## Rollout
-
-1. Ship as a straight bug fix — no flag.
-2. Ask Emma and the second reporting driver to hard-refresh once after deploy and confirm all five bottom-nav tabs open their destinations.
-3. Watch `sd-nav-trace` from any repeat reports for a week, then delete the tracer.
+### 7. Rollout reminder
+This is a frontend driver-app fix. After implementation, it must be published/updated for the affected drivers to receive it in the live SUPERDRIVE app.
