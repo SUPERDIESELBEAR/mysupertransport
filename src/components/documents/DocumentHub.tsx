@@ -11,6 +11,8 @@ import ComplianceDashboard from './ComplianceDashboard';
 import { DriverDocument, DocumentAcknowledgment, CATEGORIES, DocCategory } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { withTimeout } from '@/lib/withTimeout';
+import { toast } from 'sonner';
 
 interface DocumentHubProps {
   isAdmin?: boolean;
@@ -35,60 +37,88 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
 
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
-    let query = supabase
-      .from('driver_documents')
-      .select('*')
-      .order('is_pinned', { ascending: false })
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false });
+    try {
+      let query = supabase
+        .from('driver_documents')
+        .select('*')
+        .order('is_pinned', { ascending: false })
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
 
-    if (!isAdmin) {
-      query = query.eq('is_visible', true);
+      if (!isAdmin) {
+        query = query.eq('is_visible', true);
+      }
+
+      const { data, error } = await withTimeout(query, 15_000, 'Loading documents');
+      if (error) throw error;
+      const fresh = (data ?? []) as DriverDocument[];
+      setDocuments(fresh);
+      // Re-sync the open editor doc so body content is never stale
+      setEditDoc(prev => prev ? (fresh.find(d => d.id === prev.id) ?? prev) : null);
+    } catch (err) {
+      console.error('[DocumentHub] fetchDocuments failed', err);
+      toast.error("Couldn't load documents", {
+        description: 'Please check your connection and try again.',
+      });
+    } finally {
+      setLoading(false);
     }
-
-    const { data } = await query;
-    const fresh = (data ?? []) as DriverDocument[];
-    setDocuments(fresh);
-    setLoading(false);
-    // Re-sync the open editor doc so body content is never stale
-    setEditDoc(prev => prev ? (fresh.find(d => d.id === prev.id) ?? prev) : null);
   }, [isAdmin]);
 
   const fetchAcknowledgments = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('document_acknowledgments')
-      .select('*')
-      .eq('user_id', user.id);
-    setAcknowledgments((data ?? []) as DocumentAcknowledgment[]);
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('document_acknowledgments')
+          .select('*')
+          .eq('user_id', user.id),
+        15_000,
+        'Loading acknowledgments',
+      );
+      if (error) throw error;
+      setAcknowledgments((data ?? []) as DocumentAcknowledgment[]);
+    } catch (err) {
+      console.error('[DocumentHub] fetchAcknowledgments failed', err);
+    }
   }, [user]);
 
   const fetchAckCounts = useCallback(async () => {
     if (!isAdmin) return;
-    // Count unique users who acknowledged each doc at current version
-    const { data } = await supabase
-      .from('document_acknowledgments')
-      .select('document_id, user_id, document_version');
+    try {
+      // Count unique users who acknowledged each doc at current version
+      const { data, error } = await withTimeout(
+        supabase
+          .from('document_acknowledgments')
+          .select('document_id, user_id, document_version'),
+        15_000,
+        'Loading acknowledgment counts',
+      );
+      if (error) throw error;
+      if (!data) return;
 
-    if (!data) return;
+      const counts: Record<string, Set<string>> = {};
+      data.forEach((ack: any) => {
+        if (!counts[ack.document_id]) counts[ack.document_id] = new Set();
+        counts[ack.document_id].add(ack.user_id);
+      });
 
-    const counts: Record<string, Set<string>> = {};
-    data.forEach((ack: any) => {
-      if (!counts[ack.document_id]) counts[ack.document_id] = new Set();
-      counts[ack.document_id].add(ack.user_id);
-    });
+      const result: Record<string, number> = {};
+      Object.entries(counts).forEach(([docId, users]) => {
+        result[docId] = users.size;
+      });
+      setAckCounts(result);
 
-    const result: Record<string, number> = {};
-    Object.entries(counts).forEach(([docId, users]) => {
-      result[docId] = users.size;
-    });
-    setAckCounts(result);
-
-    // Fetch driver count
-    const { count } = await supabase
-      .from('operators')
-      .select('id', { count: 'exact', head: true });
-    setTotalDrivers(count ?? 0);
+      // Fetch driver count
+      const { count } = await withTimeout(
+        supabase.from('operators').select('id', { count: 'exact', head: true }),
+        15_000,
+        'Loading driver count',
+      );
+      setTotalDrivers(count ?? 0);
+    } catch (err) {
+      console.error('[DocumentHub] fetchAckCounts failed', err);
+    }
   }, [isAdmin]);
 
   useEffect(() => {

@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
+import { withTimeout } from '@/lib/withTimeout';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
@@ -119,9 +120,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/${slot.key}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage
+          .from('operator-documents')
+          .upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
 
       if (uploadError) throw uploadError;
 
@@ -211,7 +216,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that file. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {
@@ -233,9 +240,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/decal_photos/${side}_${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage
+          .from('operator-documents')
+          .upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
 
       if (uploadError) throw uploadError;
 
@@ -263,7 +274,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that photo. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {
@@ -283,9 +296,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     try {
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/decal_photos/extra_${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage
+          .from('operator-documents')
+          .upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
       if (uploadError) throw uploadError;
       const { data: signedData } = await supabase.storage
         .from('operator-documents')
@@ -301,7 +318,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       setDecalExtras(next);
       toast({ title: 'Angle added' });
     } catch (err: unknown) {
-      toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that photo. Please check your connection and try again.",
+        variant: 'destructive',
+      });
     } finally {
       setUploading(null);
     }
