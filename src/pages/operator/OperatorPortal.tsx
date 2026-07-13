@@ -77,6 +77,19 @@ const getViewStateFromSearch = (search: string): OperatorViewState => {
   };
 };
 
+const appendNavTrace = (entry: Record<string, unknown>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem('sd-nav-trace');
+    const parsed = raw ? JSON.parse(raw) : [];
+    const arr = Array.isArray(parsed) ? parsed : [];
+    arr.push({ ts: Date.now(), ...entry });
+    window.localStorage.setItem('sd-nav-trace', JSON.stringify(arr.slice(-50)));
+  } catch {
+    // Local diagnostics only — never block navigation.
+  }
+};
+
 interface Stage {
   number: number;
   title: string;
@@ -132,37 +145,79 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const profile = isPreview ? previewProfile : authProfile;
   const location = useLocation();
   const navigate = useNavigate();
-  // URL is the single source of truth for the active view. Deriving instead of
-  // mirroring into local state eliminates the state/URL race that was trapping
-  // drivers on the Status page when onboarding_status refetched mid-navigation.
-  const { view, binderView } = useMemo(
+  const urlViewState = useMemo(
     () => getViewStateFromSearch(location.search),
     [location.search],
   );
+  const [previewViewState, setPreviewViewState] = useState<OperatorViewState>(() => getViewStateFromSearch(location.search));
+  const [requestedViewState, setRequestedViewState] = useState<OperatorViewState | null>(null);
+
+  // The URL remains the confirmed source of truth, but a just-tapped tab renders
+  // immediately until React Router confirms the matching ?tab=. This closes the
+  // remaining race where account-data refreshes/remounts could replay Status.
+  const confirmedViewState = isPreview ? previewViewState : urlViewState;
+  const activeViewState = requestedViewState ?? confirmedViewState;
+  const view = activeViewState.view;
+  const binderView = activeViewState.binderView;
+  const confirmedView = confirmedViewState.view;
+
+  useEffect(() => {
+    if (!requestedViewState) return;
+    if (isPreview) {
+      setRequestedViewState(null);
+      return;
+    }
+    if (urlViewState.view === requestedViewState.view && urlViewState.binderView === requestedViewState.binderView) {
+      appendNavTrace({
+        event: 'request-confirmed',
+        requestedTab: requestedViewState.view,
+        renderedTab: view,
+        confirmedTab: urlViewState.view,
+        url: window.location.href,
+      });
+      setRequestedViewState(null);
+    }
+  }, [isPreview, requestedViewState, urlViewState.view, urlViewState.binderView, view]);
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
   // are derived from location.search.
   const navigateToView = useCallback((target: OperatorView, options: OperatorNavigateOptions = {}) => {
+    const nextState: OperatorViewState = {
+      view: target,
+      binderView: target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' : undefined,
+    };
     if (isPreview) {
-      // Preview mode (staff impersonation) intentionally doesn't touch the URL.
-      // Nothing to do — the picker manages its own local state.
+      setPreviewViewState(nextState);
       if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
+      appendNavTrace({
+        event: 'preview-tab-change',
+        fromTab: view,
+        toTab: target,
+        renderedTab: target,
+        url: window.location.href,
+      });
       return;
     }
+    setRequestedViewState(nextState);
     const next = buildOperatorViewUrl(location.pathname, location.search, target, options);
     const href = `${next.pathname}${next.search}`;
     if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
-    // Nav tracer (temporary — remove after one week if no more reports).
-    try {
-      const raw = localStorage.getItem('sd-nav-trace');
-      const arr = raw ? JSON.parse(raw) : [];
-      arr.push({ ts: Date.now(), from: window.location.search, to: next.search, href });
-      localStorage.setItem('sd-nav-trace', JSON.stringify(arr.slice(-50)));
-    } catch { /* storage unavailable — ignore */ }
+    appendNavTrace({
+      event: 'tap',
+      fromTab: view,
+      fromBinderView: binderView ?? null,
+      fromSearch: window.location.search,
+      toTab: target,
+      toBinderView: nextState.binderView ?? null,
+      toSearch: next.search,
+      href,
+      renderedTab: target,
+      url: window.location.href,
+    });
     navigate(href, { replace: !!options.replace });
-  }, [isPreview, location.pathname, location.search, navigate]);
+  }, [isPreview, location.pathname, location.search, navigate, view, binderView]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
     try {
@@ -210,30 +265,27 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button history ─────────────────────────────────────────────
-  // Tracks prior views so the top-bar Back button can pop back without the
-  // driver having to scroll to the top to use the tab nav.
+  // Tracks confirmed views only. Requested/tentative views are deliberately not
+  // pushed so a mid-navigation remount cannot re-open the tab the driver left.
   const [viewHistory, setViewHistory] = useState<OperatorView[]>([]);
-  const isGoingBackRef = useRef(false);
-  const prevViewRef = useRef<OperatorView>(view);
+  const suppressNextHistoryRef = useRef(false);
+  const prevConfirmedViewRef = useRef<OperatorView>(confirmedView);
   useEffect(() => {
-    if (prevViewRef.current === view) return;
-    if (isGoingBackRef.current) {
-      isGoingBackRef.current = false;
+    if (prevConfirmedViewRef.current === confirmedView) return;
+    if (suppressNextHistoryRef.current) {
+      suppressNextHistoryRef.current = false;
     } else {
-      setViewHistory((h) => [...h, prevViewRef.current]);
+      setViewHistory((h) => [...h.slice(-9), prevConfirmedViewRef.current]);
     }
-    prevViewRef.current = view;
-  }, [view]);
+    prevConfirmedViewRef.current = confirmedView;
+  }, [confirmedView]);
   const goBack = useCallback(() => {
-    setViewHistory((h) => {
-      if (h.length === 0) return h;
-      const next = h.slice(0, -1);
-      const target = h[h.length - 1];
-      isGoingBackRef.current = true;
-      navigateToView(target, { replace: true });
-      return next;
-    });
-  }, [navigateToView]);
+    const target = viewHistory[viewHistory.length - 1];
+    if (!target) return;
+    suppressNextHistoryRef.current = true;
+    setViewHistory((h) => h.slice(0, -1));
+    navigateToView(target, { replace: true });
+  }, [viewHistory, navigateToView]);
   // Esc key triggers Back when there's history.
   useEffect(() => {
     if (viewHistory.length === 0) return;
@@ -245,8 +297,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   }, [viewHistory.length, goBack]);
   // Browser/hardware back is handled by the URL history naturally. Avoid
   // pushState interception here because it can race against tab navigation.
-  // Track whether we've already auto-redirected to Home so we don't fight the user
-  const homeAutoRedirected = useRef(false);
+  // Empty driver URLs are normalized below after onboarding status loads.
   // Crossfade overlay shown while a destination view loads its first data.
   // `phase: 'visible'` = skeleton fully shown over the mounting destination.
   // `phase: 'fading'`  = destination fired onReady; skeleton fades out, then unmounts.
@@ -880,17 +931,31 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const progressPct = Math.round((completedStages / stages.length) * 100);
   const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
 
-  // Auto-redirect onboarded operators to the Home dashboard on first load,
-  // unless they came in via an explicit ?tab= deep-link.
+  // Normalize empty driver portal URLs once after status loads. This keeps
+  // /dashboard, /operator, and /owner from relying on an implicit default tab
+  // that can differ across remounts or stale route state.
   useEffect(() => {
-    if (homeAutoRedirected.current) return;
-    if (!isFullyOnboarded) return;
-    if (Object.keys(onboardingStatus).length === 0) return; // not loaded yet
+    if (isPreview) return;
+    if (Object.keys(onboardingStatus).length === 0) return;
     const params = new URLSearchParams(location.search);
-    if (params.get('tab')) { homeAutoRedirected.current = true; return; }
-    if (view === 'progress') navigateToView('home', { replace: true });
-    homeAutoRedirected.current = true;
-  }, [isFullyOnboarded, onboardingStatus, view, navigateToView, location.search]);
+    if (params.get('tab')) return;
+
+    const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
+    const next = buildOperatorViewUrl(location.pathname, location.search, target);
+    const href = `${next.pathname}${next.search}`;
+    setRequestedViewState({ view: target, binderView: next.binderView });
+    appendNavTrace({
+      event: 'normalize-empty-tab',
+      fromTab: view,
+      toTab: target,
+      fromSearch: window.location.search,
+      toSearch: next.search,
+      href,
+      renderedTab: target,
+      url: window.location.href,
+    });
+    navigate(href, { replace: true });
+  }, [isPreview, isFullyOnboarded, onboardingStatus, location.pathname, location.search, navigate, view]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
