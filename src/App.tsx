@@ -158,16 +158,19 @@ function AppRoutes() {
       <Route path="/staff/*" element={
         !user ? <LoginRedirect /> :
         (isOnboardingStaff || isManagement) ? <StaffPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/dispatch/*" element={
         !user ? <LoginRedirect /> :
         (isDispatcher || isManagement) ? <DispatchPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/management/*" element={
         !user ? <LoginRedirect /> :
         isManagement ? <ManagementPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/operator/*" element={
