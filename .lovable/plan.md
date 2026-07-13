@@ -1,62 +1,59 @@
-## Goal
-Fix the recurring driver app issue where buttons appear to reload the screen and leave the driver stuck on the Status page, including actions like **Review & Acknowledge Documents**, **Complete Pay Setup**, **Sign ICA Now**, and other portal navigation buttons.
-
-## Diagnosis
-The driver portal still depends on a fragile `?tab=` query-parameter navigation system inside one large mounted page. Several effects refresh data, normalize URLs, and re-render the Status page while navigation is happening. On mobile/PWA installs, this can look like a page reload: white flash, progress tracker refills, and the driver remains on Status.
-
-Because multiple smaller fixes have not resolved it, the next fix should remove the fragile pattern instead of patching individual buttons again.
+## Findings so far
+- Emma Mueller has an active operator account and recent web activity.
+- There is also a separate management profile with the same first/last name, so future checks must use Emma’s operator `user_id` / `operator_id`, not name alone.
+- Emma’s operator onboarding state is not fully onboarded and she is likely seeing the Status/My Progress screen with CTAs such as “Review & Acknowledge Documents” and “Complete Pay Setup.”
+- Several driver-facing CTA buttons still lack explicit `type="button"`, especially in the onboarding checklist. On mobile/PWA, these can behave like submit buttons in unexpected DOM contexts and create the “screen refreshes but stays on Status” symptom.
+- The driver portal has already started moving to route-based navigation, but it needs a complete cleanup so legacy query-param routing and data-loaded redirects cannot pull Emma back to Status.
 
 ## Plan
 
-1. **Convert driver app navigation to real nested routes**
-   - Replace `?tab=docs-hub`, `?tab=pay-setup`, `?tab=ica`, etc. with stable paths like:
-     ```text
-     /operator/status
-     /operator/documents
-     /operator/doc-hub
-     /operator/pay-setup
-     /operator/ica
-     /operator/messages
-     /operator/binder
-     ```
-   - Keep backward compatibility so old links like `/operator?tab=docs-hub` automatically redirect once to the matching route.
+### 1. Complete the route-based driver portal fix
+- Make `/operator/status`, `/operator/doc-hub`, `/operator/pay-setup`, `/operator/documents`, `/operator/messages`, `/operator/ica`, etc. the only source of truth for the active driver screen.
+- Keep legacy `?tab=` links supported only as one-time redirects to the matching route path.
+- Remove any data-dependent redirect behavior that can run after onboarding data loads and pull the user back to Status.
+- Ensure notification links and in-app navigation links generate the new stable route paths instead of `/operator?tab=...`.
 
-2. **Remove the tab-normalization race**
-   - Eliminate the effect that rewrites empty or invalid `?tab=` URLs after onboarding data loads.
-   - Make the route path the single source of truth for the current screen.
-   - This prevents data refreshes from forcing the app back to Status.
+### 2. Harden every driver-facing CTA against accidental refresh
+- Add explicit `type="button"` to all remaining driver-app action buttons in:
+  - Status/My Progress cards
+  - Onboarding checklist
+  - Smart progress widget
+  - Document Hub actions
+  - Pay Setup actions
+  - ICA signing actions
+- For critical navigation CTAs like “Review & Acknowledge Documents,” “Complete Pay Setup,” and “Sign ICA,” wrap handlers so they prevent default browser behavior before navigating.
 
-3. **Create a safe driver navigation helper**
-   - Replace button calls like `navigateToView('docs-hub')` with a route helper that maps each destination to a real path.
-   - Use this same helper for top nav, mobile menu, status-page CTAs, document review, pay setup, ICA signing, notifications, and message links.
+### 3. Add Emma-focused navigation diagnostics without exposing private data
+- Expand the existing local navigation trace to record:
+  - current path
+  - requested destination
+  - final path after navigation
+  - whether the route was changed by a redirect effect
+  - whether a click event came from a submit/default action
+- Keep this client-side only in `localStorage` so it does not expose Emma’s data in the backend.
+- Add a small hidden/support-only way for staff to copy the trace if the issue persists.
 
-4. **Harden action buttons against accidental submit/reload behavior**
-   - Audit driver-facing CTAs in `OperatorPortal`, `OperatorStatusPage`, `SmartProgressWidget`, ICA signing, document hub, and pay setup.
-   - Ensure all navigation/action buttons explicitly use `type="button"` and do not rely on form submit behavior.
+### 4. Add regression tests for the navigation failure mode
+- Add or use the existing frontend test setup.
+- Test that driver CTA clicks call route navigation to the correct path and do not submit/reload.
+- Test legacy `/operator?tab=docs-hub` resolves to `/operator/doc-hub` and does not bounce back to `/operator/status` after onboarding data loads.
 
-5. **Remove forced refresh behavior from driver navigation paths**
-   - Keep manual refresh available, but ensure normal navigation does not call `window.location.reload()` or trigger a full app reload.
-   - Leave update notifications as manual “Refresh now” prompts only.
+### 5. Verify the fix
+- Use Playwright against the local preview to confirm direct route loads for:
+  - `/operator/status`
+  - `/operator/doc-hub`
+  - `/operator/pay-setup`
+  - `/operator/ica`
+- If an authenticated Emma session is not available in the sandbox, verify public route mechanics locally and explain that Emma should test again after publishing/install refresh.
 
-6. **Add driver-safe route fallbacks**
-   - If a driver opens `/operator`, redirect to `/operator/status` or `/operator/home` based on onboarding status.
-   - If a driver opens an unknown driver sub-route, show a friendly fallback with a button back to Status instead of dumping them into a broken state.
-
-7. **Verify the highest-risk flows**
-   - Test direct navigation and button clicks for:
-     - Status → Review & Acknowledge Documents
-     - Status → Complete Pay Setup
-     - Status → Sign ICA Now
-     - Mobile hamburger menu → any page
-     - Bottom nav → Doc Hub / Messages / Binder
-   - Confirm the URL changes to a real path and does not snap back to Status.
-
-## Files expected to change
-- `src/App.tsx`
-- `src/pages/operator/OperatorPortal.tsx`
-- `src/components/operator/OperatorStatusPage.tsx`
-- `src/components/operator/SmartProgressWidget.tsx`
-- Possibly `DocumentHub`, `ContractorPaySetup`, and `OperatorICASign` if they contain internal navigation CTAs.
-
-## Expected result
-Driver app navigation becomes route-based and resilient. Tapping a button should move to the intended screen without a white flash/snap-back loop, even for installed home-screen users and drivers with stale sessions.
+## Technical details
+- Primary files to update:
+  - `src/pages/operator/OperatorPortal.tsx`
+  - `src/components/operator/OnboardingChecklist.tsx`
+  - `src/components/operator/OperatorStatusPage.tsx`
+  - `src/components/operator/SmartProgressWidget.tsx`
+  - `src/components/documents/DocumentHub.tsx`
+  - `src/components/operator/ContractorPaySetup.tsx`
+  - `src/components/operator/OperatorICASign.tsx`
+- No database schema change is expected for the core fix.
+- Emma’s backend record should be referenced by her operator account IDs, not by name, because there are two Emma Mueller profiles.

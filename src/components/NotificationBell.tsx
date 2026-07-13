@@ -190,7 +190,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     const operatorRoute = (opId: string) => {
       if (portal === 'staff') return `/staff?view=operator-detail&operator=${opId}`;
       if (portal === 'dispatch') return `/dispatch`;
-      if (portal === 'operator') return `/dashboard`;
+      if (portal === 'operator') return `/operator/status`;
       return `/dashboard?view=operator-detail&op=${opId}`;
     };
 
@@ -203,15 +203,15 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
       // Operator portal: route by type so the operator lands on a useful tab
       if (portal === 'operator') {
         switch (n.type) {
-          case 'new_message': return '/dashboard?tab=messages';
-          case 'dispatch_status_change': return '/dashboard?tab=dispatch';
+          case 'new_message': return '/operator/messages';
+          case 'dispatch_status_change': return '/operator/dispatch';
           case 'onboarding_milestone':
           case 'docs_uploaded':
           case 'document_uploaded':
           case 'compliance_update':
-            return '/dashboard?tab=progress';
+            return '/operator/status';
           default:
-            return '/dashboard';
+            return '/operator/status';
         }
       }
       return operatorRoute(id);
@@ -221,6 +221,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
 
     if (et === 'message_thread' && id) {
       if (portal === 'staff') return `/staff?view=messages&thread=${id}`;
+      if (portal === 'operator') return `/operator/messages?thread=${id}`;
       return `/dashboard?tab=messages&thread=${id}`;
     }
 
