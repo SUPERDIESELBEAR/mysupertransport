@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useRef, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,7 @@ import PWAInstallBannerBoundary from "@/components/PWAInstallBannerBoundary";
 import TrackOperatorPresence from "@/components/TrackOperatorPresence";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
+import { appendRouteTrace } from "@/lib/navTrace";
 
 // Pages — eager entry points (hit on cold start)
 import LoginPage from "./pages/LoginPage";
@@ -61,8 +62,45 @@ function LoginRedirect() {
   return <Navigate to={target} replace />;
 }
 
+/**
+ * Records every location change (including popstate/back-forward and router
+ * `<Navigate replace>` bounces) into the shared nav-trace ring buffer. Runs
+ * above the portal components so it catches unmount/remount cycles the
+ * per-portal instrumentation misses.
+ */
+function NavTraceRouterListener() {
+  const location = useLocation();
+  const prevRef = useRef<{ pathname: string; search: string } | null>(null);
+  useEffect(() => {
+    const prev = prevRef.current;
+    let historyState: unknown = null;
+    try { historyState = window.history.state; } catch { /* ignore */ }
+    appendRouteTrace({
+      event: 'router-location',
+      path: location.pathname,
+      search: location.search,
+      prevPath: prev?.pathname ?? null,
+      prevSearch: prev?.search ?? null,
+      historyLen: typeof window !== 'undefined' ? window.history.length : null,
+      historyStateKey: (historyState as { key?: string } | null)?.key ?? null,
+      historyStateIdx: (historyState as { idx?: number } | null)?.idx ?? null,
+      visibility: typeof document !== 'undefined' ? document.visibilityState : null,
+    });
+    prevRef.current = { pathname: location.pathname, search: location.search };
+  }, [location.pathname, location.search]);
+  return null;
+}
+
+/** Records which branch a role-gated route rendered on each pass. */
+function GuardTrace({ route, branch, children }: { route: string; branch: string; children: ReactNode }) {
+  useEffect(() => {
+    appendRouteTrace({ event: 'guard-render', route, branch });
+  }, [route, branch]);
+  return <>{children}</>;
+}
+
 function AppRoutes() {
-  const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
+  const { user, loading, roles, rolesLoaded, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
 
   // Poll for new builds and prompt logged-in users to refresh
   useVersionCheck();
@@ -120,27 +158,46 @@ function AppRoutes() {
       <Route path="/staff/*" element={
         !user ? <LoginRedirect /> :
         (isOnboardingStaff || isManagement) ? <StaffPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/dispatch/*" element={
         !user ? <LoginRedirect /> :
         (isDispatcher || isManagement) ? <DispatchPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/management/*" element={
         !user ? <LoginRedirect /> :
         isManagement ? <ManagementPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/operator/*" element={
-        !user ? <LoginRedirect /> :
-        (isOperator || isTruckOwner || isManagement) ? <OperatorPortal /> :
-        <Navigate to="/dashboard" replace />
+        !user ? (
+          <GuardTrace route="/operator/*" branch="login-redirect"><LoginRedirect /></GuardTrace>
+        ) : (isOperator || isTruckOwner || isManagement) ? (
+          <GuardTrace route="/operator/*" branch="operator-portal"><OperatorPortal /></GuardTrace>
+        ) : !rolesLoaded ? (
+          // Roles are still loading (or being re-fetched after a token
+          // refresh). Show the neutral portal fallback instead of bouncing to
+          // /dashboard — otherwise a mid-navigation refetch snaps drivers
+          // back to Status.
+          <GuardTrace route="/operator/*" branch="waiting-roles"><PortalFallback /></GuardTrace>
+        ) : (
+          <GuardTrace route="/operator/*" branch="navigate-dashboard"><Navigate to="/dashboard" replace /></GuardTrace>
+        )
       } />
       <Route path="/owner/*" element={
-        !user ? <LoginRedirect /> :
-        (isTruckOwner || isManagement) ? <OperatorPortal /> :
-        <Navigate to="/dashboard" replace />
+        !user ? (
+          <GuardTrace route="/owner/*" branch="login-redirect"><LoginRedirect /></GuardTrace>
+        ) : (isTruckOwner || isManagement) ? (
+          <GuardTrace route="/owner/*" branch="operator-portal"><OperatorPortal /></GuardTrace>
+        ) : !rolesLoaded ? (
+          <GuardTrace route="/owner/*" branch="waiting-roles"><PortalFallback /></GuardTrace>
+        ) : (
+          <GuardTrace route="/owner/*" branch="navigate-dashboard"><Navigate to="/dashboard" replace /></GuardTrace>
+        )
       } />
       <Route path="/status" element={
         !user ? <LoginRedirect /> :
@@ -163,6 +220,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <NavTraceRouterListener />
             <AppRoutes />
             <IdleWarningModal />
             <TrackOperatorPresence />

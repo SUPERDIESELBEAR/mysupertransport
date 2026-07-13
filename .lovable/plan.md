@@ -1,90 +1,90 @@
-## Context
+## What Emma's diagnostics actually tell us
 
-- Video confirms Emma is on the latest published build (footer shows `v.36395a · Jul 13, 2026 at 11:17 AM CT`).
-- She is in iOS **Safari** (not the installed PWA — the Safari app-switcher card is visible behind the recorder overlay).
-- Both **onboarding CTAs** ("Review & Acknowledge Documents", "Complete Pay Setup") AND the **bottom tab bar** (Binder / Messages / Doc Hub / FAQ) fail — every tap keeps her on the Status screen.
-- The current route-based navigation (`operatorRoutes.ts`) reads correctly on inspection, so we cannot diagnose further without data from Emma's device.
+The trace is a smoking gun, but not the smoking gun we expected.
+
+```
+T+0ms    tap  "review-acknowledge-documents"  →  navigate("/operator/doc-hub")
+T+23ms   rendered-route  view=docs-hub  path=/operator/doc-hub   ← the tap worked
+T+23ms   location-change              path=/operator/doc-hub
+T+38ms   rendered-route  view=progress path=/operator/status     ← BOUNCE
+T+38ms   location-change              path=/operator/status
+```
+
+So the tap **did** register, `navigateToView('docs-hub')` **did** fire, the URL **did** flip to `/operator/doc-hub`, and `OperatorPortal` **did** render the Doc Hub view. Then, 38ms later, the URL was rewritten to `/operator/status` — and crucially, **none of our existing "redirect-*" trace events fired**. That means the second navigation did *not* come from `navigateToView` or from the "known operator route" redirect effect inside `OperatorPortal`. It came from somewhere else — most likely one of:
+
+1. A brief auth-state change (visibility/token refresh) that made `App.tsx`'s `/operator/*` guard render `<Navigate to="/dashboard" replace />`, which then flowed into the dashboard→operator redirect and landed on `/operator/status`.
+2. A history push from a component that isn't currently instrumented (Suspense boundary, error boundary, or a hook we haven't audited).
+3. The browser back/forward cache on iOS 18.7 Safari standalone replaying a prior history entry.
+
+The next step is to make it impossible for the next recording to be ambiguous.
 
 ## Plan
 
-### 1. Ship an in-app "Copy Diagnostics" tool the driver can trigger
+### 1. App-level history tracing (catches every navigation, no matter the source)
 
-Goal: capture what's actually happening on Emma's phone the next time she reproduces the bug.
+Add a tiny `NavTraceRouterListener` component mounted inside `<BrowserRouter>` in `src/App.tsx`. It subscribes to `useLocation()` and, on every change, records:
 
-- Add a **hidden diagnostics panel** that opens when the driver taps the version string in `BuildInfo` **5 times in a row** (no visual affordance change — safe to leave in production).
-- Panel shows:
-  - Build version, user agent, `display-mode`, `standalone`, viewport size, online/offline.
-  - Whether a service worker is currently registered and its scope.
-  - The last ~50 entries of `sd-nav-trace` from `localStorage` (already captured).
-  - A big **"Copy diagnostics"** button that copies everything as plain text (uses the existing `copyToClipboard` fallback in `src/lib/pwa.ts`).
-  - A **"Reset app state"** button that: unregisters any service workers, clears the `sd-nav-trace` and other `sd-*` localStorage keys, then hard-reloads to `/operator/status`.
-- No new backend, no PII beyond what she already sees on screen.
+- new pathname + search
+- `history.state` (so we can see React Router's key/idx and detect popstate/back-forward)
+- `performance.navigation`-style hint (`navigation.type` from the Performance API when available)
+- current `document.visibilityState`
+- previous pathname (from a ref)
 
-### 2. Instrument the actual pointer → navigation path
+This runs above `OperatorPortal`, so it captures URL changes that happen *between* portal renders (i.e. during unmount/remount), which the current in-portal trace misses.
 
-Right now `sd-nav-trace` only records our internal `navigateToView` and redirect effects. When Emma taps and stays on Status, we cannot tell whether:
-  - the click never reached `navigateToView`,
-  - `navigateToView` ran but the URL was immediately rewritten,
-  - the URL changed but React re-rendered the wrong view.
+### 2. Auth-event tracing
 
-Add three new trace events, all client-side only:
-- `pointer-tap` — captured at the document level, logs `target selector`, `pathname before`, and `defaultPrevented` at pointer-up time.
-- `location-change` — a single effect on `useLocation()` that logs every pathname/search transition with a timestamp.
-- `view-mismatch` — after render, if `view` derived from URL differs from the `view` that was last requested via `navigateToView`, log both.
+In `src/hooks/useAuth.tsx`, log every `onAuthStateChange` event (`event` string only — never the token) plus `fetchRoles` start/end and the resulting role array length. This will confirm or rule out the "token refresh briefly drops role flags" hypothesis.
 
-Trim the ring buffer so it stays under ~50 KB.
+### 3. Route-guard render tracing in `App.tsx`
 
-### 3. Verify one concrete hypothesis before Emma retests
+Wrap the `/operator/*` route element in a small logger that records which branch it renders on each pass: `LoginRedirect`, `OperatorPortal`, or `<Navigate to="/dashboard" replace />`. Same for `/dashboard`. This directly answers "did we bounce out of /operator/* because the guard briefly said no?".
 
-The transition-overlay (`transitionOverlay` block in `OperatorPortal.tsx`) covers the just-mounted view with a skeleton until the destination calls `onReady`. Several views (`pay-setup`, `docs-hub`, `messages`, `documents`) do **not** call `onReady`, so if the overlay was ever set for them it would stay opaque forever and visually look like "nothing happened".
+### 4. Harden the `/operator/*` guard against transient auth flicker (the likely fix)
 
-- Audit every `setTransitionOverlay` call site.
-- For any target view whose component does not accept/fire `onReady`, either:
-  - remove the overlay for that target, or
-  - add a short (500 ms) safety timer that force-fades the overlay.
-- This is a low-risk change and directly matches Emma's "screen flashes, stays on Status" description even if it turns out not to be the root cause.
+Today:
+```tsx
+<Route path="/operator/*" element={
+  !user ? <LoginRedirect /> :
+  (isOperator || isTruckOwner || isManagement) ? <OperatorPortal /> :
+  <Navigate to="/dashboard" replace />
+} />
+```
 
-### 4. Fix a real gap in the tap → route path
+The `<Navigate>` fallback fires the instant `roles` is briefly empty (e.g. right after a `TOKEN_REFRESHED` event, before `fetchRoles` resolves). Change to:
 
-Audit the specific buttons Emma taps in the video and make sure **each** goes through `navigateToView` (or a plain `<Link>`), never through a handler that could early-return:
+- If `user` exists but `roles.length === 0` and we've previously seen this user with roles, keep rendering `<OperatorPortal />` (or a neutral loading state) instead of redirecting away. Track "roles have loaded at least once for this user" via a ref/state in `useAuth`.
+- Only fall through to `<Navigate to="/dashboard" />` when roles have loaded and genuinely lack operator/truck_owner/management — never during a refetch.
 
-- "Review & Acknowledge Documents" in `SmartProgressWidget.tsx` and `OperatorStatusPage.tsx`.
-- "Complete Pay Setup" in `OperatorStatusPage.tsx` and the Stage-9 card in `OperatorPortal.tsx`.
-- The gold floating "Next step" CTA in `OperatorPortal.tsx` (currently calls `nextStep.action` which is a closure that captures `navigateToView` — verify it is stable and does not depend on stale `stages` data).
+Apply the same guard to `/owner/*`, `/staff/*`, `/dispatch/*`, `/management/*` and the `/dashboard` role-switch to prevent the same class of flicker elsewhere.
 
-Add `data-nav-cta="<name>"` attributes so the new `pointer-tap` trace event can identify which button was tapped.
+### 5. Kill the `OperatorPortal` "redirect empty/invalid route" as a *second* safety net
 
-### 5. Verify locally with Playwright
+The redirect effect at `OperatorPortal.tsx:895` is defensive — it normalizes `/operator` or `/dashboard` into `/operator/status`. Once the guard in (4) is in place, this effect should never see a `/dashboard` URL. To be safe, tighten it so it only fires when `segments.length === 0` **and** the base path is `/operator` or `/owner` (not `/dashboard`). This closes the loop even if the guard hypothesis is wrong.
 
-- Load the running preview at `/operator/status` (public route mechanics only — Emma's authenticated session is not available in the sandbox), tap through each bottom tab, and confirm:
-  - the URL updates,
-  - the rendered view changes,
-  - no bounce back to `/operator/status`,
-  - `localStorage.sd-nav-trace` contains matching `pointer-tap` → `location-change` → `view-mismatch: false` sequences.
-- Capture screenshots per step.
+### 6. Prominent in-app "Support Diagnostics" button (already partially done last turn)
 
-### 6. Deliver next-steps to Emma
+Keep the visible "Support" link next to the version footer so Emma can copy the new, richer trace in one tap. No behavior change beyond what shipped previously.
 
-When shipped, give her exactly three actions:
-1. Open the app, tap the version string 5 times at the bottom of the Status page.
-2. Tap **Reset app state** once and let it reload.
-3. If the bug returns, open the same panel and tap **Copy diagnostics**, then paste to support.
+## Files to change
 
-The reset alone may unstick her. If it does not, the diagnostics will show us the true cause on the next try.
+- `src/App.tsx` — add `NavTraceRouterListener`; wrap route guards with tracing; harden `/operator/*` and sibling guards to tolerate transient empty `roles`.
+- `src/hooks/useAuth.tsx` — trace auth events + role fetch lifecycle; expose "rolesEverLoaded" flag for the guards.
+- `src/pages/operator/OperatorPortal.tsx` — narrow the redirect effect so it only normalizes when actually on `/operator`/`/owner` base with empty segments.
+- `src/lib/navTrace.ts` — small helpers for `appendAuthTrace` and `appendRouteTrace` (thin wrappers around `appendNavTrace` so they share the same ring buffer).
 
-## Files expected to change
+## What Emma will see
 
-- `src/components/BuildInfo.tsx` — 5-tap gesture + open diagnostics dialog.
-- New `src/components/operator/DriverDiagnosticsPanel.tsx` — the panel UI, copy, and reset actions.
-- `src/pages/operator/OperatorPortal.tsx` — add `location-change` and `view-mismatch` trace events; audit `setTransitionOverlay` call sites; audit CTA handlers; add `data-nav-cta` attributes.
-- `src/components/operator/OperatorStatusPage.tsx`, `SmartProgressWidget.tsx` — `data-nav-cta` attributes on the Review/Pay-Setup CTAs.
-- `src/lib/navTrace.ts` (new, or extend the existing helper in `OperatorPortal.tsx`) — centralize `appendNavTrace`, add ring-buffer size cap, add global `pointer-tap` document listener registered once from `OperatorPortal.tsx`.
-- No database changes. No SW changes.
+No visual change. Next time she taps a broken button and copies diagnostics, the trace will include:
 
-## Technical details
+- exactly which router listener rewrote the URL back to `/operator/status`
+- whether an auth event fired in the same window
+- which guard branch `App.tsx` rendered before and after the bounce
 
-- Ring buffer cap: keep only the last 50 entries, drop the oldest when writing.
-- Copy format: plain text, one JSON line per entry, prefixed with a header block (`build`, `ua`, `display-mode`, `standalone`, `viewport`, `sw`).
-- Reset action: `navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.unregister()))`, `Object.keys(localStorage).filter(k => k.startsWith('sd-')).forEach(k => localStorage.removeItem(k))`, then `window.location.replace('/operator/status')`.
-- The 5-tap gesture: track tap timestamps in a ref, open the panel when 5 taps land within 3 seconds. No visible affordance.
-- Transition-overlay safety timer: `window.setTimeout(() => setTransitionOverlay(o => o ? { ...o, phase: 'fading' } : o), 500)` cleared on unmount.
+That will either confirm the auth-flicker theory (in which case the guard change in step 4 is the fix) or point us at the real culprit within one more round-trip.
+
+## Out of scope
+
+- Rewriting the driver portal's routing model further.
+- Changing PWA / service worker behavior (her diagnostics confirm no SW registered).
+- Any UI polish or non-diagnostic behavior changes.

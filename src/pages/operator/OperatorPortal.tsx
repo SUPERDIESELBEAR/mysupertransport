@@ -897,6 +897,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const base = getOperatorBasePath(location.pathname);
     const segments = getRouteSegments(location.pathname);
     const params = new URLSearchParams(location.search);
+    // Only normalize paths that already live under /operator or /owner. If we
+    // ever render on an unrelated path (e.g. /dashboard during a transient
+    // route guard flicker), do NOT rewrite the URL back to /operator/status —
+    // that would look like a mystery "bounce back to Status" to the driver.
+    const isDriverBase = location.pathname === base
+      || location.pathname.startsWith(`${base}/`);
+    if (!isDriverBase) return;
     if (params.has('tab')) {
       const legacyState = getViewStateFromSearch(location.search);
       const next = buildOperatorViewUrl(location.pathname, location.search, legacyState.view, { binderView: legacyState.binderView });

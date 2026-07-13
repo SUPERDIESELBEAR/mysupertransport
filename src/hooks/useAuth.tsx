@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import { appendAuthTrace } from '@/lib/navTrace';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -13,6 +14,8 @@ interface AuthContextType {
   setActiveRole: (role: AppRole) => void;
   profile: ProfileData | null;
   loading: boolean;
+  /** True once fetchRoles has completed at least once for the current user. */
+  rolesLoaded: boolean;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -64,8 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks the user.id for whom fetchRoles has completed at least once. Guards
+  // downstream route protection from redirecting during a transient re-fetch
+  // window (e.g. right after TOKEN_REFRESHED) where `roles` briefly looks empty
+  // even though the user is a valid operator/staff member.
+  const [rolesLoadedFor, setRolesLoadedFor] = useState<string | null>(null);
 
   const fetchRoles = async (userId: string) => {
+    appendAuthTrace({ event: 'fetch-roles-start', userId: userId.slice(0, 8) });
     const { data } = await supabase
       .from('user_roles')
       .select('role')
@@ -87,6 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(defaultRole);
       }
     }
+    setRolesLoadedFor(userId);
+    appendAuthTrace({
+      event: 'fetch-roles-end',
+      userId: userId.slice(0, 8),
+      roleCount: data?.length ?? 0,
+    });
   };
 
   const fetchProfile = async (userId: string) => {
@@ -132,6 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // IMPORTANT: No await inside onAuthStateChange — causes deadlock with Supabase client
     // Use fire-and-forget pattern for subsequent auth events (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      appendAuthTrace({
+        event: 'auth-state-change',
+        supabaseEvent: event,
+        hasSession: !!session,
+        userId: session?.user?.id?.slice(0, 8) ?? null,
+      });
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -143,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
         setActiveRoleState(null);
         setProfile(null);
+        setRolesLoadedFor(null);
         setLoading(false);
       }
     });
@@ -199,11 +221,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isApplicant = roles.includes('applicant');
   const isStaff = isManagement || isOnboardingStaff || isDispatcher;
   const isTruckOwner = roles.includes('truck_owner');
+  const rolesLoaded = !!user && rolesLoadedFor === user.id;
 
   return (
     <AuthContext.Provider value={{
       user, session, roles, activeRole, setActiveRole,
-      profile, loading, refreshProfile,
+      profile, loading, rolesLoaded, refreshProfile,
       signIn, signOut,
       isOwner, isManagement, isOnboardingStaff, isDispatcher,
       isOperator, isApplicant, isStaff, isTruckOwner,

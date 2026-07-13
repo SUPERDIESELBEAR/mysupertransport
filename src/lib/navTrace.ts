@@ -24,6 +24,16 @@ export function appendNavTrace(entry: Record<string, unknown>): void {
   }
 }
 
+/** Thin wrapper — tags an entry as an auth-lifecycle event. */
+export function appendAuthTrace(entry: Record<string, unknown>): void {
+  appendNavTrace({ kind: 'auth', ...entry });
+}
+
+/** Thin wrapper — tags an entry as an app-level route/guard event. */
+export function appendRouteTrace(entry: Record<string, unknown>): void {
+  appendNavTrace({ kind: 'route', ...entry });
+}
+
 export function readNavTrace(): NavTraceEntry[] {
   if (typeof window === 'undefined') return [];
   try {
