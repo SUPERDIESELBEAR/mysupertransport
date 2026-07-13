@@ -43,14 +43,21 @@ export function useAppRefresh() {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      // Check for a newer published build first (skip on dev/preview hosts).
+      // Check for a newer published build first (skip on dev/preview hosts),
+      // but never hard-reload automatically. Several drivers use the installed
+      // app on mobile; surprise reloads look like broken navigation.
       if (!isPreviewHost()) {
         const remote = await fetchRemoteVersion();
         if (remote && remote !== __BUILD_VERSION__) {
-          toast.dismiss('version-update');
-          toast.success('Loading latest version…', { id: 'version-reload' });
-          window.location.reload();
-          return;
+          toast('A new version of SUPERDRIVE is available', {
+            description: 'Refresh when you are ready to load the latest update.',
+            duration: Infinity,
+            id: 'version-update',
+            action: {
+              label: 'Refresh now',
+              onClick: () => window.location.reload(),
+            },
+          });
         }
       }
       await Promise.all([

@@ -253,6 +253,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
           {stage.number === 9 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
             <div className="mt-3 pt-3 border-t border-border/50">
               <Button
+                type="button"
                 size="sm"
                 onClick={() => onNavigateTo('pay-setup')}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
@@ -470,6 +471,7 @@ export default function OperatorStatusPage({
             }`}
           >
             <button
+              type="button"
               onClick={dismissBanner}
               aria-label="Dismiss"
               className="absolute top-3 right-3 h-6 w-6 rounded-full flex items-center justify-center text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -503,6 +505,7 @@ export default function OperatorStatusPage({
                     : 'Please renew and upload your document to your portal before it expires to stay compliant.'}
                 </p>
                 <Button
+                  type="button"
                   size="sm"
                   onClick={() => onNavigateTo('documents')}
                   className="mt-3 bg-destructive text-white hover:bg-destructive/90 text-xs h-8 gap-1.5 font-semibold shadow-sm"
@@ -535,6 +538,7 @@ export default function OperatorStatusPage({
                 </p>
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                   <button
+                    type="button"
                     onClick={() => setViewingQPassport(true)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/40 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
                   >
@@ -542,6 +546,7 @@ export default function OperatorStatusPage({
                     View QPassport
                   </button>
                   <button
+                    type="button"
                     onClick={() => downloadBlob(qpassportUrl!, 'QPassport.pdf')}
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
                   >
@@ -618,6 +623,7 @@ export default function OperatorStatusPage({
         >
           {/* Dismiss button */}
           <button
+            type="button"
             onClick={dismissBanner}
             aria-label="Dismiss"
             className="absolute top-3 right-3 h-6 w-6 rounded-full flex items-center justify-center text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -663,6 +669,7 @@ export default function OperatorStatusPage({
               </p>
 
               <Button
+                type="button"
                 size="sm"
                 onClick={() => onNavigateTo('documents')}
                 className="mt-3 bg-destructive text-white hover:bg-destructive/90 text-xs h-8 gap-1.5 font-semibold shadow-sm"
@@ -694,6 +701,7 @@ export default function OperatorStatusPage({
               </p>
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <button
+                  type="button"
                   onClick={() => setViewingQPassport(true)}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/40 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
                 >
@@ -701,6 +709,7 @@ export default function OperatorStatusPage({
                   View QPassport
                 </button>
                 <button
+                  type="button"
                   onClick={() => downloadBlob(qpassportUrl!, 'QPassport.pdf')}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
                 >
@@ -811,6 +820,7 @@ export default function OperatorStatusPage({
                       </a>
                     ) : (
                       <button
+                        type="button"
                         onClick={onMessageDispatcher}
                         className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors font-medium w-fit"
                       >

@@ -150,34 +150,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     [location.search],
   );
   const [previewViewState, setPreviewViewState] = useState<OperatorViewState>(() => getViewStateFromSearch(location.search));
-  const [requestedViewState, setRequestedViewState] = useState<OperatorViewState | null>(null);
 
-  // The URL remains the confirmed source of truth, but a just-tapped tab renders
-  // immediately until React Router confirms the matching ?tab=. This closes the
-  // remaining race where account-data refreshes/remounts could replay Status.
-  const confirmedViewState = isPreview ? previewViewState : urlViewState;
-  const activeViewState = requestedViewState ?? confirmedViewState;
-  const view = activeViewState.view;
-  const binderView = activeViewState.binderView;
-  const confirmedView = confirmedViewState.view;
-
-  useEffect(() => {
-    if (!requestedViewState) return;
-    if (isPreview) {
-      setRequestedViewState(null);
-      return;
-    }
-    if (urlViewState.view === requestedViewState.view && urlViewState.binderView === requestedViewState.binderView) {
-      appendNavTrace({
-        event: 'request-confirmed',
-        requestedTab: requestedViewState.view,
-        renderedTab: view,
-        confirmedTab: urlViewState.view,
-        url: window.location.href,
-      });
-      setRequestedViewState(null);
-    }
-  }, [isPreview, requestedViewState, urlViewState.view, urlViewState.binderView, view]);
+  // URL-only source of truth. Avoid a second "requested tab" state because it
+  // can race against auth/data refreshes and visually snap drivers back to Status.
+  const viewState = isPreview ? previewViewState : urlViewState;
+  const view = viewState.view;
+  const binderView = viewState.binderView;
+  const confirmedView = viewState.view;
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
   // Single navigation entry point for the driver portal. Writes the URL once
@@ -200,7 +179,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       });
       return;
     }
-    setRequestedViewState(nextState);
     const next = buildOperatorViewUrl(location.pathname, location.search, target, options);
     const href = `${next.pathname}${next.search}`;
     if (options.closeMobileMenu !== false) setMobileMenuOpen(false);
@@ -938,14 +916,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (isPreview) return;
     if (Object.keys(onboardingStatus).length === 0) return;
     const params = new URLSearchParams(location.search);
-    if (params.get('tab')) return;
+    const currentTab = params.get('tab');
+    if (isOperatorView(currentTab)) return;
 
     const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
     const next = buildOperatorViewUrl(location.pathname, location.search, target);
     const href = `${next.pathname}${next.search}`;
-    setRequestedViewState({ view: target, binderView: next.binderView });
     appendNavTrace({
-      event: 'normalize-empty-tab',
+      event: currentTab ? 'normalize-invalid-tab' : 'normalize-empty-tab',
       fromTab: view,
       toTab: target,
       fromSearch: window.location.search,
@@ -1150,6 +1128,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           <div className="flex items-center gap-1 min-w-0">
             {viewHistory.length > 0 && (
               <button
+                type="button"
                 onClick={goBack}
                 aria-label="Back"
                 title="Back"
@@ -1168,6 +1147,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               const showExpiry = 'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo;
               const btn = (
                 <button
+                  type="button"
                   key={item.view}
                   onClick={() => navigateToView(item.view)}
                   className={`relative shrink-0 flex flex-col items-center justify-end gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors w-[68px] xl:w-[76px] ${
@@ -1227,6 +1207,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
           <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={() => setEditProfileOpen(true)}
               title="Edit profile"
               className="p-0.5 rounded-full hover:ring-2 hover:ring-gold/50 transition-all"
@@ -1244,6 +1225,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
             </button>
             <button
+              type="button"
               onClick={() => setNotifPrefOpen(true)}
               title="Notification preferences"
               className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
@@ -1257,6 +1239,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               onNavigate={navigateWithinOperatorPortal}
             />
             <button
+              type="button"
               onClick={handleRefresh}
               disabled={refreshing}
               className="hidden md:flex text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors disabled:opacity-60"
@@ -1266,6 +1249,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
             <button
+              type="button"
               onClick={signOut}
               className="hidden md:flex text-surface-dark-muted hover:text-destructive p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
               title="Sign out"
@@ -1273,6 +1257,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <LogOut className="h-5 w-5" />
             </button>
             <button
+              type="button"
               className="md:hidden text-surface-dark-muted hover:text-surface-dark-foreground p-2"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -1289,6 +1274,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <div className="grid grid-cols-4 gap-2">
               {navItems.map(item => (
                 <button
+                  type="button"
                   key={item.view}
                   onClick={() => navigateToView(item.view)}
                   className={`relative flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
@@ -1320,6 +1306,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             </div>
             <div className="mt-3 pt-3 border-t border-surface-dark-border flex flex-wrap justify-center gap-3">
               <button
+                type="button"
                 onClick={() => { handleRefresh(); setMobileMenuOpen(false); }}
                 disabled={refreshing}
                 className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground disabled:opacity-60"
@@ -1327,6 +1314,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
               </button>
               <button
+                type="button"
                 onClick={() => { setEditProfileOpen(true); setMobileMenuOpen(false); }}
                 className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
               >
@@ -1344,12 +1332,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 Edit Profile
               </button>
               <button
+                type="button"
                 onClick={() => { setChangePasswordOpen(true); setMobileMenuOpen(false); }}
                 className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
               >
                 <KeyRound className="h-4 w-4" /> Change Password
               </button>
-              <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-destructive">
+              <button type="button" onClick={signOut} className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-destructive">
                 <LogOut className="h-4 w-4" /> Sign Out
               </button>
             </div>
@@ -1398,6 +1387,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 {!truckDownAcked && (
                   <button
+                    type="button"
                     onClick={handleTruckDownAck}
                     disabled={ackLoading}
                     className="flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/25 transition-colors disabled:opacity-60 flex-1 sm:flex-none justify-center"
@@ -1410,6 +1400,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => navigateToView('messages')}
                   className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-1 sm:flex-none justify-center ${
                     truckDownAcked
@@ -1471,6 +1462,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => navigateToView('ica')}
                 className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
               >
@@ -1499,6 +1491,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => navigateToView('ica')}
                 className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-status-complete text-white text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-status-complete/90 transition-colors shadow-sm"
               >
@@ -1543,6 +1536,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => navigateToView('documents')}
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-info text-info-foreground text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-info/90 transition-colors shadow-sm"
                 >
@@ -1579,6 +1573,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((t, idx) => (
                   <button
+                    type="button"
                     key={t.view}
                     onPointerEnter={() => prefetchTile(t.view)}
                     onTouchStart={() => prefetchTile(t.view)}
@@ -1607,6 +1602,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               {/* Secondary link back to onboarding status */}
               <div className="flex justify-center pt-1">
                 <button
+                  type="button"
                   onClick={() => navigateToView('progress')}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -1884,6 +1880,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           style={{ transform: 'translateZ(0)' }}
         >
           <button
+            type="button"
             onClick={nextStep.action}
             className={`
               pointer-events-auto w-full flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl
@@ -1946,6 +1943,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             const badge = 'badge' in item ? (item.badge as number | undefined) : undefined;
             return (
               <button
+                type="button"
                 key={item.view}
                 onClick={() => navigateToView(item.view)}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
