@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -51,7 +51,9 @@ type OperatorNavigateOptions = { binderView?: 'pages'; replace?: boolean; closeM
 
 const buildOperatorViewUrl = (pathname: string, search: string, target: OperatorView, options: OperatorNavigateOptions = {}) => {
   const params = new URLSearchParams(search);
-  if (target !== 'progress') params.set('tab', target); else params.delete('tab');
+  // Always write an explicit tab param — no "empty search means progress"
+  // collapse, which was the root of the tap-reverts-to-Status bug.
+  params.set('tab', target);
   if (target === 'inspection-binder' && options.binderView === 'pages') {
     params.set('binderView', 'pages');
   } else {
