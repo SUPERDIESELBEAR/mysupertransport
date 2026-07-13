@@ -41,110 +41,20 @@ import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
+import {
+  type OperatorNavigateOptions,
+  type OperatorView,
+  type OperatorViewState,
+  buildOperatorViewUrl,
+  getOperatorBasePath,
+  getRouteSegments,
+  getViewStateFromLocation,
+  getViewStateFromSearch,
+  isKnownOperatorRoute,
+  isOperatorView,
+} from '@/lib/operatorRoutes';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
-const OPERATOR_VIEWS: OperatorView[] = ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'];
-const isOperatorView = (value: string | null): value is OperatorView => !!value && OPERATOR_VIEWS.includes(value as OperatorView);
-type OperatorViewState = { view: OperatorView; binderView?: 'pages' };
-type OperatorNavigateOptions = { binderView?: 'pages'; replace?: boolean; closeMobileMenu?: boolean };
-
-const VIEW_TO_ROUTE: Record<OperatorView, string> = {
-  home: 'home',
-  progress: 'status',
-  documents: 'documents',
-  messages: 'messages',
-  'resource-center': 'resources',
-  faq: 'faq',
-  dispatch: 'dispatch',
-  ica: 'ica',
-  notifications: 'notifications',
-  'docs-hub': 'doc-hub',
-  'inspection-binder': 'binder',
-  'pay-setup': 'pay-setup',
-  'my-docs': 'my-docs',
-  'my-truck': 'my-truck',
-  forecast: 'forecast',
-};
-
-const ROUTE_TO_VIEW: Record<string, OperatorView> = {
-  home: 'home',
-  status: 'progress',
-  progress: 'progress',
-  documents: 'documents',
-  messages: 'messages',
-  resources: 'resource-center',
-  'resource-center': 'resource-center',
-  faq: 'faq',
-  dispatch: 'dispatch',
-  ica: 'ica',
-  notifications: 'notifications',
-  'doc-hub': 'docs-hub',
-  'docs-hub': 'docs-hub',
-  binder: 'inspection-binder',
-  'inspection-binder': 'inspection-binder',
-  'pay-setup': 'pay-setup',
-  'my-docs': 'my-docs',
-  'my-truck': 'my-truck',
-  forecast: 'forecast',
-};
-
-const getOperatorBasePath = (pathname: string) => {
-  if (pathname === '/owner' || pathname.startsWith('/owner/')) return '/owner';
-  return '/operator';
-};
-
-const getRouteSegments = (pathname: string) => {
-  const base = getOperatorBasePath(pathname);
-  if (pathname === base) return [];
-  if (!pathname.startsWith(`${base}/`)) return [];
-  return pathname.slice(base.length + 1).split('/').filter(Boolean);
-};
-
-const buildOperatorViewUrl = (pathname: string, search: string, target: OperatorView, options: OperatorNavigateOptions = {}) => {
-  const params = new URLSearchParams(search);
-  params.delete('tab');
-  params.delete('binderView');
-  const nextSearch = params.toString();
-  const base = getOperatorBasePath(pathname);
-  const route = VIEW_TO_ROUTE[target];
-  const nextPath = target === 'inspection-binder' && options.binderView === 'pages'
-    ? `${base}/${route}/pages`
-    : `${base}/${route}`;
-  return {
-    pathname: nextPath,
-    search: nextSearch ? `?${nextSearch}` : '',
-    binderView: target === 'inspection-binder' && options.binderView === 'pages' ? 'pages' as const : undefined,
-  };
-};
-
-const getViewStateFromSearch = (search: string): OperatorViewState => {
-  const params = new URLSearchParams(search);
-  const tab = params.get('tab');
-  const view = isOperatorView(tab) ? tab : 'progress';
-  return {
-    view,
-    binderView: view === 'inspection-binder' && params.get('binderView') === 'pages' ? 'pages' : undefined,
-  };
-};
-
-const getViewStateFromLocation = (pathname: string, search: string): OperatorViewState => {
-  const segments = getRouteSegments(pathname);
-  const routeView = segments[0] ? ROUTE_TO_VIEW[segments[0]] : null;
-  if (routeView) {
-    return {
-      view: routeView,
-      binderView: routeView === 'inspection-binder' && segments[1] === 'pages' ? 'pages' : undefined,
-    };
-  }
-  return getViewStateFromSearch(search);
-};
-
-const isKnownOperatorRoute = (pathname: string) => {
-  const segments = getRouteSegments(pathname);
-  if (segments.length === 0) return true;
-  return !!ROUTE_TO_VIEW[segments[0]];
-};
 
 const appendNavTrace = (entry: Record<string, unknown>) => {
   if (typeof window === 'undefined') return;
@@ -269,12 +179,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const navigateWithinOperatorPortal = useCallback((path: string) => {
     try {
       const url = new URL(path, window.location.origin);
-      const next = getViewStateFromSearch(url.search);
-      if (url.origin === window.location.origin && isOperatorView(new URLSearchParams(url.search).get('tab'))) {
+      const isSameOrigin = url.origin === window.location.origin;
+      const isDriverPortalPath = url.pathname === '/dashboard' || url.pathname.startsWith('/operator') || url.pathname.startsWith('/owner');
+      if (isSameOrigin && isDriverPortalPath && url.searchParams.has('tab')) {
+        const next = getViewStateFromSearch(url.search);
         navigateToView(next.view, { binderView: next.binderView });
         return;
       }
-      if (url.origin === window.location.origin && (url.pathname.startsWith('/operator') || url.pathname.startsWith('/owner'))) {
+      if (isSameOrigin && (url.pathname.startsWith('/operator') || url.pathname.startsWith('/owner'))) {
         const routeState = getViewStateFromLocation(url.pathname, url.search);
         navigateToView(routeState.view, { binderView: routeState.binderView });
         return;
@@ -748,7 +660,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           title: 'New Message',
           body: payload.new?.body ?? 'You have a new message from your dispatcher.',
           type: 'new_message',
-          link: '/operator?tab=messages',
+          link: '/operator/messages',
         });
       })
       .subscribe();
@@ -990,7 +902,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (isPreview) return;
     const base = getOperatorBasePath(location.pathname);
     const segments = getRouteSegments(location.pathname);
-    if (Object.keys(onboardingStatus).length === 0) return;
     const params = new URLSearchParams(location.search);
     const currentTab = params.get('tab');
     if (isOperatorView(currentTab)) {
@@ -1011,7 +922,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
 
     if (segments.length > 0 && isKnownOperatorRoute(location.pathname)) return;
-    const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
+    const target: OperatorView = 'progress';
     const next = buildOperatorViewUrl(base, location.search, target);
     const href = `${next.pathname}${next.search}`;
     appendNavTrace({
@@ -1025,7 +936,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       url: window.location.href,
     });
     navigate(href, { replace: true });
-  }, [isPreview, isFullyOnboarded, onboardingStatus, location.pathname, location.search, navigate, view]);
+  }, [isPreview, location.pathname, location.search, navigate, view]);
+
+  useEffect(() => {
+    appendNavTrace({
+      event: 'rendered-route',
+      renderedTab: view,
+      renderedBinderView: binderView ?? null,
+      path: location.pathname,
+      search: location.search,
+      url: window.location.href,
+    });
+  }, [binderView, location.pathname, location.search, view]);
 
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
@@ -1327,7 +1249,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             </button>
             <NotificationBell
               variant="dark"
-              notificationsPath={`${location.pathname}?tab=notifications`}
+              notificationsPath={`${getOperatorBasePath(location.pathname)}/notifications`}
               clearBadge={view === 'notifications'}
               onNavigate={navigateWithinOperatorPortal}
             />

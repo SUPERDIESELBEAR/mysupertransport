@@ -157,7 +157,9 @@ function StageCard({
     >
       {/* Stage header */}
       <button
-        onClick={() => {
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
           if (isStage9DeepLink) {
             onNavigateTo('pay-setup');
           } else if (canToggle) {
@@ -214,8 +216,12 @@ function StageCard({
       {showPaySetupCTA && (
         <div className="px-3 pb-2.5">
           <Button
+            type="button"
             size="sm"
-            onClick={() => onNavigateTo('pay-setup')}
+            onClick={(event) => {
+              event.preventDefault();
+              onNavigateTo('pay-setup');
+            }}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
           >
             <CreditCard className="h-3.5 w-3.5" />
@@ -250,8 +256,12 @@ function StageCard({
           {showDocsCTA && (
             <div className="px-3 py-2.5">
               <Button
+                type="button"
                 size="sm"
-                onClick={() => onNavigateTo('documents')}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onNavigateTo('documents');
+                }}
                 className="w-full bg-gold text-surface-dark hover:bg-gold-light text-xs h-8 gap-1.5 font-semibold"
               >
                 <Upload className="h-3.5 w-3.5" />
@@ -263,8 +273,12 @@ function StageCard({
           {showIcaCTA && (
             <div className="px-3 py-2.5">
               <Button
+                type="button"
                 size="sm"
-                onClick={() => onNavigateTo('ica')}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onNavigateTo('ica');
+                }}
                 className={`w-full text-xs h-8 gap-1.5 font-semibold ${icaSigned ? 'bg-status-complete text-white hover:bg-status-complete/90' : 'bg-destructive text-white hover:bg-destructive/90'}`}
               >
                 <FileText className="h-3.5 w-3.5" />
@@ -456,7 +470,11 @@ export default function OnboardingChecklist({
                 </a>
               )}
               <button
-                onClick={onMessageCoordinator}
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  onMessageCoordinator?.();
+                }}
                 className="flex items-center justify-center h-8 w-8 rounded-lg bg-gold/15 border border-gold/30 text-gold hover:bg-gold/25 transition-colors"
                 title={`Message ${assignedCoordinator.name}`}
               >
