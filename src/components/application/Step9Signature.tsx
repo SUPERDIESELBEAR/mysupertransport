@@ -55,23 +55,41 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
     if (!sigRef.current || sigRef.current.isEmpty()) return;
     setSavingSig(true);
     setSigError(null);
+    const dataUrl = sigRef.current.toDataURL('image/png');
+    const MAX_ATTEMPTS = 3;
+    let lastErr: any = null;
     try {
-      const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
-      const path = `signatures/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
-      const { error } = await withTimeout(
-        supabase.storage.from('signatures').upload(path, blob, { contentType: 'image/png' }),
-        60_000,
-        'Signature upload',
-      );
-      if (error) throw error;
-      onChange('signature_image_url', path);
-      setSigSaved(true);
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const path = `signatures/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+          const { error } = await withTimeout(
+            supabase.storage.from('signatures').upload(path, blob, { contentType: 'image/png' }),
+            60_000,
+            'Signature upload',
+          );
+          if (error) throw error;
+          onChange('signature_image_url', path);
+          setSigSaved(true);
+          setSigError(null);
+          return;
+        } catch (err: any) {
+          lastErr = err;
+          const msg = String(err?.message ?? '');
+          const transient =
+            /Failed to fetch|NetworkError|timed out|timeout|fetch failed|ECONNRESET|Load failed|5\d\d/i.test(msg);
+          if (!transient || attempt === MAX_ATTEMPTS) break;
+          // exponential backoff: 600ms, 1400ms
+          await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
+        }
+      }
+      throw lastErr ?? new Error('Signature upload failed');
     } catch (err: any) {
-      const message =
-        err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError')
-          ? "Couldn't save your signature — please check your connection and draw it again."
-          : "Couldn't save your signature. Please clear and try again.";
+      const msg = String(err?.message ?? '');
+      const isNetwork = /Failed to fetch|NetworkError|timed out|Load failed/i.test(msg);
+      const message = isNetwork
+        ? "Couldn't save your signature — please check your connection and tap Try again."
+        : "Couldn't save your signature. Tap Try again, or clear and re-draw.";
       setSigSaved(false);
       setSigError(message);
       toast.error(message);
@@ -166,7 +184,17 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
         </div>
         {savingSig && <p className="text-xs text-muted-foreground mt-1">Saving signature…</p>}
         {sigError && !savingSig && (
-          <p className="text-xs text-destructive mt-1" role="alert">{sigError}</p>
+          <div className="mt-1 flex items-center gap-2" role="alert">
+            <p className="text-xs text-destructive">{sigError}</p>
+            <button
+              type="button"
+              onClick={saveSig}
+              disabled={savingSig}
+              className="text-xs font-medium text-gold hover:underline disabled:opacity-50"
+            >
+              Try again
+            </button>
+          </div>
         )}
       </FormField>
 
