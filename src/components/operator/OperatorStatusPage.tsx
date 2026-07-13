@@ -255,6 +255,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
               <Button
                 type="button"
                 size="sm"
+                data-nav-cta="complete-pay-setup"
                 onClick={() => onNavigateTo('pay-setup')}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
               >

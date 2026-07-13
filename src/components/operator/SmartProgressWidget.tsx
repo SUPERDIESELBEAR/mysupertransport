@@ -959,6 +959,7 @@ export default function SmartProgressWidget({
           <Button
             type="button"
             size="sm"
+            data-nav-cta="review-acknowledge-documents"
             onClick={() => onNavigateTo('docs-hub')}
             className="w-full text-xs h-8 gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
           >
