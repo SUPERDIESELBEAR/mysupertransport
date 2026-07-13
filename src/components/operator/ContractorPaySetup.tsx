@@ -116,39 +116,65 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [{ data: docs }, { data: acks }] = await Promise.all([
-        supabase
-          .from('driver_documents')
-          .select('id,title,description,body,content_type,pdf_url,pdf_path,version')
-          .in('id', HUB_DOC_ID_LIST),
-        supabase
-          .from('document_acknowledgments')
-          .select('document_id, document_version')
-          .eq('user_id', user.id)
-          .in('document_id', HUB_DOC_ID_LIST),
-      ]);
-      const list = (docs ?? []) as HubDoc[];
-      // Preserve display order: Handbook, BOL/POD, Loadout
-      const orderedIds: string[] = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
-      list.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
-      setHubDocs(list);
+      try {
+        const [docsRes, acksRes] = await Promise.all([
+          withTimeout(
+            supabase
+              .from('driver_documents')
+              .select('id,title,description,body,content_type,pdf_url,pdf_path,version')
+              .in('id', HUB_DOC_ID_LIST),
+            15_000,
+            'Loading procedure documents',
+          ),
+          withTimeout(
+            supabase
+              .from('document_acknowledgments')
+              .select('document_id, document_version')
+              .eq('user_id', user.id)
+              .in('document_id', HUB_DOC_ID_LIST),
+            15_000,
+            'Loading acknowledgments',
+          ),
+        ]);
+        if (docsRes.error) throw docsRes.error;
+        if (acksRes.error) throw acksRes.error;
 
-      const ackMap: Record<string, number> = {};
-      (acks ?? []).forEach((a: any) => { ackMap[a.document_id] = a.document_version; });
-      setHubAcks(ackMap);
+        const list = (docsRes.data ?? []) as HubDoc[];
+        // Preserve display order: Handbook, BOL/POD, Loadout
+        const orderedIds: string[] = [HUB_DOC_IDS.handbook, HUB_DOC_IDS.bol_pod, HUB_DOC_IDS.loadout];
+        list.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+        setHubDocs(list);
 
-      // Resolve signed URLs for PDF-type hub docs
-      const urlEntries = await Promise.all(
-        list.filter(d => d.content_type === 'pdf' && d.pdf_path).map(async d => {
-          const { data } = await supabase.storage
-            .from('operator-documents')
-            .createSignedUrl(d.pdf_path!, 3600);
-          return [d.id, data?.signedUrl ?? d.pdf_url ?? null] as const;
-        })
-      );
-      const urls: Record<string, string | null> = {};
-      urlEntries.forEach(([id, url]) => { urls[id] = url; });
-      setHubPdfUrls(urls);
+        const ackMap: Record<string, number> = {};
+        (acksRes.data ?? []).forEach((a: any) => { ackMap[a.document_id] = a.document_version; });
+        setHubAcks(ackMap);
+
+        // Resolve signed URLs for PDF-type hub docs
+        const urlEntries = await Promise.all(
+          list.filter(d => d.content_type === 'pdf' && d.pdf_path).map(async d => {
+            try {
+              const { data } = await withTimeout(
+                supabase.storage.from('operator-documents').createSignedUrl(d.pdf_path!, 3600),
+                15_000,
+                'Loading document link',
+              );
+              return [d.id, data?.signedUrl ?? d.pdf_url ?? null] as const;
+            } catch {
+              return [d.id, d.pdf_url ?? null] as const;
+            }
+          })
+        );
+        const urls: Record<string, string | null> = {};
+        urlEntries.forEach(([id, url]) => { urls[id] = url; });
+        setHubPdfUrls(urls);
+      } catch (err) {
+        console.error('[ContractorPaySetup] hub docs fetch failed', err);
+        toast({
+          title: "Couldn't load procedure documents",
+          description: 'Please check your connection and try again.',
+          variant: 'destructive',
+        });
+      }
     })();
   }, [user]);
 
