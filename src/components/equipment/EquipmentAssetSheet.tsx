@@ -6,6 +6,7 @@ import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { toast } from 'sonner';
+import { withTimeout } from '@/lib/withTimeout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -188,9 +189,11 @@ export default function EquipmentAssetSheet({
       const blob = await (await fetch(dataUrl)).blob();
       const path = `${operatorId}/equipment-asset-sheet/signature-${Date.now()}.png`;
       step = 'upload';
-      const { error: upErr } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, blob, { contentType: 'image/png', upsert: true });
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(path, blob, { contentType: 'image/png', upsert: true }),
+        60_000,
+        'Signature upload',
+      );
       if (upErr) throw upErr;
       step = 'signed_url';
       const { data: signedUrl } = await supabase.storage
@@ -310,9 +313,11 @@ export default function EquipmentAssetSheet({
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
       const path = `equipment-receipts/${operatorId}/${direction}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: true });
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(path, file, { upsert: true }),
+        60_000,
+        'Receipt upload',
+      );
       if (upErr) throw upErr;
       const { data: signedUrl } = await supabase.storage
         .from('operator-documents')
@@ -331,7 +336,10 @@ export default function EquipmentAssetSheet({
         uploaded_by: user.id,
         uploader_role: mode === 'management' ? 'management' : 'driver',
       });
-      if (error) throw error;
+      if (error) {
+        await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
+        throw error;
+      }
       toast.success('Receipt uploaded.');
       fetchReceipts();
     } catch (err: any) {

@@ -7,6 +7,7 @@ import {
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 import { validateFile } from '@/lib/validateFile';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 
@@ -124,9 +125,11 @@ export default function PEScreeningTimeline({
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
       if (uploadError) throw uploadError;
 
       // Store raw storage path (not a public URL) for private bucket
@@ -136,7 +139,10 @@ export default function PEScreeningTimeline({
         file_name: file.name,
         file_url: path,
       });
-      if (insertError) throw insertError;
+      if (insertError) {
+        await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
+        throw insertError;
+      }
 
       try {
         await supabase.functions.invoke('send-notification', {
@@ -151,7 +157,9 @@ export default function PEScreeningTimeline({
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that receipt. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {

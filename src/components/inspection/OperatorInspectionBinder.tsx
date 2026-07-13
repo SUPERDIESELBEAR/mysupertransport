@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 import { useAuth } from '@/hooks/useAuth';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
@@ -154,22 +155,37 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
     try {
       const ext = file.name.split('.').pop();
       const path = `${userId}/${category}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await supabase.storage.from('driver-uploads').upload(path, file);
+      const { error: storageErr } = await withTimeout(
+        supabase.storage.from('driver-uploads').upload(path, file),
+        60_000,
+        'Upload',
+      );
       if (storageErr) throw storageErr;
 
       const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
-      await supabase.from('driver_uploads').insert({
+      const { error: insertErr } = await supabase.from('driver_uploads').insert({
         driver_id: userId,
         category,
         file_url: urlData?.signedUrl ?? null,
         file_path: path,
         file_name: file.name,
       });
+      if (insertErr) {
+        // Best-effort cleanup so the storage object doesn't orphan a failed row.
+        await supabase.storage.from('driver-uploads').remove([path]).catch(() => {});
+        throw insertErr;
+      }
 
       toast({ title: 'Uploaded!', description: 'Your document has been submitted for review.' });
       fetchDocs();
-    } catch (err: any) {
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that document. Please check your connection and try again.",
+        variant: 'destructive',
+      });
     } finally {
       setUploadingKey(null);
     }

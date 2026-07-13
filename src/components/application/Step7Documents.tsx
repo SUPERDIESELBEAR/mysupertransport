@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ApplicationFormData } from './types';
 import { FormField } from './FormField';
 import { validateFile } from '@/lib/validateFile';
+import { withTimeout } from '@/lib/withTimeout';
 
 interface Props {
   data: ApplicationFormData;
@@ -40,13 +41,19 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
     try {
       const ext = file.name.split('.').pop();
       const path = `applications/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('application-documents')
-        .upload(path, file, { upsert: false });
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from('application-documents').upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
       if (upErr) throw upErr;
       onUploaded(path);
-    } catch (e: any) {
-      setUploadError(e.message || 'Upload failed. Please try again.');
+    } catch (e: unknown) {
+      setUploadError(
+        e instanceof Error
+          ? e.message
+          : "We couldn't upload that file. Please check your connection and try again.",
+      );
     } finally {
       setUploading(false);
     }

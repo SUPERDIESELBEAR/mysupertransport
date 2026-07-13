@@ -11,6 +11,7 @@ import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 import { validateFile, MAX_FILE_SIZE_BYTES } from '@/lib/validateFile';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { Upload, Trash2, Eye, Download, FileText, ChevronDown, Loader2, AlertTriangle, CheckCircle2, Clock, FolderOpen } from 'lucide-react';
@@ -119,9 +120,11 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
     try {
       const ext = uploadFile.name.split('.').pop()?.toLowerCase() || 'bin';
       const storagePath = `${operatorId}/vault/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: storageErr } = await supabase.storage
-        .from('operator-documents')
-        .upload(storagePath, uploadFile, { upsert: true });
+      const { error: storageErr } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(storagePath, uploadFile, { upsert: true }),
+        60_000,
+        'Upload',
+      );
       if (storageErr) throw storageErr;
 
       const label = uploadLabel.trim() || CATEGORY_LABEL_MAP[uploadCategory] || 'Document';
@@ -137,7 +140,10 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
           expires_at: uploadExpiry || null,
           notes: uploadNotes.trim() || null,
         });
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        await supabase.storage.from('operator-documents').remove([storagePath]).catch(() => {});
+        throw insertErr;
+      }
 
       toast({ title: 'Document uploaded' });
       setShowUpload(false);
@@ -147,8 +153,14 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
       setUploadExpiry('');
       setUploadNotes('');
       fetchDocs();
-    } catch (err: any) {
-      toast({ title: 'Upload failed', description: err?.message || 'Unknown error', variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that document. Please check your connection and try again.",
+        variant: 'destructive',
+      });
     } finally {
       setUploading(false);
     }

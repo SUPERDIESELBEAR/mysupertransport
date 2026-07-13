@@ -4,6 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { sanitizeText } from '@/lib/sanitize';
 import { ChatMessage, MessageReaction, MESSAGE_SELECT, EDIT_WINDOW_MS } from './types';
 import { toast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIMES = new Set([
@@ -210,11 +211,21 @@ export function useMessageThread({
       }
       const ext = f.name.split('.').pop() ?? 'bin';
       const path = `${myUserId}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('message-attachments')
-        .upload(path, f, { contentType: f.type, upsert: false });
-      if (upErr) {
-        toast({ title: 'Upload failed', description: upErr.message, variant: 'destructive' });
+      try {
+        const { error: upErr } = await withTimeout(
+          supabase.storage.from('message-attachments').upload(path, f, { contentType: f.type, upsert: false }),
+          60_000,
+          'Attachment upload',
+        );
+        if (upErr) throw upErr;
+      } catch (err: unknown) {
+        toast({
+          title: 'Upload failed',
+          description: err instanceof Error
+            ? err.message
+            : "We couldn't attach that file. Please check your connection and try again.",
+          variant: 'destructive',
+        });
         return null;
       }
       const { data: signed } = await supabase.storage

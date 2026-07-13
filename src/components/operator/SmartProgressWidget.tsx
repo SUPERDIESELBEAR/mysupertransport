@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { validateFile } from '@/lib/validateFile';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -510,9 +511,11 @@ function InlineDocUpload({
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/${slotKey}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
       if (uploadError) throw uploadError;
 
       const { data: signedData } = await supabase.storage
@@ -522,12 +525,16 @@ function InlineDocUpload({
       const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
       const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
 
-      await supabase.from('operator_documents').insert({
+      const { error: insertErr } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: slotKey as any,
         file_name: file.name,
         file_url: fileUrl,
       });
+      if (insertErr) {
+        await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
+        throw insertErr;
+      }
 
       // Trigger success flash animation, then refresh parent data
       setJustUploaded(prev => new Set(prev).add(slotKey));
@@ -540,7 +547,9 @@ function InlineDocUpload({
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that document. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {
