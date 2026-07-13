@@ -67,8 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks the user.id for whom fetchRoles has completed at least once. Guards
+  // downstream route protection from redirecting during a transient re-fetch
+  // window (e.g. right after TOKEN_REFRESHED) where `roles` briefly looks empty
+  // even though the user is a valid operator/staff member.
+  const [rolesLoadedFor, setRolesLoadedFor] = useState<string | null>(null);
 
   const fetchRoles = async (userId: string) => {
+    appendAuthTrace({ event: 'fetch-roles-start', userId: userId.slice(0, 8) });
     const { data } = await supabase
       .from('user_roles')
       .select('role')
@@ -90,6 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(defaultRole);
       }
     }
+    setRolesLoadedFor(userId);
+    appendAuthTrace({
+      event: 'fetch-roles-end',
+      userId: userId.slice(0, 8),
+      roleCount: data?.length ?? 0,
+    });
   };
 
   const fetchProfile = async (userId: string) => {
