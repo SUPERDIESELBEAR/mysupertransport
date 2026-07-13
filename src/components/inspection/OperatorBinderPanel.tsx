@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
@@ -153,19 +154,31 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     try {
       const ext = file.name.split('.').pop();
       const path = `driver/${driverUserId}/${docName.replace(/\s+/g, '-').toLowerCase()}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await supabase.storage.from('inspection-documents').upload(path, file, { upsert: false });
+      const { error: storageErr } = await withTimeout(
+        supabase.storage.from('inspection-documents').upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
       if (storageErr) throw storageErr;
       const { data: urlData } = await supabase.storage.from('inspection-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
       const fileUrl = urlData?.signedUrl ?? null;
-      if (existingId) {
-        await supabase.from('inspection_documents').update({ file_url: fileUrl, file_path: path, uploaded_at: new Date().toISOString(), uploaded_by: user.id }).eq('id', existingId);
-      } else {
-        await supabase.from('inspection_documents').insert({ name: docName, scope: 'per_driver', driver_id: driverUserId, file_url: fileUrl, file_path: path, uploaded_by: user.id });
+      const dbRes = existingId
+        ? await supabase.from('inspection_documents').update({ file_url: fileUrl, file_path: path, uploaded_at: new Date().toISOString(), uploaded_by: user.id }).eq('id', existingId)
+        : await supabase.from('inspection_documents').insert({ name: docName, scope: 'per_driver', driver_id: driverUserId, file_url: fileUrl, file_path: path, uploaded_by: user.id });
+      if (dbRes.error) {
+        await supabase.storage.from('inspection-documents').remove([path]).catch(() => {});
+        throw dbRes.error;
       }
       toast({ title: 'Uploaded!', description: `${docName} has been uploaded.` });
       fetchDocs();
-    } catch (err: any) {
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that document. Please check your connection and try again.",
+        variant: 'destructive',
+      });
     } finally {
       setUploading(null);
     }
@@ -205,10 +218,14 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     try {
       const ext = file.name.split('.').pop();
       const path = `${driverUserId}/${category}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await supabase.storage.from('driver-uploads').upload(path, file);
+      const { error: storageErr } = await withTimeout(
+        supabase.storage.from('driver-uploads').upload(path, file),
+        60_000,
+        'Upload',
+      );
       if (storageErr) throw storageErr;
       const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
-      await supabase.from('driver_uploads').insert({
+      const { error: insertErr } = await supabase.from('driver_uploads').insert({
         driver_id: driverUserId,
         category,
         file_url: urlData?.signedUrl ?? null,
@@ -216,10 +233,20 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
         file_name: file.name,
         status: 'reviewed',
       });
+      if (insertErr) {
+        await supabase.storage.from('driver-uploads').remove([path]).catch(() => {});
+        throw insertErr;
+      }
       toast({ title: 'Uploaded!', description: `${UPLOAD_CATEGORY_LABELS[category]} uploaded successfully.` });
       fetchDocs();
-    } catch (err: any) {
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that document. Please check your connection and try again.",
+        variant: 'destructive',
+      });
     } finally {
       setStaffUploading(null);
     }

@@ -1,47 +1,32 @@
-## Diagnosis (already confirmed)
+## Approved scope — ready to execute on build mode
 
-The driver-facing document flows have a shared bug pattern: async calls to storage and the database don't have timeouts, and their errors are silently swallowed. On a flaky mobile connection this shows as an infinite spinner with no toast — matching the reported behavior.
+Running the full document-upload audit end-to-end:
 
-Concrete offenders:
+1. **Code audit pass (read-only)** — grep every `supabase.storage.from(...).upload(` and `.uploadToSignedUrl(` call site and verify each has:
+   - `withTimeout` wrapper (60s ceiling for uploads, 15s for fetches)
+   - `try/catch/finally` that resets local `uploading`/`loading` state
+   - Friendly toast on failure (no raw `err.message` leaks)
+   - Orphan protection: DB insert inside the same try block; best-effort storage cleanup if the DB write fails
+   - Any miss = fix ticket logged in the report before manual QA starts
 
-- `DocumentHub.tsx` — `fetchDocuments`, `fetchAcknowledgments`, `fetchAckCounts` all destructure only `data`, throw away `error`, and never set `loading = false` in a `finally`.
-- `OperatorDocumentUpload.tsx` — `handleUpload` (and the two decal upload variants) have no timeout on the storage `upload()` call, so if the network stalls the button spins forever.
-- `ContractorPaySetup.tsx` — Stage 9 fetch of the three hub docs added last turn uses the same swallow-errors pattern.
+2. **Test account provisioning** — call the `create-test-operator` edge function twice to create two isolated throwaway operators. Confirmed isolation: the function tags accounts with a test flag, uses synthetic emails, and does not touch any production driver records. Accounts will be listed by ID in the report and can be deleted after the run.
 
-RLS and storage policies were verified against the DB and are not the cause. `driver_documents` returns 6 rows for a signed-in driver.
+3. **Automated Playwright coverage** — script under `/tmp/browser/upload-audit/` that logs in as both test operators and walks every upload surface listed below, capturing screenshots at: file picker, mid-upload, post-upload list, and post-reload. Assertions: no `role="status"` spinner remains after 65s; DB row exists; storage object exists.
 
-## What to build
+4. **Manual QA checklist** per surface: happy path, large file (~9 MB), slow-3G throttle, failure injection, cross-account, cross-device (desktop Chrome / iOS Safari PWA / Android Chrome PWA for representative flows + all camera captures), reload persistence, staff mirror.
 
-1. **New helper** `src/lib/withTimeout.ts`
-   - `withTimeout(promise, ms, label)` — rejects with a friendly `Error` after `ms` if the wrapped promise doesn't settle. Used to wrap storage uploads and long-running fetches.
+**Surfaces covered:**
+- Onboarding Stages 1, 2, 3 (incl. truck photos w/ environment camera), 4, 5, 5A, 6, 8, 9 (voided check / direct deposit)
+- Document Hub uploads + re-uploads
+- Driver Vault uploads
+- Optional docs (`driver_optional_docs`)
+- Decal photo capture (front/side + extras)
+- Equipment Asset Sheet return shipping receipt
+- Truck DOT inspection / maintenance record uploads
+- Message attachments (if driver-attachable)
+- ICA signature image write
+- Application resume attachments during revision
 
-2. **`src/components/documents/DocumentHub.tsx`**
-   - Wrap `fetchDocuments`, `fetchAcknowledgments`, `fetchAckCounts` in `try / catch / finally`.
-   - Capture the Supabase `{ data, error }` tuple; if `error` is set, toast a friendly message ("Couldn't load documents. Pull to refresh or check your connection.").
-   - `finally { setLoading(false) }` so the skeleton always clears.
-   - Add a 15 s `withTimeout` around each query.
+5. **Deliverable** — `/mnt/documents/upload-audit-report.md` with per-surface rows containing: surface, path tested, device, result (pass/fail), screenshot links, DB/storage evidence, plus a prioritized fix list. All code-audit findings appear at the top before the manual QA results.
 
-3. **`src/components/operator/OperatorDocumentUpload.tsx`**
-   - Wrap `supabase.storage...upload(...)` in `withTimeout(..., 60_000, 'Upload')` for `handleUpload`, `handleDecalPhoto`, `handleDecalExtra`.
-   - Keep the existing `try/catch` — timeouts now surface as the standard "Upload failed" toast with the friendly message.
-   - No change to storage buckets or RLS.
-
-4. **`src/components/operator/ContractorPaySetup.tsx`**
-   - Same `try / catch / finally` treatment on the Stage 9 hub-doc fetch added last turn.
-   - Toast on failure so the page doesn't sit in a loading state forever.
-
-5. **Friendly error messages only**
-   - All toasts use human-readable copy ("Couldn't load documents", "Upload failed — check your connection"). Raw Supabase error strings are never surfaced.
-
-## Verification
-
-- Sim a slow network in DevTools (offline / throttled) and confirm:
-  - Document Hub shows the empty state + a toast instead of an eternal skeleton.
-  - Onboarding upload button releases in ≤ 60 s with a toast instead of spinning forever.
-- Sign in as two different driver accounts, upload a small PDF to each of Form 2290 and Truck Title, confirm the doc appears in the slot with a green check and the correct filename.
-- Confirm no raw `Error: ...` text shows in any toast.
-
-## Out of scope
-
-- No changes to storage policies, RLS, or bucket configuration.
-- No visual redesign of the Document Hub or upload cards — only error-path behavior.
+Approve to switch to build mode and I'll start with the code audit pass immediately.

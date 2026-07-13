@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import {
@@ -184,13 +185,11 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
       const path = `${operatorId}/truck_photos/${currentSlot.key}_${Date.now()}.${ext}`;
 
       // Wrap upload in 60s timeout so a hung request always fails loudly
-      const uploadPromise = supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Upload timed out — check your connection and try again.')), 60000)
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
       );
-      const { error: uploadError } = (await Promise.race([uploadPromise, timeoutPromise])) as Awaited<typeof uploadPromise>;
 
       if (uploadError) throw uploadError;
 

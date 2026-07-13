@@ -10,6 +10,7 @@ import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { withTimeout } from '@/lib/withTimeout';
 import { validateFile } from '@/lib/validateFile';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
@@ -403,9 +404,11 @@ export default function OperatorStatusPage({
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: false });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
+        60_000,
+        'Upload',
+      );
       if (uploadError) throw uploadError;
       const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
@@ -413,7 +416,10 @@ export default function OperatorStatusPage({
         file_name: file.name,
         file_url: path,
       });
-      if (insertError) throw insertError;
+      if (insertError) {
+        await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
+        throw insertError;
+      }
       try {
         await supabase.functions.invoke('send-notification', {
           body: { type: 'pe_receipt_uploaded', operator_id: operatorId },
@@ -426,7 +432,9 @@ export default function OperatorStatusPage({
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that receipt. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {

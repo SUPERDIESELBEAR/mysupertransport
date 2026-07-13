@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/withTimeout';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -198,9 +199,11 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       const ext = cropMime === 'image/png' ? 'png' : cropMime === 'image/webp' ? 'webp' : 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, blob, { upsert: true, contentType: cropMime });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: cropMime }),
+        60_000,
+        'Avatar upload',
+      );
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
@@ -216,7 +219,11 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       await refreshProfile();
       setCropSrc(null);
     } catch (err) {
-      setAvatarError(err instanceof Error ? err.message : 'Upload failed.');
+      setAvatarError(
+        err instanceof Error
+          ? err.message
+          : "We couldn't update your avatar. Please check your connection and try again.",
+      );
     } finally {
       setAvatarUploading(false);
     }
