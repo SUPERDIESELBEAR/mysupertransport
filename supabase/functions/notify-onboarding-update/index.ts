@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail, ONBOARDING_EMAIL } from '../_shared/email-layout.ts';
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { getLogClient, logEmailEvent, makeMessageId } from '../_shared/email-log.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,8 +79,9 @@ const MILESTONE_COPY: Record<string, {
   fully_onboarded: {
     subject: "🎉 You're Fully Onboarded — Welcome to SUPERTRANSPORT!",
     heading: "🎉 Welcome to SUPERTRANSPORT — You're Ready to Roll!",
-    body: (name) => `<p>Hi ${name},</p>
+    body: (name, goLiveDate) => `<p>Hi ${name},</p>
       <p>Congratulations! You have officially completed the entire onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT.</p>
+      ${goLiveDate ? `<p style="background:#FFF8E1;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin:16px 0;"><strong>🚛 Your go-live date is confirmed for ${goLiveDate}.</strong> You're cleared to start dispatching.</p>` : ''}
       <p>Here's what comes next:</p>
       <ul style="padding-left:20px;line-height:2.2;">
         <li>Your dispatcher will be reaching out to get you set up with your first load.</li>
@@ -249,6 +251,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Deduplication: consolidate fully_onboarded + go_live_set when they fire together ──
+    // Both events often trigger in the same UPDATE (insurance + go-live set at once), which
+    // produced 3 redundant emails. Merge the go-live confirmation into the fully_onboarded
+    // email, and suppress the standalone go_live_set email when fully_onboarded was just sent.
+    const logClient = getLogClient();
+    if (milestone_key === 'fully_onboarded') {
+      const { data: osRow } = await supabaseAdmin
+        .from('onboarding_status')
+        .select('go_live_date')
+        .eq('operator_id', operator_id)
+        .maybeSingle();
+      if (osRow?.go_live_date) {
+        const d = new Date(osRow.go_live_date + 'T00:00:00');
+        extraContext = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+    } else if (milestone_key === 'go_live_set' && logClient) {
+      // Skip if a fully_onboarded email was sent to this operator within the last 10 minutes.
+      const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: recent } = await logClient
+        .from('email_send_log')
+        .select('id')
+        .eq('template_name', 'notify-onboarding-update:fully_onboarded')
+        .eq('recipient_email', operatorEmail)
+        .eq('status', 'sent')
+        .gte('created_at', cutoff)
+        .limit(1);
+      if (recent && recent.length > 0) {
+        console.log(`[notify-onboarding-update] Skipping go_live_set for ${operatorEmail} — fully_onboarded email already sent recently`);
+        return new Response(JSON.stringify({ skipped: true, reason: 'consolidated_into_fully_onboarded' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const html = buildEmail(
       copy.subject,
       copy.heading,
@@ -257,7 +293,17 @@ Deno.serve(async (req) => {
       ONBOARDING_EMAIL   // footer shows onboarding@ for this function
     );
 
-    await sendEmail(operatorEmail, copy.subject, html, RESEND_API_KEY);
+    const messageId = makeMessageId(`onboarding-${milestone_key}`);
+    const templateName = `notify-onboarding-update:${milestone_key}`;
+    await logEmailEvent(logClient, { messageId, templateName, recipientEmail: operatorEmail, status: 'pending', metadata: { operator_id, milestone_key } });
+    try {
+      await sendEmail(operatorEmail, copy.subject, html, RESEND_API_KEY);
+      await logEmailEvent(logClient, { messageId, templateName, recipientEmail: operatorEmail, status: 'sent', metadata: { operator_id, milestone_key } });
+    } catch (sendErr) {
+      const msg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+      await logEmailEvent(logClient, { messageId, templateName, recipientEmail: operatorEmail, status: 'failed', errorMessage: msg, metadata: { operator_id, milestone_key } });
+      throw sendErr;
+    }
 
     console.log(`[notify-onboarding-update] Sent '${milestone_key}' email to ${operatorEmail}`);
 
