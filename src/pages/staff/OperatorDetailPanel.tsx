@@ -1492,9 +1492,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         key: 'fully_onboarded',
         label: 'Fully Onboarded — Welcome to SUPERTRANSPORT!',
         triggered: isNewlyFullyOnboarded,
+        // Operator email for this milestone is sent by the notify-onboarding-update
+        // DB trigger (which also merges the go-live date to avoid duplicate emails).
+        // Skip the send-notification path here to prevent redundant "welcome" emails.
+        skipSendNotification: true,
       },
     ];
-    const triggeredMilestones = milestones.filter(m => m.triggered);
+    const triggeredMilestones = milestones.filter(m => m.triggered && !(m as any).skipSendNotification);
+    const localOnlyTriggered = milestones.filter(m => m.triggered && (m as any).skipSendNotification);
 
     const { error } = await supabase
       .from('operators')
