@@ -1,34 +1,28 @@
-# Fleet Compliance — "Open in Binder" routes to the wrong place
+# Align icon/number/label position in Management Overview stat cards
 
 ## Problem
 
-On the Fleet Compliance page (Overview view), clicking **"Open in Binder"** on a driver row currently opens the operator's applicant/pipeline detail panel — the same view used for in-progress applicants. That is confusing for a fully-onboarded, active driver. The staff member expects to land in the driver's **Driver Hub profile** with the **Inspection Binder section auto-expanded and scrolled into view**.
+On the Management Overview page, the six top metric cards visually disagree:
 
-The mis-route is a single line in `src/pages/management/ManagementPortal.tsx` (line 2104):
+- **"In Onboarding"** and **"Active Drivers"** cards use a `<div role="button">` wrapper — content (icon → number → label → badges) sits flush against the **top** of the card.
+- **"Pending Applications"**, **"Active Dispatch"**, **"Alerts"**, and **"Critical Expiries"** cards use a native `<button>` element. Browsers apply an implicit `display: flex; align-items: center; justify-content: center` to `<button>` internals, so their content is **vertically centered** in the taller row.
 
-```tsx
-onOpenOperatorAtBinder={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
-```
-
-The correct pattern already exists in the same file for the Dispatch Board's Binder button — it uses `driverHubBinderTarget` + the Driver Hub view's `initialSelectedOperatorId` / `scrollToBinderOnOpen` props to open the driver in the hub and auto-scroll to the Inspection Binder section.
+Because the badge-heavy cards stretch the grid row height, the four center-aligned cards end up with an awkward empty band above the icon and their number/label pushed toward the middle — while the two div-based cards sit crisp at the top. That's the visual misalignment the user is describing.
 
 ## Fix
 
-Route **"Open in Binder"** from Fleet Compliance to the same Driver Hub + auto-scroll flow the Dispatch Board uses.
+Force all six cards to use the same top-aligned column layout so the icon, number, and label land in the exact same position across every card, regardless of whether badges are present below.
 
-In `src/pages/management/ManagementPortal.tsx`, change the `InspectionComplianceSummary` handler:
+In `src/pages/management/ManagementPortal.tsx`, add `flex flex-col items-start` to the container class of each of the six metric cards (lines ~940, ~969, ~1036, ~1144, ~1156, ~1168):
 
-```tsx
-onOpenOperatorAtBinder={(id) => {
-  setDriverHubBinderTarget({ operatorId: id });
-  setView('drivers');
-}}
+```
+border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border flex flex-col items-start
 ```
 
-Leave `onOpenOperator` (plain row click) pointed at `operator-detail` unchanged — only the explicit "Open in Binder" affordance should jump straight to the binder.
+This overrides the native `<button>` centering, guaranteeing every card's icon sits at the top-left corner, followed by number, then label, with any badges (or empty space) trailing below. No other styling, sizing, or behavior changes.
 
 ## Technical notes
 
-- No prop or component changes needed — `DriverHubView` already supports `initialSelectedOperatorId` and `scrollToBinderOnOpen`, and `driverHubBinderTarget` state already exists with cleanup on view change.
-- No database, RLS, or edge-function changes.
-- No changes to `InspectionComplianceSummary.tsx`.
+- Purely a class-list change on 6 existing elements; no new components, props, or state.
+- No changes to the badge sections, click handlers, tooltips, or Fleet Status / Compliance sections below.
+- Works on mobile (2-col), tablet (3-col), and desktop (6-col) grids since the fix is per-card, not grid-level.
