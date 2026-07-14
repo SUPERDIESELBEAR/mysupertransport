@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, Printer, FileText, Loader2, ChevronDown } from 'lucide-react';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { preloadSignatureDataUrl } from '@/lib/printDocument';
+import { preloadSignatureDataUrl, printDocumentById } from '@/lib/printDocument';
 
 interface EmployerRecord {
   name?: string;
@@ -205,86 +205,8 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   };
 
   const handlePrint = () => {
-    const win = window.open('', '_blank', 'width=900,height=1100');
-    if (!win) {
-      toast({ title: 'Pop-up blocked', description: 'Allow pop-ups to print this application.', variant: 'destructive' });
-      return;
-    }
-    const escape = (s: string) =>
-      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const row = (k: string, v: string) =>
-      `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;vertical-align:top;white-space:nowrap">${escape(k)}</td><td style="padding:4px 0;font-size:13px">${escape(v || '—')}</td></tr>`;
-    const sec = (title: string, rows: string) =>
-      `<h2 style="font-size:14px;margin:18px 0 6px;border-bottom:1px solid #e5e7eb;padding-bottom:4px">${escape(title)}</h2><table style="border-collapse:collapse;width:100%">${rows}</table>`;
-    const employerRows = employers
-      .map((e, i) => sec(`Employer ${i + 1}`, [
-        row('Employer', e.name ?? ''),
-        row('Location', [e.city, e.state].filter(Boolean).join(', ')),
-        row('Position', e.position ?? ''),
-        row('Dates', [e.start_date, e.end_date].filter(Boolean).join(' – ')),
-        row('CMV Position', e.cmv_position ?? ''),
-        row('Reason for leaving', e.reason_leaving ?? ''),
-        row('Contact email', e.email ?? ''),
-      ].join('')))
-      .join('');
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Application — ${escape(`${a.first_name ?? ''} ${a.last_name ?? ''}`.trim())}</title><style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#0d0d0d;padding:32px;max-width:780px;margin:0 auto}h1{font-size:20px;margin:0 0 4px}.muted{color:#6b7280;font-size:12px}@media print{body{padding:0}}</style></head><body>
-      <h1>Submitted Application</h1>
-      <div class="muted">${escape(`${a.first_name ?? ''} ${a.last_name ?? ''}`.trim())} · Signed ${escape(a.signed_date ?? '')} · Submitted ${escape(a.submitted_at ?? '')}</div>
-      ${sec('Personal', [
-        row('Name', `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim()),
-        row('Email', a.email ?? ''),
-        row('Phone', a.phone ?? ''),
-        row('DOB', a.dob ?? ''),
-        row('Current address', [a.address_street, a.address_line2, a.address_city, a.address_state, a.address_zip].filter(Boolean).join(', ')),
-        row('Duration at address', a.address_duration ?? ''),
-        row('Previous address', [a.prev_address_street, a.prev_address_line2, a.prev_address_city, a.prev_address_state, a.prev_address_zip].filter(Boolean).join(', ')),
-      ].join(''))}
-      ${sec('CDL', [
-        row('State', a.cdl_state ?? ''),
-        row('Number', a.cdl_number ?? ''),
-        row('Class', a.cdl_class ?? ''),
-        row('Expiration', a.cdl_expiration ?? ''),
-        row('Endorsements', endorsements.join(', ')),
-        row('Held 10+ years', a.cdl_10_years ?? ''),
-        row('Referral source', a.referral_source ?? ''),
-      ].join(''))}
-      ${employerRows}
-      ${sec('Employment gaps', [
-        row('Has gaps', a.employment_gaps ?? ''),
-        row('Explanation', a.employment_gaps_explanation ?? ''),
-      ].join(''))}
-      ${sec('Driving experience', [
-        row('Years', a.years_experience ?? ''),
-        row('Equipment', equipment.join(', ')),
-      ].join(''))}
-      ${sec('Accidents & violations', [
-        row('DOT accidents', a.dot_accidents ?? ''),
-        row('Details', a.dot_accidents_description ?? ''),
-        row('Moving violations', a.moving_violations ?? ''),
-        row('Details', a.moving_violations_description ?? ''),
-      ].join(''))}
-      ${sec('Drug & alcohol', [
-        row('SAP process', a.sap_process ?? ''),
-        row('Positive test (past 2 yr)', a.dot_positive_test_past_2yr ?? ''),
-        row('Return-to-duty docs', a.dot_return_to_duty_docs ?? ''),
-      ].join(''))}
-      ${sec('Disclosures', [
-        row('Safety history', a.auth_safety_history ? 'Yes' : 'No'),
-        row('Drug & alcohol', a.auth_drug_alcohol ? 'Yes' : 'No'),
-        row('Previous employers', a.auth_previous_employers ? 'Yes' : 'No'),
-        row('Testing policy', a.testing_policy_accepted ? 'Yes' : 'No'),
-      ].join(''))}
-      ${sec('Signature', [
-        row('Typed name', a.typed_full_name ?? ''),
-        row('Signed date', a.signed_date ?? ''),
-        row('Submitted at', a.submitted_at ?? ''),
-        row('Submitted by staff', a.submitted_by_staff ? 'Yes' : 'No'),
-      ].join(''))}
-      <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
-      </body></html>`;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+    const fullName = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim();
+    printDocumentById('submitted-application-print-content', `Application — ${fullName}`);
   };
 
   return (
@@ -310,7 +232,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
         )}
       </div>
 
-      {expanded && (<>
+      {expanded && (<div id="submitted-application-print-content" className="space-y-5">
       <Section title="Personal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Name">{val(`${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || undefined)}</Field>
@@ -431,7 +353,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           </div>
         )}
       </Section>
-      </>)}
+      </div>)}
     </div>
   );
 }
