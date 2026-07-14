@@ -34,6 +34,18 @@ function hydrateDraft(app: Record<string, unknown>): ApplicationFormData {
     const v = app[k];
     return v === undefined || v === null ? fallback : (v as T);
   };
+  /**
+   * Normalize a stored yes/no field into the 'yes' | 'no' | '' strings the
+   * form controls expect. Applications historically stored these as booleans
+   * in Postgres, but the RadioGroup options are string-valued, so a raw
+   * boolean would render as neither selected and later diff as `Yes → Yes`.
+   */
+  const yn = (k: string): '' | 'yes' | 'no' => {
+    const v = app[k];
+    if (v === true || v === 'yes' || v === 'true' || v === 1 || v === '1') return 'yes';
+    if (v === false || v === 'no' || v === 'false' || v === 0 || v === '0') return 'no';
+    return '';
+  };
   return {
     ...defaultFormData,
     first_name: get('first_name', ''),
@@ -57,22 +69,22 @@ function hydrateDraft(app: Record<string, unknown>): ApplicationFormData {
     cdl_class: get('cdl_class', ''),
     cdl_expiration: get('cdl_expiration', ''),
     endorsements: Array.isArray(app.endorsements) ? (app.endorsements as string[]) : [],
-    cdl_10_years: get('cdl_10_years', ''),
+    cdl_10_years: yn('cdl_10_years'),
     referral_source: get('referral_source', ''),
     employers: (Array.isArray(app.employers) && app.employers.length > 0
       ? (app.employers as EmployerRecord[])
       : []) as EmployerRecord[],
-    employment_gaps: get('employment_gaps', ''),
+    employment_gaps: yn('employment_gaps'),
     employment_gaps_explanation: get('employment_gaps_explanation', ''),
     years_experience: get('years_experience', ''),
     equipment_operated: Array.isArray(app.equipment_operated) ? (app.equipment_operated as string[]) : [],
-    dot_accidents: get('dot_accidents', ''),
+    dot_accidents: yn('dot_accidents'),
     dot_accidents_description: get('dot_accidents_description', ''),
-    moving_violations: get('moving_violations', ''),
+    moving_violations: yn('moving_violations'),
     moving_violations_description: get('moving_violations_description', ''),
-    sap_process: get('sap_process', ''),
-    dot_positive_test_past_2yr: get('dot_positive_test_past_2yr', ''),
-    dot_return_to_duty_docs: get('dot_return_to_duty_docs', ''),
+    sap_process: yn('sap_process'),
+    dot_positive_test_past_2yr: yn('dot_positive_test_past_2yr'),
+    dot_return_to_duty_docs: yn('dot_return_to_duty_docs'),
   };
 }
 
