@@ -937,7 +937,7 @@ export default function ManagementPortal() {
               {/* Pending Applications */}
               <button
                 onClick={() => { setStatusFilter('pending'); setView('applications'); }}
-                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border flex flex-col items-start"
               >
                 <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-status-progress/10 flex items-center justify-center mb-2 sm:mb-3">
                   <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />
@@ -966,7 +966,7 @@ export default function ManagementPortal() {
                       tabIndex={0}
                       onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('all'); setView('pipeline'); } }}
-                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border"
+                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border flex flex-col items-start"
                     >
                       <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-gold/10 flex items-center justify-center mb-2 sm:mb-3">
                         <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
@@ -1033,7 +1033,7 @@ export default function ManagementPortal() {
                   tabIndex={0}
                   onClick={() => { setDriverComplianceFilter('all'); setView('drivers'); }}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setDriverComplianceFilter('all'); setView('drivers'); } }}
-                  className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border"
+                  className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border flex flex-col items-start"
                 >
                   <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-2 sm:mb-3">
                     <Users2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -1141,7 +1141,7 @@ export default function ManagementPortal() {
               {/* Active Dispatch */}
               <button
                 onClick={() => setView('dispatch')}
-                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border flex flex-col items-start"
               >
                 <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-status-complete/10 flex items-center justify-center mb-2 sm:mb-3">
                   <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />
@@ -1153,7 +1153,7 @@ export default function ManagementPortal() {
               {/* Alerts */}
               <button
                 onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
-                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border flex flex-col items-start"
               >
                 <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-destructive/10 flex items-center justify-center mb-2 sm:mb-3">
                   <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
@@ -1165,7 +1165,7 @@ export default function ManagementPortal() {
               {/* Critical Expiries */}
               <button
                 onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
-                className={`border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group ${criticalExpiryCount > 0 ? 'bg-destructive/5 border-destructive/20' : 'bg-white border-border'}`}
+                className={`border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group flex flex-col items-start ${criticalExpiryCount > 0 ? 'bg-destructive/5 border-destructive/20' : 'bg-white border-border'}`}
               >
                 <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-lg ${criticalExpiryCount > 0 ? 'bg-destructive/10' : 'bg-muted/30'} flex items-center justify-center mb-2 sm:mb-3`}>
                   <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
