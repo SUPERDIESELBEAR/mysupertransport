@@ -333,9 +333,18 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
           {selectMode ? 'Cancel Select' : 'Select Documents'}
         </Button>
         {selectMode && (
-          <span className="text-xs text-muted-foreground">{selected.size} selected</span>
+          <span className="text-xs text-muted-foreground">
+            {selected.size === 0 ? '0 selected — tap a document' : `${selected.size} selected`}
+          </span>
         )}
       </div>
+
+      {/* ─── SELECT MODE HINT ─── */}
+      {selectMode && selected.size === 0 && (
+        <div className="bg-gold/10 border border-gold/30 rounded-xl px-4 py-3 text-xs text-foreground/80 leading-relaxed animate-fade-in">
+          Tap documents to select them, then <span className="font-semibold">Text</span> or <span className="font-semibold">Email</span> the links to an officer during a roadside inspection.
+        </div>
+      )}
 
       {/* ─── DOCUMENT SECTIONS ─── */}
       {loading ? (
@@ -469,7 +478,10 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
 
       {/* ─── BULK ACTION BAR ─── */}
       {selectMode && selected.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface-dark border border-surface-dark-border text-surface-dark-foreground rounded-2xl px-4 py-3 shadow-2xl animate-fade-in">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface-dark border border-surface-dark-border text-surface-dark-foreground rounded-2xl px-4 py-3 shadow-2xl animate-fade-in"
+          style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           <span className="text-xs font-medium text-surface-dark-muted mr-1">{selected.size} doc{selected.size > 1 ? 's' : ''}</span>
           <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-surface-dark-foreground hover:bg-surface-dark-card" onClick={bulkShareText}>
             <MessageSquare className="h-3.5 w-3.5" /> Text
