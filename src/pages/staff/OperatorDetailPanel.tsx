@@ -207,8 +207,9 @@ function QPassportUploader({
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
       const shouldAdvance = !currentPeScreening || currentPeScreening === '' || currentPeScreening === 'not_started';
-      const updatePayload: Record<string, unknown> = { qpassport_url: fileUrl };
-      if (shouldAdvance) updatePayload.pe_screening = 'scheduled';
+      const updatePayload = shouldAdvance
+        ? { qpassport_url: fileUrl, pe_screening: 'scheduled' }
+        : { qpassport_url: fileUrl };
       const { error: updateErr } = await supabase.from('onboarding_status').update(updatePayload).eq('operator_id', operatorId);
       if (updateErr) throw updateErr;
       onUploaded(fileUrl);
