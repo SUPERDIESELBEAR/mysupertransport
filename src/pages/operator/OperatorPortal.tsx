@@ -2033,3 +2033,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     </>
   );
 }
+
+// Fires onReady once after mount so the destination crossfade overlay dismisses
+// even when the initial tab renders a component that doesn't wire onReady itself.
+function ResourceCenterReadySignal({ onReady }: { onReady: () => void }) {
+  useEffect(() => { onReady(); }, [onReady]);
+  return null;
+}
