@@ -40,6 +40,7 @@ import {
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc, AutoSyncedBadge } from './DocRow';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
+import DriverCombobox from './DriverCombobox';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {
@@ -1085,16 +1086,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     </button>
                   ) : (
                     <div className="flex items-center gap-2 mt-1">
-                      <Select value={shareToDriverTarget} onValueChange={setShareToDriverTarget}>
-                        <SelectTrigger className="h-8 text-xs flex-1">
-                          <SelectValue placeholder="Select driver…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {operators.map(op => (
-                            <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DriverCombobox
+                        operators={operators}
+                        value={shareToDriverTarget}
+                        onChange={setShareToDriverTarget}
+                        placeholder="Select driver…"
+                        size="sm"
+                        triggerClassName="flex-1"
+                      />
                       <Button
                         size="sm"
                         className="h-8 gap-1 text-xs bg-info text-white hover:bg-info/90 shrink-0"
@@ -1244,22 +1243,17 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-              <SelectTrigger
-                className={
-                  selectedDriverId
-                    ? "flex-1"
-                    : "flex-1 h-11 text-sm font-medium border-gold/30 bg-card [&>span]:text-foreground"
-                }
-              >
-                <SelectValue placeholder="Select a driver to manage their binder…" />
-              </SelectTrigger>
-              <SelectContent>
-                {operators.map(op => (
-                  <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DriverCombobox
+              operators={operators}
+              value={selectedDriverId}
+              onChange={setSelectedDriverId}
+              placeholder="Select a driver to manage their binder…"
+              triggerClassName={
+                selectedDriverId
+                  ? 'flex-1'
+                  : 'flex-1 h-11 text-sm font-medium border-gold/30 bg-card text-foreground'
+              }
+            />
             {selectedDriverId && (
               <Button
                 variant="outline"
@@ -1946,19 +1940,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                           {/* Assign to driver */}
                           <div className="flex items-center gap-2 pt-3 border-t border-border/50 mt-2">
                             <UserCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <Select
+                            <DriverCombobox
+                              operators={operators}
                               value={stagingAssignMap[doc.id] ?? ''}
-                              onValueChange={val => setStagingAssignMap(prev => ({ ...prev, [doc.id]: val }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs flex-1">
-                                <SelectValue placeholder="Select driver to assign…" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {operators.map(op => (
-                                  <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={val => setStagingAssignMap(prev => ({ ...prev, [doc.id]: val }))}
+                              placeholder="Select driver to assign…"
+                              size="sm"
+                              triggerClassName="flex-1"
+                            />
                             <Button
                               size="sm"
                               className="h-8 gap-1 text-xs bg-info text-white hover:bg-info/90 shrink-0"
