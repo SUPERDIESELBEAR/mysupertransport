@@ -5554,6 +5554,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         operatorId={operatorId}
                         currentUrl={status.qpassport_url}
                         onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
+                        currentPeScreening={status.pe_screening}
+                        onPeScreeningAdvanced={next => setStatus(prev => ({ ...prev, pe_screening: next }))}
                       />
                     )}
                     {docFiles['pe_receipt']?.[0] && (
