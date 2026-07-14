@@ -1,33 +1,34 @@
-# Driver Hub — Submitted Application scroll + top Collapse/Expand icon
+# Fleet Compliance — "Open in Binder" routes to the wrong place
 
-Two small fixes in `src/pages/staff/OperatorDetailPanel.tsx` and `src/components/management/SubmittedApplicationSnapshot.tsx`.
+## Problem
 
-## 1. Submitted Application expands upward
+On the Fleet Compliance page (Overview view), clicking **"Open in Binder"** on a driver row currently opens the operator's applicant/pipeline detail panel — the same view used for in-progress applicants. That is confusing for a fully-onboarded, active driver. The staff member expects to land in the driver's **Driver Hub profile** with the **Inspection Binder section auto-expanded and scrolled into view**.
 
-Today, when a staff member opens **Onboarding History → Submitted Application** at the bottom of the driver profile, the section's header stays put while its content expands downward. Because the header already sits near the bottom of the viewport, the newly-revealed content appears below the fold and the user has to scroll down to read it — and worse, when the section is very tall the header itself scrolls out of view, giving the impression it "expanded upward."
+The mis-route is a single line in `src/pages/management/ManagementPortal.tsx` (line 2104):
 
-**Fix:** When the user expands the Submitted Application snapshot, smoothly scroll the section header to the top of the scroll container so the section reads naturally from its title downward.
+```tsx
+onOpenOperatorAtBinder={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+```
 
-- In `SubmittedApplicationSnapshot.tsx`, add a `ref` on the outer card and, in the expand click handler, call `ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })` on the next tick (after the `expanded` state flips so the content is rendered and the layout is final).
-- Only scroll on expand (not on collapse).
+The correct pattern already exists in the same file for the Dispatch Board's Binder button — it uses `driverHubBinderTarget` + the Driver Hub view's `initialSelectedOperatorId` / `scrollToBinderOnOpen` props to open the driver in the hub and auto-scroll to the Inspection Binder section.
 
-## 2. Top-of-page Collapse/Expand All icon does nothing
+## Fix
 
-There are currently three "Collapse/Expand all stages" controls on the driver detail page:
+Route **"Open in Binder"** from Fleet Compliance to the same Driver Hub + auto-scroll flow the Dispatch Board uses.
 
-- **A.** Icon-only button in the top action bar (top of page).
-- **B.** Labeled "Collapse All / Expand All" button next to the stage-status dot strip.
-- **C.** Icon-only button in the sticky header that appears when you scroll.
+In `src/pages/management/ManagementPortal.tsx`, change the `InspectionComplianceSummary` handler:
 
-Control **A** appears broken because in **Quick View** the stage cards themselves are hidden until the user opens **Onboarding History**. Clicking A flips the internal `collapsedStages` state, but nothing on screen changes because the stages are still gated by the Onboarding History toggle.
+```tsx
+onOpenOperatorAtBinder={(id) => {
+  setDriverHubBinderTarget({ operatorId: id });
+  setView('drivers');
+}}
+```
 
-**Fix:** Remove control **A**. It is redundant with **B** (which is co-located with the stage dots users actually reach for) and **C** (which follows the user on scroll). Removing it eliminates the confusing no-op and cleans up the crowded top action bar.
-
-- Delete the icon-only Collapse/Expand block in `OperatorDetailPanel.tsx` (the `Tooltip` wrapping the `ChevronDown / ChevronUp` button in the top action row, ~lines 2383–2404).
-- Leave controls **B** and **C** in place — both remain fully functional.
+Leave `onOpenOperator` (plain row click) pointed at `operator-detail` unchanged — only the explicit "Open in Binder" affordance should jump straight to the binder.
 
 ## Technical notes
 
+- No prop or component changes needed — `DriverHubView` already supports `initialSelectedOperatorId` and `scrollToBinderOnOpen`, and `driverHubBinderTarget` state already exists with cleanup on view change.
 - No database, RLS, or edge-function changes.
-- No changes to `collapsedStages` default behavior — sections continue to open collapsed on every visit.
-- No impact on deep-link auto-expand (Binder, etc.).
+- No changes to `InspectionComplianceSummary.tsx`.
