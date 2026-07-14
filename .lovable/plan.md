@@ -1,30 +1,54 @@
 ## Bug
 
-When a driver taps **Resource Center** on the home tile grid, the page stays stuck on the loading skeleton (clock icon + pulse bars) forever. No content ever appears.
+The "View Pipeline" button in the **Onboarding Milestone Reached** staff email (and every other quick-link CTA rendered by `supabase/functions/send-notification/index.ts`) lands on a broken page. Reporters see either a marketing 404 or a page that never opens the pipeline.
 
 ## Root cause
 
-The Resource Center recently gained a two-tab layout inside `OperatorPortal.tsx`:
+Every quick-link button is built from the `APP_URL` env var via `supabase/functions/_shared/app-url.ts`:
 
-- Default tab: **Services & Tools** → renders `<DriverServiceLibrary />`
-- Second tab: **Company Documents** → renders `<OperatorResourceLibrary onReady={…} />`
+```ts
+const appUrl = new URL(buildAppUrl('/')).origin;
+// …
+{ label: 'View Pipeline', url: `${appUrl}/staff` }
+```
 
-The crossfade overlay (`transitionOverlay` + `DestinationSkeleton`) is dismissed only when the destination view calls `handleDestinationReady('resource-center')`. That callback is wired **only** to `OperatorResourceLibrary`, which lives inside the non-default "Company Documents" tab and is therefore never mounted on first open. Result: `onReady` never fires, the skeleton overlay never fades out, and the user sees the second screenshot indefinitely.
+`APP_URL` in this project's secrets is currently pointing at the **marketing domain** (`https://mysupertransport.com`), not the app host (`https://mysupertransport.lovable.app`). The marketing site has no `/staff`, `/management`, `/operator`, `/dispatch`, `/apply/ssn`, etc. routes, so every emailed button dies on that host — even though the button HTML itself is well-formed and clickable.
+
+Confirmed by:
+- Footer of the screenshotted email uses `support@mysupertransport.com` (marketing domain).
+- App routes (`/staff/*`, `/management/*`, `/dispatch/*`, `/operator/*`) exist and work at `mysupertransport.lovable.app`.
+- `buildAppUrl` only falls back to the lovable URL when `APP_URL` fails URL parsing — a valid-but-wrong host (marketing site) passes the sanitizer and is used verbatim.
+
+Every email built with `${appUrl}/…` in `send-notification`, `send-cert-reminder`, `cron-cert-reminders`, `check-cert-expiry`, `check-inspection-expiry`, `notify-upload-attention`, `send-release-note`, `resend-invite`, `notify-pwa-install`, `launch-superdrive-invite`, etc. has the same failure mode — so the user's suspicion that "many other emails" are broken is correct.
 
 ## Fix
 
-Make the "ready" signal fire when the Resource Center view mounts, independent of which tab is active.
+Two changes, done together:
 
-### File: `src/pages/operator/OperatorPortal.tsx`
+### 1. Point `APP_URL` at the app host (primary fix — no code change)
 
-1. In the `view === 'resource-center'` block (around line 1822), add a small effect that calls `handleDestinationReady('resource-center')` once the view mounts (on the next paint / after Suspense resolves for `DriverServiceLibrary`).
-   - Easiest implementation: extract a tiny inline component `<ResourceCenterReadySignal onReady={…} />` that runs `useEffect(() => onReady(), [])`, and place it inside the `resource-center` view branch. This avoids adding hooks into the big top-level render.
-2. Remove the `onReady` prop from `<OperatorResourceLibrary />` (no longer needed; keeping it would double-fire, which is harmless but noisy).
+Update the `APP_URL` secret to:
 
-No other files or backend changes are required. `OperatorResourceLibrary` already handles its own internal loading state for the documents tab.
+```
+https://mysupertransport.lovable.app
+```
+
+(Or, if a dedicated app subdomain like `app.mysupertransport.com` is preferred, use that — but it must be a host where the React app is actually served, not the marketing site.)
+
+Once updated, every emailed quick link resolves correctly with no code change. The fix is retroactive for new emails; historical emails still contain the broken URL.
+
+### 2. Harden `supabase/functions/_shared/app-url.ts` (safety net for the future)
+
+Add a small guard so a marketing-only host can't silently break every email again:
+
+- Introduce an env var `MARKETING_HOSTS` (comma-separated hostnames, e.g. `mysupertransport.com,www.mysupertransport.com`).
+- In `buildAppUrl`, if the parsed hostname matches any entry in `MARKETING_HOSTS`, log a warning and fall back to `FALLBACK` (the lovable app URL) instead of using the marketing host.
+- Keep the existing sanitizer behavior (scheme, IP, localhost checks) intact.
+
+No changes to any email template or call site are needed.
 
 ## Verification
 
-- Open the driver app → tap **Resource Center** from the home grid → skeleton fades and the "Services & Tools" tab renders immediately.
-- Switch to **Company Documents** tab → resources load as before.
-- Navigate away and back → no regression.
+1. After updating `APP_URL`, trigger a test milestone (e.g. re-fire `send-notification` for an existing operator, or use the built-in test-email edge function) and click **View Pipeline** in the received email — it should land on the Staff Portal at the Applicant Pipeline (or route through `/login?next=/staff` when signed out and then land there).
+2. Spot-check other CTAs from that email family: `Review Application`, `Review Document`, `View in Pipeline`, `View My Portal`, `Open Dispatch Board`, `View Message` — all should now open real app pages.
+3. As a regression guard, temporarily set `APP_URL` to a marketing host with `MARKETING_HOSTS` populated and confirm `buildAppUrl` logs the warning and falls back to the lovable app URL.
