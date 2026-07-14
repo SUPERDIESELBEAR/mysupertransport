@@ -395,7 +395,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       toast({ title: 'Uploaded!', description: `${docName} has been uploaded.` });
       fetchDocs();
     } catch (err: any) {
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+      toast({
+        title: 'Upload failed',
+        description:
+          (err && typeof err.message === 'string' && err.message)
+            ? err.message
+            : "We couldn't upload that document. Please check your connection and try again.",
+        variant: 'destructive',
+      });
     } finally {
       setUploading(null);
     }
