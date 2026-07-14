@@ -2101,7 +2101,7 @@ export default function ManagementPortal() {
             <InspectionComplianceSummary
               defaultExpanded={true}
               onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
-              onOpenOperatorAtBinder={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenOperatorAtBinder={(id) => { setDriverHubBinderTarget({ operatorId: id }); setView('drivers'); }}
               onOpenInspectionBinder={() => setView('inspection-binder')}
             />
           </div>
