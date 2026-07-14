@@ -394,7 +394,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [historyFilter, setHistoryFilter] = useState<string>('all');
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
-  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(() => new Set(ALL_COLLAPSIBLE_KEYS));
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -1214,20 +1214,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           bestpass_number: os.bestpass_number ?? null,
           fuel_card_number: os.fuel_card_number ?? null,
         };
-        // Auto-collapse stages that are already complete on load
-        const autoCollapse = new Set<string>();
-        if ((os.mvr_status === 'requested' || os.mvr_status === 'received') &&
-            (os.ch_status === 'requested' || os.ch_status === 'received') &&
-            os.mvr_ch_approval === 'approved') autoCollapse.add('stage1');
-        if (os.pe_screening_result === 'clear') autoCollapse.add('stagePE');
-        if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
-        if (os.ica_status === 'complete') autoCollapse.add('stage3');
-        if ((os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') &&
-            os.mo_docs_submitted === 'submitted') autoCollapse.add('stage4');
-        if (isEquipmentFullyComplete(os as any)) autoCollapse.add('stage5');
-        if (os.insurance_added_date) autoCollapse.add('stage6');
-        if (os.go_live_date) autoCollapse.add('stage7');
-        if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
+        // Always start with every section collapsed on each open.
+        setCollapsedStages(new Set(ALL_COLLAPSIBLE_KEYS));
       }
     }
 
