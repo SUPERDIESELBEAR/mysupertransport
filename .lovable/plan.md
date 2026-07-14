@@ -1,28 +1,31 @@
-# Align icon/number/label position in Management Overview stat cards
+# Searchable driver picker — DOT Inspection Binder
 
 ## Problem
+The "Select a driver to manage their binder…" control on the DOT Inspection Binder page (`src/components/inspection/InspectionBinderAdmin.tsx`, line ~1247) is a plain `<Select>` with drivers listed in load order — no search, no alphabetization, requires scrolling through the full roster.
 
-On the Management Overview page, the six top metric cards visually disagree:
+## Change
+Replace the main driver `<Select>` with a searchable combobox built from existing shadcn primitives (`Popover` + `Command` + `CommandInput` + `CommandList` + `CommandItem`), matching the pattern already used elsewhere in the app.
 
-- **"In Onboarding"** and **"Active Drivers"** cards use a `<div role="button">` wrapper — content (icon → number → label → badges) sits flush against the **top** of the card.
-- **"Pending Applications"**, **"Active Dispatch"**, **"Alerts"**, and **"Critical Expiries"** cards use a native `<button>` element. Browsers apply an implicit `display: flex; align-items: center; justify-content: center` to `<button>` internals, so their content is **vertically centered** in the taller row.
+Behavior:
+- Trigger looks like the current select (same height, border, dashed gold container above unchanged).
+- Shows the selected driver's name (and unit number if available) once picked.
+- Opening reveals a search box focused by default. Typing filters by **name** and **unit number** (case-insensitive, substring match).
+- Options are sorted **alphabetically by last name, then first name**.
+- Each row shows: driver name (primary) + unit number / "No unit" (muted, right-aligned) + a subtle "Inactive" tag when `is_active` is false.
+- Keyboard: arrow keys navigate, Enter selects, Esc closes.
+- Clear-selection affordance (small × in trigger) so staff can reset without picking a different driver.
 
-Because the badge-heavy cards stretch the grid row height, the four center-aligned cards end up with an awkward empty band above the icon and their number/label pushed toward the middle — while the two div-based cards sit crisp at the top. That's the visual misalignment the user is describing.
+Also apply the same searchable combobox to the two smaller driver pickers on the same page for consistency:
+- "Share to specific driver…" per-company-doc row (~line 1088)
+- "Select driver to assign…" in the staged-doc assign row (~line 1949)
 
-## Fix
-
-Force all six cards to use the same top-aligned column layout so the icon, number, and label land in the exact same position across every card, regardless of whether badges are present below.
-
-In `src/pages/management/ManagementPortal.tsx`, add `flex flex-col items-start` to the container class of each of the six metric cards (lines ~940, ~969, ~1036, ~1144, ~1156, ~1168):
-
-```
-border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border flex flex-col items-start
-```
-
-This overrides the native `<button>` centering, guaranteeing every card's icon sits at the top-left corner, followed by number, then label, with any badges (or empty space) trailing below. No other styling, sizing, or behavior changes.
+## Out of scope
+- No data model changes. `operators` fetch stays as-is.
+- No changes to any other page's driver pickers.
+- No new dependencies — `Command`/`Popover` already exist in `src/components/ui/`.
 
 ## Technical notes
-
-- Purely a class-list change on 6 existing elements; no new components, props, or state.
-- No changes to the badge sections, click handlers, tooltips, or Fleet Status / Compliance sections below.
-- Works on mobile (2-col), tablet (3-col), and desktop (6-col) grids since the fix is per-card, not grid-level.
+- Extract a small local component (e.g. `DriverCombobox`) inside `InspectionBinderAdmin.tsx` (or a sibling file `src/components/inspection/DriverCombobox.tsx`) taking `{ operators, value, onChange, placeholder, includeInactive? }`.
+- Sort helper: compare by `lastName || nameSplit[nameSplit.length-1]` then full name, using `localeCompare` with `{ sensitivity: 'base' }`.
+- Preserve the existing `?driver=<userId>` deep-link behavior — the combobox is a controlled component bound to `selectedDriverId`.
+- Keep the dashed gold "Choose a driver to begin" wrapper untouched.
