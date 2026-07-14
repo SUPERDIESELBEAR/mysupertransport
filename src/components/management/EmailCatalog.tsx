@@ -220,7 +220,7 @@ const TEMPLATES: EmailTemplate[] = [
   {
     id: 'fully_onboarded',
     category: 'onboarding',
-    title: 'Fully Onboarded',
+    title: 'Fully Onboarded (auto-merges Go-Live date when set)',
     subject: "🎉 You're Fully Onboarded — Welcome to SUPERTRANSPORT!",
     recipient: 'operator',
     sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
@@ -229,6 +229,7 @@ const TEMPLATES: EmailTemplate[] = [
       "🎉 Welcome to SUPERTRANSPORT — You're Ready to Roll!",
       `<p>Hi ${SAMPLE_NAME},</p>
        <p>Congratulations! You have officially completed the entire onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT.</p>
+       <p style="background:#FFF8E1;border-left:4px solid ${BRAND_COLOR};padding:12px 16px;border-radius:4px;margin:16px 0;"><strong>🚛 Your go-live date is confirmed for ${SAMPLE_DATE}.</strong> You're cleared to start dispatching.</p>
        <p>Here's what comes next:</p>
        <ul style="padding-left:20px;line-height:2.2;">
          <li>Your dispatcher will be reaching out to get you set up with your first load.</li>
@@ -260,7 +261,7 @@ const TEMPLATES: EmailTemplate[] = [
   {
     id: 'go_live_set',
     category: 'onboarding',
-    title: 'Go-Live Date Confirmed',
+    title: 'Go-Live Date Confirmed (only when set separately from onboarding completion)',
     subject: '🚛 Your Go-Live Date is Confirmed — SUPERTRANSPORT',
     recipient: 'operator',
     sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
