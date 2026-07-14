@@ -1086,16 +1086,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     </button>
                   ) : (
                     <div className="flex items-center gap-2 mt-1">
-                      <Select value={shareToDriverTarget} onValueChange={setShareToDriverTarget}>
-                        <SelectTrigger className="h-8 text-xs flex-1">
-                          <SelectValue placeholder="Select driver…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {operators.map(op => (
-                            <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DriverCombobox
+                        operators={operators}
+                        value={shareToDriverTarget}
+                        onChange={setShareToDriverTarget}
+                        placeholder="Select driver…"
+                        size="sm"
+                        triggerClassName="flex-1"
+                      />
                       <Button
                         size="sm"
                         className="h-8 gap-1 text-xs bg-info text-white hover:bg-info/90 shrink-0"
