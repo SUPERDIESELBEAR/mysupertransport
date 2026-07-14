@@ -38,6 +38,11 @@ import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } f
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
+
+const ALL_COLLAPSIBLE_KEYS = [
+  'stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7','stage8',
+  'inspection_binder','dispatch_history','settlement_forecast',
+] as const;
 import { Switch } from '@/components/ui/switch';
 import { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
