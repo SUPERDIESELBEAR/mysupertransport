@@ -1821,6 +1821,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── RESOURCE CENTER VIEW ── */}
         {view === 'resource-center' && (
           <div className="space-y-4 animate-fade-in">
+            <ResourceCenterReadySignal onReady={() => handleDestinationReady('resource-center')} />
             <div>
               <h2 className="text-base font-bold text-foreground">Resource Center</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Service guides and company documents</p>
@@ -1836,7 +1837,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </Suspense>
               </TabsContent>
               <TabsContent value="documents">
-                <OperatorResourceLibrary onReady={() => handleDestinationReady('resource-center')} />
+                <OperatorResourceLibrary />
               </TabsContent>
             </Tabs>
           </div>
@@ -2031,4 +2032,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     </div>
     </>
   );
+}
+
+// Fires onReady once after mount so the destination crossfade overlay dismisses
+// even when the initial tab renders a component that doesn't wire onReady itself.
+function ResourceCenterReadySignal({ onReady }: { onReady: () => void }) {
+  useEffect(() => { onReady(); }, [onReady]);
+  return null;
 }

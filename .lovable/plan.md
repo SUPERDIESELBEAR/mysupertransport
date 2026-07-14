@@ -1,23 +1,30 @@
-# Fleet Compliance → DOT Inspection Binder deep-link
+## Bug
 
-## Change
-Make "Open in Binder" on the Fleet Compliance page switch the sidebar to **DOT Inspection Binder** and pre-select that driver in the searchable picker, instead of opening the Driver Hub detail panel.
+When a driver taps **Resource Center** on the home tile grid, the page stays stuck on the loading skeleton (clock icon + pulse bars) forever. No content ever appears.
 
-## Files
+## Root cause
 
-**`src/pages/management/ManagementPortal.tsx`**
-- Replace the current `onOpenOperatorAtBinder` handler (line ~2104) that sets `driverHubBinderTarget` + `setView('drivers')`.
-- New handler: resolve the driver's `user_id` from the passed `operatorId` (query `operators` where `id = operatorId`), then:
-  - Set `view` to `'inspection-binder'`.
-  - Set URL search param `driver=<userId>` (via existing `setSearchParams`) so `InspectionBinderAdmin` picks it up through its existing `urlDriver` deep-link support.
-- Keep the sibling `onOpenInspectionBinder` (fleet-wide) unchanged.
-- The now-unused `driverHubBinderTarget` state remains valid for other flows; leave it in place.
+The Resource Center recently gained a two-tab layout inside `OperatorPortal.tsx`:
 
-**`src/components/inspection/InspectionBinderAdmin.tsx`**
-- Already reads `?driver=<userId>` on mount. Add a small `useEffect` that also updates `selectedDriverId` when `searchParams.get('driver')` changes at runtime (so re-navigating from Fleet Compliance while the binder view is already mounted still updates the picker). Only runs when there is no `operatorUserId` prop (i.e., admin mode).
-- No other changes; the new searchable `DriverCombobox` renders the pre-selected driver correctly.
+- Default tab: **Services & Tools** → renders `<DriverServiceLibrary />`
+- Second tab: **Company Documents** → renders `<OperatorResourceLibrary onReady={…} />`
 
-## Out of scope
-- No changes to Driver Hub, no removal of `driverHubBinderTarget`.
-- No changes to compliance data queries or the button's UI/label.
-- No new URL routes; continues to use the existing `?view=inspection-binder&driver=<userId>` query pattern.
+The crossfade overlay (`transitionOverlay` + `DestinationSkeleton`) is dismissed only when the destination view calls `handleDestinationReady('resource-center')`. That callback is wired **only** to `OperatorResourceLibrary`, which lives inside the non-default "Company Documents" tab and is therefore never mounted on first open. Result: `onReady` never fires, the skeleton overlay never fades out, and the user sees the second screenshot indefinitely.
+
+## Fix
+
+Make the "ready" signal fire when the Resource Center view mounts, independent of which tab is active.
+
+### File: `src/pages/operator/OperatorPortal.tsx`
+
+1. In the `view === 'resource-center'` block (around line 1822), add a small effect that calls `handleDestinationReady('resource-center')` once the view mounts (on the next paint / after Suspense resolves for `DriverServiceLibrary`).
+   - Easiest implementation: extract a tiny inline component `<ResourceCenterReadySignal onReady={…} />` that runs `useEffect(() => onReady(), [])`, and place it inside the `resource-center` view branch. This avoids adding hooks into the big top-level render.
+2. Remove the `onReady` prop from `<OperatorResourceLibrary />` (no longer needed; keeping it would double-fire, which is harmless but noisy).
+
+No other files or backend changes are required. `OperatorResourceLibrary` already handles its own internal loading state for the documents tab.
+
+## Verification
+
+- Open the driver app → tap **Resource Center** from the home grid → skeleton fades and the "Services & Tools" tab renders immediately.
+- Switch to **Company Documents** tab → resources load as before.
+- Navigate away and back → no regression.
