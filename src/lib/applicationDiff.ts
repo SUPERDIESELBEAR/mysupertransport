@@ -15,7 +15,27 @@ function normalize(v: unknown): unknown {
   return v;
 }
 
+/**
+ * Coerce yes/no-ish values (booleans, 'yes'/'no', 'true'/'false', 1/0) to a
+ * canonical boolean so a stored `true` never diffs against a form-side 'yes'
+ * as if they were different values. Returns null when the value is not
+ * recognizable as a boolean.
+ */
+function toBoolLike(v: unknown): boolean | null {
+  if (typeof v === 'boolean') return v;
+  if (v === 1 || v === 0) return v === 1;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'yes' || s === 'true' || s === '1') return true;
+    if (s === 'no' || s === 'false' || s === '0') return false;
+  }
+  return null;
+}
+
 function equalScalar(a: unknown, b: unknown): boolean {
+  const ab = toBoolLike(a);
+  const bb = toBoolLike(b);
+  if (ab !== null && bb !== null) return ab === bb;
   return JSON.stringify(normalize(a) ?? null) === JSON.stringify(normalize(b) ?? null);
 }
 
