@@ -1,42 +1,31 @@
-# Fix: "Print Application" opens a blank about:blank tab
+# Fix: Driver Hub sections start expanded instead of collapsed
 
 ## Root cause
-`SubmittedApplicationSnapshot.tsx` `handlePrint()` calls `window.open('', '_blank', 'width=900,height=1100')` and then writes HTML into that new window. In Chrome (and other modern browsers), popup blockers and third-party cookie / cross-origin isolation policies often intercept this and leave the tab stranded at `about:blank`, exactly matching the screenshot. Even when it isn't fully blocked, some Chrome profiles now ignore `document.write` after navigation events, so the window renders empty.
+In `src/pages/staff/OperatorDetailPanel.tsx`, `collapsedStages` (a `Set<string>` tracking which sections are collapsed) is initialized empty (line 397). It's also **not** persisted anywhere — it's plain component state that resets on unmount — so the "remember across visits" part is already true.
 
-Every other Print flow in the app (Application Review Drawer, standalone FCRA / DOT docs) already uses the shared `printDocumentById` helper from `src/lib/printDocument.ts`, which:
-- clones a hidden DOM node into the current tab
-- injects a scoped `@media print` stylesheet
-- calls `window.print()` directly (no popup)
-- has a mobile / popup-blocker fallback overlay built in
-
-The submitted-application print button is the only place still using the raw `window.open` approach — so it's the only one that breaks.
+The reason the panel opens with everything expanded is the default: empty set = every section rendered open. The on-load hook (lines 1217–1230) only adds keys for stages that are already fully complete, so any incomplete stage plus every non-stage section (`inspection_binder`, `dispatch_history`, `settlement_forecast`, `stage8` payroll) is expanded by default.
 
 ## Change
-Convert `SubmittedApplicationSnapshot`'s Print button to the same pattern used by `ApplicationReviewDrawer`.
+Flip the default so **every collapsible section starts collapsed** on each panel open, matching the screenshot. Keep the existing user toggle, "expand all / collapse all" controls, and deep-link auto-expand (`scrollToStage`, `scrollToInspectionBinder`) working.
 
-### Steps
-1. **`src/components/management/SubmittedApplicationSnapshot.tsx`**
-   - Remove `handlePrint` (the `window.open` + `document.write` block).
-   - Wrap the on-screen snapshot content in a container with `id="submitted-application-print-content"`.
-   - Replace the Print button's `onClick` with:
-     ```ts
-     printDocumentById(
-       'submitted-application-print-content',
-       `Application — ${a.first_name ?? ''} ${a.last_name ?? ''}`.trim()
-     );
-     ```
-   - Import `printDocumentById` from `@/lib/printDocument` (the file already imports `preloadSignatureDataUrl` from the same module).
-   - Drop the now-unused `toast` popup-blocked message for this handler.
+### Steps — single file: `src/pages/staff/OperatorDetailPanel.tsx`
 
-2. No schema, edge function, or route changes.
+1. Define an `ALL_COLLAPSIBLE_KEYS` constant listing every section key currently toggled:
+   `['stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7','stage8','inspection_binder','dispatch_history','settlement_forecast']`.
 
-## Why this fixes it
-- No new window is opened, so popup blockers can't strand the user on `about:blank`.
-- Uses the same helper already proven reliable for the Application Review print flow and standalone FCRA / DOT docs.
-- Preserves signature rendering because the on-screen snapshot already uses `preloadSignatureDataUrl` (fixed in the earlier signature-display work).
+2. Change the `collapsedStages` `useState` initializer (line 397) from `new Set()` to `new Set(ALL_COLLAPSIBLE_KEYS)` so the panel mounts fully collapsed every time.
+
+3. Update the on-load auto-collapse block (lines 1217–1230): remove the conditional adds and just re-seed with the full set (`setCollapsedStages(new Set(ALL_COLLAPSIBLE_KEYS))`). This preserves the "already collapsed after data load" behaviour without accidentally re-expanding anything.
+
+4. Leave the `scrollToStage` and Inspection Binder scroll-into-view effects alone — they already call `next.delete(key)` before scrolling, so deep-links from the pipeline / dispatch board still auto-expand the targeted section.
+
+5. Leave `toggleStage`, the Stage 8 pay-setup auto-collapse effect (line 697), and all "expand all / collapse all" buttons unchanged.
 
 ## Verification
-- Open a driver → Submitted Application panel → click **Print Application**.
-- The native browser print dialog appears in-tab with the full application content (personal, CDL, employers, disclosures, signature).
-- Cancel → returns to the page cleanly (no leftover overlay).
-- Test in Chrome desktop and iOS Safari (mobile fallback overlay path).
+- Open Driver Hub → select any driver: every section (Stages 1–9, PE Screening, Inspection Binder, Settlement Forecast, Dispatch Status History) is collapsed. Screen matches the attached screenshot.
+- Expand a couple of sections → navigate to Applications → return to the driver: sections are collapsed again.
+- Click a section header: it expands/collapses as before.
+- Click "Binder" from Dispatch Board or a StageTrack deep-link: the target section auto-expands and scrolls into view.
+- "Collapse all / Expand all" buttons still work.
+
+No DB, edge function, or route changes.
