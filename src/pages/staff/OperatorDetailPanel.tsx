@@ -1598,6 +1598,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         }
       }
 
+      // ── Local-only milestone toasts (email handled by DB trigger) ────
+      for (const m of localOnlyTriggered) {
+        toast({
+          title: m.key === 'fully_onboarded' ? '🎉 Operator fully onboarded!' : `📩 Milestone reached`,
+          description: `${operatorName}: ${m.label}`,
+        });
+      }
+
       // ── Update snapshot (always, so re-saves don't re-fire) ──────────
       savedMilestones.current = {
         ica_status: status.ica_status ?? prev.ica_status,
