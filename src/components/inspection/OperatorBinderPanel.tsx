@@ -174,9 +174,10 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error
-          ? err.message
-          : "We couldn't upload that document. Please check your connection and try again.",
+        description:
+          (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string' && (err as any).message)
+            ? (err as any).message
+            : "We couldn't upload that document. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {
@@ -242,9 +243,10 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error
-          ? err.message
-          : "We couldn't upload that document. Please check your connection and try again.",
+        description:
+          (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string' && (err as any).message)
+            ? (err as any).message
+            : "We couldn't upload that document. Please check your connection and try again.",
         variant: 'destructive',
       });
     } finally {

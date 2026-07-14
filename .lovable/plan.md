@@ -1,66 +1,41 @@
-# Fix: PE Screening dial not turning green after uploads
+## Two Inspection Binder bugs — root cause found
 
-## Root cause
+### Bug 1: Cab card upload fails (only for drivers with an assigned MO plate)
+The `sync_irp_expiry_to_mo_plate` trigger fires on every insert/update of an "IRP Registration (cab card)" row. It runs this query:
 
-The Pre-Employment Screening dial reads from two columns on `onboarding_status`:
-- `pe_screening` — controls the "Scheduled / Results In" state
-- `pe_screening_result` — controls the final "Clear / Non-Clear" state
-
-Today the two uploaders only write the document URL and never touch these status columns:
-
-- **QPassport uploader** (`OperatorDetailPanel.tsx` line ~205) writes `qpassport_url` but leaves `pe_screening` at its previous value (usually `not_started`). Result: dial stays gray even though the QPassport is attached.
-- **PE Results uploader** (line ~5618) writes `pe_results_doc_url` but leaves `pe_screening` and `pe_screening_result` untouched. Result: dial doesn't move to "Results In", so Delease's uploaded result never turns the dial green.
-
-Staff have been manually flipping the dropdowns after upload for some drivers (that's why some rows in the DB show `scheduled`/`clear`), and forgetting on others.
-
-## Fix
-
-Make the two upload handlers advance the status columns automatically, using conservative rules so we never downgrade a status a coordinator has already set.
-
-### 1. QPassport upload (`QPassportUploader`)
-When the upload succeeds, in the same `onboarding_status.update(...)` call also set:
-- `pe_screening = 'scheduled'` — but only when the current value is `null`, `''`, or `'not_started'`. If it's already `scheduled` / `results_in`, leave it alone.
-- `pe_results_date` unchanged.
-
-Implementation: fetch the current `pe_screening` value (already in `status` state passed to the panel) or use a conditional update with `.is('pe_screening', null).or('pe_screening.eq.not_started')`. Simpler: read current value from state and branch client-side, then call update.
-
-Also update local `setStatus` so the dial refreshes immediately without a reload.
-
-### 2. PE Results upload (inline handler around line 5596)
-On successful upload, in the same `onboarding_status.update(...)` also set:
-- `pe_screening = 'results_in'` when current value is anything other than `results_in`.
-- `pe_results_date = today (YYYY-MM-DD, Central Time)` when it's currently null — gives the timeline a real date to show.
-- Do **not** auto-set `pe_screening_result` to `clear` / `non_clear`. That decision stays with the coordinator (they still pick from the dropdown after reviewing the PDF), so we don't accidentally mark a non-clear result as clear.
-
-Update local `setStatus` for immediate UI refresh.
-
-### 3. Toast wording
-Update the success toasts to mention the status change, e.g. "QPassport uploaded — PE Screening marked as Scheduled" and "PE Results uploaded — status set to Results In. Please mark Clear or Non-Clear."
-
-### 4. One-time backfill for existing records
-Run a small SQL migration to fix the drivers already affected (Delease + the four QPassport uploads):
-
-```sql
-UPDATE public.onboarding_status
-   SET pe_screening = 'scheduled'
- WHERE qpassport_url IS NOT NULL
-   AND (pe_screening IS NULL OR pe_screening IN ('', 'not_started'));
-
-UPDATE public.onboarding_status
-   SET pe_screening = 'results_in'
- WHERE pe_results_doc_url IS NOT NULL
-   AND pe_screening NOT IN ('results_in')
-   AND (pe_screening_result IS NULL OR pe_screening_result NOT IN ('clear','non_clear'));
+```
+SELECT plate_id FROM public.mo_plate_assignments
+WHERE operator_id = ... AND event_type = 'assignment' AND returned_at IS NULL
+ORDER BY created_at DESC LIMIT 1
 ```
 
-This leaves any driver a coordinator has already marked `clear` / `non_clear` untouched.
+`mo_plate_assignments` has **no `created_at` column** — the correct column is `assigned_at`. Reproduced on the database: the insert aborts with `ERROR: column "created_at" does not exist`. Delease has an active plate assignment, so every cab card upload for her hits this. Drivers without a current plate assignment skip the block early, which is why other people's uploads work. Inspection and Lease Agreement uploads work because the trigger name-guards to IRP only.
 
-## Files touched
+The frontend swallows the real error too: `throw dbRes.error` throws a Postgrest error object (not an `Error` instance), so `err instanceof Error` is false and staff see the generic "We couldn't upload that document" toast instead of the underlying message.
 
-- `src/pages/staff/OperatorDetailPanel.tsx` — extend the two upload handlers and their local state updates.
-- New migration for the backfill.
+### Bug 2: Periodic DOT inspection date reverts on reload
+`saveExpiry` writes the new date to `inspection_documents.expires_at`. On the next open, `syncInspectionBinderDateFromVehicleHub` runs and **overwrites the binder from `truck_dot_inspections.inspection_date`** ("Vehicle Hub wins"). Nothing writes the binder edit back to Vehicle Hub, so the date snaps back to the stale VH value every time. For Delease the newest VH row is `2026-07-13`, which is what she keeps seeing after re-entering the profile.
 
-## Out of scope
+---
 
-- No changes to the dial rendering logic, PE timeline, or driver-portal Smart Progress widget — they already read from `pe_screening` / `pe_screening_result` correctly.
-- No change to how coordinators mark Clear / Non-Clear — that remains manual.
+## Fix plan
+
+**1. Repair the IRP → MO plate trigger (migration)**
+- Redefine `sync_irp_expiry_to_mo_plate` replacing `ORDER BY created_at DESC` with `ORDER BY assigned_at DESC`. No other logic changes.
+
+**2. Keep the binder's Periodic DOT date persistent (migration)**
+- Add a trigger `trg_sync_dot_binder_to_vh` on `inspection_documents` (AFTER UPDATE OF `expires_at`) that, for `name = 'Periodic DOT Inspections'` + `scope = 'per_driver'`, updates the driver's most recent `truck_dot_inspections.inspection_date` to `NEW.expires_at` (falling back to inserting a new row if none exists).
+- Guarded with `app.skip_dot_sync` (already used by the existing `sync_inspection_doc_to_dot` trigger) to prevent loops.
+- Result: staff-edited binder date is now the value Vehicle Hub returns, so the auto-sync on next open confirms the date instead of reverting it.
+
+**3. Surface real error messages (frontend, small)**
+- In `src/components/inspection/OperatorBinderPanel.tsx` `handleUpload`/`handleStaffUpload`, and the equivalent handler in `src/components/inspection/InspectionBinderAdmin.tsx`, replace the `err instanceof Error ? err.message : '<generic>'` branch with a helper that also extracts `.message` from Postgrest-style error objects. Prevents future silent failures like this one.
+
+### Files touched
+- New migration: fix `sync_irp_expiry_to_mo_plate`; add `sync_dot_binder_to_vh` trigger + function.
+- `src/components/inspection/OperatorBinderPanel.tsx`
+- `src/components/inspection/InspectionBinderAdmin.tsx`
+
+### Verification
+- Re-run the failing insert as postgres to confirm the trigger no longer errors.
+- Manually save a new inspection date on a driver's binder; reload the driver; confirm the date persists and the newest `truck_dot_inspections` row now reflects it.
