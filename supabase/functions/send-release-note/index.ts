@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       `🆕 ${title}`,
       `🆕 ${title}`,
       `<div style="color:#444;font-size:15px;line-height:1.7;">${body.replace(/\n/g, '<br/>')}</div>`,
-      { label: 'View in Portal', url: `${appUrl}/management?view=whats-new` },
+      { label: 'View in Portal', url: `${appUrl}/management?view=n` },
       SUPPORT_EMAIL
     );
 
