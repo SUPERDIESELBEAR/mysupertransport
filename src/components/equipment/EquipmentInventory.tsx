@@ -183,7 +183,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
       </div>
 
       {/* Summary stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
         {(Object.entries(STATUS_CONFIG) as [EquipmentStatus, typeof STATUS_CONFIG[EquipmentStatus]][]).map(([status, cfg]) => (
           <button
             key={status}
