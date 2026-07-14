@@ -1447,7 +1447,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const equipmentReady = isEquipmentFullyComplete(status as any);
     const wasEquipmentReady = isEquipmentFullyComplete(prev as any);
 
-    const milestones: { key: string; label: string; triggered: boolean }[] = [
+    const milestones: { key: string; label: string; triggered: boolean; skipSendNotification?: boolean }[] = [
       {
         key: 'ica_sent',
         label: 'ICA Agreement Sent for Signature',
@@ -1492,9 +1492,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         key: 'fully_onboarded',
         label: 'Fully Onboarded — Welcome to SUPERTRANSPORT!',
         triggered: isNewlyFullyOnboarded,
+        // Operator email for this milestone is sent by the notify-onboarding-update
+        // DB trigger (which also merges the go-live date to avoid duplicate emails).
+        // Skip the send-notification path here to prevent redundant "welcome" emails.
+        skipSendNotification: true,
       },
     ];
-    const triggeredMilestones = milestones.filter(m => m.triggered);
+    const triggeredMilestones = milestones.filter(m => m.triggered && !m.skipSendNotification);
+    const localOnlyTriggered = milestones.filter(m => m.triggered && m.skipSendNotification);
 
     const { error } = await supabase
       .from('operators')
@@ -1591,6 +1596,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             // silent — notification failure should not block the save
           }
         }
+      }
+
+      // ── Local-only milestone toasts (email handled by DB trigger) ────
+      for (const m of localOnlyTriggered) {
+        toast({
+          title: m.key === 'fully_onboarded' ? '🎉 Operator fully onboarded!' : `📩 Milestone reached`,
+          description: `${operatorName}: ${m.label}`,
+        });
       }
 
       // ── Update snapshot (always, so re-saves don't re-fire) ──────────

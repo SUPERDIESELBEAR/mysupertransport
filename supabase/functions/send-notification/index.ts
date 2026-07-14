@@ -73,18 +73,9 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
       <p>Great news — your <strong>Missouri Registration</strong> has been received and is on file.</p>
       <p>Log in to your portal to check your latest onboarding status.</p>`,
   },
-  fully_onboarded: {
-    heading: '🎉 Welcome to SUPERTRANSPORT — You\'re Fully Onboarded!',
-    body: (name) => `<p>Hi ${name},</p>
-      <p>Congratulations — you have officially completed the onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT!</p>
-      <p>Here's what happens next:</p>
-      <ul style="padding-left:20px;line-height:2;">
-        <li>Your dispatcher will be in touch to get you set up with your first load.</li>
-        <li>Log in to your portal to view dispatch updates and messages.</li>
-        <li>If you have any questions, our team is always here to help.</li>
-      </ul>
-      <p style="margin-top:16px;">We're thrilled to have you on the road with us. Welcome to the SUPERTRANSPORT family!</p>`,
-  },
+  // NOTE: `fully_onboarded` operator email is intentionally omitted here.
+  // It is sent by the `notify-onboarding-update` edge function (DB-triggered), which also
+  // merges the go-live date to avoid duplicate emails. See plan: consolidate 3 → 1 email.
 };
 
 Deno.serve(async (req) => {
