@@ -119,6 +119,15 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(operatorUserId ?? urlDriver);
   const { enabled: enabledOptional, setOptional: setOptionalDoc } = useDriverOptionalDocs(selectedDriverId);
+
+  // Keep selection in sync with ?driver= updates while the page is mounted
+  // (e.g., navigating from Fleet Compliance's "Open in Binder").
+  useEffect(() => {
+    if (operatorUserId) return;
+    const d = searchParams.get('driver') ?? '';
+    if (d && d !== selectedDriverId) setSelectedDriverId(d);
+  }, [searchParams, operatorUserId, selectedDriverId]);
+
   const visibleCompanyOrder = filterOptionalDocs(companyOrder, enabledOptional);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
