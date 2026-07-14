@@ -1,22 +1,42 @@
-# Task Verification: Birthday & Anniversary Popups
+# Fix: "Print Application" opens a blank about:blank tab
 
-**Status: Complete — no code changes needed.**
+## Root cause
+`SubmittedApplicationSnapshot.tsx` `handlePrint()` calls `window.open('', '_blank', 'width=900,height=1100')` and then writes HTML into that new window. In Chrome (and other modern browsers), popup blockers and third-party cookie / cross-origin isolation policies often intercept this and leave the tab stranded at `about:blank`, exactly matching the screenshot. Even when it isn't fully blocked, some Chrome profiles now ignore `document.write` after navigation events, so the window renders empty.
 
-## Requirements vs. Implementation
+Every other Print flow in the app (Application Review Drawer, standalone FCRA / DOT docs) already uses the shared `printDocumentById` helper from `src/lib/printDocument.ts`, which:
+- clones a hidden DOM node into the current tab
+- injects a scoped `@media print` stylesheet
+- calls `window.print()` directly (no popup)
+- has a mobile / popup-blocker fallback overlay built in
 
-| Requirement | Implementation |
-|---|---|
-| Small popup (not permanent red dot) | `BirthdayAnniversaryPopup.tsx` renders a fixed bottom-right card stack (320px wide), mounted in `StaffLayout.tsx` for every staff view |
-| Dismissible with an X | X button in top-right of each card calls `acknowledge(ev)` |
-| Send birthday/anniversary message via email + driver app | "Send Message" button opens `SendBirthdayAnniversaryModal`, which invokes the `send-staff-birthday-message` edge function (email) and writes an in-app notification for `userId` |
-| Stays until acknowledged | Ack is persisted per staff user in `staff_event_acknowledgments` (keyed by `operator_id + event_type + event_date`); dismissed events do not reappear on reload |
-| Early warning for weekends/holidays | `earlyWarnDateFor()` in `lib/birthdayAnniversary/holidays.ts` walks back to the prior business day; hook shows the event from that early date through the actual date, flagged `isEarly` with "Upcoming …" label + calendar date |
+The submitted-application print button is the only place still using the raw `window.open` approach — so it's the only one that breaks.
 
-## Additional Behavior Confirmed
+## Change
+Convert `SubmittedApplicationSnapshot`'s Print button to the same pattern used by `ApplicationReviewDrawer`.
 
-- Central Time day rollover (`todayInCentral`) — no off-by-one.
-- Only surfaces for active operators past Go Live (anniversaries require `go_live_date.year < currentYear`).
-- Multiple concurrent events collapse to 3 with a "+N more / Show fewer" expander.
-- Sending a message auto-acknowledges the event.
+### Steps
+1. **`src/components/management/SubmittedApplicationSnapshot.tsx`**
+   - Remove `handlePrint` (the `window.open` + `document.write` block).
+   - Wrap the on-screen snapshot content in a container with `id="submitted-application-print-content"`.
+   - Replace the Print button's `onClick` with:
+     ```ts
+     printDocumentById(
+       'submitted-application-print-content',
+       `Application — ${a.first_name ?? ''} ${a.last_name ?? ''}`.trim()
+     );
+     ```
+   - Import `printDocumentById` from `@/lib/printDocument` (the file already imports `preloadSignatureDataUrl` from the same module).
+   - Drop the now-unused `toast` popup-blocked message for this handler.
 
-Nothing to fix — feature matches the requested spec end-to-end.
+2. No schema, edge function, or route changes.
+
+## Why this fixes it
+- No new window is opened, so popup blockers can't strand the user on `about:blank`.
+- Uses the same helper already proven reliable for the Application Review print flow and standalone FCRA / DOT docs.
+- Preserves signature rendering because the on-screen snapshot already uses `preloadSignatureDataUrl` (fixed in the earlier signature-display work).
+
+## Verification
+- Open a driver → Submitted Application panel → click **Print Application**.
+- The native browser print dialog appears in-tab with the full application content (personal, CDL, employers, disclosures, signature).
+- Cancel → returns to the page cleanly (no leftover overlay).
+- Test in Chrome desktop and iOS Safari (mobile fallback overlay path).
