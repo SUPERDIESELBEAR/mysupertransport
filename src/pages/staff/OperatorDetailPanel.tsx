@@ -2381,27 +2381,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </Tooltip>
             )}
             {/* Collapse/Expand All Stages */}
-            {(() => {
-              const allKeys = ['stage1','stage2','stage3','stage4','stage5','stagePE','stage6','stage7'];
-              const allCollapsed = allKeys.every(k => collapsedStages.has(k));
-              return (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCollapsedStages(allCollapsed ? new Set() : new Set(allKeys))}
-                      className="gap-1 text-muted-foreground hover:text-foreground"
-                    >
-                      {allCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {allCollapsed ? 'Expand all stages' : 'Collapse all stages'}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })()}
             {/* Copy Email */}
             {operatorEmail && (
               <Tooltip>

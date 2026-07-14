@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -134,6 +134,22 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  const handleToggleExpanded = () => {
+    setExpanded(prev => {
+      const next = !prev;
+      if (next) {
+        // Scroll the section header to the top of the viewport after content renders
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        });
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -210,11 +226,11 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   };
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 space-y-5">
+    <div ref={cardRef} className="bg-white border border-border rounded-xl p-5 space-y-5 scroll-mt-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <button
           type="button"
-          onClick={() => setExpanded(prev => !prev)}
+          onClick={handleToggleExpanded}
           className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
           aria-expanded={expanded}
         >
