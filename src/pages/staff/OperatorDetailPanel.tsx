@@ -177,10 +177,14 @@ function QPassportUploader({
   operatorId,
   currentUrl,
   onUploaded,
+  currentPeScreening,
+  onPeScreeningAdvanced,
 }: {
   operatorId: string;
   currentUrl: string | null | undefined;
   onUploaded: (url: string) => void;
+  currentPeScreening?: string | null;
+  onPeScreeningAdvanced?: (next: string) => void;
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = React.useState(false);
@@ -202,10 +206,19 @@ function QPassportUploader({
       if (upErr) throw upErr;
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
-      const { error: updateErr } = await supabase.from('onboarding_status').update({ qpassport_url: fileUrl }).eq('operator_id', operatorId);
+      const shouldAdvance = !currentPeScreening || currentPeScreening === '' || currentPeScreening === 'not_started';
+      const updatePayload: Record<string, unknown> = { qpassport_url: fileUrl };
+      if (shouldAdvance) updatePayload.pe_screening = 'scheduled';
+      const { error: updateErr } = await supabase.from('onboarding_status').update(updatePayload).eq('operator_id', operatorId);
       if (updateErr) throw updateErr;
       onUploaded(fileUrl);
-      toast({ title: 'QPassport uploaded', description: 'The operator can now download it from their portal.' });
+      if (shouldAdvance) onPeScreeningAdvanced?.('scheduled');
+      toast({
+        title: 'QPassport uploaded',
+        description: shouldAdvance
+          ? 'PE Screening marked as Scheduled. The operator can now download it from their portal.'
+          : 'The operator can now download it from their portal.',
+      });
       // Fire-and-forget: notify operator that QPassport is ready
       supabase.functions.invoke('send-notification', {
         body: { type: 'qpassport_uploaded', operator_id: operatorId },
