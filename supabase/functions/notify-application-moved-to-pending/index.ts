@@ -64,7 +64,8 @@ serve(async (req) => {
     const bodyHtml = (tpl?.body_html ?? `<p>${greeting}</p><p>Good news — our team is reviewing your ${BRAND_NAME} driver application and has reopened it.</p>`)
       .replace(/\{\{name\}\}/g, nameDisplay);
     const ctaLabel = (tpl?.cta_label ?? '').trim();
-    const cta = ctaLabel ? { label: ctaLabel, url: 'https://mysupertransport.com' } : undefined;
+    // CTA links back to the SUPERDRIVE app (splash / login), not the marketing site.
+    const cta = ctaLabel ? { label: ctaLabel, url: new URL(buildAppUrl('/')).origin } : undefined;
     const html = buildEmail(subject, heading, bodyHtml, cta, RECRUITING_EMAIL);
 
     if (!resendKey) {
