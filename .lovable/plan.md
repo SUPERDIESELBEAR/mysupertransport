@@ -1,38 +1,66 @@
+# Fix: PE Screening dial not turning green after uploads
+
 ## Root cause
 
-Emma's diagnostics show every tap forward followed 26–30ms later by a bounce entry with `historyStateKey: null` and `historyLen` unchanged. React Router pushes always include a router-generated key — a null key with unchanged length is the fingerprint of `window.history.back()`.
+The Pre-Employment Screening dial reads from two columns on `onboarding_status`:
+- `pe_screening` — controls the "Scheduled / Results In" state
+- `pe_screening_result` — controls the final "Clear / Non-Clear" state
 
-The only place in the app that calls `history.back()` is `src/hooks/useBackButton.ts`. It fires from:
+Today the two uploaders only write the document URL and never touch these status columns:
 
-1. The effect cleanup when the hook unmounts while `pushedRef.current === true`.
-2. The `if (!isOpen)` branch when `isOpen` flips false.
+- **QPassport uploader** (`OperatorDetailPanel.tsx` line ~205) writes `qpassport_url` but leaves `pe_screening` at its previous value (usually `not_started`). Result: dial stays gray even though the QPassport is attached.
+- **PE Results uploader** (line ~5618) writes `pe_results_doc_url` but leaves `pe_screening` and `pe_screening_result` untouched. Result: dial doesn't move to "Results In", so Delease's uploaded result never turns the dial green.
 
-Every Radix `Dialog` / `Sheet` in the app auto-sets its internal `isOpen` to `true` on mount, then calls `useBackButton(isOpen, ...)`. `FilePreviewModal` passes hardcoded `true`. When any of those unmount as a side effect of a route change — a Radix portal still mounted for a beat, a toast/notification popover, a modal inside a route subtree — the cleanup fires `history.back()` and reverses the navigation the driver just made. No portal-level trace fires, which matches the trace exactly.
+Staff have been manually flipping the dropdowns after upload for some drivers (that's why some rows in the DB show `scheduled`/`clear`), and forgetting on others.
 
 ## Fix
 
-Make `useBackButton` safe: never call `history.back()` if doing so would reverse a real navigation. It should only pop its virtual entry when the current URL is still the URL that was there when the entry was pushed.
+Make the two upload handlers advance the status columns automatically, using conservative rules so we never downgrade a status a coordinator has already set.
 
-## Changes
+### 1. QPassport upload (`QPassportUploader`)
+When the upload succeeds, in the same `onboarding_status.update(...)` call also set:
+- `pe_screening = 'scheduled'` — but only when the current value is `null`, `''`, or `'not_started'`. If it's already `scheduled` / `results_in`, leave it alone.
+- `pe_results_date` unchanged.
 
-### `src/hooks/useBackButton.ts`
-- On the `pushState` push, capture `pushedHref = window.location.href` in a ref.
-- Wrap all `history.back()` calls in a guard: `if (window.location.href === pushedHrefRef.current) window.history.back();` otherwise just clear the ref. The user (or router) has already moved past our virtual entry, so popping it would over-pop and rewind their real navigation.
-- Keep existing popstate handling — that path is user-initiated back and stays correct.
-- Add a nav trace entry (`kind: 'back-button'`, event: `skipped-back` vs `fired-back`) so future diagnostics show exactly when this hook fires.
+Implementation: fetch the current `pe_screening` value (already in `status` state passed to the panel) or use a conditional update with `.is('pe_screening', null).or('pe_screening.eq.not_started')`. Simpler: read current value from state and branch client-side, then call update.
 
-### `src/lib/navTrace.ts`
-- Add small `appendBackButtonTrace` helper mirroring the existing `appendAuthTrace` / `appendRouteTrace` wrappers.
+Also update local `setStatus` so the dial refreshes immediately without a reload.
 
-### No other files change
-- `dialog.tsx`, `sheet.tsx`, `DocRow.tsx` (FilePreviewModal), `DocRow.tsx:411` all keep their existing calls. The behavior stays identical when the modal is closed by the user on the same page; only the destructive unmount-during-navigation path is neutralized.
+### 2. PE Results upload (inline handler around line 5596)
+On successful upload, in the same `onboarding_status.update(...)` also set:
+- `pe_screening = 'results_in'` when current value is anything other than `results_in`.
+- `pe_results_date = today (YYYY-MM-DD, Central Time)` when it's currently null — gives the timeline a real date to show.
+- Do **not** auto-set `pe_screening_result` to `clear` / `non_clear`. That decision stays with the coordinator (they still pick from the dropdown after reviewing the PDF), so we don't accidentally mark a non-clear result as clear.
 
-## Verification
+Update local `setStatus` for immediate UI refresh.
 
-- Reproduce Emma's tap sequence (`/operator/status` → tap "Review & Acknowledge Documents") in Playwright with an iPhone viewport and confirm `/operator/doc-hub` is reached and stays.
-- Confirm hardware back on an open modal still closes it (unit-style check: mount, push virtual entry, dispatch popstate → `onClose` called; unmount while on same URL → `back()` still fires; unmount after URL change → `back()` skipped).
-- Ask Emma to reinstall/reload the PWA and retry. Diagnostics will now show `back-button:skipped-back` entries at the moments where the old bug fired.
+### 3. Toast wording
+Update the success toasts to mention the status change, e.g. "QPassport uploaded — PE Screening marked as Scheduled" and "PE Results uploaded — status set to Results In. Please mark Clear or Non-Clear."
 
-## Follow-ups (not in this change)
+### 4. One-time backfill for existing records
+Run a small SQL migration to fix the drivers already affected (Delease + the four QPassport uploads):
 
-- Once the fix is confirmed, we can trim the temporary `guard-render`, `router-location`, and auth-lifecycle traces added earlier this week down to a much smaller ring buffer.
+```sql
+UPDATE public.onboarding_status
+   SET pe_screening = 'scheduled'
+ WHERE qpassport_url IS NOT NULL
+   AND (pe_screening IS NULL OR pe_screening IN ('', 'not_started'));
+
+UPDATE public.onboarding_status
+   SET pe_screening = 'results_in'
+ WHERE pe_results_doc_url IS NOT NULL
+   AND pe_screening NOT IN ('results_in')
+   AND (pe_screening_result IS NULL OR pe_screening_result NOT IN ('clear','non_clear'));
+```
+
+This leaves any driver a coordinator has already marked `clear` / `non_clear` untouched.
+
+## Files touched
+
+- `src/pages/staff/OperatorDetailPanel.tsx` — extend the two upload handlers and their local state updates.
+- New migration for the backfill.
+
+## Out of scope
+
+- No changes to the dial rendering logic, PE timeline, or driver-portal Smart Progress widget — they already read from `pe_screening` / `pe_screening_result` correctly.
+- No change to how coordinators mark Clear / Non-Clear — that remains manual.

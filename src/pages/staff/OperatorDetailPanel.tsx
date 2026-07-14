@@ -177,10 +177,14 @@ function QPassportUploader({
   operatorId,
   currentUrl,
   onUploaded,
+  currentPeScreening,
+  onPeScreeningAdvanced,
 }: {
   operatorId: string;
   currentUrl: string | null | undefined;
   onUploaded: (url: string) => void;
+  currentPeScreening?: string | null;
+  onPeScreeningAdvanced?: (next: string) => void;
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = React.useState(false);
@@ -202,10 +206,20 @@ function QPassportUploader({
       if (upErr) throw upErr;
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
-      const { error: updateErr } = await supabase.from('onboarding_status').update({ qpassport_url: fileUrl }).eq('operator_id', operatorId);
+      const shouldAdvance = !currentPeScreening || currentPeScreening === '' || currentPeScreening === 'not_started';
+      const updatePayload = shouldAdvance
+        ? { qpassport_url: fileUrl, pe_screening: 'scheduled' as const }
+        : { qpassport_url: fileUrl };
+      const { error: updateErr } = await supabase.from('onboarding_status').update(updatePayload).eq('operator_id', operatorId);
       if (updateErr) throw updateErr;
       onUploaded(fileUrl);
-      toast({ title: 'QPassport uploaded', description: 'The operator can now download it from their portal.' });
+      if (shouldAdvance) onPeScreeningAdvanced?.('scheduled');
+      toast({
+        title: 'QPassport uploaded',
+        description: shouldAdvance
+          ? 'PE Screening marked as Scheduled. The operator can now download it from their portal.'
+          : 'The operator can now download it from their portal.',
+      });
       // Fire-and-forget: notify operator that QPassport is ready
       supabase.functions.invoke('send-notification', {
         body: { type: 'qpassport_uploaded', operator_id: operatorId },
@@ -5540,6 +5554,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         operatorId={operatorId}
                         currentUrl={status.qpassport_url}
                         onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
+                        currentPeScreening={status.pe_screening}
+                        onPeScreeningAdvanced={next => setStatus(prev => ({ ...prev, pe_screening: next }))}
                       />
                     )}
                     {docFiles['pe_receipt']?.[0] && (
@@ -5615,10 +5631,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             if (upErr) throw upErr;
                             const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
                             const fileUrl = sd?.signedUrl ?? '';
-                            const { error: updateErr } = await supabase.from('onboarding_status').update({ pe_results_doc_url: fileUrl } as any).eq('operator_id', operatorId);
+                            const advanceScreening = status.pe_screening !== 'results_in';
+                            const setResultsDate = !status.pe_results_date;
+                            const todayCT = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+                            const payload: {
+                              pe_results_doc_url: string;
+                              pe_screening?: 'results_in';
+                              pe_results_date?: string;
+                            } = { pe_results_doc_url: fileUrl };
+                            if (advanceScreening) payload.pe_screening = 'results_in';
+                            if (setResultsDate) payload.pe_results_date = todayCT;
+                            const { error: updateErr } = await supabase.from('onboarding_status').update(payload).eq('operator_id', operatorId);
                             if (updateErr) throw updateErr;
-                            setStatus(prev => ({ ...prev, pe_results_doc_url: fileUrl }));
-                            toast({ title: 'PE Results uploaded' });
+                            setStatus(prev => ({
+                              ...prev,
+                              pe_results_doc_url: fileUrl,
+                              ...(advanceScreening ? { pe_screening: 'results_in' } : {}),
+                              ...(setResultsDate ? { pe_results_date: todayCT } : {}),
+                            }));
+                            toast({
+                              title: 'PE Results uploaded',
+                              description: advanceScreening
+                                ? 'Status set to Results In. Please mark Clear or Non-Clear.'
+                                : undefined,
+                            });
                           } catch (err: unknown) {
                             const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
                             toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
