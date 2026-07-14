@@ -1137,7 +1137,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
       </>
     )}
-    <div className={isPreview ? '' : 'min-h-dvh bg-secondary'}>
+    <div className={isPreview ? '' : 'h-[100dvh] flex flex-col bg-secondary overflow-hidden'}>
       {/* Preview banner */}
       {isPreview && (
         <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 mb-4">
@@ -1170,7 +1170,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       )}
       {/* Top nav */}
       <header
-        className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border fixed top-0 inset-x-0 z-40"}
+        className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border shrink-0 z-40"}
         style={isPreview ? undefined : { paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-3">
@@ -1396,8 +1396,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       </header>
 
       <div
-        className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
-        style={isPreview ? undefined : { paddingTop: `calc(1.5rem + 4rem + env(safe-area-inset-top))` }}
+        className={
+          isPreview
+            ? "relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
+            : "relative flex-1 min-h-0 overflow-y-auto overscroll-contain max-w-4xl w-full mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
+        }
       >
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
