@@ -81,7 +81,16 @@ export function getFieldDef(path: string): CorrectionFieldDef | undefined {
  */
 export function formatValue(v: unknown, kind?: FieldKind): string {
   if (v === null || v === undefined || v === '') return '(empty)';
-  if (kind === 'boolean' || typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (kind === 'boolean' || typeof v === 'boolean') {
+    // Boolean-kind fields may arrive as native booleans (from Postgres) OR
+    // as 'yes'/'no'/'true'/'false' strings (from the form/RadioGroup). Coerce
+    // to a real boolean before rendering so 'no' does not render as "Yes".
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    const s = String(v).trim().toLowerCase();
+    if (s === 'yes' || s === 'true' || s === '1') return 'Yes';
+    if (s === 'no' || s === 'false' || s === '0') return 'No';
+    return '(empty)';
+  }
   if (Array.isArray(v)) {
     if (!v.length) return '(empty)';
     if (kind === 'employers' || v.some((x) => x && typeof x === 'object')) {
