@@ -1447,7 +1447,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const equipmentReady = isEquipmentFullyComplete(status as any);
     const wasEquipmentReady = isEquipmentFullyComplete(prev as any);
 
-    const milestones: { key: string; label: string; triggered: boolean }[] = [
+    const milestones: { key: string; label: string; triggered: boolean; skipSendNotification?: boolean }[] = [
       {
         key: 'ica_sent',
         label: 'ICA Agreement Sent for Signature',
@@ -1498,8 +1498,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         skipSendNotification: true,
       },
     ];
-    const triggeredMilestones = milestones.filter(m => m.triggered && !(m as any).skipSendNotification);
-    const localOnlyTriggered = milestones.filter(m => m.triggered && (m as any).skipSendNotification);
+    const triggeredMilestones = milestones.filter(m => m.triggered && !m.skipSendNotification);
+    const localOnlyTriggered = milestones.filter(m => m.triggered && m.skipSendNotification);
 
     const { error } = await supabase
       .from('operators')
