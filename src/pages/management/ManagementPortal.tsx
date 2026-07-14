@@ -2101,7 +2101,18 @@ export default function ManagementPortal() {
             <InspectionComplianceSummary
               defaultExpanded={true}
               onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
-              onOpenOperatorAtBinder={(id) => { setDriverHubBinderTarget({ operatorId: id }); setView('drivers'); }}
+              onOpenOperatorAtBinder={async (id) => {
+                const { data } = await supabase
+                  .from('operators')
+                  .select('user_id')
+                  .eq('id', id)
+                  .maybeSingle();
+                const userId = (data as any)?.user_id as string | undefined;
+                const next = new URLSearchParams(window.location.search);
+                if (userId) next.set('driver', userId); else next.delete('driver');
+                setSearchParams(next, { replace: true });
+                setView('inspection-binder');
+              }}
               onOpenInspectionBinder={() => setView('inspection-binder')}
             />
           </div>
