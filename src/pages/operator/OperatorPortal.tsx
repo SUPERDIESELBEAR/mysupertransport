@@ -1924,6 +1924,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             </div>
           </div>
         )}
+
+        {/* Build info — confirms which deployed build the operator is on */}
+        {!isPreview && (
+          <div className="pt-6 pb-24 md:pb-6">
+            <BuildInfo />
+          </div>
+        )}
       </div>
 
       {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
@@ -1981,15 +1988,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         </div>
       )}
 
-      {/* Build info — confirms which deployed build the operator is on */}
-      {!isPreview && (
-        <div className="max-w-4xl mx-auto px-4 pt-6 pb-24 md:pb-6">
-          <BuildInfo />
-        </div>
-      )}
-
       {/* ── Sticky bottom nav (mobile only) ────────────────────────────── */}
-      {!isPreview && <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
+      {!isPreview && <nav className="md:hidden shrink-0 z-40 bg-surface-dark border-t border-surface-dark-border">
         <div className="flex items-stretch h-16">
           {mobileNavItems.map((item) => {
             const isActive = view === item.view;
