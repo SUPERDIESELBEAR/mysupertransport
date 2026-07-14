@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.95.0';
 import { buildEmail, sendEmailStrict, BRAND_NAME, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
 import { getLogClient, makeMessageId, withEmailLog } from '../_shared/email-log.ts';
+import { buildAppUrl } from '../_shared/app-url.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
