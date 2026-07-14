@@ -40,6 +40,7 @@ import {
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc, AutoSyncedBadge } from './DocRow';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
+import DriverCombobox from './DriverCombobox';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {
@@ -1244,22 +1245,17 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-              <SelectTrigger
-                className={
-                  selectedDriverId
-                    ? "flex-1"
-                    : "flex-1 h-11 text-sm font-medium border-gold/30 bg-card [&>span]:text-foreground"
-                }
-              >
-                <SelectValue placeholder="Select a driver to manage their binder…" />
-              </SelectTrigger>
-              <SelectContent>
-                {operators.map(op => (
-                  <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <DriverCombobox
+              operators={operators}
+              value={selectedDriverId}
+              onChange={setSelectedDriverId}
+              placeholder="Select a driver to manage their binder…"
+              triggerClassName={
+                selectedDriverId
+                  ? 'flex-1'
+                  : 'flex-1 h-11 text-sm font-medium border-gold/30 bg-card text-foreground'
+              }
+            />
             {selectedDriverId && (
               <Button
                 variant="outline"
