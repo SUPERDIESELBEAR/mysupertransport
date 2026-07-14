@@ -1,63 +1,45 @@
-## The bug
+# Fix: Bottom Nav Moves While Scrolling (Driver App)
 
-The Pipeline Dashboard's stage tracker is driven by the `pipeline_config` table. The PE (Stage 6) row in that table is misconfigured, which is why the PE dot never turns green even when Stage 6 clearly shows "PE Clear" on the operator profile.
+## What's happening
 
-Two concrete problems in `pipeline_config`:
+The mobile bottom tab bar in `src/pages/operator/OperatorPortal.tsx` is rendered with `position: fixed; bottom: 0`. On iOS Safari (and in PWA mode on some devices), a page that scrolls the whole `<body>` causes any `position: fixed` element to visibly shift or lag during momentum scroll and while the URL/status bar shows/hides. That's exactly the "the black bar moves when scrolling" symptom drivers are reporting.
 
-1. **PE stage — broken `Receipt Uploaded` item.** It uses `complete_value = "__present__"`, but the evaluator (`evalItem` in `PipelineDashboard.tsx`) only recognizes the sentinel `"present"`. So `pe_receipt_url` is never counted as done. Result: even when the operator's result is Clear, only 2 of 3 items evaluate true → the dot renders as `partial` (gold), never `complete` (green).
+The correct, permanent fix on mobile web/PWA is to stop scrolling the body and instead use an **app-shell layout** — the outer container fills the dynamic viewport, the middle content pane is the only scroller, and the top header + bottom nav sit as normal (non-fixed) flex children. The nav then physically cannot move because nothing is scrolling around it.
 
-2. **PE stage — `PE Scheduled` too narrow.** It checks `pe_screening = 'scheduled'` only. Once staff move the operator forward to `results_in` or the result is set to `clear`, the "Scheduled" item flips back to false and the dot regresses.
+## Scope
 
-3. **Background (BG) stage — stray PE item.** The BG stage config includes a `PE Screening Clear` item pointing at `pe_screening_result`. This bleeds PE completion into Background Check, so BG never turns fully green until PE is clear, which is why upstream stages also look out of sync.
+Frontend/presentation only. No business logic, no data changes, no backend.
 
-Confirmed against live data: many operators have `pe_screening_result = 'clear'` while `pe_screening = 'scheduled'` and `pe_receipt_url` is null — exactly the shape that trips both bugs.
+Single file: `src/pages/operator/OperatorPortal.tsx`.
 
-## The fix
+## Changes
 
-Single migration that rewrites the two affected `pipeline_config` rows so they match how `OperatorDetailPanel` already evaluates PE completion (`pe_screening_result = 'clear'`):
+1. **Outer container** (line ~1140): change `min-h-dvh bg-secondary` to a full-height flex column:
+   ```
+   h-[100dvh] flex flex-col bg-secondary overflow-hidden
+   ```
 
-- **BG stage:** drop the `pe_clear` item entirely. BG is complete when MVR/CH are approved.
-- **PE stage:** rewrite items to:
-  - `PE Scheduled` — true when `pe_screening IN ('scheduled','results_in')` OR `pe_screening_result = 'clear'` (so it stays checked as the operator advances).
-  - `PE Result Clear` — true when `pe_screening_result = 'clear'`.
-  Removes the broken `pe_receipt` item. This mirrors the profile-level logic exactly, so the Pipeline dot and the Stage 6 card can no longer disagree.
+2. **Top header** (line ~1172): remove `fixed top-0 inset-x-0 z-40` so it becomes a normal flex child. Keep the `env(safe-area-inset-top)` padding.
 
-No frontend code changes required — `computeStageNodesFromConfig` already reads from `pipeline_config` and supports the `|` OR syntax used above.
+3. **Main content wrapper**: wrap the existing scrollable content in a new `<main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">`. Remove the current top padding compensations that exist only because the header is fixed (line ~1400 `paddingTop: calc(1.5rem + 4rem + env(safe-area-inset-top))` and the `pb-24` bottom padding on the BuildInfo block — the flex layout handles both automatically).
 
-### Technical detail
+4. **Floating "Next Step" CTA** (line ~1927): keep it visually above the nav, but re-anchor it to sit inside the app shell above the nav. Simplest: move it to be a sibling that sits between `<main>` and `<nav>` with `sticky bottom-0` behavior inside the shell, or keep it `fixed` but with `bottom: 4rem + safe-area` (unchanged) — it's not the source of the reported bug, so we leave its position class alone and only ensure it still visually clears the nav.
 
-Migration:
-```sql
--- BG: remove misplaced PE item
-UPDATE pipeline_config
-SET items = (
-  SELECT jsonb_agg(elem)
-  FROM jsonb_array_elements(items) elem
-  WHERE elem->>'key' <> 'pe_clear'
-)
-WHERE stage_key = 'bg';
+5. **Bottom nav** (line ~1989): remove `fixed bottom-0 inset-x-0 z-40`. It becomes a normal flex child at the end of the shell. Keep the internal safe-area spacer.
 
--- PE: align with OperatorDetailPanel's completion logic
-UPDATE pipeline_config
-SET items = '[
-  {
-    "key": "pe_scheduled",
-    "label": "PE Scheduled",
-    "field": "pe_screening",
-    "complete_value": "scheduled|results_in|clear"
-  },
-  {
-    "key": "pe_clear",
-    "label": "Result Clear",
-    "field": "pe_screening_result",
-    "complete_value": "clear"
-  }
-]'::jsonb
-WHERE stage_key = 'pe';
-```
+6. **Preview mode branch**: keep the current non-shell rendering for the in-app "Preview as operator" iframe view (`isPreview === true`), which already skips the fixed header/nav. No change there.
 
-Note: `evalItem` treats `pe_screening = 'clear'` as never true in practice (the column holds `not_started`/`scheduled`/`results_in`), but including `clear` in the OR keeps the item resilient if a future migration collapses those states.
+## Why this works
 
-### Verification
+- Body no longer scrolls, so iOS has nothing to hide/show the URL bar against and nothing to rubber-band.
+- The nav is a static child of a fixed-height column, so it's mechanically anchored to the bottom of the viewport at all times — no `position: fixed` reliance.
+- `100dvh` handles the dynamic viewport so the shell always fills the visible area on iOS/Android.
+- Modals, drawers, and existing fixed overlays (toasts, dialogs) are portalled to `body` and are unaffected.
 
-After apply, for any operator with `pe_screening_result = 'clear'` the PE node on the Pipeline card must render green (`state = 'complete'`) and the overall progress % on their card must recompute upward, matching the "PE Clear" badge already shown on the profile. Spot-check Delease Carter and the other operators listed in the earlier read (all currently show `pe_screening_result = 'clear'` with `pe_screening = 'scheduled'`).
+## Verification
+
+- Load `/operator` on the mobile preview at 390×844 and scroll long views (Home, Binder, Messages, Doc Hub) — the black nav must stay pinned pixel-perfect.
+- Confirm the top header stays pinned during scroll of the content pane.
+- Confirm the "Next Step" floating CTA still appears above the nav and doesn't overlap it.
+- Confirm desktop (`md:` and up) still renders correctly — the bottom nav is `md:hidden` and the top nav's desktop layout is unchanged.
+- Regression-check the Resource Center skeleton, ICA signing screen, and any full-height modals still fit inside the shell.
