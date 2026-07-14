@@ -1940,19 +1940,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                           {/* Assign to driver */}
                           <div className="flex items-center gap-2 pt-3 border-t border-border/50 mt-2">
                             <UserCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <Select
+                            <DriverCombobox
+                              operators={operators}
                               value={stagingAssignMap[doc.id] ?? ''}
-                              onValueChange={val => setStagingAssignMap(prev => ({ ...prev, [doc.id]: val }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs flex-1">
-                                <SelectValue placeholder="Select driver to assign…" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {operators.map(op => (
-                                  <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={val => setStagingAssignMap(prev => ({ ...prev, [doc.id]: val }))}
+                              placeholder="Select driver to assign…"
+                              size="sm"
+                              triggerClassName="flex-1"
+                            />
                             <Button
                               size="sm"
                               className="h-8 gap-1 text-xs bg-info text-white hover:bg-info/90 shrink-0"
