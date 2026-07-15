@@ -20,14 +20,14 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle, Download
+  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
-import DispatchHistoryExportModal from '@/components/dispatch/DispatchHistoryExportModal';
+import DriverHistoryDownloadPopover from '@/components/dispatch/DriverHistoryDownloadPopover';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -236,7 +236,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     excluded_from_dispatch_reason: string | null;
   }>>([]);
   const [showExcludedDialog, setShowExcludedDialog] = useState(false);
-  const [historyExportOpen, setHistoryExportOpen] = useState(false);
   const [reIncludingId, setReIncludingId] = useState<string | null>(null);
   // Per-operator count of unlogged days in the rolling 7-day window (excludes today + future,
   // and respects each operator's go-live / legacy-cutoff anchor).
@@ -1480,16 +1479,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         </div>
         {/* View toggle — kept next to search so list controls live together */}
         <ViewModeToggle value={viewMode} onChange={setViewMode} className="self-start sm:self-auto" />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setHistoryExportOpen(true)}
-          className="h-8 text-xs gap-1.5 self-start sm:self-auto shrink-0"
-          title="Download a printable PDF of dispatch history for a date range"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Download History
-        </Button>
       </div>
 
       {/* Bulk action bar */}
@@ -1844,6 +1833,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         <Shield className="h-3 w-3" />
                         Binder
                       </Button>
+                      {/* Download history */}
+                      <DriverHistoryDownloadPopover
+                        operatorId={row.operator_id}
+                        firstName={row.first_name}
+                        lastName={row.last_name}
+                        unitNumber={row.unit_number}
+                      />
                       {/* Message quick-action */}
                       <Button
                         variant="ghost"
@@ -2488,16 +2484,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           </div>
         </DialogContent>
       </Dialog>
-      <DispatchHistoryExportModal
-        open={historyExportOpen}
-        onClose={() => setHistoryExportOpen(false)}
-        drivers={rows.map(r => ({
-          operator_id: r.operator_id,
-          first_name: r.first_name,
-          last_name: r.last_name,
-          unit_number: r.unit_number,
-        }))}
-      />
     </>
   );
 }
