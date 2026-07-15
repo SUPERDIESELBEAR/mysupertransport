@@ -1479,16 +1479,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         </div>
         {/* View toggle — kept next to search so list controls live together */}
         <ViewModeToggle value={viewMode} onChange={setViewMode} className="self-start sm:self-auto" />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setHistoryExportOpen(true)}
-          className="h-8 text-xs gap-1.5 self-start sm:self-auto shrink-0"
-          title="Download a printable PDF of dispatch history for a date range"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Download History
-        </Button>
       </div>
 
       {/* Bulk action bar */}
