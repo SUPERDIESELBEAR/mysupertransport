@@ -20,7 +20,7 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle, Download
+  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -236,7 +236,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     excluded_from_dispatch_reason: string | null;
   }>>([]);
   const [showExcludedDialog, setShowExcludedDialog] = useState(false);
-  const [historyExportOpen, setHistoryExportOpen] = useState(false);
   const [reIncludingId, setReIncludingId] = useState<string | null>(null);
   // Per-operator count of unlogged days in the rolling 7-day window (excludes today + future,
   // and respects each operator's go-live / legacy-cutoff anchor).
