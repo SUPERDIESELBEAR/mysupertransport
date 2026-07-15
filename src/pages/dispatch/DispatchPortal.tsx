@@ -2488,6 +2488,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           </div>
         </DialogContent>
       </Dialog>
+      <DispatchHistoryExportModal
+        open={historyExportOpen}
+        onClose={() => setHistoryExportOpen(false)}
+        drivers={rows.map(r => ({
+          operator_id: r.operator_id,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          unit_number: r.unit_number,
+        }))}
+      />
     </>
   );
 }
