@@ -1833,6 +1833,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         <Shield className="h-3 w-3" />
                         Binder
                       </Button>
+                      {/* Download history */}
+                      <DriverHistoryDownloadPopover
+                        operatorId={row.operator_id}
+                        firstName={row.first_name}
+                        lastName={row.last_name}
+                        unitNumber={row.unit_number}
+                      />
                       {/* Message quick-action */}
                       <Button
                         variant="ghost"
