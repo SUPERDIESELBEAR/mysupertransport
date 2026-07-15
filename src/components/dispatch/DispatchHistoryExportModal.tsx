@@ -4,9 +4,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, Printer } from 'lucide-react';
+import { Loader2, Printer, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { toPng } from 'html-to-image';
 
 type DailyStatus = 'dispatched' | 'home' | 'truck_down' | 'not_dispatched';
 
@@ -68,52 +69,70 @@ export default function DispatchHistoryExportModal({ open, onClose, drivers }: P
   const [fromDate, setFromDate] = useState(daysAgoISO(30));
   const [toDate, setToDate] = useState(todayISO());
   const [busy, setBusy] = useState(false);
+  const [capturing, setCapturing] = useState(false);
 
   const rangeSize = useMemo(() => {
     if (!fromDate || !toDate || fromDate > toDate) return 0;
     return enumerateDates(fromDate, toDate).length;
   }, [fromDate, toDate]);
 
-  async function handleExport() {
+  async function loadData() {
     if (!fromDate || !toDate) return;
     if (fromDate > toDate) {
       toast({ title: 'Invalid range', description: 'Start date must be on or before end date.', variant: 'destructive' });
-      return;
+      return null;
     }
     if (drivers.length === 0) {
       toast({ title: 'No drivers', description: 'There are no active drivers to export.', variant: 'destructive' });
-      return;
+      return null;
     }
+    const operatorIds = drivers.map(d => d.operator_id);
+    const { data, error } = await supabase
+      .from('dispatch_daily_log')
+      .select('operator_id, log_date, status')
+      .in('operator_id', operatorIds)
+      .gte('log_date', fromDate)
+      .lte('log_date', toDate);
+    if (error) throw error;
+    const logMap: Record<string, Record<string, DailyStatus>> = {};
+    for (const r of (data ?? []) as any[]) {
+      (logMap[r.operator_id] ||= {})[r.log_date] = r.status as DailyStatus;
+    }
+    const dates = enumerateDates(fromDate, toDate);
+    const sortedDrivers = [...drivers].sort((a, b) => {
+      const an = `${a.last_name ?? ''} ${a.first_name ?? ''}`.trim().toLowerCase();
+      const bn = `${b.last_name ?? ''} ${b.first_name ?? ''}`.trim().toLowerCase();
+      return an.localeCompare(bn);
+    });
+    return { sortedDrivers, dates, logMap };
+  }
 
+  async function handleExport() {
     setBusy(true);
     try {
-      const operatorIds = drivers.map(d => d.operator_id);
-      const { data, error } = await supabase
-        .from('dispatch_daily_log')
-        .select('operator_id, log_date, status')
-        .in('operator_id', operatorIds)
-        .gte('log_date', fromDate)
-        .lte('log_date', toDate);
-      if (error) throw error;
-
-      const logMap: Record<string, Record<string, DailyStatus>> = {};
-      for (const r of (data ?? []) as any[]) {
-        (logMap[r.operator_id] ||= {})[r.log_date] = r.status as DailyStatus;
-      }
-
-      const dates = enumerateDates(fromDate, toDate);
-      const sortedDrivers = [...drivers].sort((a, b) => {
-        const an = `${a.last_name ?? ''} ${a.first_name ?? ''}`.trim().toLowerCase();
-        const bn = `${b.last_name ?? ''} ${b.first_name ?? ''}`.trim().toLowerCase();
-        return an.localeCompare(bn);
-      });
-
-      openPrintableWindow(sortedDrivers, dates, logMap, fromDate, toDate);
+      const result = await loadData();
+      if (!result) return;
+      openPrintableWindow(result.sortedDrivers, result.dates, result.logMap, fromDate, toDate);
       onClose();
     } catch (e: any) {
       toast({ title: 'Export failed', description: e?.message ?? 'Unable to load dispatch history.', variant: 'destructive' });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleScreenshot() {
+    setCapturing(true);
+    try {
+      const result = await loadData();
+      if (!result) return;
+      await captureCardsAsImage(result.sortedDrivers, result.dates, result.logMap, fromDate, toDate);
+      toast({ title: 'Screenshot saved', description: 'PNG downloaded to your device.' });
+      onClose();
+    } catch (e: any) {
+      toast({ title: 'Screenshot failed', description: e?.message ?? 'Unable to capture image.', variant: 'destructive' });
+    } finally {
+      setCapturing(false);
     }
   }
 
@@ -164,8 +183,17 @@ export default function DispatchHistoryExportModal({ open, onClose, drivers }: P
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button onClick={handleExport} disabled={busy || rangeSize === 0} className="gap-2 bg-gold text-surface-dark hover:bg-gold-light">
+          <Button variant="outline" onClick={onClose} disabled={busy || capturing}>Cancel</Button>
+          <Button
+            variant="outline"
+            onClick={handleScreenshot}
+            disabled={busy || capturing || rangeSize === 0}
+            className="gap-2"
+          >
+            {capturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            Screenshot (PNG)
+          </Button>
+          <Button onClick={handleExport} disabled={busy || capturing || rangeSize === 0} className="gap-2 bg-gold text-surface-dark hover:bg-gold-light">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             Generate PDF
           </Button>
@@ -173,6 +201,97 @@ export default function DispatchHistoryExportModal({ open, onClose, drivers }: P
       </DialogContent>
     </Dialog>
   );
+}
+
+async function captureCardsAsImage(
+  drivers: DispatchDriverLite[],
+  dates: string[],
+  logMap: Record<string, Record<string, DailyStatus>>,
+  fromDate: string,
+  toDate: string,
+) {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-99999px;top:0;width:1400px;background:#ffffff;padding:24px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;color:#0F0F0F;';
+  container.innerHTML = buildCardsMarkup(drivers, dates, logMap, fromDate, toDate);
+  document.body.appendChild(container);
+  try {
+    const dataUrl = await toPng(container, {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      cacheBust: true,
+    });
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `dispatch-history-${fromDate}_to_${toDate}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    container.remove();
+  }
+}
+
+function buildCardsMarkup(
+  drivers: DispatchDriverLite[],
+  dates: string[],
+  logMap: Record<string, Record<string, DailyStatus>>,
+  fromDate: string,
+  toDate: string,
+): string {
+  const generatedAt = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  const legend = (Object.keys(STATUS_META) as DailyStatus[]).map(s => `
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#444">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-weight:700;font-size:11px;background:${STATUS_META[s].bg};color:${STATUS_META[s].text}">${STATUS_META[s].short}</span>
+      ${STATUS_META[s].label}
+    </span>`).join('');
+  const cards = drivers.map(driver => {
+    const fullName = `${driver.first_name ?? ''} ${driver.last_name ?? ''}`.trim() || '—';
+    const unit = driver.unit_number ? `Unit ${escapeHtml(driver.unit_number)}` : '';
+    const perDriver = logMap[driver.operator_id] ?? {};
+    const counts = { dispatched: 0, home: 0, truck_down: 0, not_dispatched: 0, unlogged: 0 };
+    const cells = dates.map(d => {
+      const s = perDriver[d];
+      if (!s) {
+        counts.unlogged++;
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;border-radius:4px;background:#fafafa">
+          <div style="font-size:9px;color:#52525b;white-space:nowrap">${escapeHtml(formatShortDate(d))}</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:700;font-size:11px;background:#f4f4f5;color:#a1a1aa">—</div>
+        </div>`;
+      }
+      counts[s]++;
+      const meta = STATUS_META[s];
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;border-radius:4px;background:#fafafa">
+        <div style="font-size:9px;color:#52525b;white-space:nowrap">${escapeHtml(formatShortDate(d))}</div>
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:700;font-size:11px;background:${meta.bg};color:${meta.text}">${meta.short}</div>
+      </div>`;
+    }).join('');
+    return `<section style="border:1px solid #d4d4d8;border-radius:8px;padding:12px;margin-bottom:12px;background:#fff">
+      <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">
+        <div>
+          <h2 style="margin:0;font-size:14px;font-weight:700">${escapeHtml(fullName)}</h2>
+          ${unit ? `<p style="margin:2px 0 0;font-size:11px;color:#666">${unit}</p>` : ''}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:11px;font-weight:600">
+          <span style="padding:2px 6px;border-radius:4px;background:#f4f4f5;color:${STATUS_META.dispatched.text}">${counts.dispatched} D</span>
+          <span style="padding:2px 6px;border-radius:4px;background:#f4f4f5;color:${STATUS_META.home.text}">${counts.home} H</span>
+          <span style="padding:2px 6px;border-radius:4px;background:#f4f4f5;color:${STATUS_META.truck_down.text}">${counts.truck_down} T</span>
+          <span style="padding:2px 6px;border-radius:4px;background:#f4f4f5;color:${STATUS_META.not_dispatched.text}">${counts.not_dispatched} N</span>
+          ${counts.unlogged > 0 ? `<span style="padding:2px 6px;border-radius:4px;background:#f4f4f5;color:#71717a">${counts.unlogged} —</span>` : ''}
+        </div>
+      </header>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:4px">${cells}</div>
+    </section>`;
+  }).join('');
+  return `
+    <div style="border-bottom:2px solid #0F0F0F;padding-bottom:12px;margin-bottom:16px">
+      <h1 style="margin:0 0 4px;font-size:20px">Dispatch History</h1>
+      <div style="font-size:12px;color:#555">${escapeHtml(formatLongDate(fromDate))} — ${escapeHtml(formatLongDate(toDate))} · ${drivers.length} driver${drivers.length !== 1 ? 's' : ''} · ${dates.length} day${dates.length !== 1 ? 's' : ''} · Generated ${escapeHtml(generatedAt)}</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 16px">${legend}
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#444"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-weight:700;font-size:11px;background:#f4f4f5;color:#a1a1aa">—</span> No entry</span>
+    </div>
+    ${cards || '<p style="color:#666;font-size:13px">No drivers to display.</p>'}
+  `;
 }
 
 function openPrintableWindow(
