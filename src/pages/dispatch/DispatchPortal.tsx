@@ -27,7 +27,7 @@ import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
-import DispatchHistoryExportModal from '@/components/dispatch/DispatchHistoryExportModal';
+import DriverHistoryDownloadPopover from '@/components/dispatch/DriverHistoryDownloadPopover';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
