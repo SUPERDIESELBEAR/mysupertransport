@@ -1,45 +1,40 @@
-# Fix: Bottom Nav Moves While Scrolling (Driver App)
+## Goal
 
-## What's happening
+Replace the awkward global "Download History" flow with a per-driver download that lives on each driver's dispatch card. Selecting a date range and downloading happens inline, scoped to that one driver.
 
-The mobile bottom tab bar in `src/pages/operator/OperatorPortal.tsx` is rendered with `position: fixed; bottom: 0`. On iOS Safari (and in PWA mode on some devices), a page that scrolls the whole `<body>` causes any `position: fixed` element to visibly shift or lag during momentum scroll and while the URL/status bar shows/hides. That's exactly the "the black bar moves when scrolling" symptom drivers are reporting.
+## Why the current button "doesn't function"
 
-The correct, permanent fix on mobile web/PWA is to stop scrolling the body and instead use an **app-shell layout** — the outer container fills the dynamic viewport, the middle content pane is the only scroller, and the top header + bottom nav sit as normal (non-fixed) flex children. The nav then physically cannot move because nothing is scrolling around it.
+The toolbar button does open the modal, but the modal opens a **new browser tab** with the printable view. In the installed PWA (and often with pop-up blockers), that new tab is silently blocked — so nothing appears to happen. Screenshot (PNG) works because it's a direct download.
 
-## Scope
-
-Frontend/presentation only. No business logic, no data changes, no backend.
-
-Single file: `src/pages/operator/OperatorPortal.tsx`.
+We'll fix both issues by moving the action onto the card and using a direct download path (no new tab).
 
 ## Changes
 
-1. **Outer container** (line ~1140): change `min-h-dvh bg-secondary` to a full-height flex column:
-   ```
-   h-[100dvh] flex flex-col bg-secondary overflow-hidden
-   ```
+### 1. New component: `src/components/dispatch/DriverHistoryDownloadPopover.tsx`
+- Small popover triggered by a `History` icon button on the driver card footer.
+- Contents: From/To date inputs (default: last 30 days), a compact status legend, and two buttons: **PNG** and **PDF**.
+- On PNG: fetches this driver's rows from `dispatch_daily_log`, renders a single-driver card offscreen with `html-to-image`, downloads `dispatch-history-<Last-First>-<from>_to_<to>.png`.
+- On PDF: builds the same single-driver HTML and triggers browser print via a hidden iframe (no new tab, no pop-up blocker). User picks "Save as PDF" in the print dialog.
+- Reuses the card markup, legend, and status metadata already in `DispatchHistoryExportModal.tsx` — extracted into a shared helper `src/components/dispatch/dispatchHistoryRender.ts` so both the per-driver popover and the existing bulk modal stay in sync.
 
-2. **Top header** (line ~1172): remove `fixed top-0 inset-x-0 z-40` so it becomes a normal flex child. Keep the `env(safe-area-inset-top)` padding.
+### 2. `src/pages/dispatch/DispatchPortal.tsx`
+- Add the `DriverHistoryDownloadPopover` to the card footer action row (lines ~1817-1907), between Binder and Message, using a `History` lucide icon labeled "History".
+- Remove the top-toolbar **Download History** button and its modal wiring (lines ~1491 and ~2491), since the per-driver flow supersedes it. `DispatchHistoryExportModal.tsx` and its imports get deleted.
 
-3. **Main content wrapper**: wrap the existing scrollable content in a new `<main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">`. Remove the current top padding compensations that exist only because the header is fixed (line ~1400 `paddingTop: calc(1.5rem + 4rem + env(safe-area-inset-top))` and the `pb-24` bottom padding on the BuildInfo block — the flex layout handles both automatically).
+### 3. Table view parity
+- Add the same History action to the per-row action cluster in the table view so dispatchers using the dense layout have the same capability.
 
-4. **Floating "Next Step" CTA** (line ~1927): keep it visually above the nav, but re-anchor it to sit inside the app shell above the nav. Simplest: move it to be a sibling that sits between `<main>` and `<nav>` with `sticky bottom-0` behavior inside the shell, or keep it `fixed` but with `bottom: 4rem + safe-area` (unchanged) — it's not the source of the reported bug, so we leave its position class alone and only ensure it still visually clears the nav.
+## Technical notes
 
-5. **Bottom nav** (line ~1989): remove `fixed bottom-0 inset-x-0 z-40`. It becomes a normal flex child at the end of the shell. Keep the internal safe-area spacer.
+- Data fetch is identical to today (`dispatch_daily_log` filtered by `operator_id` + date range), just scoped to one driver.
+- PDF path switches from `window.open` to a hidden `<iframe>` + `contentWindow.print()` to bypass pop-up blocking inside the PWA. This is the root cause of "button does not function."
+- No schema, RLS, or edge-function changes.
 
-6. **Preview mode branch**: keep the current non-shell rendering for the in-app "Preview as operator" iframe view (`isPreview === true`), which already skips the fixed header/nav. No change there.
+## Files touched
 
-## Why this works
-
-- Body no longer scrolls, so iOS has nothing to hide/show the URL bar against and nothing to rubber-band.
-- The nav is a static child of a fixed-height column, so it's mechanically anchored to the bottom of the viewport at all times — no `position: fixed` reliance.
-- `100dvh` handles the dynamic viewport so the shell always fills the visible area on iOS/Android.
-- Modals, drawers, and existing fixed overlays (toasts, dialogs) are portalled to `body` and are unaffected.
-
-## Verification
-
-- Load `/operator` on the mobile preview at 390×844 and scroll long views (Home, Binder, Messages, Doc Hub) — the black nav must stay pinned pixel-perfect.
-- Confirm the top header stays pinned during scroll of the content pane.
-- Confirm the "Next Step" floating CTA still appears above the nav and doesn't overlap it.
-- Confirm desktop (`md:` and up) still renders correctly — the bottom nav is `md:hidden` and the top nav's desktop layout is unchanged.
-- Regression-check the Resource Center skeleton, ICA signing screen, and any full-height modals still fit inside the shell.
+```text
+src/components/dispatch/DriverHistoryDownloadPopover.tsx   (new)
+src/components/dispatch/dispatchHistoryRender.ts           (new, shared markup)
+src/pages/dispatch/DispatchPortal.tsx                      (add per-card action, remove toolbar button)
+src/components/dispatch/DispatchHistoryExportModal.tsx     (delete)
+```
