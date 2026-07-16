@@ -5613,8 +5613,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           }
                           try {
                             const path = `${operatorId}/pe-results/${Date.now()}.${ext || 'pdf'}`;
-                            const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, f, { upsert: true });
-                            if (upErr) throw upErr;
+                            const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, f, { upsert: true });
+                            if (upErr) { console.error('[OperatorDetailPanel/pe-results] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
                             const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
                             const fileUrl = sd?.signedUrl ?? '';
                             const advanceScreening = status.pe_screening !== 'results_in';
