@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { toast } from 'sonner';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -189,12 +190,13 @@ export default function EquipmentAssetSheet({
       const blob = await (await fetch(dataUrl)).blob();
       const path = `${operatorId}/equipment-asset-sheet/signature-${Date.now()}.png`;
       step = 'upload';
-      const { error: upErr } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(path, blob, { contentType: 'image/png', upsert: true }),
-        60_000,
-        'Signature upload',
+      const { error: upErr, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        path,
+        blob,
+        { contentType: 'image/png', upsert: true },
       );
-      if (upErr) throw upErr;
+      if (upErr) { console.error('[EquipmentAssetSheet/signature] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
       step = 'signed_url';
       const { data: signedUrl } = await supabase.storage
         .from('operator-documents')
@@ -313,12 +315,13 @@ export default function EquipmentAssetSheet({
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
       const path = `equipment-receipts/${operatorId}/${direction}-${Date.now()}.${ext}`;
-      const { error: upErr } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(path, file, { upsert: true }),
-        60_000,
-        'Receipt upload',
+      const { error: upErr, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        path,
+        file,
+        { upsert: true },
       );
-      if (upErr) throw upErr;
+      if (upErr) { console.error('[EquipmentAssetSheet/receipt] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
       const { data: signedUrl } = await supabase.storage
         .from('operator-documents')
         .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
