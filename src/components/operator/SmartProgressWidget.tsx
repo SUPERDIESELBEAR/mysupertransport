@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { validateFile } from '@/lib/validateFile';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
@@ -528,12 +529,21 @@ function InlineDocUpload({
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/${slotKey}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
-        60_000,
-        'Upload',
+      const { error: uploadError, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        path,
+        file,
       );
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[InlineDocUpload] upload failed', {
+          operatorId,
+          slotKey,
+          authUid,
+          sessionExpired,
+          message: uploadError.message,
+        });
+        throw uploadError;
+      }
 
       const { data: signedData } = await supabase.storage
         .from('operator-documents')

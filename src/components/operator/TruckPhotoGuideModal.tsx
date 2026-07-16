@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
 import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import {
   Dialog,
@@ -184,14 +185,22 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
       const ext = MIME_EXT[file.type] || extFromName || 'jpg';
       const path = `${operatorId}/truck_photos/${currentSlot.key}_${Date.now()}.${ext}`;
 
-      // Wrap upload in 60s timeout so a hung request always fails loudly
-      const { error: uploadError } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
-        60_000,
-        'Upload',
+      // Session-aware upload: refreshes stale JWT and retries once on RLS/JWT errors
+      const { error: uploadError, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        path,
+        file,
       );
-
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[TruckPhotoGuide] upload failed', {
+          operatorId,
+          authUid,
+          pathPrefix: path.split('/').slice(0, 2).join('/'),
+          sessionExpired,
+          message: uploadError.message,
+        });
+        throw uploadError;
+      }
 
       // Insert into operator_documents using the bare storage path. The path
       // alone is enough for downstream resolvers (FilePreviewModal, the staff

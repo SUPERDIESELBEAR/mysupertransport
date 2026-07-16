@@ -1,40 +1,41 @@
-## Goal
+## What I found
 
-Replace the awkward global "Download History" flow with a per-driver download that lives on each driver's dispatch card. Selecting a date range and downloading happens inline, scoped to that one driver.
+Jonathan Grant's records are correct:
 
-## Why the current button "doesn't function"
+- `profiles.user_id` = `c5993805…`, name matches
+- `operators` row `396c1e54…` exists with `user_id` = `c5993805…`
+- Roles: `operator` + `truck_owner`
+- No existing storage objects or `operator_documents` rows for him yet
 
-The toolbar button does open the modal, but the modal opens a **new browser tab** with the printable view. In the installed PWA (and often with pop-up blockers), that new tab is silently blocked — so nothing appears to happen. Screenshot (PNG) works because it's a direct download.
+The truck photo upload writes to `operator-documents/{operatorId}/truck_photos/…`. The storage RLS `INSERT` policy requires the first path segment to be in `SELECT operators.id FROM operators WHERE user_id = auth.uid()`. I ran that check against his actual IDs and it returns `true`. So the policy itself is not misconfigured — the failure is that at the moment of the upload his request is reaching PostgREST/Storage **without a live `auth.uid()`** (expired/stale JWT, or the client fell back to the anon key).
 
-We'll fix both issues by moving the action onto the card and using a direct download path (no new tab).
+That matches the symptom exactly: the toast title `Upload failed` + literal Postgres string `new row violates row-level security policy` comes from `storage.objects` when `auth.uid()` is `NULL`. Terry Melancon hit the same class of issue on applicant uploads a few weeks ago; the truck-photo flow was never given the same defensive treatment.
 
-## Changes
+## Fix plan
 
-### 1. New component: `src/components/dispatch/DriverHistoryDownloadPopover.tsx`
-- Small popover triggered by a `History` icon button on the driver card footer.
-- Contents: From/To date inputs (default: last 30 days), a compact status legend, and two buttons: **PNG** and **PDF**.
-- On PNG: fetches this driver's rows from `dispatch_daily_log`, renders a single-driver card offscreen with `html-to-image`, downloads `dispatch-history-<Last-First>-<from>_to_<to>.png`.
-- On PDF: builds the same single-driver HTML and triggers browser print via a hidden iframe (no new tab, no pop-up blocker). User picks "Save as PDF" in the print dialog.
-- Reuses the card markup, legend, and status metadata already in `DispatchHistoryExportModal.tsx` — extracted into a shared helper `src/components/dispatch/dispatchHistoryRender.ts` so both the per-driver popover and the existing bulk modal stay in sync.
+Harden the operator-side upload paths so a stale session self-heals instead of throwing a red RLS toast. No RLS or bucket changes — the policies are correct.
 
-### 2. `src/pages/dispatch/DispatchPortal.tsx`
-- Add the `DriverHistoryDownloadPopover` to the card footer action row (lines ~1817-1907), between Binder and Message, using a `History` lucide icon labeled "History".
-- Remove the top-toolbar **Download History** button and its modal wiring (lines ~1491 and ~2491), since the per-driver flow supersedes it. `DispatchHistoryExportModal.tsx` and its imports get deleted.
+1. **`src/components/operator/TruckPhotoGuideModal.tsx`** — before the storage `upload()` call:
+   - `await supabase.auth.getSession()`; if missing or `expires_at` within 60s, call `supabase.auth.refreshSession()`.
+   - If still no session, show a friendly `Session expired — please sign in again` toast (not the raw RLS string) and stop.
+   - Wrap the upload + `operator_documents` insert in a small retry: on the first failure whose message contains `row-level security` or `JWT`, call `refreshSession()` once and retry the upload one time.
+   - On final failure, log `[TruckPhotoGuide] upload failed` with `{ operatorId, authUid: session?.user?.id ?? null, pathPrefix }` so future reports are diagnosable in the console the user pastes back.
 
-### 3. Table view parity
-- Add the same History action to the per-row action cluster in the table view so dispatchers using the dense layout have the same capability.
+2. **`src/components/operator/SmartProgressWidget.tsx`** (`InlineDocUpload.handleUpload`) — apply the same session-refresh + one-shot retry helper so the Progress-widget inline upload behaves identically.
 
-## Technical notes
+3. **`src/lib/uploadWithAuth.ts`** (new) — extract the pre-upload session check + retry wrapper into one helper so both call sites (and any future operator upload) share the exact same behavior. Signature roughly `uploadToBucket(bucket, path, file, options)` returning the same `{ data, error }` shape as `supabase.storage…upload`.
 
-- Data fetch is identical to today (`dispatch_daily_log` filtered by `operator_id` + date range), just scoped to one driver.
-- PDF path switches from `window.open` to a hidden `<iframe>` + `contentWindow.print()` to bypass pop-up blocking inside the PWA. This is the root cause of "button does not function."
-- No schema, RLS, or edge-function changes.
+4. **No DB migration.** RLS policies for `operator-documents` and `operator_documents` are already correct — verified by simulating the policy predicate against Jonathan's real IDs.
 
-## Files touched
+### What this changes for the user
 
-```text
-src/components/dispatch/DriverHistoryDownloadPopover.tsx   (new)
-src/components/dispatch/dispatchHistoryRender.ts           (new, shared markup)
-src/pages/dispatch/DispatchPortal.tsx                      (add per-card action, remove toolbar button)
-src/components/dispatch/DispatchHistoryExportModal.tsx     (delete)
-```
+- If Jonathan's session was silently stale, the next tap on **Tap to Take Photo** transparently refreshes his token and the upload succeeds.
+- If his session is truly gone, he sees a clear "please sign in again" prompt instead of a scary RLS error.
+- The console log gives us the exact `authUid` at the moment of failure so we can tell "session expired" from "wrong operator row" if it ever recurs.
+
+### Technical notes
+
+- `supabase.auth.refreshSession()` is safe to call on every tap because Supabase short-circuits when the token is still valid.
+- The retry is capped at 1 attempt to avoid masking a real permission bug.
+- Existing `withTimeout(...)` wrapper stays; the new helper composes on top of it.
+- No changes to storage bucket config, RLS policies, or `operator_documents` schema.
