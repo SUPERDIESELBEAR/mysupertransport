@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { useAuth } from '@/hooks/useAuth';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
@@ -155,12 +156,12 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
     try {
       const ext = file.name.split('.').pop();
       const path = `${userId}/${category}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await withTimeout(
-        supabase.storage.from('driver-uploads').upload(path, file),
-        60_000,
-        'Upload',
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket(
+        'driver-uploads',
+        path,
+        file,
       );
-      if (storageErr) throw storageErr;
+      if (storageErr) { console.error('[OperatorInspectionBinder] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
 
       const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
       const { error: insertErr } = await supabase.from('driver_uploads').insert({

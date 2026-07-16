@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
@@ -154,12 +155,13 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     try {
       const ext = file.name.split('.').pop();
       const path = `driver/${driverUserId}/${docName.replace(/\s+/g, '-').toLowerCase()}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await withTimeout(
-        supabase.storage.from('inspection-documents').upload(path, file, { upsert: false }),
-        60_000,
-        'Upload',
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket(
+        'inspection-documents',
+        path,
+        file,
+        { upsert: false },
       );
-      if (storageErr) throw storageErr;
+      if (storageErr) { console.error('[OperatorBinderPanel/inspection] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
       const { data: urlData } = await supabase.storage.from('inspection-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
       const fileUrl = urlData?.signedUrl ?? null;
       const dbRes = existingId
@@ -219,12 +221,12 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     try {
       const ext = file.name.split('.').pop();
       const path = `${driverUserId}/${category}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await withTimeout(
-        supabase.storage.from('driver-uploads').upload(path, file),
-        60_000,
-        'Upload',
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket(
+        'driver-uploads',
+        path,
+        file,
       );
-      if (storageErr) throw storageErr;
+      if (storageErr) { console.error('[OperatorBinderPanel/driver] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
       const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
       const { error: insertErr } = await supabase.from('driver_uploads').insert({
         driver_id: driverUserId,

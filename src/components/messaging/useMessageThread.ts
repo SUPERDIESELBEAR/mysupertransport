@@ -5,6 +5,7 @@ import { sanitizeText } from '@/lib/sanitize';
 import { ChatMessage, MessageReaction, MESSAGE_SELECT, EDIT_WINDOW_MS } from './types';
 import { toast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIMES = new Set([
@@ -212,12 +213,16 @@ export function useMessageThread({
       const ext = f.name.split('.').pop() ?? 'bin';
       const path = `${myUserId}/${crypto.randomUUID()}.${ext}`;
       try {
-        const { error: upErr } = await withTimeout(
-          supabase.storage.from('message-attachments').upload(path, f, { contentType: f.type, upsert: false }),
-          60_000,
-          'Attachment upload',
+        const { error: upErr, authUid, sessionExpired } = await uploadToBucket(
+          'message-attachments',
+          path,
+          f,
+          { contentType: f.type, upsert: false },
         );
-        if (upErr) throw upErr;
+        if (upErr) {
+          console.error('[useMessageThread] attachment upload failed', { authUid, sessionExpired, message: upErr.message });
+          throw upErr;
+        }
       } catch (err: unknown) {
         toast({
           title: 'Upload failed',

@@ -8,6 +8,7 @@ import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -207,8 +208,8 @@ function QPassportUploader({
     setUploading(true);
     try {
       const path = `${operatorId}/qpassport/${Date.now()}.pdf`;
-      const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
+      const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, { upsert: true });
+      if (upErr) { console.error('[OperatorDetailPanel/qpassport] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
       const shouldAdvance = !currentPeScreening || currentPeScreening === '' || currentPeScreening === 'not_started';
@@ -313,8 +314,8 @@ function Stage2DocUploader({
       for (const file of files) {
         const ext = file.name.split('.').pop();
         const path = `${operatorId}/${docType}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
-        if (upErr) throw upErr;
+        const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, { upsert: false });
+        if (upErr) { console.error('[OperatorDetailPanel/doc] upload failed', { authUid, sessionExpired, docType, message: upErr.message }); throw upErr; }
         const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
         const fileUrl = sd?.signedUrl ?? '';
         const { data: row, error: insErr } = await supabase.from('operator_documents').insert({
@@ -3337,8 +3338,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             try {
               const ext = file.name.split('.').pop();
               const path = `${operatorId}/cost-${slotKey}/${Date.now()}.${ext}`;
-              const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
-              if (upErr) throw upErr;
+              const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, { upsert: false });
+              if (upErr) { console.error('[OperatorDetailPanel/cost] upload failed', { authUid, sessionExpired, slotKey, message: upErr.message }); throw upErr; }
               const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
               const fileUrl = sd?.signedUrl ?? '';
               await supabase.from('operator_documents').insert({ operator_id: operatorId, document_type: slotKey as any, file_name: file.name, file_url: fileUrl });
@@ -5612,8 +5613,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           }
                           try {
                             const path = `${operatorId}/pe-results/${Date.now()}.${ext || 'pdf'}`;
-                            const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, f, { upsert: true });
-                            if (upErr) throw upErr;
+                            const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, f, { upsert: true });
+                            if (upErr) { console.error('[OperatorDetailPanel/pe-results] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
                             const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
                             const fileUrl = sd?.signedUrl ?? '';
                             const advanceScreening = status.pe_screening !== 'results_in';

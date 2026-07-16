@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationFormData } from './types';
 import { FormField, AppInput } from './FormField';
@@ -63,12 +63,14 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
           const path = `signatures/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
-          const { error } = await withTimeout(
-            supabase.storage.from('signatures').upload(path, blob, { contentType: 'image/png' }),
-            60_000,
-            'Signature upload',
-          );
-          if (error) throw error;
+          const { error, authUid } = await uploadToBucket('signatures', path, blob, {
+            contentType: 'image/png',
+            requireSession: false,
+          });
+          if (error) {
+            console.error('[Step9Signature] upload failed', { authUid, message: error.message });
+            throw error;
+          }
           onChange('signature_image_url', path);
           setSigSaved(true);
           setSigError(null);

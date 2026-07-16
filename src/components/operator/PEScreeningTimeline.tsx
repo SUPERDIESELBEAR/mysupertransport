@@ -8,6 +8,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 
@@ -125,12 +126,15 @@ export default function PEScreeningTimeline({
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
-        60_000,
-        'Upload',
+      const { error: uploadError, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        path,
+        file,
       );
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[PEScreeningTimeline] upload failed', { authUid, sessionExpired, message: uploadError.message });
+        throw uploadError;
+      }
 
       // Store raw storage path (not a public URL) for private bucket
       const { error: insertError } = await supabase.from('operator_documents').insert({

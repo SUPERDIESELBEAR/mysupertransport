@@ -48,16 +48,21 @@ export async function uploadToBucket(
   bucket: string,
   path: string,
   file: File | Blob,
-  options: { upsert?: boolean; contentType?: string } = {},
+  options: { upsert?: boolean; contentType?: string; requireSession?: boolean } = {},
 ): Promise<UploadWithAuthResult> {
-  const pre = await ensureFreshSession();
-  if (pre.expired || !pre.userId) {
-    return {
-      data: null,
-      error: new Error('Your session expired. Please sign in again to upload.'),
-      authUid: null,
-      sessionExpired: true,
-    };
+  const requireSession = options.requireSession ?? true;
+  let preUid: string | null = null;
+  if (requireSession) {
+    const pre = await ensureFreshSession();
+    if (pre.expired || !pre.userId) {
+      return {
+        data: null,
+        error: new Error('Your session expired. Please sign in again to upload.'),
+        authUid: null,
+        sessionExpired: true,
+      };
+    }
+    preUid = pre.userId;
   }
 
   const attempt = () =>
@@ -72,12 +77,12 @@ export async function uploadToBucket(
 
   const first = await attempt();
   if (!first.error) {
-    return { data: first.data as { path: string }, error: null, authUid: pre.userId };
+    return { data: first.data as { path: string }, error: null, authUid: preUid };
   }
 
   const firstMsg = first.error.message ?? String(first.error);
-  if (!isAuthLikeError(firstMsg)) {
-    return { data: null, error: first.error as Error, authUid: pre.userId };
+  if (!isAuthLikeError(firstMsg) || !requireSession) {
+    return { data: null, error: first.error as Error, authUid: preUid };
   }
 
   // Forced refresh + one-shot retry

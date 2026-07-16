@@ -12,6 +12,7 @@ import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile, MAX_FILE_SIZE_BYTES } from '@/lib/validateFile';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { Upload, Trash2, Eye, Download, FileText, ChevronDown, Loader2, AlertTriangle, CheckCircle2, Clock, FolderOpen } from 'lucide-react';
@@ -120,12 +121,16 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
     try {
       const ext = uploadFile.name.split('.').pop()?.toLowerCase() || 'bin';
       const storagePath = `${operatorId}/vault/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: storageErr } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(storagePath, uploadFile, { upsert: true }),
-        60_000,
-        'Upload',
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        storagePath,
+        uploadFile,
+        { upsert: true },
       );
-      if (storageErr) throw storageErr;
+      if (storageErr) {
+        console.error('[DriverVaultCard] upload failed', { authUid, sessionExpired, message: storageErr.message });
+        throw storageErr;
+      }
 
       const label = uploadLabel.trim() || CATEGORY_LABEL_MAP[uploadCategory] || 'Document';
 

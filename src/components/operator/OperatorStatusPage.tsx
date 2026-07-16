@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
@@ -406,12 +407,15 @@ export default function OperatorStatusPage({
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
-      const { error: uploadError } = await withTimeout(
-        supabase.storage.from('operator-documents').upload(path, file, { upsert: false }),
-        60_000,
-        'Upload',
+      const { error: uploadError, authUid, sessionExpired } = await uploadToBucket(
+        'operator-documents',
+        path,
+        file,
       );
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[OperatorStatusPage] upload failed', { authUid, sessionExpired, message: uploadError.message });
+        throw uploadError;
+      }
       const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: 'pe_receipt' as never,

@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
@@ -388,8 +389,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const ext = file.name.split('.').pop();
       const folder = scope === 'company_wide' ? 'company' : `driver/${driverId}`;
       const path = `${folder}/${docName.replace(/\s+/g, '-').toLowerCase()}/${Date.now()}.${ext}`;
-      const { error: storageErr } = await supabase.storage.from('inspection-documents').upload(path, file, { upsert: false });
-      if (storageErr) throw storageErr;
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket('inspection-documents', path, file, { upsert: false });
+      if (storageErr) { console.error('[InspectionBinderAdmin/doc] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
 
       const { data: urlData } = await supabase.storage.from('inspection-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
       const fileUrl = urlData?.signedUrl ?? null;
@@ -633,8 +634,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     try {
       const ext = file.name.split('.').pop();
       const path = `staging/${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-      const { error: storageErr } = await supabase.storage.from('inspection-documents').upload(path, file, { upsert: false });
-      if (storageErr) throw storageErr;
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket('inspection-documents', path, file, { upsert: false });
+      if (storageErr) { console.error('[InspectionBinderAdmin/staging] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
 
       const { data: urlData } = await supabase.storage.from('inspection-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
       const fileUrl = urlData?.signedUrl ?? null;

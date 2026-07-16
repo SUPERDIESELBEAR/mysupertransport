@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ApplicationFormData } from './types';
 import { FormField } from './FormField';
 import { validateFile } from '@/lib/validateFile';
-import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 
 interface Props {
   data: ApplicationFormData;
@@ -41,12 +41,16 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
     try {
       const ext = file.name.split('.').pop();
       const path = `applications/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await withTimeout(
-        supabase.storage.from('application-documents').upload(path, file, { upsert: false }),
-        60_000,
-        'Upload',
+      const { error: upErr, authUid } = await uploadToBucket(
+        'application-documents',
+        path,
+        file,
+        { upsert: false, requireSession: false },
       );
-      if (upErr) throw upErr;
+      if (upErr) {
+        console.error('[Step7Documents] upload failed', { authUid, message: upErr.message });
+        throw upErr;
+      }
       onUploaded(path);
     } catch (e: unknown) {
       setUploadError(

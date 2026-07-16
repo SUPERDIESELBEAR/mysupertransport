@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -285,8 +286,8 @@ export default function ICABuilderModal({
     const dataUrl = sigRef.current.toDataURL('image/png');
     const blob = await (await fetch(dataUrl)).blob();
     const path = `${folder}/${operatorId}-${Date.now()}.png`;
-    const { error } = await supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true });
-    if (error) throw error;
+    const { error, authUid, sessionExpired } = await uploadToBucket('ica-signatures', path, blob, { contentType: 'image/png', upsert: true });
+    if (error) { console.error('[ICABuilderModal] signature upload failed', { authUid, sessionExpired, message: error.message }); throw error; }
     return path;
   };
 
