@@ -156,14 +156,15 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       if (binderName) {
         try {
           // Look up the operator's auth user_id (binder is keyed by driver_id = user_id)
-          const { data: opRow } = await supabase
+          const { data: opRow, error: opErr } = await supabase
             .from('operators')
             .select('user_id')
             .eq('id', operatorId)
             .maybeSingle();
+          if (opErr) throw opErr;
 
           if (opRow?.user_id) {
-            await supabase.from('inspection_documents').insert({
+            const { error: binderErr } = await supabase.from('inspection_documents').insert({
               name: binderName,
               scope: 'per_driver',
               driver_id: opRow.user_id,
@@ -172,9 +173,23 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
               uploaded_by: opRow.user_id,
               expires_at: null,
             });
+            if (binderErr) throw binderErr;
           }
-        } catch {
-          // Non-critical — primary upload already succeeded
+        } catch (binderSyncErr) {
+          // Primary upload succeeded; surface binder sync failure so it isn't lost silently.
+          const { data: sess } = await supabase.auth.getSession();
+          console.error('[OperatorDocumentUpload] inspection_documents binder sync failed', {
+            slot: slot.key,
+            operatorId,
+            authUid: sess?.session?.user?.id ?? null,
+            error: binderSyncErr,
+          });
+          toast({
+            title: 'Uploaded, but not linked to Binder',
+            description:
+              'Your file uploaded successfully but did not auto-sync to the Inspection Binder. Staff will link it manually.',
+            variant: 'default',
+          });
         }
       }
 
