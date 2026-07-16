@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -307,9 +308,10 @@ export default function ResourceLibraryManager() {
     const ext = file.name.split('.').pop();
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     setUploading(true);
-    const { error } = await supabase.storage.from('resource-library').upload(path, file, { upsert: false });
+    const { error, authUid, sessionExpired } = await uploadToBucket('resource-library', path, file, { upsert: false });
     setUploading(false);
     if (error) {
+      console.error('[ResourceLibraryManager] upload failed', { authUid, sessionExpired, message: error.message });
       toast.error('File upload failed: ' + error.message);
       return null;
     }
