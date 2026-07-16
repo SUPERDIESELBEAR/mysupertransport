@@ -11,6 +11,7 @@ import DriverICAAcknowledgment from './DriverICAAcknowledgment';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 
 interface ICAData {
   id: string;
@@ -175,12 +176,16 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
       const path = `contractor/${operatorId}-${Date.now()}.png`;
-      const { error: uploadErr } = await withTimeout(
-        supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true }),
-        60000,
-        'Signature upload',
+      const { error: uploadErr, authUid, sessionExpired } = await uploadToBucket(
+        'ica-signatures',
+        path,
+        blob,
+        { contentType: 'image/png', upsert: true },
       );
-      if (uploadErr) throw uploadErr;
+      if (uploadErr) {
+        console.error('[OperatorICASign] upload failed', { authUid, sessionExpired, message: uploadErr.message });
+        throw uploadErr;
+      }
 
       stage = 'contract_update';
       const icaUpdatePayload: Record<string, unknown> = {
