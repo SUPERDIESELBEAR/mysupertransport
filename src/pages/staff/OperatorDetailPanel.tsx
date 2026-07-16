@@ -3338,8 +3338,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             try {
               const ext = file.name.split('.').pop();
               const path = `${operatorId}/cost-${slotKey}/${Date.now()}.${ext}`;
-              const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
-              if (upErr) throw upErr;
+              const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, { upsert: false });
+              if (upErr) { console.error('[OperatorDetailPanel/cost] upload failed', { authUid, sessionExpired, slotKey, message: upErr.message }); throw upErr; }
               const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
               const fileUrl = sd?.signedUrl ?? '';
               await supabase.from('operator_documents').insert({ operator_id: operatorId, document_type: slotKey as any, file_name: file.name, file_url: fileUrl });
