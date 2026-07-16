@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Paperclip, Upload, Trash2, FileText, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 
 const BUCKET = 'application-revision-replies';
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -62,11 +63,11 @@ export function RevisionReplyAttachments({ applicationId, onChanged }: Props) {
     try {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${applicationId}/${crypto.randomUUID()}-${safe}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
+      const { error: upErr, authUid, sessionExpired } = await uploadToBucket(BUCKET, path, file, {
         contentType: file.type || 'application/octet-stream',
         upsert: false,
       });
-      if (upErr) throw upErr;
+      if (upErr) { console.error('[RevisionReplyAttachments] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
 
       // Resolve uploader display name (best-effort)
       let uploaderName: string | null = null;
