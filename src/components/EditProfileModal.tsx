@@ -3,6 +3,7 @@ import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -199,12 +200,16 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       const ext = cropMime === 'image/png' ? 'png' : cropMime === 'image/webp' ? 'webp' : 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
-      const { error: uploadError } = await withTimeout(
-        supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: cropMime }),
-        60_000,
-        'Avatar upload',
+      const { error: uploadError, authUid, sessionExpired } = await uploadToBucket(
+        'avatars',
+        path,
+        blob,
+        { upsert: true, contentType: cropMime },
       );
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[EditProfileModal] avatar upload failed', { authUid, sessionExpired, message: uploadError.message });
+        throw uploadError;
+      }
 
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
