@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
 import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import {
   Dialog,
