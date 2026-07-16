@@ -8,6 +8,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
+import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 
@@ -125,7 +126,6 @@ export default function PEScreeningTimeline({
       const ext = file.name.split('.').pop();
       const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
 
-      const { uploadToBucket } = await import('@/lib/uploadWithAuth');
       const { error: uploadError, authUid, sessionExpired } = await uploadToBucket(
         'operator-documents',
         path,
