@@ -6173,6 +6173,89 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </span>
                     </div>
                   )}
+
+                  {/* Email Tracey McQuilken (DOT Consultant) */}
+                  <div className="mt-4 pt-4 border-t border-border space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
+                      <Mail className="h-3 w-3" />
+                      Email Tracey McQuilken (DOT Consultant)
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Sends driver + truck details, driver's license, and any attached files to <strong className="text-foreground">tracey@iondot.net</strong>.
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to Tracey (optional)</Label>
+                      <Textarea
+                        rows={3}
+                        placeholder="Anything Tracey should know…"
+                        value={dotEmailNotes}
+                        onChange={(e) => setDotEmailNotes(e.target.value)}
+                        maxLength={5000}
+                        className="text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Attachments (optional)</Label>
+                      <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg hover:bg-muted/30 cursor-pointer text-xs text-muted-foreground">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>Click to add files (PDF, images, DOC, XLS)</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files ?? []);
+                            setDotAttachments(prev => [...prev, ...files].slice(0, 10));
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {dotAttachments.length > 0 && (
+                        <ul className="space-y-1">
+                          {dotAttachments.map((f, i) => (
+                            <li key={i} className="flex items-center justify-between gap-2 px-2 py-1 bg-muted/40 rounded text-xs">
+                              <span className="truncate flex-1 flex items-center gap-1.5">
+                                <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+                                {f.name}
+                                <span className="text-muted-foreground">({(f.size / 1024 / 1024).toFixed(1)} MB)</span>
+                              </span>
+                              <button
+                                onClick={() => setDotAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                className="text-muted-foreground hover:text-destructive shrink-0"
+                                type="button"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {dotAttachments.reduce((sum, f) => sum + f.size, 0) > 20 * 1024 * 1024 && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Total exceeds 20 MB — larger files will be sent as 7-day secure links.
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`w-full text-xs gap-1.5 ${dotEmailSent ? 'border-status-complete text-status-complete' : 'border-gold text-gold hover:bg-gold/10'}`}
+                      onClick={handleSendDotConsultantEmail}
+                      disabled={sendingDotEmail || dotEmailSent}
+                    >
+                      {sendingDotEmail ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</>
+                      ) : dotEmailSent ? (
+                        <><CheckCircle2 className="h-3.5 w-3.5" /> Email Sent</>
+                      ) : (
+                        <><Send className="h-3.5 w-3.5" /> Email Tracey McQuilken</>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
