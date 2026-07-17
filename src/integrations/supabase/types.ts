@@ -2254,40 +2254,52 @@ export type Database = {
       }
       notifications: {
         Row: {
+          archived_at: string | null
+          assigned_to: string | null
           body: string | null
           channel: Database["public"]["Enums"]["notification_channel"]
           entity_id: string | null
           entity_type: string | null
           id: string
           link: string | null
+          priority: string
           read_at: string | null
           sent_at: string
+          snoozed_until: string | null
           title: string
           type: string
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
+          assigned_to?: string | null
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
           entity_id?: string | null
           entity_type?: string | null
           id?: string
           link?: string | null
+          priority?: string
           read_at?: string | null
           sent_at?: string
+          snoozed_until?: string | null
           title: string
           type: string
           user_id: string
         }
         Update: {
+          archived_at?: string | null
+          assigned_to?: string | null
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
           entity_id?: string | null
           entity_type?: string | null
           id?: string
           link?: string | null
+          priority?: string
           read_at?: string | null
           sent_at?: string
+          snoozed_until?: string | null
           title?: string
           type?: string
           user_id?: string
