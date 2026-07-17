@@ -1819,10 +1819,15 @@ export default function ManagementPortal() {
           <DispatchPortal
             embedded
             defaultFilter={dispatchDefaultFilter}
-            onOpenDriverBinder={(operatorId) => {
-              setDriverHubBinderTarget({ operatorId });
-              setDriverComplianceFilter('all');
-              setView('drivers');
+            onOpenDriverBinder={(_operatorId, userId) => {
+              // Deep-link straight into the driver's DOT Inspection Binder
+              // flipbook (cover page). InspectionBinderAdmin honors
+              // ?driver=<userId>&flipbook=1 and clears the flag after opening.
+              const next = new URLSearchParams(window.location.search);
+              if (userId) next.set('driver', userId); else next.delete('driver');
+              next.set('flipbook', '1');
+              setSearchParams(next, { replace: true });
+              setView('inspection-binder');
             }}
           />
         )}
