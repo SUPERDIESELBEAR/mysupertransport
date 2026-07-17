@@ -21,6 +21,7 @@ import {
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
   CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle
+  , Camera
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -29,6 +30,8 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
 import DriverHistoryDownloadPopover from '@/components/dispatch/DriverHistoryDownloadPopover';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
+import DecalPhotosQuickView from '@/components/dispatch/DecalPhotosQuickView';
+import type { DecalPhotoExtra } from '@/components/staff/StaffDecalPhotoEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -67,6 +70,9 @@ interface DispatchRow {
   eta_redispatch: string | null;
   status_notes: string | null;
   updated_at: string | null;
+  decal_photo_ds_url: string | null;
+  decal_photo_ps_url: string | null;
+  decal_photos: DecalPhotoExtra[];
 }
 
 interface StatusHistoryEntry {
@@ -227,6 +233,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
   // Binder sheet
   const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
+  // Decal photos quick-view
+  const [decalTarget, setDecalTarget] = useState<{
+    name: string;
+    dsUrl: string | null;
+    psUrl: string | null;
+    extras: DecalPhotoExtra[];
+  } | null>(null);
   // Excluded-from-dispatch tracking
   const [excludedRows, setExcludedRows] = useState<Array<{
     operator_id: string;
@@ -732,7 +745,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         created_at,
         excluded_from_dispatch,
         excluded_from_dispatch_reason,
-        onboarding_status (fully_onboarded, unit_number, go_live_date),
+        onboarding_status (fully_onboarded, unit_number, go_live_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `)
       .neq('is_active', false);
@@ -794,6 +807,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
             eta_redispatch: d.eta_redispatch ?? null,
             status_notes: d.status_notes ?? null,
             updated_at: d.updated_at ?? null,
+            decal_photo_ds_url: os.decal_photo_ds_url ?? null,
+            decal_photo_ps_url: os.decal_photo_ps_url ?? null,
+            decal_photos: Array.isArray(os.decal_photos) ? (os.decal_photos as DecalPhotoExtra[]) : [],
           };
         })
         .sort((a, b) => {
@@ -1833,6 +1849,28 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         <Shield className="h-3 w-3" />
                         Binder
                       </Button>
+                      {/* Decals quick-view */}
+                      {(() => {
+                        const hasDecals = !!(row.decal_photo_ds_url || row.decal_photo_ps_url || row.decal_photos.length);
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!hasDecals}
+                            onClick={() => setDecalTarget({
+                              name: fullName,
+                              dsUrl: row.decal_photo_ds_url,
+                              psUrl: row.decal_photo_ps_url,
+                              extras: row.decal_photos,
+                            })}
+                            className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10 disabled:opacity-40"
+                            title={hasDecals ? 'View decal install photos' : 'No decal photos uploaded yet'}
+                          >
+                            <Camera className="h-3 w-3" />
+                            Decals
+                          </Button>
+                        );
+                      })()}
                       {/* Download history */}
                       <DriverHistoryDownloadPopover
                         operatorId={row.operator_id}
@@ -2204,6 +2242,27 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                               <Shield className="h-3 w-3" />
                               Binder
                             </Button>
+                            {(() => {
+                              const hasDecals = !!(row.decal_photo_ds_url || row.decal_photo_ps_url || row.decal_photos.length);
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={!hasDecals}
+                                  onClick={() => setDecalTarget({
+                                    name: fullName,
+                                    dsUrl: row.decal_photo_ds_url,
+                                    psUrl: row.decal_photo_ps_url,
+                                    extras: row.decal_photos,
+                                  })}
+                                  className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5 disabled:opacity-40"
+                                  title={hasDecals ? 'View decal install photos' : 'No decal photos uploaded yet'}
+                                >
+                                  <Camera className="h-3 w-3" />
+                                  Decals
+                                </Button>
+                              );
+                            })()}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -2412,8 +2471,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           : board}
       </StaffLayout>
 
+      {/* Decal photos quick-view */}
+      <DecalPhotosQuickView
+        open={!!decalTarget}
+        onOpenChange={open => { if (!open) setDecalTarget(null); }}
+        driverName={decalTarget?.name ?? ''}
+        dsUrl={decalTarget?.dsUrl ?? null}
+        psUrl={decalTarget?.psUrl ?? null}
+        extras={decalTarget?.extras ?? []}
+      />
+
       {/* Inspection Binder Sheet */}
       <Sheet open={!!binderTarget} onOpenChange={open => { if (!open) setBinderTarget(null); }}>
+
         <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
           <SheetHeader className="px-4 py-3 border-b border-border">
             <SheetTitle className="text-base">Inspection Binder — {binderTarget?.name}</SheetTitle>
