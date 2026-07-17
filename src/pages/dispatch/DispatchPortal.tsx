@@ -70,6 +70,9 @@ interface DispatchRow {
   eta_redispatch: string | null;
   status_notes: string | null;
   updated_at: string | null;
+  decal_photo_ds_url: string | null;
+  decal_photo_ps_url: string | null;
+  decal_photos: DecalPhotoExtra[];
 }
 
 interface StatusHistoryEntry {
