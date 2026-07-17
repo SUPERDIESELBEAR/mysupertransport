@@ -444,6 +444,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [chExpanded, setChExpanded] = useState(false);
   const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
+  // Stage 8 — Email Tracey McQuilken (DOT Consultant)
+  const [sendingDotEmail, setSendingDotEmail] = useState(false);
+  const [dotEmailSent, setDotEmailSent] = useState(false);
+  const [dotEmailNotes, setDotEmailNotes] = useState('');
+  const [dotAttachments, setDotAttachments] = useState<File[]>([]);
+
   // Cert history timeline
   type CertHistoryEntry = {
     id: string;
