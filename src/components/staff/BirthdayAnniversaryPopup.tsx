@@ -47,39 +47,38 @@ export default function BirthdayAnniversaryPopup() {
 
   return (
     <>
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2 w-[320px] max-w-[calc(100vw-2rem)] pointer-events-none">
+      <div className="fixed top-16 right-16 z-50 flex flex-col gap-2 w-[420px] md:w-[480px] max-w-[calc(100vw-5rem)] pointer-events-none">
         {visible.map((ev) => {
           const info = labelFor(ev);
           return (
             <div
               key={ev.id}
-              className="pointer-events-auto bg-white border border-gold/40 shadow-lg rounded-lg p-3 flex items-start gap-3 animate-fade-in"
+              className="pointer-events-auto bg-white border border-gold/40 shadow-lg rounded-lg p-4 flex items-start gap-4 animate-fade-in"
             >
-              <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 border border-gold/30 bg-gold/10 flex items-center justify-center">
+              <div className="h-14 w-14 rounded-full overflow-hidden shrink-0 border border-gold/30 bg-gold/10 flex items-center justify-center">
                 {ev.avatarUrl ? (
                   <img src={ev.avatarUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="text-gold text-xs font-bold">{initials(ev.firstName, ev.lastName)}</span>
+                  <span className="text-gold text-sm font-bold">{initials(ev.firstName, ev.lastName)}</span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">
+                <p className="text-base font-semibold text-foreground truncate">
                   {ev.firstName} {ev.lastName}
                 </p>
-                <p className="text-xs text-foreground/80 leading-tight">
+                <p className="text-sm text-foreground/80 leading-tight">
                   <span className="mr-1">{info.emoji}</span>{info.title}
                 </p>
                 {info.sub && (
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{info.sub}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{info.sub}</p>
                 )}
                 <div className="mt-2">
                   <Button
-                    size="sm"
                     variant="outline"
-                    className="h-7 text-xs border-gold/40 hover:bg-gold/10"
+                    className="h-8 px-3 text-sm border-gold/40 hover:bg-gold/10"
                     onClick={() => setComposing(ev)}
                   >
-                    <Send className="h-3 w-3 mr-1" />
+                    <Send className="h-4 w-4 mr-1.5" />
                     Send Message
                   </Button>
                 </div>
@@ -87,11 +86,11 @@ export default function BirthdayAnniversaryPopup() {
               <button
                 type="button"
                 onClick={() => acknowledge(ev)}
-                className="text-muted-foreground hover:text-foreground p-1 -m-1"
+                className="text-muted-foreground hover:text-foreground p-1.5 -m-1.5"
                 aria-label="Dismiss"
                 title="Dismiss"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
           );
@@ -100,7 +99,7 @@ export default function BirthdayAnniversaryPopup() {
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="pointer-events-auto text-xs text-center py-1.5 rounded-md bg-white/90 border border-border shadow hover:bg-white"
+            className="pointer-events-auto text-sm text-center py-2 rounded-md bg-white/90 border border-border shadow hover:bg-white"
           >
             +{hiddenCount} more
           </button>
@@ -109,7 +108,7 @@ export default function BirthdayAnniversaryPopup() {
           <button
             type="button"
             onClick={() => setExpanded(false)}
-            className="pointer-events-auto text-xs text-center py-1.5 rounded-md bg-white/90 border border-border shadow hover:bg-white"
+            className="pointer-events-auto text-sm text-center py-2 rounded-md bg-white/90 border border-border shadow hover:bg-white"
           >
             Show fewer
           </button>
