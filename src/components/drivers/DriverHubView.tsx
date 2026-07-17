@@ -67,7 +67,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
-  const [alertsPanelOpen, setAlertsPanelOpen] = useState(true);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
   const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const { windowDays } = useComplianceWindow();
