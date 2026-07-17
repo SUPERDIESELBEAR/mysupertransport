@@ -1335,6 +1335,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleSendDotConsultantEmail = async () => {
+    if (guardDemo()) return;
+    setSendingDotEmail(true);
+    try {
+      // Upload attachments first
+      const uploadedPaths: string[] = [];
+      for (const file of dotAttachments) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${operatorId}/${Date.now()}-${safeName}`;
+        await uploadToBucket('dot-consultant-attachments', path, file, {
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+        uploadedPaths.push(path);
+      }
+
+      const { data, error } = await supabase.functions.invoke('send-dot-consultant-request', {
+        body: {
+          operator_id: operatorId,
+          notes: dotEmailNotes.trim() || null,
+          attachment_paths: uploadedPaths,
+        },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (error || !data?.success) throw new Error(data?.error ?? error?.message ?? 'Unknown error');
+      setDotEmailSent(true);
+      setDotEmailNotes('');
+      setDotAttachments([]);
+      toast({ title: 'Email sent to Tracey McQuilken', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      setTimeout(() => setDotEmailSent(false), 5000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send email', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingDotEmail(false);
+    }
+  };
+
   const handleSendInstallInstructions = async (force = false) => {
     if (guardDemo()) return;
     setSendingInstallInstructions(true);
