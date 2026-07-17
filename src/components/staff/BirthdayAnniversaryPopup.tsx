@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { X, Send, ChevronUp, ChevronDown, Cake } from 'lucide-react';
+import { X, Send, ChevronDown, Cake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStaffBirthdayAnniversaryEvents, type BdayAnnivEvent } from '@/hooks/useStaffBirthdayAnniversaryEvents';
 import SendBirthdayAnniversaryModal from './SendBirthdayAnniversaryModal';
