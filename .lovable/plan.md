@@ -1,47 +1,138 @@
-## Enforce "collapsed by default, no persistence" on every management-side expandable section
 
-### Audit results
+# Notifications Restructure — Management Dashboard
 
-The management side has ~15 components with collapsible sections. **Almost all already start collapsed and reset on navigation** (plain `useState`, no persistence). The audit found only two exceptions that violate the rule you want:
+Goal: turn the bell dropdown and Notifications page from a flat time‑sorted list into a triage surface that surfaces what needs action, groups related events, and lets a staff user resolve items in place.
 
-| Component | Current | Fix |
-|---|---|---|
-| `DriverHubView.tsx:70` — driver alerts panel | `useState(true)` → expanded by default | Change to `useState(false)` |
-| `DriverVaultCard` (staff usage in `OperatorDetailPanel.tsx:~6657` and any other staff caller) | `defaultCollapsed` prop omitted, so it defaults to `false` (expanded) | Explicitly pass `defaultCollapsed={true}` from staff callers |
+Nothing about how notifications are *generated* changes. This is a UX + read‑layer restructure on top of the existing `notifications` table (`type`, `entity_type`, `entity_id`, `read_at`, `sent_at`, `title`, `body`, `link`, `channel`), plus a small schema addition for `priority`, `snoozed_until`, `assigned_to`, and `archived_at`.
 
-Everything else already conforms:
-- **OperatorDetailPanel** — all 8 stage panels + inspection binder + dispatch history + settlement forecast start collapsed via `new Set(ALL_COLLAPSIBLE_KEYS)`, and re-collapse on operator switch. AI/CH/onboarding-history toggles default `false`.
-- **PipelineDashboard** — blocked-operator rows, "Active Open", "On Hold", "Owner Test" sections all default collapsed.
-- **ManagementPortal** — install tiles (installed / web-only / never-signed-in) default collapsed.
-- **FaqManager** — empty `expandedIds` Set, all answers collapsed.
-- **ServiceLibraryManager** — `expandedService = null`.
-- **ComplianceDashboard** — per-row `expanded` map empty.
-- **EquipmentInventory** — `expandedType = null`.
-- **EquipmentAssetSheet** — starts collapsed with "Tap to open".
-- **SubmittedApplicationSnapshot** — `expanded = false`.
-- **InspectionComplianceSummary** — section `defaultExpanded = false`.
+---
 
-### Areas the same rule applies to (answer to your question)
+## 1. Recommended organizing model
 
-The screens/sections that have expand/collapse features on the management dashboard:
+Two lenses layered over the same feed:
 
-1. **Onboarding Pipeline → driver detail** — 8 stage panels + Inspection Binder + Dispatch History + Settlement Forecast + AI Insights + Chat History + Onboarding History
-2. **Driver Hub** — driver alerts panel *(currently starts expanded — will fix)*, driver vault documents card *(currently starts expanded in staff view — will fix)*
-3. **Applications / Pipeline Dashboard** — blocked-operator breakdowns, Active Open Onboarding Items, On Hold, Owner Test Accounts
-4. **Management Overview** — PWA install-status tiles (Installed / Web-only / Never signed in)
-5. **FAQ Manager** — each FAQ answer card
-6. **Service Library Manager** — each service card (single-open accordion)
-7. **Fleet Compliance / Compliance Summary** — per-driver document rows (pending vs all operators), the Compliance Summary section itself
-8. **Onboard Systems (Equipment Inventory)** — "Show all N devices" per equipment type
-9. **Equipment Asset Sheet** — the sheet body
-10. **Submitted Application snapshot** (bottom of driver detail) — snapshot panel
+**Priority tier (primary — drives color and sort):**
+- **Action Needed** — items requiring a staff response: new application, docs uploaded awaiting review, pay setup submitted, PEI correction requested, truck down, expiry in ≤30 days, application_denied appeal, message from operator.
+- **Watch** — informational but time‑sensitive: onboarding milestone, dispatch status change, compliance_update within 90 days, release_note.
+- **FYI** — background chatter: docs_uploaded confirmations already reviewed, older milestones, birthday/anniversary echoes.
 
-Not persisted to storage: I intentionally leave alone `InspectionComplianceSummary`'s view/sort mode, `FleetRoster`'s filter/sort, `ManagementPortal`'s `mgmt_last_view` tab, and `OperatorInspectionBinder`'s one-time "opened" nudge flag — these are user preferences / navigation state, not collapse state.
+Tier is derived from `type` (mapping table in code) with per‑type overrides. Truck Down is always pinned to the top of Action Needed regardless of age.
 
-### Changes
+**Category (secondary — drives grouping and filters):**
+Applications · Onboarding · Compliance · Dispatch · Equipment · Messages · System.
 
-1. **`src/components/drivers/DriverHubView.tsx`** — change `useState(true)` → `useState(false)` for `alertsPanelOpen` so alerts start collapsed.
-2. **`src/components/drivers/DriverVaultCard.tsx`** — flip the default prop `defaultCollapsed = false` → `defaultCollapsed = true` so the card body starts collapsed everywhere unless a caller opts in.
-3. Sanity-check any remaining callers of `DriverVaultCard` in the staff/operator side to make sure flipping the default doesn't break a screen that intentionally wants it open. If any staff caller was implicitly relying on the old default, no action needed since the rule is "collapsed unless expanded by user"; if the operator-portal side (`OperatorPortal.tsx:1787`) explicitly passes `defaultCollapsed={false}`, that's the operator app (not management) and stays as-is.
+**Per‑driver rollup:** When 2+ notifications share the same `entity_type='operator'` + `entity_id` within 24 h, collapse them into one thread card (e.g., "Delease Carter — 3 updates"). Expanding shows the individual events, each still individually markable/actionable. Same idea for `entity_type='application'`.
 
-Verification: open Driver Hub → alerts start collapsed, driver vault card body collapsed; navigate away and back → still collapsed. Spot-check Onboarding Pipeline driver detail, Overview install tiles, FAQ Manager, Service Library — all remain collapsed on first entry and after navigation.
+---
+
+## 2. Bell dropdown redesign (top‑right)
+
+Keep the popover lightweight and focused on triage — power features live on the page.
+
+Layout, top to bottom:
+1. **Header row** — "Notifications" · unread count · Mark all read · gear icon → NotificationPreferencesModal.
+2. **Segmented tabs** — `Action Needed (n)` · `All` · `Mentions`. Default lands on Action Needed when unread > 0, else All.
+3. **Grouped list** (max 12 items visible, scroll):
+   - Section headers by tier when on `All`; flat list when on `Action Needed`.
+   - Each row: type icon (existing color chip) · title · one‑line body · relative time · unread dot.
+   - Per‑driver rollups render as a single card with a small stack indicator (`+2 more`) and a caret to expand inline.
+4. **Row hover / long‑press reveals inline actions** (icon buttons, no extra clicks):
+   - **Open** (default click behavior — deep link, unchanged)
+   - **Mark read / unread**
+   - **Snooze** → 1 h / Tomorrow 8 am / Next Monday
+   - **Assign** → typeahead of active staff (writes `assigned_to`, keeps in feed but tags "Assigned to …")
+   - **Archive** (removes from default views; still queryable on the page)
+5. **Footer** — "View all →" (unchanged deep link) and a small "Filters" link that opens the page with the current tab pre‑applied.
+
+Behavior details:
+- Popover closes on outside click and on route change (already handled).
+- Realtime subscription unchanged; add optimistic update for snooze/assign so the row disappears immediately.
+- Empty state per tab (e.g., "Nothing needs your attention right now — nice.").
+
+---
+
+## 3. Notifications page redesign (`view=notifications`)
+
+Three‑pane layout on ≥lg, single column with a collapsible filter sheet on mobile.
+
+**Left rail — Filters (persist per user via localStorage only, not the DB):**
+- Tier: Action Needed · Watch · FYI
+- Category: Applications · Onboarding · Compliance · Dispatch · Equipment · Messages · System
+- State: Unread · Snoozed · Assigned to me · Archived
+- Person: driver/applicant combobox (reuses `DriverCombobox`)
+- Date: Today · 7d · 30d · Custom range
+- Free‑text search across `title` + `body`
+
+**Main pane — Feed:**
+- Group by day header ("Today", "Yesterday", "Jul 14"), then priority within the day.
+- Per‑driver rollup cards expand inline.
+- Multi‑select checkboxes → bulk bar (Mark read · Snooze · Assign · Archive · Delete).
+- Row actions same as bell + a "Copy link" for handoff.
+- Pagination replaced by infinite scroll with the existing `PAGE_SIZE=25` window.
+
+**Right rail — Context peek (desktop only, appears when a row is focused):**
+- Renders the linked entity summary: for an operator, name + stage + current status chips + jump buttons (Open Detail, Open Binder, Open Messages). For an application, applicant name + stage. Uses lookups already used elsewhere.
+- Removes the need to leave the page for common triage decisions.
+
+**Analytics strip at top** (small, muted):
+- 4 counts: Action Needed · Unread today · Snoozed · Assigned to me. Each is a filter shortcut.
+
+---
+
+## 4. New capabilities the plan introduces
+
+- **Snooze** — hide a notification until a chosen time; it flips to unread again automatically.
+- **Assign to teammate** — reroute an item to another staff member's queue; original recipient still sees it tagged "Assigned to …".
+- **Archive** — remove from default views without deleting; recoverable via the Archived filter.
+- **Bulk actions** on the page.
+- **Per‑driver rollups** so a burst of doc uploads or milestone events for one operator reads as one thread.
+- **Per‑category preferences** in NotificationPreferencesModal: for each category, choose Bell / Email / Both / Off. (SMS stays out per your earlier pause.)
+- **Snoozed & Assigned queues** get their own filter chips.
+- **"Assigned to me" mentions tab** in the bell.
+
+---
+
+## 5. What the plan explicitly does NOT change
+
+- Notification producers (edge functions, DB triggers) — no touching what gets created or when.
+- The bell in the operator, dispatch, and staff portals — this pass is management‑only. Same component (`NotificationBell.tsx`) picks up improvements automatically since those portals reuse it; behavior is gated by role so no regression.
+- Deep‑link routing (`resolveRoute`) — kept as is, just called from the new row actions.
+- Realtime channel structure and unread‑count logic.
+
+---
+
+## Technical details
+
+**Schema additions (single migration):**
+- `notifications.priority` — `text` (`'action'|'watch'|'fyi'`), default `'watch'`, backfilled from a `type → tier` mapping.
+- `notifications.snoozed_until` — `timestamptz null`.
+- `notifications.assigned_to` — `uuid null` referencing `auth.users(id)`.
+- `notifications.archived_at` — `timestamptz null`.
+- Indexes: `(user_id, read_at, snoozed_until)`, `(user_id, priority, sent_at desc)`, `(assigned_to) where assigned_to is not null`.
+- Grants + RLS: extend existing `UPDATE` policy so a user can update these new columns only on rows where they're the recipient or the newly assigned staff.
+
+**Type → tier + category mapping** lives in `src/lib/notifications/taxonomy.ts` (single source used by both bell and page). Shape:
+```
+{ type: 'truck_down', tier: 'action', category: 'dispatch', label: 'Truck Down' }
+```
+
+**Component work:**
+- `src/components/NotificationBell.tsx` — add tabs, inline row actions, rollup rendering. Split JSX into `<NotifRow>` and `<NotifRollupRow>` subcomponents to keep file readable.
+- `src/components/management/NotificationHistory.tsx` — replace flat list with 3‑pane layout: filter rail, feed with grouping + bulk bar, context peek pane. Reuse `DriverCombobox`, existing `FilePreviewModal`.
+- `src/components/management/NotificationPreferencesModal.tsx` — add per‑category matrix (Bell / Email / Off).
+- New helpers: `src/lib/notifications/rollup.ts` (24 h grouping), `src/lib/notifications/actions.ts` (snooze/assign/archive/bulk mutations wrapping `supabase.from('notifications').update(...)`).
+
+**Filtering approach:** All filters resolved client‑side against a paginated server query filtered by `user_id`, `archived_at is null` (unless Archived tab), and `(snoozed_until is null or snoozed_until <= now())` for default views. Search uses `ilike` on `title`/`body` server‑side when a query is present.
+
+**Backwards compatibility:** Existing notifications without `entity_type`/`entity_id` still route via the legacy `link` parser already in `resolveRoute` — no regression to older records.
+
+---
+
+## Rollout order (suggested)
+
+1. Migration + taxonomy file + `actions.ts` helpers (no UI change yet).
+2. Bell redesign — ship first, low risk, immediate daily UX win.
+3. Notifications page rebuild.
+4. Per‑category preferences in the modal.
+
+Each step is independently shippable; nothing here forces a big‑bang release.
