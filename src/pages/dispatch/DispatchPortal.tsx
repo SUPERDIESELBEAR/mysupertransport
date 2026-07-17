@@ -738,7 +738,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         created_at,
         excluded_from_dispatch,
         excluded_from_dispatch_reason,
-        onboarding_status (fully_onboarded, unit_number, go_live_date),
+        onboarding_status (fully_onboarded, unit_number, go_live_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `)
       .neq('is_active', false);
