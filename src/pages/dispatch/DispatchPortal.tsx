@@ -1849,6 +1849,28 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         <Shield className="h-3 w-3" />
                         Binder
                       </Button>
+                      {/* Decals quick-view */}
+                      {(() => {
+                        const hasDecals = !!(row.decal_photo_ds_url || row.decal_photo_ps_url || row.decal_photos.length);
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!hasDecals}
+                            onClick={() => setDecalTarget({
+                              name: fullName,
+                              dsUrl: row.decal_photo_ds_url,
+                              psUrl: row.decal_photo_ps_url,
+                              extras: row.decal_photos,
+                            })}
+                            className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10 disabled:opacity-40"
+                            title={hasDecals ? 'View decal install photos' : 'No decal photos uploaded yet'}
+                          >
+                            <Camera className="h-3 w-3" />
+                            Decals
+                          </Button>
+                        );
+                      })()}
                       {/* Download history */}
                       <DriverHistoryDownloadPopover
                         operatorId={row.operator_id}
