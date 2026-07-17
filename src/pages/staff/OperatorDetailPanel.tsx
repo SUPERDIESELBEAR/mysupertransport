@@ -1336,7 +1336,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   const handleSendInstallInstructions = async (force = false) => {
-    // no-op marker
     if (guardDemo()) return;
     setSendingInstallInstructions(true);
     try {
