@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, Send, ChevronDown, Cake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStaffBirthdayAnniversaryEvents, type BdayAnnivEvent } from '@/hooks/useStaffBirthdayAnniversaryEvents';
@@ -44,12 +44,19 @@ export default function BirthdayAnniversaryPopup() {
   const visible = useMemo(() => (expanded ? events : events.slice(0, 2)), [events, expanded]);
   const hiddenCount = events.length - visible.length;
 
+  // Reset minimized state when there are no events left so the pill disappears
+  // after the last dismissal and doesn't linger stale.
+  useEffect(() => {
+    if (events.length === 0 && minimized) setMinimized(false);
+  }, [events.length, minimized]);
+
   if (events.length === 0) return null;
 
   // Position in the top-right viewport corner, just below the header and to the
-  // left of the notification bell, so it never covers the sidebar, page content,
-  // back-to-top button, or mobile bottom navigation.
-  const positionClasses = 'top-14 lg:top-16 right-16 lg:right-20';
+  // LEFT of the notification preferences (sliders) icon — clearing all three
+  // header icons (prefs + refresh + bell). Keeps it off the sidebar, page
+  // content, back-to-top button, and mobile bottom navigation.
+  const positionClasses = 'top-14 lg:top-16 right-32 lg:right-44';
 
   return (
     <>
