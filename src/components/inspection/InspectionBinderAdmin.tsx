@@ -105,7 +105,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const { companyOrder, driverOrder, saveOrder } = useBinderOrder();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Support deep-link: ?driver=<userId>&tab=driver|company|uploads
   const urlDriver = searchParams.get('driver') ?? '';
@@ -128,6 +128,26 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     const d = searchParams.get('driver') ?? '';
     if (d && d !== selectedDriverId) setSelectedDriverId(d);
   }, [searchParams, operatorUserId, selectedDriverId]);
+
+  // Deep-link: ?driver=<userId>&flipbook=1 opens the flipbook overlay
+  // straight to the cover page for that driver (used from the Dispatch
+  // board's per-driver "Binder" button). Guarded so a manual close doesn't
+  // immediately re-open it.
+  const autoFlipbookHonoredRef = useRef<string | null>(null);
+  useEffect(() => {
+    const flag = searchParams.get('flipbook');
+    if (flag !== '1') return;
+    const driver = operatorUserId ?? searchParams.get('driver') ?? selectedDriverId;
+    if (!driver) return;
+    if (autoFlipbookHonoredRef.current === driver) return;
+    autoFlipbookHonoredRef.current = driver;
+    setActiveTab('driver');
+    setFlipbookOpen(true);
+    // Strip the flag so refreshing / closing doesn't re-trigger.
+    const next = new URLSearchParams(searchParams);
+    next.delete('flipbook');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, operatorUserId, selectedDriverId, setSearchParams]);
 
   const visibleCompanyOrder = filterOptionalDocs(companyOrder, enabledOptional);
   const [loading, setLoading] = useState(true);
