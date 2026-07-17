@@ -47,7 +47,7 @@ export default function BirthdayAnniversaryPopup() {
 
   return (
     <>
-      <div className="fixed top-16 right-16 z-50 flex flex-col gap-2 w-[420px] md:w-[480px] max-w-[calc(100vw-5rem)] pointer-events-none">
+      <div className="fixed top-16 right-16 z-50 flex flex-col gap-2 w-[420px] md:w-[480px] max-w-[calc(100vw-5rem)] max-h-[80dvh] overflow-y-auto pointer-events-none">
         {visible.map((ev) => {
           const info = labelFor(ev);
           return (
