@@ -21,6 +21,7 @@ import {
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
   CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle
+  , Camera
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
