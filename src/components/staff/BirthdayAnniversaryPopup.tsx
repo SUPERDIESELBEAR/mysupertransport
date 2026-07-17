@@ -56,7 +56,10 @@ export default function BirthdayAnniversaryPopup() {
   // LEFT of the notification preferences (sliders) icon — clearing all three
   // header icons (prefs + refresh + bell). Keeps it off the sidebar, page
   // content, back-to-top button, and mobile bottom navigation.
-  const positionClasses = 'top-14 lg:top-16 right-32 lg:right-44';
+  // Anchor inside the white header strip so the minimized pill sits inline with
+  // the header icons, directly to the left of the notification preferences
+  // (sliders) icon. Expanded cards drop down from that same anchor.
+  const positionClasses = 'top-2 lg:top-3 right-32 lg:right-44';
 
   return (
     <>
