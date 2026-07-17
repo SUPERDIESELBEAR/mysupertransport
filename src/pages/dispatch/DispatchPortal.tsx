@@ -800,6 +800,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
             eta_redispatch: d.eta_redispatch ?? null,
             status_notes: d.status_notes ?? null,
             updated_at: d.updated_at ?? null,
+            decal_photo_ds_url: os.decal_photo_ds_url ?? null,
+            decal_photo_ps_url: os.decal_photo_ps_url ?? null,
+            decal_photos: Array.isArray(os.decal_photos) ? (os.decal_photos as DecalPhotoExtra[]) : [],
           };
         })
         .sort((a, b) => {
