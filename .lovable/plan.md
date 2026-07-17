@@ -1,32 +1,16 @@
-Recommendation: Move the birthday/anniversary popup to the **top-right of the viewport, just below the header, immediately to the left of the notification bell**.
+## Reposition birthday/anniversary popup left of the notification preferences icon
 
-Why this placement works best for visual appeal and UX:
-- It sits in the natural "notification zone" where users already look for alerts, so it feels intentional rather than intrusive.
-- It does not cover any page content, sidebar, or the back-to-top button because it occupies the header's empty vertical space.
-- It stays visible while remaining clearly distinct from the notification bell dropdown (the bell opens downward; the popup sits below the header bar).
-- On mobile it can collapse to the same compact badge/pill below the mobile header, avoiding the bottom navigation bar.
+Currently the popup sits at `top-14 lg:top-16 right-16 lg:right-20`, which lands it just under the notification bell. The user wants it moved further left so it sits to the left of the **notification preferences (sliders) icon** in the header — the leftmost of the three header icons (prefs, refresh, bell). The minimized cake badge should sit in that same spot. Dismissing a popup with the X should also remove that event from the minimized badge (currently, minimizing hides the cards but the badge still counts dismissed events after re-expand — dismiss should be permanent per event, which it already is via `acknowledge`; we just need to make sure the minimized state auto-clears when all events are dismissed).
 
-Implementation plan
+### Changes
 
-1. Update `src/components/staff/BirthdayAnniversaryPopup.tsx`
-   - Replace the current bottom-left responsive positioning with a top-right responsive positioning:
-     - Mobile: `top-14 right-4` (directly under the 56px mobile header)
-     - Desktop: `top-16 right-16` (under the 64px desktop header, offset left of the bell)
-   - Keep the existing compact card width (`w-[260px] md:w-72`), minimize/collapse badge, and dismiss/send actions.
-   - Adjust the `+N more` / `Show fewer` and Minimize buttons so they still align with the compact card width.
-   - Optionally reduce `max-h-[70dvh]` to a smaller value (e.g., `max-h-[calc(100dvh-5rem)]`) so the popup never grows below the header into the page content.
+**`src/components/staff/BirthdayAnniversaryPopup.tsx`**
 
-2. Verify no collision with the notification bell dropdown
-   - The notification bell dropdown renders at `z-50` and drops from the bell. The popup will also use `z-50`. If both are open simultaneously, they may overlap. To keep the bell dropdown usable, set the birthday popup to `z-40` so transient bell dropdowns appear above it, or leave both at `z-50` and rely on the user dismissing one. The plan will default to `z-40` for the popup so it does not block the bell.
+1. Update `positionClasses` to clear all three header icons (prefs + refresh + bell ≈ 3 × 40px + padding):
+   - Mobile: `top-14 right-32`
+   - Desktop: `lg:top-16 lg:right-44`
+2. Keep the same compact card + minimize behavior.
+3. Auto-reset `minimized` to `false` when `events.length === 0` so the pill disappears after the last dismissal (safety — `if (events.length === 0) return null` already covers render, but resetting state prevents a stale pill if events re-appear).
+4. When the user clicks X on the last visible card while minimized, ensure the pill count updates immediately — this already works via `acknowledge`, no change needed beyond the reset above.
 
-3. Verify `src/components/layouts/StaffLayout.tsx` needs no changes
-   - The popup is already rendered once near the bottom of `StaffLayout`. No structural changes are required; only the popup's internal positioning classes change.
-
-4. Verify mobile behavior
-   - On mobile there is no persistent sidebar, so `top-14 right-4` avoids both the header and the mobile bottom nav. The minimized badge stays unobtrusive.
-
-5. Build and visual check
-   - Run `tsc --noEmit` and `bun run build` to confirm no type/build regressions.
-   - Use a quick local render check to confirm the popup sits below the header, clear of the bell and page content.
-
-No database, backend, or new dependencies are required. This is a purely presentational change.
+No other files change. Verification: view the dashboard, confirm the popup and its minimized pill both sit to the left of the sliders icon, and dismissing all events removes both the cards and the pill.
