@@ -1,52 +1,66 @@
-## Goal
+# Email Tracey McQuilken — Stage 8 (Go Live & Dispatch Readiness)
 
-Give dispatchers a one-tap way to view a driver's truck decal install photos (driver side, passenger side, and any extra angles) from the Dispatch Board — without leaving the board or drilling into the Driver Hub.
+Add a one-click email action inside Stage 8 that lets staff send driver/truck details plus any ad-hoc attachments to DOT Consultant **Tracey L. McQuilken** at `tracey@iondot.net`, mirroring the "Send to Insurance Company" pattern used in Stage 7.
 
-## Where decal photos live (verified)
+## What staff will see
 
-- Stored on `onboarding_status`:
-  - `decal_photo_ds_url` (driver side)
-  - `decal_photo_ps_url` (passenger side)
-  - `decal_photos` (jsonb array of `{ url, label, uploaded_at, uploaded_by }`)
-- Rendered elsewhere by `StaffDecalPhotoEditor` and viewed via the existing `PreviewLink` → `FilePreviewModal` (the same in-app image modal we standardized on).
+Inside the Stage 8 card, below the Go-Live section, a new panel:
 
-## UX
+- Header: **Email Tracey McQuilken** (DOT Consultant)
+- Read-only recipient chip: `tracey@iondot.net` (single fixed recipient — no add/remove UI)
+- **Attachments** area:
+  - Drag-and-drop / "Add files" picker (multi-select). Accepts PDF, JPG/PNG, DOC/DOCX, XLS/XLSX.
+  - Per-file limit **10 MB**, combined limit **20 MB** (Resend cap), max 10 files. Over-limit files show an inline error and are not queued.
+  - Each queued file shows filename, size, and a remove (×) button.
+  - Files are uploaded to a new private storage bucket `dot-consultant-attachments` at path `{operator_id}/{timestamp}-{filename}` when staff clicks Send (or eagerly with a progress indicator, whichever the code cleanly supports — we'll upload on Send to keep the flow simple and let staff cancel by removing before sending).
+- **Notes to Tracey** textarea (optional — e.g. specific question, ETA, follow-up context)
+- Gold outlined button: **Send to Tracey McQuilken** (with `Mail` icon; turns green "Sent!" for 5s on success, matching Stage 7 behavior)
 
-On each driver dispatch card (both compact + expanded layouts, lines ~1822 and ~2195 in `DispatchPortal.tsx`), add a small **Decals** action next to the existing **Binder** and **History** buttons.
+Because the recipient is fixed and global, we skip the recipient-management UI that Stage 7 needs.
 
-- Icon: `Camera` (lucide) + label "Decals". Same size/weight as sibling buttons.
-- If the driver has **no** decal photos on file: button is still visible but disabled with tooltip "No decal photos uploaded yet" (keeps the row visually consistent and signals the gap to staff).
-- Click → opens a lightweight `DecalPhotosQuickView` modal (not a full sheet), showing:
-  - Driver name in header
-  - Two labeled tiles for **Driver Side** and **Passenger Side**
-  - A grid of any extra angles below (label + thumbnail)
-  - Each thumbnail is a `PreviewLink` so tapping it opens the full-screen `FilePreviewModal` we already use everywhere else (pinch/zoom on mobile, download, etc.)
-  - Empty slots show a dashed placeholder ("Not uploaded")
-- Read-only for dispatchers. No upload/edit UI here — that stays in Driver Hub / `StaffDecalPhotoEditor`.
+## What the email will contain
 
-## Changes
+Same building blocks as the insurance email so Tracey has everything a DOT consultant typically needs:
 
-### 1. Data — surface decal fields on the dispatch row
-- `src/pages/dispatch/DispatchPortal.tsx`: extend the query that builds each driver row (the same one that already pulls onboarding fields for the card) to include `decal_photo_ds_url`, `decal_photo_ps_url`, `decal_photos`. Add the three fields to the row type.
+- Driver name, email, CMV years of experience
+- DL copy (attached if <4MB, otherwise 7-day signed link — same helper Stage 7 uses)
+- Truck VIN / Year / Make (from `onboarding_status`, falling back to `ica_contracts`)
+- Unit number, Go-Live Date, Operator Type (Solo/Team)
+- Optional staff notes from the new textarea
+- **Any files staff added in the Attachments area** — sent as real Resend attachments when total payload is within the 20 MB cap; anything above the cap is instead linked as 7-day signed URLs at the bottom of the email (same fallback pattern as the DL)
+- Reply-to `onboarding@mysupertransport.com`
 
-### 2. New component
-- `src/components/dispatch/DecalPhotosQuickView.tsx`:
-  - Props: `open`, `onOpenChange`, `driverName`, `dsUrl`, `psUrl`, `extras: DecalPhotoExtra[]`
-  - Reuses the `DecalPhotoExtra` type already exported from `StaffDecalPhotoEditor.tsx`.
-  - Renders a `Dialog` (shadcn) with the layout above; thumbnails wrapped in `PreviewLink`.
+Subject: `DOT Consultant Request — {Driver Name}`
 
-### 3. Wire into the card
-- `DispatchPortal.tsx`: add local state `decalTarget: { name, dsUrl, psUrl, extras } | null`. Add the **Decals** button in both card variants. Render `<DecalPhotosQuickView … />` once at the bottom, alongside the existing Binder sheet.
+## Technical details
+
+1. **New private storage bucket** `dot-consultant-attachments`
+   - Created via `supabase--storage_create_bucket` (public=false)
+   - RLS on `storage.objects`: staff roles (`onboarding_staff | dispatcher | management | owner`) can INSERT / SELECT / DELETE their operator's folder; service_role full access for the edge function
+   - Uploaded via existing `uploadToBucket` helper (`src/lib/uploadWithAuth.ts`) with `requireSession: true`
+
+2. **New edge function** `supabase/functions/send-dot-consultant-request/index.ts`
+   - Cloned from `send-insurance-request/index.ts` with these differences:
+     - Recipient hardcoded to `tracey@iondot.net`
+     - Accepts request body `{ operator_id, notes?, attachment_paths?: string[] }`
+     - For each `attachment_paths` entry: download from `dot-consultant-attachments`, base64-encode, add to Resend `attachments`; if running total exceeds ~20 MB, switch remaining attachments to 7-day signed URLs rendered as links in the email body
+     - Pulls `unit_number`, `go_live_date`, `operator_type` from `onboarding_status`
+     - Auth: JWT + `user_roles` check for `onboarding_staff | dispatcher | management | owner`
+     - Audit log `action: 'dot_consultant_request_sent'` with recipient, attachment count, and notes
+   - Deployed with default JWT verification
+
+3. **`src/pages/staff/OperatorDetailPanel.tsx`**
+   - Add state: `sendingDotEmail`, `dotEmailSent`, `dotEmailNotes`, `dotAttachments` (array of `{ file: File, error?: string }`)
+   - Add `handleSendDotConsultantEmail`:
+     1. Upload each queued file via `uploadToBucket('dot-consultant-attachments', ...)`
+     2. Invoke edge function with resulting paths, `notes`, and `operator_id`
+     3. Toast success/failure; clear queue on success
+   - Render the new panel inside the Stage 8 `!s7Collapsed` block, right after the Go-Live confirmation area
+
+4. No new tables, no new secrets.
 
 ## Out of scope
 
-- No changes to how decal photos are uploaded or stored.
-- No new backend, RLS, or migrations — RLS on `onboarding_status` already allows dispatchers to read these columns (same source the card already uses).
-- No changes to Driver Hub / `StaffDecalPhotoEditor`.
-
-## Verification
-
-1. From Dispatch Board, click **Decals** on a driver with photos → modal opens, DS/PS + extras visible, tapping a thumbnail opens the full-screen image preview.
-2. Click **Decals** on a driver with no photos → button is disabled with tooltip.
-3. Sibling **Binder** and **History** buttons still work unchanged.
-4. Works in both compact and expanded card layouts, on mobile viewport.
+- Persisting/reusing sent attachments across sessions (once sent, staff can re-upload if needed later)
+- Configurable recipients / CC list (recipient is fixed per request)
+- Server-side virus scanning of uploads
