@@ -1,46 +1,41 @@
-Plan: Relocate the Birthday/Anniversary popup to the top-right, left of the notification bell
+## Problem
+The current `BirthdayAnniversaryPopup` is a large, fixed-position card stack near the top-right of the management dashboard. It floats over the main content area and can cover buttons, table rows, and text as users navigate the dashboard.
 
-Problem
--------
-The `BirthdayAnniversaryPopup` is currently fixed at `bottom-4 right-4` with a 320 px width. It overlaps the `ScrollJumpButton` ("Back to top") fixed in the same bottom-right corner, making it hard to see and interact with.
+## Goal
+Keep the same "popup notification" style (auto-appears, dismissible, stacked cards) but reposition and resize it so it does not compete with any screen content within the management dashboard.
 
-Goal
-----
-Move the popup to the top of the management dashboard, positioned just to the left of the notification bell icon, and make it larger/more visible.
+## Current state
+- Component lives at `src/components/staff/BirthdayAnniversaryPopup.tsx`.
+- Rendered once at the bottom of `src/components/layouts/StaffLayout.tsx` (line 455), so it appears on every management/staff view.
+- Positioned at `fixed top-16 right-16` with cards sized `w-[420px] md:w-[480px]`.
+- `StaffLayout` already tracks `sidebarOpen` (desktop left sidebar) and `mobileNavItems` (mobile bottom nav). The popup does not receive either state today.
+- The back-to-top button sits at `fixed bottom-6 right-6 z-40` (`src/components/ui/ScrollJumpButton.tsx`).
+- The notification bell is at the top-right of the header.
 
-Proposed implementation
-----------------------
-1. Update `src/components/staff/BirthdayAnniversaryPopup.tsx`
-   - Reposition the fixed container from `bottom-4 right-4` to `top-16 right-16` (just below the header, immediately left of the notification bell). Use `z-50` so it floats above page content.
-   - Keep the outer wrapper `pointer-events-none` and individual cards `pointer-events-auto`.
-   - Enlarge the popup for visibility:
-     - Width: `w-[420px] md:w-[480px] max-w-[calc(100vw-2rem)]`.
-     - Card padding: `p-4`.
-     - Avatar: `h-14 w-14`.
-     - Name: `text-base font-semibold`.
-     - Label/sub-label: `text-sm`.
-     - Dismiss icon: `h-5 w-5`.
-     - "Send Message" button: `h-8 text-sm`.
-   - Keep the list scrollable with `max-h-[80dvh] overflow-y-auto` if many events stack up.
-   - Keep the existing "+N more" / "Show fewer" toggles, but increase their tap target size.
+## Proposed solution
+1. **Move the popup to the bottom-left corner of the viewport** — the area least occupied by other fixed UI elements in the management dashboard. The back-to-top button and notification bell are on the right; the bottom-left is typically clear.
+2. **Offset it to clear the sidebar and mobile bottom nav**:
+   - On desktop: `bottom-6` and `left-[calc(1rem+sidebarWidth)]` so it sits just inside the main content area, not over the left sidebar.
+   - On mobile: `bottom-20` so it clears the sticky bottom navigation bar.
+3. **Make the cards significantly smaller**:
+   - Reduce width from `420px/480px` to `320px` on desktop and `calc(100vw - sidebarWidth - 2rem)` on mobile.
+   - Compact avatar (`h-10 w-10`), names (`text-sm`), labels (`text-xs`), and padding (`p-3`).
+   - Keep the "Send Message" and dismiss actions but with smaller tap targets.
+4. **Add a collapse/expand control** so a user can shrink the stack to a small gold badge/avatar pill when they need the screen real estate. The popup is still visible and accessible, but takes minimal space.
+5. **Pass sidebar state** from `StaffLayout` into `BirthdayAnniversaryPopup` via a new prop so the popup can compute the correct offset class. Use the existing `sidebarOpen` boolean in `StaffLayout`.
+6. **Verify no overlap** by checking against the most common management views (Overview stat cards, Pipeline tables, Dispatch Board, Driver Hub, Inspection Binder) at desktop and mobile viewport sizes.
 
-2. Verify `src/components/layouts/StaffLayout.tsx`
-   - Confirm that `<BirthdayAnniversaryPopup />` is already rendered at the end of the layout (line 455), so it overlays the whole shell without being clipped by the scrollable main area.
-   - If the header or notification bell dropdown visually sits above the popup, raise the popup to `z-[60]`; otherwise leave it at `z-50`.
+## Files to change
+- `src/components/staff/BirthdayAnniversaryPopup.tsx` — reposition, resize, add collapse toggle, accept `sidebarOpen` prop.
+- `src/components/layouts/StaffLayout.tsx` — pass `sidebarOpen` to the popup and ensure the popup stays outside the main content flow.
+- `src/index.css` (if needed) — add any new utility animation classes for the collapsed pill.
 
-3. Responsive check
-   - Desktop: popup should sit below the header, left of the notification bell, and not overlap the Back-to-top button.
-   - Mobile/tablet: popup should use the same top/right anchor but adapt width to avoid touching the left edge; confirm it does not cover the mobile header or bottom nav.
+## Acceptance criteria
+- Popup no longer covers the top-right header area, the notification bell, the refresh button, the back-to-top button, or any main-content buttons/text on the primary management views.
+- Popup remains dismissible per-event and supports "Send Message".
+- Popup is readable on mobile and does not overlap the bottom navigation bar.
+- User can collapse the stack to a small indicator and expand it again.
 
-Out of scope
-------------
-- No backend, auth, or event-fetching changes.
-- No changes to the `SendBirthdayAnniversaryModal` or the dismissal logic.
-- No changes to the notification bell component itself.
-
-Acceptance criteria
--------------------
-- Birthday/anniversary popup appears at the top of the management dashboard, to the left of the notification bell.
-- Popup no longer overlaps the Back-to-top button.
-- Popup is larger and easier to read (wider card, larger text/avatar, larger tap targets).
-- Dismiss and Send Message actions still work as before.
+## Out of scope
+- Converting to a dropdown, drawer, or dashboard-only widget (user explicitly wants the same popup style).
+- Changing the birthday/anniversary business logic or notification content.
