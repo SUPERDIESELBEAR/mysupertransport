@@ -233,6 +233,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
   // Binder sheet
   const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
+  // Decal photos quick-view
+  const [decalTarget, setDecalTarget] = useState<{
+    name: string;
+    dsUrl: string | null;
+    psUrl: string | null;
+    extras: DecalPhotoExtra[];
+  } | null>(null);
   // Excluded-from-dispatch tracking
   const [excludedRows, setExcludedRows] = useState<Array<{
     operator_id: string;
