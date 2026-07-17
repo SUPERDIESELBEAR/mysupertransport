@@ -452,7 +452,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
         <div className="h-safe-bottom bg-surface-dark" />
       </nav>
     </div>
-    <BirthdayAnniversaryPopup />
+    <BirthdayAnniversaryPopup sidebarOpen={sidebarOpen} />
     </>
   );
 }
