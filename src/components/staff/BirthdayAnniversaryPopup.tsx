@@ -35,12 +35,7 @@ function labelFor(ev: BdayAnnivEvent): { emoji: string; title: string; sub?: str
   return { emoji: '🎉', title: `${ordinal} Anniversary Today` };
 }
 
-interface BirthdayAnniversaryPopupProps {
-  /** Whether the desktop left sidebar is expanded, so the popup can offset itself. */
-  sidebarOpen?: boolean;
-}
-
-export default function BirthdayAnniversaryPopup({ sidebarOpen = false }: BirthdayAnniversaryPopupProps) {
+export default function BirthdayAnniversaryPopup() {
   const { events, acknowledge } = useStaffBirthdayAnniversaryEvents();
   const [composing, setComposing] = useState<BdayAnnivEvent | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -51,16 +46,15 @@ export default function BirthdayAnniversaryPopup({ sidebarOpen = false }: Birthd
 
   if (events.length === 0) return null;
 
-  // Position in the bottom-left viewport corner, offset just inside the main content
-  // so the popup never sits on top of the left sidebar or the mobile bottom nav.
-  const positionClasses = sidebarOpen
-    ? 'bottom-6 left-64' // desktop, sidebar expanded (w-60 = 15rem; left-64 keeps it inside main content)
-    : 'bottom-6 left-20'; // desktop, sidebar collapsed (w-16 = 4rem; left-20 keeps it inside main content)
+  // Position in the top-right viewport corner, just below the header and to the
+  // left of the notification bell, so it never covers the sidebar, page content,
+  // back-to-top button, or mobile bottom navigation.
+  const positionClasses = 'top-14 lg:top-16 right-16 lg:right-20';
 
   return (
     <>
       <div
-        className={`fixed z-50 flex flex-col gap-2 pointer-events-none ${positionClasses} bottom-20 lg:bottom-6 max-w-[calc(100vw-5rem)] max-h-[70dvh] overflow-y-auto`}
+        className={`fixed z-40 flex flex-col gap-2 pointer-events-none ${positionClasses} max-w-[calc(100vw-5rem)] max-h-[60dvh] overflow-y-auto`}
       >
         {minimized ? (
           <button
