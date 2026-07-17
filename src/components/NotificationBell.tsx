@@ -1,10 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, ShieldCheck, Megaphone, Banknote } from 'lucide-react';
+import {
+  Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target,
+  Paperclip, Truck, ShieldCheck, Megaphone, Banknote, Clock, Archive as ArchiveIcon,
+  Check, ChevronRight, Users,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { resolveTier, resolveCategory, TIER_LABELS, type NotifTier } from '@/lib/notifications/taxonomy';
+import { rollup } from '@/lib/notifications/rollup';
+import { markRead, markManyRead, snooze, archive } from '@/lib/notifications/actions';
 
 interface Notification {
   id: string;
@@ -16,101 +23,122 @@ interface Notification {
   type: string;
   entity_type: string | null;
   entity_id: string | null;
+  priority?: string | null;
+  snoozed_until?: string | null;
+  assigned_to?: string | null;
+  archived_at?: string | null;
 }
 
 interface NotificationBellProps {
-  /** 'light' (default) = white dropdown on light header; 'dark' = styled for dark header */
   variant?: 'light' | 'dark';
-  /** Path to navigate when "View all →" is clicked. Defaults to /dashboard?view=notifications */
+  /** Path to navigate when "View all →" is clicked. */
+  n?: string;
+  /** Legacy alias kept for older callers. */
   notificationsPath?: string;
-  /** When true, clears the bell's unread badge (e.g. when the notifications history page is open) */
   clearBadge?: boolean;
-  /** Optional portal-specific navigation handler for apps with internal tab routing */
   onNavigate?: (path: string) => void;
 }
 
-export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false, onNavigate }: NotificationBellProps) {
+type Tab = 'action' | 'all' | 'mentions';
+
+export default function NotificationBell({
+  variant = 'light',
+  n,
+  notificationsPath,
+  clearBadge = false,
+  onNavigate,
+}: NotificationBellProps) {
+  const notifPath = n ?? notificationsPath ?? '/dashboard?view=notifications';
   const { session, activeRole } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>('action');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter(n => !n.read_at).length;
+  const unreadCount = notifications.filter(nn => !nn.read_at).length;
+  const actionable = useMemo(
+    () => notifications.filter(nn => resolveTier(nn) === 'action' && !nn.archived_at),
+    [notifications],
+  );
+  const mentions = useMemo(
+    () => notifications.filter(nn => nn.assigned_to && nn.assigned_to === session?.user?.id && !nn.archived_at),
+    [notifications, session?.user?.id],
+  );
+  const actionUnread = actionable.filter(nn => !nn.read_at).length;
 
   const isDark = variant === 'dark';
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch on mount and subscribe to realtime
   useEffect(() => {
     if (!session?.user?.id) return;
     fetchNotifications();
-
     const channel = supabase
       .channel('notifications-bell')
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
+        event: '*', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${session.user.id}`,
       }, () => fetchNotifications())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 
-  // Clear bell badge when parent signals that notifications page is open
   useEffect(() => {
     if (clearBadge) {
-      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+      setNotifications(prev => prev.map(nn => ({ ...nn, read_at: nn.read_at ?? new Date().toISOString() })));
     }
   }, [clearBadge]);
+
+  // Auto-land on the tab that has content
+  useEffect(() => {
+    if (open) setTab(actionUnread > 0 ? 'action' : 'all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const fetchNotifications = async () => {
     if (!session?.user?.id) return;
     setLoading(true);
+    const nowIso = new Date().toISOString();
     const { data } = await supabase
       .from('notifications')
-      .select('id, title, body, link, sent_at, read_at, type, entity_type, entity_id')
+      .select('id, title, body, link, sent_at, read_at, type, entity_type, entity_id, priority, snoozed_until, assigned_to, archived_at')
       .eq('user_id', session.user.id)
       .eq('channel', 'in_app')
+      .is('archived_at', null)
+      .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
       .order('sent_at', { ascending: false })
-      .limit(10);
-    setNotifications(data ?? []);
+      .limit(20);
+    setNotifications((data ?? []) as Notification[]);
     setLoading(false);
   };
 
-  const markRead = async (id: string) => {
-    await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('id', id);
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
-    );
+  const markAllRead = async () => {
+    const ids = notifications.filter(nn => !nn.read_at).map(nn => nn.id);
+    if (!ids.length) return;
+    setNotifications(prev => prev.map(nn => ({ ...nn, read_at: nn.read_at ?? new Date().toISOString() })));
+    await markManyRead(ids);
   };
 
-  const markAllRead = async () => {
-    const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
-    if (!unreadIds.length) return;
-    await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .in('id', unreadIds);
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
-    );
+  const doSnooze = async (id: string) => {
+    setNotifications(prev => prev.filter(nn => nn.id !== id));
+    await snooze(id, 'tomorrow');
+  };
+  const doArchive = async (id: string) => {
+    setNotifications(prev => prev.filter(nn => nn.id !== id));
+    await archive(id);
+  };
+  const doMarkRead = async (id: string) => {
+    setNotifications(prev => prev.map(nn => nn.id === id ? { ...nn, read_at: new Date().toISOString() } : nn));
+    await markRead(id);
   };
 
   const typeIconConfig: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
@@ -145,129 +173,179 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     else navigate(path);
   };
 
-  // Detect which portal the user belongs to based on their active role.
-  // /dashboard is shared by management, staff, and operator portals, so the
-  // pathname is not reliable — activeRole is.
   type Portal = 'management' | 'staff' | 'dispatch' | 'operator';
   const detectPortal = (): Portal => {
     switch (activeRole) {
       case 'owner':
-      case 'management':
-        return 'management';
-      case 'onboarding_staff':
-        return 'staff';
-      case 'dispatcher':
-        return 'dispatch';
+      case 'management':      return 'management';
+      case 'onboarding_staff': return 'staff';
+      case 'dispatcher':      return 'dispatch';
       case 'operator':
-      case 'truck_owner':
-        return 'operator';
-      default:
-        return 'operator';
+      case 'truck_owner':     return 'operator';
+      default:                return 'operator';
     }
   };
 
-  /**
-   * Resolve a notification to a portal-aware deep link.
-   * Prefers entity_type + entity_id (the new way). Falls back to the legacy
-   * stored `link` field for older notifications, then to /dashboard.
-   */
-  const resolveRoute = (n: Notification): string => {
+  const resolveRoute = (nn: Notification): string => {
     const portal = detectPortal();
-    let id: string | null = n.entity_id;
-    let et: string | null = n.entity_type;
-
-    // Legacy fallback: parse the stored link for an entity UUID so old
-    // notifications (created before entity columns existed) still deep-link.
-    if (!id && n.link) {
-      const opMatch = n.link.match(/[?&](?:operator|op)=([0-9a-f-]{36})/i);
+    let id: string | null = nn.entity_id;
+    let et: string | null = nn.entity_type;
+    if (!id && nn.link) {
+      const opMatch = nn.link.match(/[?&](?:operator|op)=([0-9a-f-]{36})/i);
       if (opMatch) { et = 'operator'; id = opMatch[1]; }
       else {
-        const appMatch = n.link.match(/[?&](?:application|app)=([0-9a-f-]{36})/i);
+        const appMatch = nn.link.match(/[?&](?:application|app)=([0-9a-f-]{36})/i);
         if (appMatch) { et = 'application'; id = appMatch[1]; }
       }
     }
-
     const operatorRoute = (opId: string) => {
       if (portal === 'staff') return `/staff?view=operator-detail&operator=${opId}`;
       if (portal === 'dispatch') return `/dispatch`;
       if (portal === 'operator') return `/operator/status`;
       return `/dashboard?view=operator-detail&op=${opId}`;
     };
-
     const applicationRoute = (appId: string) => {
       if (portal === 'staff') return `/staff?view=applications&app=${appId}`;
       return `/dashboard?view=applications&app=${appId}`;
     };
-
     if (et === 'operator' && id) {
-      // Operator portal: route by type so the operator lands on a useful tab
       if (portal === 'operator') {
-        switch (n.type) {
+        switch (nn.type) {
           case 'new_message': return '/operator/messages';
           case 'dispatch_status_change': return '/operator/dispatch';
-          case 'onboarding_milestone':
-          case 'docs_uploaded':
-          case 'document_uploaded':
-          case 'compliance_update':
-            return '/operator/status';
-          default:
-            return '/operator/status';
+          default: return '/operator/status';
         }
       }
       return operatorRoute(id);
     }
-
     if (et === 'application' && id) return applicationRoute(id);
-
     if (et === 'message_thread' && id) {
       if (portal === 'staff') return `/staff?view=messages&thread=${id}`;
       if (portal === 'operator') return `/operator/messages?thread=${id}`;
       return `/dashboard?tab=messages&thread=${id}`;
     }
-
     if (et === 'release_note') {
       if (portal === 'staff') return `/staff?view=whats-new`;
       return `/dashboard?view=whats-new`;
     }
-
-    // No entity_type — fall back to the legacy stored link, then /dashboard.
-    if (n.link) return n.link;
+    if (nn.link) return nn.link;
     return '/dashboard';
   };
 
-  // Style tokens by variant
+  // Style tokens
   const btnClass = isDark
     ? 'relative text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors'
     : 'relative text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted';
-
   const dropdownClass = isDark
-    ? 'absolute right-0 top-full mt-2 w-80 bg-surface-dark border border-surface-dark-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in'
-    : 'absolute right-0 top-full mt-2 w-80 bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in';
-
+    ? 'absolute right-0 top-full mt-2 w-[22rem] bg-surface-dark border border-surface-dark-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in'
+    : 'absolute right-0 top-full mt-2 w-[22rem] bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in';
   const headerClass = isDark
     ? 'flex items-center justify-between px-4 py-3 border-b border-surface-dark-border'
     : 'flex items-center justify-between px-4 py-3 border-b border-border';
-
   const titleClass = isDark ? 'text-sm font-semibold text-surface-dark-foreground' : 'text-sm font-semibold text-foreground';
-
-  const itemClass = (unread: boolean) => isDark
-    ? `w-full text-left px-4 py-3 border-b border-surface-dark-border last:border-0 transition-colors hover:bg-surface-dark-card ${unread ? 'bg-gold/5' : ''}`
-    : `w-full text-left px-4 py-3 border-b border-border last:border-0 transition-colors hover:bg-muted/40 ${unread ? 'bg-gold/5' : ''}`;
-
-  const itemTitleClass = (unread: boolean) => isDark
-    ? `text-sm line-clamp-2 break-words ${unread ? 'font-semibold text-surface-dark-foreground' : 'font-medium text-surface-dark-muted'}`
-    : `text-sm line-clamp-2 break-words ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`;
-
-  const bodyClass = isDark ? 'text-xs text-surface-dark-muted mt-0.5 line-clamp-3 break-words' : 'text-xs text-muted-foreground mt-0.5 line-clamp-3 break-words';
-  const timeClass = isDark ? 'text-[10px] text-surface-dark-muted/60 mt-1' : 'text-[10px] text-muted-foreground/60 mt-1';
+  const tabClass = (active: boolean) =>
+    `flex-1 px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+      active
+        ? (isDark ? 'text-gold border-b-2 border-gold' : 'text-gold border-b-2 border-gold')
+        : (isDark ? 'text-surface-dark-muted hover:text-surface-dark-foreground border-b-2 border-transparent'
+                  : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent')
+    }`;
   const emptyClass = isDark ? 'text-sm text-surface-dark-muted' : 'text-sm text-muted-foreground';
   const footerClass = isDark
     ? 'px-4 py-2.5 border-t border-surface-dark-border bg-surface-dark-card'
     : 'px-4 py-2.5 border-t border-border bg-muted/30';
 
+  const rowsForTab: Notification[] =
+    tab === 'action' ? actionable
+    : tab === 'mentions' ? mentions
+    : notifications;
+
+  const feed = useMemo(() => rollup(rowsForTab as any), [rowsForTab]);
+
+  const renderNotif = (nn: Notification, opts?: { compact?: boolean }) => {
+    const route = resolveRoute(nn);
+    const unread = !nn.read_at;
+    const tier = resolveTier(nn);
+    const tierDot =
+      tier === 'action' ? 'bg-destructive'
+      : tier === 'watch' ? 'bg-gold'
+      : 'bg-muted-foreground/40';
+    return (
+      <div
+        key={nn.id}
+        className={`group relative w-full px-4 py-2.5 border-b last:border-0 transition-colors ${
+          isDark ? 'border-surface-dark-border hover:bg-surface-dark-card' : 'border-border hover:bg-muted/40'
+        } ${unread ? 'bg-gold/5' : ''}`}
+      >
+        <button
+          type="button"
+          onClick={() => { if (unread) doMarkRead(nn.id); navigateToPath(route); }}
+          className="w-full text-left"
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0 relative">
+              {getTypeIcon(nn.type)}
+              <span className={`absolute -top-0.5 -left-0.5 h-2 w-2 rounded-full ${tierDot}`} aria-hidden />
+            </span>
+            <div className="flex-1 min-w-0 pr-14">
+              <div className="flex items-center justify-between gap-2">
+                <p className={`text-sm line-clamp-2 break-words ${
+                  unread ? (isDark ? 'font-semibold text-surface-dark-foreground' : 'font-semibold text-foreground')
+                         : (isDark ? 'font-medium text-surface-dark-muted' : 'font-medium text-foreground/80')
+                }`}>{nn.title}</p>
+                {unread && <span className="h-2 w-2 rounded-full bg-gold shrink-0 mt-1" aria-hidden />}
+              </div>
+              {nn.body && !opts?.compact && (
+                <p className={`text-xs mt-0.5 line-clamp-2 break-words ${
+                  isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'
+                }`}>{nn.body}</p>
+              )}
+              <p className={`text-[10px] mt-1 ${
+                isDark ? 'text-surface-dark-muted/60' : 'text-muted-foreground/60'
+              }`}>
+                {formatDistanceToNow(new Date(nn.sent_at), { addSuffix: true })}
+                {nn.assigned_to === session?.user?.id && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-gold"><Users className="h-3 w-3" /> Assigned to you</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </button>
+        {/* Inline actions (hover reveal) */}
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {unread && (
+            <button
+              onClick={(e) => { e.stopPropagation(); doMarkRead(nn.id); }}
+              className="p-1 rounded hover:bg-black/10"
+              title="Mark read"
+              aria-label="Mark read"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); doSnooze(nn.id); }}
+            className="p-1 rounded hover:bg-black/10"
+            title="Snooze until tomorrow"
+            aria-label="Snooze"
+          >
+            <Clock className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); doArchive(nn.id); }}
+            className="p-1 rounded hover:bg-black/10"
+            title="Archive"
+            aria-label="Archive"
+          >
+            <ArchiveIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Bell button */}
       <button
         onClick={() => setOpen(prev => !prev)}
         className={btnClass}
@@ -283,10 +361,8 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
         )}
       </button>
 
-      {/* Dropdown */}
       {open && (
         <div className={dropdownClass}>
-          {/* Header */}
           <div className={headerClass}>
             <div className="flex items-center gap-2">
               <Bell className={`h-4 w-4 ${isDark ? 'text-surface-dark-foreground' : 'text-foreground'}`} />
@@ -307,78 +383,69 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
             )}
           </div>
 
-          {/* List */}
-          <div className="max-h-80 overflow-y-auto">
+          {/* Tabs */}
+          <div className={`flex ${isDark ? 'border-b border-surface-dark-border' : 'border-b border-border'}`}>
+            <button className={tabClass(tab === 'action')} onClick={() => setTab('action')}>
+              Action{actionUnread > 0 && <span className="ml-1 text-destructive">({actionUnread})</span>}
+            </button>
+            <button className={tabClass(tab === 'all')} onClick={() => setTab('all')}>All</button>
+            <button className={tabClass(tab === 'mentions')} onClick={() => setTab('mentions')}>
+              Mentions{mentions.length > 0 && <span className="ml-1">({mentions.length})</span>}
+            </button>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
             {loading ? (
               <div className="flex justify-center py-8">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-gold border-t-transparent" />
               </div>
-            ) : notifications.length === 0 ? (
+            ) : feed.length === 0 ? (
               <div className="py-10 text-center">
                 <Bell className={`h-8 w-8 mx-auto mb-2 ${isDark ? 'text-surface-dark-muted/30' : 'text-muted-foreground/30'}`} />
-                <p className={emptyClass}>No notifications yet</p>
+                <p className={emptyClass}>
+                  {tab === 'action' ? 'Nothing needs your attention right now.'
+                    : tab === 'mentions' ? 'No items assigned to you.'
+                    : 'No notifications yet'}
+                </p>
               </div>
             ) : (
               <TooltipProvider delayDuration={300}>
-                {notifications.map(n => {
-                  const route = resolveRoute(n);
+                {feed.map((item, idx) => {
+                  if (item.kind === 'single') return renderNotif(item.notif as Notification);
+                  const g = item.group;
+                  const label = g.entity_type === 'operator' ? 'driver' : 'applicant';
                   return (
-                    <Tooltip key={n.id}>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => {
-                            if (!n.read_at) markRead(n.id);
-                            navigateToPath(route);
-                          }}
-                          className={itemClass(!n.read_at)}
-                        >
-                          <div className="flex items-start gap-3">
-                            <span className="mt-0.5 shrink-0">
-                              {getTypeIcon(n.type)}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className={itemTitleClass(!n.read_at)}>{n.title}</p>
-                                {!n.read_at && (
-                                  <span className="h-2 w-2 rounded-full bg-gold shrink-0 mt-1" />
-                                )}
-                              </div>
-                              {n.body && (
-                                <p className={bodyClass}>{n.body}</p>
-                              )}
-                              <p className={timeClass}>
-                                {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true })}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" align="start" className="max-w-xs whitespace-pre-wrap break-words">
-                        <p className="font-semibold text-xs mb-1">{n.title}</p>
-                        {n.body && <p className="text-xs opacity-90">{n.body}</p>}
-                      </TooltipContent>
-                    </Tooltip>
+                    <div key={`grp-${g.key}-${idx}`} className={`px-4 py-2 border-b ${isDark ? 'border-surface-dark-border' : 'border-border'} bg-gold/5`}>
+                      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gold mb-1">
+                        <ChevronRight className="h-3 w-3" />
+                        {g.members.length} updates for one {label}
+                      </div>
+                      <div className="rounded-lg overflow-hidden border border-border/60">
+                        {g.members.slice(0, 3).map(m => renderNotif(m as Notification, { compact: true }))}
+                        {g.members.length > 3 && (
+                          <button
+                            onClick={() => navigateToPath(notifPath)}
+                            className="w-full text-center py-1.5 text-[11px] text-gold hover:bg-gold/10"
+                          >
+                            View all {g.members.length} →
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </TooltipProvider>
             )}
           </div>
 
-          {/* Footer */}
           <div className={footerClass}>
             <div className="flex items-center justify-between">
-              {notifications.length > 0 ? (
-                <p className={`text-[10px] ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
-                  Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
-                </p>
-              ) : (
-                <span />
-              )}
+              <p className={`text-[10px] ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
+                {feed.length > 0 && `${TIER_LABELS[('action' as NotifTier)]} filter available on page`}
+              </p>
               <button
-                onClick={() => {
-                  navigateToPath(notificationsPath);
-                }}
-                className={`text-xs font-medium transition-colors ${isDark ? 'text-gold hover:text-gold-light' : 'text-gold hover:text-gold-light'}`}
+                onClick={() => navigateToPath(notifPath)}
+                className="text-xs font-medium text-gold hover:text-gold-light transition-colors"
               >
                 View all →
               </button>
