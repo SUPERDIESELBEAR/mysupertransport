@@ -56,7 +56,7 @@ function expiryBadge(expiresAt: string | null) {
   return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] px-1.5 py-0">Valid</Badge>;
 }
 
-export default function DriverVaultCard({ operatorId, operatorName, readOnly = false, defaultCollapsed = false }: DriverVaultCardProps) {
+export default function DriverVaultCard({ operatorId, operatorName, readOnly = false, defaultCollapsed = true }: DriverVaultCardProps) {
   const { toast } = useToast();
   const [docs, setDocs] = useState<VaultDoc[]>([]);
   const [loading, setLoading] = useState(true);
