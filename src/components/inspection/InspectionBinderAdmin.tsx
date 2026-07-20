@@ -161,10 +161,16 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   // "Open in Binder") can switch tabs without a remount.
   useEffect(() => {
     const t = searchParams.get('tab');
-    if (t && ['company', 'driver', 'uploads', 'staging'].includes(t) && t !== activeTab) {
-      setActiveTab(t as 'company' | 'driver' | 'uploads' | 'staging');
+    if (t && ['company', 'driver', 'uploads', 'staging'].includes(t)) {
+      if (t !== activeTab) {
+        setActiveTab(t as 'company' | 'driver' | 'uploads' | 'staging');
+      }
+      // Consume the param so subsequent user tab clicks aren't overridden.
+      const next = new URLSearchParams(searchParams);
+      next.delete('tab');
+      setSearchParams(next, { replace: true });
     }
-  }, [searchParams, activeTab]);
+  }, [searchParams, activeTab, setSearchParams]);
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
   const [lastReminders, setLastReminders] = useState<Record<string, ReminderRecord>>({});
