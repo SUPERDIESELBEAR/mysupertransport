@@ -5171,6 +5171,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </p>
             </div>
 
+            {/* ICA Amendments — add / replace a leased unit */}
+            <ICAAmendmentList
+              operatorId={operatorId}
+              operatorName={operatorName}
+              parentIcaSigned={status.ica_status === 'complete'}
+            />
+
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
               <div className="pt-1 border-t border-border">
