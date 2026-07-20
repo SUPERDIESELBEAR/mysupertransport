@@ -47,29 +47,36 @@ export default function AssignNotificationModal({
     setSendPopup(true);
     setLoadingStaff(true);
     (async () => {
-      const { data } = await supabase
+      const { data: roleRows } = await supabase
         .from('user_roles')
-        .select('user_id, role, profiles!inner(first_name, last_name, avatar_url, account_status)')
+        .select('user_id, role')
         .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner']);
-      const seen = new Map<string, StaffOption>();
-      for (const row of (data ?? []) as Array<{
-        user_id: string; role: string;
-        profiles: { first_name: string | null; last_name: string | null; avatar_url: string | null; account_status: string | null };
-      }>) {
-        if (row.profiles?.account_status && row.profiles.account_status !== 'active') continue;
-        if (row.user_id === session?.user?.id) continue;
-        const name = `${row.profiles?.first_name ?? ''} ${row.profiles?.last_name ?? ''}`.trim() || 'Unknown';
-        const existing = seen.get(row.user_id);
-        if (existing) {
-          if (!existing.role.includes(row.role)) existing.role = `${existing.role}, ${row.role}`;
-        } else {
-          seen.set(row.user_id, {
-            user_id: row.user_id, role: row.role, name,
-            avatar_url: row.profiles?.avatar_url ?? null,
-          });
-        }
+      const rolesByUser = new Map<string, string[]>();
+      for (const r of (roleRows ?? []) as Array<{ user_id: string; role: string }>) {
+        if (!r.user_id || r.user_id === session?.user?.id) continue;
+        const arr = rolesByUser.get(r.user_id) ?? [];
+        if (!arr.includes(r.role)) arr.push(r.role);
+        rolesByUser.set(r.user_id, arr);
       }
-      const list = Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+      const userIds = Array.from(rolesByUser.keys());
+      let profilesById = new Map<string, { first_name: string | null; last_name: string | null; avatar_url: string | null; account_status: string | null }>();
+      if (userIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, avatar_url, account_status')
+          .in('user_id', userIds);
+        profilesById = new Map(
+          (profs ?? []).map((p: any) => [p.user_id as string, p]),
+        );
+      }
+      const list: StaffOption[] = [];
+      for (const [uid, roles] of rolesByUser.entries()) {
+        const p = profilesById.get(uid);
+        if (p?.account_status && p.account_status !== 'active') continue;
+        const name = `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || 'Unknown';
+        list.push({ user_id: uid, name, role: roles.join(', '), avatar_url: p?.avatar_url ?? null });
+      }
+      list.sort((a, b) => a.name.localeCompare(b.name));
       setStaff(list);
       setLoadingStaff(false);
     })();
