@@ -379,6 +379,10 @@ interface OperatorRow {
   on_hold_date: string | null;
   notes: string | null;
   anticipated_start_date: string | null;
+  // Searchable vehicle identifiers
+  truck_vin: string | null;
+  unit_number: string | null;
+  truck_plate: string | null;
  }
 
 // ─── Temperature ─────────────────────────────────────────────────────────────
