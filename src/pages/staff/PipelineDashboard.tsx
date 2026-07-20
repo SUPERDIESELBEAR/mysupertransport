@@ -1144,6 +1144,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           mo_docs_submitted,
           mo_reg_received,
           registration_status,
+          truck_vin,
+          unit_number,
+          truck_plate,
           updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
@@ -1295,6 +1298,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
         notes: op.notes ?? null,
         anticipated_start_date: op.anticipated_start_date ?? null,
+        truck_vin: os.truck_vin ?? null,
+        unit_number: os.unit_number ?? op.unit_number ?? null,
+        truck_plate: os.truck_plate ?? null,
       };
     });
     // Keep operators in the Pipeline view if either:
