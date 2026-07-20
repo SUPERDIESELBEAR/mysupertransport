@@ -449,6 +449,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotEmailSent, setDotEmailSent] = useState(false);
   const [dotEmailNotes, setDotEmailNotes] = useState('');
   const [dotAttachments, setDotAttachments] = useState<File[]>([]);
+  const [dotCcEmails, setDotCcEmails] = useState<string[]>([]);
+  const [dotCcInput, setDotCcInput] = useState('');
 
   // Cert history timeline
   type CertHistoryEntry = {
@@ -1356,6 +1358,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operator_id: operatorId,
           notes: dotEmailNotes.trim() || null,
           attachment_paths: uploadedPaths,
+          cc_emails: dotCcEmails,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
@@ -1363,6 +1366,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDotEmailSent(true);
       setDotEmailNotes('');
       setDotAttachments([]);
+      setDotCcEmails([]);
       toast({ title: 'Email sent to Tracey McQuilken', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
       setTimeout(() => setDotEmailSent(false), 5000);
     } catch (err: any) {
