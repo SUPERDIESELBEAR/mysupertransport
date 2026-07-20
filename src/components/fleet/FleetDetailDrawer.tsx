@@ -657,6 +657,88 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
             </p>
           )}
         </div>
+
+        {/* Registration and 2290 Section */}
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileBadge className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground">Registration and 2290</h3>
+              <span className="text-xs text-muted-foreground">({reg2290.length})</span>
+            </div>
+            {!readOnly && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1.5"
+                onClick={() => setReg2290ModalOpen(true)}
+                disabled={!driverUserId}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Registration / 2290
+              </Button>
+            )}
+          </div>
+
+          {reg2290.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search…"
+                className="pl-8 h-8 text-xs"
+                value={reg2290Search}
+                onChange={e => setReg2290Search(e.target.value)}
+              />
+            </div>
+          )}
+
+          {filteredReg2290.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-[10px] font-semibold">Type</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Uploaded</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Expires</TableHead>
+                    <TableHead className="text-[10px] font-semibold w-20"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredReg2290.map(r => {
+                    const days = r.expires_at ? differenceInDays(parseISO(r.expires_at), startOfDay(new Date())) : null;
+                    const expiredCls = days !== null && days < 0 ? 'text-destructive font-semibold' : days !== null && days <= 30 ? 'text-amber-600 font-semibold' : '';
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-xs font-medium whitespace-nowrap">{r.name}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.uploaded_at), 'M/d/yy')}</TableCell>
+                        <TableCell className={'text-xs whitespace-nowrap ' + expiredCls}>
+                          {r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {r.file_path && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(r.file_path!, r.name)}>
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {!readOnly && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletingReg2290(r)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              {reg2290.length > 0 ? 'No records match your search.' : 'No Registration or 2290 records yet.'}
+            </p>
+          )}
+        </div>
       </div>
 
       {!readOnly && (
@@ -702,6 +784,33 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {deletingDotBusy && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Registration2290Modal
+            open={reg2290ModalOpen}
+            onClose={() => setReg2290ModalOpen(false)}
+            driverUserId={driverUserId}
+            onSaved={fetchData}
+          />
+          <AlertDialog open={!!deletingReg2290} onOpenChange={o => { if (!o && !deletingReg2290Busy) setDeletingReg2290(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this {deletingReg2290?.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove the file and clear it from the Fleet Compliance summary.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletingReg2290Busy}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); confirmDeleteReg2290(); }}
+                  disabled={deletingReg2290Busy}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deletingReg2290Busy && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                   Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
