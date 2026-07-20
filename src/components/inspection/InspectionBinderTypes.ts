@@ -47,6 +47,8 @@ export const PER_DRIVER_DOCS = [
   { key: 'Medical Certificate', hasExpiry: true },
   { key: 'Periodic DOT Inspections', hasExpiry: true },
   { key: 'Lease Agreement', hasExpiry: false },
+  { key: 'Registration', hasExpiry: true },
+  { key: 'Form 2290', hasExpiry: true },
 ] as const;
 
 export type DocName =

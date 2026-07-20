@@ -1,100 +1,53 @@
-## How assignment works today
+## Goal
 
-- `notifications` already has an `assigned_to` column from the earlier Notifications Restructure.
-- `src/lib/notifications/actions.ts` exposes `assign()` / `assignMany()` that just set `assigned_to`.
-- `NotificationBell.tsx` and `NotificationHistory.tsx` filter an **"Assigned to me"** queue by `assigned_to === auth.uid()`.
-- **Gap:** no UI picks the assignee, no note is attached, and the assignee gets no push. Only owner Marcus can currently see cross-staff activity via raw DB access.
+Add a third ribbon to the Vehicle Hub unit drawer titled **"Registration and 2290"** with an **"Add Registration / 2290"** button. Each upload is tagged as either **Registration** or **Form 2290**, tracks an expiry date, and appears both in the Vehicle Hub ribbon and in the driver's Fleet Compliance → Driver Docs tab underneath the Lease Agreement group.
 
-## What to build
+## User-facing behavior
 
-A first-class **Assign / Re-assign / Decline** flow with an optional note, a targeted popup to the assignee only, an ack back to the assigner, and an owner audit feed for Marcus Mueller.
+1. **Vehicle Hub — new ribbon** (below "Repairs & Maintenance" in `FleetDetailDrawer`):
+   - Header: **"Registration and 2290"** with an **"Add Registration / 2290"** outline button (Plus icon), matching the existing "Add Inspection" / "Add Record" styling.
+   - Search box + table like the existing sections: columns **Type** (Registration / 2290), **Effective / Filed Date**, **Expires**, **Uploaded By**, **File**, **Actions** (view via in-app modal, delete).
+   - Empty state: "No registration or 2290 records yet."
 
-### 1. Assign action UI
+2. **Add modal** (`Registration2290Modal`):
+   - Type selector (radio): **Registration** or **Form 2290**.
+   - Date fields — Registration: `effective_date` + `expires_at`. 2290: `tax_period_start` + `expires_at` (defaults to next June 30).
+   - File upload (PDF/JPG/PNG, max 10 MB) → uploads via `uploadToBucket` helper to `driver-documents/registration-2290/<driver_id>/…`.
+   - On save: insert into `inspection_documents` with `scope='per_driver'`, `name='Registration'` or `'Form 2290'`, `shared_with_fleet=true`, and the chosen `expires_at`.
 
-Add an **Assign** control (`UserPlus` icon) to:
-- Each row in `NotificationHistory.tsx` and its bulk action bar
-- The row menu in `NotificationBell.tsx`
+3. **Fleet Compliance — Driver Docs tab** (`InspectionBinderAdmin` / driver docs list):
+   - Registration and 2290 documents automatically appear grouped **directly below "Lease Agreement"** because they are `per_driver` rows on `inspection_documents`.
+   - Add the two new names to the per-driver required-doc list so they render with status dots (green when a non-expired file is present, red when missing/expired) alongside CDL, Med Cert, IRP, Lease Agreement.
 
-Opens `AssignNotificationModal`:
-- **Assignee** — searchable combobox of active staff (`onboarding_staff | dispatcher | management | owner`) from `profiles` ⨝ `user_roles`, self excluded, with "Assign to me" shortcut.
-- **Note (optional)** — textarea, ~500 chars, "Why are you sending this to them?"
-- **Send popup to assignee** — checkbox, default **on**.
-- Buttons: Cancel · Assign.
+4. **Fleet Compliance Summary cards** (`InspectionComplianceSummary` / `v_compliance_items`):
+   - Registration and 2290 join CDL / Med Cert / IRP as tracked items with the same expiry-threshold color logic (green > 60d, amber ≤ 60d, red expired). Same MM/DD/YYYY layout using the existing `CertSubRow` (already fixed for whitespace).
 
-### 2. Assignee-side actions (Re-assign & Decline)
+## Technical outline
 
-On any notification where `assigned_to = auth.uid()`, and in the assignment popup card, show:
-- **Accept** (default — just dismiss popup, keep it in inbox)
-- **Re-assign** → reopens `AssignNotificationModal` prefilled; server records this as a re-assignment (see audit below).
-- **Decline** → opens a small prompt for an optional reason, clears `assigned_to` back to `null` (returns it to the shared queue), and notifies the original assigner.
+- **Migration**
+  - Extend the per-driver required-doc seed (`pipeline_config` or the equivalent list used by `InspectionBinderAdmin`) to include `"Registration"` and `"Form 2290"`.
+  - Update `v_compliance_items` view to include rows for `name IN ('Registration','Form 2290')` from `inspection_documents`, filtered to active + insured + Go-Live drivers (existing filter).
+  - No new tables — reuses `inspection_documents` (`scope='per_driver'`, `driver_id`, `expires_at`).
 
-### 3. Server-side write — `assign-notification` edge function
+- **Frontend**
+  - `src/components/fleet/Registration2290Modal.tsx` — new modal (mirrors `MaintenanceRecordModal`).
+  - `src/components/fleet/FleetDetailDrawer.tsx` — add state (`reg2290`, `reg2290ModalOpen`, `reg2290Search`), fetch via `.from('inspection_documents').eq('driver_id', driverId).in('name', ['Registration','Form 2290'])`, render section below Repairs & Maintenance, wire up delete + PreviewLink (in-app modal preview per existing rule).
+  - `src/components/inspection/InspectionComplianceSummary.tsx` — extend the cert list rendered per driver to include Registration and 2290 subrows.
+  - `src/components/inspection/InspectionBinderAdmin.tsx` — no change needed if it reads the required-doc list from `pipeline_config`; otherwise add the two names to the local list so they render in the Driver Docs tab under Lease Agreement.
 
-Auth: `getClaims` + staff-role check (matches `send-staff-birthday-message` pattern).
+- **Realtime / sync**
+  - Existing `inspection_documents` realtime subscription in `PipelineDashboard` / `ManagementPortal` already covers the new rows — no additional channels required.
+  - `sync_dot_binder_to_vh` trigger is scoped to CDL/Med Cert/IRP names; leave untouched.
 
-Input:
-```
-{ action: 'assign' | 'reassign' | 'decline',
-  notificationIds: string[],
-  assigneeUserId?: string,      // required for assign/reassign
-  note?: string,                // optional message
-  sendPopup?: boolean }         // default true
-```
+## Out of scope
 
-Behavior:
-1. Update source rows: `assigned_to = <assignee>` (or `null` on decline).
-2. Insert an **assignee notification** (only on assign/reassign; sends the popup):
-   - `user_id = assigneeUserId`, `type = 'assignment'`, `priority = 'action'`
-   - `title = "<AssignerName> assigned you a notification"` (plural if >1)
-   - `body = note || <first source title>`
-   - `link = <first source link>`, `entity_type = 'notification'`, `entity_id = <first source id>`
-3. Insert an **assigner ack notification** back to whoever last assigned the item:
-   - On **accept/read** by the assignee → `"<Assignee> received your assignment"`
-   - On **decline** → `"<Assignee> declined your assignment"` + reason
-   - On **re-assign** → `"<Assignee> re-assigned your item to <NewAssignee>"`
-4. Insert an **owner audit notification** to Marcus Mueller (lookup by owner role, single user) mirroring every assign / reassign / decline event: `"<Actor> <action> notification → <Target>"` with the note/reason in the body and a link to the source. Type `assignment_audit`, priority `fyi`, so it sits quietly in Marcus's inbox / audit feed and does not popup.
+- No changes to operator/driver-facing upload UI (staff-only ribbon).
+- No email reminders wired up in this pass (cert reminder engine can be extended later if desired).
 
-Ack-on-read: extend `markRead` (or a small trigger on `notifications` when `type='assignment'` transitions to read) to fire the assigner ack once. Simpler path: do it client-side in `AssignmentPopup` when the assignee taps **Accept/Open**, by calling the same edge function with `action: 'ack'`.
+## Files touched
 
-### 4. Popup — assignee only
-
-New `AssignmentPopup.tsx` mounted in `StaffLayout.tsx` (covers Management, Dispatch, Staff, Owner portals in one place — no owner-wide broadcast because the popup is driven off `user_id = auth.uid()` rows only).
-
-Visuals: mirror `BirthdayAnniversaryPopup.tsx` — fixed top-right stack, gold border, avatar circle, dismiss X, minimizable pill. Card contents:
-- Assigner avatar + name
-- "Assigned you: <source title>"
-- Note (if present)
-- Buttons: **Open** (nav to `link`) · **Re-assign** · **Decline**
-- X to dismiss without acting (stays in inbox)
-
-Hook `useAssignmentPopupEvents.ts`:
-- Fetches unread `notifications` where `user_id = auth.uid()`, `type = 'assignment'`, `read_at is null`, `archived_at is null`.
-- Realtime channel on `notifications` insert filtered by `user_id=eq.<me>` so a fresh assignment appears without refresh.
-
-### 5. Where things land
-
-| Recipient | Where | Type | Popup? |
-| --- | --- | --- | --- |
-| Assignee | Inbox → Action tier → "Assigned to me" | `assignment` | Yes (top-right) |
-| Assigner | Inbox → FYI tier | `assignment_ack` | No |
-| Owner (Marcus) | Inbox → new "Assignment Audit" category | `assignment_audit` | No |
-
-Source notification row in `NotificationHistory.tsx` gains an "Assigned to <Name>" chip so anyone viewing it sees current ownership.
-
-### 6. Taxonomy + realtime
-
-- `src/lib/notifications/taxonomy.ts`: register `assignment`, `assignment_ack`, `assignment_audit` (category `Team`; tiers per table above).
-- `NotificationBell.tsx` already subscribes to inserts — the three new types flow through with no changes; the bell just shows them in the correct tier.
-
-## Files to add / touch
-
-- Add: `src/components/management/AssignNotificationModal.tsx`
-- Add: `src/components/staff/AssignmentPopup.tsx`
-- Add: `src/hooks/useAssignmentPopupEvents.ts`
-- Add: `supabase/functions/assign-notification/index.ts`
-- Edit: `src/lib/notifications/taxonomy.ts`
-- Edit: `src/components/management/NotificationHistory.tsx` (row + bulk assign entry, "Assigned to <name>" chip, Reassign/Decline on my assignments)
-- Edit: `src/components/NotificationBell.tsx` (row assign entry, Reassign/Decline on my assignments)
-- Edit: `src/components/layouts/StaffLayout.tsx` (mount `AssignmentPopup` once for all staff portals)
-
-Ready to implement when you approve.
+- `supabase/migrations/<timestamp>_add_registration_2290_compliance.sql` (new)
+- `src/components/fleet/Registration2290Modal.tsx` (new)
+- `src/components/fleet/FleetDetailDrawer.tsx`
+- `src/components/inspection/InspectionComplianceSummary.tsx`
+- `src/components/inspection/InspectionBinderAdmin.tsx` (only if required-doc list is local)

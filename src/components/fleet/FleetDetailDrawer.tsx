@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
+import Registration2290Modal from './Registration2290Modal';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
-  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2,
+  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2, FileBadge,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -54,6 +55,16 @@ interface DOTInspection {
   certificate_file_name: string | null;
   notes: string | null;
   created_at: string;
+}
+
+interface Reg2290Record {
+  id: string;
+  name: 'Registration' | 'Form 2290' | string;
+  file_url: string | null;
+  file_path: string | null;
+  expires_at: string | null;
+  uploaded_at: string;
+  uploaded_by: string | null;
 }
 
 interface FleetDetailDrawerProps {
@@ -88,6 +99,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([]);
   const [dotInspections, setDotInspections] = useState<DOTInspection[]>([]);
+  const [reg2290, setReg2290] = useState<Reg2290Record[]>([]);
+  const [reg2290ModalOpen, setReg2290ModalOpen] = useState(false);
+  const [reg2290Search, setReg2290Search] = useState('');
+  const [deletingReg2290, setDeletingReg2290] = useState<Reg2290Record | null>(null);
+  const [deletingReg2290Busy, setDeletingReg2290Busy] = useState(false);
   const [driverUserId, setDriverUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
@@ -199,6 +215,22 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
 
     setMaintenance((maintenanceResult.data as MaintenanceRecord[]) ?? []);
     setDotInspections((dotResult.data as DOTInspection[]) ?? []);
+
+    // Registration / Form 2290 rows live in inspection_documents (per_driver)
+    const uid = opResult.data ? (opResult.data as any).user_id as string | null : null;
+    if (uid) {
+      const { data: reg } = await supabase
+        .from('inspection_documents')
+        .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by')
+        .eq('scope', 'per_driver')
+        .eq('driver_id', uid)
+        .in('name', ['Registration', 'Form 2290'])
+        .order('uploaded_at', { ascending: false });
+      setReg2290((reg as Reg2290Record[]) ?? []);
+    } else {
+      setReg2290([]);
+    }
+
     setLoading(false);
     if (!readyFiredRef.current) { readyFiredRef.current = true; onReady?.(); }
   }, [operatorId, onReady]);
@@ -257,6 +289,37 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     }
     return items;
   }, [maintenance, categoryFilter, maintenanceSearch]);
+
+  const filteredReg2290 = useMemo(() => {
+    const q = reg2290Search.trim().toLowerCase();
+    if (!q) return reg2290;
+    return reg2290.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      (r.expires_at ?? '').toLowerCase().includes(q)
+    );
+  }, [reg2290, reg2290Search]);
+
+  const confirmDeleteReg2290 = async () => {
+    if (!deletingReg2290) return;
+    setDeletingReg2290Busy(true);
+    try {
+      if (deletingReg2290.file_path) {
+        await supabase.storage.from('inspection-documents').remove([deletingReg2290.file_path]);
+      }
+      const { error } = await supabase
+        .from('inspection_documents')
+        .delete()
+        .eq('id', deletingReg2290.id);
+      if (error) throw error;
+      toast({ title: `${deletingReg2290.name} deleted` });
+      setDeletingReg2290(null);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+    } finally {
+      setDeletingReg2290Busy(false);
+    }
+  };
 
   const latestDot = dotInspections[0] ?? null;
   const dotDaysLeft = latestDot?.next_due_date
@@ -594,6 +657,88 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
             </p>
           )}
         </div>
+
+        {/* Registration and 2290 Section */}
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileBadge className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground">Registration and 2290</h3>
+              <span className="text-xs text-muted-foreground">({reg2290.length})</span>
+            </div>
+            {!readOnly && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1.5"
+                onClick={() => setReg2290ModalOpen(true)}
+                disabled={!driverUserId}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Registration / 2290
+              </Button>
+            )}
+          </div>
+
+          {reg2290.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search…"
+                className="pl-8 h-8 text-xs"
+                value={reg2290Search}
+                onChange={e => setReg2290Search(e.target.value)}
+              />
+            </div>
+          )}
+
+          {filteredReg2290.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-[10px] font-semibold">Type</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Uploaded</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Expires</TableHead>
+                    <TableHead className="text-[10px] font-semibold w-20"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredReg2290.map(r => {
+                    const days = r.expires_at ? differenceInDays(parseISO(r.expires_at), startOfDay(new Date())) : null;
+                    const expiredCls = days !== null && days < 0 ? 'text-destructive font-semibold' : days !== null && days <= 30 ? 'text-amber-600 font-semibold' : '';
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-xs font-medium whitespace-nowrap">{r.name}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.uploaded_at), 'M/d/yy')}</TableCell>
+                        <TableCell className={'text-xs whitespace-nowrap ' + expiredCls}>
+                          {r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {r.file_path && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(r.file_path!, r.name)}>
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {!readOnly && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletingReg2290(r)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              {reg2290.length > 0 ? 'No records match your search.' : 'No Registration or 2290 records yet.'}
+            </p>
+          )}
+        </div>
       </div>
 
       {!readOnly && (
@@ -639,6 +784,33 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {deletingDotBusy && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Registration2290Modal
+            open={reg2290ModalOpen}
+            onClose={() => setReg2290ModalOpen(false)}
+            driverUserId={driverUserId}
+            onSaved={fetchData}
+          />
+          <AlertDialog open={!!deletingReg2290} onOpenChange={o => { if (!o && !deletingReg2290Busy) setDeletingReg2290(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this {deletingReg2290?.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove the file and clear it from the Fleet Compliance summary.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletingReg2290Busy}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); confirmDeleteReg2290(); }}
+                  disabled={deletingReg2290Busy}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deletingReg2290Busy && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
                   Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
