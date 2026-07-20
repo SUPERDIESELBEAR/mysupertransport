@@ -449,6 +449,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotEmailSent, setDotEmailSent] = useState(false);
   const [dotEmailNotes, setDotEmailNotes] = useState('');
   const [dotAttachments, setDotAttachments] = useState<File[]>([]);
+  const [dotCcEmails, setDotCcEmails] = useState<string[]>([]);
+  const [dotCcInput, setDotCcInput] = useState('');
 
   // Cert history timeline
   type CertHistoryEntry = {
@@ -1356,6 +1358,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operator_id: operatorId,
           notes: dotEmailNotes.trim() || null,
           attachment_paths: uploadedPaths,
+          cc_emails: dotCcEmails,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
@@ -1363,6 +1366,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDotEmailSent(true);
       setDotEmailNotes('');
       setDotAttachments([]);
+      setDotCcEmails([]);
       toast({ title: 'Email sent to Tracey McQuilken', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
       setTimeout(() => setDotEmailSent(false), 5000);
     } catch (err: any) {
@@ -6185,7 +6189,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     </p>
 
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to Tracey (optional)</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to Tracey</Label>
                       <Textarea
                         rows={3}
                         placeholder="Anything Tracey should know…"
@@ -6194,6 +6198,62 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         maxLength={5000}
                         className="text-sm"
                       />
+                    </div>
+
+                    {/* Additional CC recipients (per-send, not saved) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CC (optional)</Label>
+                      <p className="text-[11px] text-muted-foreground">Add additional recipients to CC on this email (e.g. yourself). Not saved between sends.</p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="email"
+                          value={dotCcInput}
+                          onChange={e => setDotCcInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && dotCcInput.trim()) {
+                              e.preventDefault();
+                              const email = dotCcInput.trim().toLowerCase();
+                              if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !dotCcEmails.includes(email) && dotCcEmails.length < 10) {
+                                setDotCcEmails(prev => [...prev, email]);
+                              }
+                              setDotCcInput('');
+                            }
+                          }}
+                          placeholder="you@example.com"
+                          className="h-8 text-xs flex-1"
+                          disabled={dotCcEmails.length >= 10}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs px-3"
+                          onClick={() => {
+                            const email = dotCcInput.trim().toLowerCase();
+                            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !dotCcEmails.includes(email) && dotCcEmails.length < 10) {
+                              setDotCcEmails(prev => [...prev, email]);
+                            }
+                            setDotCcInput('');
+                          }}
+                          disabled={dotCcEmails.length >= 10}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {dotCcEmails.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {dotCcEmails.map(email => (
+                            <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted border border-border text-foreground">
+                              {email}
+                              <button
+                                type="button"
+                                onClick={() => setDotCcEmails(prev => prev.filter(e => e !== email))}
+                                className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                              >×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
