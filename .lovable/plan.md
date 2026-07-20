@@ -1,27 +1,24 @@
-## Goal
+## Problem
 
-When a management user clicks **Open in Binder** on a driver in the Fleet Compliance summary (for CDL / Med Cert / IRP), the DOT Inspection Binder should open with the **Driver Docs** tab already selected for that driver — instead of defaulting to the **Company Docs** tab.
+Clicking **Open in Binder** from Fleet Compliance now correctly lands on the **Driver Docs** tab, but users can no longer switch to Company Docs, Driver Uploads, or Staging. Clicking another tab briefly changes `activeTab`, then the URL-sync effect in `InspectionBinderAdmin.tsx` (lines 160–167) sees `?tab=driver` is still in the URL and forces `activeTab` back to `driver`.
 
-## Current behavior
+## Fix
 
-`InspectionComplianceSummary` calls `onOpenOperatorAtBinder(operatorId)`. In `src/pages/management/ManagementPortal.tsx` (~line 2109) the handler:
+In `src/components/inspection/InspectionBinderAdmin.tsx`, change the `?tab=` sync effect so it applies the URL value once and then removes `tab` from the URL, instead of continuously enforcing it.
 
-1. Looks up the driver's `user_id`.
-2. Sets `?driver=<userId>` in the URL.
-3. Switches to the `inspection-binder` view.
+Specifically, in the effect at ~line 162:
 
-`InspectionBinderAdmin` reads `?tab=` only on initial mount for `activeTab`, defaulting to `'company'`. The `?driver=` sync effect updates the selected driver but never touches the active tab, so the user lands on Company Docs.
+- When a valid `tab` param is present, call `setActiveTab(t)`.
+- Then immediately strip `tab` from `searchParams` via `setSearchParams(next, { replace: true })`, preserving all other params (`driver`, `flipbook`, etc.).
+- Keep the dependency array on `[searchParams]` so it runs on deep-link entry and becomes a no-op once the param is cleared.
 
-## Changes
+Because the tab param is consumed and removed on arrival, the sync effect never fires again for the current visit — the user's tab clicks are fully respected and they can move freely between **Driver Docs**, **Company Docs**, **Driver Uploads**, and **Staging**.
 
-1. **`src/pages/management/ManagementPortal.tsx`** — in the Fleet Compliance `onOpenOperatorAtBinder` handler (~line 2109), also set `next.set('tab', 'driver')` alongside `?driver=` before navigating to the `inspection-binder` view.
-
-2. **`src/components/inspection/InspectionBinderAdmin.tsx`** — extend the existing `searchParams` sync effect (or add a small companion effect) so that whenever the URL `tab` param changes to a valid value (`company | driver | uploads | staging`) while the page is mounted, `setActiveTab` is called to match. This ensures the tab switch happens when navigating in from Fleet Compliance without a remount, and keeps the tab honored on subsequent deep links.
-
-No changes to database, RLS, or the dispatch-board flipbook deep-link path (which already forces `activeTab = 'driver'` before opening the flipbook).
+No other files need to change. `ManagementPortal.tsx` still sets `?tab=driver` when opening from Fleet Compliance; the binder consumes it once.
 
 ## Verification
 
-- From Overview → Fleet Compliance, click **Open in Binder** on a driver card: the DOT Inspection Binder opens with the **Driver Docs** tab active and that driver preselected.
-- Dispatch board's **Binder** button still opens the flipbook cover page unchanged.
-- Directly visiting `/…inspection-binder?tab=company` still lands on Company Docs.
+- Fleet Compliance → **Open in Binder** on a driver: lands on **Driver Docs** with the driver preselected.
+- From there, clicking any of **Company Docs**, **Driver Uploads**, or **Staging** switches to that tab and stays there. Clicking back to **Driver Docs** also works. No tab is locked.
+- Direct visit to `/…inspection-binder?tab=company` still lands on Company Docs, and subsequent tab clicks work.
+- Dispatch board **Binder** button (flipbook path) is unchanged.
