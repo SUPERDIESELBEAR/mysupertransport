@@ -11,6 +11,7 @@ import QuickTruckEditModal from './QuickTruckEditModal';
 import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
 import LogUpdateModal from './LogUpdateModal';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
+import DecalPhotoViewerModal from './DecalPhotoViewerModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -67,7 +68,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [logUpdateTarget, setLogUpdateTarget] = useState<FleetRow | null>(null);
-  const [photoGridTarget, setPhotoGridTarget] = useState<FleetRow | null>(null);
+  const [truckPhotoTarget, setTruckPhotoTarget] = useState<FleetRow | null>(null);
+  const [decalPhotoTarget, setDecalPhotoTarget] = useState<FleetRow | null>(null);
+  // Signed thumbnails keyed by operatorId: { truck, decal }
+  const [thumbUrls, setThumbUrls] = useState<Record<string, { truck?: string; decal?: string }>>({});
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
   const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
@@ -211,6 +215,46 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   }, [buildRows]);
 
   useEffect(() => { fetchFleet(); }, [fetchFleet]);
+
+  // Build fresh signed thumbnail URLs (truck-first + decal driver-side) whenever rows change.
+  useEffect(() => {
+    const all = [...activeRows, ...deactivatedRows];
+    if (all.length === 0) { setThumbUrls({}); return; }
+    let cancelled = false;
+
+    const extractPath = (fileUrl: string): string => {
+      const marker = '/operator-documents/';
+      const idx = fileUrl.indexOf(marker);
+      if (idx >= 0) return decodeURIComponent(fileUrl.substring(idx + marker.length).split('?')[0]);
+      return fileUrl.replace(/^\//, '');
+    };
+    const sign = async (raw: string | null | undefined): Promise<string | undefined> => {
+      if (!raw) return undefined;
+      try {
+        const { data } = await supabase.storage
+          .from('operator-documents')
+          .createSignedUrl(extractPath(raw), 3600);
+        return data?.signedUrl ?? undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    (async () => {
+      const entries = await Promise.all(
+        all.map(async r => {
+          const [truck, decal] = await Promise.all([
+            sign(r.truckPhotos[0]?.file_url ?? null),
+            sign(r.decalPhotoDsUrl ?? r.decalPhotoPsUrl ?? r.decalPhotosExtra[0]?.url ?? null),
+          ]);
+          return [r.operatorId, { truck, decal }] as const;
+        }),
+      );
+      if (!cancelled) setThumbUrls(Object.fromEntries(entries));
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeRows, deactivatedRows]);
 
   const rows = showDeactivated ? deactivatedRows : activeRows;
 
@@ -466,38 +510,58 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </div>
               </div>
 
-              {/* Truck + decal photos strip */}
+              {/* Truck + decal photos — separate click targets */}
               {(() => {
-                const totalDecals = (row.decalPhotoDsUrl ? 1 : 0) + (row.decalPhotoPsUrl ? 1 : 0) + row.decalPhotosExtra.length;
-                const totalPhotos = row.truckPhotos.length + totalDecals;
+                const truckCount = row.truckPhotos.length;
+                const decalCount = (row.decalPhotoDsUrl ? 1 : 0) + (row.decalPhotoPsUrl ? 1 : 0) + row.decalPhotosExtra.length;
+                const thumbs = thumbUrls[row.operatorId] ?? {};
                 return (
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); setPhotoGridTarget(row); }}
-                    className="border-t border-border pt-2.5 flex items-center gap-2 text-left hover:bg-muted/30 rounded-md px-1 -mx-1 py-1 transition-colors"
-                    title="View truck photos"
-                  >
-                    <div className="flex -space-x-2">
-                      {row.truckPhotos.slice(0, 3).map(p => (
-                        <div key={p.id} className="h-10 w-10 rounded-md border-2 border-card bg-muted overflow-hidden flex items-center justify-center">
+                  <div className="border-t border-border pt-2.5 grid grid-cols-2 gap-2">
+                    {/* Truck photos */}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setTruckPhotoTarget(row); }}
+                      disabled={truckCount === 0}
+                      className="flex items-center gap-2 text-left hover:bg-muted/30 disabled:hover:bg-transparent disabled:cursor-not-allowed rounded-md px-1 py-1 transition-colors"
+                      title={truckCount === 0 ? 'No truck photos yet' : 'View truck photos'}
+                    >
+                      <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
+                        {thumbs.truck ? (
+                          <img src={thumbs.truck} alt="Truck" className="w-full h-full object-cover" />
+                        ) : (
                           <Camera className="h-4 w-4 text-muted-foreground/50" />
-                        </div>
-                      ))}
-                      {totalPhotos === 0 && (
-                        <div className="h-10 w-10 rounded-md border-2 border-dashed border-border bg-muted/40 flex items-center justify-center">
-                          <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-xs">
-                      <div className="font-medium text-foreground">Photos</div>
-                      <div className="text-muted-foreground">
-                        {totalPhotos === 0
-                          ? 'No photos yet'
-                          : `${row.truckPhotos.length} truck · ${totalDecals} decal`}
+                        )}
                       </div>
-                    </div>
-                  </button>
+                      <div className="text-xs min-w-0">
+                        <div className="font-medium text-foreground">Truck</div>
+                        <div className="text-muted-foreground truncate">
+                          {truckCount === 0 ? 'No photos' : `${truckCount} photo${truckCount === 1 ? '' : 's'}`}
+                        </div>
+                      </div>
+                    </button>
+                    {/* Decal photos */}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setDecalPhotoTarget(row); }}
+                      disabled={decalCount === 0}
+                      className="flex items-center gap-2 text-left hover:bg-muted/30 disabled:hover:bg-transparent disabled:cursor-not-allowed rounded-md px-1 py-1 transition-colors"
+                      title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
+                    >
+                      <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
+                        {thumbs.decal ? (
+                          <img src={thumbs.decal} alt="Decal" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="h-4 w-4 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <div className="text-xs min-w-0">
+                        <div className="font-medium text-foreground">Decal</div>
+                        <div className="text-muted-foreground truncate">
+                          {decalCount === 0 ? 'No photos' : `${decalCount} photo${decalCount === 1 ? '' : 's'}`}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 );
               })()}
 
@@ -645,42 +709,24 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           onSaved={fetchFleet}
         />
       )}
-      {photoGridTarget && (() => {
-        // Build a combined file list: truck photos + decal photos rendered as virtual rows
-        const decalRows: Array<{ id: string; file_name: string | null; file_url: string | null; uploaded_at: string }> = [];
-        if (photoGridTarget.decalPhotoDsUrl) {
-          decalRows.push({
-            id: `decal-ds-${photoGridTarget.operatorId}`,
-            file_name: 'Decal — Driver Side',
-            file_url: photoGridTarget.decalPhotoDsUrl,
-            uploaded_at: new Date().toISOString(),
-          });
-        }
-        if (photoGridTarget.decalPhotoPsUrl) {
-          decalRows.push({
-            id: `decal-ps-${photoGridTarget.operatorId}`,
-            file_name: 'Decal — Passenger Side',
-            file_url: photoGridTarget.decalPhotoPsUrl,
-            uploaded_at: new Date().toISOString(),
-          });
-        }
-        photoGridTarget.decalPhotosExtra.forEach((p, idx) => {
-          decalRows.push({
-            id: `decal-extra-${photoGridTarget.operatorId}-${idx}`,
-            file_name: `Decal — ${p.label || `Angle ${idx + 1}`}`,
-            file_url: p.url,
-            uploaded_at: new Date().toISOString(),
-          });
-        });
-        return (
-          <TruckPhotoGridModal
-            open={!!photoGridTarget}
-            onClose={() => setPhotoGridTarget(null)}
-            files={[...photoGridTarget.truckPhotos, ...decalRows]}
-            alreadyReceived
-          />
-        );
-      })()}
+      {truckPhotoTarget && (
+        <TruckPhotoGridModal
+          open={!!truckPhotoTarget}
+          onClose={() => setTruckPhotoTarget(null)}
+          files={truckPhotoTarget.truckPhotos}
+          alreadyReceived
+        />
+      )}
+      {decalPhotoTarget && (
+        <DecalPhotoViewerModal
+          open={!!decalPhotoTarget}
+          onClose={() => setDecalPhotoTarget(null)}
+          driverName={decalPhotoTarget.driverName}
+          decalPhotoDsUrl={decalPhotoTarget.decalPhotoDsUrl}
+          decalPhotoPsUrl={decalPhotoTarget.decalPhotoPsUrl}
+          decalPhotosExtra={decalPhotoTarget.decalPhotosExtra}
+        />
+      )}
     </div>
   );
 }
