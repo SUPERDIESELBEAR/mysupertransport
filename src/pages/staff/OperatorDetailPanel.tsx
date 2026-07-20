@@ -6038,7 +6038,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                     {/* Send email button */}
                     <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-2">
-                      <p className="text-xs font-medium text-foreground">Email Request to Insurer</p>
+                      <p className="text-xs font-medium text-foreground">Email Request to Insurance Company</p>
                       <p className="text-[11px] text-muted-foreground">Sends driver name, DL copy, CMV experience, truck VIN/year/make/model, stated value, and additional insured/certificate holder info to the insurance company.</p>
                       <Button
                         variant="outline"
@@ -6052,7 +6052,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         ) : insuranceEmailSent ? (
                           <><CheckCircle2 className="h-3.5 w-3.5" /> Sent!</>
                         ) : (
-                          <><Mail className="h-3.5 w-3.5" /> Send to Insurance Company</>
+                          <><Send className="h-3.5 w-3.5" /> Email Insurance Company</>
                         )}
                       </Button>
                       {insuranceEmailRecipients.length === 0 && (
