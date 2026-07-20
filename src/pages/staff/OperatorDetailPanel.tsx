@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
+import ICAAmendmentList from '@/components/ica/ICAAmendmentList';
 import LeaseTerminationBuilderModal from '@/components/ica/LeaseTerminationBuilderModal';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
