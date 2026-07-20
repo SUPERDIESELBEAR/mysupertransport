@@ -1,24 +1,37 @@
-## Problem
+## Stage 8 — Additional email recipients for the DOT consultant email
 
-Clicking **Open in Binder** from Fleet Compliance now correctly lands on the **Driver Docs** tab, but users can no longer switch to Company Docs, Driver Uploads, or Staging. Clicking another tab briefly changes `activeTab`, then the URL-sync effect in `InspectionBinderAdmin.tsx` (lines 160–167) sees `?tab=driver` is still in the URL and forces `activeTab` back to `driver`.
+Add an "Additional recipients (CC)" chip input to the Stage 8 "Email Tracey McQuilken" panel so staff can send copies to themselves or other people on a per-send basis. Also remove the word "optional" from the "Notes to Tracey" label.
 
-## Fix
+### Scope
 
-In `src/components/inspection/InspectionBinderAdmin.tsx`, change the `?tab=` sync effect so it applies the URL value once and then removes `tab` from the URL, instead of continuously enforcing it.
+- Frontend only for the label change.
+- Frontend + one edge function for the CC feature.
+- Do NOT reuse the persistent `insurance_email_settings` pattern — Stage 8 CCs are ad-hoc per send (not saved), matching the user's "if staff chooses to do so" framing.
 
-Specifically, in the effect at ~line 162:
+### Changes
 
-- When a valid `tab` param is present, call `setActiveTab(t)`.
-- Then immediately strip `tab` from `searchParams` via `setSearchParams(next, { replace: true })`, preserving all other params (`driver`, `flipbook`, etc.).
-- Keep the dependency array on `[searchParams]` so it runs on deep-link entry and becomes a no-op once the param is cleared.
+**`src/pages/staff/OperatorDetailPanel.tsx`**
 
-Because the tab param is consumed and removed on arrival, the sync effect never fires again for the current visit — the user's tab clicks are fully respected and they can move freely between **Driver Docs**, **Company Docs**, **Driver Uploads**, and **Staging**.
+1. Change label text `Notes to Tracey (optional)` → `Notes to Tracey`.
+2. Add local state:
+   - `dotCcEmails: string[]`
+   - `dotCcInput: string`
+3. Above the "Attachments" block, add a "CC (optional)" section styled like the Stage 7 insurance recipients input:
+   - Text input + Add button, Enter key adds; validates with a simple email regex; dedupes; caps at 10 addresses.
+   - Renders added addresses as removable chips.
+4. In `handleSendDotConsultantEmail`, include `cc_emails: dotCcEmails` in the invoke body, and clear `dotCcEmails` on success (alongside notes/attachments reset).
+5. Toast `description` becomes `Sent to ${data.sent_to.join(', ')}` (already correct — edge function will include CCs in `sent_to`).
 
-No other files need to change. `ManagementPortal.tsx` still sets `?tab=driver` when opening from Fleet Compliance; the binder consumes it once.
+**`supabase/functions/send-dot-consultant-request/index.ts`**
 
-## Verification
+1. Parse optional `cc_emails: string[]` from the request body.
+2. Validate: trim, lowercase, dedupe, drop `tracey@iondot.net` (avoid double-send), drop anything that fails a basic email regex, cap at 10.
+3. Pass `cc: validatedCcs` (when non-empty) to the Resend `send` payload alongside the existing `to: [RECIPIENT_EMAIL]`.
+4. Include the CCs in the `sent_to` array returned to the client so the success toast reflects them.
+5. Log line: include CC count.
 
-- Fleet Compliance → **Open in Binder** on a driver: lands on **Driver Docs** with the driver preselected.
-- From there, clicking any of **Company Docs**, **Driver Uploads**, or **Staging** switches to that tab and stays there. Clicking back to **Driver Docs** also works. No tab is locked.
-- Direct visit to `/…inspection-binder?tab=company` still lands on Company Docs, and subsequent tab clicks work.
-- Dispatch board **Binder** button (flipbook path) is unchanged.
+### Out of scope
+
+- No database changes, no new table, no persistent "default CC list" — this is a per-send input.
+- No changes to Stage 7 insurance flow.
+- No template/HTML body changes.
