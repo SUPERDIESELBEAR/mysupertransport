@@ -603,6 +603,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     cdl?: DocEntry;
     med?: DocEntry;
     irp?: DocEntry;
+    reg?: DocEntry;
+    form2290?: DocEntry;
     worstStatus: Status;
     worstDays: number | null;
   };
@@ -634,9 +636,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       if (e.docKey === 'CDL') g.cdl = e;
       else if (e.docKey === 'Medical Certificate') g.med = e;
       else if (e.docKey === 'IRP Registration (cab card)') g.irp = e;
+      else if (e.docKey === 'Registration') g.reg = e;
+      else if (e.docKey === 'Form 2290') g.form2290 = e;
     });
     byDriver.forEach(g => {
-      const certs = [g.cdl, g.med, g.irp].filter(Boolean) as DocEntry[];
+      const certs = [g.cdl, g.med, g.irp, g.reg, g.form2290].filter(Boolean) as DocEntry[];
       let worst: Status = 'valid';
       let worstDays: number | null = null;
       certs.forEach(c => {
@@ -1277,6 +1281,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         {g.cdl && <CertSubRow entry={g.cdl} />}
                         {g.med && <CertSubRow entry={g.med} />}
                         {g.irp && <CertSubRow entry={g.irp} />}
+                        {g.reg && <CertSubRow entry={g.reg} />}
+                        {g.form2290 && <CertSubRow entry={g.form2290} />}
                       </div>
                       <div className="mt-3 flex items-center gap-3">
                         <button
@@ -1389,6 +1395,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                         {g.cdl && <ListCertSubRow entry={g.cdl} />}
                         {g.med && <ListCertSubRow entry={g.med} />}
                         {g.irp && <ListCertSubRow entry={g.irp} />}
+                        {g.reg && <ListCertSubRow entry={g.reg} />}
+                        {g.form2290 && <ListCertSubRow entry={g.form2290} />}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
