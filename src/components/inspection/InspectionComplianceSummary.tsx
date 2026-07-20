@@ -16,7 +16,7 @@ import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import ComplianceHistoryModal from './ComplianceHistoryModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
+type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Registration' | 'Form 2290';
 
 type Status = 'expired' | 'critical' | 'warning' | 'valid' | 'missing';
 
@@ -65,6 +65,8 @@ const DOC_BADGE: Record<DocKey, string> = {
   'IFTA License':      'bg-orange-50 text-orange-700 border-orange-200',
   'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
   'Medical Certificate': 'bg-purple-50 text-purple-700 border-purple-200',
+  'Registration':      'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'Form 2290':         'bg-amber-50 text-amber-700 border-amber-200',
 };
 
 const DOC_DISPLAY: Record<DocKey, string> = {
@@ -73,6 +75,8 @@ const DOC_DISPLAY: Record<DocKey, string> = {
   'IFTA License':      'IFTA',
   'CDL':               'CDL',
   'Medical Certificate': 'Med Cert',
+  'Registration':      'Registration',
+  'Form 2290':         '2290',
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -186,7 +190,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     const docOrder: Record<DocKey, number> = {
-      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4,
+      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Registration': 5, 'Form 2290': 6,
     };
 
     result.sort((a, b) => {
@@ -561,7 +565,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Registration', 'Form 2290'];
 
   // ── CSV export ─────────────────────────────────────────────────────────
   const exportCsv = () => {
