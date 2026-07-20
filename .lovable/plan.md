@@ -1,72 +1,37 @@
+## Goal
+On the Management → Vehicle Hub fleet cards, replace the single combined "Photos — X truck · Y decal" row with two independently clickable entries and a real Driver-Side decal thumbnail preview. Each viewer opens as its own modal with a close (X) control.
 
-# ICA Amendments — Add / Replace Truck Unit
+## Current behavior
+`src/components/fleet/FleetRoster.tsx` (lines 469-502) renders one button showing 3 generic camera icons and the summary "X truck · Y decal". Clicking it opens `TruckPhotoGridModal` which mixes truck + decal images. When there are no photos at all, an empty `ImageIcon` placeholder is shown.
 
-Currently each operator has one `ica_contracts` row storing a single truck's specs. Once signed, staff have no clean way to add a second unit or swap a totaled/sold truck for a new one — which is what Mae hit with Ian Dunfee.
+## New behavior
 
-This adds a formal **Amendment** flow attached to the original ICA. The original signed contract is never modified. Each add/replace produces a numbered, separately-signed Equipment Schedule Amendment.
+### 1. Two entries in the photos strip
+Replace the single button with two side-by-side buttons (or stacked on narrow cards) inside the same "photos strip" region:
 
-## User-facing flow (staff)
+- **Truck Photos** — thumbnail = first truck photo (or dashed placeholder if none). Label: "Truck Photos · N".
+- **Decal Photos** — thumbnail = Driver-Side decal photo (`decalPhotoDsUrl`) when present, else Passenger-Side, else first extra decal, else dashed placeholder. Label: "Decal Photos · N" (N = DS + PS + extras).
 
-In the operator's Onboarding Pipeline card and in the Fleet Detail Drawer, add an **ICA Amendments** section under the ICA status. It lists any existing amendments (number, effective date, action, unit VIN/plate, status pill).
+Each button is disabled/greyed when its count is 0, but still clickable to a "no photos yet" empty state inside its own modal (kept simple: just don't open when 0, matching the current "no photos" behavior).
 
-A single **"Amend ICA"** button opens a modal with two actions:
+### 2. Real thumbnail rendering
+Today the strip shows camera icons even when photos exist. Load a signed URL for the thumbnail image and render it as an `<img>` inside the 40×40 rounded tile. Use the existing `preloadSignatureDataUrl`/storage signed-URL pattern already used elsewhere in the fleet UI. Cache the resolved URL per row so the roster doesn't re-sign on every re-render.
 
-- **Remove & Replace Unit** — pick which current unit to retire, enter new unit specs, effective date.
-- **Add an Additional Unit** — enter new unit specs, effective date. Original unit(s) remain.
+### 3. Two dedicated viewers with X to close
+- **Truck viewer**: keep `TruckPhotoGridModal`, but pass a new prop `mode="truck"` so it only displays `truckPhotos` and hides decal entries. It already has a Dialog X close.
+- **Decal viewer**: new lightweight modal `DecalPhotoViewerModal.tsx` that renders DS, PS, and extras as labeled tiles ("Driver Side", "Passenger Side", "Additional"). Clicking a tile expands it via the existing `FilePreviewModal` (already used app-wide for in-app image previews). Dialog carries the standard X close.
 
-Save creates a draft amendment. Staff review, then **Send to Operator** — operator gets an email/push and signs in-app just like the original ICA. Once signed, carrier countersigns from the existing carrier signature settings, and the amendment becomes **Effective**.
+Both modals are dismissible via the standard shadcn Dialog X in the top-right and via Escape/overlay click.
 
-On effective:
-- New unit is added to the operator's active-units list.
-- If Replace: removed unit is archived on the ICA and a **Lease Termination** record is auto-created for that unit (partial termination) with reason "unit_replaced".
-- Fleet Roster, Vehicle Hub, MO Plate Registry, and onboarding_status truck fields update to reflect the operator's **currently active** unit(s).
+### 4. State on FleetRoster
+Replace `photoGridTarget` with two separate state slots: `truckPhotoTarget` and `decalPhotoTarget`. Wire the corresponding buttons to set each.
 
-## Rules
+## Files touched
+- `src/components/fleet/FleetRoster.tsx` — split the strip into two buttons; add DS thumbnail loading; add second modal state.
+- `src/components/staff/TruckPhotoGridModal.tsx` — add optional `mode?: 'truck' | 'all'` prop (default `'all'` to preserve any other callers); when `'truck'`, render only truck photos and update the title.
+- `src/components/fleet/DecalPhotoViewerModal.tsx` (new) — labeled DS / PS / additional tiles, click-to-expand via `FilePreviewModal`, Dialog X to close.
 
-- Amendments are numbered per operator (Amendment #1, #2…).
-- Amendments require an original ICA in `signed`/`active` status. Void ICAs cannot be amended.
-- An operator can have at most one **pending** amendment at a time.
-- Removed units are retained forever on the amendment history for audit.
-- The Amendment PDF reuses the ICA template but with an "Equipment Schedule Amendment" header, references the parent ICA number and date, and shows the delta (unit added / unit removed).
-- Full audit-log entries on create, send, sign, countersign, and effective.
-
-## Technical details
-
-**Schema (new tables via one migration, with GRANTs + RLS):**
-- `ica_amendments` — parent record. Columns: `id`, `operator_id`, `parent_ica_id` (FK ica_contracts, ON DELETE RESTRICT), `amendment_number` (int, unique per operator), `action` (`add_unit` | `replace_unit`), `effective_date`, `status` (`draft` | `sent_to_operator` | `operator_signed` | `active` | `voided`), `operator_signature_url`, `operator_signed_at`, `carrier_signature_url`, `carrier_signed_at`, `carrier_signed_by`, `created_by`, `notes`, timestamps.
-- `ica_amendment_units` — one row per unit affected. Columns: `id`, `amendment_id` (FK), `change_type` (`added` | `removed`), `unit_number`, `truck_year/make/model/vin/plate/plate_state`, `trailer_number`.
-
-**Backfill:** on migration, insert one implicit "unit_number 1" row per existing ICA into a new `ica_units` view/table so we can reason about "currently active units" uniformly. Simpler alternative kept in scope: derive current units from parent ICA fields + all `active` amendments in application code — no `ica_units` table required.
-
-**Triggers:**
-- On `ica_amendments.status → 'active'`:
-  - Update `operators.unit_number` / `onboarding_status` truck fields to the **primary** active unit (staff picks primary if multiple).
-  - If `action = 'replace_unit'`: insert a `lease_terminations` row with the removed unit's specs, `reason = 'unit_replaced'`, `ica_contract_id = parent_ica_id`, `partial_termination = true`, `unit_removed_vin = ...`.
-  - Log to `audit_log`.
-- Reuse `sync_ica_completion_to_onboarding` cascade flag pattern to avoid tripping self-update guards.
-
-**Frontend files:**
-- New `src/components/ica/ICAAmendmentBuilderModal.tsx` — the Add/Replace modal (mirrors `ICABuilderModal` structure).
-- New `src/components/ica/ICAAmendmentList.tsx` — history strip shown under ICA status.
-- New `src/components/ica/ICAAmendmentViewModal.tsx` — preview + PDF + signatures.
-- New `src/components/operator/OperatorICAAmendmentSign.tsx` — driver-side signature screen; routed at `/operator?view=ica-amendment&id=…`.
-- `src/pages/staff/OperatorDetailPanel.tsx` — mount amendment list + button in Stage 6 / ICA area.
-- `src/components/fleet/FleetDetailDrawer.tsx` — show active units + amendment history.
-- `src/lib/truckSync.ts` — extend to write against the "primary active unit" for the operator instead of blindly mirroring to the ICA row; leave signed ICA row immutable.
-- `src/components/fleet/FleetRoster.tsx`, `src/components/mo-plates/MoPlateRegistry.tsx` — surface all active units per operator (multi-unit operators).
-
-**Edge functions:**
-- New `send-ica-amendment` — email operator with tokenized amendment link (reuses ICA email template + carrier signature settings). Also emits push notification.
-- Reuse existing `send-lease-termination` path for auto-generated terminations on Replace.
-
-**Security:** RLS on both new tables — operator can read/sign their own amendments; staff (management/owner roles) can create/send/void; carrier signature limited to users with carrier-signer role, same as current ICA.
-
-**Audit + notifications:**
-- Emit `notifications` rows (Action tier) to the assigned pipeline staff on operator signature.
-- Emit birthday-style Action popup to owner on any Replace, since it changes lease composition.
-
-## Out of scope (flag for later)
-
-- Bulk mass-amend (multi-operator) — not needed now.
-- Editing carrier split % via amendment — split remains on the parent ICA.
-- Backfilling historical unit changes that were done manually before this feature ships.
+## Out of scope
+- No changes to the upload flow, storage buckets, or the driver-side decal editor.
+- No changes to the operator/driver portal photo UI.
+- Other placements of the combined "Photos" strip outside Vehicle Hub fleet cards.
