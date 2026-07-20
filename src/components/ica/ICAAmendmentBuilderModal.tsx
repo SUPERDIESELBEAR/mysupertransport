@@ -258,7 +258,7 @@ export default function ICAAmendmentBuilderModal({ operatorId, operatorName, onC
             body: `Amendment #${amendRow.amendment_number} — please review and sign.`,
             type: 'ica_amendment_sent',
             channel: 'in_app',
-            link: `/operator?view=ica-amendment&id=${amendRow.id}`,
+            link: `/operator/ica-amendment?id=${amendRow.id}`,
             priority: 'action',
           } as any);
         }
