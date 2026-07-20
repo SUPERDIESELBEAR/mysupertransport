@@ -358,7 +358,17 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     setDriverSaving(prev => ({ ...prev, [key]: true }));
     const isoDate = format(date, 'yyyy-MM-dd');
 
-    const docName: string = docKey === 'CDL' ? 'CDL (Front)' : 'Medical Certificate';
+    const docName: string = docKey === 'CDL'
+      ? 'CDL (Front)'
+      : docKey === 'Medical Certificate'
+      ? 'Medical Certificate'
+      : docKey === 'IRP Registration (cab card)'
+      ? 'IRP Registration (cab card)'
+      : docKey === 'Registration'
+      ? 'Registration'
+      : docKey === 'Form 2290'
+      ? 'Form 2290'
+      : docKey;
 
     let error: any = null;
     if (inspectionDocId) {
