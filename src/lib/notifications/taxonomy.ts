@@ -18,7 +18,8 @@ export type NotifCategory =
   | 'dispatch'
   | 'equipment'
   | 'messages'
-  | 'system';
+  | 'system'
+  | 'team';
 
 export interface NotifMeta {
   tier: NotifTier;
@@ -59,6 +60,11 @@ export const NOTIF_TAXONOMY: Record<string, NotifMeta> = {
 
   // System
   release_note:               { tier: 'watch',  category: 'system',       label: "What's New" },
+
+  // Team / assignments
+  assignment:                 { tier: 'action', category: 'team',         label: 'Assigned to You' },
+  assignment_ack:             { tier: 'fyi',    category: 'team',         label: 'Assignment Update' },
+  assignment_audit:           { tier: 'fyi',    category: 'team',         label: 'Assignment Audit' },
 };
 
 export const CATEGORY_LABELS: Record<NotifCategory, string> = {
@@ -69,6 +75,7 @@ export const CATEGORY_LABELS: Record<NotifCategory, string> = {
   equipment:    'Equipment',
   messages:     'Messages',
   system:       'System',
+  team:         'Team',
 };
 
 export const TIER_LABELS: Record<NotifTier, string> = {

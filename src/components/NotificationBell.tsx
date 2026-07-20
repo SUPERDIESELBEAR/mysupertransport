@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target,
   Paperclip, Truck, ShieldCheck, Megaphone, Banknote, Clock, Archive as ArchiveIcon,
-  Check, ChevronRight, Users,
+  Check, ChevronRight, Users, UserPlus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { resolveTier, resolveCategory, TIER_LABELS, type NotifTier } from '@/lib/notifications/taxonomy';
 import { rollup } from '@/lib/notifications/rollup';
 import { markRead, markManyRead, snooze, archive } from '@/lib/notifications/actions';
+import AssignNotificationModal from '@/components/staff/AssignNotificationModal';
 
 interface Notification {
   id: string;
@@ -55,6 +56,7 @@ export default function NotificationBell({
   const [tab, setTab] = useState<Tab>('action');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<{ id: string; mode: 'assign' | 'reassign' } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter(nn => !nn.read_at).length;
@@ -339,6 +341,14 @@ export default function NotificationBell({
           >
             <ArchiveIcon className="h-3.5 w-3.5" />
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setAssignTarget({ id: nn.id, mode: nn.assigned_to === session?.user?.id ? 'reassign' : 'assign' }); }}
+            className="p-1 rounded hover:bg-black/10"
+            title={nn.assigned_to === session?.user?.id ? 'Re-assign' : 'Assign'}
+            aria-label="Assign"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     );
@@ -453,6 +463,13 @@ export default function NotificationBell({
           </div>
         </div>
       )}
+      <AssignNotificationModal
+        open={!!assignTarget}
+        mode={assignTarget?.mode ?? 'assign'}
+        notificationIds={assignTarget ? [assignTarget.id] : []}
+        onClose={() => setAssignTarget(null)}
+        onDone={() => { void fetchNotifications(); }}
+      />
     </div>
   );
 }
