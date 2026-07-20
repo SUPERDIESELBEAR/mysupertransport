@@ -1,15 +1,34 @@
-## Plan: Update Stage 7 Insurance Email Labels/Icon
+# Fix: "Void ICA" fails when a lease termination exists
 
-**Scope:** In `src/pages/staff/OperatorDetailPanel.tsx`, within Stage 7 (Insurance), make three UI-only copy/icon changes.
+## What's happening
+When Mae clicks **Yes, Void ICA** in Stage 3, `handleVoidICA` in `src/pages/staff/OperatorDetailPanel.tsx` runs a hard `DELETE` on `ica_contracts` for that operator. If a `lease_terminations` row was ever generated for that contract (Appendix C), Postgres blocks the delete because `lease_terminations.ica_contract_id` has a foreign key to `ica_contracts(id)` with the default `NO ACTION` behavior — hence:
 
-**Changes:**
-1. Change the gold-outline send button label from **"Send to Insurance Company"** to **"Email Insurance Company"**.
-2. Swap the button icon from `<Mail />` to `<Send />` (paper airplane), matching the Stage 8 "Email Tracey McQuilken" button.
-3. Change the section label **"Email Request to Insurer"** to **"Email Request to Insurance Company"**.
+> update or delete on table "ica_contracts" violates foreign key constraint "lease_terminations_ica_contract_id_fkey"
 
-**No functional or backend changes.** The `Send` icon is already imported in the file.
+Ian Dunfee already had a lease termination generated during his unit change, which is why the void fails for him but works for other drivers.
 
-**Verification:**
-- Search the file to confirm the old strings/icons are replaced.
-- Build/typecheck to confirm no import or JSX errors.
-- Optionally spot-check the Stage 7 card in the preview to confirm the button label and icon render correctly.
+## Fix
+
+Change the foreign key so voiding the ICA preserves the historical termination record but detaches it from the deleted contract.
+
+### Migration
+Drop and recreate `lease_terminations_ica_contract_id_fkey` with `ON DELETE SET NULL`:
+
+```sql
+ALTER TABLE public.lease_terminations
+  DROP CONSTRAINT lease_terminations_ica_contract_id_fkey,
+  ADD  CONSTRAINT lease_terminations_ica_contract_id_fkey
+       FOREIGN KEY (ica_contract_id)
+       REFERENCES public.ica_contracts(id)
+       ON DELETE SET NULL;
+```
+
+`lease_terminations.operator_id` remains intact, so the termination stays attached to the driver's history even after the old ICA row is voided.
+
+### No app-code changes required
+`handleVoidICA` already deletes `ica_contracts` and resets `onboarding_status.ica_status` to `not_issued`; with the new cascade rule the delete will succeed on drivers who have prior terminations.
+
+## Verification
+1. Reproduce on Ian Dunfee: open Stage 3 → Void ICA → confirm. Toast should read "ICA voided" and Stage 3 resets to Not Issued.
+2. Confirm the historical `lease_terminations` row still exists for Ian and now has `ica_contract_id = NULL`.
+3. Re-issue a fresh ICA and confirm the new contract row saves cleanly.
