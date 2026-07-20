@@ -272,6 +272,19 @@ Deno.serve(async (req) => {
     };
     if (attachments.length) payload.attachments = attachments;
 
+    // Optional CC recipients (per-send). Validate, dedupe, drop primary recipient, cap at 10.
+    const rawCcs = Array.isArray((body as any)?.cc_emails) ? ((body as any).cc_emails as unknown[]) : [];
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const ccEmails = Array.from(
+      new Set(
+        rawCcs
+          .filter((v): v is string => typeof v === 'string')
+          .map(v => v.trim().toLowerCase())
+          .filter(v => EMAIL_RE.test(v) && v !== RECIPIENT_EMAIL.toLowerCase())
+      )
+    ).slice(0, 10);
+    if (ccEmails.length) payload.cc = ccEmails;
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -305,7 +318,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: emailError }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ success: true, sent_to: [RECIPIENT_EMAIL] }), {
+    return new Response(JSON.stringify({ success: true, sent_to: [RECIPIENT_EMAIL, ...ccEmails] }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
