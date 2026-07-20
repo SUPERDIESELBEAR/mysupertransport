@@ -379,6 +379,10 @@ interface OperatorRow {
   on_hold_date: string | null;
   notes: string | null;
   anticipated_start_date: string | null;
+  // Searchable vehicle identifiers
+  truck_vin: string | null;
+  unit_number: string | null;
+  truck_plate: string | null;
  }
 
 // ─── Temperature ─────────────────────────────────────────────────────────────
@@ -1111,6 +1115,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         user_id,
         application_id,
         created_at,
+        unit_number,
         assigned_onboarding_staff,
         on_hold,
         on_hold_reason,
@@ -1140,6 +1145,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           mo_docs_submitted,
           mo_reg_received,
           registration_status,
+          truck_vin,
+          unit_number,
+          truck_plate,
           updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
@@ -1291,6 +1299,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
         notes: op.notes ?? null,
         anticipated_start_date: op.anticipated_start_date ?? null,
+        truck_vin: os.truck_vin ?? null,
+        unit_number: os.unit_number ?? op.unit_number ?? null,
+        truck_plate: os.truck_plate ?? null,
       };
     });
     // Keep operators in the Pipeline view if either:
@@ -1848,8 +1859,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
   const filtered = operators
     .filter(op => {
-      const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
-      const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
+      const q = search.trim().toLowerCase();
+      const matchSearch = !q || [
+        `${op.first_name ?? ''} ${op.last_name ?? ''}`,
+        op.email,
+        op.phone,
+        op.truck_vin,
+        op.unit_number,
+        op.truck_plate,
+        op.home_state,
+        op.assigned_staff_name,
+      ].some(v => (v ?? '').toString().toLowerCase().includes(q));
       const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
       const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
       const matchCoordinator = coordinatorFilter === 'all' ||
@@ -2130,7 +2150,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or phone…"
+              placeholder="Search name, email, phone, VIN, unit #, plate…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9"
