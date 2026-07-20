@@ -1632,6 +1632,161 @@ export type Database = {
           },
         ]
       }
+      ica_amendment_units: {
+        Row: {
+          amendment_id: string
+          change_type: string
+          created_at: string
+          id: string
+          is_primary: boolean
+          trailer_number: string | null
+          truck_make: string | null
+          truck_model: string | null
+          truck_plate: string | null
+          truck_plate_state: string | null
+          truck_vin: string | null
+          truck_year: string | null
+          unit_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          amendment_id: string
+          change_type: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amendment_id?: string
+          change_type?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ica_amendment_units_amendment_id_fkey"
+            columns: ["amendment_id"]
+            isOneToOne: false
+            referencedRelation: "ica_amendments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ica_amendments: {
+        Row: {
+          action: string
+          activated_at: string | null
+          amendment_number: number
+          carrier_signature_url: string | null
+          carrier_signed_at: string | null
+          carrier_signed_by: string | null
+          carrier_title: string | null
+          carrier_typed_name: string | null
+          created_at: string
+          created_by: string | null
+          effective_date: string | null
+          id: string
+          notes: string | null
+          operator_id: string
+          operator_signature_url: string | null
+          operator_signed_at: string | null
+          operator_typed_name: string | null
+          parent_ica_id: string
+          pdf_path: string | null
+          pdf_url: string | null
+          status: string
+          updated_at: string
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          action: string
+          activated_at?: string | null
+          amendment_number: number
+          carrier_signature_url?: string | null
+          carrier_signed_at?: string | null
+          carrier_signed_by?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          notes?: string | null
+          operator_id: string
+          operator_signature_url?: string | null
+          operator_signed_at?: string | null
+          operator_typed_name?: string | null
+          parent_ica_id: string
+          pdf_path?: string | null
+          pdf_url?: string | null
+          status?: string
+          updated_at?: string
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          action?: string
+          activated_at?: string | null
+          amendment_number?: number
+          carrier_signature_url?: string | null
+          carrier_signed_at?: string | null
+          carrier_signed_by?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          operator_signature_url?: string | null
+          operator_signed_at?: string | null
+          operator_typed_name?: string | null
+          parent_ica_id?: string
+          pdf_path?: string | null
+          pdf_url?: string | null
+          status?: string
+          updated_at?: string
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ica_amendments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ica_amendments_parent_ica_id_fkey"
+            columns: ["parent_ica_id"]
+            isOneToOne: false
+            referencedRelation: "ica_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ica_contracts: {
         Row: {
           carrier_signature_url: string | null
@@ -4125,6 +4280,24 @@ export type Database = {
           operator_id: string | null
           operator_name: string | null
           uploaded_at: string | null
+        }
+        Relationships: []
+      }
+      v_operator_active_units: {
+        Row: {
+          added_on: string | null
+          amendment_number: number | null
+          operator_id: string | null
+          source_id: string | null
+          source_type: string | null
+          trailer_number: string | null
+          truck_make: string | null
+          truck_model: string | null
+          truck_plate: string | null
+          truck_plate_state: string | null
+          truck_vin: string | null
+          truck_year: string | null
+          unit_number: string | null
         }
         Relationships: []
       }
