@@ -463,6 +463,13 @@ export default function NotificationBell({
           </div>
         </div>
       )}
+      <AssignNotificationModal
+        open={!!assignTarget}
+        mode={assignTarget?.mode ?? 'assign'}
+        notificationIds={assignTarget ? [assignTarget.id] : []}
+        onClose={() => setAssignTarget(null)}
+        onDone={() => { void fetchNotifications(); }}
+      />
     </div>
   );
 }
