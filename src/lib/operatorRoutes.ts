@@ -7,6 +7,7 @@ export type OperatorView =
   | 'faq'
   | 'dispatch'
   | 'ica'
+  | 'ica-amendment'
   | 'notifications'
   | 'docs-hub'
   | 'inspection-binder'
@@ -24,6 +25,7 @@ export const OPERATOR_VIEWS: OperatorView[] = [
   'faq',
   'dispatch',
   'ica',
+  'ica-amendment',
   'notifications',
   'docs-hub',
   'inspection-binder',
@@ -48,6 +50,7 @@ const VIEW_TO_ROUTE: Record<OperatorView, string> = {
   faq: 'faq',
   dispatch: 'dispatch',
   ica: 'ica',
+  'ica-amendment': 'ica-amendment',
   notifications: 'notifications',
   'docs-hub': 'doc-hub',
   'inspection-binder': 'binder',
@@ -69,6 +72,7 @@ const ROUTE_TO_VIEW: Record<string, OperatorView> = {
   faq: 'faq',
   dispatch: 'dispatch',
   ica: 'ica',
+  'ica-amendment': 'ica-amendment',
   notifications: 'notifications',
   'doc-hub': 'docs-hub',
   'docs-hub': 'docs-hub',

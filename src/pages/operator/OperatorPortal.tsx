@@ -26,6 +26,7 @@ import NotificationBell from '@/components/NotificationBell';
 const OperatorStatusPage = lazy(() => import('@/components/operator/OperatorStatusPage'));
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
+import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
@@ -1807,6 +1808,21 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── ICA SIGN VIEW ── */}
         {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />}
+
+        {/* ── ICA AMENDMENT SIGN VIEW ── */}
+        {view === 'ica-amendment' && (() => {
+          const amendmentId = new URLSearchParams(location.search).get('id') ?? '';
+          if (!amendmentId) {
+            return <div className="py-16 text-center text-muted-foreground text-sm">No amendment specified.</div>;
+          }
+          return (
+            <OperatorICAAmendmentSign
+              amendmentId={amendmentId}
+              onBack={() => navigateToView('progress')}
+              onComplete={() => { fetchData(); navigateToView('progress'); }}
+            />
+          );
+        })()}
 
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
