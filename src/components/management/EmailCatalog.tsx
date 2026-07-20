@@ -785,6 +785,42 @@ const TEMPLATES: EmailTemplate[] = [
       RECRUITING_EMAIL
     ),
   },
+  {
+    id: 'driver_birthday',
+    category: 'notifications',
+    title: 'Driver Birthday Greeting',
+    subject: `Happy Birthday, ${SAMPLE_NAME.split(' ')[0]}! 🎂`,
+    recipient: 'operator',
+    sender: `${BRAND_NAME} <${SUPPORT_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      `Happy Birthday, ${SAMPLE_NAME.split(' ')[0]}! 🎂`,
+      `Happy Birthday, ${SAMPLE_NAME.split(' ')[0]}! 🎂`,
+      `<p>The entire <strong>${BRAND_NAME}</strong> family wants to wish you a very happy birthday!</p>
+       <p>We appreciate everything you do and hope you have a wonderful day filled with joy and celebration.</p>
+       <p>Here's to another great year ahead! 🎉</p>
+       <p style="margin-top:24px;">Warm regards,<br/><strong>The ${BRAND_NAME} Team</strong></p>`,
+      undefined,
+      SUPPORT_EMAIL
+    ),
+  },
+  {
+    id: 'driver_anniversary',
+    category: 'notifications',
+    title: 'Driver Work Anniversary',
+    subject: `Congratulations on 1 year with ${BRAND_NAME}! 🎉`,
+    recipient: 'operator',
+    sender: `${BRAND_NAME} <${SUPPORT_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      `Congratulations on 1 year with ${BRAND_NAME}! 🎉`,
+      `Happy Anniversary, ${SAMPLE_NAME.split(' ')[0]}! 🎉`,
+      `<p>Today marks <strong>1 year</strong> since you became an active operator with <strong>${BRAND_NAME}</strong>!</p>
+       <p>Your dedication, hard work, and commitment have been a vital part of our success. We're proud to have you on the team.</p>
+       <p>Here's to many more miles and milestones together! 🚛</p>
+       <p style="margin-top:24px;">With appreciation,<br/><strong>The ${BRAND_NAME} Team</strong></p>`,
+      undefined,
+      SUPPORT_EMAIL
+    ),
+  },
 ];
 
 // ─── Category helpers ─────────────────────────────────────────────────────────
