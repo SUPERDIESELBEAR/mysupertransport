@@ -129,6 +129,15 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     if (d && d !== selectedDriverId) setSelectedDriverId(d);
   }, [searchParams, operatorUserId, selectedDriverId]);
 
+  // Sync active tab with ?tab= updates so deep-links (e.g. Fleet Compliance's
+  // "Open in Binder") can switch tabs without a remount.
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && ['company', 'driver', 'uploads', 'staging'].includes(t) && t !== activeTab) {
+      setActiveTab(t as 'company' | 'driver' | 'uploads' | 'staging');
+    }
+  }, [searchParams, activeTab]);
+
   // Deep-link: ?driver=<userId>&flipbook=1 opens the flipbook overlay
   // straight to the cover page for that driver (used from the Dispatch
   // board's per-driver "Binder" button). Guarded so a manual close doesn't
