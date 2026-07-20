@@ -6,7 +6,7 @@ import {
   Bell, BellRing, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
   FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, ChevronDown,
   Search, Clock, Archive as ArchiveIcon, Check, ShieldCheck, Megaphone, Banknote,
-  ArrowRight, Filter as FilterIcon, X,
+  ArrowRight, Filter as FilterIcon, X, UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import {
   markRead, markManyRead, snooze, snoozeMany, archive, archiveMany,
   unarchive, unsnooze,
 } from '@/lib/notifications/actions';
+import AssignNotificationModal from '@/components/staff/AssignNotificationModal';
 
 interface Notification {
   id: string;
@@ -115,6 +116,7 @@ export default function NotificationHistory() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<PersistedFilters>(() => loadFilters());
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<{ ids: string[]; mode: 'assign' | 'reassign' } | null>(null);
 
   useEffect(() => { saveFilters(filters); }, [filters]);
 
@@ -251,6 +253,9 @@ export default function NotificationHistory() {
     clearSelection();
     toast({ title: `${ids.length} archived` });
   };
+  const bulkAssign = () => {
+    setAssignTarget({ ids: Array.from(selected), mode: 'assign' });
+  };
 
   const rowMarkRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
@@ -379,6 +384,13 @@ export default function NotificationHistory() {
             ) : (
               <button onClick={() => rowArchive(n.id)} className="p-1.5 rounded hover:bg-black/10" title="Archive"><ArchiveIcon className="h-3.5 w-3.5" /></button>
             )}
+            <button
+              onClick={() => setAssignTarget({ ids: [n.id], mode: n.assigned_to === session?.user?.id ? 'reassign' : 'assign' })}
+              className="p-1.5 rounded hover:bg-black/10"
+              title={n.assigned_to === session?.user?.id ? 'Re-assign to teammate' : 'Assign to teammate'}
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -562,6 +574,7 @@ export default function NotificationHistory() {
                 <button onClick={bulkMarkRead} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><Check className="h-3 w-3" /> Mark read</button>
                 <button onClick={bulkSnooze} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> Snooze</button>
                 <button onClick={bulkArchive} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><ArchiveIcon className="h-3 w-3" /> Archive</button>
+                <button onClick={bulkAssign} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><UserPlus className="h-3 w-3" /> Assign</button>
                 <button onClick={clearSelection} className="text-xs px-2 py-1 rounded hover:bg-white/10"><X className="h-3 w-3" /></button>
               </div>
             </div>
@@ -638,6 +651,14 @@ export default function NotificationHistory() {
           onClose={() => setPreviewFile(null)}
         />
       )}
+
+      <AssignNotificationModal
+        open={!!assignTarget}
+        mode={assignTarget?.mode ?? 'assign'}
+        notificationIds={assignTarget?.ids ?? []}
+        onClose={() => setAssignTarget(null)}
+        onDone={() => { clearSelection(); void fetchNotifications(0, filters.state, search); }}
+      />
     </div>
   );
 }
