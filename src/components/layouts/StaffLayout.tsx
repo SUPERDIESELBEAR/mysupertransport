@@ -454,6 +454,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
       </nav>
     </div>
     <BirthdayAnniversaryPopup />
+    <AssignmentPopup />
     </>
   );
 }
