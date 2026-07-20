@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
+import Registration2290Modal from './Registration2290Modal';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
-  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2,
+  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2, FileBadge,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -54,6 +55,16 @@ interface DOTInspection {
   certificate_file_name: string | null;
   notes: string | null;
   created_at: string;
+}
+
+interface Reg2290Record {
+  id: string;
+  name: 'Registration' | 'Form 2290' | string;
+  file_url: string | null;
+  file_path: string | null;
+  expires_at: string | null;
+  uploaded_at: string;
+  uploaded_by: string | null;
 }
 
 interface FleetDetailDrawerProps {
@@ -88,6 +99,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([]);
   const [dotInspections, setDotInspections] = useState<DOTInspection[]>([]);
+  const [reg2290, setReg2290] = useState<Reg2290Record[]>([]);
+  const [reg2290ModalOpen, setReg2290ModalOpen] = useState(false);
+  const [reg2290Search, setReg2290Search] = useState('');
+  const [deletingReg2290, setDeletingReg2290] = useState<Reg2290Record | null>(null);
+  const [deletingReg2290Busy, setDeletingReg2290Busy] = useState(false);
   const [driverUserId, setDriverUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
@@ -199,6 +215,22 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
 
     setMaintenance((maintenanceResult.data as MaintenanceRecord[]) ?? []);
     setDotInspections((dotResult.data as DOTInspection[]) ?? []);
+
+    // Registration / Form 2290 rows live in inspection_documents (per_driver)
+    const uid = opResult.data ? (opResult.data as any).user_id as string | null : null;
+    if (uid) {
+      const { data: reg } = await supabase
+        .from('inspection_documents')
+        .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by')
+        .eq('scope', 'per_driver')
+        .eq('driver_id', uid)
+        .in('name', ['Registration', 'Form 2290'])
+        .order('uploaded_at', { ascending: false });
+      setReg2290((reg as Reg2290Record[]) ?? []);
+    } else {
+      setReg2290([]);
+    }
+
     setLoading(false);
     if (!readyFiredRef.current) { readyFiredRef.current = true; onReady?.(); }
   }, [operatorId, onReady]);
@@ -257,6 +289,37 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     }
     return items;
   }, [maintenance, categoryFilter, maintenanceSearch]);
+
+  const filteredReg2290 = useMemo(() => {
+    const q = reg2290Search.trim().toLowerCase();
+    if (!q) return reg2290;
+    return reg2290.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      (r.expires_at ?? '').toLowerCase().includes(q)
+    );
+  }, [reg2290, reg2290Search]);
+
+  const confirmDeleteReg2290 = async () => {
+    if (!deletingReg2290) return;
+    setDeletingReg2290Busy(true);
+    try {
+      if (deletingReg2290.file_path) {
+        await supabase.storage.from('inspection-documents').remove([deletingReg2290.file_path]);
+      }
+      const { error } = await supabase
+        .from('inspection_documents')
+        .delete()
+        .eq('id', deletingReg2290.id);
+      if (error) throw error;
+      toast({ title: `${deletingReg2290.name} deleted` });
+      setDeletingReg2290(null);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+    } finally {
+      setDeletingReg2290Busy(false);
+    }
+  };
 
   const latestDot = dotInspections[0] ?? null;
   const dotDaysLeft = latestDot?.next_due_date
