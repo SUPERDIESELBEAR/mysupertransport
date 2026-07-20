@@ -2115,6 +2115,7 @@ export default function ManagementPortal() {
                 const userId = (data as any)?.user_id as string | undefined;
                 const next = new URLSearchParams(window.location.search);
                 if (userId) next.set('driver', userId); else next.delete('driver');
+                next.set('tab', 'driver');
                 setSearchParams(next, { replace: true });
                 setView('inspection-binder');
               }}
