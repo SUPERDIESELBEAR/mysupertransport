@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
         link: `/passenger-auth/${row.response_token}`,
         entity_type: 'passenger_authorization',
         entity_id: row.id,
-        priority: 'high',
+        priority: 'action',
         channel: 'in_app',
       })
       if (notifErr) console.error('notification insert failed', notifErr)
