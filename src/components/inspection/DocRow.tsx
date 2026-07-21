@@ -494,6 +494,29 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           </button>
           <FileText className="h-4 w-4 text-gold shrink-0" />
           <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[40vw]">{name}</span>
+          {counter && (
+            <span className="text-[11px] font-medium text-muted-foreground shrink-0 ml-1">{counter}</span>
+          )}
+          {(onPrev || onNext) && (
+            <div className="flex items-center gap-0.5 ml-1 shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
+                disabled={!onPrev}
+                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Previous file (←)"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNext?.(); }}
+                disabled={!onNext}
+                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Next file (→)"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {/* Zoom controls — hide on mobile PDF fallback */}
