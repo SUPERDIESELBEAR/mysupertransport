@@ -34,11 +34,14 @@ export default function DecalPhotoViewerModal({
 }: Props) {
   const tiles: Tile[] = useMemo(() => {
     const list: Tile[] = [];
-    if (decalPhotoDsUrl) list.push({ key: 'ds', label: 'Driver Side', rawUrl: decalPhotoDsUrl });
-    if (decalPhotoPsUrl) list.push({ key: 'ps', label: 'Passenger Side', rawUrl: decalPhotoPsUrl });
-    decalPhotosExtra.forEach((p, i) =>
-      list.push({ key: `extra-${i}`, label: p.label || `Additional ${i + 1}`, rawUrl: p.url }),
-    );
+    const dsUrl = decalPhotoDsUrl?.trim();
+    const psUrl = decalPhotoPsUrl?.trim();
+    if (dsUrl) list.push({ key: 'ds', label: 'Driver Side', rawUrl: dsUrl });
+    if (psUrl) list.push({ key: 'ps', label: 'Passenger Side', rawUrl: psUrl });
+    decalPhotosExtra.forEach((p, i) => {
+      const url = p.url?.trim();
+      if (url) list.push({ key: `extra-${i}`, label: p.label || `Additional ${i + 1}`, rawUrl: url });
+    });
     return list;
   }, [decalPhotoDsUrl, decalPhotoPsUrl, decalPhotosExtra]);
 
