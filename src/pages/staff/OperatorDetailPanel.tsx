@@ -6837,6 +6837,41 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           url={stage2Preview.url}
           name={stage2Preview.name}
           onClose={() => setStage2Preview(null)}
+          counter={stage2Preview.siblings && stage2Preview.siblings.length > 1 && typeof stage2Preview.index === 'number'
+            ? `${stage2Preview.index + 1} of ${stage2Preview.siblings.length}`
+            : undefined}
+          onPrev={stage2Preview.siblings && stage2Preview.siblings.length > 1 && typeof stage2Preview.index === 'number' && stage2Preview.index > 0
+            ? async () => {
+                const sibs = stage2Preview.siblings!;
+                const nextIdx = stage2Preview.index! - 1;
+                const f = sibs[nextIdx];
+                if (!f?.file_url) return;
+                const raw = f.file_url;
+                const path = raw.includes('/operator-documents/')
+                  ? decodeURIComponent(raw.split('/operator-documents/')[1].split('?')[0])
+                  : raw;
+                const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setStage2Preview({ ...stage2Preview, url: data.signedUrl, name: f.file_name ?? 'Document', index: nextIdx });
+                }
+              }
+            : undefined}
+          onNext={stage2Preview.siblings && stage2Preview.siblings.length > 1 && typeof stage2Preview.index === 'number' && stage2Preview.index < stage2Preview.siblings.length - 1
+            ? async () => {
+                const sibs = stage2Preview.siblings!;
+                const nextIdx = stage2Preview.index! + 1;
+                const f = sibs[nextIdx];
+                if (!f?.file_url) return;
+                const raw = f.file_url;
+                const path = raw.includes('/operator-documents/')
+                  ? decodeURIComponent(raw.split('/operator-documents/')[1].split('?')[0])
+                  : raw;
+                const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setStage2Preview({ ...stage2Preview, url: data.signedUrl, name: f.file_name ?? 'Document', index: nextIdx });
+                }
+              }
+            : undefined}
           onEdit={stage2Preview.docType !== 'application_doc' ? () => {
             const pathPrefix = `${operatorId}/${stage2Preview.docType}`;
             setStage2Editing({
