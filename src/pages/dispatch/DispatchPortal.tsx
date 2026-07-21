@@ -30,7 +30,7 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
 import DriverHistoryDownloadPopover from '@/components/dispatch/DriverHistoryDownloadPopover';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
-import DecalPhotosQuickView from '@/components/dispatch/DecalPhotosQuickView';
+import DecalPhotoViewerModal from '@/components/fleet/DecalPhotoViewerModal';
 import type { DecalPhotoExtra } from '@/components/staff/StaffDecalPhotoEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -2472,13 +2472,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       </StaffLayout>
 
       {/* Decal photos quick-view */}
-      <DecalPhotosQuickView
+      <DecalPhotoViewerModal
         open={!!decalTarget}
-        onOpenChange={open => { if (!open) setDecalTarget(null); }}
+        onClose={() => setDecalTarget(null)}
         driverName={decalTarget?.name ?? ''}
-        dsUrl={decalTarget?.dsUrl ?? null}
-        psUrl={decalTarget?.psUrl ?? null}
-        extras={decalTarget?.extras ?? []}
+        decalPhotoDsUrl={decalTarget?.dsUrl ?? null}
+        decalPhotoPsUrl={decalTarget?.psUrl ?? null}
+        decalPhotosExtra={decalTarget?.extras ?? []}
       />
 
       {/* Inspection Binder Sheet */}
