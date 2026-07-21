@@ -1858,11 +1858,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             size="sm"
                             disabled={!hasDecals}
                             onClick={() => {
-                              console.log('[decals] card click', row.operator_id, {
-                                ds: !!row.decal_photo_ds_url,
-                                ps: !!row.decal_photo_ps_url,
-                                extras: row.decal_photos.length,
-                              });
                               setDecalTarget({
                                 name: fullName,
                                 dsUrl: row.decal_photo_ds_url,
@@ -2257,11 +2252,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                                   size="sm"
                                   disabled={!hasDecals}
                                   onClick={() => {
-                                    console.log('[decals] list click', row.operator_id, {
-                                      ds: !!row.decal_photo_ds_url,
-                                      ps: !!row.decal_photo_ps_url,
-                                      extras: row.decal_photos.length,
-                                    });
                                     setDecalTarget({
                                       name: fullName,
                                       dsUrl: row.decal_photo_ds_url,
