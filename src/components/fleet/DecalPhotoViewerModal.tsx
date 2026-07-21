@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { X, Loader2, ImageOff } from 'lucide-react';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { resolveDecalUrl } from '@/lib/decalUrl';
 
 interface DecalExtra {
   url: string;
@@ -18,27 +18,8 @@ interface Props {
   decalPhotosExtra: DecalExtra[];
 }
 
-/** Extract storage path from a full operator-documents URL (signed or public). */
-function extractStoragePath(fileUrl: string): string {
-  const marker = '/operator-documents/';
-  const idx = fileUrl.indexOf(marker);
-  if (idx >= 0) {
-    return decodeURIComponent(fileUrl.substring(idx + marker.length).split('?')[0]);
-  }
-  return fileUrl.replace(/^\//, '');
-}
-
 async function refreshSignedUrl(rawUrl: string): Promise<string> {
-  const path = extractStoragePath(rawUrl);
-  const { data } = await supabase.storage
-    .from('operator-documents')
-    .createSignedUrl(path, 3600);
-  let url = data?.signedUrl ?? rawUrl;
-  if (url.startsWith('/storage/v1/')) {
-    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') || '';
-    url = `${base}${url}`;
-  }
-  return url;
+  return (await resolveDecalUrl(rawUrl)) ?? rawUrl;
 }
 
 type Tile = { key: string; label: string; rawUrl: string };
