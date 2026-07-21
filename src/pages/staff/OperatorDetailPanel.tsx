@@ -4788,7 +4788,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </button>
                       ) : (
                         /* Other docs → generic popover */
-                        <Popover>
+                        <Popover open={openDocPopover === (field as string)} onOpenChange={(o) => setOpenDocPopover(o ? (field as string) : null)}>
                           <PopoverTrigger asChild>
                             <button className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none">
                               <Paperclip className="h-3 w-3" />
@@ -4800,7 +4800,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               <p className="text-xs font-semibold text-foreground">{label} — Uploaded Files</p>
                             </div>
                             <ul className="divide-y divide-border max-h-48 overflow-y-auto">
-                              {files.map(f => (
+                              {files.map((f, idx) => (
                                 <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
                                   <div className="min-w-0">
                                     <p className="text-xs font-medium text-foreground truncate max-w-[160px]">
@@ -4821,7 +4821,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                             : raw;
                                           const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
                                           if (data?.signedUrl) {
-                                            setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Document', docType: field as string });
+                                            setOpenDocPopover(null);
+                                            setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Document', docType: field as string, siblings: files, index: idx });
                                           } else {
                                             toast({ title: 'Could not load document preview', variant: 'destructive' });
                                           }
