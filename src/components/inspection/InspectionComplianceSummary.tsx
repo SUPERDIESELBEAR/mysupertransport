@@ -945,27 +945,65 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   };
 
   // Row inside a driver card entry for a single cert.
+  // v2 "Status Severity Grouping": each row wears its own severity rail
+  // (left border) and a soft severity-tinted background. Compliant rows
+  // are muted so critical/expiring items visually dominate.
   const CertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
+    const isCrit = entry.status === 'expired' || entry.status === 'critical';
+    const isWarn = entry.status === 'warning';
+    const isMissing = entry.status === 'missing';
+    const isCompliant = entry.status === 'valid';
+
+    const railCls = isCrit
+      ? 'border-l-destructive'
+      : isWarn
+      ? 'border-l-yellow-500'
+      : isMissing
+      ? 'border-l-muted-foreground/40'
+      : 'border-l-status-complete/40';
+    const rowBgCls = isCrit
+      ? 'bg-destructive/[0.05]'
+      : isWarn
+      ? 'bg-warning/[0.05]'
+      : 'bg-transparent';
+    const labelCls = isCompliant || isMissing
+      ? 'text-muted-foreground'
+      : 'text-foreground';
+
     return (
-      <div className="py-1">
-        <div className="flex items-center gap-2">
+      <div className={cn(
+        'flex flex-col rounded-md border-l-4 pl-2.5 pr-2 py-1.5 my-0.5',
+        railCls,
+        rowBgCls,
+      )}>
+        {/* Top line: dot + doc label + stale chip / day pill */}
+        <div className="flex items-center gap-2 mb-0.5">
           <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-          <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
+          <span className={cn(
+            'font-semibold text-[11px] uppercase tracking-tight shrink-0',
+            labelCls,
+          )}>
             {DOC_DISPLAY[entry.docKey]}
           </span>
-          <span className="shrink-0 whitespace-nowrap tabular-nums">
-            <DriverDateEditor entry={entry} />
-          </span>
+          <StaleChip entry={entry} />
           <span className="ml-auto shrink-0">
             <CertPill entry={entry} />
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-1.5 pl-4">
-          <StaleChip entry={entry} />
-          <HistoryButton entry={entry} />
-          <UploadButton entry={entry} />
-          <RemindButton entry={entry} />
+        {/* Bottom line: editable expiry date + action icons */}
+        <div className="flex items-center justify-between gap-2">
+          <span className={cn('text-xs tabular-nums shrink-0', labelCls)}>
+            <DriverDateEditor entry={entry} />
+          </span>
+          <div className={cn(
+            'flex items-center gap-1 shrink-0 transition-opacity',
+            isCompliant || isMissing ? 'opacity-50 hover:opacity-100' : 'opacity-100',
+          )}>
+            <HistoryButton entry={entry} />
+            <UploadButton entry={entry} />
+            <RemindButton entry={entry} />
+          </div>
         </div>
         <LastUpdatedLine entry={entry} />
       </div>
@@ -1274,40 +1312,67 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                     </div>
                   );
                 }
-                // Driver group
+                // Driver group — v2 "Status Severity Grouping"
+                // Per-row severity rails do the color work; the card itself
+                // stays neutral so the eye jumps to the tinted problem rows.
+                const worstCfg = STATUS_CONFIG[g.worstStatus];
+                const headerTier =
+                  g.worstStatus === 'expired' || g.worstStatus === 'critical'
+                    ? { label: 'Critical Status', cls: 'bg-destructive/10 text-destructive border-destructive/30' }
+                    : g.worstStatus === 'warning'
+                    ? { label: 'Attention', cls: 'bg-yellow-50 text-yellow-700 border-yellow-300' }
+                    : g.worstStatus === 'missing'
+                    ? { label: 'Missing Info', cls: 'bg-muted text-muted-foreground border-border' }
+                    : { label: 'Compliant', cls: 'bg-status-complete/10 text-status-complete border-status-complete/30' };
                 return (
-                  <div key={g.operatorId} className={cn(cardWrapperCls(g.worstStatus), 'pl-3')}>
-                    <div className="p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-foreground truncate">{g.operatorName}</span>
-                        <span className={cn(
-                          'ml-auto inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-semibold border',
-                          STATUS_CONFIG[g.worstStatus].badgeCls,
-                        )}>
-                          {STATUS_CONFIG[g.worstStatus].label}
-                        </span>
+                  <div
+                    key={g.operatorId}
+                    className="rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {/* Card header */}
+                    <div className="flex items-start justify-between px-4 py-3 border-b border-border/60">
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-foreground leading-tight truncate">
+                          {g.operatorName}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                          {[g.cdl, g.med, g.irp, g.reg, g.form2290].filter(Boolean).length} certifications
+                        </p>
                       </div>
-                      <div className="mt-2 divide-y divide-border/40">
-                        {g.cdl && <CertSubRow entry={g.cdl} />}
-                        {g.med && <CertSubRow entry={g.med} />}
-                        {g.irp && <CertSubRow entry={g.irp} />}
-                        {g.reg && <CertSubRow entry={g.reg} />}
-                        {g.form2290 && <CertSubRow entry={g.form2290} />}
-                      </div>
-                      <div className="mt-3 flex items-center gap-3">
-                        <button
-                          onClick={() => openDriver(g.operatorId)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                        >
-                          Open in Binder <ExternalLink className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                        >
-                          Timeline <History className="h-3 w-3" />
-                        </button>
-                      </div>
+                      <span
+                        className={cn(
+                          'shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border',
+                          headerTier.cls,
+                        )}
+                        aria-label={`Overall status: ${worstCfg.label}`}
+                      >
+                        {headerTier.label}
+                      </span>
+                    </div>
+
+                    {/* Cert rows */}
+                    <div className="px-2 py-1.5">
+                      {g.cdl && <CertSubRow entry={g.cdl} />}
+                      {g.med && <CertSubRow entry={g.med} />}
+                      {g.irp && <CertSubRow entry={g.irp} />}
+                      {g.reg && <CertSubRow entry={g.reg} />}
+                      {g.form2290 && <CertSubRow entry={g.form2290} />}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-2.5 bg-muted/30 border-t border-border/60 flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                      <button
+                        onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
+                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                      >
+                        <History className="h-3 w-3" /> Timeline
+                      </button>
+                      <button
+                        onClick={() => openDriver(g.operatorId)}
+                        className="inline-flex items-center gap-1 font-bold text-gold hover:opacity-80 transition-opacity"
+                      >
+                        Open in Binder <ExternalLink className="h-3 w-3" />
+                      </button>
                     </div>
                   </div>
                 );
