@@ -1010,26 +1010,42 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     );
   };
 
-  // List-view variant: aligned columns, no colored doc-badge background.
-  // Doc label is bold muted text; tabular-nums keeps dates vertically aligned.
-  const ListCertSubRow = ({ entry }: { entry: DocEntry }) => {
+  // Table cell for the list-view variant. One cert per column, light theme,
+  // severity tint per cell + row rail supplied on the sticky driver cell.
+  // Micro-actions (history / upload / remind) reveal on cell hover.
+  const TableCertCell = ({ entry }: { entry?: DocEntry }) => {
+    if (!entry) {
+      return (
+        <td className="px-3 py-2 align-top whitespace-nowrap text-xs text-muted-foreground/50 italic">
+          —
+        </td>
+      );
+    }
     const cfg = STATUS_CONFIG[entry.status];
+    const isCrit = entry.status === 'expired' || entry.status === 'critical';
+    const isWarn = entry.status === 'warning';
+    const cellBg = isCrit ? 'bg-destructive/[0.05]' : isWarn ? 'bg-warning/[0.05]' : '';
     return (
-      <div className="py-0.5">
-        <div className="flex items-center gap-2">
-          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
-            {DOC_DISPLAY[entry.docKey]}
-          </span>
-          <span className="w-[140px] shrink-0">
-            <DriverDateEditor entry={entry} />
-          </span>
-          <span className="flex-1" />
-          <StaleChip entry={entry} /><HistoryButton entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
-          <CertPill entry={entry} />
+      <td className={cn('px-3 py-2 align-top whitespace-nowrap group/cell', cellBg)}>
+        <div className="flex flex-col gap-1 min-w-[150px]">
+          <div className="flex items-center gap-1.5">
+            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+            <span className="text-xs tabular-nums text-foreground">
+              <DriverDateEditor entry={entry} />
+            </span>
+            <StaleChip entry={entry} />
+          </div>
+          <div className="flex items-center gap-1">
+            <CertPill entry={entry} />
+            <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover/cell:opacity-100 focus-within:opacity-100 transition-opacity">
+              <HistoryButton entry={entry} />
+              <UploadButton entry={entry} />
+              <RemindButton entry={entry} />
+            </div>
+          </div>
+          <LastUpdatedLine entry={entry} />
         </div>
-        <LastUpdatedLine entry={entry} />
-      </div>
+      </td>
     );
   };
 
