@@ -268,7 +268,7 @@ export default function PassengerAuthSign() {
               </div>
               <div>
                 <Label>Passenger DOB</Label>
-                <Input type="date" value={passengerDob} onChange={e => setPassengerDob(e.target.value)} />
+                <DobPicker value={passengerDob} onChange={setPassengerDob} />
               </div>
               <div>
                 <Label>Effective date *</Label>
