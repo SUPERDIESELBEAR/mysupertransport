@@ -62,7 +62,9 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
       const blob = await (await fetch(dataUrl)).blob();
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
-          const path = `signatures/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+          const draftToken = localStorage.getItem('supertransport_draft_token') || '';
+          const folder = draftToken ? `signatures/${draftToken}` : 'signatures';
+          const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
           const { error, authUid } = await uploadToBucket('signatures', path, blob, {
             contentType: 'image/png',
             requireSession: false,

@@ -40,7 +40,9 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `applications/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const draftToken = localStorage.getItem('supertransport_draft_token') || '';
+      const folder = draftToken ? `applications/${draftToken}` : 'applications';
+      const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: upErr, authUid } = await uploadToBucket(
         'application-documents',
         path,
