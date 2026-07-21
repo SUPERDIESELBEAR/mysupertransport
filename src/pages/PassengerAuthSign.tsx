@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 
 interface AuthRow {
   id: string;
@@ -254,7 +255,8 @@ export default function PassengerAuthSign() {
           executedPdf: pdf,
         },
       });
-      if (error || !data?.ok) throw new Error((data as any)?.error || error?.message || 'Submission failed');
+      if (error) throw new Error(await getEdgeFunctionErrorMessage(error, 'Submission failed'));
+      if (!data?.ok) throw new Error((data as any)?.error || 'Submission failed');
       setDone(true);
       toast.success('Passenger authorization signed and filed.');
     } catch (e: any) {
