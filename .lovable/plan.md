@@ -1,54 +1,53 @@
-## Goal
+## 1. Rename "Authorization #1" → "Passenger Authorization"
 
-Surface Passenger Authorization requests inside the SUPERDRIVE driver app alongside the existing email, so drivers can complete Authorization #1 from either entry point.
+Update copy in the driver-facing surfaces where the phrase appears:
 
-## How it works today
+- `supabase/functions/_shared/transactional-email-templates/passenger-auth-request.tsx`
+  - Body paragraph: "…please tap the button below to complete **Passenger Authorization** and sign the form."
+  - Keep subject line as "Action needed: Passenger Authorization for Unit {unit}" (already correct).
+- `supabase/functions/send-passenger-auth/index.ts`
+  - Notification body: "Complete the Passenger Authorization for Unit {unit_number} and sign the form."
+- `src/components/management/SendPassengerAuthModal.tsx`
+  - Helper copy: "…email link to complete the Passenger Authorization and sign the form."
+- `src/components/operator/PendingPassengerAuthCard.tsx`
+  - Any "Authorization #1" wording → "Passenger Authorization".
+- `src/pages/PassengerAuthSign.tsx`
+  - Replace any "Authorization #1" section headings/labels with "Passenger Authorization" (the actual form field labels — Passenger Name, Relationship, DOB, Effective Date, Signature — stay as-is).
 
-- Staff clicks **Send to driver** → `send-passenger-auth` inserts a `passenger_authorizations` row (with `response_token`) and emails the driver a link to `/passenger-auth/:token`.
-- That route already renders the fillable/signing page inside the app. There is no in-app surfacing — a driver who opens SUPERDRIVE directly sees nothing about the pending request.
+No wording changes on the staff modal title or the doc PDF footer beyond the phrase swap.
 
-## What to build
+## 2. Fix the missing in-app notification
 
-### 1. In-app notification on send
-In `send-passenger-auth`, after inserting the row, when `operator_id` is present:
-- Look up the operator's `auth_user_id`.
-- Insert a row into `notifications` (existing table) with:
-  - `title`: "Passenger Authorization required"
-  - `body`: "Complete Authorization #1 for Unit {unit_number} and sign the form."
-  - `action_url`: `/passenger-auth/{response_token}`
-  - `priority`: high
-  - category/type consistent with existing driver-facing notifications
-- Email still sends as it does today (both paths).
+The email arrived but the in-app card/bell did not, which means the `notifications` insert inside `send-passenger-auth` either didn't run in the deployed version or failed silently.
 
-### 2. Pending task card in the Driver Hub
-Add a lightweight "Action needed" card to the operator portal (Home / Dashboard view — the same surface that shows onboarding tasks) that queries `passenger_authorizations` where:
-- `operator_id = current operator`
-- `status IN ('sent','opened')` (i.e. not yet completed/revoked)
+Steps:
 
-Card shows: "Passenger Authorization – Unit {unit}" with a "Open form →" button that routes to `/passenger-auth/:token`. Card auto-disappears once status becomes `completed`.
+1. **Redeploy `send-passenger-auth`** — the previous deploy predates the notification-insert code path, so the running function may still be the email-only version.
+2. **Add loud logging + surface errors** in `send-passenger-auth`:
+   - Log `operatorId`, resolved `user_id`, and the result of the `notifications` insert.
+   - If the insert returns an error, log it (don't fail the whole request — email should still send).
+3. **Verify the insert shape** against the live schema:
+   - `type: 'assignment'`, `channel: 'in_app'`, `priority: 'high'`, `title`, `body`, `link`, `entity_type: 'passenger_authorization'`, `entity_id`, `user_id`.
+   - Confirm `notification_channel` enum includes `in_app` and `type` accepts `'assignment'` (both are used elsewhere in the app, so this should be fine — logs will confirm).
+4. **Sanity-check `PendingPassengerAuthCard` + bell query filters** so the row actually surfaces:
+   - Card queries `passenger_authorizations` where `operator_id = me` and `status IN ('sent','opened')`.
+   - Bell reads `notifications` where `user_id = me` and not archived.
+   - Confirm the newly inserted row matches both filters for Marcus's `auth.uid()`.
+5. Re-test by clicking **Send to driver** for Marcus and confirming:
+   - A row appears in `notifications` for his `user_id`.
+   - The bell shows "Passenger Authorization required".
+   - The Home dashboard shows the Pending Passenger Auth card.
+   - Edge function logs show the insert succeeded.
 
-### 3. Update the email copy
-Change the wording under the email field in `SendPassengerAuthModal.tsx` from "The driver will receive an email link…" to:
+## Files touched
 
-> "The driver will get an in-app task in SUPERDRIVE **and** an email link to complete Authorization #1 and sign the form. Carrier signature and Driver Hub filing happen automatically."
-
-### 4. Manual-entry case (no operator selected)
-If staff types the driver in manually (no `operatorId`), only the email is sent — there's no operator account to attach an in-app task to. This matches today's behavior; the modal copy will note "in-app task requires a linked driver profile."
-
-## Files to touch
-
-**Backend**
-- `supabase/functions/send-passenger-auth/index.ts` — insert `notifications` row when `operator_id` is set; resolve operator's `auth_user_id`.
-
-**Frontend**
-- `src/components/management/SendPassengerAuthModal.tsx` — updated helper copy.
-- `src/pages/operator/OperatorPortal.tsx` (or the appropriate Home/Dashboard component it renders) — add pending Passenger Authorization card, wired to a small query hook.
-- New: `src/components/operator/PendingPassengerAuthCard.tsx` — the card component + query.
-
-**No schema changes.** `passenger_authorizations` and `notifications` already exist.
+- `supabase/functions/_shared/transactional-email-templates/passenger-auth-request.tsx` (copy)
+- `supabase/functions/send-passenger-auth/index.ts` (copy + logging + redeploy)
+- `src/components/management/SendPassengerAuthModal.tsx` (copy)
+- `src/components/operator/PendingPassengerAuthCard.tsx` (copy)
+- `src/pages/PassengerAuthSign.tsx` (copy)
 
 ## Out of scope
 
-- Push/badge notifications (uses existing in-app notification pipeline only).
-- Reminders / re-nudges after N days.
-- Staff-side ability to resend or revoke from the driver's row (already available on the Resource Library card).
+- No schema changes.
+- No changes to signing flow, PDF generation, or filing behavior.

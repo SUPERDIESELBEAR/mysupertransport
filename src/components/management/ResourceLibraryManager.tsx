@@ -473,7 +473,7 @@ export default function ResourceLibraryManager() {
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-foreground">Passenger Authorization</div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Send a fillable Authorization #1 to a contractor / owner-operator. Once
+            Send a fillable Passenger Authorization to a contractor / owner-operator. Once
             signed, the executed form is filed automatically to the Driver Hub.
           </p>
         </div>

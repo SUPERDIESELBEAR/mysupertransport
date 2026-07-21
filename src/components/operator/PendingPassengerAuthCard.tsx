@@ -61,7 +61,7 @@ export default function PendingPassengerAuthCard({ operatorId }: { operatorId: s
           <span className="flex-1 min-w-0">
             <span className="block text-sm font-semibold text-foreground">Passenger Authorization required</span>
             <span className="block text-xs text-muted-foreground mt-0.5">
-              Complete Authorization #1{r.unit_number ? ` for Unit ${r.unit_number}` : ''} and sign the form.
+              Complete the Passenger Authorization{r.unit_number ? ` for Unit ${r.unit_number}` : ''} and sign the form.
             </span>
           </span>
           <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform group-hover:translate-x-0.5" />

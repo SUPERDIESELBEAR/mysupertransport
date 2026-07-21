@@ -126,8 +126,9 @@ export default function SendPassengerAuthModal({ open, onOpenChange }: Props) {
           </div>
           <p className="text-xs text-muted-foreground">
             The driver will get an in-app task in SUPERDRIVE <strong>and</strong> an email link
-            to complete Authorization #1 and sign the form. The in-app task requires a linked
-            driver profile (select one above). Carrier signature and Driver Hub filing happen automatically.
+            to complete the Passenger Authorization and sign the form. The in-app task requires
+            a linked driver profile (select one above). Carrier signature and Driver Hub filing
+            happen automatically.
           </p>
         </div>
         <DialogFooter>

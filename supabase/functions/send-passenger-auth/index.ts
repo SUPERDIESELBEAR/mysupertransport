@@ -75,23 +75,26 @@ Deno.serve(async (req) => {
   // In-app task: create a notification for the linked driver so the request
   // surfaces inside SUPERDRIVE alongside the email link.
   if (body.operatorId) {
-    const { data: op } = await admin
+    const { data: op, error: opErr } = await admin
       .from('operators')
       .select('user_id')
       .eq('id', body.operatorId)
       .maybeSingle()
+    console.log('operator lookup', { operatorId: body.operatorId, user_id: op?.user_id, opErr })
     if (op?.user_id) {
-      await admin.from('notifications').insert({
+      const { error: notifErr } = await admin.from('notifications').insert({
         user_id: op.user_id,
         type: 'assignment',
         title: 'Passenger Authorization required',
-        body: `Complete Authorization #1 for Unit ${unitNumber} and sign the form.`,
+        body: `Complete the Passenger Authorization for Unit ${unitNumber} and sign the form.`,
         link: `/passenger-auth/${row.response_token}`,
         entity_type: 'passenger_authorization',
         entity_id: row.id,
         priority: 'high',
         channel: 'in_app',
       })
+      if (notifErr) console.error('notification insert failed', notifErr)
+      else console.log('notification inserted for user', op.user_id)
     }
   }
 
