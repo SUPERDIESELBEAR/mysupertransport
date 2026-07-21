@@ -1,24 +1,23 @@
-## Recommended UX
-Use a truly locked/sticky header row for the Fleet Compliance list view, with a small responsive fallback that keeps document labels visible inside each cell on narrow screens.
+## Compliance Alerts — column alignment + Status de-cluster
 
-This is better than repeating full headers in every desktop row because it preserves the clean table layout while keeping the column meaning visible during scroll.
+Scope: `src/components/inspection/ComplianceAlertsPanel.tsx` only. Header row visual only — no data or logic changes.
 
-## Implementation Plan
-1. **Fix the sticky behavior at the correct scroll level**
-   - Move the Fleet Compliance list table into a bounded vertical scroll container instead of relying on the full page scroll.
-   - Apply the sticky header to that container so `Driver / Status`, `CDL`, `Med Cert`, `IRP`, `Registration`, `2290`, and `Actions` remain locked while scrolling through driver rows.
+### Changes
 
-2. **Keep the first column pinned**
-   - Preserve the sticky `Driver / Status` column during horizontal scrolling.
-   - Make sure the top-left header cell stays above both the sticky header and sticky driver column with the proper layering.
+1. **De-cluster Status column**
+   - Remove the stacked "Never Renewed" sub-pill from the Status column.
+   - Render Status as a single right-aligned pill in a fixed `w-[110px]` slot.
+   - Move a compact "Never Renewed" chip inline next to the operator name (hidden on `sm` and below to avoid crowding on narrow widths).
 
-3. **Improve visual separation**
-   - Add a subtle bottom border/shadow to the locked header so staff can clearly tell it is fixed while rows move underneath.
-   - Use the same light Fleet Compliance palette already approved for the list view.
+2. **Unify header ↔ row grid**
+   - Header currently has no slot for the doc-type badge, so Expires/Status headers sit left of their row cells.
+   - Add a `w-[92px]` spacer in the header matching the doc-type badge slot.
+   - Move the doc-type badge out of the flexible operator cell into its own fixed `w-[92px]` slot so the row matches the header.
+   - Give the Expires cell a fixed `w-[96px] text-right` and update the Expires header to the same width and right alignment so the date column lines up with its label.
 
-4. **Add a narrow-screen fallback**
-   - On smaller widths, include compact document labels inside each certification cell so the row still makes sense even if the user is horizontally scrolled or the sticky header is partially off-screen.
+3. **Preserve existing right-side action columns**
+   - Last Action, Last Reminded, Last Renewed, and the three action-button spacers keep their current fixed widths — they already align.
 
-5. **Verify in preview**
-   - Test scrolling the Fleet Compliance list view with enough driver rows to confirm the header remains visible.
-   - Check horizontal scroll behavior to confirm the `Driver / Status` column and corner header remain aligned.
+### Out of scope
+- No changes to sort behavior, data fetching, filters, bulk actions, or the "Compliance Score" header band.
+- No color/theme changes.

@@ -593,7 +593,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           <div className="flex items-center gap-3 px-4 py-1.5 bg-destructive/5">
             <span className="h-2 w-2 shrink-0" />
             <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
+            <span className="shrink-0 w-[92px]" aria-hidden />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[96px] text-right">Expires</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[110px] text-right">Status</span>
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
               className="hidden md:inline-flex items-center gap-1 w-[90px] justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group shrink-0"
@@ -628,20 +629,21 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 {/* Name + doc type */}
                 <div className="flex-1 min-w-0 flex items-center gap-2">
                   <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
-                  <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[92px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
-                </div>
-                {/* Expiry date */}
-                <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
-                {/* Urgency badge stack (status + never-renewed sub-pill) */}
-                <div className="flex flex-col items-end gap-0.5 shrink-0 w-[110px]">
-                  <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
-                    {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
-                  </span>
                   {!renewedAt && (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none">
+                    <span className="hidden md:inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none shrink-0 uppercase tracking-wide">
                       <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
                     </span>
                   )}
+                </div>
+                {/* Doc-type badge (fixed slot to align with header) */}
+                <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[92px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
+                {/* Expiry date */}
+                <span className="text-xs text-muted-foreground hidden sm:block shrink-0 w-[96px] text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
+                {/* Status (single pill, right-aligned) */}
+                <div className="flex items-center justify-end shrink-0 w-[110px]">
+                  <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border whitespace-nowrap ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
+                    {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
+                  </span>
                 </div>
                 {/* Last Action column */}
                 {(() => {
