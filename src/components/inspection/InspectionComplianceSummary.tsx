@@ -945,27 +945,65 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   };
 
   // Row inside a driver card entry for a single cert.
+  // v2 "Status Severity Grouping": each row wears its own severity rail
+  // (left border) and a soft severity-tinted background. Compliant rows
+  // are muted so critical/expiring items visually dominate.
   const CertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
+    const isCrit = entry.status === 'expired' || entry.status === 'critical';
+    const isWarn = entry.status === 'warning';
+    const isMissing = entry.status === 'missing';
+    const isCompliant = entry.status === 'valid';
+
+    const railCls = isCrit
+      ? 'border-l-destructive'
+      : isWarn
+      ? 'border-l-yellow-500'
+      : isMissing
+      ? 'border-l-muted-foreground/40'
+      : 'border-l-status-complete/40';
+    const rowBgCls = isCrit
+      ? 'bg-destructive/[0.05]'
+      : isWarn
+      ? 'bg-warning/[0.05]'
+      : 'bg-transparent';
+    const labelCls = isCompliant || isMissing
+      ? 'text-muted-foreground'
+      : 'text-foreground';
+
     return (
-      <div className="py-1">
-        <div className="flex items-center gap-2">
+      <div className={cn(
+        'flex flex-col rounded-md border-l-4 pl-2.5 pr-2 py-1.5 my-0.5',
+        railCls,
+        rowBgCls,
+      )}>
+        {/* Top line: dot + doc label + stale chip / day pill */}
+        <div className="flex items-center gap-2 mb-0.5">
           <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-          <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
+          <span className={cn(
+            'font-semibold text-[11px] uppercase tracking-tight shrink-0',
+            labelCls,
+          )}>
             {DOC_DISPLAY[entry.docKey]}
           </span>
-          <span className="shrink-0 whitespace-nowrap tabular-nums">
-            <DriverDateEditor entry={entry} />
-          </span>
+          <StaleChip entry={entry} />
           <span className="ml-auto shrink-0">
             <CertPill entry={entry} />
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-1.5 pl-4">
-          <StaleChip entry={entry} />
-          <HistoryButton entry={entry} />
-          <UploadButton entry={entry} />
-          <RemindButton entry={entry} />
+        {/* Bottom line: editable expiry date + action icons */}
+        <div className="flex items-center justify-between gap-2">
+          <span className={cn('text-xs tabular-nums shrink-0', labelCls)}>
+            <DriverDateEditor entry={entry} />
+          </span>
+          <div className={cn(
+            'flex items-center gap-1 shrink-0 transition-opacity',
+            isCompliant || isMissing ? 'opacity-50 hover:opacity-100' : 'opacity-100',
+          )}>
+            <HistoryButton entry={entry} />
+            <UploadButton entry={entry} />
+            <RemindButton entry={entry} />
+          </div>
         </div>
         <LastUpdatedLine entry={entry} />
       </div>
