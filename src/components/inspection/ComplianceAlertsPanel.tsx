@@ -590,21 +590,21 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       {expanded && (
         <div className="border-t border-destructive/20 divide-y divide-destructive/10">
           {/* Column headers */}
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-destructive/5">
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-destructive/5">
             <span className="h-2 w-2 shrink-0" />
             <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
-            <span className="shrink-0 w-[92px]" aria-hidden />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[96px] text-right">Expires</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[110px] text-right">Status</span>
+            <span className="shrink-0 w-[76px]" aria-hidden />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[88px] text-right">Expires</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[100px] text-right">Status</span>
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
-              className="hidden md:inline-flex items-center gap-1 w-[90px] justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group shrink-0"
+              className="hidden md:inline-flex items-center gap-1 w-[84px] justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group shrink-0"
               style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
               <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Reminded</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Renewed</span>
-            <span className="shrink-0 w-[74px]" /><span className="shrink-0 w-[68px]" /><span className="shrink-0 w-[58px]" />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[68px] text-right">Last Reminded</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[68px] text-right">Last Renewed</span>
+            <span className="shrink-0 w-[52px]" /><span className="shrink-0 w-[52px]" /><span className="shrink-0 w-[46px]" />
           </div>
 
           {visibleAlerts.map((alert) => {
@@ -623,12 +623,12 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             const renewedByName = lastRenewedBy[rowKey];
             return (
               <div key={`${alert.operator_id}-${alert.doc_type}`}
-                className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
+                className={`flex items-center gap-2 px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
                 {/* Urgency dot */}
                 <span className={`h-2 w-2 rounded-full shrink-0 ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
                 {/* Name + doc type */}
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
+                <div className="flex-1 min-w-[180px] flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-medium text-sm text-foreground break-words">{alert.operator_name}</span>
                   {!renewedAt && (
                     <span className="hidden md:inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none shrink-0 uppercase tracking-wide">
                       <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
@@ -636,11 +636,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   )}
                 </div>
                 {/* Doc-type badge (fixed slot to align with header) */}
-                <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[92px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
+                <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[76px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
                 {/* Expiry date */}
-                <span className="text-xs text-muted-foreground hidden sm:block shrink-0 w-[96px] text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
+                <span className="text-xs text-muted-foreground hidden sm:block shrink-0 w-[88px] text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Status (single pill, right-aligned) */}
-                <div className="flex items-center justify-end shrink-0 w-[110px]">
+                <div className="flex items-center justify-end shrink-0 w-[100px]">
                   <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border whitespace-nowrap ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
                     {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
                   </span>
@@ -660,7 +660,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden md:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[90px] justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`hidden md:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[84px] justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
                           {hasAction && lastActionDate ? <><Icon className="h-3 w-3 shrink-0" />{format(lastActionDate, 'MMM d')}</> : <span className="text-muted-foreground/40">No action</span>}
                         </span>
                       </TooltipTrigger>
@@ -680,7 +680,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${remindedAt ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[68px] justify-end rounded px-1 py-0.5 transition-colors ${remindedAt ? pillClass : 'text-muted-foreground/40'}`}>
                           {remindedAt ? <><CheckCheck className={`h-3 w-3 shrink-0 ${iconClass}`} />{format(new Date(remindedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
                         </span>
                       </TooltipTrigger>
@@ -696,7 +696,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${renewedAt ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[68px] justify-end rounded px-1 py-0.5 transition-colors ${renewedAt ? pillClass : 'text-muted-foreground/40'}`}>
                           {renewedAt ? <><RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />{format(new Date(renewedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
                         </span>
                       </TooltipTrigger>
@@ -733,8 +733,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 <TooltipProvider delayDuration={100}><Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="sm" onClick={() => handleSendReminder(alert)} disabled={isSending || isSent}
-                      className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${isSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}>
-                      {isSending ? <Loader2 className="h-3 w-3 animate-spin" /> : isSent ? <><CheckCheck className="h-3 w-3" /><span className="hidden sm:inline">Sent</span></> : <><Send className="h-3 w-3" /><span className="hidden sm:inline">Remind</span></>}
+                      className={`shrink-0 h-7 px-1.5 text-xs gap-1.5 transition-all ${isSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'}`}>
+                      {isSending ? <Loader2 className="h-3 w-3 animate-spin" /> : isSent ? <><CheckCheck className="h-3 w-3" /><span className="hidden lg:inline">Sent</span></> : <><Send className="h-3 w-3" /><span className="hidden lg:inline">Remind</span></>}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">{isSent ? 'Reminder sent!' : `Send email reminder to ${alert.operator_name}`}</TooltipContent>
@@ -743,8 +743,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 <TooltipProvider delayDuration={100}><Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="sm" onClick={() => handleMarkRenewed(alert)} disabled={isRowRenewing || isRowRenewed}
-                      className={`relative shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${isRowRenewed ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : warning ? 'border-warning/40 text-warning/80 bg-warning/5 hover:border-warning/60 hover:text-warning hover:bg-warning/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'}`}>
-                      {isRowRenewing ? <Loader2 className="h-3 w-3 animate-spin" /> : isRowRenewed ? <><CheckCircle2 className="h-3 w-3" /><span className="hidden sm:inline">Renewed</span></> : <><RotateCcw className="h-3 w-3" /><span className="hidden sm:inline">Renew</span></>}
+                      className={`relative shrink-0 h-7 px-1.5 text-xs gap-1.5 transition-all ${isRowRenewed ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : warning ? 'border-warning/40 text-warning/80 bg-warning/5 hover:border-warning/60 hover:text-warning hover:bg-warning/10' : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'}`}>
+                      {isRowRenewing ? <Loader2 className="h-3 w-3 animate-spin" /> : isRowRenewed ? <><CheckCircle2 className="h-3 w-3" /><span className="hidden lg:inline">Renewed</span></> : <><RotateCcw className="h-3 w-3" /><span className="hidden lg:inline">Renew</span></>}
                       {warning && !isRowRenewed && !isRowRenewing && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-warning border border-background" />}
                     </Button>
                   </TooltipTrigger>
@@ -753,7 +753,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 {/* Open button */}
                 {(onOpenOperator || onOpenOperatorWithFocus) && (
                   <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
-                    className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-2">
+                    className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-1.5">
                     Open →
                   </Button>
                 )}
