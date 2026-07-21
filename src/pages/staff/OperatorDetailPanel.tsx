@@ -406,7 +406,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
-  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string; appField?: string } | null>(null);
+  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string; appField?: string; siblings?: DocFileRow[]; index?: number } | null>(null);
+  const [openDocPopover, setOpenDocPopover] = useState<string | null>(null);
   const [stage2Editing, setStage2Editing] = useState<{ url: string; name: string; bucket: string; path: string } | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
@@ -4787,7 +4788,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </button>
                       ) : (
                         /* Other docs → generic popover */
-                        <Popover>
+                        <Popover open={openDocPopover === (field as string)} onOpenChange={(o) => setOpenDocPopover(o ? (field as string) : null)}>
                           <PopoverTrigger asChild>
                             <button className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none">
                               <Paperclip className="h-3 w-3" />
@@ -4799,7 +4800,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               <p className="text-xs font-semibold text-foreground">{label} — Uploaded Files</p>
                             </div>
                             <ul className="divide-y divide-border max-h-48 overflow-y-auto">
-                              {files.map(f => (
+                              {files.map((f, idx) => (
                                 <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
                                   <div className="min-w-0">
                                     <p className="text-xs font-medium text-foreground truncate max-w-[160px]">
@@ -4820,7 +4821,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                             : raw;
                                           const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
                                           if (data?.signedUrl) {
-                                            setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Document', docType: field as string });
+                                            setOpenDocPopover(null);
+                                            setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Document', docType: field as string, siblings: files, index: idx });
                                           } else {
                                             toast({ title: 'Could not load document preview', variant: 'destructive' });
                                           }
@@ -6835,6 +6837,41 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           url={stage2Preview.url}
           name={stage2Preview.name}
           onClose={() => setStage2Preview(null)}
+          counter={stage2Preview.siblings && stage2Preview.siblings.length > 1 && typeof stage2Preview.index === 'number'
+            ? `${stage2Preview.index + 1} of ${stage2Preview.siblings.length}`
+            : undefined}
+          onPrev={stage2Preview.siblings && stage2Preview.siblings.length > 1 && typeof stage2Preview.index === 'number' && stage2Preview.index > 0
+            ? async () => {
+                const sibs = stage2Preview.siblings!;
+                const nextIdx = stage2Preview.index! - 1;
+                const f = sibs[nextIdx];
+                if (!f?.file_url) return;
+                const raw = f.file_url;
+                const path = raw.includes('/operator-documents/')
+                  ? decodeURIComponent(raw.split('/operator-documents/')[1].split('?')[0])
+                  : raw;
+                const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setStage2Preview({ ...stage2Preview, url: data.signedUrl, name: f.file_name ?? 'Document', index: nextIdx });
+                }
+              }
+            : undefined}
+          onNext={stage2Preview.siblings && stage2Preview.siblings.length > 1 && typeof stage2Preview.index === 'number' && stage2Preview.index < stage2Preview.siblings.length - 1
+            ? async () => {
+                const sibs = stage2Preview.siblings!;
+                const nextIdx = stage2Preview.index! + 1;
+                const f = sibs[nextIdx];
+                if (!f?.file_url) return;
+                const raw = f.file_url;
+                const path = raw.includes('/operator-documents/')
+                  ? decodeURIComponent(raw.split('/operator-documents/')[1].split('?')[0])
+                  : raw;
+                const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setStage2Preview({ ...stage2Preview, url: data.signedUrl, name: f.file_name ?? 'Document', index: nextIdx });
+                }
+              }
+            : undefined}
           onEdit={stage2Preview.docType !== 'application_doc' ? () => {
             const pathPrefix = `${operatorId}/${stage2Preview.docType}`;
             setStage2Editing({

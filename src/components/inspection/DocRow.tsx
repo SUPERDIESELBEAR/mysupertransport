@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { pdfToImage } from '@/lib/pdfToImage';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
@@ -390,7 +390,7 @@ function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | nu
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved }: {
+export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter }: {
   url: string;
   name: string;
   onClose: () => void;
@@ -401,6 +401,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   filePath?: string;
   /** Called after a successful edit save */
   onSaved?: (newUrl: string) => void;
+  /** Optional prev/next handlers to flip through sibling files */
+  onPrev?: () => void;
+  onNext?: () => void;
+  /** e.g. "2 of 4" */
+  counter?: string;
 }) {
   const { toast } = useToast();
   const [showEditor, setShowEditor] = useState(false);
@@ -437,10 +442,14 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const canZoomOut = zoomIdx > 0;
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft' && onPrev) onPrev();
+      else if (e.key === 'ArrowRight' && onNext) onNext();
+    };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  }, [onClose, onPrev, onNext]);
 
   const handlePrint = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -485,6 +494,29 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           </button>
           <FileText className="h-4 w-4 text-gold shrink-0" />
           <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[40vw]">{name}</span>
+          {counter && (
+            <span className="text-[11px] font-medium text-muted-foreground shrink-0 ml-1">{counter}</span>
+          )}
+          {(onPrev || onNext) && (
+            <div className="flex items-center gap-0.5 ml-1 shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
+                disabled={!onPrev}
+                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Previous file (←)"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNext?.(); }}
+                disabled={!onNext}
+                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Next file (→)"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {/* Zoom controls — hide on mobile PDF fallback */}
