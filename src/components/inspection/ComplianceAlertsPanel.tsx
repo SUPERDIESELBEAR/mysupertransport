@@ -414,21 +414,23 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   return (
     <>
     <div className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-wrap items-center px-4 py-3 gap-2">
-        {/* Expand/collapse toggle */}
+      {/* ── Band A: Identity + scope ────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
         <button
           onClick={() => setExpanded(v => !v)}
-          className="flex-1 min-w-[260px] flex flex-wrap items-center gap-2.5 text-left hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity min-w-0"
         >
           <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
             <ShieldAlert className="h-4 w-4 text-destructive" />
           </div>
-          <span className="font-semibold text-sm text-destructive">Compliance Alerts</span>
-          <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+          <span className="font-semibold text-sm text-destructive whitespace-nowrap">Compliance Alerts</span>
+          <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none shrink-0">
             {alerts.length}
           </span>
-          {/* Never Renewed badge */}
+        </button>
+
+        {/* Status pills (middle cluster) */}
+        <div className="hidden md:flex items-center gap-2 flex-1 min-w-0">
           {(() => {
             const neverRenewed = alerts.filter(a => !lastRenewed[`${a.operator_id}|${a.doc_type}`]).length;
             if (neverRenewed === 0) return null;
@@ -436,7 +438,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-semibold shrink-0 cursor-default">
+                    <span className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-semibold shrink-0 cursor-default">
                       <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
                       {neverRenewed} Never Renewed
                     </span>
@@ -446,7 +448,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               </TooltipProvider>
             );
           })()}
-          {/* Recently sent badge */}
           {(() => {
             const now = Date.now();
             const recentlySent = alerts.filter(a => { const ts = lastReminded[`${a.operator_id}|${a.doc_type}`]; return ts && now - new Date(ts).getTime() <= 30 * 24 * 60 * 60 * 1000; }).length;
@@ -455,7 +456,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-warning/10 border border-warning/30 text-[10px] font-semibold shrink-0 cursor-default" style={{color: 'hsl(var(--warning))'}}>
+                    <span className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full bg-warning/10 border border-warning/30 text-[10px] font-semibold shrink-0 cursor-default" style={{color: 'hsl(var(--warning))'}}>
                       <span className="h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
                       {recentlySent} Reminder Sent
                     </span>
@@ -465,20 +466,35 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               </TooltipProvider>
             );
           })()}
-          <span className="text-xs text-muted-foreground hidden sm:inline truncate">
-            {alerts.filter(a => a.days_until < 0).length > 0 ? `${alerts.filter(a => a.days_until < 0).length} expired · ` : ''}
+        </div>
+
+        {/* Right cluster: visibility + collapse chevron */}
+        <div className="flex items-center gap-2 shrink-0">
+          <ComplianceWindowPicker />
+          <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity" aria-label={expanded ? 'Collapse' : 'Expand'}>
+            {expanded ? <ShieldCheck className="h-4 w-4 text-muted-foreground" /> : <ShieldAlert className="h-4 w-4 text-muted-foreground opacity-50" />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Band B: Filters (left) + bulk toolbar (right) ─────────────── */}
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 px-4 py-3 border-t border-destructive/10">
+        <div className="flex flex-col gap-2 min-w-0">
+          <p className="text-xs text-muted-foreground">
+            {alerts.filter(a => a.days_until < 0).length > 0 ? (
+              <><span className="font-semibold text-destructive">{alerts.filter(a => a.days_until < 0).length} expired</span> · </>
+            ) : null}
             CDL or medical cert expiring within {windowDays} days
-          </span>
-          {/* Doc-type filter chips */}
-          <div className="hidden sm:flex flex-wrap items-center gap-1 ml-1" onClick={e => e.stopPropagation()}>
+          </p>
+          <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/60 w-fit">
             {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
               const count = f === 'all' ? alerts.length : alerts.filter(a => a.doc_type === f).length;
               const active = docFilter === f && !noActionOnly;
               return (
                 <button key={f} onClick={() => { setDocFilter(f); setNoActionOnly(false); }}
-                  className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${active ? 'bg-destructive/15 border-destructive/40 text-destructive' : 'bg-background border-border text-muted-foreground hover:border-destructive/30 hover:text-destructive/70'}`}>
+                  className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-semibold border transition-all ${active ? 'bg-destructive/15 border-destructive/40 text-destructive shadow-sm' : 'bg-transparent border-transparent text-muted-foreground hover:bg-background hover:text-destructive/80'}`}>
                   {f === 'all' ? 'All' : f}
-                  <span className={`text-[9px] font-bold ${active ? 'text-destructive' : 'text-muted-foreground'}`}>{count}</span>
+                  <span className={`text-[10px] font-bold ${active ? 'text-destructive' : 'text-muted-foreground'}`}>{count}</span>
                 </button>
               );
             })}
@@ -487,8 +503,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button onClick={() => setNoActionOnly(v => !v)}
-                      className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${noActionOnly ? 'bg-muted-foreground/15 border-muted-foreground/40 text-foreground' : 'bg-background border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'}`}>
-                      No Action <span className={`text-[9px] font-bold ${noActionOnly ? 'text-foreground' : 'text-muted-foreground'}`}>{noActionCount}</span>
+                      className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-semibold border transition-all ${noActionOnly ? 'bg-foreground/10 border-foreground/40 text-foreground shadow-sm' : 'bg-transparent border-transparent text-muted-foreground hover:bg-background hover:text-foreground'}`}>
+                      No Action <span className={`text-[10px] font-bold ${noActionOnly ? 'text-foreground' : 'text-muted-foreground'}`}>{noActionCount}</span>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">Show only operators with no reminder or renewal recorded</TooltipContent>
@@ -496,35 +512,30 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               </TooltipProvider>
             )}
           </div>
-        </button>
-
-        {/* Right-side action cluster — wraps as a unit on narrow widths */}
-        <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
-        {/* Visibility window picker */}
-        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-          <ComplianceWindowPicker />
         </div>
 
+        {/* Bulk action toolbar — 3 buttons, equal width, uniform height */}
+        <div className="grid grid-cols-3 gap-2 shrink-0">
         {/* Bulk Send Reminders */}
         {(() => {
           const filteredTargets = alerts.filter(a => { if (docFilter !== 'all' && a.doc_type !== docFilter) return false; return a.days_until <= 30; });
-          if (filteredTargets.length === 0 && !bulkCooldown) return null;
+          const inactive = filteredTargets.length === 0 && !bulkCooldown;
           const allSent = bulkSentCount !== null;
           const docLabel = docFilter === 'all' ? 'critical' : docFilter;
           return (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="flex flex-col items-stretch gap-0.5 min-h-[52px]">
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }} disabled={bulkSending || bulkCooldown}
-                      className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${bulkCooldown ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50' : allSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/15'}`}>
-                      {bulkSending ? <><Loader2 className="h-3 w-3 animate-spin" />Sending…</> : bulkCooldown ? <><CheckCheck className="h-3 w-3" />Sent · {bulkCooldownMinutes}m cooldown</> : allSent ? <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</> : <><Send className="h-3 w-3" />Send Reminders to All ({filteredTargets.length})</>}
+                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }} disabled={bulkSending || bulkCooldown || inactive}
+                      className={`w-full h-9 px-2 text-[11px] gap-1.5 font-semibold transition-all whitespace-nowrap ${bulkCooldown || inactive ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50' : allSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/15'}`}>
+                      {bulkSending ? <><Loader2 className="h-3 w-3 animate-spin" />Sending…</> : bulkCooldown ? <><CheckCheck className="h-3 w-3" />Sent · {bulkCooldownMinutes}m</> : allSent ? <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</> : <><Send className="h-3 w-3" />Send Reminders ({filteredTargets.length})</>}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">{bulkCooldown ? `Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.` : allSent ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent` : `Send renewal reminder emails to all ${filteredTargets.length} ${docLabel} operator${filteredTargets.length !== 1 ? 's' : ''} (≤ 30 days)`}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              {bulkLastSentLabel && <span className="text-[10px] text-muted-foreground/70 leading-none">Last sent: {bulkLastSentLabel}</span>}
+              <span className="text-[10px] text-muted-foreground/70 leading-none text-center truncate">{bulkLastSentLabel ? `Last sent: ${bulkLastSentLabel}` : ''}</span>
             </div>
           );
         })()}
@@ -533,17 +544,20 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         {(() => {
           const allRenewed = bulkRenewedCount !== null;
           return (
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowBulkRenewConfirm(true); }} disabled={bulkRenewing}
-                    className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${allRenewed ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-status-progress/40 text-status-progress bg-status-progress/5 hover:bg-status-progress/15'}`}>
-                    {bulkRenewing ? <><Loader2 className="h-3 w-3 animate-spin" />Renewing…</> : allRenewed ? <><CheckCheck className="h-3 w-3" />{bulkRenewedCount} Renewed</> : <><RotateCcw className="h-3 w-3" />Mark All Renewed</>}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">{allRenewed ? `${bulkRenewedCount} document${bulkRenewedCount !== 1 ? 's' : ''} renewed successfully` : `Extend all ${alerts.length} alerted document${alerts.length !== 1 ? 's' : ''} by +1 year from today`}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex flex-col items-stretch gap-0.5 min-h-[52px]">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowBulkRenewConfirm(true); }} disabled={bulkRenewing}
+                      className={`w-full h-9 px-2 text-[11px] gap-1.5 font-semibold transition-all whitespace-nowrap ${allRenewed ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-status-progress/40 text-status-progress bg-status-progress/5 hover:bg-status-progress/15'}`}>
+                      {bulkRenewing ? <><Loader2 className="h-3 w-3 animate-spin" />Renewing…</> : allRenewed ? <><CheckCheck className="h-3 w-3" />{bulkRenewedCount} Renewed</> : <><RotateCcw className="h-3 w-3" />Mark All Renewed</>}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">{allRenewed ? `${bulkRenewedCount} document${bulkRenewedCount !== 1 ? 's' : ''} renewed successfully` : `Extend all ${alerts.length} alerted document${alerts.length !== 1 ? 's' : ''} by +1 year from today`}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <span className="text-[10px] text-muted-foreground/70 leading-none text-center">&nbsp;</span>
+            </div>
           );
         })()}
 
@@ -551,28 +565,24 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         {(() => {
           const noActionAlerts = alerts.filter(a => { const key = `${a.operator_id}|${a.doc_type}`; return !lastReminded[key] && !lastRenewed[key]; });
           const allSent = noActionBulkSentCount !== null;
-          if (noActionAlerts.length === 0 && !allSent && !noActionBulkSending && !noActionCooldown) return null;
+          const inactive = noActionAlerts.length === 0 && !allSent && !noActionBulkSending && !noActionCooldown;
           return (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="flex flex-col items-stretch gap-0.5 min-h-[52px]">
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }} disabled={noActionBulkSending || allSent || noActionAlerts.length === 0 || noActionCooldown}
-                      className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${noActionCooldown ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50' : allSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-muted-foreground/40 text-muted-foreground bg-muted/30 hover:border-foreground/40 hover:text-foreground hover:bg-muted/60'}`}>
-                      {noActionBulkSending ? <><Loader2 className="h-3 w-3 animate-spin" />Sending…</> : noActionCooldown ? <><CheckCheck className="h-3 w-3" />Sent · {noActionCooldownMinutes}m cooldown</> : allSent ? <><CheckCheck className="h-3 w-3" />{noActionBulkSentCount} Sent</> : <><Send className="h-3 w-3" />Remind Uncontacted ({noActionAlerts.length})</>}
+                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }} disabled={noActionBulkSending || allSent || noActionAlerts.length === 0 || noActionCooldown || inactive}
+                      className={`w-full h-9 px-2 text-[11px] gap-1.5 font-semibold transition-all whitespace-nowrap ${noActionCooldown || inactive ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50' : allSent ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10' : 'border-muted-foreground/40 text-muted-foreground bg-muted/30 hover:border-foreground/40 hover:text-foreground hover:bg-muted/60'}`}>
+                      {noActionBulkSending ? <><Loader2 className="h-3 w-3 animate-spin" />Sending…</> : noActionCooldown ? <><CheckCheck className="h-3 w-3" />Sent · {noActionCooldownMinutes}m</> : allSent ? <><CheckCheck className="h-3 w-3" />{noActionBulkSentCount} Sent</> : <><Send className="h-3 w-3" />Remind Uncontacted ({noActionAlerts.length})</>}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">{noActionCooldown ? `Available again in ${noActionCooldownMinutes} minute${noActionCooldownMinutes !== 1 ? 's' : ''}.` : allSent ? `${noActionBulkSentCount} reminder${noActionBulkSentCount !== 1 ? 's' : ''} sent` : `Send reminders to ${noActionAlerts.length} operator${noActionAlerts.length !== 1 ? 's' : ''} with no prior reminder or renewal`}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              {noActionLastSentLabel && <span className="text-[10px] text-muted-foreground/70 leading-none">Last sent: {noActionLastSentLabel}</span>}
+              <span className="text-[10px] text-muted-foreground/70 leading-none text-center truncate">{noActionLastSentLabel ? `Last sent: ${noActionLastSentLabel}` : ''}</span>
             </div>
           );
         })()}
-
-        <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
-          {expanded ? <ShieldCheck className="h-4 w-4 text-muted-foreground" style={{transform:'rotate(0deg)'}} /> : <ShieldAlert className="h-4 w-4 text-muted-foreground opacity-50" />}
-        </button>
         </div>
       </div>
 
@@ -584,7 +594,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             <span className="h-2 w-2 shrink-0" />
             <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[110px] text-right">Status</span>
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
               className="hidden md:inline-flex items-center gap-1 w-[90px] justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group shrink-0"
               style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
@@ -616,17 +626,23 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 {/* Urgency dot */}
                 <span className={`h-2 w-2 rounded-full shrink-0 ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
                 {/* Name + doc type */}
-                <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <div className="flex-1 min-w-0 flex items-center gap-2">
                   <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
-                  <span className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
-                  {!renewedAt && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 shrink-0"><span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />Never Renewed</span>}
+                  <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[92px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
                 </div>
                 {/* Expiry date */}
                 <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
-                {/* Urgency badge */}
-                <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
-                  {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
-                </span>
+                {/* Urgency badge stack (status + never-renewed sub-pill) */}
+                <div className="flex flex-col items-end gap-0.5 shrink-0 w-[110px]">
+                  <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
+                    {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
+                  </span>
+                  {!renewedAt && (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none">
+                      <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
+                    </span>
+                  )}
+                </div>
                 {/* Last Action column */}
                 {(() => {
                   const remindedTs = remindedAt ? new Date(remindedAt).getTime() : 0;
