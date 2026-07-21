@@ -1010,26 +1010,42 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     );
   };
 
-  // List-view variant: aligned columns, no colored doc-badge background.
-  // Doc label is bold muted text; tabular-nums keeps dates vertically aligned.
-  const ListCertSubRow = ({ entry }: { entry: DocEntry }) => {
+  // Table cell for the list-view variant. One cert per column, light theme,
+  // severity tint per cell + row rail supplied on the sticky driver cell.
+  // Micro-actions (history / upload / remind) reveal on cell hover.
+  const TableCertCell = ({ entry }: { entry?: DocEntry }) => {
+    if (!entry) {
+      return (
+        <td className="px-3 py-2 align-top whitespace-nowrap text-xs text-muted-foreground/50 italic">
+          —
+        </td>
+      );
+    }
     const cfg = STATUS_CONFIG[entry.status];
+    const isCrit = entry.status === 'expired' || entry.status === 'critical';
+    const isWarn = entry.status === 'warning';
+    const cellBg = isCrit ? 'bg-destructive/[0.05]' : isWarn ? 'bg-warning/[0.05]' : '';
     return (
-      <div className="py-0.5">
-        <div className="flex items-center gap-2">
-          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
-            {DOC_DISPLAY[entry.docKey]}
-          </span>
-          <span className="w-[140px] shrink-0">
-            <DriverDateEditor entry={entry} />
-          </span>
-          <span className="flex-1" />
-          <StaleChip entry={entry} /><HistoryButton entry={entry} /><UploadButton entry={entry} /><RemindButton entry={entry} />
-          <CertPill entry={entry} />
+      <td className={cn('px-3 py-2 align-top whitespace-nowrap group/cell', cellBg)}>
+        <div className="flex flex-col gap-1 min-w-[150px]">
+          <div className="flex items-center gap-1.5">
+            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+            <span className="text-xs tabular-nums text-foreground">
+              <DriverDateEditor entry={entry} />
+            </span>
+            <StaleChip entry={entry} />
+          </div>
+          <div className="flex items-center gap-1">
+            <CertPill entry={entry} />
+            <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover/cell:opacity-100 focus-within:opacity-100 transition-opacity">
+              <HistoryButton entry={entry} />
+              <UploadButton entry={entry} />
+              <RemindButton entry={entry} />
+            </div>
+          </div>
+          <LastUpdatedLine entry={entry} />
         </div>
-        <LastUpdatedLine entry={entry} />
-      </div>
+      </td>
     );
   };
 
@@ -1379,128 +1395,188 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
               })}
             </div>
           ) : (
-            // List view (grouped)
-            <div className="divide-y divide-border/50">
-              {grouped.map((g, i) => {
-                if (g.kind === 'fleet') {
-                  const entry = g.entry;
-                  const cfg = STATUS_CONFIG[entry.status];
-                  const docId = entry.inspectionDocId;
-                  const isSaving = docId ? !!saving[docId] : false;
-                  const isSaved  = docId ? !!saved[docId]  : false;
-                  const isPickerOpen = docId ? openPicker === docId : false;
-                  return (
-                    <div key={`fleet-l-${i}`} className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}>
-                      <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dotCls)} />
-                      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className="font-medium text-sm text-foreground truncate">Fleet (all drivers)</span>
-                        <span className={cn('inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border', DOC_BADGE[entry.docKey])}>
-                          {DOC_DISPLAY[entry.docKey]}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground italic">Fleet-wide</span>
-                      </div>
-                      <div className="hidden sm:block shrink-0 w-[140px]">
-                        {docId ? (
-                          <Popover open={isPickerOpen} onOpenChange={open => setOpenPicker(open ? docId : null)}>
-                            <PopoverTrigger asChild>
-                              <button
-                                className={cn('flex items-center gap-1.5 text-xs rounded px-1.5 py-0.5 -mx-1.5 transition-colors',
-                                  isPickerOpen ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-                                  isSaved && 'text-status-complete')}
-                                disabled={isSaving}
-                              >
-                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isSaved ? <Check className="h-3 w-3" /> : <CalendarIcon className="h-3 w-3 opacity-50" />}
-                                <span>{entry.expiresAt ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy') : <span className="italic opacity-50">Set date</span>}</span>
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start" side="bottom">
-                              <Calendar
-                                mode="single"
-                                selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
-                                onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
-                                  disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
-                                initialFocus
-                                className={cn('p-3 pointer-events-auto')}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Not set</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 justify-end">
-                        <StaleChip entry={entry} />
-                        <HistoryButton entry={entry} />
-                        <UploadButton entry={entry} />
-                        <CertPill entry={entry} />
-                        {onOpenInspectionBinder && (
-                          <button
-                            onClick={onOpenInspectionBinder}
-                            className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
-                            title="Update in Inspection Binder"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
+            // List view — true table with sticky driver column, severity rails,
+            // and one certification per column. Light palette matches card view.
+            (() => {
+              const fleetRows = grouped.filter(g => g.kind === 'fleet') as Extract<typeof grouped[number], { kind: 'fleet' }>[];
+              const driverRows = grouped.filter(g => g.kind !== 'fleet') as Exclude<typeof grouped[number], { kind: 'fleet' }>[];
+              return (
+                <div>
+                  {/* Fleet-wide rows first (Insurance / IFTA / IRP) */}
+                  {fleetRows.length > 0 && (
+                    <div className="divide-y divide-border/50 border-b border-border/60">
+                      {fleetRows.map((g, i) => {
+                        const entry = g.entry;
+                        const cfg = STATUS_CONFIG[entry.status];
+                        const docId = entry.inspectionDocId;
+                        const isSaving = docId ? !!saving[docId] : false;
+                        const isSaved  = docId ? !!saved[docId]  : false;
+                        const isPickerOpen = docId ? openPicker === docId : false;
+                        return (
+                          <div key={`fleet-l-${i}`} className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}>
+                            <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dotCls)} />
+                            <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span className="font-medium text-sm text-foreground truncate">Fleet (all drivers)</span>
+                              <span className={cn('inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border', DOC_BADGE[entry.docKey])}>
+                                {DOC_DISPLAY[entry.docKey]}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground italic">Fleet-wide</span>
+                            </div>
+                            <div className="hidden sm:block shrink-0 w-[140px]">
+                              {docId ? (
+                                <Popover open={isPickerOpen} onOpenChange={open => setOpenPicker(open ? docId : null)}>
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      className={cn('flex items-center gap-1.5 text-xs rounded px-1.5 py-0.5 -mx-1.5 transition-colors',
+                                        isPickerOpen ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                                        isSaved && 'text-status-complete')}
+                                      disabled={isSaving}
+                                    >
+                                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isSaved ? <Check className="h-3 w-3" /> : <CalendarIcon className="h-3 w-3 opacity-50" />}
+                                      <span>{entry.expiresAt ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy') : <span className="italic opacity-50">Set date</span>}</span>
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start" side="bottom">
+                                    <Calendar
+                                      mode="single"
+                                      selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
+                                      onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                                      disabled={(d) => d < new Date(new Date().setHours(0,0,0,0))}
+                                      initialFocus
+                                      className={cn('p-3 pointer-events-auto')}
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">Not set</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                              <StaleChip entry={entry} />
+                              <HistoryButton entry={entry} />
+                              <UploadButton entry={entry} />
+                              <CertPill entry={entry} />
+                              {onOpenInspectionBinder && (
+                                <button
+                                  onClick={onOpenInspectionBinder}
+                                  className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
+                                  title="Update in Inspection Binder"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                }
-                const cfg = STATUS_CONFIG[g.worstStatus];
-                const StatusIcon = STATUS_ICON[g.worstStatus];
-                const ariaLabel = `${g.operatorName} — ${cfg.label}` +
-                  (g.worstDays !== null
-                    ? `, ${g.worstDays < 0 ? `expired ${Math.abs(g.worstDays)} days ago` : g.worstDays === 0 ? 'expires today' : `${g.worstDays} days remaining`}`
-                    : '');
-                return (
-                  <div
-                    key={g.operatorId}
-                    aria-label={ariaLabel}
-                    className={cn('flex items-start gap-3 px-4 py-2 transition-colors', cfg.rowCls)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-foreground truncate">{g.operatorName}</span>
-                        <span className={cn('inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border', cfg.badgeCls)}>
-                          <StatusIcon className="h-3 w-3" aria-hidden="true" />
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <div className="mt-1 ml-1 pl-3 border-l border-border/60">
-                        {g.cdl && <ListCertSubRow entry={g.cdl} />}
-                        {g.med && <ListCertSubRow entry={g.med} />}
-                        {g.irp && <ListCertSubRow entry={g.irp} />}
-                        {g.reg && <ListCertSubRow entry={g.reg} />}
-                        {g.form2290 && <ListCertSubRow entry={g.form2290} />}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <TooltipProvider delayDuration={250}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
-                              aria-label={`View ${g.operatorName} compliance timeline`}
-                              className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                            >
-                              <History className="h-4 w-4" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Compliance timeline</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <button
-                        onClick={() => openDriver(g.operatorId)}
-                        aria-label={`Open ${g.operatorName} in Inspection Binder`}
-                        className="min-h-11 min-w-11 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </button>
-                    </div>
+                  )}
+
+                  {/* Per-driver table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-left">
+                      <thead className="bg-muted/30">
+                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <th className="sticky left-0 z-10 bg-muted/30 px-3 py-2 font-semibold min-w-[220px] border-r border-border/60">
+                            Driver / Status
+                          </th>
+                          <th className="px-3 py-2 font-semibold">CDL</th>
+                          <th className="px-3 py-2 font-semibold">Med Cert</th>
+                          <th className="px-3 py-2 font-semibold">IRP</th>
+                          <th className="px-3 py-2 font-semibold">Registration</th>
+                          <th className="px-3 py-2 font-semibold">2290</th>
+                          <th className="px-3 py-2 font-semibold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {driverRows.map(g => {
+                          const worstCfg = STATUS_CONFIG[g.worstStatus];
+                          const StatusIcon = STATUS_ICON[g.worstStatus];
+                          const tier =
+                            g.worstStatus === 'expired' || g.worstStatus === 'critical'
+                              ? { label: 'Critical', cls: 'bg-destructive/10 text-destructive border-destructive/30' }
+                              : g.worstStatus === 'warning'
+                              ? { label: 'Attention', cls: 'bg-yellow-50 text-yellow-700 border-yellow-300' }
+                              : g.worstStatus === 'missing'
+                              ? { label: 'Missing Info', cls: 'bg-muted text-muted-foreground border-border' }
+                              : { label: 'Compliant', cls: 'bg-status-complete/10 text-status-complete border-status-complete/30' };
+                          const railCls =
+                            g.worstStatus === 'expired' || g.worstStatus === 'critical'
+                              ? 'border-l-destructive'
+                              : g.worstStatus === 'warning'
+                              ? 'border-l-yellow-500'
+                              : g.worstStatus === 'missing'
+                              ? 'border-l-muted-foreground/40'
+                              : 'border-l-status-complete/40';
+                          const ariaLabel = `${g.operatorName} — ${worstCfg.label}`;
+                          return (
+                            <tr key={g.operatorId} aria-label={ariaLabel} className="group hover:bg-muted/20 transition-colors">
+                              <td className={cn(
+                                'sticky left-0 z-[1] px-3 py-2 border-l-4 border-r border-border/60 bg-card group-hover:bg-muted/20 min-w-[220px] align-top',
+                                railCls,
+                              )}>
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => openDriver(g.operatorId)}
+                                    className="text-left font-semibold text-sm text-foreground hover:text-gold transition-colors truncate"
+                                  >
+                                    {g.operatorName}
+                                  </button>
+                                  <span className={cn(
+                                    'inline-flex items-center gap-1 self-start text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border',
+                                    tier.cls,
+                                  )}>
+                                    <StatusIcon className="h-3 w-3" aria-hidden="true" />
+                                    {tier.label}
+                                  </span>
+                                </div>
+                              </td>
+                              <TableCertCell entry={g.cdl} />
+                              <TableCertCell entry={g.med} />
+                              <TableCertCell entry={g.irp} />
+                              <TableCertCell entry={g.reg} />
+                              <TableCertCell entry={g.form2290} />
+                              <td className="px-3 py-2 whitespace-nowrap text-right align-top">
+                                <div className="inline-flex items-center gap-1">
+                                  <TooltipProvider delayDuration={250}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={() => openDriverTimeline(g.operatorId, g.operatorName)}
+                                          aria-label={`View ${g.operatorName} compliance timeline`}
+                                          className="h-8 w-8 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                        >
+                                          <History className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Compliance timeline</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  <TooltipProvider delayDuration={250}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={() => openDriver(g.operatorId)}
+                                          aria-label={`Open ${g.operatorName} in Inspection Binder`}
+                                          className="h-8 w-8 rounded flex items-center justify-center text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
+                                        >
+                                          <ExternalLink className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Open in Binder</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })()
           )}
 
           {/* Footer summary */}
