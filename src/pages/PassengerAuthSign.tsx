@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DobPicker } from '@/components/ui/dob-picker';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -267,7 +268,7 @@ export default function PassengerAuthSign() {
               </div>
               <div>
                 <Label>Passenger DOB</Label>
-                <Input type="date" value={passengerDob} onChange={e => setPassengerDob(e.target.value)} />
+                <DobPicker value={passengerDob} onChange={setPassengerDob} />
               </div>
               <div>
                 <Label>Effective date *</Label>
