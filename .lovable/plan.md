@@ -1,34 +1,25 @@
-## Goal
-Ensure long operator names always display in full in the Compliance Alerts list, and tighten other elements in the same panel so the grid still lines up cleanly with the headers.
+## Diagnosis
 
-## Scope
-File: `src/components/inspection/ComplianceAlertsPanel.tsx` (header + row grid only). No data/logic changes.
+Only one row in the current screenshot has doc type CDL (Ishmael McGruder). Every other visible row is Medical Cert. Both doc-type badges live in the same fixed-width `w-[76px]` slot, so their columns are actually equal width, but they don't look like it:
 
-## Changes
+- The `Medical Cert` label wraps to two lines, so the pill fills the whole 76 px slot (visible edges span the full column).
+- The `CDL` label is 3 characters. The pill uses `justify-center`, so it sits as a small chip centered inside the same 76 px slot — its left edge lands ~20 px inside the column and its right edge lands ~20 px before column end.
 
-### 1. Operator name never truncates
-- Remove `truncate` on the operator name span and let it wrap to a second line when needed.
-- Change the name cell wrapper so wrapping is allowed: replace `flex-1 min-w-0 flex items-center gap-2` with `flex-1 min-w-[180px] flex flex-wrap items-center gap-x-2 gap-y-1`.
-- Keep the inline "Never Renewed" chip, but let it drop to the next line naturally when the name is long instead of squeezing the name.
+Because the doc-badge is the anchor the eye uses for the Expires column, the CDL pill (and its neighboring `Aug 18, 2026`) reads as "shifted right" versus the Medical Cert rows above it, even though the underlying grid is aligned.
 
-### 2. Tighten fixed columns so freed space goes to the operator column
-Match header widths to row widths in both places:
-- Doc-type badge: `w-[92px]` → `w-[76px]`.
-- Expires: `w-[96px]` → `w-[88px]`.
-- Status pill cell: `w-[110px]` → `w-[100px]`.
-- Last Action: `w-[90px]` → `w-[84px]`.
-- Last Reminded / Last Renewed: `w-[72px]` → `w-[68px]` each.
-- Row gap: `gap-3` → `gap-2` on both the header row and data rows so columns pack tighter without touching.
+## Fix
 
-### 3. Trim right-side action buttons
-The three trailing buttons currently reserve room for text labels on `sm:` and up. Tighten them so the extra space benefits the operator column:
-- Row buttons `Remind`, `Renew`, `Open →`: reduce `px-2` to `px-1.5` and shorten the visible label to just the icon on screens narrower than `lg` (hide the `<span>` label with `hidden lg:inline` instead of `hidden sm:inline`). Tooltips already carry the full meaning.
-- Update the header spacer widths at the end of the header row (`w-[74px] w-[68px] w-[58px]`) to match the new compact button widths (approx `w-[52px] w-[52px] w-[46px]`) so the columns still align.
+File: `src/components/inspection/ComplianceAlertsPanel.tsx` (doc-badge cell only, ~line 639).
 
-### 4. Consistency pass
-- Verify the header grid template and each row use identical widths at each breakpoint after the edits.
-- Confirm the sticky panel width behavior is unchanged (no new overflow introduced) by keeping all fixed cells `shrink-0` and letting only the operator cell flex.
+1. Make both pills visually occupy the same box within the 76 px slot:
+   - Add `whitespace-nowrap` so nothing wraps.
+   - Change alignment from `justify-center` to `justify-start` so both `CDL` and `Medical Cert` share the same left edge as the column.
+2. Shorten the Medical Cert label to `Med Cert` so it fits on a single line inside the 76 px slot at the same height as the `CDL` pill (matches the "Med Cert" wording already used in the Fleet Compliance table header for consistency).
+3. Keep the existing color styles (blue for CDL, purple for Med Cert), width, padding, border, and font size — no other changes.
+
+Result: The doc-type badge, the Expires date, the Status pill and the trailing action buttons all line up in the same columns for every row regardless of doc type.
 
 ## Out of scope
-- No changes to filtering, sorting, data fetch, tooltips, or dialogs.
-- No visual restyle of pills/colors beyond the width tweaks noted.
+
+- No changes to filtering, sorting, data, tooltips, or any other column.
+- No changes to the header row — column widths already match after the previous pass.

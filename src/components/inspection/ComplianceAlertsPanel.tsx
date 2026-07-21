@@ -636,7 +636,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   )}
                 </div>
                 {/* Doc-type badge (fixed slot to align with header) */}
-                <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[76px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
+                <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[76px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type}</span>
                 {/* Expiry date */}
                 <span className="text-xs text-muted-foreground hidden sm:block shrink-0 w-[88px] text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Status (single pill, right-aligned) */}
