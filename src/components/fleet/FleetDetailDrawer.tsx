@@ -120,6 +120,10 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [maintenanceSearch, setMaintenanceSearch] = useState('');
+  // Tracks maintenance record IDs whose invoice file is missing in storage
+  // (path set on the row but object 404s). Used to swap the eye icon for the
+  // same "—" placeholder used when no invoice was uploaded.
+  const [missingInvoiceIds, setMissingInvoiceIds] = useState<Set<string>>(new Set());
 
   // Truck specs editing
   const [isEditing, setIsEditing] = useState(false);
@@ -332,7 +336,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     ? differenceInDays(startOfDay(parseISO(latestDot.next_due_date)), startOfDay(new Date()))
     : null;
 
-  const handlePreviewFile = async (filePath: string, fileName: string) => {
+  const handlePreviewFile = async (
+    filePath: string,
+    fileName: string,
+    maintenanceRecordId?: string,
+  ) => {
     try {
       const bucket = bucketForBinderDoc(filePath);
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
@@ -343,7 +351,20 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         throw new Error('No signed URL returned');
       }
     } catch (err: any) {
-      toast({ title: 'Preview failed', description: err?.message ?? 'Could not open file.', variant: 'destructive' });
+      const msg = String(err?.message ?? '').toLowerCase();
+      const isMissing = msg.includes('not found') || msg.includes('object not found') || msg.includes('404');
+      if (isMissing) {
+        if (maintenanceRecordId) {
+          setMissingInvoiceIds(prev => {
+            const next = new Set(prev);
+            next.add(maintenanceRecordId);
+            return next;
+          });
+        }
+        toast({ title: 'No invoice uploaded for this record.' });
+      } else {
+        toast({ title: 'Preview failed', description: err?.message ?? 'Could not open file.', variant: 'destructive' });
+      }
     }
   };
 
@@ -693,13 +714,13 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                         {r.amount ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        {r.invoice_file_path ? (
+                        {r.invoice_file_path && !missingInvoiceIds.has(r.id) ? (
                           <Button
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7"
                             title="Preview invoice"
-                            onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}
+                            onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice', r.id)}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -960,12 +981,12 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               )}
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice File</p>
-                {viewingMaintenance.invoice_file_path ? (
+                {viewingMaintenance.invoice_file_path && !missingInvoiceIds.has(viewingMaintenance.id) ? (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs gap-1.5 mt-1"
-                    onClick={() => handlePreviewFile(viewingMaintenance.invoice_file_path!, viewingMaintenance.invoice_file_name || 'Invoice')}
+                    onClick={() => handlePreviewFile(viewingMaintenance.invoice_file_path!, viewingMaintenance.invoice_file_name || 'Invoice', viewingMaintenance.id)}
                   >
                     <Eye className="h-3.5 w-3.5" />
                     View Invoice
