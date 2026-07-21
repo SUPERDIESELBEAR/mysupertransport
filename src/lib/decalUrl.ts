@@ -68,7 +68,6 @@ export async function resolveDecalUrl(storedUrl: string | null | undefined): Pro
   if (!storedUrl) return null;
   const path = extractOperatorDocumentPath(storedUrl);
   if (!path) return storedUrl; // not one of ours — pass through
-  if (!path) return null;
 
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
   if (error || !data?.signedUrl) {
