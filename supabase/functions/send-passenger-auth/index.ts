@@ -72,6 +72,29 @@ Deno.serve(async (req) => {
 
   const responseUrl = `${SITE_URL}/passenger-auth/${row.response_token}`
 
+  // In-app task: create a notification for the linked driver so the request
+  // surfaces inside SUPERDRIVE alongside the email link.
+  if (body.operatorId) {
+    const { data: op } = await admin
+      .from('operators')
+      .select('user_id')
+      .eq('id', body.operatorId)
+      .maybeSingle()
+    if (op?.user_id) {
+      await admin.from('notifications').insert({
+        user_id: op.user_id,
+        type: 'assignment',
+        title: 'Passenger Authorization required',
+        body: `Complete Authorization #1 for Unit ${unitNumber} and sign the form.`,
+        link: `/passenger-auth/${row.response_token}`,
+        entity_type: 'passenger_authorization',
+        entity_id: row.id,
+        priority: 'high',
+        channel: 'in_app',
+      })
+    }
+  }
+
   const { error: sendErr } = await admin.functions.invoke('send-transactional-email', {
     body: {
       templateName: 'passenger-auth-request',

@@ -1624,6 +1624,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
               </div>
 
+              <PendingPassengerAuthCard operatorId={operatorId} />
+
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((t, idx) => (
                   <button

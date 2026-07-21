@@ -125,8 +125,9 @@ export default function SendPassengerAuthModal({ open, onOpenChange }: Props) {
             <Input type="email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} />
           </div>
           <p className="text-xs text-muted-foreground">
-            The driver will receive an email link to complete Authorization #1 and sign the form.
-            The carrier signature and Driver Hub filing happen automatically.
+            The driver will get an in-app task in SUPERDRIVE <strong>and</strong> an email link
+            to complete Authorization #1 and sign the form. The in-app task requires a linked
+            driver profile (select one above). Carrier signature and Driver Hub filing happen automatically.
           </p>
         </div>
         <DialogFooter>
