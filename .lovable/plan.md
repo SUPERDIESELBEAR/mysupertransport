@@ -1,31 +1,30 @@
-## Goal
-Fix the Passenger Authorization submit failure that occurs when the contractor uses the new passenger-signature waiver flow.
+## File executed Passenger Authorization into Driver Documents vault
 
-## Confirmed signals
-- The latest failed submit reached `finalize-passenger-auth` and returned HTTP `400`.
-- The latest Marcus Mueller authorization is still `opened`, with no executed PDF filed.
-- The new database fields for `passenger_relationship`, `passenger_signature_waived`, and `passenger_waiver_reason` exist.
-- The current signing page sends `passengerSignatureWaived: true` when the passenger is not present, and omits `passengerTypedName` / `passengerSignature` as intended.
+Currently the executed PDF is inserted into `operator_documents` as `document_type = 'other'`, which surfaces in the operator documents list but not in the "Driver Documents" card (`DriverVaultCard`) that reads from `driver_vault_documents`.
 
-## Likely fix
-The deployed `finalize-passenger-auth` function is rejecting waived submissions before upload/update. I’ll make the function validation explicitly support both waiver cases:
-- Minor child: no passenger signature required; reason auto-set.
-- Passenger not present: no passenger signature required, but waiver reason required.
-- Standard flow: passenger typed name and passenger signature still required.
+### Changes
 
-## Implementation steps
-1. Update `supabase/functions/finalize-passenger-auth/index.ts` validation to derive:
-   - `isMinor` from the relationship value/label
-   - `waived` from either the explicit waiver flag or minor-child relationship
-   - `waiverReason` with a default minor-child reason when applicable
-2. Ensure the function persists the waiver fields consistently:
-   - `passenger_signature_waived`
-   - `passenger_waiver_reason`
-   - `passenger_signature_url` remains null for waived/minor cases
-3. Improve the returned error message for invalid submissions so the UI can show the exact missing field instead of the generic edge-function message.
-4. Deploy `finalize-passenger-auth`.
-5. Test the deployed function with a safe payload shape that mirrors the waived case, and verify the function no longer rejects waived submissions at validation.
+1. **`supabase/functions/finalize-passenger-auth/index.ts`**
+   - Alongside the existing `operator_documents` insert, insert a row into `driver_vault_documents`:
+     - `operator_id`: row.operator_id
+     - `category`: `'passenger_authorization'`
+     - `label`: `Passenger Authorization — Unit {unit_number}` (fallback if unit missing)
+     - `file_path`: the storage path used in `passenger-auth-executed` bucket
+     - `file_name`: `Passenger Authorization — Unit {unit_number}.pdf`
+     - `notes`: `Passenger: {passenger_name} ({relationship})`
+   - Log and continue on failure (don't fail the whole submission).
 
-## Files expected to change
-- `supabase/functions/finalize-passenger-auth/index.ts`
-- Potentially `src/pages/PassengerAuthSign.tsx` only if the client needs to send the relationship value instead of the display label for more reliable validation.
+2. **`src/components/drivers/DriverVaultCard.tsx`**
+   - Add `{ value: 'passenger_authorization', label: 'Passenger Authorization' }` to `CATEGORIES` so the badge/label renders correctly and staff can filter/upload under the same category.
+   - Also update the signed-URL resolver: current code re-signs against `operator-documents` bucket. Passenger auth PDFs live in `passenger-auth-executed`. Store bucket per-doc? Simplest: keep vault card bucket assumption, but for `passenger_authorization` category re-sign from `passenger-auth-executed` instead. Small conditional on the two `createSignedUrl` calls in `fetchDocs`.
+
+3. **Backfill (optional)** — via insert tool: create `driver_vault_documents` rows for any existing `passenger_authorizations` where `executed_pdf_url` is set and `operator_id` is not null, so Marcus's just-signed doc appears without re-submission.
+
+### Where the user will see it
+
+In the Driver Hub → open Marcus Mueller → **Driver Documents** card. The PDF appears with a "Passenger Authorization" label, view/download/delete controls, and (for staff) the existing vault UI.
+
+### Not changed
+
+- The `operator_documents` filing stays as a secondary record (used for compliance/audit paths and the `filed_operator_document_id` back-reference).
+- No schema changes required — `driver_vault_documents.category` is a free-form text column.

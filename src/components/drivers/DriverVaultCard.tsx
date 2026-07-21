@@ -23,6 +23,7 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: 'truck_photos', label: 'Truck Photos' },
   { value: 'truck_title', label: 'Truck Title' },
   { value: 'receipt', label: 'Receipt' },
+  { value: 'passenger_authorization', label: 'Passenger Authorization' },
   { value: 'other', label: 'Other' },
 ];
 

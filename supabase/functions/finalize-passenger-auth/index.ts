@@ -164,6 +164,21 @@ Deno.serve(async (req) => {
     } else if (docErr) {
       console.error('operator_documents insert failed', docErr)
     }
+
+    const unitLabel = row.unit_number ? ` — Unit ${row.unit_number}` : ''
+    const { error: vaultErr } = await admin
+      .from('driver_vault_documents')
+      .insert({
+        operator_id: row.operator_id,
+        category: 'passenger_authorization',
+        label: `Passenger Authorization${unitLabel}`,
+        file_url: executedUrl,
+        file_name: `Passenger Authorization${unitLabel}.pdf`,
+        notes: `Passenger: ${body.passengerName}${body.passengerRelationship ? ` (${body.passengerRelationship})` : ''}`,
+      })
+    if (vaultErr) {
+      console.error('driver_vault_documents insert failed', vaultErr)
+    }
   }
 
   return json(200, { ok: true, executedUrl })
