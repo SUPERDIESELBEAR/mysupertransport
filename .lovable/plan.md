@@ -1,22 +1,17 @@
-# Maintenance Modal — AI Attachment & Date Autofill
+## Goal
+Confirm anniversary emails/notifications fire every year on each driver's Go Live date and change the wording so the year count is ordinal (1st, 2nd, 3rd, 10th…) instead of always saying "1 year".
 
-Good news on both fronts: the current build already does both of these things, but the UI doesn't make it obvious. This plan makes them visible so staff never re-uploads or wonders whether the date came through.
+## Current state (verified)
+- `send-birthday-anniversary` edge function runs daily at 15:00 UTC via `pg_cron` job `send-birthday-anniversary-daily` and matches by month + day against `onboarding_status.go_live_date`, excluding the go-live year itself. Yearly recurrence already works — no scheduling change needed.
+- Both the edge function and `src/lib/birthdayAnniversary/templates.ts` currently render the year count as `"1 year"` / `"N years"`.
 
-## What already works (verified in code)
+## Changes
+1. Add a small shared `ordinal(n)` helper (e.g. 1 → "1st", 2 → "2nd", 3 → "3rd", 11 → "11th", 21 → "21st"). Place it in `src/lib/birthdayAnniversary/templates.ts` and duplicate the same helper inline in the edge function (edge functions can't import from `src/`).
+2. Update copy in:
+   - `supabase/functions/send-birthday-anniversary/index.ts` — subject, heading, and body use `${ordinal(years)} anniversary` phrasing (e.g. "Congratulations on your 3rd anniversary with SUPERTRANSPORT! 🎉", "Today marks your 3rd anniversary since you became an active operator…"). Notification title/body updated to match.
+   - `src/lib/birthdayAnniversary/templates.ts` `anniversaryDefaults` — same ordinal phrasing so the staff-triggered popup message mirrors the automated one.
+3. Deploy the edge function.
 
-- **Invoice auto-attaches.** After a successful scan, `handleScanInvoice` calls `setInvoiceFile(file)`, so the same file uploads to `fleet-documents` on Save — no need to touch "Choose File" again.
-- **Service Date is read by AI.** The edge function extracts `service_date` as `YYYY-MM-DD`, and the modal converts it to `MM/DD/YYYY` for the DateInput. Staff only needs to pick a date if the invoice's date is unreadable or missing.
-
-## What to change (UI only)
-
-`src/components/fleet/MaintenanceRecordModal.tsx`
-
-1. **Replace the plain "Upload Invoice" file input with an attachment chip when a file is set** — show filename, size, a "Remove" (×) button, and a small "Attached from AI scan" hint when `aiFilled` is true. The hidden `<input type="file">` stays available via a "Replace file" link for the manual case.
-2. **Nudge the "Filled by AI — please review" pill** to list which fields were filled (e.g. "Service Date, Odometer, Shop, Amount, Invoice #, Category, Description"), and call out any field the AI returned `null` for with a subtle "AI couldn't read — please enter" hint under just that field (Service Date is the important one).
-3. **No changes** to the edge function, storage flow, save logic, or schema.
-
-## Out of scope
-
-- DOT Inspection modal (separate task).
-- Auto-save without review.
-- Server-side changes.
+## Notes
+- Birthday copy is unchanged.
+- No DB migration required.
