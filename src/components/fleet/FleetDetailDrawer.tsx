@@ -811,6 +811,35 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
             operatorId={operatorId}
             onSaved={fetchData}
           />
+          <MaintenanceRecordModal
+            open={!!editingMaintenance}
+            onClose={() => setEditingMaintenance(null)}
+            operatorId={operatorId}
+            onSaved={fetchData}
+            record={editingMaintenance as MaintenanceRecordEditable | null}
+          />
+          <AlertDialog open={!!deletingMaintenance} onOpenChange={o => { if (!o && !deletingMaintenanceBusy) setDeletingMaintenance(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this maintenance record?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {deletingMaintenance && (
+                    <>
+                      This will permanently remove the record from{' '}
+                      <strong>{format(parseISO(deletingMaintenance.service_date), 'MMM d, yyyy')}</strong>
+                      {deletingMaintenance.invoice_file_path ? ' along with its attached invoice.' : '.'}
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletingMaintenanceBusy}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteMaintenance} disabled={deletingMaintenanceBusy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deletingMaintenanceBusy ? 'Deleting…' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <DOTInspectionModal
             open={dotModalOpen}
             onClose={() => setDotModalOpen(false)}
