@@ -1,24 +1,64 @@
-# Fix "Edge Function returned a non-2xx status code" on Passenger Authorization submit
 
-## What we know
-- `PassengerAuthSign.tsx` calls `supabase.functions.invoke('finalize-passenger-auth', …)` on submit.
-- The database shows the latest three records for Marcus Mueller are all still in `sent` / `opened` — none reached `signed`, confirming finalize is failing before the row update.
-- `finalize-passenger-auth` has **no log entries at all** — strongly suggests the function is not currently deployed (or its last deploy failed), which would produce exactly the non-2xx error the driver sees.
-- The other two functions in the trio (`send-passenger-auth`, `get-passenger-auth`) are working; only `finalize-passenger-auth` is silent.
+# Omit Passenger Signature — Plan
 
-## Plan
+Combine approach **E (relationship-based auto-omit)** with **A (contractor-controlled "not present" toggle)**. The contractor decides at signing time. The final PDF stamps the waiver reason in the passenger signature block so the record is unambiguous.
 
-1. **Redeploy `finalize-passenger-auth`** to ensure the current `supabase/functions/finalize-passenger-auth/index.ts` is live. This is the most likely fix.
-2. **Trigger a real submit** from the preview using the pending Marcus Mueller record and check `edge_function_logs` for `finalize-passenger-auth`. If it now returns 2xx, we're done.
-3. **If it still fails**, read the returned error body and address the specific cause. Likely candidates already vetted in the code:
-   - `operator_documents.document_type` uses enum `operator_doc_type`; `'other'` is a valid value — OK.
-   - `passenger-auth-executed` and `passenger-auth-signatures` buckets exist (private) — OK; service-role client bypasses RLS for uploads.
-   - Large base64 payload (PDF + 2–3 signature PNGs) could exceed the request body limit. If logs show a size/413 error, switch the client to upload the signature PNGs and PDF directly to storage first (using signed upload URLs minted by finalize) and then post just the paths to the function.
-4. **Confirm** with a fresh submit that:
-   - The row transitions to `filed`,
-   - The executed PDF appears in the driver's Driver Hub (`operator_documents`),
-   - The success screen renders in the app.
+## User experience (PassengerAuthSign page)
 
-## Technical notes
-- No schema changes expected.
-- If a payload-size fix ends up being required (step 3 fallback), it will be a small refactor: add a `create-passenger-auth-upload-urls` action (or extend finalize with a `mode: 'prepare'` branch), and have `PassengerAuthSign.tsx` PUT files directly to storage before calling finalize with only paths.
+1. Add a **Passenger relationship** dropdown at the top of the signing form:
+   - Spouse
+   - Minor Child
+   - Adult Family Member
+   - Other Authorized Rider
+2. When **Minor Child** is selected, the passenger signature pad is automatically hidden and replaced with a notice: *"Passenger is a minor — parent/guardian signature (contractor) is sufficient."* The contractor's signature is required as usual.
+3. For every other relationship, add a checkbox below the passenger signature pad:
+   - **"Passenger is not with me at the time of signing"**
+   - When checked, the passenger signature pad hides and a required **Reason** textarea appears (short — e.g., "Spouse joining on Monday", "Rider boarding at next stop"). Default placeholder suggestions provided.
+4. Contractor signature remains required in all cases. Submit is disabled until either (passenger signed) OR (waiver reason provided) OR (minor selected).
+
+## Data model
+
+Extend `passenger_authorizations` with three columns:
+- `passenger_relationship text` (nullable — 'spouse' | 'minor_child' | 'adult_family' | 'other')
+- `passenger_signature_waived boolean not null default false`
+- `passenger_waiver_reason text` (nullable — free text; required when waived is true, or auto-set to "Minor child — parent/guardian signature on file" when relationship = minor_child)
+
+RLS unchanged — the finalize edge function writes these via service role.
+
+## Edge function changes (`finalize-passenger-auth`)
+
+- Accept the three new fields in the request body (validate with Zod).
+- If `passenger_signature_waived` is true, `passenger_waiver_reason` must be a non-empty string.
+- Skip requiring `passenger_signature_url` when waived or when relationship = minor_child.
+- Persist the new fields on the row.
+
+## PDF rendering
+
+In the PDF generation step (`jsPDF` inside `finalize-passenger-auth`):
+- If passenger signed → render passenger signature image as today.
+- If waived (adult) → replace the signature line with a boxed stamp:
+  > **PASSENGER SIGNATURE WAIVED**
+  > Reason: *{waiver_reason}*
+  > Contractor attested at signing on {date}
+- If minor child → replace the passenger signature line with:
+  > **MINOR PASSENGER**
+  > Parent/guardian signature captured above (contractor).
+- Add a small footer note on the signature page: *"Executed via SUPERDRIVE — {timestamp} — IP {ip}"* (already present; keep).
+
+## Management/Driver Hub display
+
+- Filed PDF path is unchanged; nothing to update in the Driver Hub viewer.
+- In `SendPassengerAuthModal` / staff-facing list, show a small badge next to completed rows: **"Passenger signed"**, **"Waived — {relationship}"**, or **"Minor"** so staff can see at a glance which records used the waiver.
+
+## Files to touch
+
+- `supabase/migrations/…` — add three columns to `passenger_authorizations`.
+- `supabase/functions/finalize-passenger-auth/index.ts` — accept + validate new fields, adjust PDF rendering, persist row.
+- `src/pages/PassengerAuthSign.tsx` — relationship dropdown, waiver checkbox + reason field, conditional signature pad, submit gating, pass new fields to finalize.
+- `src/components/documents/SendPassengerAuthModal.tsx` (or the staff list that shows completed auths) — status badge for waived/minor.
+
+## Out of scope
+
+- No two-step passenger-signs-later flow (option B/C).
+- No staff-side waiver override (option D). Only the contractor can waive at signing time.
+- Existing completed records untouched — new fields default to null/false.
