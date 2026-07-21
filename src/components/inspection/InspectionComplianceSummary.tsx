@@ -1013,11 +1013,16 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   // Table cell for the list-view variant. One cert per column, light theme,
   // severity tint per cell + row rail supplied on the sticky driver cell.
   // Micro-actions (history / upload / remind) reveal on cell hover.
-  const TableCertCell = ({ entry }: { entry?: DocEntry }) => {
+  const TableCertCell = ({ entry, label }: { entry?: DocEntry; label: string }) => {
     if (!entry) {
       return (
         <td className="px-3 py-2 align-top whitespace-nowrap text-xs text-muted-foreground/50 italic">
-          —
+          <div className="flex min-w-[150px] flex-col gap-1">
+            <span className="lg:hidden text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {label}
+            </span>
+            <span>—</span>
+          </div>
         </td>
       );
     }
@@ -1028,6 +1033,9 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     return (
       <td className={cn('px-3 py-2 align-top whitespace-nowrap group/cell', cellBg)}>
         <div className="flex flex-col gap-1 min-w-[150px]">
+          <span className="lg:hidden text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            {label}
+          </span>
           <div className="flex items-center gap-1.5">
             <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
             <span className="text-xs tabular-nums text-foreground">
@@ -1473,19 +1481,19 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                   )}
 
                   {/* Per-driver table */}
-                  <div className="overflow-x-auto">
+                  <div className="max-h-[65dvh] min-h-[360px] overflow-auto overscroll-contain border-t border-border/60 bg-card">
                     <table className="w-full border-collapse text-left">
-                      <thead className="bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
-                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))]">
-                          <th className="sticky top-0 left-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold min-w-[220px] border-r border-border/60">
+                      <thead className="sticky top-0 z-20 bg-muted/95 shadow-[0_2px_8px_0_hsl(var(--border)/0.35)] backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <th className="sticky top-0 left-0 z-40 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold min-w-[220px] border-r border-border/60">
                             Driver / Status
                           </th>
-                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">CDL</th>
-                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Med Cert</th>
-                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">IRP</th>
-                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration</th>
-                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">2290</th>
-                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold text-right">Actions</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">CDL</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Med Cert</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">IRP</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">2290</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50">
@@ -1531,11 +1539,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                                   </span>
                                 </div>
                               </td>
-                              <TableCertCell entry={g.cdl} />
-                              <TableCertCell entry={g.med} />
-                              <TableCertCell entry={g.irp} />
-                              <TableCertCell entry={g.reg} />
-                              <TableCertCell entry={g.form2290} />
+                              <TableCertCell entry={g.cdl} label="CDL" />
+                              <TableCertCell entry={g.med} label="Med Cert" />
+                              <TableCertCell entry={g.irp} label="IRP" />
+                              <TableCertCell entry={g.reg} label="Registration" />
+                              <TableCertCell entry={g.form2290} label="2290" />
                               <td className="px-3 py-2 whitespace-nowrap text-right align-top">
                                 <div className="inline-flex items-center gap-1">
                                   <TooltipProvider delayDuration={250}>
