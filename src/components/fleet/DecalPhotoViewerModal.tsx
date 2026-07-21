@@ -59,7 +59,7 @@ export default function DecalPhotoViewerModal({
         );
         if (!cancelled) setSigned(Object.fromEntries(entries));
       } catch (err) {
-        console.warn('[decals] refresh failed, keeping raw URLs', err);
+        console.warn('Decal photo refresh failed; keeping stored URLs.', err);
       }
     })();
     return () => { cancelled = true; };
