@@ -1,17 +1,24 @@
-## Goal
-Confirm anniversary emails/notifications fire every year on each driver's Go Live date and change the wording so the year count is ordinal (1st, 2nd, 3rd, 10th…) instead of always saying "1 year".
+## Context
 
-## Current state (verified)
-- `send-birthday-anniversary` edge function runs daily at 15:00 UTC via `pg_cron` job `send-birthday-anniversary-daily` and matches by month + day against `onboarding_status.go_live_date`, excluding the go-live year itself. Yearly recurrence already works — no scheduling change needed.
-- Both the edge function and `src/lib/birthdayAnniversary/templates.ts` currently render the year count as `"1 year"` / `"N years"`.
+In the Vehicle Hub → Repairs & Maintenance table (`src/components/fleet/FleetDetailDrawer.tsx`):
+- The Description cell truncates with `max-w-[200px] truncate` and has no hover/click reveal.
+- The eye icon only renders when `invoice_file_path` exists and opens the attached invoice via `handlePreviewFile` → in-app `FilePreviewModal`.
+- `MaintenanceRecordModal.tsx` only performs `insert` — there is no edit or delete flow for maintenance records anywhere in the app.
+
+## What the eye icon is for
+
+It opens the **invoice/receipt file** attached to the record (PDF or image) in the in-app preview modal — same pattern as DOT certificates and Registration/2290 rows.
 
 ## Changes
-1. Add a small shared `ordinal(n)` helper (e.g. 1 → "1st", 2 → "2nd", 3 → "3rd", 11 → "11th", 21 → "21st"). Place it in `src/lib/birthdayAnniversary/templates.ts` and duplicate the same helper inline in the edge function (edge functions can't import from `src/`).
-2. Update copy in:
-   - `supabase/functions/send-birthday-anniversary/index.ts` — subject, heading, and body use `${ordinal(years)} anniversary` phrasing (e.g. "Congratulations on your 3rd anniversary with SUPERTRANSPORT! 🎉", "Today marks your 3rd anniversary since you became an active operator…"). Notification title/body updated to match.
-   - `src/lib/birthdayAnniversary/templates.ts` `anniversaryDefaults` — same ordinal phrasing so the staff-triggered popup message mirrors the automated one.
-3. Deploy the edge function.
 
-## Notes
-- Birthday copy is unchanged.
-- No DB migration required.
+1. **Row details dialog** — Make each maintenance row clickable. Open a new "Maintenance Record" dialog showing all fields with the full **Description** wrapped and selectable, a "View Invoice" button when an attachment exists, and an **Edit** and **Delete** button (staff/management only — reuse `readOnly` gate already on the drawer).
+2. **Description cell affordance** — Keep the truncated cell, add a shadcn `Tooltip` on hover with the full text and a `cursor-pointer` hint. Clicking the row opens the details dialog.
+3. **Edit support in `MaintenanceRecordModal.tsx`**
+   - Add optional `record?: MaintenanceRecord` prop. When present: prefill all fields, title becomes "Edit Maintenance Record", the AI scan button/badges are hidden, and Save performs `update ... eq('id', record.id)` instead of `insert`.
+   - Invoice attachment: show the current file as an attached chip with "Replace" and "Remove" actions. Replacing uploads a new file and updates `invoice_file_path`/`invoice_file_name`; removing clears both columns. Old file is deleted from storage on replace/remove.
+   - Reuse existing validation and toasts.
+4. **Delete support** — Add a small confirm dialog. On confirm, delete the storage file (if any) then delete the DB row, then call `onSaved()`. Restricted to non-`readOnly`.
+5. **Eye icon reliability** — In `handlePreviewFile`, surface failures with `toast.error("Couldn't open invoice — please try again.")` when the signed-URL call errors or returns no URL.
+6. **Empty-attachment hint** — For rows with no invoice, render a muted "—" in the eye column so it's clear the icon is absent, not broken.
+
+Nothing else in the drawer changes; DOT and Registration/2290 sections are untouched.

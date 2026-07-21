@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { FilePreviewModal, bucketForBinderDoc } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
@@ -15,6 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
+import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import Registration2290Modal from './Registration2290Modal';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
@@ -107,6 +109,10 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [driverUserId, setDriverUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [viewingMaintenance, setViewingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [deletingMaintenance, setDeletingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [deletingMaintenanceBusy, setDeletingMaintenanceBusy] = useState(false);
   const [dotModalOpen, setDotModalOpen] = useState(false);
   const [editingDot, setEditingDot] = useState<DOTInspection | null>(null);
   const [deletingDot, setDeletingDot] = useState<DOTInspection | null>(null);
@@ -327,10 +333,41 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     : null;
 
   const handlePreviewFile = async (filePath: string, fileName: string) => {
-    const bucket = bucketForBinderDoc(filePath);
-    const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
-    if (data?.signedUrl) {
-      setPreviewDoc({ url: data.signedUrl, name: fileName });
+    try {
+      const bucket = bucketForBinderDoc(filePath);
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
+      if (error) throw error;
+      if (data?.signedUrl) {
+        setPreviewDoc({ url: data.signedUrl, name: fileName });
+      } else {
+        throw new Error('No signed URL returned');
+      }
+    } catch (err: any) {
+      toast({ title: 'Preview failed', description: err?.message ?? 'Could not open file.', variant: 'destructive' });
+    }
+  };
+
+  const confirmDeleteMaintenance = async () => {
+    if (!deletingMaintenance) return;
+    setDeletingMaintenanceBusy(true);
+    try {
+      const filePath = deletingMaintenance.invoice_file_path;
+      const { error } = await supabase
+        .from('truck_maintenance_records')
+        .delete()
+        .eq('id', deletingMaintenance.id);
+      if (error) throw error;
+      if (filePath) {
+        supabase.storage.from('fleet-documents').remove([filePath]).catch(() => {});
+      }
+      toast({ title: 'Maintenance record deleted' });
+      setDeletingMaintenance(null);
+      setViewingMaintenance(null);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+    } finally {
+      setDeletingMaintenanceBusy(false);
     }
   };
 
@@ -626,11 +663,27 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <TooltipProvider delayDuration={200}>
                   {filteredMaintenance.map(r => (
-                    <TableRow key={r.id}>
+                    <TableRow
+                      key={r.id}
+                      className="cursor-pointer hover:bg-muted/40"
+                      onClick={() => setViewingMaintenance(r)}
+                    >
                       <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.service_date), 'M/d/yy')}</TableCell>
                       <TableCell className="text-xs">{r.shop_name || '—'}</TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate">{r.description || '—'}</TableCell>
+                      <TableCell className="text-xs max-w-[200px]">
+                        {r.description ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{r.description}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-wrap">
+                              {r.description}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : '—'}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {r.categories.map(c => categoryBadge(c))}
@@ -639,15 +692,24 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                       <TableCell className="text-xs text-right font-mono">
                         {r.amount ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                       </TableCell>
-                      <TableCell>
-                        {r.invoice_file_path && (
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {r.invoice_file_path ? (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            title="Preview invoice"
+                            onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}
+                          >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     </TableRow>
                   ))}
+                  </TooltipProvider>
                 </TableBody>
               </Table>
             </div>
@@ -749,6 +811,35 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
             operatorId={operatorId}
             onSaved={fetchData}
           />
+          <MaintenanceRecordModal
+            open={!!editingMaintenance}
+            onClose={() => setEditingMaintenance(null)}
+            operatorId={operatorId}
+            onSaved={fetchData}
+            record={editingMaintenance as MaintenanceRecordEditable | null}
+          />
+          <AlertDialog open={!!deletingMaintenance} onOpenChange={o => { if (!o && !deletingMaintenanceBusy) setDeletingMaintenance(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this maintenance record?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {deletingMaintenance && (
+                    <>
+                      This will permanently remove the record from{' '}
+                      <strong>{format(parseISO(deletingMaintenance.service_date), 'MMM d, yyyy')}</strong>
+                      {deletingMaintenance.invoice_file_path ? ' along with its attached invoice.' : '.'}
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletingMaintenanceBusy}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteMaintenance} disabled={deletingMaintenanceBusy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deletingMaintenanceBusy ? 'Deleting…' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <DOTInspectionModal
             open={dotModalOpen}
             onClose={() => setDotModalOpen(false)}
@@ -820,6 +911,102 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       )}
 
       {previewDoc && <FilePreviewModal url={previewDoc.url} name={previewDoc.name} onClose={() => setPreviewDoc(null)} />}
+
+      {/* Maintenance details dialog — available in read-only mode too */}
+      <Dialog open={!!viewingMaintenance} onOpenChange={o => { if (!o) setViewingMaintenance(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Maintenance Record</DialogTitle>
+          </DialogHeader>
+          {viewingMaintenance && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Service Date</p>
+                  <p className="text-xs">{format(parseISO(viewingMaintenance.service_date), 'MMM d, yyyy')}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Odometer</p>
+                  <p className="text-xs">{viewingMaintenance.odometer != null ? viewingMaintenance.odometer.toLocaleString() : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Shop</p>
+                  <p className="text-xs">{viewingMaintenance.shop_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Amount</p>
+                  <p className="text-xs font-mono">{viewingMaintenance.amount ? `$${Number(viewingMaintenance.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice #</p>
+                  <p className="text-xs">{viewingMaintenance.invoice_number || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Category</p>
+                  <div className="flex flex-wrap gap-1">
+                    {viewingMaintenance.categories?.length ? viewingMaintenance.categories.map(c => categoryBadge(c)) : <span className="text-xs">—</span>}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Description</p>
+                <p className="text-xs whitespace-pre-wrap">{viewingMaintenance.description || '—'}</p>
+              </div>
+              {viewingMaintenance.notes && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Notes</p>
+                  <p className="text-xs whitespace-pre-wrap">{viewingMaintenance.notes}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice File</p>
+                {viewingMaintenance.invoice_file_path ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 mt-1"
+                    onClick={() => handlePreviewFile(viewingMaintenance.invoice_file_path!, viewingMaintenance.invoice_file_name || 'Invoice')}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View Invoice
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No invoice attached</p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <div>
+              {!readOnly && viewingMaintenance && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs text-destructive hover:text-destructive gap-1.5"
+                  onClick={() => setDeletingMaintenance(viewingMaintenance)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setViewingMaintenance(null)}>Close</Button>
+              {!readOnly && viewingMaintenance && (
+                <Button
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={() => {
+                    setEditingMaintenance(viewingMaintenance);
+                    setViewingMaintenance(null);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -19,16 +19,33 @@ const CATEGORY_OPTIONS = [
   { value: 'tires', label: 'Tires' },
 ];
 
+export interface MaintenanceRecordEditable {
+  id: string;
+  service_date: string;
+  odometer: number | null;
+  shop_name: string | null;
+  amount: number | null;
+  description: string | null;
+  invoice_number: string | null;
+  categories: string[];
+  invoice_file_path: string | null;
+  invoice_file_name: string | null;
+  notes: string | null;
+}
+
 interface MaintenanceRecordModalProps {
   open: boolean;
   onClose: () => void;
   operatorId: string;
   onSaved: () => void;
+  /** When provided, the modal opens in edit mode. */
+  record?: MaintenanceRecordEditable | null;
 }
 
-export default function MaintenanceRecordModal({ open, onClose, operatorId, onSaved }: MaintenanceRecordModalProps) {
+export default function MaintenanceRecordModal({ open, onClose, operatorId, onSaved, record }: MaintenanceRecordModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isEdit = !!record;
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [aiFilled, setAiFilled] = useState(false);
@@ -45,6 +62,10 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
   const [categories, setCategories] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  // Tracks the existing stored attachment (edit mode). Cleared when the user removes/replaces.
+  const [existingFilePath, setExistingFilePath] = useState<string | null>(null);
+  const [existingFileName, setExistingFileName] = useState<string | null>(null);
+  const [removeExisting, setRemoveExisting] = useState(false);
 
   const toggleCategory = (val: string) => {
     setCategories(prev => prev.includes(val) ? prev.filter(c => c !== val) : [...prev, val]);
@@ -60,11 +81,40 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
     setCategories([]);
     setNotes('');
     setInvoiceFile(null);
+    setExistingFilePath(null);
+    setExistingFileName(null);
+    setRemoveExisting(false);
     setAiFilled(false);
     setAiMissing([]);
     setAiFilledFields([]);
     setAttachedFromAi(false);
   };
+
+  // Prefill from `record` when opening in edit mode; reset when opening fresh.
+  useEffect(() => {
+    if (!open) return;
+    if (record) {
+      setServiceDate(isoToMdY(record.service_date));
+      setOdometer(record.odometer != null ? String(record.odometer) : '');
+      setShopName(record.shop_name ?? '');
+      setAmount(record.amount != null ? String(record.amount) : '');
+      setDescription(record.description ?? '');
+      setInvoiceNumber(record.invoice_number ?? '');
+      setCategories(record.categories ?? []);
+      setNotes(record.notes ?? '');
+      setInvoiceFile(null);
+      setExistingFilePath(record.invoice_file_path);
+      setExistingFileName(record.invoice_file_name);
+      setRemoveExisting(false);
+      setAiFilled(false);
+      setAiMissing([]);
+      setAiFilledFields([]);
+      setAttachedFromAi(false);
+    } else {
+      reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, record?.id]);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -134,9 +184,11 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
     }
     setSaving(true);
     try {
-      let invoiceFilePath: string | null = null;
-      let invoiceFileName: string | null = null;
+      let invoiceFilePath: string | null = existingFilePath;
+      let invoiceFileName: string | null = existingFileName;
+      let oldPathToRemove: string | null = null;
 
+      // A newly picked file takes precedence over the existing attachment.
       if (invoiceFile) {
         const validation = validateFile(invoiceFile);
         if (!validation.valid) {
@@ -151,10 +203,16 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
           .upload(invoiceFilePath, invoiceFile, { upsert: true });
         if (uploadErr) throw uploadErr;
         invoiceFileName = invoiceFile.name;
+        if (isEdit && existingFilePath && existingFilePath !== invoiceFilePath) {
+          oldPathToRemove = existingFilePath;
+        }
+      } else if (isEdit && removeExisting) {
+        if (existingFilePath) oldPathToRemove = existingFilePath;
+        invoiceFilePath = null;
+        invoiceFileName = null;
       }
 
-      const { error } = await supabase.from('truck_maintenance_records').insert({
-        operator_id: operatorId,
+      const payload = {
         service_date: serviceDate,
         odometer: odometer ? parseInt(odometer) : null,
         shop_name: shopName.trim() || null,
@@ -165,11 +223,29 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
         invoice_file_path: invoiceFilePath,
         invoice_file_name: invoiceFileName,
         notes: notes.trim() || null,
-        created_by: user?.id ?? null,
-      });
+      };
 
-      if (error) throw error;
-      toast({ title: 'Maintenance record saved' });
+      if (isEdit && record) {
+        const { error } = await supabase
+          .from('truck_maintenance_records')
+          .update(payload)
+          .eq('id', record.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('truck_maintenance_records').insert({
+          ...payload,
+          operator_id: operatorId,
+          created_by: user?.id ?? null,
+        });
+        if (error) throw error;
+      }
+
+      // Best-effort cleanup of the old file after DB write succeeds.
+      if (oldPathToRemove) {
+        supabase.storage.from('fleet-documents').remove([oldPathToRemove]).catch(() => {});
+      }
+
+      toast({ title: isEdit ? 'Maintenance record updated' : 'Maintenance record saved' });
       reset();
       onSaved();
       onClose();
@@ -184,10 +260,11 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
     <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Maintenance Record</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Maintenance Record' : 'Add Maintenance Record'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
+          {!isEdit && (
           <div className="flex items-center justify-between rounded-md border border-dashed border-[#C9A84C]/60 bg-[#C9A84C]/5 px-3 py-2">
             <div className="flex items-center gap-2 text-xs text-[#0D0D0D]">
               <Sparkles className="h-3.5 w-3.5 text-[#C9A84C]" />
@@ -222,7 +299,8 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
               </span>
             </label>
           </div>
-          {aiFilled && (
+          )}
+          {!isEdit && aiFilled && (
             <div className="space-y-1">
               <Badge variant="outline" className="border-[#C9A84C] text-[#0D0D0D] bg-[#C9A84C]/10 text-[10px]">
                 Filled by AI — please review
@@ -324,6 +402,39 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
                   </button>
                 </div>
               </div>
+            ) : existingFilePath && !removeExisting ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-2.5 py-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-[#C9A84C]" />
+                  <div className="min-w-0">
+                    <p className="text-xs truncate">{existingFileName || 'Invoice'}</p>
+                    <p className="text-[10px] text-muted-foreground">Currently attached</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <label className="text-[10px] text-[#C9A84C] hover:underline cursor-pointer">
+                    Replace
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0] ?? null;
+                        e.target.value = '';
+                        if (f) { setInvoiceFile(f); setAttachedFromAi(false); }
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setRemoveExisting(true)}
+                    className="p-1 hover:bg-muted rounded"
+                    aria-label="Remove existing file"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
             ) : (
               <Input
                 type="file"
@@ -343,7 +454,7 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
             <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Save Record
+              {isEdit ? 'Save Changes' : 'Save Record'}
             </Button>
           </div>
         </div>
