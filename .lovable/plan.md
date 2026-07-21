@@ -1,45 +1,64 @@
-## Goal
 
-Make every enabled **Decals** camera button on the Dispatch Board open the driver’s uploaded Stage 5 decal photos in the app, with previous/next arrows and an X close button that returns to the Dispatch Board.
+## Overview
 
-## Verified current state
+Add the SUPERTRANSPORT Passenger Authorization form as a new document type with its own send/sign lifecycle, modeled on the existing ICA flow (staff builder → tokenized email link → driver signs in-app → executed PDF filed to Driver Hub).
 
-- The Dispatch Board already selects `decal_photo_ds_url`, `decal_photo_ps_url`, and `decal_photos` from `onboarding_status`.
-- Dispatch rows already set `decalTarget` when the enabled Decals button is clicked.
-- The current decal viewer depends on `FilePreviewModal`, which treats signed image URLs with query strings as not-images because image detection checks the full URL extension. That can leave the preview stuck in document-loading behavior instead of showing the decal photo.
-- Existing stored decal URLs may be signed/public storage URLs, bare operator-document paths, or old expiring links, so the fix needs to normalize those reliably.
+## 1. Resource Center (Staff-only template)
 
-## Fix plan
+- Upload the blank DOCX to a new `company-documents` storage bucket (private).
+- Add a **Passenger Authorization** card to the staff-only Company Documents section of the Resource Center with View / Download / **Send to Driver** actions.
+- Not shown in the driver-facing Resources & FAQ view.
 
-1. **Harden the decal URL resolver**
-   - Update `resolveDecalUrl()` so it can extract object paths from all expected storage URL shapes, including:
-     - `/storage/v1/object/sign/operator-documents/...`
-     - `/storage/v1/object/public/operator-documents/...`
-     - `/object/sign/operator-documents/...`
-     - bare paths like `{operatorId}/decal_photos/...`
-   - Always strip query tokens before re-signing.
-   - Keep the original stored URL as fallback if secure URL refresh fails.
+## 2. Database
 
-2. **Make the Dispatch decal viewer direct and resilient**
-   - Keep the current `DecalPhotoViewerModal` sequence: Driver Side, Passenger Side, then additional angles.
-   - Seed with raw URLs immediately so the modal opens right away after click.
-   - Refresh URLs in the background and swap in the fresh secure URLs when available.
-   - Ensure extras with empty/malformed URLs are skipped instead of blocking the viewer.
+New table `passenger_authorizations`:
+- `id`, `operator_id`, `contractor_name`, `unit_number`
+- `token` (unique, for email link), `status` (`sent` | `signed` | `expired` | `revoked`)
+- `carrier_signature_url`, `carrier_signed_at` (auto-filled at send from Carrier Signature Settings)
+- Passenger fields (name, age, begin/end city, effective/expires dates)
+- Signature fields: `contractor_signature_url`, `contractor_printed_name`, `contractor_signed_at`, `contractor_initials`, `passenger_signature_url`, `passenger_printed_name`, `passenger_signed_at`, `passenger_initials`, `guardian_signature_url`, `guardian_printed_name`, `guardian_signed_at`, `guardian_initials`, `is_minor`
+- `executed_pdf_url`, `executed_at`, `sent_by`, `sent_at`, `created_at`
+- GRANTs + RLS: staff full access; anon SELECT/UPDATE only via valid token (mirrors ICA pattern); operator can read their own.
 
-3. **Fix image detection in `FilePreviewModal`**
-   - Update image/PDF detection to inspect the URL pathname without query parameters, so signed URLs ending in `.jpg?...token=...` still render as images.
-   - Reset image loading state when moving between carousel items so previous/next cannot leave the spinner stuck.
+New storage buckets: `passenger-auth-signatures` (private), `passenger-auth-executed` (private).
 
-4. **Verify the dispatch scenario**
-   - Use the Dispatch Board flow to click an enabled Decals camera button.
-   - Confirm the first decal photo appears in-app.
-   - Confirm previous/next switches between Driver Side and Passenger Side.
-   - Confirm X closes the viewer and returns to the Dispatch Board.
+## 3. Staff Send Flow
 
-## Files to change
+New modal `SendPassengerAuthModal.tsx` triggered from the Resource Center card and from each driver in Driver Hub:
+- Fields: **Contractor / Driver Name** (autocomplete from operators), **Unit No.** (auto-fills from selected operator when available).
+- Validates carrier signature exists in `carrier_signature_settings`; if not, blocks and prompts staff to set one.
+- Creates `passenger_authorizations` row with token + carrier signature baked in.
+- Invokes `send-passenger-auth` edge function → emails driver a link: `https://.../passenger-auth/{token}`.
 
-- `src/lib/decalUrl.ts`
-- `src/components/fleet/DecalPhotoViewerModal.tsx`
-- `src/components/inspection/DocRow.tsx`
+## 4. Driver Signing Page
 
-No database migration is needed because the Stage 5 decal photo fields already exist and are already queried by the Dispatch Board.
+New route `/passenger-auth/:token` (public, token-guarded) rendered on both marketing and SUPERDRIVE:
+- Renders the full document with the carrier block already signed.
+- Driver completes Section 1 (Passenger Name/Age, cities, effective/expires dates) and Section 2+ (initials + Contractor signature).
+- If Passenger is under 18: shows Parent/Guardian signature block.
+- Passenger signature captured via typed or drawn signature (reuses `SignatureCanvas` from ICA).
+- On submit: uploads signature PNGs, generates executed PDF (jsPDF, same pattern as ICA executed PDF), stores in `passenger-auth-executed`, marks `status = 'signed'`.
+
+## 5. Driver Hub Filing
+
+- On signing, insert a row in `driver_documents` (or the appropriate binder table) with `document_type = 'passenger_authorization'`, `file_url` = executed PDF, linked to `operator_id`.
+- Appears in Driver Hub → Documents tab alongside ICA/amendments.
+- Staff can view a **Passenger Authorizations** history list per driver (sent, signed, expired).
+
+## 6. Edge Functions
+
+- `send-passenger-auth`: validates staff, generates token, sends templated email (uses existing transactional email infra) with signing link.
+- `finalize-passenger-auth`: called from driver page on submit; renders executed PDF server-side, files to Driver Hub, marks signed.
+
+## Technical Notes
+
+- Reuses: `SignatureCanvas`, carrier signature settings, transactional email queue, ICA token/RLS pattern, jsPDF executed-doc rendering, `uploadWithAuth` helper.
+- Email template: new entry in `_shared/transactional-email-templates/` with subject "Passenger Authorization — Signature Required".
+- Token TTL: 30 days; expired links show a friendly "contact staff" message.
+- Audit log entries on send, sign, and revoke.
+
+## Out of Scope
+
+- Passenger under-18 identity verification beyond guardian signature.
+- Bulk send / multi-driver send in one action.
+- Driver-facing template preview in Resources & FAQ.

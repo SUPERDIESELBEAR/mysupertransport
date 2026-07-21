@@ -3144,6 +3144,110 @@ export type Database = {
           },
         ]
       }
+      passenger_authorizations: {
+        Row: {
+          carrier_signature_url: string | null
+          carrier_title: string | null
+          carrier_typed_name: string | null
+          contractor_signature_url: string | null
+          contractor_signed_at: string | null
+          contractor_typed_name: string | null
+          created_at: string
+          driver_email: string
+          driver_name: string
+          effective_date: string | null
+          executed_at: string | null
+          executed_pdf_url: string | null
+          filed_operator_document_id: string | null
+          id: string
+          opened_at: string | null
+          operator_id: string | null
+          parent_signature_url: string | null
+          parent_typed_name: string | null
+          passenger_dob: string | null
+          passenger_name: string | null
+          passenger_relationship: string | null
+          passenger_signature_url: string | null
+          passenger_typed_name: string | null
+          response_token: string
+          sent_at: string
+          sent_by: string | null
+          status: string
+          unit_number: string
+          updated_at: string
+        }
+        Insert: {
+          carrier_signature_url?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          contractor_signature_url?: string | null
+          contractor_signed_at?: string | null
+          contractor_typed_name?: string | null
+          created_at?: string
+          driver_email: string
+          driver_name: string
+          effective_date?: string | null
+          executed_at?: string | null
+          executed_pdf_url?: string | null
+          filed_operator_document_id?: string | null
+          id?: string
+          opened_at?: string | null
+          operator_id?: string | null
+          parent_signature_url?: string | null
+          parent_typed_name?: string | null
+          passenger_dob?: string | null
+          passenger_name?: string | null
+          passenger_relationship?: string | null
+          passenger_signature_url?: string | null
+          passenger_typed_name?: string | null
+          response_token?: string
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          unit_number: string
+          updated_at?: string
+        }
+        Update: {
+          carrier_signature_url?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          contractor_signature_url?: string | null
+          contractor_signed_at?: string | null
+          contractor_typed_name?: string | null
+          created_at?: string
+          driver_email?: string
+          driver_name?: string
+          effective_date?: string | null
+          executed_at?: string | null
+          executed_pdf_url?: string | null
+          filed_operator_document_id?: string | null
+          id?: string
+          opened_at?: string | null
+          operator_id?: string | null
+          parent_signature_url?: string | null
+          parent_typed_name?: string | null
+          passenger_dob?: string | null
+          passenger_name?: string | null
+          passenger_relationship?: string | null
+          passenger_signature_url?: string | null
+          passenger_typed_name?: string | null
+          response_token?: string
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          unit_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passenger_authorizations_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pei_accidents: {
         Row: {
           accident_date: string | null
