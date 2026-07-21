@@ -911,6 +911,102 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       )}
 
       {previewDoc && <FilePreviewModal url={previewDoc.url} name={previewDoc.name} onClose={() => setPreviewDoc(null)} />}
+
+      {/* Maintenance details dialog — available in read-only mode too */}
+      <Dialog open={!!viewingMaintenance} onOpenChange={o => { if (!o) setViewingMaintenance(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Maintenance Record</DialogTitle>
+          </DialogHeader>
+          {viewingMaintenance && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Service Date</p>
+                  <p className="text-xs">{format(parseISO(viewingMaintenance.service_date), 'MMM d, yyyy')}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Odometer</p>
+                  <p className="text-xs">{viewingMaintenance.odometer != null ? viewingMaintenance.odometer.toLocaleString() : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Shop</p>
+                  <p className="text-xs">{viewingMaintenance.shop_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Amount</p>
+                  <p className="text-xs font-mono">{viewingMaintenance.amount ? `$${Number(viewingMaintenance.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice #</p>
+                  <p className="text-xs">{viewingMaintenance.invoice_number || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Category</p>
+                  <div className="flex flex-wrap gap-1">
+                    {viewingMaintenance.categories?.length ? viewingMaintenance.categories.map(c => categoryBadge(c)) : <span className="text-xs">—</span>}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Description</p>
+                <p className="text-xs whitespace-pre-wrap">{viewingMaintenance.description || '—'}</p>
+              </div>
+              {viewingMaintenance.notes && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Notes</p>
+                  <p className="text-xs whitespace-pre-wrap">{viewingMaintenance.notes}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice File</p>
+                {viewingMaintenance.invoice_file_path ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5 mt-1"
+                    onClick={() => handlePreviewFile(viewingMaintenance.invoice_file_path!, viewingMaintenance.invoice_file_name || 'Invoice')}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View Invoice
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No invoice attached</p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <div>
+              {!readOnly && viewingMaintenance && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs text-destructive hover:text-destructive gap-1.5"
+                  onClick={() => setDeletingMaintenance(viewingMaintenance)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setViewingMaintenance(null)}>Close</Button>
+              {!readOnly && viewingMaintenance && (
+                <Button
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={() => {
+                    setEditingMaintenance(viewingMaintenance);
+                    setViewingMaintenance(null);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
