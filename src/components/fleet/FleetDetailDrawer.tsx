@@ -663,11 +663,27 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <TooltipProvider delayDuration={200}>
                   {filteredMaintenance.map(r => (
-                    <TableRow key={r.id}>
+                    <TableRow
+                      key={r.id}
+                      className="cursor-pointer hover:bg-muted/40"
+                      onClick={() => setViewingMaintenance(r)}
+                    >
                       <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.service_date), 'M/d/yy')}</TableCell>
                       <TableCell className="text-xs">{r.shop_name || '—'}</TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate">{r.description || '—'}</TableCell>
+                      <TableCell className="text-xs max-w-[200px]">
+                        {r.description ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate">{r.description}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-wrap">
+                              {r.description}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : '—'}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {r.categories.map(c => categoryBadge(c))}
@@ -676,15 +692,24 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                       <TableCell className="text-xs text-right font-mono">
                         {r.amount ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                       </TableCell>
-                      <TableCell>
-                        {r.invoice_file_path && (
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {r.invoice_file_path ? (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            title="Preview invoice"
+                            onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}
+                          >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     </TableRow>
                   ))}
+                  </TooltipProvider>
                 </TableBody>
               </Table>
             </div>
