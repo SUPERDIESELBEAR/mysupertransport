@@ -3168,7 +3168,9 @@ export type Database = {
           passenger_name: string | null
           passenger_relationship: string | null
           passenger_signature_url: string | null
+          passenger_signature_waived: boolean
           passenger_typed_name: string | null
+          passenger_waiver_reason: string | null
           response_token: string
           sent_at: string
           sent_by: string | null
@@ -3199,7 +3201,9 @@ export type Database = {
           passenger_name?: string | null
           passenger_relationship?: string | null
           passenger_signature_url?: string | null
+          passenger_signature_waived?: boolean
           passenger_typed_name?: string | null
+          passenger_waiver_reason?: string | null
           response_token?: string
           sent_at?: string
           sent_by?: string | null
@@ -3230,7 +3234,9 @@ export type Database = {
           passenger_name?: string | null
           passenger_relationship?: string | null
           passenger_signature_url?: string | null
+          passenger_signature_waived?: boolean
           passenger_typed_name?: string | null
+          passenger_waiver_reason?: string | null
           response_token?: string
           sent_at?: string
           sent_by?: string | null
