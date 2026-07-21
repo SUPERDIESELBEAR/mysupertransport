@@ -59,6 +59,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import SendPassengerAuthModal from '@/components/management/SendPassengerAuthModal';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
