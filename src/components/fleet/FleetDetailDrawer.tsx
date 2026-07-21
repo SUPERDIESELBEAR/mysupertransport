@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { FilePreviewModal, bucketForBinderDoc } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
@@ -15,6 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
+import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import Registration2290Modal from './Registration2290Modal';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
@@ -107,6 +109,10 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [driverUserId, setDriverUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [viewingMaintenance, setViewingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [deletingMaintenance, setDeletingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [deletingMaintenanceBusy, setDeletingMaintenanceBusy] = useState(false);
   const [dotModalOpen, setDotModalOpen] = useState(false);
   const [editingDot, setEditingDot] = useState<DOTInspection | null>(null);
   const [deletingDot, setDeletingDot] = useState<DOTInspection | null>(null);
@@ -327,10 +333,41 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     : null;
 
   const handlePreviewFile = async (filePath: string, fileName: string) => {
-    const bucket = bucketForBinderDoc(filePath);
-    const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
-    if (data?.signedUrl) {
-      setPreviewDoc({ url: data.signedUrl, name: fileName });
+    try {
+      const bucket = bucketForBinderDoc(filePath);
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
+      if (error) throw error;
+      if (data?.signedUrl) {
+        setPreviewDoc({ url: data.signedUrl, name: fileName });
+      } else {
+        throw new Error('No signed URL returned');
+      }
+    } catch (err: any) {
+      toast({ title: 'Preview failed', description: err?.message ?? 'Could not open file.', variant: 'destructive' });
+    }
+  };
+
+  const confirmDeleteMaintenance = async () => {
+    if (!deletingMaintenance) return;
+    setDeletingMaintenanceBusy(true);
+    try {
+      const filePath = deletingMaintenance.invoice_file_path;
+      const { error } = await supabase
+        .from('truck_maintenance_records')
+        .delete()
+        .eq('id', deletingMaintenance.id);
+      if (error) throw error;
+      if (filePath) {
+        supabase.storage.from('fleet-documents').remove([filePath]).catch(() => {});
+      }
+      toast({ title: 'Maintenance record deleted' });
+      setDeletingMaintenance(null);
+      setViewingMaintenance(null);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+    } finally {
+      setDeletingMaintenanceBusy(false);
     }
   };
 
