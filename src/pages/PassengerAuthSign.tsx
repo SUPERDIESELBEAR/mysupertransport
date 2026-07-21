@@ -100,7 +100,7 @@ async function buildPdf(opts: {
   doc.text(`Contractor / Driver: ${opts.driverName}`, M, y); y += 16;
   doc.text(`Unit Number: ${opts.unitNumber}`, M, y); y += 24;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-  doc.text('Authorization #1', M, y); y += 18;
+  doc.text('Passenger Authorization', M, y); y += 18;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
   const lines = [
     `Passenger Name: ${opts.passengerName}`,
