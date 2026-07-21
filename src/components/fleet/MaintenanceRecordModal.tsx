@@ -223,15 +223,26 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
             </label>
           </div>
           {aiFilled && (
-            <Badge variant="outline" className="border-[#C9A84C] text-[#0D0D0D] bg-[#C9A84C]/10 text-[10px]">
-              Filled by AI — please review
-            </Badge>
+            <div className="space-y-1">
+              <Badge variant="outline" className="border-[#C9A84C] text-[#0D0D0D] bg-[#C9A84C]/10 text-[10px]">
+                Filled by AI — please review
+              </Badge>
+              {aiFilledFields.length > 0 && (
+                <p className="text-[10px] text-muted-foreground">Prefilled: {aiFilledFields.join(', ')}.</p>
+              )}
+              {aiMissing.length > 0 && (
+                <p className="text-[10px] text-amber-700">AI couldn't read: {aiMissing.join(', ')} — please enter manually.</p>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Service Date *</Label>
               <DateInput value={serviceDate} onChange={setServiceDate} placeholder="MM/DD/YYYY" className="h-9 text-xs" />
+              {aiFilled && aiMissing.includes('Service Date') && (
+                <p className="text-[10px] text-amber-700 mt-1">AI couldn't read this — please enter.</p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Odometer</Label>
@@ -276,8 +287,51 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
           </div>
 
           <div>
-            <Label className="text-xs">Upload Invoice</Label>
-            <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif" className="text-xs h-9" onChange={e => setInvoiceFile(e.target.files?.[0] ?? null)} />
+            <Label className="text-xs">Invoice File</Label>
+            {invoiceFile ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-2.5 py-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-[#C9A84C]" />
+                  <div className="min-w-0">
+                    <p className="text-xs truncate">{invoiceFile.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {(invoiceFile.size / 1024).toFixed(0)} KB
+                      {attachedFromAi && ' • Attached from AI scan'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <label className="text-[10px] text-[#C9A84C] hover:underline cursor-pointer">
+                    Replace
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0] ?? null;
+                        e.target.value = '';
+                        if (f) { setInvoiceFile(f); setAttachedFromAi(false); }
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setInvoiceFile(null); setAttachedFromAi(false); }}
+                    className="p-1 hover:bg-muted rounded"
+                    aria-label="Remove file"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+                className="text-xs h-9"
+                onChange={e => { setInvoiceFile(e.target.files?.[0] ?? null); setAttachedFromAi(false); }}
+              />
+            )}
           </div>
 
           <div>
