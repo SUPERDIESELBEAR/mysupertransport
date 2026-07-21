@@ -143,6 +143,8 @@ export default function ResourceLibraryManager() {
   const [deleteTarget, setDeleteTarget] = useState<ResourceRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [passengerAuthOpen, setPassengerAuthOpen] = useState(false);
+
   // History panel
   const [historyResource, setHistoryResource] = useState<ResourceRow | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -462,6 +464,24 @@ export default function ResourceLibraryManager() {
           <Plus className="h-4 w-4 mr-1.5" /> Upload Resource
         </Button>
       </div>
+
+      {/* Company forms — quick actions */}
+      <div className="rounded-lg border border-border bg-muted/20 p-4 flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+          <FileText className="h-5 w-5 text-gold" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-foreground">Passenger Authorization</div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Send a fillable Authorization #1 to a contractor / owner-operator. Once
+            signed, the executed form is filed automatically to the Driver Hub.
+          </p>
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => setPassengerAuthOpen(true)}>
+          <Send className="h-4 w-4 mr-1.5" /> Send to driver
+        </Button>
+      </div>
+      <SendPassengerAuthModal open={passengerAuthOpen} onOpenChange={setPassengerAuthOpen} />
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
