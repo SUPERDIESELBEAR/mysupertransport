@@ -20,6 +20,4 @@ export function formatPhoneDisplay(raw: string | null | undefined): string {
   const digits = raw.replace(/\D/g, '').slice(0, 10);
   if (digits.length !== 10) return raw;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-
-// Trigger fresh deploy — no functional change
 }
