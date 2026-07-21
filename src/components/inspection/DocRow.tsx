@@ -243,6 +243,15 @@ function toInlineUrl(url: string): string {
   }
 }
 
+function fileTypePath(url: string): string {
+  const resolvedUrl = resolveDocumentUrl(url);
+  try {
+    return new URL(resolvedUrl, window.location.origin).pathname;
+  } catch {
+    return resolvedUrl.split('?')[0];
+  }
+}
+
 const ZOOM_STEPS = [50, 75, 100, 125, 150, 175, 200];
 const DEFAULT_ZOOM_IDX = 2; // 100%
 
@@ -426,8 +435,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const effectiveBucket = bucketName || inferred?.bucket;
   const effectivePath = filePath || inferred?.path;
 
-  const isPdf = /\.pdf($|\?)/i.test(url);
-  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)($|\?)/i.test(url);
+  const typePath = fileTypePath(activeUrl);
+  const isPdf = /\.pdf$/i.test(typePath);
+  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(typePath);
 
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -450,6 +460,12 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose, onPrev, onNext]);
+
+  useEffect(() => {
+    setLoaded(false);
+    setPdfImageSource(null);
+    setShowEditor(false);
+  }, [activeUrl]);
 
   const handlePrint = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
