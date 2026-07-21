@@ -6,7 +6,6 @@ declare const __BUILD_VERSION__: string;
 declare const __BUILD_TIME__: string;
 
 const STORAGE_KEY = 'build-status-banner-dismissed';
-const FORCE_KEY = 'build-status-banner-force';
 
 interface VersionInfo {
   version: string;
@@ -15,7 +14,6 @@ interface VersionInfo {
 
 function isPublicHost(): boolean {
   if (typeof window === 'undefined') return false;
-  if (window.localStorage.getItem(FORCE_KEY) === '1') return true;
   const host = window.location.hostname;
   return (
     host.includes('lovable.app') ||
