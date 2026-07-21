@@ -10,7 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const CATEGORY_OPTIONS = [
   { value: 'pm_service', label: 'PM Service' },
@@ -29,6 +30,8 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [aiFilled, setAiFilled] = useState(false);
 
   const [serviceDate, setServiceDate] = useState('');
   const [odometer, setOdometer] = useState('');
@@ -54,6 +57,63 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
     setCategories([]);
     setNotes('');
     setInvoiceFile(null);
+    setAiFilled(false);
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const comma = result.indexOf(',');
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+
+  const isoToMdY = (iso: string): string => {
+    // DateInput expects MM/DD/YYYY
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return '';
+    return `${m[2]}/${m[3]}/${m[1]}`;
+  };
+
+  const handleScanInvoice = async (file: File) => {
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      toast({ title: 'Invalid file', description: validation.error, variant: 'destructive' });
+      return;
+    }
+    setScanning(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke('parse-maintenance-invoice', {
+        body: { file_base64: base64, mime_type: file.type, file_name: file.name },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.service_date) setServiceDate(isoToMdY(data.service_date));
+      if (typeof data?.odometer === 'number') setOdometer(String(data.odometer));
+      if (data?.shop_name) setShopName(data.shop_name);
+      if (typeof data?.amount === 'number') setAmount(String(data.amount));
+      if (data?.invoice_number) setInvoiceNumber(data.invoice_number);
+      if (Array.isArray(data?.categories) && data.categories.length > 0) setCategories(data.categories);
+      if (data?.description) setDescription(data.description);
+
+      setInvoiceFile(file);
+      setAiFilled(true);
+      toast({ title: 'Invoice scanned', description: 'Review the prefilled fields before saving.' });
+    } catch (err: any) {
+      toast({
+        title: 'Could not read invoice',
+        description: err?.message ?? 'Please fill the form manually.',
+        variant: 'destructive',
+      });
+    } finally {
+      setScanning(false);
+    }
   };
 
   const handleSave = async () => {
@@ -117,6 +177,46 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between rounded-md border border-dashed border-[#C9A84C]/60 bg-[#C9A84C]/5 px-3 py-2">
+            <div className="flex items-center gap-2 text-xs text-[#0D0D0D]">
+              <Sparkles className="h-3.5 w-3.5 text-[#C9A84C]" />
+              <span>Scan an invoice with AI to auto-fill the fields.</span>
+            </div>
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+                className="hidden"
+                disabled={scanning}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) handleScanInvoice(f);
+                }}
+              />
+              <span
+                className={`inline-flex h-7 items-center gap-1.5 rounded-md border border-[#C9A84C] bg-white px-2.5 text-xs font-medium text-[#0D0D0D] cursor-pointer hover:bg-[#C9A84C]/10 ${scanning ? 'opacity-60 pointer-events-none' : ''}`}
+              >
+                {scanning ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Reading invoice…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Scan invoice with AI
+                  </>
+                )}
+              </span>
+            </label>
+          </div>
+          {aiFilled && (
+            <Badge variant="outline" className="border-[#C9A84C] text-[#0D0D0D] bg-[#C9A84C]/10 text-[10px]">
+              Filled by AI — please review
+            </Badge>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Service Date *</Label>
