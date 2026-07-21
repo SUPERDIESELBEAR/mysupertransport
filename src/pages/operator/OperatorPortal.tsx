@@ -35,6 +35,7 @@ const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPa
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
+import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
