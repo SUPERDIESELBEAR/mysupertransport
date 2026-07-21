@@ -14,7 +14,7 @@ function json(status: number, body: Record<string, unknown>) {
 }
 
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } | null {
-  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  const m = dataUrl.match(/^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/)
   if (!m) return null
   const bin = atob(m[2])
   const bytes = new Uint8Array(bin.length)
@@ -46,7 +46,13 @@ Deno.serve(async (req) => {
   const tok = (body.token || '').trim()
   if (!UUID_RE.test(tok)) return json(400, { error: 'Invalid token' })
 
-  const waived = !!body.passengerSignatureWaived
+  const relationship = (body.passengerRelationship || '').trim()
+  const normalizedRelationship = relationship.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  const isMinor = normalizedRelationship.includes('minor_child') || normalizedRelationship.includes('minor_passenger')
+  const waived = !!body.passengerSignatureWaived || isMinor
+  const waiverReason = isMinor
+    ? 'Minor child — parent/guardian signature on file (contractor).'
+    : (body.passengerWaiverReason || '').trim()
   const baseRequired = ['passengerName', 'passengerRelationship', 'effectiveDate', 'contractorTypedName', 'contractorSignature', 'executedPdf'] as const
   const required = waived
     ? baseRequired
@@ -54,7 +60,7 @@ Deno.serve(async (req) => {
   for (const k of required) {
     if (!(body as any)[k]) return json(400, { error: `Missing field: ${k}` })
   }
-  if (waived && !(body.passengerWaiverReason || '').trim()) {
+  if (waived && !waiverReason) {
     return json(400, { error: 'Missing field: passengerWaiverReason' })
   }
 
@@ -134,7 +140,7 @@ Deno.serve(async (req) => {
       executed_pdf_url: executedUrl,
       executed_at: nowIso,
       passenger_signature_waived: waived,
-      passenger_waiver_reason: waived ? (body.passengerWaiverReason || '').trim() : null,
+      passenger_waiver_reason: waived ? waiverReason : null,
     })
     .eq('id', id)
   if (updErr) return json(500, { error: updErr.message })
