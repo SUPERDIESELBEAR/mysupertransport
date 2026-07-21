@@ -120,6 +120,10 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [maintenanceSearch, setMaintenanceSearch] = useState('');
+  // Tracks maintenance record IDs whose invoice file is missing in storage
+  // (path set on the row but object 404s). Used to swap the eye icon for the
+  // same "—" placeholder used when no invoice was uploaded.
+  const [missingInvoiceIds, setMissingInvoiceIds] = useState<Set<string>>(new Set());
 
   // Truck specs editing
   const [isEditing, setIsEditing] = useState(false);
@@ -332,7 +336,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     ? differenceInDays(startOfDay(parseISO(latestDot.next_due_date)), startOfDay(new Date()))
     : null;
 
-  const handlePreviewFile = async (filePath: string, fileName: string) => {
+  const handlePreviewFile = async (
+    filePath: string,
+    fileName: string,
+    maintenanceRecordId?: string,
+  ) => {
     try {
       const bucket = bucketForBinderDoc(filePath);
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
@@ -343,7 +351,20 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         throw new Error('No signed URL returned');
       }
     } catch (err: any) {
-      toast({ title: 'Preview failed', description: err?.message ?? 'Could not open file.', variant: 'destructive' });
+      const msg = String(err?.message ?? '').toLowerCase();
+      const isMissing = msg.includes('not found') || msg.includes('object not found') || msg.includes('404');
+      if (isMissing) {
+        if (maintenanceRecordId) {
+          setMissingInvoiceIds(prev => {
+            const next = new Set(prev);
+            next.add(maintenanceRecordId);
+            return next;
+          });
+        }
+        toast({ title: 'No invoice uploaded for this record.' });
+      } else {
+        toast({ title: 'Preview failed', description: err?.message ?? 'Could not open file.', variant: 'destructive' });
+      }
     }
   };
 
