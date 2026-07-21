@@ -626,17 +626,23 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 {/* Urgency dot */}
                 <span className={`h-2 w-2 rounded-full shrink-0 ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
                 {/* Name + doc type */}
-                <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <div className="flex-1 min-w-0 flex items-center gap-2">
                   <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
-                  <span className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
-                  {!renewedAt && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 shrink-0"><span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />Never Renewed</span>}
+                  <span className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 w-[92px] ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type}</span>
                 </div>
                 {/* Expiry date */}
                 <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
-                {/* Urgency badge */}
-                <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
-                  {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
-                </span>
+                {/* Urgency badge stack (status + never-renewed sub-pill) */}
+                <div className="flex flex-col items-end gap-0.5 shrink-0 w-[110px]">
+                  <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
+                    {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
+                  </span>
+                  {!renewedAt && (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none">
+                      <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
+                    </span>
+                  )}
+                </div>
                 {/* Last Action column */}
                 {(() => {
                   const remindedTs = remindedAt ? new Date(remindedAt).getTime() : 0;
