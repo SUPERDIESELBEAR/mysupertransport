@@ -714,13 +714,13 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                         {r.amount ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        {r.invoice_file_path ? (
+                        {r.invoice_file_path && !missingInvoiceIds.has(r.id) ? (
                           <Button
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7"
                             title="Preview invoice"
-                            onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}
+                            onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice', r.id)}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -981,12 +981,12 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               )}
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice File</p>
-                {viewingMaintenance.invoice_file_path ? (
+                {viewingMaintenance.invoice_file_path && !missingInvoiceIds.has(viewingMaintenance.id) ? (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs gap-1.5 mt-1"
-                    onClick={() => handlePreviewFile(viewingMaintenance.invoice_file_path!, viewingMaintenance.invoice_file_name || 'Invoice')}
+                    onClick={() => handlePreviewFile(viewingMaintenance.invoice_file_path!, viewingMaintenance.invoice_file_name || 'Invoice', viewingMaintenance.id)}
                   >
                     <Eye className="h-3.5 w-3.5" />
                     View Invoice
