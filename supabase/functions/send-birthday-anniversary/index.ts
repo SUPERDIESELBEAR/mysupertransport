@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function ordinal(n: number): string {
+  const abs = Math.abs(Math.trunc(n));
+  const mod100 = abs % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (abs % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -111,26 +123,26 @@ Deno.serve(async (req) => {
       if (isAnniversary) {
         const goLiveDate = new Date(goLive + 'T12:00:00');
         const years = currentYear - goLiveDate.getFullYear();
-        const yearLabel = years === 1 ? '1 year' : `${years} years`;
+        const yearLabel = `${ordinal(years)} anniversary`;
 
         if (emailEnabled && resendKey) {
           const html = buildEmail(
-            `Congratulations on ${yearLabel} with ${BRAND_NAME}! 🎉`,
+            `Congratulations on your ${yearLabel} with ${BRAND_NAME}! 🎉`,
             `Happy Anniversary, ${firstName}! 🎉`,
-            `<p>Today marks <strong>${yearLabel}</strong> since you became an active operator with <strong>${BRAND_NAME}</strong>!</p>
+            `<p>Today marks your <strong>${yearLabel}</strong> since you became an active operator with <strong>${BRAND_NAME}</strong>!</p>
              <p>Your dedication, hard work, and commitment have been a vital part of our success. We're proud to have you on the team.</p>
              <p>Here's to many more miles and milestones together! 🚛</p>
              <p style="margin-top:24px;">With appreciation,<br/><strong>The ${BRAND_NAME} Team</strong></p>`
           );
-          await sendEmail(email, `Congratulations on ${yearLabel} with ${BRAND_NAME}! 🎉`, html, resendKey);
+          await sendEmail(email, `Congratulations on your ${yearLabel} with ${BRAND_NAME}! 🎉`, html, resendKey);
         }
 
         if (inAppEnabled) {
           await supabase.from('notifications').insert({
             user_id: op.user_id,
             type: 'birthday_anniversary',
-            title: `Happy ${yearLabel} Anniversary! 🎉`,
-            body: `Congratulations on ${yearLabel} with ${BRAND_NAME}! Thank you for your dedication.`,
+            title: `Happy ${yearLabel}! 🎉`,
+            body: `Congratulations on your ${yearLabel} with ${BRAND_NAME}! Thank you for your dedication.`,
           });
         }
         anniversarySent++;
