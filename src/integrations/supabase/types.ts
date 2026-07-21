@@ -4683,6 +4683,10 @@ export type Database = {
         Args: { _operator_id: string; _uid: string }
         Returns: boolean
       }
+      is_valid_application_draft_token: {
+        Args: { _token: string }
+        Returns: boolean
+      }
       log_ica_event: {
         Args: {
           p_action: string
