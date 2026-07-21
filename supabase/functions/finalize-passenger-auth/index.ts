@@ -33,20 +33,29 @@ Deno.serve(async (req) => {
     passengerDob?: string | null
     effectiveDate?: string | null
     contractorTypedName?: string
-    passengerTypedName?: string
+    passengerTypedName?: string | null
     parentTypedName?: string | null
     contractorSignature?: string
-    passengerSignature?: string
+    passengerSignature?: string | null
     parentSignature?: string | null
+    passengerSignatureWaived?: boolean
+    passengerWaiverReason?: string | null
     executedPdf?: string
   }
   try { body = await req.json() } catch { return json(400, { error: 'Bad JSON' }) }
   const tok = (body.token || '').trim()
   if (!UUID_RE.test(tok)) return json(400, { error: 'Invalid token' })
 
-  const required = ['passengerName', 'passengerRelationship', 'effectiveDate', 'contractorTypedName', 'passengerTypedName', 'contractorSignature', 'passengerSignature', 'executedPdf'] as const
+  const waived = !!body.passengerSignatureWaived
+  const baseRequired = ['passengerName', 'passengerRelationship', 'effectiveDate', 'contractorTypedName', 'contractorSignature', 'executedPdf'] as const
+  const required = waived
+    ? baseRequired
+    : ([...baseRequired, 'passengerTypedName', 'passengerSignature'] as const)
   for (const k of required) {
     if (!(body as any)[k]) return json(400, { error: `Missing field: ${k}` })
+  }
+  if (waived && !(body.passengerWaiverReason || '').trim()) {
+    return json(400, { error: 'Missing field: passengerWaiverReason' })
   }
 
   const admin = createClient(
@@ -86,7 +95,7 @@ Deno.serve(async (req) => {
   let executedPath: string | null = null
   try {
     contractorSigPath = await upSig('contractor', body.contractorSignature)
-    passengerSigPath = await upSig('passenger', body.passengerSignature)
+    passengerSigPath = waived ? null : await upSig('passenger', body.passengerSignature)
     parentSigPath = await upSig('parent', body.parentSignature)
 
     const pdfDecoded = dataUrlToBytes(body.executedPdf!)
@@ -116,7 +125,7 @@ Deno.serve(async (req) => {
       passenger_dob: body.passengerDob || null,
       effective_date: body.effectiveDate || null,
       contractor_typed_name: body.contractorTypedName,
-      passenger_typed_name: body.passengerTypedName,
+      passenger_typed_name: body.passengerTypedName || null,
       parent_typed_name: body.parentTypedName || null,
       contractor_signature_url: contractorSigPath,
       passenger_signature_url: passengerSigPath,
@@ -124,6 +133,8 @@ Deno.serve(async (req) => {
       contractor_signed_at: nowIso,
       executed_pdf_url: executedUrl,
       executed_at: nowIso,
+      passenger_signature_waived: waived,
+      passenger_waiver_reason: waived ? (body.passengerWaiverReason || '').trim() : null,
     })
     .eq('id', id)
   if (updErr) return json(500, { error: updErr.message })
