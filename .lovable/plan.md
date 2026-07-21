@@ -1,51 +1,22 @@
-# AI Invoice Autofill — Add Maintenance Record
+# Maintenance Modal — AI Attachment & Date Autofill
 
-Add a "Scan invoice with AI" button to the Add Maintenance Record modal in the Vehicle Hub. Staff uploads a PDF or photo of an invoice (e.g. Love's, TA, independent shop), Gemini reads it via the Lovable AI Gateway, and prefills the form fields. Staff reviews and clicks Save.
+Good news on both fronts: the current build already does both of these things, but the UI doesn't make it obvious. This plan makes them visible so staff never re-uploads or wonders whether the date came through.
 
-## User flow
+## What already works (verified in code)
 
-1. Staff opens **Vehicle Hub → Log Update → Repair / Maintenance**.
-2. At the top of the modal, a new **"Scan invoice with AI"** button (paperclip + sparkle icon) opens a file picker (PDF, JPG, PNG, HEIC).
-3. While parsing, a small progress state shows *"Reading invoice…"*.
-4. Extracted values prefill the form fields; the same file auto-attaches as the invoice upload.
-5. Any field the AI couldn't confidently determine is left blank with a subtle hint.
-6. Staff reviews, edits if needed, and clicks **Save Record** as normal.
+- **Invoice auto-attaches.** After a successful scan, `handleScanInvoice` calls `setInvoiceFile(file)`, so the same file uploads to `fleet-documents` on Save — no need to touch "Choose File" again.
+- **Service Date is read by AI.** The edge function extracts `service_date` as `YYYY-MM-DD`, and the modal converts it to `MM/DD/YYYY` for the DateInput. Staff only needs to pick a date if the invoice's date is unreadable or missing.
 
-## Fields the AI extracts
+## What to change (UI only)
 
-| Form field | Source on invoice |
-| --- | --- |
-| Service Date | Invoice / service date |
-| Odometer | Miles / odometer reading |
-| Shop Name | Vendor name (e.g. "Love's Travel Stop #614") |
-| Amount ($) | Invoice total |
-| Invoice # | Invoice / receipt number |
-| Category | Inferred from line items: PM Service, General Repair, or Tires (multi-select allowed) |
-| Description of Work | Short summary of the line items |
+`src/components/fleet/MaintenanceRecordModal.tsx`
 
-Fields left untouched: Notes (staff-only field).
+1. **Replace the plain "Upload Invoice" file input with an attachment chip when a file is set** — show filename, size, a "Remove" (×) button, and a small "Attached from AI scan" hint when `aiFilled` is true. The hidden `<input type="file">` stays available via a "Replace file" link for the manual case.
+2. **Nudge the "Filled by AI — please review" pill** to list which fields were filled (e.g. "Service Date, Odometer, Shop, Amount, Invoice #, Category, Description"), and call out any field the AI returned `null` for with a subtle "AI couldn't read — please enter" hint under just that field (Service Date is the important one).
+3. **No changes** to the edge function, storage flow, save logic, or schema.
 
-## Technical details
+## Out of scope
 
-**Edge function** — `supabase/functions/parse-maintenance-invoice/index.ts`
-- Auth: verify staff JWT via `getClaims(token)` per project pattern.
-- Input: base64 file + mime type (from the client).
-- Calls Lovable AI Gateway (`google/gemini-3-flash-preview`) using the multimodal chat completions endpoint with either an `image_url` block (photos) or `file` block (PDFs), and a strict JSON schema response for the fields above.
-- Returns `{ service_date, odometer, shop_name, amount, invoice_number, categories, description }` with any unknown field set to `null`.
-- Handles gateway 429 / 402 by surfacing a clear error to the client.
-
-**Client changes** — `src/components/fleet/MaintenanceRecordModal.tsx`
-- Add a "Scan invoice with AI" button at the top of the form.
-- On file selection: read the file as base64, invoke the edge function, prefill state, and set `invoiceFile` so the same file uploads on Save.
-- Show a small "Filled by AI — please review" pill after prefill.
-- Existing manual entry, validation, and Save flow are unchanged.
-
-**No schema or RLS changes** — reuses `truck_maintenance_records` and the existing `fleet-documents` bucket.
-
-## Out of scope for this iteration
-
-- DOT Inspection modal autofill.
-- Driver-side receipt scanning.
-- Auto-save without staff review.
-
-Both can be layered on later using the same edge function.
+- DOT Inspection modal (separate task).
+- Auto-save without review.
+- Server-side changes.

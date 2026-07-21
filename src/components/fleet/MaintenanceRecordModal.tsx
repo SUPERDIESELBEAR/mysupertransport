@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Paperclip, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORY_OPTIONS = [
@@ -32,6 +32,9 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [aiFilled, setAiFilled] = useState(false);
+  const [aiMissing, setAiMissing] = useState<string[]>([]);
+  const [aiFilledFields, setAiFilledFields] = useState<string[]>([]);
+  const [attachedFromAi, setAttachedFromAi] = useState(false);
 
   const [serviceDate, setServiceDate] = useState('');
   const [odometer, setOdometer] = useState('');
@@ -58,6 +61,9 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
     setNotes('');
     setInvoiceFile(null);
     setAiFilled(false);
+    setAiMissing([]);
+    setAiFilledFields([]);
+    setAttachedFromAi(false);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -94,16 +100,21 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      if (data?.service_date) setServiceDate(isoToMdY(data.service_date));
-      if (typeof data?.odometer === 'number') setOdometer(String(data.odometer));
-      if (data?.shop_name) setShopName(data.shop_name);
-      if (typeof data?.amount === 'number') setAmount(String(data.amount));
-      if (data?.invoice_number) setInvoiceNumber(data.invoice_number);
-      if (Array.isArray(data?.categories) && data.categories.length > 0) setCategories(data.categories);
-      if (data?.description) setDescription(data.description);
+      const filled: string[] = [];
+      const missing: string[] = [];
+      if (data?.service_date) { setServiceDate(isoToMdY(data.service_date)); filled.push('Service Date'); } else missing.push('Service Date');
+      if (typeof data?.odometer === 'number') { setOdometer(String(data.odometer)); filled.push('Odometer'); } else missing.push('Odometer');
+      if (data?.shop_name) { setShopName(data.shop_name); filled.push('Shop'); } else missing.push('Shop');
+      if (typeof data?.amount === 'number') { setAmount(String(data.amount)); filled.push('Amount'); } else missing.push('Amount');
+      if (data?.invoice_number) { setInvoiceNumber(data.invoice_number); filled.push('Invoice #'); } else missing.push('Invoice #');
+      if (Array.isArray(data?.categories) && data.categories.length > 0) { setCategories(data.categories); filled.push('Category'); } else missing.push('Category');
+      if (data?.description) { setDescription(data.description); filled.push('Description'); } else missing.push('Description');
 
       setInvoiceFile(file);
+      setAttachedFromAi(true);
       setAiFilled(true);
+      setAiFilledFields(filled);
+      setAiMissing(missing);
       toast({ title: 'Invoice scanned', description: 'Review the prefilled fields before saving.' });
     } catch (err: any) {
       toast({
