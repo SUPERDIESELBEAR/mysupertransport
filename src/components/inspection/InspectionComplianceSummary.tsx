@@ -1483,7 +1483,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                   {/* Per-driver table */}
                   <div className="max-h-[65dvh] min-h-[360px] overflow-auto overscroll-contain border-t border-border/60 bg-card">
                     <table className="w-full border-collapse text-left">
-                      <thead className="sticky top-0 z-20 bg-muted/95 shadow-[0_2px_8px_0_hsl(var(--border)/0.35)] backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                      <thead className="sticky top-0 z-20 border-b border-border/70 bg-muted/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                         <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
                           <th className="sticky top-0 left-0 z-40 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold min-w-[220px] border-r border-border/60">
                             Driver / Status
