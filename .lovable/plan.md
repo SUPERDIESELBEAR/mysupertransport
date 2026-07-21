@@ -1,47 +1,21 @@
-## Fleet Compliance — List View Restructure (Light Theme)
+## Fleet Compliance — Sticky Header Row (List View)
 
-Rebuild the Fleet Compliance list view in `src/components/inspection/InspectionComplianceSummary.tsx` as a true table, matching the light palette and severity language already used by the restructured card view.
+### Problem
+In the restructured list view, the column header row (Driver / Status, CDL, Med Cert, IRP, Registration, 2290) scrolls out of view along with the page. Once scrolled, users lose the context of what each column represents.
 
-### Direction
-Table + severity rail — one row per driver, one column per certification, with a sticky driver column and hover-revealed micro-actions.
+### Fix
+Make the list view's column header row **sticky** so it remains visible at the top of the viewport while the driver rows scroll beneath it.
 
-### Visual system (light, matches card view)
-- Background: white / off-white surface tokens (same as card view).
-- Text: default foreground; muted-foreground for secondary meta.
-- Gold accents for driver name and interactive affordances.
-- Severity tokens reused from card view:
-  - Critical: red-tinted background + left rail
-  - Attention: amber-tinted background + left rail
-  - Compliant: neutral surface, muted text
-- No dark surfaces anywhere — dark mockup was reference only.
-
-### Layout
-
-```text
-┌──────────────────────────┬─────────┬──────────┬─────────┬──────────────┬─────────┐
-│ Driver / Overall status  │  CDL    │ Med Cert │  IRP    │ Registration │  2290   │
-├──────────────────────────┼─────────┼──────────┼─────────┼──────────────┼─────────┤
-│ ▍ J. Doe   [Critical]    │ 03/12/26│ 09/01/26 │ 12/31/25│  06/30/26    │ 08/31/26│
-│                          │ TimePill│ TimePill │ TimePill│  TimePill    │ TimePill│
-├──────────────────────────┼─────────┼──────────┼─────────┼──────────────┼─────────┤
-│ ▍ E. Smith [Attention]   │ ...     │ ...      │ ...     │  ...         │ ...     │
-└──────────────────────────┴─────────┴──────────┴─────────┴──────────────┴─────────┘
-```
-
-- Sticky left column: driver name + overall status tier badge (Critical / Attention / Compliant).
-- Cert columns: expiration date + `TimePill` chip; whitespace-nowrap, no truncation.
-- Row severity: left rail color + subtle tint reflecting the driver's worst cert status.
-- Hover: reveal micro-actions per cell (view / upload) aligned right within the cell.
-- Sort: driver name default; header click sorts by earliest expiry per column.
+### Scope
+Only `src/components/inspection/InspectionComplianceSummary.tsx` — list view branch only. Card view and data logic untouched.
 
 ### Technical notes
-- Only touch the list-view branch of `InspectionComplianceSummary.tsx`; card view stays as-is.
-- Reuse existing helpers: `TimePill`, severity classifier, `PER_DRIVER_DOCS` (includes Registration + 2290).
-- Use semantic tokens (`bg-background`, `bg-muted`, `border-border`, severity tokens) — no hardcoded colors.
-- Preserve current data source and filters (status chips, search).
-- Ensure horizontal scroll on narrow viewports with the driver column sticky.
+- Add `sticky top-0 z-20` (plus a solid `bg-background` and subtle bottom border) to the header row so it doesn't blend with rows scrolling underneath.
+- The driver column already uses `sticky left-0`; the header's driver cell needs `sticky left-0 z-30` so the corner cell stays pinned both vertically and horizontally during combined scrolls.
+- Verify the sticky offset accounts for the page's outer scroll container. If the table scrolls with the page (not an inner scroller), `top-0` pins to viewport; if there's a parent header bar we need to offset by its height — confirm by inspecting the parent layout before finalizing the offset value.
+- Preserve existing severity rails, hover micro-actions, filters, and sort behavior.
 
 ### Out of scope
-- Card view (already shipped).
-- Fleet-wide summary cards above the list.
-- Data model or compliance logic changes.
+- Card view
+- Fleet-wide summary cards
+- Column set, sort logic, data source
