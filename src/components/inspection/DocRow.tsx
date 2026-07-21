@@ -442,10 +442,14 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const canZoomOut = zoomIdx > 0;
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft' && onPrev) onPrev();
+      else if (e.key === 'ArrowRight' && onNext) onNext();
+    };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  }, [onClose, onPrev, onNext]);
 
   const handlePrint = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
