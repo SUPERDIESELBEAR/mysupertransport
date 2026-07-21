@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { X, Loader2, ImageOff } from 'lucide-react';
+import { Loader2, ImageOff } from 'lucide-react';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { resolveDecalUrl } from '@/lib/decalUrl';
 
@@ -47,16 +47,23 @@ export default function DecalPhotoViewerModal({
   const [expanded, setExpanded] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
+    console.log('[decals] modal effect', { open, tiles: tiles.length, driverName });
     if (!open || tiles.length === 0) { setSigned({}); return; }
     let cancelled = false;
     setLoading(true);
+    // Seed with the raw stored URLs immediately so tiles render even if
+    // signed-URL refresh fails or is slow.
+    setSigned(Object.fromEntries(tiles.map(t => [t.key, t.rawUrl])));
     (async () => {
-      const entries = await Promise.all(
-        tiles.map(async t => [t.key, await refreshSignedUrl(t.rawUrl)] as const),
-      );
-      if (!cancelled) {
-        setSigned(Object.fromEntries(entries));
-        setLoading(false);
+      try {
+        const entries = await Promise.all(
+          tiles.map(async t => [t.key, await refreshSignedUrl(t.rawUrl)] as const),
+        );
+        if (!cancelled) setSigned(Object.fromEntries(entries));
+      } catch (err) {
+        console.warn('[decals] refresh failed, keeping raw URLs', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -67,21 +74,10 @@ export default function DecalPhotoViewerModal({
       <Dialog open={open} onOpenChange={v => !v && onClose()}>
         <DialogContent className="max-w-2xl w-full p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-base font-semibold">Decal Photos</DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {driverName} · {tiles.length} photo{tiles.length === 1 ? '' : 's'}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <DialogTitle className="text-base font-semibold">Decal Photos</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {driverName} · {tiles.length} photo{tiles.length === 1 ? '' : 's'}
+            </p>
           </DialogHeader>
 
           <div className="p-5 overflow-y-auto max-h-[70vh]">
