@@ -390,7 +390,7 @@ function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | nu
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved }: {
+export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter }: {
   url: string;
   name: string;
   onClose: () => void;
@@ -401,6 +401,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   filePath?: string;
   /** Called after a successful edit save */
   onSaved?: (newUrl: string) => void;
+  /** Optional prev/next handlers to flip through sibling files */
+  onPrev?: () => void;
+  onNext?: () => void;
+  /** e.g. "2 of 4" */
+  counter?: string;
 }) {
   const { toast } = useToast();
   const [showEditor, setShowEditor] = useState(false);
