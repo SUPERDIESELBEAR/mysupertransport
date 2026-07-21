@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Paperclip, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORY_OPTIONS = [
@@ -32,6 +32,9 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [aiFilled, setAiFilled] = useState(false);
+  const [aiMissing, setAiMissing] = useState<string[]>([]);
+  const [aiFilledFields, setAiFilledFields] = useState<string[]>([]);
+  const [attachedFromAi, setAttachedFromAi] = useState(false);
 
   const [serviceDate, setServiceDate] = useState('');
   const [odometer, setOdometer] = useState('');
@@ -58,6 +61,9 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
     setNotes('');
     setInvoiceFile(null);
     setAiFilled(false);
+    setAiMissing([]);
+    setAiFilledFields([]);
+    setAttachedFromAi(false);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -94,16 +100,21 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      if (data?.service_date) setServiceDate(isoToMdY(data.service_date));
-      if (typeof data?.odometer === 'number') setOdometer(String(data.odometer));
-      if (data?.shop_name) setShopName(data.shop_name);
-      if (typeof data?.amount === 'number') setAmount(String(data.amount));
-      if (data?.invoice_number) setInvoiceNumber(data.invoice_number);
-      if (Array.isArray(data?.categories) && data.categories.length > 0) setCategories(data.categories);
-      if (data?.description) setDescription(data.description);
+      const filled: string[] = [];
+      const missing: string[] = [];
+      if (data?.service_date) { setServiceDate(isoToMdY(data.service_date)); filled.push('Service Date'); } else missing.push('Service Date');
+      if (typeof data?.odometer === 'number') { setOdometer(String(data.odometer)); filled.push('Odometer'); } else missing.push('Odometer');
+      if (data?.shop_name) { setShopName(data.shop_name); filled.push('Shop'); } else missing.push('Shop');
+      if (typeof data?.amount === 'number') { setAmount(String(data.amount)); filled.push('Amount'); } else missing.push('Amount');
+      if (data?.invoice_number) { setInvoiceNumber(data.invoice_number); filled.push('Invoice #'); } else missing.push('Invoice #');
+      if (Array.isArray(data?.categories) && data.categories.length > 0) { setCategories(data.categories); filled.push('Category'); } else missing.push('Category');
+      if (data?.description) { setDescription(data.description); filled.push('Description'); } else missing.push('Description');
 
       setInvoiceFile(file);
+      setAttachedFromAi(true);
       setAiFilled(true);
+      setAiFilledFields(filled);
+      setAiMissing(missing);
       toast({ title: 'Invoice scanned', description: 'Review the prefilled fields before saving.' });
     } catch (err: any) {
       toast({
@@ -212,15 +223,26 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
             </label>
           </div>
           {aiFilled && (
-            <Badge variant="outline" className="border-[#C9A84C] text-[#0D0D0D] bg-[#C9A84C]/10 text-[10px]">
-              Filled by AI — please review
-            </Badge>
+            <div className="space-y-1">
+              <Badge variant="outline" className="border-[#C9A84C] text-[#0D0D0D] bg-[#C9A84C]/10 text-[10px]">
+                Filled by AI — please review
+              </Badge>
+              {aiFilledFields.length > 0 && (
+                <p className="text-[10px] text-muted-foreground">Prefilled: {aiFilledFields.join(', ')}.</p>
+              )}
+              {aiMissing.length > 0 && (
+                <p className="text-[10px] text-amber-700">AI couldn't read: {aiMissing.join(', ')} — please enter manually.</p>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Service Date *</Label>
               <DateInput value={serviceDate} onChange={setServiceDate} placeholder="MM/DD/YYYY" className="h-9 text-xs" />
+              {aiFilled && aiMissing.includes('Service Date') && (
+                <p className="text-[10px] text-amber-700 mt-1">AI couldn't read this — please enter.</p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Odometer</Label>
@@ -265,8 +287,51 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
           </div>
 
           <div>
-            <Label className="text-xs">Upload Invoice</Label>
-            <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif" className="text-xs h-9" onChange={e => setInvoiceFile(e.target.files?.[0] ?? null)} />
+            <Label className="text-xs">Invoice File</Label>
+            {invoiceFile ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-input bg-muted/30 px-2.5 py-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-[#C9A84C]" />
+                  <div className="min-w-0">
+                    <p className="text-xs truncate">{invoiceFile.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {(invoiceFile.size / 1024).toFixed(0)} KB
+                      {attachedFromAi && ' • Attached from AI scan'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <label className="text-[10px] text-[#C9A84C] hover:underline cursor-pointer">
+                    Replace
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0] ?? null;
+                        e.target.value = '';
+                        if (f) { setInvoiceFile(f); setAttachedFromAi(false); }
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setInvoiceFile(null); setAttachedFromAi(false); }}
+                    className="p-1 hover:bg-muted rounded"
+                    aria-label="Remove file"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+                className="text-xs h-9"
+                onChange={e => { setInvoiceFile(e.target.files?.[0] ?? null); setAttachedFromAi(false); }}
+              />
+            )}
           </div>
 
           <div>
