@@ -1475,17 +1475,17 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                   {/* Per-driver table */}
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-left">
-                      <thead className="bg-muted/30">
-                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          <th className="sticky left-0 z-10 bg-muted/30 px-3 py-2 font-semibold min-w-[220px] border-r border-border/60">
+                      <thead className="bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))]">
+                          <th className="sticky top-0 left-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold min-w-[220px] border-r border-border/60">
                             Driver / Status
                           </th>
-                          <th className="px-3 py-2 font-semibold">CDL</th>
-                          <th className="px-3 py-2 font-semibold">Med Cert</th>
-                          <th className="px-3 py-2 font-semibold">IRP</th>
-                          <th className="px-3 py-2 font-semibold">Registration</th>
-                          <th className="px-3 py-2 font-semibold">2290</th>
-                          <th className="px-3 py-2 font-semibold text-right">Actions</th>
+                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">CDL</th>
+                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Med Cert</th>
+                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">IRP</th>
+                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration</th>
+                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">2290</th>
+                          <th className="sticky top-0 z-20 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50">
