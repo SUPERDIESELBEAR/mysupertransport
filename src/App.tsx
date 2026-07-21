@@ -11,6 +11,7 @@ import PWAInstallBanner from "@/components/PWAInstallBanner";
 import PWAInstallBannerBoundary from "@/components/PWAInstallBannerBoundary";
 import TrackOperatorPresence from "@/components/TrackOperatorPresence";
 import OfflineBanner from "@/components/OfflineBanner";
+import BuildStatusBanner from "@/components/BuildStatusBanner";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { appendRouteTrace } from "@/lib/navTrace";
 
@@ -233,7 +234,8 @@ const App = () => (
           </PWAInstallBannerBoundary>
         </TooltipProvider>
       </DemoModeProvider>
-    </AuthProvider>
+      </AuthProvider>
+      <BuildStatusBanner />
   </QueryClientProvider>
 );
 
