@@ -34,8 +34,9 @@ const PassengerAuthRequestEmail = ({ driverName, unitNumber, responseUrl }: Prop
             Before you can carry a non-employee passenger in your truck (Unit
             <strong> {unit}</strong>), federal regulations require a signed
             passenger authorization on file. Please tap the button below to
-            complete <strong>Authorization #1</strong> and sign the form. Your
-            passenger will also need to sign it before it becomes effective.
+            complete the <strong>Passenger Authorization</strong> and sign the
+            form. Your passenger will also need to sign it before it becomes
+            effective.
           </Text>
           <div style={{ textAlign: 'center' as const, margin: '24px 0' }}>
             <Button style={button} href={url}>
