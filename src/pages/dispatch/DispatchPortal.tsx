@@ -1857,12 +1857,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             variant="ghost"
                             size="sm"
                             disabled={!hasDecals}
-                            onClick={() => setDecalTarget({
-                              name: fullName,
-                              dsUrl: row.decal_photo_ds_url,
-                              psUrl: row.decal_photo_ps_url,
-                              extras: row.decal_photos,
-                            })}
+                            onClick={() => {
+                              console.log('[decals] card click', row.operator_id, {
+                                ds: !!row.decal_photo_ds_url,
+                                ps: !!row.decal_photo_ps_url,
+                                extras: row.decal_photos.length,
+                              });
+                              setDecalTarget({
+                                name: fullName,
+                                dsUrl: row.decal_photo_ds_url,
+                                psUrl: row.decal_photo_ps_url,
+                                extras: row.decal_photos,
+                              });
+                            }}
                             className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10 disabled:opacity-40"
                             title={hasDecals ? 'View decal install photos' : 'No decal photos uploaded yet'}
                           >
@@ -2249,12 +2256,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                                   variant="ghost"
                                   size="sm"
                                   disabled={!hasDecals}
-                                  onClick={() => setDecalTarget({
-                                    name: fullName,
-                                    dsUrl: row.decal_photo_ds_url,
-                                    psUrl: row.decal_photo_ps_url,
-                                    extras: row.decal_photos,
-                                  })}
+                                  onClick={() => {
+                                    console.log('[decals] list click', row.operator_id, {
+                                      ds: !!row.decal_photo_ds_url,
+                                      ps: !!row.decal_photo_ps_url,
+                                      extras: row.decal_photos.length,
+                                    });
+                                    setDecalTarget({
+                                      name: fullName,
+                                      dsUrl: row.decal_photo_ds_url,
+                                      psUrl: row.decal_photo_ps_url,
+                                      extras: row.decal_photos,
+                                    });
+                                  }}
                                   className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5 disabled:opacity-40"
                                   title={hasDecals ? 'View decal install photos' : 'No decal photos uploaded yet'}
                                 >

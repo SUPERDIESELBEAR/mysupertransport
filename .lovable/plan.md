@@ -1,29 +1,31 @@
 ## What's happening
 
-The Dispatch Board's Decals button reads the same three onboarding fields the driver's onboarding flow writes to (`decal_photo_ds_url`, `decal_photo_ps_url`, `decal_photos`), so the data source is already correct — Hafeezullah is dim only because he genuinely has nothing uploaded yet.
+Data-side, decal photos are wired end-to-end: `DispatchPortal` reads `decal_photo_ds_url` / `decal_photo_ps_url` / `decal_photos` from `onboarding_status`, lights the Decals icon when any of them exist, and on click sets `decalTarget`, which drives `<DecalPhotoViewerModal open={!!decalTarget}>` at the bottom of the tree. That's correct — the drivers you named do have URLs in those columns.
 
-Where it falls short in practice:
+But right now clicking Decals opens nothing. I can't reproduce end-to-end from the sandbox (auth is signed out here), so I'm going to treat the diagnosis as **unconfirmed** and make step 1 of this plan an actual verification, not an assumption. The most plausible causes based on a code read:
 
-- Stored URLs are a mix of long-lived `/object/sign/…` links (valid to 2031), stale short-lived `/sign/…` links, and `/object/public/…` links against a bucket that's actually private.
-- `DecalPhotosQuickView` (used by Dispatch) tries to mint a fresh signed URL on open. When that call fails or returns nothing, the tile falls back to a "File missing" placeholder — even when the originally stored long-lived signed URL would have loaded fine. Net effect: the popup often shows empty tiles for drivers who do have photos.
-- Vehicle Hub already has a nicer, proven viewer (`DecalPhotoViewerModal`) with an expand-to-fullscreen preview and consistent tile styling.
+1. `<DecalPhotoViewerModal>` (in `src/components/fleet/DecalPhotoViewerModal.tsx`) throws or auto-closes before paint. It's the modal that replaced `DecalPhotosQuickView` in the last turn.
+2. The click handler fires but the render tree doesn't see the state change (e.g. the button lives inside a memoized subtree whose parent re-render is being swallowed by a re-mount elsewhere).
+3. A stale service-worker cache is serving the old bundle to the user, so what they're clicking is the pre-swap code path.
 
 ## Fix
 
-Unify Dispatch on the Vehicle Hub viewer and make URL resolution fall back to the stored URL when re-signing fails, so the photos uploaded during onboarding always render.
+Small, defensive changes that cover all three suspects without over-engineering.
 
 ### Steps
 
-1. **Harden `resolveDecalUrl`** (`src/lib/decalUrl.ts`): on `createSignedUrl` error/empty, return the original `storedUrl` instead of `null`. Existing long-lived signed URLs (exp 2031) then still render. Only URLs whose object truly doesn't exist stay broken.
-2. **Point Dispatch at the Vehicle Hub viewer**: in `src/pages/dispatch/DispatchPortal.tsx`, swap the two `<DecalPhotosQuickView …>` usages (list + card views) for `<DecalPhotoViewerModal …>` from `src/components/fleet/DecalPhotoViewerModal.tsx`. Keep the same "lit vs dull" presence check driving the button state — that's already correct.
-3. **Route `DecalPhotoViewerModal` through the hardened resolver**: replace its local `refreshSignedUrl` helper with `resolveDecalUrl` so it inherits the same pass-through fallback behavior. Consistent behavior wherever decals are viewed (Dispatch + Fleet).
-4. **Verify** by opening the Decals popup on Dispatch for a few drivers with the different stored URL shapes (long-lived `/sign/` — e.g. operator `71221960…`, and `/public/` — e.g. `2df36975…`), and confirming images now render. Confirm Hafeezullah's button stays disabled with the "No decal photos uploaded yet" tooltip.
+1. **Verify what's actually happening on click.** Temporarily wrap the two `onClick={() => setDecalTarget(...)}` handlers in `DispatchPortal.tsx` with `console.log('[decals] open', row.operator_id, {...})` and log again inside the `useEffect(..., [open, tiles])` in `DecalPhotoViewerModal.tsx`. Ask the user to click Decals on Steve Figueroa's card once and share the console. If we see the outer log but not the effect log, the modal isn't mounting → suspect (1). If we see neither, the button isn't wired → suspect (2). If we see both but nothing renders, it's a paint/z-index or stale-bundle issue → suspect (3).
+2. **Harden the modal against silent failure.** In `DecalPhotoViewerModal.tsx`:
+   - Wrap the `refreshSignedUrl` `Promise.all` in `try/catch`; on failure, seed `signed` with the raw URLs so tiles still render.
+   - Give the `Dialog` a stable `key={driverName}` and drop the local `<button aria-label="Close">` (Radix already renders one) — it's currently outside `<DialogTitle>` and can steal focus in a way that occasionally re-triggers `onOpenChange(false)` right after open.
+3. **Bust the service-worker cache** by bumping `public/version.json`. Users on old bundles will get the current code on next refresh. This eliminates suspect (3) without any code churn.
+4. **After the user confirms** which log path fired (or that logs never appeared), remove the temporary logs and, if needed, apply the specific fix that matches — e.g. swap the modal back to the still-present `DecalPhotosQuickView` if the fleet modal is the one throwing.
 
 ### Technical notes
 
-- No schema change, no migration, no writer changes. Read-side only.
-- `DecalPhotosQuickView.tsx` becomes unused after step 2; leave it in place for now (safe to remove in a follow-up cleanup pass).
-- Files touched:
-  - `src/lib/decalUrl.ts` — fallback to stored URL on resolver failure
-  - `src/components/fleet/DecalPhotoViewerModal.tsx` — use shared `resolveDecalUrl`
-  - `src/pages/dispatch/DispatchPortal.tsx` — swap modal component in both list and card renderers
+- No schema, no migration, no writer changes. Read-side only.
+- Files touched in this plan:
+  - `src/pages/dispatch/DispatchPortal.tsx` — temporary click logs on both Decals buttons
+  - `src/components/fleet/DecalPhotoViewerModal.tsx` — try/catch around URL resolution, remove redundant close button, stable key, effect log
+  - `public/version.json` — bump to force fresh bundle
+- The `resolveDecalUrl` fallback added last turn stays as-is; it's not the failure surface here (it can't prevent the dialog from opening).
