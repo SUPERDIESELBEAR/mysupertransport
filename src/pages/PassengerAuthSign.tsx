@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DobPicker } from '@/components/ui/dob-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -87,10 +89,11 @@ function SignaturePad({ label, value, onChange }: { label: string; value: string
 
 async function buildPdf(opts: {
   driverName: string; unitNumber: string;
-  passengerName: string; passengerRelationship: string; passengerDob: string;
+  passengerName: string; passengerRelationship: string; passengerRelationshipLabel: string; passengerDob: string;
   effectiveDate: string;
-  contractorTypedName: string; passengerTypedName: string; parentTypedName: string;
-  contractorSig: string; passengerSig: string; parentSig: string | null;
+  contractorTypedName: string; passengerTypedName: string;
+  contractorSig: string; passengerSig: string | null;
+  passengerWaived: boolean; waiverReason: string; isMinor: boolean;
 }): Promise<string> {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const M = 54;
@@ -105,7 +108,7 @@ async function buildPdf(opts: {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
   const lines = [
     `Passenger Name: ${opts.passengerName}`,
-    `Relationship to Driver: ${opts.passengerRelationship}`,
+    `Relationship to Driver: ${opts.passengerRelationshipLabel}`,
     `Passenger DOB: ${opts.passengerDob || '—'}`,
     `Effective Date: ${opts.effectiveDate}`,
   ];
@@ -125,12 +128,44 @@ async function buildPdf(opts: {
     y += 6;
     doc.line(M, y, 400, y);
   };
-  addSig('Contractor / Driver signature', opts.contractorTypedName, opts.contractorSig);
-  addSig('Passenger signature', opts.passengerTypedName, opts.passengerSig);
-  if (opts.parentSig) addSig('Parent / Guardian (if minor) signature', opts.parentTypedName, opts.parentSig);
+  const contractorLabel = opts.isMinor
+    ? 'Contractor / Driver signature (also acting as parent/guardian for minor passenger)'
+    : 'Contractor / Driver signature';
+  addSig(contractorLabel, opts.contractorTypedName, opts.contractorSig);
+
+  if (opts.isMinor) {
+    y += 14;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Passenger signature', M, y); y += 14;
+    doc.setFont('helvetica', 'italic');
+    doc.text('MINOR PASSENGER — parent/guardian signature captured above (contractor).', M, y);
+    doc.setFont('helvetica', 'normal'); y += 10;
+    doc.line(M, y, 400, y);
+  } else if (opts.passengerWaived) {
+    y += 14;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Passenger signature', M, y); y += 14;
+    doc.setFont('helvetica', 'bold');
+    doc.text('PASSENGER SIGNATURE WAIVED', M, y); y += 14;
+    doc.setFont('helvetica', 'normal');
+    const wrapped = doc.splitTextToSize(`Reason: ${opts.waiverReason}`, 480) as string[];
+    for (const ln of wrapped) { doc.text(ln, M, y); y += 14; }
+    doc.text(`Contractor attested at signing on ${new Date().toLocaleDateString()}`, M, y);
+    y += 6;
+    doc.line(M, y, 400, y);
+  } else {
+    addSig('Passenger signature', opts.passengerTypedName, opts.passengerSig);
+  }
 
   return doc.output('datauristring');
 }
+
+const RELATIONSHIP_OPTIONS: { value: string; label: string }[] = [
+  { value: 'spouse', label: 'Spouse' },
+  { value: 'minor_child', label: 'Minor Child (under 18)' },
+  { value: 'adult_family', label: 'Adult Family Member' },
+  { value: 'other', label: 'Other Authorized Rider' },
+];
 
 export default function PassengerAuthSign() {
   const { token } = useParams<{ token: string }>();
@@ -146,11 +181,15 @@ export default function PassengerAuthSign() {
   const [effectiveDate, setEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [contractorTypedName, setContractorTypedName] = useState('');
   const [passengerTypedName, setPassengerTypedName] = useState('');
-  const [parentTypedName, setParentTypedName] = useState('');
   const [contractorSig, setContractorSig] = useState<string | null>(null);
   const [passengerSig, setPassengerSig] = useState<string | null>(null);
-  const [parentSig, setParentSig] = useState<string | null>(null);
-  const [isMinor, setIsMinor] = useState(false);
+  const [passengerNotPresent, setPassengerNotPresent] = useState(false);
+  const [waiverReason, setWaiverReason] = useState('');
+
+  const isMinor = passengerRelationship === 'minor_child';
+  const passengerWaived = isMinor || passengerNotPresent;
+  const relationshipLabel =
+    RELATIONSHIP_OPTIONS.find(o => o.value === passengerRelationship)?.label || '';
 
   useEffect(() => {
     (async () => {
@@ -173,35 +212,45 @@ export default function PassengerAuthSign() {
   const submit = async () => {
     if (!row) return;
     if (!passengerName || !passengerRelationship || !effectiveDate ||
-        !contractorTypedName || !passengerTypedName ||
-        !contractorSig || !passengerSig) {
-      toast.error('Please complete all required fields and both signatures.');
+        !contractorTypedName || !contractorSig) {
+      toast.error('Please complete all required fields and the contractor signature.');
       return;
     }
-    if (isMinor && (!parentTypedName || !parentSig)) {
-      toast.error('Please provide the parent/guardian signature for a minor passenger.');
+    if (!passengerWaived) {
+      if (!passengerTypedName || !passengerSig) {
+        toast.error('Please complete the passenger typed name and signature.');
+        return;
+      }
+    } else if (passengerNotPresent && !waiverReason.trim()) {
+      toast.error('Please provide a reason the passenger is not present at signing.');
       return;
     }
+    const effectiveReason = isMinor
+      ? 'Minor child — parent/guardian signature on file (contractor).'
+      : waiverReason.trim();
     setSubmitting(true);
     try {
       const pdf = await buildPdf({
         driverName: row.driver_name, unitNumber: row.unit_number,
-        passengerName, passengerRelationship, passengerDob,
+        passengerName, passengerRelationship, passengerRelationshipLabel: relationshipLabel, passengerDob,
         effectiveDate,
-        contractorTypedName, passengerTypedName, parentTypedName,
-        contractorSig, passengerSig, parentSig: isMinor ? parentSig : null,
+        contractorTypedName, passengerTypedName,
+        contractorSig: contractorSig!, passengerSig: passengerWaived ? null : passengerSig,
+        passengerWaived, waiverReason: effectiveReason, isMinor,
       });
       const { data, error } = await supabase.functions.invoke('finalize-passenger-auth', {
         body: {
           token,
-          passengerName, passengerRelationship,
+          passengerName, passengerRelationship: relationshipLabel,
           passengerDob: passengerDob || null,
           effectiveDate,
-          contractorTypedName, passengerTypedName,
-          parentTypedName: isMinor ? parentTypedName : null,
+          contractorTypedName,
+          passengerTypedName: passengerWaived ? null : passengerTypedName,
           contractorSignature: contractorSig,
-          passengerSignature: passengerSig,
-          parentSignature: isMinor ? parentSig : null,
+          passengerSignature: passengerWaived ? null : passengerSig,
+          parentSignature: null,
+          passengerSignatureWaived: passengerWaived,
+          passengerWaiverReason: passengerWaived ? effectiveReason : null,
           executedPdf: pdf,
         },
       });
@@ -264,7 +313,14 @@ export default function PassengerAuthSign() {
               </div>
               <div>
                 <Label>Relationship to driver *</Label>
-                <Input placeholder="Spouse, child, parent…" value={passengerRelationship} onChange={e => setPassengerRelationship(e.target.value)} />
+                <Select value={passengerRelationship} onValueChange={(v) => { setPassengerRelationship(v); if (v === 'minor_child') { setPassengerNotPresent(false); setWaiverReason(''); } }}>
+                  <SelectTrigger><SelectValue placeholder="Select relationship" /></SelectTrigger>
+                  <SelectContent>
+                    {RELATIONSHIP_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Passenger DOB</Label>
@@ -276,10 +332,12 @@ export default function PassengerAuthSign() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isMinor} onChange={e => setIsMinor(e.target.checked)} />
-              Passenger is a minor (under 18) — parent/guardian must also sign
-            </label>
+            {isMinor && (
+              <div className="rounded-md border border-gold/40 bg-gold/10 p-3 text-sm">
+                <strong>Minor passenger:</strong> a separate passenger signature is not required.
+                Your signature below acts as the parent/guardian signature for this minor.
+              </div>
+            )}
 
             <div className="space-y-4 pt-2 border-t">
               <div>
@@ -289,20 +347,47 @@ export default function PassengerAuthSign() {
                   <SignaturePad label="Contractor / Driver signature *" value={contractorSig} onChange={setContractorSig} />
                 </div>
               </div>
-              <div>
-                <Label>Passenger typed name *</Label>
-                <Input value={passengerTypedName} onChange={e => setPassengerTypedName(e.target.value)} />
-                <div className="mt-2">
-                  <SignaturePad label="Passenger signature *" value={passengerSig} onChange={setPassengerSig} />
-                </div>
-              </div>
-              {isMinor && (
-                <div>
-                  <Label>Parent / Guardian typed name *</Label>
-                  <Input value={parentTypedName} onChange={e => setParentTypedName(e.target.value)} />
-                  <div className="mt-2">
-                    <SignaturePad label="Parent / Guardian signature *" value={parentSig} onChange={setParentSig} />
-                  </div>
+              {!isMinor && (
+                <div className="space-y-3">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={passengerNotPresent}
+                      onChange={e => setPassengerNotPresent(e.target.checked)}
+                    />
+                    <span>
+                      <strong>Passenger is not with me at the time of signing.</strong>
+                      <br />
+                      <span className="text-muted-foreground">
+                        Check this if the named passenger is unavailable to sign right now.
+                        A signature waiver will be stamped on the executed authorization.
+                      </span>
+                    </span>
+                  </label>
+
+                  {passengerNotPresent ? (
+                    <div>
+                      <Label>Reason passenger is not present *</Label>
+                      <Textarea
+                        rows={3}
+                        placeholder="e.g., Spouse joining on Monday at the terminal; rider boarding at next stop."
+                        value={waiverReason}
+                        onChange={e => setWaiverReason(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This reason will appear on the signed PDF in the passenger signature block.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label>Passenger typed name *</Label>
+                      <Input value={passengerTypedName} onChange={e => setPassengerTypedName(e.target.value)} />
+                      <div className="mt-2">
+                        <SignaturePad label="Passenger signature *" value={passengerSig} onChange={setPassengerSig} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
