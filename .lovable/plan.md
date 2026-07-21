@@ -1,22 +1,54 @@
-# Fix: Passenger Authorization "Send to driver" delivers wrong email
+## Goal
 
-## Root cause (confirmed from logs)
-When Send to driver runs, `send-passenger-auth` successfully creates the tokenized row, then calls `send-transactional-email` with template `passenger-auth-request`. That call returns **404 "Template not found in registry"** (seen in `send-passenger-auth` logs and in `send-transactional-email` logs: `Template not found in registry { templateName: "passenger-auth-request" }`).
+Surface Passenger Authorization requests inside the SUPERDRIVE driver app alongside the existing email, so drivers can complete Authorization #1 from either entry point.
 
-The template file and its entry in `registry.ts` exist in the codebase, but `send-transactional-email` bundles the registry at deploy time. The deployed bundle predates the passenger-auth template addition, so the running function doesn't know about it. The "Document Shared With You / Download File" email that arrived is the unrelated generic resource-share email from an earlier envelope-icon test.
+## How it works today
 
-## Fix
-1. Redeploy `send-transactional-email` so its bundled `TEMPLATES` map includes `passenger-auth-request` (and the equipment/PEI templates already in `registry.ts`).
-2. Also redeploy `send-passenger-auth`, `get-passenger-auth`, and `finalize-passenger-auth` together to make sure the whole flow is on the latest code (cheap safety).
-3. Re-test Send to driver as Marcus Mueller and confirm:
-   - The email subject reads "Action needed: Passenger Authorization for Unit …" (from the template).
-   - The body has the gold "Complete Passenger Authorization →" button (not a plain "Download File" button).
-   - The button opens `/passenger-auth/<token>` in SUPERDRIVE where the form can be filled and signed.
-   - After signing, the executed PDF appears in Marcus's Driver Hub documents.
-4. Verify via `email_send_log`: the latest row for that recipient should be `template_name = 'passenger-auth-request'` with status `sent` (not `failed`).
+- Staff clicks **Send to driver** → `send-passenger-auth` inserts a `passenger_authorizations` row (with `response_token`) and emails the driver a link to `/passenger-auth/:token`.
+- That route already renders the fillable/signing page inside the app. There is no in-app surfacing — a driver who opens SUPERDRIVE directly sees nothing about the pending request.
 
-## Follow-up recommendation (optional, ask before doing)
-Hide the generic envelope "Send by email" icon on the Passenger Authorization card in the Resource Library so the only send action for that specific resource is the fillable "Send to driver" flow. This prevents accidentally emailing the blank template as a download in the future. I'll only do this if you say yes — it's a small UX guard, not part of the bug fix.
+## What to build
+
+### 1. In-app notification on send
+In `send-passenger-auth`, after inserting the row, when `operator_id` is present:
+- Look up the operator's `auth_user_id`.
+- Insert a row into `notifications` (existing table) with:
+  - `title`: "Passenger Authorization required"
+  - `body`: "Complete Authorization #1 for Unit {unit_number} and sign the form."
+  - `action_url`: `/passenger-auth/{response_token}`
+  - `priority`: high
+  - category/type consistent with existing driver-facing notifications
+- Email still sends as it does today (both paths).
+
+### 2. Pending task card in the Driver Hub
+Add a lightweight "Action needed" card to the operator portal (Home / Dashboard view — the same surface that shows onboarding tasks) that queries `passenger_authorizations` where:
+- `operator_id = current operator`
+- `status IN ('sent','opened')` (i.e. not yet completed/revoked)
+
+Card shows: "Passenger Authorization – Unit {unit}" with a "Open form →" button that routes to `/passenger-auth/:token`. Card auto-disappears once status becomes `completed`.
+
+### 3. Update the email copy
+Change the wording under the email field in `SendPassengerAuthModal.tsx` from "The driver will receive an email link…" to:
+
+> "The driver will get an in-app task in SUPERDRIVE **and** an email link to complete Authorization #1 and sign the form. Carrier signature and Driver Hub filing happen automatically."
+
+### 4. Manual-entry case (no operator selected)
+If staff types the driver in manually (no `operatorId`), only the email is sent — there's no operator account to attach an in-app task to. This matches today's behavior; the modal copy will note "in-app task requires a linked driver profile."
+
+## Files to touch
+
+**Backend**
+- `supabase/functions/send-passenger-auth/index.ts` — insert `notifications` row when `operator_id` is set; resolve operator's `auth_user_id`.
+
+**Frontend**
+- `src/components/management/SendPassengerAuthModal.tsx` — updated helper copy.
+- `src/pages/operator/OperatorPortal.tsx` (or the appropriate Home/Dashboard component it renders) — add pending Passenger Authorization card, wired to a small query hook.
+- New: `src/components/operator/PendingPassengerAuthCard.tsx` — the card component + query.
+
+**No schema changes.** `passenger_authorizations` and `notifications` already exist.
 
 ## Out of scope
-No changes to the signing page, PDF layout, storage buckets, DB schema, or template contents — only a redeploy.
+
+- Push/badge notifications (uses existing in-app notification pipeline only).
+- Reminders / re-nudges after N days.
+- Staff-side ability to resend or revoke from the driver's row (already available on the Resource Library card).

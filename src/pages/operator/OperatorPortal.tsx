@@ -35,6 +35,7 @@ const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPa
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
+import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
@@ -1622,6 +1623,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName}</h1>
                 <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
               </div>
+
+              <PendingPassengerAuthCard operatorId={operatorId} />
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((t, idx) => (
