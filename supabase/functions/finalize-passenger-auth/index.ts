@@ -32,6 +32,13 @@ Deno.serve(async (req) => {
     passengerRelationship?: string
     passengerDob?: string | null
     effectiveDate?: string | null
+    passengerAge?: number | null
+    originCityState?: string
+    destinationCityState?: string
+    expiresAt?: string | null
+    passengerInitials?: string
+    parentInitials?: string | null
+    contractorReadAcknowledgedAt?: string | null
     contractorTypedName?: string
     passengerTypedName?: string | null
     parentTypedName?: string | null
@@ -53,7 +60,12 @@ Deno.serve(async (req) => {
   const waiverReason = isMinor
     ? 'Minor child — parent/guardian signature on file (contractor).'
     : (body.passengerWaiverReason || '').trim()
-  const baseRequired = ['passengerName', 'passengerRelationship', 'effectiveDate', 'contractorTypedName', 'contractorSignature', 'executedPdf'] as const
+  const baseRequired = [
+    'passengerName', 'passengerRelationship', 'effectiveDate',
+    'originCityState', 'destinationCityState',
+    'passengerInitials', 'contractorReadAcknowledgedAt',
+    'contractorTypedName', 'contractorSignature', 'executedPdf',
+  ] as const
   const required = waived
     ? baseRequired
     : ([...baseRequired, 'passengerTypedName', 'passengerSignature'] as const)
@@ -62,6 +74,20 @@ Deno.serve(async (req) => {
   }
   if (waived && !waiverReason) {
     return json(400, { error: 'Missing field: passengerWaiverReason' })
+  }
+  if (isMinor && !(body.parentInitials || '').trim()) {
+    return json(400, { error: 'Missing field: parentInitials' })
+  }
+
+  // Server-side derive expiration as effectiveDate + 1 year (safety net).
+  const eff = String(body.effectiveDate).slice(0, 10)
+  let expiresAt: string | null = null
+  const m = eff.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (m) {
+    const y = Number(m[1]) + 1, mo = Number(m[2]), d = Number(m[3])
+    const dt = new Date(Date.UTC(y, mo - 1, d))
+    if (dt.getUTCMonth() !== mo - 1) dt.setUTCDate(0)
+    expiresAt = dt.toISOString().slice(0, 10)
   }
 
   const admin = createClient(
@@ -130,6 +156,13 @@ Deno.serve(async (req) => {
       passenger_relationship: body.passengerRelationship,
       passenger_dob: body.passengerDob || null,
       effective_date: body.effectiveDate || null,
+      passenger_age: body.passengerAge ?? null,
+      origin_city_state: body.originCityState || null,
+      destination_city_state: body.destinationCityState || null,
+      expires_at: expiresAt,
+      passenger_initials: (body.passengerInitials || '').trim() || null,
+      parent_initials: (body.parentInitials || '').trim() || null,
+      contractor_read_acknowledged_at: body.contractorReadAcknowledgedAt || nowIso,
       contractor_typed_name: body.contractorTypedName,
       passenger_typed_name: body.passengerTypedName || null,
       parent_typed_name: body.parentTypedName || null,
