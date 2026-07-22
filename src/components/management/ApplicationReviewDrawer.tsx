@@ -1321,106 +1321,12 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           )}
         </div>
 
-        {/* Persistent "Reverted" confirmation banner (audit-log driven, last 24h) */}
-        <RevertedBanner
-          applicationId={app.id}
-          firstName={app.first_name}
-          refreshKey={revertBannerKey}
-        />
-
-        {/* Correction-request status (pending / approved / rejected history) */}
-        <div className="border-t border-border p-4 shrink-0">
-          <CorrectionRequestStatusCard
-            key={correctionRefreshKey}
-            applicationId={app.id}
-            onChanged={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
-          />
-        </div>
-
         <ProposeChangesDrawer
           open={correctionsOpen}
           onOpenChange={setCorrectionsOpen}
           application={app as unknown as Record<string, unknown> & { id: string; first_name?: string | null; last_name?: string | null; email: string }}
           onSent={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
         />
-
-        {/* Revision history banner — shown whenever a revision was ever requested. */}
-        {!!app.revision_requested_at && !justReverted && (() => {
-          const stillRequested = app.review_status === 'revisions_requested';
-          const handledAt = app.revisions_handled_by_staff_at;
-          const dateStr = app.revision_requested_at
-            ? new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '';
-          return (
-            <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
-              <div className="flex items-start gap-3">
-                <RotateCcw className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">
-                      {stillRequested
-                        ? `Revisions requested${dateStr ? ` on ${dateStr}` : ''}`
-                        : `Original revision request${dateStr ? ` — sent ${dateStr}` : ''} · now handled by staff`}
-                    </p>
-                    {stillRequested && (
-                      <button
-                        type="button"
-                        onClick={() => setRevertOpen(true)}
-                        className="text-xs font-medium text-status-progress hover:underline shrink-0"
-                      >
-                        Undo — sent in error
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {stillRequested
-                      ? 'Awaiting applicant updates. The applicant received an email with a secure link to reopen and resubmit.'
-                      : `Applicant link disabled${handledAt ? ` on ${new Date(handledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}. Staff is making the corrections on the applicant's behalf.`}
-                  </p>
-                  {app.revision_request_message && (
-                    <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-xs text-foreground whitespace-pre-wrap">
-                      {app.revision_request_message}
-                    </div>
-                  )}
-                  {stillRequested && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={movingToPending}
-                        onClick={async () => {
-                          setMovingToPending(true);
-                           try {
-                             await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
-                             toast.success('Staff is now handling corrections. Applicant link disabled.');
-                             // Notify the applicant their app was reopened (best-effort, non-blocking).
-                             supabase.functions.invoke('notify-application-moved-to-pending', {
-                               body: { applicationId: app.id },
-                             }).catch(() => { /* silent */ });
-                             onExpiryUpdated?.();
-                           } catch {
-                             // Silent — refresh will reflect actual state.
-                             onExpiryUpdated?.();
-                           } finally {
-                            setMovingToPending(false);
-                          }
-                        }}
-                      >
-                        {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
-                        Staff will handle corrections (take over)
-                      </Button>
-                      <p className="w-full text-[11px] text-muted-foreground mt-1">
-                        Disables the applicant link. You'll edit fields directly here.
-                      </p>
-                    </div>
-                  )}
-                  <RevisionReplyAttachments applicationId={app.id} onChanged={() => setCorrectionRefreshKey((k) => k + 1)} />
-                  <RevisionAuditLog applicationId={app.id} refreshKey={correctionRefreshKey + revertBannerKey} />
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         <RevertRevisionModal
           open={revertOpen}
