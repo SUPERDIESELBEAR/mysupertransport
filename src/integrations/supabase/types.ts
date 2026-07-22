@@ -3149,22 +3149,29 @@ export type Database = {
           carrier_signature_url: string | null
           carrier_title: string | null
           carrier_typed_name: string | null
+          contractor_read_acknowledged_at: string | null
           contractor_signature_url: string | null
           contractor_signed_at: string | null
           contractor_typed_name: string | null
           created_at: string
+          destination_city_state: string | null
           driver_email: string
           driver_name: string
           effective_date: string | null
           executed_at: string | null
           executed_pdf_url: string | null
+          expires_at: string | null
           filed_operator_document_id: string | null
           id: string
           opened_at: string | null
           operator_id: string | null
+          origin_city_state: string | null
+          parent_initials: string | null
           parent_signature_url: string | null
           parent_typed_name: string | null
+          passenger_age: number | null
           passenger_dob: string | null
+          passenger_initials: string | null
           passenger_name: string | null
           passenger_relationship: string | null
           passenger_signature_url: string | null
@@ -3182,22 +3189,29 @@ export type Database = {
           carrier_signature_url?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          contractor_read_acknowledged_at?: string | null
           contractor_signature_url?: string | null
           contractor_signed_at?: string | null
           contractor_typed_name?: string | null
           created_at?: string
+          destination_city_state?: string | null
           driver_email: string
           driver_name: string
           effective_date?: string | null
           executed_at?: string | null
           executed_pdf_url?: string | null
+          expires_at?: string | null
           filed_operator_document_id?: string | null
           id?: string
           opened_at?: string | null
           operator_id?: string | null
+          origin_city_state?: string | null
+          parent_initials?: string | null
           parent_signature_url?: string | null
           parent_typed_name?: string | null
+          passenger_age?: number | null
           passenger_dob?: string | null
+          passenger_initials?: string | null
           passenger_name?: string | null
           passenger_relationship?: string | null
           passenger_signature_url?: string | null
@@ -3215,22 +3229,29 @@ export type Database = {
           carrier_signature_url?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          contractor_read_acknowledged_at?: string | null
           contractor_signature_url?: string | null
           contractor_signed_at?: string | null
           contractor_typed_name?: string | null
           created_at?: string
+          destination_city_state?: string | null
           driver_email?: string
           driver_name?: string
           effective_date?: string | null
           executed_at?: string | null
           executed_pdf_url?: string | null
+          expires_at?: string | null
           filed_operator_document_id?: string | null
           id?: string
           opened_at?: string | null
           operator_id?: string | null
+          origin_city_state?: string | null
+          parent_initials?: string | null
           parent_signature_url?: string | null
           parent_typed_name?: string | null
+          passenger_age?: number | null
           passenger_dob?: string | null
+          passenger_initials?: string | null
           passenger_name?: string | null
           passenger_relationship?: string | null
           passenger_signature_url?: string | null
