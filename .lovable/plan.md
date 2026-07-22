@@ -1,63 +1,53 @@
+# Fix: Overview tab unreadable after a correction is approved
 
-## Problem
+## What the staff is seeing (confirmed)
 
-The current signing page and generated PDF contain only form fields (name, DOB, relationship, signatures). The actual **Passenger Authorization and Release of Liability** legal text (49 CFR §392.60, sections 1–7) was never included, so the driver was never prompted to read anything and the filed PDF is only a one-page summary.
+In the Application Review drawer, the layout below the tab bar looks like this:
+
+```text
+┌─ Header (fixed) ───────────────────────────┐
+├─ Tabs: Overview | Documents | PEI (fixed) ─┤
+├─ Scrollable content (Overview body) ───────┤   ← flex-1, should grow
+├─ Correction Request Status card (fixed) ───┤   ← grows after corrections
+├─ Revision history banner + audit log (fx) ─┤   ← grows a lot after corrections
+└─ Action footer (fixed) ────────────────────┘
+```
+
+The correction status card and revision-history banner are siblings of the scroll region with `shrink-0`. Once a correction cycle has run, they contain the full request history, reviewer notes, reply attachments, and the revision audit log — often several hundred pixels tall. They consume all the available vertical space, so the Overview scroll area collapses to near-zero height. Personal Info, Address, CDL Info, etc. are still in the DOM but staff cannot scroll down to reach them.
+
+The Print / Save-as-PDF button on this drawer prints `#app-review-print-content`, which is only the (now-collapsed) Overview body — so the CDL number, medical card, and other fields don't appear in the exported PDF either.
 
 ## Fix
 
-### 1. Shared authorization content module
-Create `src/lib/passengerAuthContent.ts` exporting the full authorization body (all 7 sections verbatim from the uploaded PDF) as structured data (headings + paragraphs + bullets), so the on-screen viewer and the PDF generator render the same source of truth.
+Restructure the drawer so post-correction history lives **inside** the Overview scroll region instead of stealing space from it, and make sure the printable/downloadable view always contains the full application data.
 
-### 2. Signing page — `src/pages/PassengerAuthSign.tsx`
-- **Read the Authorization** panel above the form renders the full document body in a scrollable styled box (matching the Handbook/DocumentViewer look).
-- **"I have read and agree to the Passenger Authorization" checkbox** below the panel. Required. The Sign & Submit button stays disabled until it is checked. Timestamp of confirmation is captured and persisted.
-- New trip fields the paper form requires:
-  - Passenger Age
-  - Transportation Begins At (City, State)
-  - Transportation Ends At (City, State)
-  - Passenger initials (and Parent/Guardian initials when under 18) for the Section 4 acknowledgment
-- **Effective date**: defaults to today (unchanged).
-- **Expiration date**: auto-filled to **exactly one year after the effective date**, recomputed whenever the effective date changes. Field is read-only (with a small helper: "Automatically set to one year from the effective date"). Value is sent to the backend and stamped in the PDF.
-- Keep the existing waiver logic (Minor Child auto-waives passenger signature; "Passenger not present" toggle + reason).
+### 1. Move history-driven sections into the scrollable overview
 
-### 3. PDF generator — `buildPdf` in the same file
-Rewrite to produce a multi-page PDF that mirrors the source document:
-- Page 1+: Header ("SUPERTRANSPORT — Passenger Authorization and Release of Liability, Issued Under 49 CFR §392.60") then all 7 sections rendered as wrapped paragraphs/bullets with automatic page breaks (`doc.splitTextToSize` + y-overflow → `doc.addPage()`).
-- Filled fields (Passenger Name, Age, Contractor, Unit, Cities, Effective, **Expires**) inserted into Section 1.
-- Passenger/Parent initials stamped into Section 4.
-- Contractor read-and-agree acknowledgment stamped near the signature block: "Contractor confirmed reading of the Passenger Authorization on {date/time}".
-- Final Signatures page: contractor sig + typed name + date; passenger sig OR "PASSENGER SIGNATURE WAIVED — Reason: …" OR "MINOR PASSENGER — parent/guardian signature captured above"; carrier rep signature block populated from `carrier_signature_settings`.
-- Footer on each page: "SUPERTRANSPORT | positive. thinking. transport. | www.mysupertransport.com | (833) 337-8737".
+In `src/components/management/ApplicationReviewDrawer.tsx`:
 
-### 4. Backend — `supabase/functions/finalize-passenger-auth/index.ts`
-- Accept and persist: `passenger_age`, `origin_city_state`, `destination_city_state`, `expires_at`, `passenger_initials`, `parent_initials`, `contractor_read_acknowledged_at`.
-- Validation: require age, origin, destination, passenger initials, and `contractor_read_acknowledged_at`. `expires_at` is derived server-side as `effective_date + 1 year` (client value ignored/overridden as a safety net).
+- Keep only the header, tabs, and action footer as fixed (`shrink-0`) siblings of the scroll container.
+- Move these blocks **inside** the `#app-review-print-content` scroll region (rendered under the Overview tab, at the top, before Personal Info):
+  - `RevertedBanner`
+  - `CorrectionRequestStatusCard`
+  - The `revision_requested_at` banner (with `RevisionReplyAttachments` and `RevisionAuditLog`)
+- Keep the action footer (`Reviewer Notes`, Approve / Deny / Send back buttons) as a fixed bottom bar so staff can always act without scrolling.
+- Result: no matter how much correction history accumulates, the Overview scroll region keeps its full height and staff can always scroll down to Personal Info → CDL Info → etc.
 
-### 5. Database
-One migration adding the new columns to `passenger_authorizations`:
-- `passenger_age int`
-- `origin_city_state text`
-- `destination_city_state text`
-- `expires_at date`
-- `passenger_initials text`
-- `parent_initials text`
-- `contractor_read_acknowledged_at timestamptz`
+### 2. Make sure Documents and PEI tabs also get the full height back
 
-No RLS changes; existing policies still apply.
+Because the correction/revision blocks currently render regardless of active tab, they also shrink Documents and PEI. Moving them into the Overview tab body fixes those tabs automatically. If we still want the correction summary visible on Documents/PEI, render a lightweight collapsed pill in the header row instead of the full card.
 
-### 6. Staff send modal — `SendPassengerAuthModal.tsx`
-No changes; staff still supplies only Driver Name, Unit, Email. Trip-specific fields are captured on the signing page.
+### 3. Ensure Print / Download includes CDL and medical card
 
-### 7. Deploy
-Deploy `finalize-passenger-auth` after the code + migration.
+- Confirm `#app-review-print-content` wraps the complete Overview (Personal, Address, CDL, Employment, Driving, Documents summary, Signature) after the restructure, so `handlePrint` produces a PDF containing the CDL number and medical-card expiration date.
+- In the Overview "Documents" section, render the medical certificate and DL front/rear as inline `<img>` thumbnails (using the same `preloadSignatureDataUrl` pattern already used for signatures) so the printed PDF includes the actual images, not just "View" buttons. Buttons stay for on-screen use; images render behind them and are visible in print via a `print:block hidden` / `hidden print:block` pair.
 
-## Out of scope
+### Files touched
 
-- Backfilling Marcus's already-filed short-version PDF. Say the word and I'll regenerate it once the new flow is live.
+- `src/components/management/ApplicationReviewDrawer.tsx` — restructure JSX; no behavioral changes to approve/deny/revert flows.
+- (Optional) `src/components/management/SubmittedApplicationSnapshot.tsx` — no change needed; already prints CDL + medical card via its own "Print application" button.
 
-## Technical notes
+### Out of scope
 
-- `jspdf` `splitTextToSize` + a small `writeParagraph(text, opts)` helper handles wrapping and page breaks cleanly.
-- Full body text (~1,100 words) lives in one exported constant so legal edits are a single-file change.
-- Expiration compute: parse the effective date at local noon (per project date-parsing rule), add 1 year, format back as `YYYY-MM-DD`. Handles Feb 29 by rolling to Feb 28.
-- Read-agree checkbox stores confirmation `timestamptz` at click time and is included in the submit payload.
+- No database, RLS, or edge-function changes.
+- No changes to the correction/revision workflow itself — only where those components render inside the drawer.
