@@ -19,6 +19,7 @@ import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 
 export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost' | 'deactivated';
@@ -69,30 +70,9 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
     const el = sectionRefs.current[expandedType];
     if (!el) return;
 
-    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
-    const offset = 80;
-
     const raf1 = requestAnimationFrame(() => {
       const raf2 = requestAnimationFrame(() => {
-        let node: HTMLElement | null = el.parentElement;
-        let scrollParent: HTMLElement | null = null;
-        while (node && node !== document.body) {
-          const overflowY = getComputedStyle(node).overflowY;
-          if ((overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') && node.scrollHeight > node.clientHeight) {
-            scrollParent = node;
-            break;
-          }
-          node = node.parentElement;
-        }
-
-        if (scrollParent) {
-          const top = el.getBoundingClientRect().top - scrollParent.getBoundingClientRect().top + scrollParent.scrollTop - offset;
-          scrollParent.scrollTo({ top: Math.max(0, top), behavior });
-        } else {
-          const top = el.getBoundingClientRect().top + window.scrollY - offset;
-          window.scrollTo({ top: Math.max(0, top), behavior });
-        }
+        scrollElementIntoViewWithOffset(el);
       });
       (raf1 as unknown as { _child?: number })._child = raf2;
     });

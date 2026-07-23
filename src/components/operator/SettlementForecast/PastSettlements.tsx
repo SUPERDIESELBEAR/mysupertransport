@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, History } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import {
   formatLongDay, formatMoney, getWorkWeekFor, toDateStr, parseLocalDate,
 } from '@/lib/settlementMath';
@@ -26,6 +27,7 @@ type Bucket = {
 
 export default function PastSettlements({ operatorId, payPercentage }: Props) {
   const [open, setOpen] = useState(false);
+  const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(open);
   const [loading, setLoading] = useState(false);
   const [buckets, setBuckets] = useState<Bucket[]>([]);
 
@@ -100,7 +102,7 @@ export default function PastSettlements({ operatorId, payPercentage }: Props) {
   }, [open]);
 
   return (
-    <Card className="overflow-hidden">
+    <Card ref={cardRef} className="overflow-hidden">
       <button
         type="button"
         className="w-full px-4 py-3 flex items-center justify-between bg-muted/30 hover:bg-muted/50 transition-colors"
