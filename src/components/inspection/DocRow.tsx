@@ -299,6 +299,13 @@ function useSignedUrl(rawUrl: string) {
   const [signing, setSigning] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const finishSigning = (nextSignedUrl: string | null) => {
+      if (cancelled) return;
+      setSignedUrl(nextSignedUrl);
+      setSigning(false);
+    };
+
     // Bare path inside the application-documents bucket
     if (/^applications\//i.test(rawUrl)) {
       setSigning(true);
@@ -307,11 +314,13 @@ function useSignedUrl(rawUrl: string) {
         .then(({ data }) => {
           if (data?.signedUrl) {
             // signedUrl may be relative — resolve it
-            setSignedUrl(resolveDocumentUrl(data.signedUrl));
+            finishSigning(resolveDocumentUrl(data.signedUrl));
+          } else {
+            finishSigning(null);
           }
         })
-        .finally(() => setSigning(false));
-      return;
+        .catch(() => finishSigning(null));
+      return () => { cancelled = true; };
     }
     // Bare path inside the inspection-documents bucket
     if (/^inspection-documents\//i.test(rawUrl)) {
@@ -321,11 +330,13 @@ function useSignedUrl(rawUrl: string) {
       supabase.storage.from('inspection-documents').createSignedUrl(objectPath, 3600)
         .then(({ data }) => {
           if (data?.signedUrl) {
-            setSignedUrl(resolveDocumentUrl(data.signedUrl));
+            finishSigning(resolveDocumentUrl(data.signedUrl));
+          } else {
+            finishSigning(null);
           }
         })
-        .finally(() => setSigning(false));
-      return;
+        .catch(() => finishSigning(null));
+      return () => { cancelled = true; };
     }
     // Bare path inside the operator-documents bucket: "{operator-uuid}/..."
     // Examples: "{uuid}/truck_photos/front_123.jpg"
@@ -339,15 +350,16 @@ function useSignedUrl(rawUrl: string) {
       supabase.storage.from('operator-documents').createSignedUrl(rawUrl, 3600)
         .then(({ data }) => {
           if (data?.signedUrl) {
-            setSignedUrl(resolveDocumentUrl(data.signedUrl));
+            finishSigning(resolveDocumentUrl(data.signedUrl));
+          } else {
+            finishSigning(null);
           }
         })
-        .finally(() => setSigning(false));
-      return;
+        .catch(() => finishSigning(null));
+      return () => { cancelled = true; };
     }
     // Not a bare path — no signing needed
-    setSignedUrl(null);
-    setSigning(false);
+    finishSigning(null);
   }, [rawUrl]);
 
   return { signedUrl, signing };
