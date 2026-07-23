@@ -353,8 +353,8 @@ export default function OnboardingChecklist({
   return (
     <div className="flex flex-col">
       {/* ── STICKY PROGRESS BAR ── */}
-      <div className="sticky top-16 z-30 bg-surface-dark border-b border-surface-dark-border shadow-lg">
-        <div className="flex items-center justify-between px-4 pt-3 pb-1.5 gap-2">
+      <div className="sticky top-16 md:top-20 z-30 bg-surface-dark shadow-lg">
+        <div className="flex items-center justify-between px-4 pt-2 pb-1.5 gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted leading-none mb-0.5">
               Onboarding Progress
