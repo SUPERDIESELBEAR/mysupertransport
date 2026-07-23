@@ -947,6 +947,20 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       return;
     }
 
+    // Fully-onboarded drivers who land directly on /progress (e.g. from a saved
+    // URL or an old bookmark) should be bounced to /home on fresh entry. If
+    // they navigated to Progress themselves in-app (viewStack non-empty), leave
+    // them alone so the "View onboarding status" link still works.
+    if (
+      onboardingStatusLoaded &&
+      isFullyOnboarded &&
+      view === 'progress' &&
+      viewStackRef.current.length === 0
+    ) {
+      const next = buildOperatorViewUrl(base, location.search, 'home');
+      navigate(`${next.pathname}${next.search}`, { replace: true });
+      return;
+    }
     if (segments.length > 0 && isKnownOperatorRoute(location.pathname)) return;
     // Wait until we know whether the driver is fully onboarded before choosing
     // a landing view — otherwise we'd snap to Progress before Home is even a
