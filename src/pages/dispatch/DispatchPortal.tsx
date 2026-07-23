@@ -2487,16 +2487,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       </StaffLayout>
 
       {/* Decal photos quick-view */}
-      {decalTarget && (
-        <DecalPhotoViewerModal
-          open
-          onClose={() => setDecalTarget(null)}
-          driverName={decalTarget.name ?? ''}
-          decalPhotoDsUrl={decalTarget.dsUrl ?? null}
-          decalPhotoPsUrl={decalTarget.psUrl ?? null}
-          decalPhotosExtra={decalTarget.extras ?? []}
-        />
-      )}
+      {decalModal}
 
       {/* Inspection Binder Sheet */}
       <Sheet open={!!binderTarget} onOpenChange={open => { if (!open) setBinderTarget(null); }}>
