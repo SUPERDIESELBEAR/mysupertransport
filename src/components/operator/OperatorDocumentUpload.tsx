@@ -265,12 +265,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
 
       if (uploadError) throw uploadError;
 
-      const { data: signedData } = await supabase.storage
-        .from('operator-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5); // 5-year URL
-
-      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
-      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
+      // Store the bare storage path — viewers mint a fresh signed URL on read
+      // so links never expire and Dispatch/Vehicle Hub always resolve correctly.
+      const fileUrl = path;
 
       // Update onboarding_status with the photo URL
       const column = side === 'ds' ? 'decal_photo_ds_url' : 'decal_photo_ps_url';
