@@ -240,7 +240,31 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // Deterministic back navigation via an in-memory view stack. This avoids
   // exiting the portal when the browser history's previous entry lives
   // outside /operator (e.g. after a replace-based landing redirect).
-  // Defined after `homeBaseView` below so we can fall back to Home/Progress.
+  // `isFullyOnboardedRef` is updated below so goBack always resolves to the
+  // correct fallback (Home for onboarded drivers, Progress otherwise).
+  const isFullyOnboardedRef = useRef(false);
+  const goBack = useCallback(() => {
+    const homeBase: OperatorView = isFullyOnboardedRef.current ? 'home' : 'progress';
+    const stack = viewStackRef.current;
+    if (stack.length > 0) {
+      const prev = stack[stack.length - 1];
+      viewStackRef.current = stack.slice(0, -1);
+      setViewStackLen(viewStackRef.current.length);
+      navigateToView(prev, { replace: true });
+      return;
+    }
+    if (view !== homeBase) {
+      navigateToView(homeBase, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, navigateToView]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') goBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [goBack]);
   // Browser/hardware back is handled by the URL history naturally. Avoid
   // pushState interception here because it can race against tab navigation.
   // Empty driver URLs are normalized below after onboarding status loads.
