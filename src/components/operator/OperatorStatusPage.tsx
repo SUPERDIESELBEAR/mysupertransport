@@ -273,8 +273,37 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
   );
 }
 
+function OnboardingHistoryCollapsible({ stages, onNavigateTo }: { stages: Stage[]; onNavigateTo: (view: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useScrollIntoViewOnOpen<HTMLDivElement>(open);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div ref={ref} className="rounded-2xl border border-border bg-card overflow-hidden scroll-mt-20">
+        <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors group">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-lg bg-status-complete/10 border border-status-complete/25 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-4 w-4 text-status-complete" />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-sm font-semibold text-foreground leading-tight">Onboarding History</p>
+              <p className="text-xs text-muted-foreground mt-0.5">All {stages.length} stages complete · tap to review</p>
+            </div>
+          </div>
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="px-4 pt-2 pb-4 border-t border-border">
+          <div className="pt-3">
+            {stages.map((stage, idx) => (
+              <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} onNavigateTo={onNavigateTo} />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
 export default function OperatorStatusPage({
-// (moved)
   stages,
   isFullyOnboarded,
   progressPct,
