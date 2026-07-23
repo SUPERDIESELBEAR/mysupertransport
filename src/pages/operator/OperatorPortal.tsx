@@ -1800,7 +1800,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
-            <FleetDetailDrawer operatorId={operatorId} onBack={() => navigateToView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
+            <FleetDetailDrawer operatorId={operatorId} onBack={() => navigateToView('progress')} readOnly hideBack onReady={() => handleDestinationReady('my-truck')} />
           </Suspense>
         )}
 
