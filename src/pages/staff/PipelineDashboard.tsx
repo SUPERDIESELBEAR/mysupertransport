@@ -21,6 +21,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
 import { PEIStatusPill, summarizePEIRows, type PEICounts } from '@/components/staff/PEIStatusPill';
 import { PEIQuickDrawer } from '@/components/management/PEIQuickDrawer';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -550,6 +551,7 @@ function MultiBlockedCallout({
   onOpenOperator: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const calloutRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
 
   const activeStages = stageConfigs.filter(c => c.is_active && c.items.length > 0);
   if (activeStages.length < 2) return null;
@@ -575,7 +577,7 @@ function MultiBlockedCallout({
   const isFiltering = stageNodeFilters.size > 0;
 
   return (
-    <div className={`rounded-lg border border-warning/30 bg-warning/10 text-warning-foreground text-xs overflow-hidden transition-all`}>
+    <div ref={calloutRef} className={`rounded-lg border border-warning/30 bg-warning/10 text-warning-foreground text-xs overflow-hidden transition-all`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-3 py-2">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />
@@ -737,6 +739,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [ownerTestExpanded, setOwnerTestExpanded] = useState(false);
   // "Active — Open Onboarding Items" section collapsed state
   const [activeOpenExpanded, setActiveOpenExpanded] = useState(true);
+  const activeOpenRef = useScrollIntoViewOnOpen<HTMLDivElement>(activeOpenExpanded);
+  const onHoldRef = useScrollIntoViewOnOpen<HTMLDivElement>(onHoldExpanded);
+  const ownerTestRef = useScrollIntoViewOnOpen<HTMLDivElement>(ownerTestExpanded);
   // Archive from On Hold
   const [archiveTarget, setArchiveTarget] = useState<OperatorRow | null>(null);
   const [archiveReason, setArchiveReason] = useState('');
@@ -2036,7 +2041,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         );
         if (activeOpenOps.length === 0) return null;
         return (
-          <div className="rounded-xl border-2 shadow-sm overflow-hidden" style={{ borderColor: 'hsl(var(--warning) / 0.5)' }}>
+          <div ref={activeOpenRef} className="rounded-xl border-2 shadow-sm overflow-hidden" style={{ borderColor: 'hsl(var(--warning) / 0.5)' }}>
             {/* Header */}
             <button
               onClick={() => setActiveOpenExpanded(v => !v)}
@@ -3699,7 +3704,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const onHoldOps = operators.filter(op => op.on_hold);
         if (onHoldOps.length === 0) return null;
         return (
-          <div className="rounded-xl border border-border shadow-sm overflow-hidden">
+          <div ref={onHoldRef} className="rounded-xl border border-border shadow-sm overflow-hidden">
             {/* Header */}
             <button
               onClick={() => setOnHoldExpanded(v => !v)}
@@ -3814,7 +3819,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const ownerOps = operators.filter(op => OWNER_USER_IDS.has(op.user_id));
         if (ownerOps.length === 0) return null;
         return (
-          <div className="rounded-xl border border-border shadow-sm overflow-hidden">
+          <div ref={ownerTestRef} className="rounded-xl border border-border shadow-sm overflow-hidden">
             <button
               onClick={() => setOwnerTestExpanded(v => !v)}
               className="w-full flex items-center gap-3 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
