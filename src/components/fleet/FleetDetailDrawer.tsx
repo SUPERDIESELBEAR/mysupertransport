@@ -408,9 +408,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {!hideBack && (
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Truck className="h-5 w-5 text-primary" />
