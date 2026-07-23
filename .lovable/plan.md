@@ -1,35 +1,44 @@
-## Goal
-Make every management dashboard expansion land with the newly opened section header at the top of the visible panel, matching the working Driver Documents behavior.
+## Driver App: landing, sticky banner, and back-button fixes
 
-## Confirmed findings
-- `OperatorDetailPanel.tsx` has a shared `scrollStageIntoView(stageKey)` helper for onboarding stages, but `inspection_binder`, `settlement_forecast`, and `dispatch_history` are in `ALL_COLLAPSIBLE_KEYS` without their wrapper elements being registered in `stageRefs`.
-- Because those wrappers have no `stageRefs.current[...]`, clicking their chevrons calls the helper but it exits early and does not scroll.
-- `scrollToInspectionBinder` still uses plain `el.scrollIntoView(...)`, which does not apply the 80px sticky-header offset and may target the wrong scroll container.
-- `SettlementCard.tsx` has its own nested payday-card expand/collapse state and currently does not use `useScrollIntoViewOnOpen`, so expanding a payday card inside Settlement Forecast can also leave the header off-screen.
-- Several already-audited sections do use `useScrollIntoViewOnOpen` correctly, including Driver Documents (`DriverVaultCard`), Equipment Asset Sheet, Compliance Alerts, and Compliance Summary.
+Three separate issues surfaced from testing. All live in `src/pages/operator/OperatorPortal.tsx` plus `src/components/operator/OnboardingChecklist.tsx`.
 
-## Plan
-1. In `src/pages/staff/OperatorDetailPanel.tsx`:
-   - Attach `stageRefs.current['dispatch_history']` to the Dispatch Status History wrapper.
-   - Attach `stageRefs.current['inspection_binder']` to the Inspection Binder wrapper, while keeping `inspectionBinderRef` for deep-link compatibility.
-   - Attach `stageRefs.current['settlement_forecast']` to the Settlement Forecast wrapper.
-   - Replace the `scrollToInspectionBinder` effect’s plain `scrollIntoView` call with `scrollToStage('inspection_binder')` so it opens the section and uses the same offset/container-aware scroll helper.
+### 1. Fully-onboarded drivers still land on Progress
 
-2. In `src/components/operator/SettlementForecast/SettlementCard.tsx`:
-   - Import `useScrollIntoViewOnOpen`.
-   - Register the card root with the hook using `!collapsed` so each payday card scrolls into position when expanded.
-   - Keep current card content and read-only/edit behavior unchanged.
+Current guard uses only `onboardingStatus.insurance_added_date` to decide "fully onboarded." Per the owner, the landing rule is strictly:
 
-3. Audit cleanup pass after implementation:
-   - Re-run the collapsible pattern search and confirm the remaining relevant management/driver hub sections either use `useScrollIntoViewOnOpen` or are not section expansions that need page repositioning.
-   - Prioritize actual section expanders, not popovers, dialogs, tabs, filters, or tiny inline toggles.
+- **100% complete → land on Home**
+- **Anything less than 100% → land on Progress** (even if Go Live or Insurance dates exist in isolation)
 
-## Validation
-- In Management Dashboard → Driver Hub → selected driver, expand:
-  - Stage 9 — Payroll and Procedures
-  - Inspection Binder
-  - Settlement Forecast
-  - Dispatch Status History
-- Confirm each header aligns near the top of the visible panel with the 80px offset.
-- Inside Settlement Forecast, collapse and expand each payday card and confirm the selected payday header comes into view.
-- Confirm Driver Documents still behaves correctly.
+Fix in `OperatorPortal.tsx`:
+- Replace `isFullyOnboarded = onboardingStatus.insurance_added_date != null` with a completion check derived from the same `stages[]` array already computed for the checklist: `isFullyOnboarded = stages.length > 0 && stages.every(s => s.status === 'complete')` (equivalent to `progressPct === 100`).
+- Keep the `onboardingStatusLoaded` guard so we don't redirect before data resolves.
+- Landing target stays: `isFullyOnboarded ? 'home' : 'progress'`.
+- All other `isFullyOnboarded`-gated UI (Home tab visibility, "Welcome" banner, tile labels) automatically follows the new definition — no additional call sites need editing.
+
+### 2. Sticky onboarding progress banner shows slivers above/below
+
+The header is `h-16 md:h-20` plus `padding-top: env(safe-area-inset-top)`, but the banner is `sticky top-16 md:top-20` — it doesn't account for the safe-area inset, leaving a gap the height of the notch inset above the banner. The "sliver below" is the banner's own shadow edge over the page background.
+
+Fix in `OnboardingChecklist.tsx`:
+- Replace `sticky top-16 md:top-20` with a top offset that includes the safe-area inset, e.g. `style={{ top: 'calc(env(safe-area-inset-top) + var(--st-header-h))' }}` where `--st-header-h` is `4rem` on mobile and `5rem` at `md`.
+- Remove `shadow-lg` from the sticky banner (header already provides the visual seam) so the banner reads as a continuous extension of the black header.
+- Ensure the surrounding wrapper has `bg-surface-dark` behind the banner region to prevent any sub-pixel gap from revealing the page background.
+
+### 3. Header back button is inconsistent (Settlement/My Truck broken; Resource Center works)
+
+Root cause: `goBack` calls `navigate(-1)` against browser history. When the landing URL was set via `navigate(..., { replace: true })` (the empty-URL normalization), the previous history entry is often an unrelated page (`/dashboard`, auth callback, external referrer). `navigate(-1)` from Forecast or My Truck exits the portal, the empty-URL guard immediately re-normalizes to home/progress, and `inAppNavCount` decrements to 0 so the arrow disappears. Resource Center happens to work because most users reach it after a longer nav chain.
+
+Fix — make the back button deterministic using an in-memory view stack instead of browser history:
+- Add `viewStackRef: MutableRefObject<OperatorView[]>` inside `OperatorPortal`.
+- In `navigateToView`, when not `options.replace`, push the current `view` onto the stack before writing the URL.
+- `goBack` pops the stack and calls `navigateToView(previousView, { replace: true })` (replace avoids history bloat). If the stack is empty, fall back to the driver's home base: `isFullyOnboarded ? 'home' : 'progress'`.
+- Arrow visibility: show whenever `viewStackRef.current.length > 0` OR the current view differs from the driver's home base. This guarantees the arrow never vanishes mid-flow and always leads somewhere sensible — either the previous screen or Home.
+- Remove the redundant page-level `onBack` wiring on `SettlementForecast`/`FleetDetailDrawer`/`ICAAmendment` that routes back to `progress`; those should defer to the unified header arrow (keep the arrow-hidden `hideBack` on `FleetDetailDrawer`).
+
+### Technical notes
+- Files touched:
+  - `src/pages/operator/OperatorPortal.tsx` — `isFullyOnboarded` recomputation, view-stack refactor of `goBack`/`navigateToView`, arrow-visibility condition.
+  - `src/components/operator/OnboardingChecklist.tsx` — sticky banner top offset + shadow cleanup.
+- No DB or edge-function changes.
+- Preview mode (`isPreview`) keeps its existing `setPreviewViewState` path — the view stack lives in the same ref for both modes.
+- Nav trace continues to log `tap`; add a `back-pop` event for observability.

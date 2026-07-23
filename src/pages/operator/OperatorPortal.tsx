@@ -133,10 +133,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // "tapped X, ended up on Y" bounces (see the view-mismatch effect below).
   const lastRequestedViewRef = useRef<OperatorView | null>(null);
 
-  // In-app navigation counter. Ref keeps navigateToView's identity stable while
-  // still driving arrow visibility via a mirrored state below.
-  const inAppNavCountRef = useRef(0);
-  const [inAppNavCount, setInAppNavCount] = useState(0);
+  // In-app view stack. Instead of relying on browser history (which can point
+  // outside the portal after a replace-based landing redirect), we track the
+  // sequence of views the driver has visited and pop from it on back.
+  const viewStackRef = useRef<OperatorView[]>([]);
+  const [viewStackLen, setViewStackLen] = useState(0);
 
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
@@ -174,11 +175,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       renderedTab: target,
       url: window.location.href,
     });
-    navigate(href, { replace: !!options.replace });
     if (!options.replace) {
-      inAppNavCountRef.current += 1;
-      setInAppNavCount(inAppNavCountRef.current);
+      // Push the view we're leaving so goBack can restore it.
+      viewStackRef.current = [...viewStackRef.current, view];
+      setViewStackLen(viewStackRef.current.length);
     }
+    navigate(href, { replace: !!options.replace });
   }, [isPreview, location.pathname, location.search, navigate, view, binderView]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
@@ -235,24 +237,34 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button ────────────────────────────────────────────────────
-  // Uses the browser's real history (React Router already pushes URLs via
-  // navigateToView) so the header arrow behaves exactly like the phone's
-  // hardware back. `inAppNavCount` gates arrow visibility so it never
-  // appears stale on first entry into the portal.
+  // Deterministic back navigation via an in-memory view stack. This avoids
+  // exiting the portal when the browser history's previous entry lives
+  // outside /operator (e.g. after a replace-based landing redirect).
+  // `isFullyOnboardedRef` is updated below so goBack always resolves to the
+  // correct fallback (Home for onboarded drivers, Progress otherwise).
+  const isFullyOnboardedRef = useRef(false);
   const goBack = useCallback(() => {
-    if (inAppNavCount === 0) return;
-    inAppNavCountRef.current = Math.max(0, inAppNavCountRef.current - 1);
-    setInAppNavCount(inAppNavCountRef.current);
-    navigate(-1);
-  }, [inAppNavCount, navigate]);
+    const homeBase: OperatorView = isFullyOnboardedRef.current ? 'home' : 'progress';
+    const stack = viewStackRef.current;
+    if (stack.length > 0) {
+      const prev = stack[stack.length - 1];
+      viewStackRef.current = stack.slice(0, -1);
+      setViewStackLen(viewStackRef.current.length);
+      navigateToView(prev, { replace: true });
+      return;
+    }
+    if (view !== homeBase) {
+      navigateToView(homeBase, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, navigateToView]);
   useEffect(() => {
-    if (inAppNavCount === 0) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') goBack();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [inAppNavCount, goBack]);
+  }, [goBack]);
   // Browser/hardware back is handled by the URL history naturally. Avoid
   // pushState interception here because it can race against tab navigation.
   // Empty driver URLs are normalized below after onboarding status loads.
@@ -896,7 +908,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const completedStages = stages.filter(s => s.status === 'complete').length;
   const progressPct = Math.round((completedStages / stages.length) * 100);
-  const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
+  // Fully onboarded = every onboarding stage complete (progress === 100%).
+  // Only then does the driver land on Home instead of Progress.
+  const isFullyOnboarded = stages.length > 0 && stages.every(s => s.status === 'complete');
+  useEffect(() => {
+    isFullyOnboardedRef.current = isFullyOnboarded;
+  }, [isFullyOnboarded]);
 
   // Redirect legacy query-param tabs and empty driver portal URLs to stable
   // route paths. Once a real /operator/<screen> path is present, data refreshes
@@ -1188,7 +1205,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       >
         <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 min-w-0">
-            {inAppNavCount > 0 && (
+            {(viewStackLen > 0 || (view !== (isFullyOnboarded ? 'home' : 'progress'))) && (
               <button
                 type="button"
                 onClick={goBack}
