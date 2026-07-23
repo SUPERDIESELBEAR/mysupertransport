@@ -1,37 +1,24 @@
-## Why the previous fixes didn't stick for Emma
+## Plan
 
-I looked at what actually determines the two behaviors and I can see why Emma is still stuck:
+1. **Make fully-onboarded drivers land on Home reliably**
+   - Treat a driver as fully onboarded when they have a Go Live date or the onboarding stages calculate to 100%.
+   - If that condition is true and the current route is `/progress`, redirect them to `/home` even if `/progress` is a valid route.
+   - Keep the manual **View onboarding status** link working by marking that navigation as intentional.
 
-**Landing redirect**
-`isFullyOnboarded` is currently derived from `stages.every(s => s.status === 'complete')`. That means every stage — including **Stage 9 Payroll & Procedures (Pay Setup)** — has to be `complete`. Stage 9 only turns complete when `contractor_pay_setup.submitted_at` AND `terms_accepted` are set (OperatorPortal.tsx line 902). Plenty of drivers who are "live on the road" never finish that self-serve form, so `isFullyOnboarded` stays false and the redirect to `/home` never fires. That's almost certainly Emma's case: her Go Live date is set, but Stage 9 isn't submitted.
+2. **Stop rendering the onboarding status page as the default post-onboarding experience**
+   - The screenshot shows Emma is still on the progress route with the 100% onboarding UI.
+   - For fully-onboarded drivers, the default app experience should be Home with the 3-ring binder, settlement forecast, My Truck, and Resource Center.
 
-Your original ask was: *"a driver … completed 100% of the onboarding process and their Go Live date has been set … should land on the actual home page."* So Go Live date is the right signal — not stage 9 form submission.
+3. **Fix the progress banner so it cannot float mid-screen**
+   - The current sticky banner is inside `OnboardingChecklist`, which is rendered below other content in `OperatorStatusPage`; sticky positioning can only stick within its current flow position.
+   - Move the sticky progress banner behavior to the top of the progress screen layout, or make the status page layout put the banner first with no preceding content.
+   - Ensure it sits flush under the black app header when a driver intentionally opens onboarding status.
 
-**Sticky banner gap**
-The sticky banner uses `top: 0`, which is correct — but its scroll container (OperatorPortal line 1446) has `py-6`. The mobile status wrapper only cancels part of it with `-mt-4`. That leaves ~8px of scroll-container padding sitting above the sticky banner at rest, which is the "sliver above/below" you see in the screenshot. Sticky pins to the padding edge, not the header, so the gap stays visible.
+4. **Verify with the app behavior, not just code**
+   - Check the route behavior for a 100% complete / Go Live driver path.
+   - Check the mobile layout so the progress banner no longer appears after the QPassport/buttons area or floats in the middle of the screen.
 
-## Fix
+## Technical notes
 
-### 1. `src/pages/operator/OperatorPortal.tsx`
-Change the definition of `isFullyOnboarded` from stage-based to Go-Live-based:
-
-```ts
-const isFullyOnboarded = Boolean(onboardingStatus.go_live_date);
-```
-
-Everything downstream (the landing redirect at ~line 954, the home-base logic, the "Welcome" copy in the checklist, etc.) already reads from `isFullyOnboarded`, so this one change flips Emma — and every other driver with a Go Live date — onto `/home` on fresh entry while still allowing them to open the Progress screen manually via "View onboarding status".
-
-### 2. `src/components/operator/OperatorStatusPage.tsx`
-Cancel the full `py-6` padding of the parent scroll container on the mobile checklist wrapper so the sticky banner sits flush under the black header:
-
-```diff
-- <div className="md:hidden -mx-4 -mt-4">
-+ <div className="md:hidden -mx-4 -mt-6 -mb-6">
-```
-
-This removes the top sliver (and the matching bottom padding sliver above the fixed bottom nav) without touching desktop or any other view. The banner is already `sticky top-0`, so once the padding is gone it will pin flush against the header on every scroll position.
-
-### Not changing
-- The stage-completion logic itself — Stage 9's "complete" rule is still meaningful for the checklist UI.
-- Any other view's padding — only the mobile status wrapper is adjusted.
-- Back-button / navigation logic — that piece is already working per your last report.
+- Files to update: `src/pages/operator/OperatorPortal.tsx`, `src/components/operator/OperatorStatusPage.tsx`, and possibly `src/components/operator/OnboardingChecklist.tsx`.
+- The root cause visible from the code is that `/progress` is allowed to remain because it is a known route, and the sticky banner is nested below earlier content in `OperatorStatusPage`, so `top-0` cannot pull it above content rendered before it.
