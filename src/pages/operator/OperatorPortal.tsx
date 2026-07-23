@@ -175,7 +175,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       url: window.location.href,
     });
     navigate(href, { replace: !!options.replace });
-    if (!options.replace) setInAppNavCount((n) => n + 1);
+    if (!options.replace) {
+      inAppNavCountRef.current += 1;
+      setInAppNavCount(inAppNavCountRef.current);
+    }
   }, [isPreview, location.pathname, location.search, navigate, view, binderView]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
