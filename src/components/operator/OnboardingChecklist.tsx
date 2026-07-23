@@ -351,7 +351,7 @@ export default function OnboardingChecklist({
   const actionCount = stages.filter(s => s.status === 'action_required').length;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col [--st-header-h:4rem] md:[--st-header-h:5rem]">
       {/* ── STICKY PROGRESS BAR ── */}
       {/* Top offset must include the safe-area inset because the header uses
           padding-top: env(safe-area-inset-top); otherwise a notch-sized gap
