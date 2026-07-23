@@ -240,6 +240,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     psUrl: string | null;
     extras: DecalPhotoExtra[];
   } | null>(null);
+  useEffect(() => {
+    console.debug('[decals] target', decalTarget?.name ?? null);
+  }, [decalTarget]);
   // Excluded-from-dispatch tracking
   const [excludedRows, setExcludedRows] = useState<Array<{
     operator_id: string;
