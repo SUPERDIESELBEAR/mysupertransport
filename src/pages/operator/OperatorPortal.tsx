@@ -285,6 +285,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [view]);
+  // If a notification deep-links to the Equipment Asset Sheet, scroll it into
+  // view once the My Truck page has mounted its content.
+  useEffect(() => {
+    if (view !== 'my-truck') return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('focus') !== 'equipment-sheet') return;
+    const t = setTimeout(() => {
+      const el = document.getElementById('equipment-asset-sheet-anchor');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [view, location.search]);
   // Safety net: if a destination never fires onReady (network failure, no data path),
   // force-fade after 6s so the user is never stuck behind the skeleton.
   useEffect(() => {
@@ -1768,12 +1780,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
             {/* ── EQUIPMENT ASSET SHEET (Driver signature + shipping receipts) ── */}
             {operatorId && (
-              <EquipmentAssetSheet
-                mode="driver"
-                operatorId={operatorId}
-                status={onboardingStatus as Record<string, any>}
-                onStatusRefresh={fetchData}
-              />
+              <div id="equipment-asset-sheet-anchor" className="scroll-mt-24">
+                <EquipmentAssetSheet
+                  mode="driver"
+                  operatorId={operatorId}
+                  status={onboardingStatus as Record<string, any>}
+                  onStatusRefresh={fetchData}
+                />
+              </div>
             )}
 
             {/* ── CONTACT SECTION ── */}
