@@ -18,8 +18,8 @@ interface Props {
   decalPhotosExtra: DecalExtra[];
 }
 
-async function refreshSignedUrl(rawUrl: string): Promise<string> {
-  return (await resolveDecalUrl(rawUrl)) ?? rawUrl;
+async function refreshSignedUrl(rawUrl: string): Promise<string | null> {
+  return await resolveDecalUrl(rawUrl);
 }
 
 type Tile = { key: string; label: string; rawUrl: string };
@@ -52,15 +52,22 @@ export default function DecalPhotoViewerModal({
     if (!open || tiles.length === 0) { setSigned({}); setActiveIndex(0); return; }
     let cancelled = false;
     setActiveIndex(0);
-    // Seed with the raw stored URLs immediately so tiles render even if
-    // signed-URL refresh fails or is slow.
-    setSigned(Object.fromEntries(tiles.map(t => [t.key, t.rawUrl])));
+    // Seed with raw URLs ONLY when the stored value is already a full URL;
+    // bare storage paths (post-normalization) can't be rendered directly and
+    // must wait for a fresh signed URL.
+    setSigned(
+      Object.fromEntries(
+        tiles
+          .filter(t => /^https?:/i.test(t.rawUrl))
+          .map(t => [t.key, t.rawUrl]),
+      ),
+    );
     (async () => {
       try {
         const entries = await Promise.all(
-          tiles.map(async t => [t.key, await refreshSignedUrl(t.rawUrl)] as const),
+          tiles.map(async t => [t.key, (await refreshSignedUrl(t.rawUrl)) ?? ''] as const),
         );
-        if (!cancelled) setSigned(Object.fromEntries(entries));
+        if (!cancelled) setSigned(Object.fromEntries(entries.filter(([, v]) => !!v)));
       } catch (err) {
         console.warn('Decal photo refresh failed; keeping stored URLs.', err);
       }
@@ -73,7 +80,10 @@ export default function DecalPhotoViewerModal({
   }, [activeIndex, tiles.length]);
 
   const activeTile = tiles[activeIndex] ?? null;
-  const activeUrl = activeTile ? (signed[activeTile.key] ?? activeTile.rawUrl) : null;
+  const activeUrl = activeTile ? (signed[activeTile.key] ?? null) : null;
+  const isBarePath = !!activeTile && !/^https?:/i.test(activeTile.rawUrl);
+  // Show loading state for a normalized bare path until the signed URL resolves.
+  const awaitingSignedUrl = !!activeTile && !activeUrl && isBarePath;
 
   if (open && activeTile && activeUrl) {
     const hasPrev = activeIndex > 0;
@@ -89,6 +99,35 @@ export default function DecalPhotoViewerModal({
         onNext={hasNext ? () => setActiveIndex(i => Math.min(tiles.length - 1, i + 1)) : undefined}
         counter={`${activeIndex + 1} of ${tiles.length}`}
       />
+    );
+  }
+
+  if (open && activeTile && awaitingSignedUrl) {
+    return (
+      <Dialog open={open} onOpenChange={v => !v && onClose()}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Loading decal photo…</DialogTitle>
+          </DialogHeader>
+          <div className="py-8 text-center text-sm text-muted-foreground">One moment…</div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (open && activeTile && !activeUrl) {
+    return (
+      <Dialog open={open} onOpenChange={v => !v && onClose()}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Photo unavailable</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-8 gap-2 text-sm text-muted-foreground">
+            <ImageOff className="h-6 w-6 opacity-50" />
+            The file couldn't be loaded from storage. Please ask the driver to re-upload from Stage 5.
+          </div>
+        </DialogContent>
+      </Dialog>
     );
   }
 
