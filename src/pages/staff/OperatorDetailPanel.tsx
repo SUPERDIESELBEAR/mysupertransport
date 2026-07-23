@@ -593,18 +593,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
       return next;
     });
-    // When expanding, scroll the section header to the top of the viewport so
-    // the newly-revealed content starts at the visible area (users otherwise
-    // have to scroll up to find where the just-opened section begins).
+    // When expanding, scroll the section header to the top of the visible
+    // scroll container so the newly-revealed content starts at the top. The
+    // panel is often rendered inside an internal scrollable region (drawer,
+    // driver hub panel), so window.scrollTo alone doesn't work — we need to
+    // scroll the nearest scrollable ancestor.
     if (wasCollapsed) {
-      const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const el = stageRefs.current[stageKey];
-          if (!el) return;
-          const top = el.getBoundingClientRect().top + window.scrollY - 80;
-          window.scrollTo({ top: Math.max(0, top), behavior: prefersReduced ? 'auto' : 'smooth' });
-        });
+        requestAnimationFrame(() => scrollStageIntoView(stageKey));
       });
     }
   };
@@ -615,9 +611,44 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       next.delete(stageKey);
       return next;
     });
-    setTimeout(() => {
-      stageRefs.current[stageKey]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+    setTimeout(() => scrollStageIntoView(stageKey), 50);
+  };
+
+  // Shared scroll helper — walks up to find the nearest scrollable ancestor
+  // (falling back to window) and scrolls the stage element to its top with an
+  // 80px offset for sticky headers. Mirrors useScrollIntoViewOnOpen.
+  const scrollStageIntoView = (stageKey: string) => {
+    const el = stageRefs.current[stageKey];
+    if (!el) return;
+    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
+    const offset = 80;
+
+    let node: HTMLElement | null = el.parentElement;
+    let scrollParent: HTMLElement | null = null;
+    while (node && node !== document.body) {
+      const overflowY = getComputedStyle(node).overflowY;
+      if (
+        (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+        node.scrollHeight > node.clientHeight
+      ) {
+        scrollParent = node;
+        break;
+      }
+      node = node.parentElement;
+    }
+
+    if (scrollParent) {
+      const top =
+        el.getBoundingClientRect().top -
+        scrollParent.getBoundingClientRect().top +
+        scrollParent.scrollTop -
+        offset;
+      scrollParent.scrollTo({ top: Math.max(0, top), behavior });
+    } else {
+      const top = el.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior });
+    }
   };
 
   // Track the last-saved values of milestone fields to detect transitions

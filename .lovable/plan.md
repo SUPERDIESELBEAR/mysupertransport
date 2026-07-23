@@ -1,39 +1,30 @@
 ## Problem
 
-Fully-onboarded drivers (with `insurance_added_date` set / Go Live confirmed) currently land on the Onboarding Progress screen when they open the app. They should instead land on the Home dashboard (3-ring binder, settlement forecast, my truck, resource center). Drivers still in onboarding should keep landing on Progress.
+In the management driver hub, expanding a stage section (e.g., Stage 9 — Payroll and Procedures) in the selected driver panel does not auto-scroll the section header to the top. Driver Documents works correctly because that section uses `useScrollIntoViewOnOpen`, which walks up to find the nearest scrollable ancestor.
 
 ## Root cause
 
-`src/pages/operator/OperatorPortal.tsx` line ~932 hard-codes the empty-route redirect target to `'progress'`:
-
-```ts
-if (segments.length > 0 && isKnownOperatorRoute(location.pathname)) return;
-const target: OperatorView = 'progress';
-```
-
-This effect runs on mount before `onboardingStatus` has loaded and does not consider whether the driver is fully onboarded. `isFullyOnboarded` (derived from `onboardingStatus.insurance_added_date`) exists a few lines above but is not used here.
+`toggleStage` in `src/pages/staff/OperatorDetailPanel.tsx` (line 584-610) uses `window.scrollTo` with a fixed 80px offset. But `OperatorDetailPanel` renders inside an internal scroll container (the driver hub side panel / drawer), not the window. `window.scrollTo` has no effect on the container that's actually scrolled, so the newly-expanded stage stays where the header was and the user has to scroll manually. The working sections (Driver Documents, compliance summary, etc.) use `useScrollIntoViewOnOpen`, which handles internal scroll parents.
 
 ## Fix
 
-Make the empty-route landing target depend on onboarding state, and only redirect once we actually know it — no rewrite while data is still loading.
+Replace the `window.scrollTo` block in `toggleStage` with the same scroll-parent-aware logic used by `useScrollIntoViewOnOpen`. Keep the existing 80px sticky-header offset and reduced-motion handling.
 
-1. **Track onboarding-data loaded state.** Add a `onboardingStatusLoaded` flag (set to `true` inside `fetchData` once the initial `operators` + `onboarding_status` query resolves, whether the row exists or not).
-2. **Gate the empty-route redirect on that flag.** In the `useEffect` at line ~902, if the URL has no explicit route segment (empty-route case, the only branch that assigns a default target), bail out early when `!onboardingStatusLoaded`. This prevents the current premature snap to `/operator/progress` before we can tell which landing page is correct.
-3. **Choose the target based on `isFullyOnboarded`.** Replace the hard-coded `'progress'` with:
-   ```ts
-   const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
-   ```
-   Add `isFullyOnboarded` and `onboardingStatusLoaded` to the effect's dependency array.
-4. **Leave every other path untouched.** Deep links to `/operator/progress`, `/operator/home`, `/operator/binder`, etc. still resolve to exactly the requested view — this only changes the "empty landing" behavior. Onboarding Status remains reachable from the sidebar for fully-onboarded drivers (menu item already renders as "Onboarding Status" when `isFullyOnboarded`).
-5. **Owner viewer.** The same portal is used for truck owners viewing a driver; because `isFullyOnboarded` is derived from the resolved driver's onboarding_status, they will also land on Home for fully-onboarded drivers, matching the requested behavior.
+1. In `src/pages/staff/OperatorDetailPanel.tsx`, inside `toggleStage`, when a section is being expanded, use a helper that:
+   - Walks up from `stageRefs.current[stageKey]` to find the nearest ancestor with `overflow-y: auto | scroll | overlay` and `scrollHeight > clientHeight`.
+   - Falls back to `window` if no scrollable ancestor is found.
+   - Scrolls that container so the stage element's top aligns 80px below the container's top edge, using smooth behavior (or auto when `prefers-reduced-motion` is set).
+2. Apply the identical replacement to `scrollToStage` (line 612-621), which currently uses `element.scrollIntoView`. Its default `block: 'start'` doesn't account for the 80px sticky-header offset and has the same scroll-container ambiguity — align both entry points to a single helper.
+3. Extract the helper as a small local function inside the component (mirrors the logic already proven in `useScrollIntoViewOnOpen`); no new hook, no changes to any stage's markup.
+
+This preserves every stage's existing structure (`stageRefs.current[stageKey]` refs are already populated) and matches the behavior of the working Driver Documents section.
 
 ## Files
 
-- `src/pages/operator/OperatorPortal.tsx` — add `onboardingStatusLoaded` state, set it inside `fetchData`, gate + branch the empty-route redirect on `isFullyOnboarded`.
+- `src/pages/staff/OperatorDetailPanel.tsx` — update `toggleStage` and `scrollToStage` to scroll the nearest scrollable ancestor (with 80px offset), instead of `window.scrollTo` / plain `scrollIntoView`.
 
 ## Validation
 
-- Fully-onboarded driver (insurance_added_date set, Go Live) opens `/operator` or `/` → lands on Home dashboard tiles.
-- In-progress driver opens `/operator` → still lands on Progress.
-- Direct visits to `/operator/progress`, `/operator/binder`, `/operator/messages`, etc. render the requested view for both cohorts.
-- No transient flash to Progress before Home renders (verified via console nav trace — the `redirect-empty-route` event should only fire after data loads and should target `home` for onboarded drivers).
+- Open the management dashboard → Driver Hub → select a driver → expand Stage 1, Stage 5, Stage 6, Stage 9, PE Screening, Inspection Binder, Settlement Forecast, Dispatch History. Each section's header should snap to the top of the visible panel with the newly-opened content beginning right below it.
+- Confirm no regression in Driver Documents (still uses its own hook) and in the driver-facing Onboarding stages (untouched).
+- Verify reduced-motion setting still disables the smooth animation.
