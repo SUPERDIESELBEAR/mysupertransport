@@ -1200,7 +1200,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       >
         <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 min-w-0">
-            {inAppNavCount > 0 && (
+            {(viewStackLen > 0 || (view !== (isFullyOnboarded ? 'home' : 'progress'))) && (
               <button
                 type="button"
                 onClick={goBack}
