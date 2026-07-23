@@ -1768,12 +1768,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
             {/* ── EQUIPMENT ASSET SHEET (Driver signature + shipping receipts) ── */}
             {operatorId && (
-              <EquipmentAssetSheet
-                mode="driver"
-                operatorId={operatorId}
-                status={onboardingStatus as Record<string, any>}
-                onStatusRefresh={fetchData}
-              />
+              <div id="equipment-asset-sheet-anchor" className="scroll-mt-24">
+                <EquipmentAssetSheet
+                  mode="driver"
+                  operatorId={operatorId}
+                  status={onboardingStatus as Record<string, any>}
+                  onStatusRefresh={fetchData}
+                />
+              </div>
             )}
 
             {/* ── CONTACT SECTION ── */}
