@@ -3,6 +3,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import { useState, useRef } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
