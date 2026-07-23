@@ -353,9 +353,8 @@ export default function OnboardingChecklist({
   return (
     <div className="flex flex-col">
       {/* ── STICKY PROGRESS BAR ── */}
-      {/* Top offset must include the safe-area inset because the header uses
-          padding-top: env(safe-area-inset-top); otherwise a notch-sized gap
-          appears above this banner on devices with a display cutout. */}
+      {/* The checklist is rendered first in the mobile Progress view, so top-0
+          pins the banner directly under the app header without an extra gap. */}
       <div className="sticky top-0 z-30 bg-surface-dark">
         <div className="flex items-center justify-between px-4 pt-2 pb-1.5 gap-2">
           <div className="min-w-0">
