@@ -1,44 +1,17 @@
-## Driver App: landing, sticky banner, and back-button fixes
-
-Three separate issues surfaced from testing. All live in `src/pages/operator/OperatorPortal.tsx` plus `src/components/operator/OnboardingChecklist.tsx`.
+## Two fixes in `OperatorPortal.tsx` and `OnboardingChecklist.tsx`
 
 ### 1. Fully-onboarded drivers still land on Progress
+The current landing redirect (OperatorPortal.tsx ~line 950) early-returns whenever the URL is a "known operator route" — so a driver whose last saved URL is `/progress` (or who lands directly there) is never bounced to `/home`, even after we know they're 100% complete.
 
-Current guard uses only `onboardingStatus.insurance_added_date` to decide "fully onboarded." Per the owner, the landing rule is strictly:
+**Fix:** Extend the redirect so that when `onboardingStatusLoaded && isFullyOnboarded && view === 'progress'` AND this is a fresh entry (in-app nav counter is 0, i.e. they didn't click Progress themselves), we `navigate('/home', { replace: true })`. Onboarded drivers can still reach Progress via the "View onboarding status" link or bottom nav — that will bump the in-app counter so we don't fight them.
 
-- **100% complete → land on Home**
-- **Anything less than 100% → land on Progress** (even if Go Live or Insurance dates exist in isolation)
+### 2. Onboarding progress banner not locked to top
+`OnboardingChecklist.tsx` sets the sticky banner's `top` to `calc(env(safe-area-inset-top) + var(--st-header-h))`. That offset is correct only when the sticky element scrolls inside the window. In this app the scroll container is the inner `<div class="… overflow-y-auto …">` (OperatorPortal line 1432) which sits *below* the fixed header, so the top of that container is already `0` — the added header-height offset pushes the banner down into the middle of the viewport (exactly what the screenshot shows: the banner floats with the header visible above it and content visible above the banner too).
 
-Fix in `OperatorPortal.tsx`:
-- Replace `isFullyOnboarded = onboardingStatus.insurance_added_date != null` with a completion check derived from the same `stages[]` array already computed for the checklist: `isFullyOnboarded = stages.length > 0 && stages.every(s => s.status === 'complete')` (equivalent to `progressPct === 100`).
-- Keep the `onboardingStatusLoaded` guard so we don't redirect before data resolves.
-- Landing target stays: `isFullyOnboarded ? 'home' : 'progress'`.
-- All other `isFullyOnboarded`-gated UI (Home tab visibility, "Welcome" banner, tile labels) automatically follows the new definition — no additional call sites need editing.
+**Fix:** Change the sticky banner's `top` to `0` (and drop the `--st-header-h` var / safe-area math). The banner will then pin flush against the top edge of the scrollable region, sitting directly beneath the fixed black header on every device.
 
-### 2. Sticky onboarding progress banner shows slivers above/below
+### Files
+- `src/pages/operator/OperatorPortal.tsx` — extend the initial-landing redirect for fully-onboarded drivers on `/progress`.
+- `src/components/operator/OnboardingChecklist.tsx` — set sticky `top: 0`, remove header-height offset.
 
-The header is `h-16 md:h-20` plus `padding-top: env(safe-area-inset-top)`, but the banner is `sticky top-16 md:top-20` — it doesn't account for the safe-area inset, leaving a gap the height of the notch inset above the banner. The "sliver below" is the banner's own shadow edge over the page background.
-
-Fix in `OnboardingChecklist.tsx`:
-- Replace `sticky top-16 md:top-20` with a top offset that includes the safe-area inset, e.g. `style={{ top: 'calc(env(safe-area-inset-top) + var(--st-header-h))' }}` where `--st-header-h` is `4rem` on mobile and `5rem` at `md`.
-- Remove `shadow-lg` from the sticky banner (header already provides the visual seam) so the banner reads as a continuous extension of the black header.
-- Ensure the surrounding wrapper has `bg-surface-dark` behind the banner region to prevent any sub-pixel gap from revealing the page background.
-
-### 3. Header back button is inconsistent (Settlement/My Truck broken; Resource Center works)
-
-Root cause: `goBack` calls `navigate(-1)` against browser history. When the landing URL was set via `navigate(..., { replace: true })` (the empty-URL normalization), the previous history entry is often an unrelated page (`/dashboard`, auth callback, external referrer). `navigate(-1)` from Forecast or My Truck exits the portal, the empty-URL guard immediately re-normalizes to home/progress, and `inAppNavCount` decrements to 0 so the arrow disappears. Resource Center happens to work because most users reach it after a longer nav chain.
-
-Fix — make the back button deterministic using an in-memory view stack instead of browser history:
-- Add `viewStackRef: MutableRefObject<OperatorView[]>` inside `OperatorPortal`.
-- In `navigateToView`, when not `options.replace`, push the current `view` onto the stack before writing the URL.
-- `goBack` pops the stack and calls `navigateToView(previousView, { replace: true })` (replace avoids history bloat). If the stack is empty, fall back to the driver's home base: `isFullyOnboarded ? 'home' : 'progress'`.
-- Arrow visibility: show whenever `viewStackRef.current.length > 0` OR the current view differs from the driver's home base. This guarantees the arrow never vanishes mid-flow and always leads somewhere sensible — either the previous screen or Home.
-- Remove the redundant page-level `onBack` wiring on `SettlementForecast`/`FleetDetailDrawer`/`ICAAmendment` that routes back to `progress`; those should defer to the unified header arrow (keep the arrow-hidden `hideBack` on `FleetDetailDrawer`).
-
-### Technical notes
-- Files touched:
-  - `src/pages/operator/OperatorPortal.tsx` — `isFullyOnboarded` recomputation, view-stack refactor of `goBack`/`navigateToView`, arrow-visibility condition.
-  - `src/components/operator/OnboardingChecklist.tsx` — sticky banner top offset + shadow cleanup.
-- No DB or edge-function changes.
-- Preview mode (`isPreview`) keeps its existing `setPreviewViewState` path — the view stack lives in the same ref for both modes.
-- Nav trace continues to log `tap`; add a `back-pop` event for observability.
+No DB or business-logic changes.
