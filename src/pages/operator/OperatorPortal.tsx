@@ -908,7 +908,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const completedStages = stages.filter(s => s.status === 'complete').length;
   const progressPct = Math.round((completedStages / stages.length) * 100);
-  const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
+  // Fully onboarded = every onboarding stage complete (progress === 100%).
+  // Only then does the driver land on Home instead of Progress.
+  const isFullyOnboarded = stages.length > 0 && stages.every(s => s.status === 'complete');
+  useEffect(() => {
+    isFullyOnboardedRef.current = isFullyOnboarded;
+  }, [isFullyOnboarded]);
 
   // Redirect legacy query-param tabs and empty driver portal URLs to stable
   // route paths. Once a real /operator/<screen> path is present, data refreshes
