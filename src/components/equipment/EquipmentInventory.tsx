@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -61,7 +61,48 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
   const [expandedType, setExpandedType] = useState<DeviceType | null>(null);
+  const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
   const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
+
+  useEffect(() => {
+    if (!expandedType) return;
+    const el = sectionRefs.current[expandedType];
+    if (!el) return;
+
+    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
+    const offset = 80;
+
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        let node: HTMLElement | null = el.parentElement;
+        let scrollParent: HTMLElement | null = null;
+        while (node && node !== document.body) {
+          const overflowY = getComputedStyle(node).overflowY;
+          if ((overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') && node.scrollHeight > node.clientHeight) {
+            scrollParent = node;
+            break;
+          }
+          node = node.parentElement;
+        }
+
+        if (scrollParent) {
+          const top = el.getBoundingClientRect().top - scrollParent.getBoundingClientRect().top + scrollParent.scrollTop - offset;
+          scrollParent.scrollTo({ top: Math.max(0, top), behavior });
+        } else {
+          const top = el.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: Math.max(0, top), behavior });
+        }
+      });
+      (raf1 as unknown as { _child?: number })._child = raf2;
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      const child = (raf1 as unknown as { _child?: number })._child;
+      if (child) cancelAnimationFrame(child);
+    };
+  }, [expandedType]);
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -274,7 +315,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
             const displayItems = isExpanded ? typeItems : typeItems.slice(0, 8);
 
             return (
-              <div key={type} className="border border-border rounded-xl bg-card overflow-hidden">
+              <div key={type} ref={el => { sectionRefs.current[type] = el; }} className="border border-border rounded-xl bg-card overflow-hidden">
                 {/* Group header */}
                 <div className={`px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2`}>
                   <span className={cfg.color}>{cfg.icon}</span>
