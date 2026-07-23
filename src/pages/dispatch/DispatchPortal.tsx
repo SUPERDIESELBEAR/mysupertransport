@@ -1861,6 +1861,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             size="sm"
                             disabled={!hasDecals}
                             onClick={() => {
+                              console.debug('[decals] click', row.operator_id, {
+                                ds: !!row.decal_photo_ds_url,
+                                ps: !!row.decal_photo_ps_url,
+                                extras: row.decal_photos.length,
+                              });
                               setDecalTarget({
                                 name: fullName,
                                 dsUrl: row.decal_photo_ds_url,
