@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import {
   formatLongDay,
   formatMonthDay,
@@ -54,6 +55,7 @@ export default function SettlementCard({
   onAddLoad, onAddFuel, onAddAdvance, onChanged,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(!collapsed);
 
   const fuel = expenses.filter((e) => e.expense_type === 'fuel');
   const advances = expenses.filter((e) => e.expense_type === 'advance');
@@ -82,7 +84,7 @@ export default function SettlementCard({
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card ref={cardRef} className="overflow-hidden">
       {/* Header */}
       <div className="bg-primary/5 border-b px-4 py-3 flex items-start justify-between gap-3">
         <button
