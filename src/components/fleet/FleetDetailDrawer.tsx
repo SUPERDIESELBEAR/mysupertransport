@@ -95,7 +95,7 @@ function categoryBadge(cat: string) {
   return <Badge key={cat} className={`text-[10px] px-1.5 py-0 ${colors[cat] ?? ''}`}>{label}</Badge>;
 }
 
-export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, onReady }: FleetDetailDrawerProps) {
+export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, hideBack = false, onReady }: FleetDetailDrawerProps) {
   const readyFiredRef = useRef(false);
   const { session } = useAuth();
   const [truckInfo, setTruckInfo] = useState<any>(null);
