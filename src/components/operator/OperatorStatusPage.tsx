@@ -274,6 +274,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
 }
 
 export default function OperatorStatusPage({
+// (moved)
   stages,
   isFullyOnboarded,
   progressPct,
