@@ -235,7 +235,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // navigateToView) so the header arrow behaves exactly like the phone's
   // hardware back. `inAppNavCount` gates arrow visibility so it never
   // appears stale on first entry into the portal.
-  const [inAppNavCount, setInAppNavCount] = useState(0);
   const goBack = useCallback(() => {
     if (inAppNavCount === 0) return;
     setInAppNavCount((n) => Math.max(0, n - 1));
