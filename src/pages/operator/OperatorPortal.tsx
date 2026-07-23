@@ -267,6 +267,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => {
     if (transitionOverlay && view !== transitionOverlay.tile) setTransitionOverlay(null);
   }, [view, transitionOverlay]);
+  // Reset scroll to top on every view change so switching menu items (or
+  // returning to a previously visited view) always lands at the top of the
+  // page rather than the previous scroll position.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [view]);
   // Safety net: if a destination never fires onReady (network failure, no data path),
   // force-fade after 6s so the user is never stuck behind the skeleton.
   useEffect(() => {
