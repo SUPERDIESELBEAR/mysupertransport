@@ -92,7 +92,6 @@ export default function DecalPhotoViewerModal({
   // so pass the raw path directly — no pre-signing render swap.
   return (
     <FilePreviewModal
-      key={activeTile.key}
       url={activeTile.rawUrl}
       name={`${driverName} — ${activeTile.label}`}
       onClose={onClose}
