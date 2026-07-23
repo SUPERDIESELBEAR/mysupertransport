@@ -28,6 +28,47 @@ function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+export function scrollElementIntoViewWithOffset(
+  el: HTMLElement | null,
+  options: Options = {},
+): void {
+  if (!el) return;
+
+  const {
+    offset = 80,
+    behavior = 'smooth',
+    container = 'auto',
+  } = options;
+
+  const prefersReduced =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const effectiveBehavior: ScrollBehavior = prefersReduced ? 'auto' : behavior;
+
+  let scrollEl: HTMLElement | Window | null = null;
+  if (container === 'window') {
+    scrollEl = window;
+  } else if (container === 'auto') {
+    scrollEl = findScrollParent(el) ?? window;
+  } else if (container && 'current' in container) {
+    scrollEl = container.current;
+  }
+  if (!scrollEl) return;
+
+  if (scrollEl === window) {
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: effectiveBehavior });
+  } else {
+    const parent = scrollEl as HTMLElement;
+    const top =
+      el.getBoundingClientRect().top -
+      parent.getBoundingClientRect().top +
+      parent.scrollTop -
+      offset;
+    parent.scrollTo({ top: Math.max(0, top), behavior: effectiveBehavior });
+  }
+}
+
 /**
  * Scrolls the returned ref's element into view (top-aligned, minus offset) when
  * `open` transitions from false to true. Does nothing on collapse or on initial
@@ -71,28 +112,7 @@ export function useScrollIntoViewOnOpen<T extends HTMLElement = HTMLDivElement>(
     // Double-RAF so the expanded content has laid out before we measure.
     const raf1 = requestAnimationFrame(() => {
       const raf2 = requestAnimationFrame(() => {
-        let scrollEl: HTMLElement | Window | null = null;
-        if (container === 'window') {
-          scrollEl = window;
-        } else if (container === 'auto') {
-          scrollEl = findScrollParent(el) ?? window;
-        } else if (container && 'current' in container) {
-          scrollEl = container.current;
-        }
-        if (!scrollEl) return;
-
-        if (scrollEl === window) {
-          const top = el.getBoundingClientRect().top + window.scrollY - offset;
-          window.scrollTo({ top: Math.max(0, top), behavior: effectiveBehavior });
-        } else {
-          const parent = scrollEl as HTMLElement;
-          const top =
-            el.getBoundingClientRect().top -
-            parent.getBoundingClientRect().top +
-            parent.scrollTop -
-            offset;
-          parent.scrollTo({ top: Math.max(0, top), behavior: effectiveBehavior });
-        }
+        scrollElementIntoViewWithOffset(el, { offset, behavior: effectiveBehavior, container });
       });
       // Store raf2 on the parent so cleanup cancels both.
       (raf1 as unknown as { _child?: number })._child = raf2;

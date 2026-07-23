@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,7 @@ interface StageCardProps {
 
 function StageCard({ stage, dirty, saving, onSave, onChange }: StageCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   const colorClass = NODE_COLORS[stage.stage_key] ?? 'bg-secondary text-foreground border-border';
   const dotColor = NODE_DOT_COLORS[stage.stage_key] ?? 'bg-muted-foreground';
 
@@ -202,7 +204,7 @@ function StageCard({ stage, dirty, saving, onSave, onChange }: StageCardProps) {
   };
 
   return (
-    <div className={`rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md ${!stage.is_active ? 'opacity-60' : ''}`}>
+    <div ref={cardRef} className={`rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md ${!stage.is_active ? 'opacity-60' : ''}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Stage badge */}

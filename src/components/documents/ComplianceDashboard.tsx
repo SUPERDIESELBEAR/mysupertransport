@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CheckCircle2, AlertTriangle, Bell, ChevronDown, ChevronUp,
   RefreshCw, Users, ShieldCheck, Mail, MailCheck,
@@ -13,6 +13,7 @@ import { DriverDocument } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface OperatorRow {
   operator_id: string;
@@ -112,6 +113,7 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, 'all' | 'pending' | null>>({});
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [sending, setSending] = useState<string | null>(null);   // `${docId}-${userId}`
   const [sendingAll, setSendingAll] = useState<string | null>(null); // docId
 
@@ -275,7 +277,13 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
   const toggleExpand = (docId: string, view: 'all' | 'pending') => {
     setExpanded(e => {
       const cur = e[docId];
-      return { ...e, [docId]: cur === view ? null : view };
+      const next = cur === view ? null : view;
+      if (next) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => scrollElementIntoViewWithOffset(rowRefs.current[docId]));
+        });
+      }
+      return { ...e, [docId]: next };
     });
   };
 
@@ -355,7 +363,7 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
           const expandedView = expanded[doc.id];
 
           return (
-            <div key={doc.id} className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
+            <div key={doc.id} ref={el => { rowRefs.current[doc.id] = el; }} className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
 
               {/* ── Document summary row ────────────────────────────────── */}
               <div className="flex items-center gap-3 px-4 py-3">

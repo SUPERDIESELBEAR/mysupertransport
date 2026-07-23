@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
@@ -771,6 +772,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const [filter, setFilter] = useState('all');
   const [hasMore, setHasMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const entryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
@@ -1208,10 +1210,17 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
               const isExpanded = expandedId === entry.id;
 
               return (
-                <div key={entry.id} className={cn('transition-colors', isExpanded ? 'bg-secondary/30' : 'hover:bg-secondary/20')}>
+                <div key={entry.id} ref={el => { entryRefs.current[entry.id] = el; }} className={cn('transition-colors', isExpanded ? 'bg-secondary/30' : 'hover:bg-secondary/20')}>
                   <button
                     className="w-full text-left flex gap-4 px-5 py-4 group"
-                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                    onClick={() => {
+                      setExpandedId(isExpanded ? null : entry.id);
+                      if (!isExpanded) {
+                        requestAnimationFrame(() => {
+                          requestAnimationFrame(() => scrollElementIntoViewWithOffset(entryRefs.current[entry.id]));
+                        });
+                      }
+                    }}
                     aria-expanded={isExpanded}
                   >
                     {/* Icon + spine */}

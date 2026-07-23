@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { Eye, Printer, FileText, Loader2, ChevronDown } from 'lucide-react';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { preloadSignatureDataUrl, printDocumentById } from '@/lib/printDocument';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface EmployerRecord {
   name?: string;
@@ -134,21 +135,10 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
 
   const handleToggleExpanded = () => {
-    setExpanded(prev => {
-      const next = !prev;
-      if (next) {
-        // Scroll the section header to the top of the viewport after content renders
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 50);
-        });
-      }
-      return next;
-    });
+    setExpanded(prev => !prev);
   };
 
   useEffect(() => {

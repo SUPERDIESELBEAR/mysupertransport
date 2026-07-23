@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
@@ -24,6 +24,7 @@ import {
   unarchive, unsnooze,
 } from '@/lib/notifications/actions';
 import AssignNotificationModal from '@/components/staff/AssignNotificationModal';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface Notification {
   id: string;
@@ -112,6 +113,7 @@ export default function NotificationHistory() {
   const [markingAll, setMarkingAll] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ url: string; name: string } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const notificationRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<PersistedFilters>(() => loadFilters());
@@ -310,6 +312,7 @@ export default function NotificationHistory() {
     return (
       <div
         key={n.id}
+        ref={el => { notificationRefs.current[n.id] = el; }}
         className={`group px-4 sm:px-5 py-3 transition-colors ${isUnread ? 'bg-gold/5' : ''} ${isSelected ? 'bg-gold/10' : 'hover:bg-secondary/40'}`}
       >
         <div className="flex items-start gap-3">
@@ -326,7 +329,15 @@ export default function NotificationHistory() {
           </span>
           <button
             type="button"
-            onClick={() => setExpandedId(prev => prev === n.id ? null : n.id)}
+            onClick={() => setExpandedId(prev => {
+              const next = prev === n.id ? null : n.id;
+              if (next) {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => scrollElementIntoViewWithOffset(notificationRefs.current[n.id]));
+                });
+              }
+              return next;
+            })}
             className="flex-1 min-w-0 text-left"
           >
             <div className="flex items-center gap-1.5 min-w-0">

@@ -563,11 +563,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Scroll to Inspection Binder section when requested (after data loads)
   useEffect(() => {
     if (!scrollToInspectionBinder || loading) return;
-    const el = inspectionBinderRef.current;
-    if (!el) return;
     setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      scrollToStage('inspection_binder');
     }, 100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToInspectionBinder, loading]);
 
   // Scroll to a specific stage section when requested via deep-link from StageTrack
@@ -6395,7 +6394,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const presentStatuses = new Set(dispatchHistory.map(e => e.dispatch_status));
 
         return (
-          <div className="bg-white border border-border rounded-xl shadow-sm">
+          <div ref={el => { stageRefs.current['dispatch_history'] = el; }} className="bg-white border border-border rounded-xl shadow-sm">
             {/* Header */}
             <button onClick={() => toggleStage('dispatch_history')} className="w-full flex items-center justify-between px-5 py-4 text-left">
               <div className="flex items-center gap-2">
@@ -6758,7 +6757,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
-        <div ref={inspectionBinderRef} className="bg-white border border-border rounded-xl shadow-sm" style={isQuickView ? { order: 7 } : undefined}>
+        <div
+          ref={el => { inspectionBinderRef.current = el; stageRefs.current['inspection_binder'] = el; }}
+          className="bg-white border border-border rounded-xl shadow-sm"
+          style={isQuickView ? { order: 7 } : undefined}
+        >
           <button onClick={() => toggleStage('inspection_binder')} className="w-full flex items-center justify-between px-5 py-4 text-left">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-gold" />
@@ -6780,7 +6783,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       )}
 
       {/* Settlement Forecast — read-only mirror of operator's self-service planning tool */}
-      <div className="bg-white border border-border rounded-xl shadow-sm" style={isQuickView ? { order: 9 } : undefined}>
+      <div ref={el => { stageRefs.current['settlement_forecast'] = el; }} className="bg-white border border-border rounded-xl shadow-sm" style={isQuickView ? { order: 9 } : undefined}>
         <button
           onClick={() => toggleStage('settlement_forecast')}
           className="w-full flex items-center justify-between px-5 py-4 text-left"

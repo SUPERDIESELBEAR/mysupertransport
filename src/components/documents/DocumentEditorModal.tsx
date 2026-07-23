@@ -19,6 +19,7 @@ import {
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { Badge } from '@/components/ui/badge';
 import { sanitizeRichHtml } from '@/lib/sanitize';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -71,6 +72,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   const [restoreTarget, setRestoreTarget] = useState<VersionEntry | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
+  const versionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // PDF upload state
   const [pdfUploading, setPdfUploading] = useState(false);
@@ -580,7 +582,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                       <div className="absolute left-[19px] top-5 bottom-5 w-px bg-border" />
 
                       {versions.map((v) => (
-                        <div key={v.id} className="relative pl-10 pb-5 last:pb-0">
+                        <div key={v.id} ref={el => { versionRefs.current[v.id] = el; }} className="relative pl-10 pb-5 last:pb-0">
                           {/* Dot */}
                           <div className="absolute left-3 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-border bg-background" />
 
@@ -624,9 +626,15 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                                 <button
                                   type="button"
                                   className="text-xs text-primary underline-offset-2 hover:underline"
-                                  onClick={() =>
-                                    setExpandedVersion(expandedVersion === v.id ? null : v.id)
-                                  }
+                                  onClick={() => {
+                                    const next = expandedVersion === v.id ? null : v.id;
+                                    setExpandedVersion(next);
+                                    if (next) {
+                                      requestAnimationFrame(() => {
+                                        requestAnimationFrame(() => scrollElementIntoViewWithOffset(versionRefs.current[v.id]));
+                                      });
+                                    }
+                                  }}
                                 >
                                   {expandedVersion === v.id ? 'Hide preview' : 'Show preview'}
                                 </button>

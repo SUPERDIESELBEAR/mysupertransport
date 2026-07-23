@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 
 export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost' | 'deactivated';
@@ -61,7 +62,27 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
   const [expandedType, setExpandedType] = useState<DeviceType | null>(null);
+  const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
   const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
+
+  useEffect(() => {
+    if (!expandedType) return;
+    const el = sectionRefs.current[expandedType];
+    if (!el) return;
+
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        scrollElementIntoViewWithOffset(el);
+      });
+      (raf1 as unknown as { _child?: number })._child = raf2;
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      const child = (raf1 as unknown as { _child?: number })._child;
+      if (child) cancelAnimationFrame(child);
+    };
+  }, [expandedType]);
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -274,7 +295,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
             const displayItems = isExpanded ? typeItems : typeItems.slice(0, 8);
 
             return (
-              <div key={type} className="border border-border rounded-xl bg-card overflow-hidden">
+              <div key={type} ref={el => { sectionRefs.current[type] = el; }} className="border border-border rounded-xl bg-card overflow-hidden">
                 {/* Group header */}
                 <div className={`px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2`}>
                   <span className={cfg.color}>{cfg.icon}</span>
