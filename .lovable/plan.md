@@ -1,23 +1,29 @@
-## Reset Emma Mueller's Equipment Asset Sheet only
+## Findings
 
-Target operator: Emma Mueller (`c49e2427-11cf-4765-a48b-36b28cd150a2`). No other drivers, no other Emma data.
+Emma Mueller’s Equipment Asset Sheet is still locked because her `onboarding_status` row still has the signature fields populated:
 
-**Confirmed current state:**
-- 4 active `equipment_assignments` (ELD, dash cam, BestPass, fuel card), none returned
-- 0 `equipment_receipts`
-- Asset Sheet fields present on her `onboarding_status` row
+- `eld_signature_typed_name = Emma Mueller`
+- `eld_signature_image_url = .../equipment-asset-sheet/signature-...png`
+- `eld_signature_signed_at = 2026-07-07...`
 
-**Actions (single insert-tool call, three statements):**
+The UI uses `eld_signature_signed_at` as the lock flag, so even though equipment assignments and receipts are already cleared, the sheet remains locked.
 
-1. `DELETE FROM equipment_assignments WHERE operator_id = <Emma>` — removes her 4 assignments; the shared `equipment_items` return to `available` inventory (items themselves are not deleted).
-2. `DELETE FROM equipment_receipts WHERE operator_id = <Emma>` — no-op today, included for safety in case a receipt is added before this runs.
-3. `UPDATE onboarding_status` for Emma, nulling only Asset Sheet fields:
-   - Verification: `eld_verified_at/by`, `dash_cam_verified_at/by`, `bestpass_verified_at/by`, `fuel_card_verified_at/by`
-   - Driver signature: `eld_signature_typed_name`, `eld_signature_image_url`, `eld_signature_signed_at`
-   - Return flow: `eld_/dash_cam_/bestpass_/fuel_card_/decal_awaiting_return_shipment` → false; `return_instructions_sent_at/by`, `equipment_return_completed_at`, `equipment_return_date`, `equipment_return_notes` → null
+## Plan
 
-**Not touched:** application, profile, driver docs, ICA, pay setup, truck/plate, dispatch, PEI, notifications, or any other driver.
+1. **Clear only Emma Mueller’s Equipment Asset Sheet completion/lock fields**
+   - Set `eld_signature_typed_name`, `eld_signature_image_url`, and `eld_signature_signed_at` to `NULL` for Emma’s `onboarding_status` row only.
+   - Also clear the asset-sheet verification stamps and return-instruction fields if any remain populated.
 
-Part 2 (demo-account design) is paused per your instruction.
+2. **Keep all non-asset-sheet driver data intact**
+   - Do not touch Emma’s application, account, Go Live date, onboarding stage data outside the asset sheet, driver hub records, documents, or profile.
+   - Do not delete equipment inventory items; leave inventory records intact.
 
-Switch to build mode to run this.
+3. **Verify after reset**
+   - Re-query Emma’s `onboarding_status`, `equipment_assignments`, and `equipment_receipts` to confirm:
+     - signature lock fields are empty,
+     - no active equipment assignments remain,
+     - no asset-sheet receipts remain.
+
+4. **Optional code follow-up after the immediate reset**
+   - Add a dedicated management-side “Reset Equipment Asset Sheet” action later so this can be done safely without manual database intervention.
+   - The reset should use a backend function, require typed confirmation like `000`, and write an audit log.
