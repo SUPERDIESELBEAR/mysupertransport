@@ -12,6 +12,7 @@ import { US_STATES, type ApplicationFormData, type EmployerRecord, defaultFormDa
 import { computeApplicationDiff, type DiffEntry } from '@/lib/applicationDiff';
 import { formatValue } from '@/lib/applicationCorrections';
 import { cn } from '@/lib/utils';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface Props {
   open: boolean;
@@ -91,8 +92,9 @@ function hydrateDraft(app: Record<string, unknown>): ApplicationFormData {
 /** Section wrapper with collapsible header — keeps long form scannable. */
 function Section({ title, count, defaultOpen = true, children }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
+  const sectionRef = useScrollIntoViewOnOpen<HTMLElement>(open);
   return (
-    <section className="border border-border rounded-xl bg-white">
+    <section ref={sectionRef} className="border border-border rounded-xl bg-white">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
