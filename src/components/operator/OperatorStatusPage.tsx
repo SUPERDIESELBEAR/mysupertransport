@@ -1064,8 +1064,11 @@ export default function OperatorStatusPage({
 
       {/* Milestone timeline — collapsed into "Onboarding History" once fully onboarded */}
       {isFullyOnboarded ? (
-        <Collapsible>
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <OnboardingHistoryCollapsible stages={stages} onNavigateTo={onNavigateTo} />
+      ) : (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Onboarding Stages</h2>
+          <div>
             <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors group">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="h-9 w-9 rounded-lg bg-status-complete/10 border border-status-complete/25 flex items-center justify-center shrink-0">
