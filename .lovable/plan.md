@@ -1,31 +1,39 @@
-# Driver App Back Button Fix
+## Problem
 
-## What's happening today
+Fully-onboarded drivers (with `insurance_added_date` set / Go Live confirmed) currently land on the Onboarding Progress screen when they open the app. They should instead land on the Home dashboard (3-ring binder, settlement forecast, my truck, resource center). Drivers still in onboarding should keep landing on Progress.
 
-Two different "back" buttons exist in the driver app, driven by two different systems:
+## Root cause
 
-### 1. Header back arrow (left of the SUPERTRANSPORT logo)
-Lives in `src/pages/operator/OperatorPortal.tsx`. It uses a custom in-memory `viewHistory` array (lines 230–248) instead of the browser history. The array is only appended to and includes any transient view changes (auth restore, deep-link normalization, prefetch/remount), so popping it lands on views the driver never intentionally visited — the "back goes to a random screen" bug. It also drifts out of sync with React Router's real URL history that `navigateToView` pushes, so the header arrow and the phone's hardware back give different answers. On a fresh entry the array is empty so the arrow doesn't render, which reads as "stale / does nothing."
+`src/pages/operator/OperatorPortal.tsx` line ~932 hard-codes the empty-route redirect target to `'progress'`:
 
-### 2. Second back arrow on the My Truck page (left of "Unit 000 🚚")
-Lives in `src/components/fleet/FleetDetailDrawer.tsx`, rendered from `OperatorPortal.tsx` line 1806 with `onBack={() => navigateToView('progress')}`. The component was originally built for the staff Fleet Roster where the arrow returned to the truck list. On the driver side there is no truck list (one driver, one truck), so the arrow is redundant and its destination is arbitrary.
+```ts
+if (segments.length > 0 && isKnownOperatorRoute(location.pathname)) return;
+const target: OperatorView = 'progress';
+```
+
+This effect runs on mount before `onboardingStatus` has loaded and does not consider whether the driver is fully onboarded. `isFullyOnboarded` (derived from `onboardingStatus.insurance_added_date`) exists a few lines above but is not used here.
 
 ## Fix
 
-### A. Header back arrow → real browser back
-In `src/pages/operator/OperatorPortal.tsx`:
-- Remove `viewHistory`, `suppressNextHistoryRef`, `prevConfirmedViewRef`, and the effect that appends to the array.
-- Track an in-app nav counter that increments each time `navigateToView` runs a real URL push (skip `replace: true` and preview mode). Show the header arrow only when the counter > 0 so it never looks stale on first entry.
-- New `goBack` = `navigate(-1)` from `react-router-dom`. This walks the real URL history the router already maintains, so Home → My Truck → Back returns to Home, and the phone's hardware back and the header arrow behave identically.
-- Keep the Esc key shortcut wired to the same `goBack`.
+Make the empty-route landing target depend on onboarding state, and only redirect once we actually know it — no rewrite while data is still loading.
 
-### B. Remove the redundant My Truck back arrow (Option 1)
-- Add an optional `hideBack?: boolean` prop to `FleetDetailDrawer` in `src/components/fleet/FleetDetailDrawer.tsx`; when true, skip rendering the `<ArrowLeft>` button in its header.
-- In `OperatorPortal.tsx` line 1806, pass `hideBack` on the driver-side render. Staff/management usages are unchanged (they still show and need the arrow to return to the fleet list).
+1. **Track onboarding-data loaded state.** Add a `onboardingStatusLoaded` flag (set to `true` inside `fetchData` once the initial `operators` + `onboarding_status` query resolves, whether the row exists or not).
+2. **Gate the empty-route redirect on that flag.** In the `useEffect` at line ~902, if the URL has no explicit route segment (empty-route case, the only branch that assigns a default target), bail out early when `!onboardingStatusLoaded`. This prevents the current premature snap to `/operator/progress` before we can tell which landing page is correct.
+3. **Choose the target based on `isFullyOnboarded`.** Replace the hard-coded `'progress'` with:
+   ```ts
+   const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
+   ```
+   Add `isFullyOnboarded` and `onboardingStatusLoaded` to the effect's dependency array.
+4. **Leave every other path untouched.** Deep links to `/operator/progress`, `/operator/home`, `/operator/binder`, etc. still resolve to exactly the requested view — this only changes the "empty landing" behavior. Onboarding Status remains reachable from the sidebar for fully-onboarded drivers (menu item already renders as "Onboarding Status" when `isFullyOnboarded`).
+5. **Owner viewer.** The same portal is used for truck owners viewing a driver; because `isFullyOnboarded` is derived from the resolved driver's onboarding_status, they will also land on Home for fully-onboarded drivers, matching the requested behavior.
 
-## Files touched
+## Files
 
-- `src/pages/operator/OperatorPortal.tsx` — swap custom history stack for `navigate(-1)`, gate arrow on in-app nav counter, pass `hideBack` to `FleetDetailDrawer`.
-- `src/components/fleet/FleetDetailDrawer.tsx` — accept `hideBack` prop and conditionally render the header back arrow.
+- `src/pages/operator/OperatorPortal.tsx` — add `onboardingStatusLoaded` state, set it inside `fetchData`, gate + branch the empty-route redirect on `isFullyOnboarded`.
 
-No database, RLS, or edge-function changes.
+## Validation
+
+- Fully-onboarded driver (insurance_added_date set, Go Live) opens `/operator` or `/` → lands on Home dashboard tiles.
+- In-progress driver opens `/operator` → still lands on Progress.
+- Direct visits to `/operator/progress`, `/operator/binder`, `/operator/messages`, etc. render the requested view for both cohorts.
+- No transient flash to Progress before Home renders (verified via console nav trace — the `redirect-empty-route` event should only fire after data loads and should target `home` for onboarded drivers).
