@@ -73,6 +73,8 @@ interface FleetDetailDrawerProps {
   operatorId: string;
   onBack: () => void;
   readOnly?: boolean;
+  /** Hide the header back arrow (e.g. driver portal where a single top-level Back handles it). */
+  hideBack?: boolean;
   /** Fired exactly once after the first data fetch resolves. */
   onReady?: () => void;
 }
@@ -93,7 +95,7 @@ function categoryBadge(cat: string) {
   return <Badge key={cat} className={`text-[10px] px-1.5 py-0 ${colors[cat] ?? ''}`}>{label}</Badge>;
 }
 
-export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, onReady }: FleetDetailDrawerProps) {
+export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, hideBack = false, onReady }: FleetDetailDrawerProps) {
   const readyFiredRef = useRef(false);
   const { session } = useAuth();
   const [truckInfo, setTruckInfo] = useState<any>(null);
@@ -406,9 +408,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {!hideBack && (
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Truck className="h-5 w-5 text-primary" />

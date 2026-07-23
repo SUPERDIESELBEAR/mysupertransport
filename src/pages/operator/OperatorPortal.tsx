@@ -133,6 +133,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // "tapped X, ended up on Y" bounces (see the view-mismatch effect below).
   const lastRequestedViewRef = useRef<OperatorView | null>(null);
 
+  // In-app navigation counter. Ref keeps navigateToView's identity stable while
+  // still driving arrow visibility via a mirrored state below.
+  const inAppNavCountRef = useRef(0);
+  const [inAppNavCount, setInAppNavCount] = useState(0);
+
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
   // are derived from location.search.
@@ -170,6 +175,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       url: window.location.href,
     });
     navigate(href, { replace: !!options.replace });
+    if (!options.replace) {
+      inAppNavCountRef.current += 1;
+      setInAppNavCount(inAppNavCountRef.current);
+    }
   }, [isPreview, location.pathname, location.search, navigate, view, binderView]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
@@ -224,37 +233,25 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // Latest committed view, used by navigation callbacks to avoid stale closures.
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
-  // ── Back button history ─────────────────────────────────────────────
-  // Tracks confirmed views only. Requested/tentative views are deliberately not
-  // pushed so a mid-navigation remount cannot re-open the tab the driver left.
-  const [viewHistory, setViewHistory] = useState<OperatorView[]>([]);
-  const suppressNextHistoryRef = useRef(false);
-  const prevConfirmedViewRef = useRef<OperatorView>(confirmedView);
-  useEffect(() => {
-    if (prevConfirmedViewRef.current === confirmedView) return;
-    if (suppressNextHistoryRef.current) {
-      suppressNextHistoryRef.current = false;
-    } else {
-      setViewHistory((h) => [...h.slice(-9), prevConfirmedViewRef.current]);
-    }
-    prevConfirmedViewRef.current = confirmedView;
-  }, [confirmedView]);
+  // ── Back button ────────────────────────────────────────────────────
+  // Uses the browser's real history (React Router already pushes URLs via
+  // navigateToView) so the header arrow behaves exactly like the phone's
+  // hardware back. `inAppNavCount` gates arrow visibility so it never
+  // appears stale on first entry into the portal.
   const goBack = useCallback(() => {
-    const target = viewHistory[viewHistory.length - 1];
-    if (!target) return;
-    suppressNextHistoryRef.current = true;
-    setViewHistory((h) => h.slice(0, -1));
-    navigateToView(target, { replace: true });
-  }, [viewHistory, navigateToView]);
-  // Esc key triggers Back when there's history.
+    if (inAppNavCount === 0) return;
+    inAppNavCountRef.current = Math.max(0, inAppNavCountRef.current - 1);
+    setInAppNavCount(inAppNavCountRef.current);
+    navigate(-1);
+  }, [inAppNavCount, navigate]);
   useEffect(() => {
-    if (viewHistory.length === 0) return;
+    if (inAppNavCount === 0) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') goBack();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [viewHistory.length, goBack]);
+  }, [inAppNavCount, goBack]);
   // Browser/hardware back is handled by the URL history naturally. Avoid
   // pushState interception here because it can race against tab navigation.
   // Empty driver URLs are normalized below after onboarding status loads.
@@ -1185,7 +1182,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       >
         <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 min-w-0">
-            {viewHistory.length > 0 && (
+            {inAppNavCount > 0 && (
               <button
                 type="button"
                 onClick={goBack}
@@ -1803,7 +1800,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
-            <FleetDetailDrawer operatorId={operatorId} onBack={() => navigateToView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
+            <FleetDetailDrawer operatorId={operatorId} onBack={() => navigateToView('progress')} readOnly hideBack onReady={() => handleDestinationReady('my-truck')} />
           </Suspense>
         )}
 
