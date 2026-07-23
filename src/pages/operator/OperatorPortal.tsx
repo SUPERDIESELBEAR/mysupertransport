@@ -133,6 +133,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // "tapped X, ended up on Y" bounces (see the view-mismatch effect below).
   const lastRequestedViewRef = useRef<OperatorView | null>(null);
 
+  // In-app navigation counter. Ref keeps navigateToView's identity stable while
+  // still driving arrow visibility via a mirrored state below.
+  const inAppNavCountRef = useRef(0);
+  const [inAppNavCount, setInAppNavCount] = useState(0);
+
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
   // are derived from location.search.
