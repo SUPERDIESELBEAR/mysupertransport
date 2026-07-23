@@ -1,58 +1,46 @@
-# Dispatch Board "Decals" modal fixes for all drivers
+# Dispatch Board "Decals" modal — mobile-viewport regression
 
-## Confirmed root cause (reproduced as Emma against Steve Figueroa)
+## What I know
 
-Clicking Decals on Steve's card in the Dispatch Board:
+- The earlier fix works at 1280+ widths (verified via Playwright: modal opens, image 200s).
+- At the preview's mobile viewport (647×710) Playwright reproduces exactly what you're seeing: the Decals button reports `disabled=false`, `.click()` fires, but no signed-URL POST goes out, no `.fixed.inset-0` overlay ever appears in the DOM, no console error.
+- Same code path (`setDecalTarget(...)` → `{decalTarget && <DecalPhotoViewerModal open …/>}` → `<FilePreviewModal>`), just a different width.
+- No mobile-only branch exists in `DispatchPortal.tsx` around the Cards view's Decals button, and no swipe/gesture handler wraps the card, so the click *should* reach React the same way it does on desktop.
 
-- `POST /storage/v1/object/sign/operator-documents/.../ds_...jpg` → **200**
-- `POST /storage/v1/object/sign/.../ps_...jpg` → **200**
-- `GET  /storage/v1/object/sign/.../ds_...jpg?token=…` → **200** (image bytes arrive)
-- Radix `DialogContent` "Missing Description" warning fires (loading dialog mounted)
-- Five seconds later: **no dialog in the DOM**, no error
+That leaves two candidates I want to nail down before touching UI code: either React's `onClick` isn't firing on the small-viewport Cards render (e.g. the Card is inside a scroll container whose child intercepts the click), or `setDecalTarget` fires but the modal is being unmounted immediately by a re-render triggered on mobile only.
 
-The data pipeline is fine. Steve's `onboarding_status.decal_photo_ds_url` / `_ps_url` are already normalized bare paths, PostgREST returns them, `resolveDecalUrl` re-signs them successfully, and the image loads.
+## Plan
 
-What breaks is inside `DecalPhotoViewerModal`:
+### Step 1 — Add a scoped runtime trace (temporary)
 
-1. First render (bare paths, no signed URL yet): returns a Radix `<Dialog>` "Loading decal photo…"
-2. `resolveDecalUrl` resolves → `signed` state updates → the component now returns a **plain inline** `<FilePreviewModal>` (`<div className="fixed inset-0 z-50 …">`) instead
-3. The Radix Dialog unmounts and `FilePreviewModal` mounts in the same commit. `FilePreviewModal` calls `useBackButton(true, onClose)`, which `history.pushState`s a virtual entry
-4. The transition races with Radix's DismissableLayer teardown / a popstate on the freshly-pushed entry, and `onClose` fires — `setDecalTarget(null)` — closing the modal before the user sees anything
+In `src/pages/dispatch/DispatchPortal.tsx`:
+- Wrap the Cards-view Decals `onClick` (line 1860) with a `console.debug('[decals] click', row.operator_id, { ds: !!row.decal_photo_ds_url, ps: !!row.decal_photo_ps_url })` before `setDecalTarget(...)`.
+- Log the render side: `useEffect(() => { console.debug('[decals] target', decalTarget?.name ?? null); }, [decalTarget])`.
 
-Vehicle Hub happens to work because `FleetRoster` wraps the modal in `{decalPhotoTarget && …}`, so the loading Radix Dialog is never rendered first — the component only mounts once the target is set and stays as a single `FilePreviewModal`. Dispatch renders `<DecalPhotoViewerModal open={!!decalTarget} …/>` unconditionally, so the loading→preview render swap always runs.
+In `src/components/fleet/DecalPhotoViewerModal.tsx`:
+- `console.debug('[decals] modal render', { open, tiles: tiles.length })` at the top of the component.
 
-## Fix
+Run Playwright at 647×710 against Steve's card and read the console. Three outcomes decide the fix:
 
-Eliminate the render swap. `DecalPhotoViewerModal` should always render the same top-level container; only the *contents* change based on loading state.
+- **No `[decals] click` log** → the button click isn't reaching React. Root cause is an ancestor swallowing the event on small viewports. Fix by hardening the button (see Step 2a).
+- **`[decals] click` fires but `[decals] target` stays `null`** → state update dropped (StrictMode double-invoke or unmount race). Fix by moving `decalTarget` up out of a component that's remounting (see Step 2b).
+- **`[decals] target` sets and `[decals] modal render` runs but no overlay** → `FilePreviewModal` mounts and immediately unmounts. Fix by removing whatever triggers the remount (see Step 2c).
 
-### `src/components/fleet/DecalPhotoViewerModal.tsx`
+### Step 2 — Apply the matching fix
 
-- Return one consistent tree in the "opened" branch: the inline `FilePreviewModal` overlay for the active tile.
-- Drop the intermediate Radix `<Dialog>` "Loading decal photo…" state. Instead, when the signed URL is not ready yet, render `FilePreviewModal` with a lightweight `loading` prop (or wrap it and show a spinner over the same backdrop). No mount/unmount between states.
-- Keep the "no photos uploaded" and "photo unavailable" empty states as inline overlays too (not Radix Dialogs), so every open path uses the same root element and `useBackButton` mounts exactly once per open cycle.
-- Guard `useBackButton` so it only pushes when we actually have an interactive modal to close (i.e., don't push during the "no photos" empty-state overlay if the caller expects an immediate no-op close).
+- **2a (event swallowed):** Add `onPointerUp` in addition to `onClick` on the Decals button, and confirm no ancestor `<div>` in the Card sets `pointer-events-none` at `<lg` widths.
+- **2b (state dropped):** Move the `decalTarget` state and the `{decalTarget && <DecalPhotoViewerModal .../>}` render to the top of `DispatchPortal`'s return so it isn't inside any branch that toggles between mobile/desktop layouts.
+- **2c (modal remounts):** Portal `FilePreviewModal` (or the Decal viewer wrapper) to `document.body` via `createPortal` so parent Cards-view re-renders can't unmount it, and stabilize the `key` on `FilePreviewModal` so URL churn doesn't re-mount.
 
-### `src/components/inspection/DocRow.tsx` (`FilePreviewModal`)
+### Step 3 — Verify
 
-- Add an optional `loading?: boolean` prop. When true, render the same backdrop + header shell but show a spinner instead of the `<img>`/iframe. This lets `DecalPhotoViewerModal` keep a single `FilePreviewModal` mounted from click → image ready.
-- Leave existing image/PDF detection alone — it already handles signed URLs with `?token=…` correctly (`fileTypePath` strips the query).
-
-### Align Dispatch with Vehicle Hub's mount pattern (belt-and-suspenders)
-
-`src/pages/dispatch/DispatchPortal.tsx` line 2479: wrap the modal in `{decalTarget && (…)}` instead of `open={!!decalTarget}`. This ensures the modal only mounts once per open cycle and can't run its loading-state render before `decalTarget` is set.
-
-## Verification
-
-Run the same Playwright reproduction against localhost as Emma:
-
-1. Dispatch Board → click Decals on Steve's card (unit #234) → modal appears with both photos, no flicker, `getRole('dialog')` / `.fixed.inset-0` overlay present in the DOM after 3s.
-2. Repeat on two more drivers from the 7 currently-eligible set (e.g., Rodney Newberry #235, Ian Dunfee #258) — both open cleanly.
-3. Vehicle Hub → Decals for the same three drivers still works (no regression).
-4. A driver with no decal photos → button stays disabled (no regression).
-5. Close via backdrop click, Escape, and hardware Back — each closes exactly once and leaves `history.length` unchanged (no phantom back-nav).
+- Playwright at 647×710: click Decals on Steve's card → `.fixed.inset-0` overlay present, decal image loaded (`naturalWidth > 0`), signed-URL POST 200.
+- Repeat at 1280×1800 (make sure Step 2 didn't regress the earlier desktop fix).
+- Vehicle Hub Decals on the same driver still works.
+- Remove the temporary `console.debug` lines from Step 1 before closing out.
 
 ## Technical notes
 
-- Only frontend/presentation code changes; no schema or RLS work needed. The prior URL normalization migration and the storage sync trigger stay as-is.
-- The signed-URL POST + image GET already return 200 for Steve, so the fix is purely rendering; storage grants and RLS are proven correct by this turn's network capture.
-- No changes to `src/lib/decalUrl.ts` or the upload writers.
+- Frontend-only changes. No schema, RLS, or edge-function work.
+- No changes to `src/lib/decalUrl.ts`, uploaders, storage triggers, or `useSignedUrl`.
+- Once the console traces name the culprit, the actual fix is a few lines in one file.
