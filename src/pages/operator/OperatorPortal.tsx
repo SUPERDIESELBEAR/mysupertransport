@@ -209,6 +209,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     onNavigate: navigateWithinOperatorPortal,
   });
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
+  const [onboardingStatusLoaded, setOnboardingStatusLoaded] = useState(false);
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
@@ -475,6 +476,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         setIcaTruckInfo(null);
       }
     }
+    setOnboardingStatusLoaded(true);
   }, [effectiveUserId, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -929,7 +931,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
 
     if (segments.length > 0 && isKnownOperatorRoute(location.pathname)) return;
-    const target: OperatorView = 'progress';
+    // Wait until we know whether the driver is fully onboarded before choosing
+    // a landing view — otherwise we'd snap to Progress before Home is even a
+    // candidate for onboarded drivers.
+    if (!onboardingStatusLoaded) return;
+    const target: OperatorView = isFullyOnboarded ? 'home' : 'progress';
     const next = buildOperatorViewUrl(base, location.search, target);
     const href = `${next.pathname}${next.search}`;
     appendNavTrace({
@@ -943,7 +949,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       url: window.location.href,
     });
     navigate(href, { replace: true });
-  }, [isPreview, location.pathname, location.search, navigate, view]);
+  }, [isPreview, location.pathname, location.search, navigate, view, onboardingStatusLoaded, isFullyOnboarded]);
 
   useEffect(() => {
     appendNavTrace({
