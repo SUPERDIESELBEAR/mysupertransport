@@ -41,8 +41,6 @@ export default function DecalPhotoViewerModal({
 
   const [activeIndex, setActiveIndex] = useState(0);
 
-  console.debug('[decals] modal render', { open, tiles: tiles.length });
-
   // Reset index when the set of tiles changes or the modal reopens.
   useEffect(() => {
     if (open) setActiveIndex(0);
