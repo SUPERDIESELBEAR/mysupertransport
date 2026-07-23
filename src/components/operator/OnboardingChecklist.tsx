@@ -351,15 +351,12 @@ export default function OnboardingChecklist({
   const actionCount = stages.filter(s => s.status === 'action_required').length;
 
   return (
-    <div className="flex flex-col [--st-header-h:4rem] md:[--st-header-h:5rem]">
+    <div className="flex flex-col">
       {/* ── STICKY PROGRESS BAR ── */}
       {/* Top offset must include the safe-area inset because the header uses
           padding-top: env(safe-area-inset-top); otherwise a notch-sized gap
           appears above this banner on devices with a display cutout. */}
-      <div
-        className="sticky z-30 bg-surface-dark"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + var(--st-header-h, 4rem))' }}
-      >
+      <div className="sticky top-0 z-30 bg-surface-dark">
         <div className="flex items-center justify-between px-4 pt-2 pb-1.5 gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted leading-none mb-0.5">
