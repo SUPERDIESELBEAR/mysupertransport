@@ -1,20 +1,31 @@
-# Reset scroll to top on every driver-app view change
+# Driver App Back Button Fix
 
-## Problem
-In `OperatorPortal.tsx`, the bottom nav and hamburger menu swap the visible view (Home, Binder, Messages, Doc Hub, Dispatch, etc.) by updating internal state and the `?tab=` query — the underlying route doesn't change. Because the window keeps its scroll position across those swaps, tapping a new nav item lands the user wherever the previous view was scrolled to. Navigating back to a previously visited view has the same problem.
+## What's happening today
+
+Two different "back" buttons exist in the driver app, driven by two different systems:
+
+### 1. Header back arrow (left of the SUPERTRANSPORT logo)
+Lives in `src/pages/operator/OperatorPortal.tsx`. It uses a custom in-memory `viewHistory` array (lines 230–248) instead of the browser history. The array is only appended to and includes any transient view changes (auth restore, deep-link normalization, prefetch/remount), so popping it lands on views the driver never intentionally visited — the "back goes to a random screen" bug. It also drifts out of sync with React Router's real URL history that `navigateToView` pushes, so the header arrow and the phone's hardware back give different answers. On a fresh entry the array is empty so the arrow doesn't render, which reads as "stale / does nothing."
+
+### 2. Second back arrow on the My Truck page (left of "Unit 000 🚚")
+Lives in `src/components/fleet/FleetDetailDrawer.tsx`, rendered from `OperatorPortal.tsx` line 1806 with `onBack={() => navigateToView('progress')}`. The component was originally built for the staff Fleet Roster where the arrow returned to the truck list. On the driver side there is no truck list (one driver, one truck), so the arrow is redundant and its destination is arbitrary.
 
 ## Fix
-Force scroll to the top of the window (and any scroll container the view renders into) every time the active view changes.
 
-1. In `src/pages/operator/OperatorPortal.tsx`, add a `useEffect` keyed on the active view identifier (the same value the nav/hamburger writes) that runs on every change and calls `window.scrollTo({ top: 0, left: 0, behavior: 'auto' })`. Use `'auto'` (instant) so nav feels snappy, not smooth-scrolled.
-2. Also reset any inner scroll container the portal owns (the main `<main>` / content wrapper) by giving it a ref and setting `ref.current.scrollTop = 0` in the same effect — this covers the case where the page itself doesn't scroll but a nested container does.
-3. Run the reset regardless of whether the user is navigating forward to a new view or back to a previously visited one — the effect fires on any view change, so both directions are covered.
-4. Respect the existing `navigateToView` flow already used to route reliably; the scroll reset hooks off the resolved view value, so it runs after the view actually renders.
+### A. Header back arrow → real browser back
+In `src/pages/operator/OperatorPortal.tsx`:
+- Remove `viewHistory`, `suppressNextHistoryRef`, `prevConfirmedViewRef`, and the effect that appends to the array.
+- Track an in-app nav counter that increments each time `navigateToView` runs a real URL push (skip `replace: true` and preview mode). Show the header arrow only when the counter > 0 so it never looks stale on first entry.
+- New `goBack` = `navigate(-1)` from `react-router-dom`. This walks the real URL history the router already maintains, so Home → My Truck → Back returns to Home, and the phone's hardware back and the header arrow behave identically.
+- Keep the Esc key shortcut wired to the same `goBack`.
 
-## Out of scope
-- No changes to the staff/management dashboards — the user's request is scoped to the front-facing driver app.
-- No changes to browser back-button behavior beyond scroll: React Router still handles the history entry; only the scroll position is normalized.
-- Modals, drawers, and popovers are unaffected — this only fires on top-level view changes.
+### B. Remove the redundant My Truck back arrow (Option 1)
+- Add an optional `hideBack?: boolean` prop to `FleetDetailDrawer` in `src/components/fleet/FleetDetailDrawer.tsx`; when true, skip rendering the `<ArrowLeft>` button in its header.
+- In `OperatorPortal.tsx` line 1806, pass `hideBack` on the driver-side render. Staff/management usages are unchanged (they still show and need the arrow to return to the fleet list).
 
-## File
-- `src/pages/operator/OperatorPortal.tsx` — add the ref, effect, and attach the ref to the main content wrapper. No other files touched.
+## Files touched
+
+- `src/pages/operator/OperatorPortal.tsx` — swap custom history stack for `navigate(-1)`, gate arrow on in-app nav counter, pass `hideBack` to `FleetDetailDrawer`.
+- `src/components/fleet/FleetDetailDrawer.tsx` — accept `hideBack` prop and conditionally render the header back arrow.
+
+No database, RLS, or edge-function changes.

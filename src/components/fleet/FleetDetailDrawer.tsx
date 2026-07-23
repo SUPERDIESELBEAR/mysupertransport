@@ -73,6 +73,8 @@ interface FleetDetailDrawerProps {
   operatorId: string;
   onBack: () => void;
   readOnly?: boolean;
+  /** Hide the header back arrow (e.g. driver portal where a single top-level Back handles it). */
+  hideBack?: boolean;
   /** Fired exactly once after the first data fetch resolves. */
   onReady?: () => void;
 }
