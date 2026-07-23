@@ -240,7 +240,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // appears stale on first entry into the portal.
   const goBack = useCallback(() => {
     if (inAppNavCount === 0) return;
-    setInAppNavCount((n) => Math.max(0, n - 1));
+    inAppNavCountRef.current = Math.max(0, inAppNavCountRef.current - 1);
+    setInAppNavCount(inAppNavCountRef.current);
     navigate(-1);
   }, [inAppNavCount, navigate]);
   useEffect(() => {
