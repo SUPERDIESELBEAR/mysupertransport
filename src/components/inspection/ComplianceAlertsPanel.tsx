@@ -13,6 +13,7 @@ import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface ComplianceAlert {
@@ -38,6 +39,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
   const [expanded, setExpanded] = useState(true);
+  const panelRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
   const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
@@ -413,7 +415,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <>
-    <div className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden">
+    <div ref={panelRef} className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden scroll-mt-20">
       {/* ── Band A: Identity + scope ────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <button
