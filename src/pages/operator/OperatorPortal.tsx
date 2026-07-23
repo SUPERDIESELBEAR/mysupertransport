@@ -908,9 +908,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const completedStages = stages.filter(s => s.status === 'complete').length;
   const progressPct = Math.round((completedStages / stages.length) * 100);
-  // Fully onboarded = every onboarding stage complete (progress === 100%).
-  // Only then does the driver land on Home instead of Progress.
-  const isFullyOnboarded = stages.length > 0 && stages.every(s => s.status === 'complete');
+  // Fully onboarded = Go Live date has been set. Once a driver is live on the
+  // road, they land on Home even if optional self-serve stages (e.g. Stage 9
+  // Pay Setup) haven't been submitted through the app.
+  const isFullyOnboarded = Boolean(onboardingStatus.go_live_date);
   useEffect(() => {
     isFullyOnboardedRef.current = isFullyOnboarded;
   }, [isFullyOnboarded]);

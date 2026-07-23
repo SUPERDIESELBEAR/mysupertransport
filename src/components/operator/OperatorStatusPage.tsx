@@ -495,7 +495,7 @@ export default function OperatorStatusPage({
       }}
     />
     {/* ── MOBILE: Checklist view (< md) ── */}
-    <div className="md:hidden -mx-4 -mt-4">
+    <div className="md:hidden -mx-4 -mt-6 -mb-6">
       {/* Pass banners first, then checklist */}
       {showCriticalBanner && (
         <div className="mx-4 mt-4">
