@@ -1,55 +1,58 @@
-## Scope: applies to every driver, not just Steve
+# Dispatch Board "Decals" modal fixes for all drivers
 
-Steve is the reproduction case, but every step below operates on **all** operators. No driver-specific logic, no allowlists. When we're done, any driver with decal photos in Stage 5 will see them in the Dispatch Board modal — and the same treatment covers Vehicle Hub decal and truck-photo viewers.
+## Confirmed root cause (reproduced as Emma against Steve Figueroa)
 
-## What I confirmed
+Clicking Decals on Steve's card in the Dispatch Board:
 
-Steve Figueroa (operator `2c24ca65…ee109`) has both decal URL columns populated:
-- `decal_photo_ds_url` and `decal_photo_ps_url` are Supabase `/object/sign/...` URLs whose tokens were issued in 2026.
+- `POST /storage/v1/object/sign/operator-documents/.../ds_...jpg` → **200**
+- `POST /storage/v1/object/sign/.../ps_...jpg` → **200**
+- `GET  /storage/v1/object/sign/.../ds_...jpg?token=…` → **200** (image bytes arrive)
+- Radix `DialogContent` "Missing Description" warning fires (loading dialog mounted)
+- Five seconds later: **no dialog in the DOM**, no error
 
-So the Dispatch icon is correctly enabled and `DecalPhotoViewerModal` receives both URLs — the failure is downstream (viewer/URL resolution), not row-sync. The prior turn's backfill + trigger already fixed the storage↔column drift class; this is a separate class of failure that also affects other drivers whose columns hold stale/invalid signed tokens.
+The data pipeline is fine. Steve's `onboarding_status.decal_photo_ds_url` / `_ps_url` are already normalized bare paths, PostgREST returns them, `resolveDecalUrl` re-signs them successfully, and the image loads.
 
-## Root cause candidates (verify in this order, against real drivers)
+What breaks is inside `DecalPhotoViewerModal`:
 
-1. **Stored `/object/sign/...` URL is no longer honored.** When `resolveDecalUrl` fails to re-sign, it falls back to the original stored URL; if that URL's token is invalid (rotated key, `iat` skew, expired), the `<img>` load 400/403s and the modal shows nothing.
-2. **`FilePreviewModal` misroutes an image URL with `?token=…`** because file-type sniffing keys off the extension after the query string.
-3. **The storage object is actually missing** for that operator.
+1. First render (bare paths, no signed URL yet): returns a Radix `<Dialog>` "Loading decal photo…"
+2. `resolveDecalUrl` resolves → `signed` state updates → the component now returns a **plain inline** `<FilePreviewModal>` (`<div className="fixed inset-0 z-50 …">`) instead
+3. The Radix Dialog unmounts and `FilePreviewModal` mounts in the same commit. `FilePreviewModal` calls `useBackButton(true, onClose)`, which `history.pushState`s a virtual entry
+4. The transition races with Radix's DismissableLayer teardown / a popstate on the freshly-pushed entry, and `onClose` fires — `setDecalTarget(null)` — closing the modal before the user sees anything
 
-## Fix plan (all drivers)
+Vehicle Hub happens to work because `FleetRoster` wraps the modal in `{decalPhotoTarget && …}`, so the loading Radix Dialog is never rendered first — the component only mounts once the target is set and stays as a single `FilePreviewModal`. Dispatch renders `<DecalPhotoViewerModal open={!!decalTarget} …/>` unconditionally, so the loading→preview render swap always runs.
 
-### Step 1 — Reproduce and capture the real failure
+## Fix
 
-Sign in as a dispatcher via Playwright, open Steve's card, click Decals, and capture the final `<img>` src, network status, and any `resolveDecalUrl` errors. Then repeat on one more driver whose columns are also `/object/sign/...` URLs to confirm the same failure mode.
+Eliminate the render swap. `DecalPhotoViewerModal` should always render the same top-level container; only the *contents* change based on loading state.
 
-### Step 2 — Harden the viewer for every driver
+### `src/components/fleet/DecalPhotoViewerModal.tsx`
 
-Applied globally:
-- **Surface storage errors** in `resolveDecalUrl` instead of silently returning the stale URL. If re-signing succeeds, use the fresh URL; if it fails **and** the stored URL is a Supabase signed URL, treat the tile as "photo unavailable" rather than rendering a broken image.
-- **Fix image detection** in `FilePreviewModal` so any `.jpg/.jpeg/.png/.heic/.webp` path renders as `<img>` regardless of trailing `?token=…`.
-- **Missing-object state**: when the storage object doesn't exist, show a clear "File missing — re-upload from Stage 5" tile.
+- Return one consistent tree in the "opened" branch: the inline `FilePreviewModal` overlay for the active tile.
+- Drop the intermediate Radix `<Dialog>` "Loading decal photo…" state. Instead, when the signed URL is not ready yet, render `FilePreviewModal` with a lightweight `loading` prop (or wrap it and show a spinner over the same backdrop). No mount/unmount between states.
+- Keep the "no photos uploaded" and "photo unavailable" empty states as inline overlays too (not Radix Dialogs), so every open path uses the same root element and `useBackButton` mounts exactly once per open cycle.
+- Guard `useBackButton` so it only pushes when we actually have an interactive modal to close (i.e., don't push during the "no photos" empty-state overlay if the caller expects an immediate no-op close).
 
-These changes apply to every render of `DecalPhotoViewerModal` and `DecalPhotosQuickView` — Dispatch Board and Vehicle Hub both consume them.
+### `src/components/inspection/DocRow.tsx` (`FilePreviewModal`)
 
-### Step 3 — One-shot data normalization for every driver
+- Add an optional `loading?: boolean` prop. When true, render the same backdrop + header shell but show a spinner instead of the `<img>`/iframe. This lets `DecalPhotoViewerModal` keep a single `FilePreviewModal` mounted from click → image ready.
+- Leave existing image/PDF detection alone — it already handles signed URLs with `?token=…` correctly (`fileTypePath` strips the query).
 
-Migration that rewrites, for **all** rows in `onboarding_status`:
-- `decal_photo_ds_url`, `decal_photo_ps_url`, and each `decal_photos[].url`
-- `truck_photo_front_url`, `_back_url`, `_ds_url`, `_ps_url`, and each `truck_photos_extra[].url`
+### Align Dispatch with Vehicle Hub's mount pattern (belt-and-suspenders)
 
-…from any `/object/sign/{bucket}/{path}` (or `/object/public/{bucket}/{path}`) form back to the bare storage path (`{operator_id}/decal_photos/{file}` or `{operator_id}/truck_photos/{file}`). The resolver already handles bare paths and mints a fresh signed URL at read time, so this permanently removes the "stale signed token" failure mode for every driver, everywhere the columns are read.
+`src/pages/dispatch/DispatchPortal.tsx` line 2479: wrap the modal in `{decalTarget && (…)}` instead of `open={!!decalTarget}`. This ensures the modal only mounts once per open cycle and can't run its loading-state render before `decalTarget` is set.
 
-Rows already storing a bare path are left alone. The auto-sync trigger from the previous turn already writes bare paths going forward.
+## Verification
 
-### Step 4 — Verify across drivers, not just Steve
+Run the same Playwright reproduction against localhost as Emma:
 
-- Query: count operators whose decal or truck URL columns still contain `object/sign` or `object/public` → must be `0` after Step 3.
-- Steve: Dispatch Decals → both photos render; Vehicle Hub → Decals → same; Vehicle Hub → Truck Photos → Stage 2 uploads render.
-- Two additional drivers picked at random from the set that Step 3 rewrote: same three checks pass.
-- One driver with **no** decal photos: Dispatch icon still disabled (no regression).
-- One driver whose Stage 5 upload happens **after** the fix ships: photos appear in Dispatch and Vehicle Hub without a manual refresh (trigger + realtime).
+1. Dispatch Board → click Decals on Steve's card (unit #234) → modal appears with both photos, no flicker, `getRole('dialog')` / `.fixed.inset-0` overlay present in the DOM after 3s.
+2. Repeat on two more drivers from the 7 currently-eligible set (e.g., Rodney Newberry #235, Ian Dunfee #258) — both open cleanly.
+3. Vehicle Hub → Decals for the same three drivers still works (no regression).
+4. A driver with no decal photos → button stays disabled (no regression).
+5. Close via backdrop click, Escape, and hardware Back — each closes exactly once and leaves `history.length` unchanged (no phantom back-nav).
 
-## Technical details
+## Technical notes
 
-- Files touched: `src/lib/decalUrl.ts` (loud errors, prefer bare path), `src/components/fleet/DecalPhotoViewerModal.tsx` and `src/components/dispatch/DecalPhotosQuickView.tsx` (missing-file state), `src/components/inspection/DocRow.tsx` (`FilePreviewModal` image detection).
-- One migration to normalize `onboarding_status` URL columns to bare storage paths (decal + truck).
-- No changes to Dispatch card gating (`hasDecals`), the upload writers, or the sync trigger — they already work universally.
+- Only frontend/presentation code changes; no schema or RLS work needed. The prior URL normalization migration and the storage sync trigger stay as-is.
+- The signed-URL POST + image GET already return 200 for Steve, so the fix is purely rendering; storage grants and RLS are proven correct by this turn's network capture.
+- No changes to `src/lib/decalUrl.ts` or the upload writers.
