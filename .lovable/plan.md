@@ -1,24 +1,23 @@
-## Plan
+## Reset Emma Mueller's Equipment Asset Sheet only
 
-1. **Make fully-onboarded drivers land on Home reliably**
-   - Treat a driver as fully onboarded when they have a Go Live date or the onboarding stages calculate to 100%.
-   - If that condition is true and the current route is `/progress`, redirect them to `/home` even if `/progress` is a valid route.
-   - Keep the manual **View onboarding status** link working by marking that navigation as intentional.
+Target operator: Emma Mueller (`c49e2427-11cf-4765-a48b-36b28cd150a2`). No other drivers, no other Emma data.
 
-2. **Stop rendering the onboarding status page as the default post-onboarding experience**
-   - The screenshot shows Emma is still on the progress route with the 100% onboarding UI.
-   - For fully-onboarded drivers, the default app experience should be Home with the 3-ring binder, settlement forecast, My Truck, and Resource Center.
+**Confirmed current state:**
+- 4 active `equipment_assignments` (ELD, dash cam, BestPass, fuel card), none returned
+- 0 `equipment_receipts`
+- Asset Sheet fields present on her `onboarding_status` row
 
-3. **Fix the progress banner so it cannot float mid-screen**
-   - The current sticky banner is inside `OnboardingChecklist`, which is rendered below other content in `OperatorStatusPage`; sticky positioning can only stick within its current flow position.
-   - Move the sticky progress banner behavior to the top of the progress screen layout, or make the status page layout put the banner first with no preceding content.
-   - Ensure it sits flush under the black app header when a driver intentionally opens onboarding status.
+**Actions (single insert-tool call, three statements):**
 
-4. **Verify with the app behavior, not just code**
-   - Check the route behavior for a 100% complete / Go Live driver path.
-   - Check the mobile layout so the progress banner no longer appears after the QPassport/buttons area or floats in the middle of the screen.
+1. `DELETE FROM equipment_assignments WHERE operator_id = <Emma>` — removes her 4 assignments; the shared `equipment_items` return to `available` inventory (items themselves are not deleted).
+2. `DELETE FROM equipment_receipts WHERE operator_id = <Emma>` — no-op today, included for safety in case a receipt is added before this runs.
+3. `UPDATE onboarding_status` for Emma, nulling only Asset Sheet fields:
+   - Verification: `eld_verified_at/by`, `dash_cam_verified_at/by`, `bestpass_verified_at/by`, `fuel_card_verified_at/by`
+   - Driver signature: `eld_signature_typed_name`, `eld_signature_image_url`, `eld_signature_signed_at`
+   - Return flow: `eld_/dash_cam_/bestpass_/fuel_card_/decal_awaiting_return_shipment` → false; `return_instructions_sent_at/by`, `equipment_return_completed_at`, `equipment_return_date`, `equipment_return_notes` → null
 
-## Technical notes
+**Not touched:** application, profile, driver docs, ICA, pay setup, truck/plate, dispatch, PEI, notifications, or any other driver.
 
-- Files to update: `src/pages/operator/OperatorPortal.tsx`, `src/components/operator/OperatorStatusPage.tsx`, and possibly `src/components/operator/OnboardingChecklist.tsx`.
-- The root cause visible from the code is that `/progress` is allowed to remain because it is a known route, and the sticky banner is nested below earlier content in `OperatorStatusPage`, so `top-0` cannot pull it above content rendered before it.
+Part 2 (demo-account design) is paused per your instruction.
+
+Switch to build mode to run this.
