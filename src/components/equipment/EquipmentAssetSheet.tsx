@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import { toast } from 'sonner';
 import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
@@ -110,6 +111,7 @@ export default function EquipmentAssetSheet({
   // Collapsed by default; auto-expand once the sheet has been signed so the
   // completed record is immediately visible on load.
   const [expanded, setExpanded] = useState<boolean>(signed);
+  const containerRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   // If the signed flag flips (e.g. driver signs while the card is open), keep
   // the card open so the confirmation is visible without an extra tap.
   useEffect(() => { if (signed) setExpanded(true); }, [signed]);
@@ -404,7 +406,7 @@ export default function EquipmentAssetSheet({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-5">
+    <div ref={containerRef} className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-5 scroll-mt-20">
       {/* Header — click to expand/collapse */}
       <button
         type="button"
