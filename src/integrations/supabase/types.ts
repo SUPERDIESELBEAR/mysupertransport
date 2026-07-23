@@ -2513,6 +2513,7 @@ export type Database = {
           eld_signature_typed_name: string | null
           eld_verified_at: string | null
           eld_verified_by: string | null
+          equipment_asset_sheet_ready_notified_at: string | null
           equipment_return_completed_at: string | null
           equipment_return_date: string | null
           equipment_return_notes: string | null
@@ -2643,6 +2644,7 @@ export type Database = {
           eld_signature_typed_name?: string | null
           eld_verified_at?: string | null
           eld_verified_by?: string | null
+          equipment_asset_sheet_ready_notified_at?: string | null
           equipment_return_completed_at?: string | null
           equipment_return_date?: string | null
           equipment_return_notes?: string | null
@@ -2773,6 +2775,7 @@ export type Database = {
           eld_signature_typed_name?: string | null
           eld_verified_at?: string | null
           eld_verified_by?: string | null
+          equipment_asset_sheet_ready_notified_at?: string | null
           equipment_return_completed_at?: string | null
           equipment_return_date?: string | null
           equipment_return_notes?: string | null
