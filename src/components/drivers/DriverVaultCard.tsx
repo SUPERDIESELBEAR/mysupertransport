@@ -13,6 +13,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import { validateFile, MAX_FILE_SIZE_BYTES } from '@/lib/validateFile';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { Upload, Trash2, Eye, Download, FileText, ChevronDown, Loader2, AlertTriangle, CheckCircle2, Clock, FolderOpen } from 'lucide-react';
@@ -62,6 +63,7 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
   const [docs, setDocs] = useState<VaultDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(!collapsed);
 
   // Upload form state
   const [showUpload, setShowUpload] = useState(false);
@@ -204,7 +206,7 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
 
   return (
     <>
-      <div className="bg-white border border-border rounded-xl shadow-sm">
+      <div ref={cardRef} className="bg-white border border-border rounded-xl shadow-sm scroll-mt-20">
         <button onClick={() => setCollapsed(p => !p)} className="w-full flex items-center justify-between px-5 py-4 text-left">
           <div className="flex items-center gap-2">
             <FolderOpen className="h-4 w-4 text-primary" />
