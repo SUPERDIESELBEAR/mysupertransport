@@ -1,53 +1,103 @@
-# Fix: Overview tab unreadable after a correction is approved
 
-## What the staff is seeing (confirmed)
+## Problem
 
-In the Application Review drawer, the layout below the tab bar looks like this:
+When a collapsible section (e.g. Inspection Binder rows, Driver Documents groups, Stage 9 Payroll and Procedures, Driver Vault categories, Onboarding stages, PEI panels, etc.) is expanded, the newly-revealed content pushes below the visible viewport. Depending on where the trigger sits, the browser sometimes even shifts the page upward, so the user loses the section entirely and has to hunt for it by scrolling.
 
-```text
-┌─ Header (fixed) ───────────────────────────┐
-├─ Tabs: Overview | Documents | PEI (fixed) ─┤
-├─ Scrollable content (Overview body) ───────┤   ← flex-1, should grow
-├─ Correction Request Status card (fixed) ───┤   ← grows after corrections
-├─ Revision history banner + audit log (fx) ─┤   ← grows a lot after corrections
-└─ Action footer (fixed) ────────────────────┘
-```
+Expected behavior: on expand, the section's header should snap to (or near) the top of the visible area so the user starts reading at the beginning of the newly-opened content and only needs to scroll downward for the rest.
 
-The correction status card and revision-history banner are siblings of the scroll region with `shrink-0`. Once a correction cycle has run, they contain the full request history, reviewer notes, reply attachments, and the revision audit log — often several hundred pixels tall. They consume all the available vertical space, so the Overview scroll area collapses to near-zero height. Personal Info, Address, CDL Info, etc. are still in the DOM but staff cannot scroll down to reach them.
+## Solution — one shared hook, applied everywhere
 
-The Print / Save-as-PDF button on this drawer prints `#app-review-print-content`, which is only the (now-collapsed) Overview body — so the CDL number, medical card, and other fields don't appear in the exported PDF either.
+Introduce a single reusable hook so every collapsible behaves identically. This avoids drift and lets us fix or tune the behavior in one place later.
 
-## Fix
+### 1. New hook: `src/hooks/useScrollIntoViewOnOpen.ts`
 
-Restructure the drawer so post-correction history lives **inside** the Overview scroll region instead of stealing space from it, and make sure the printable/downloadable view always contains the full application data.
+- Signature: `useScrollIntoViewOnOpen(open: boolean, options?: { offset?: number; behavior?: 'smooth' | 'auto'; scrollContainer?: 'window' | RefObject<HTMLElement> }) → RefObject<HTMLElement>`
+- Returns a `ref` to attach to the section's outer wrapper (or header row).
+- When `open` transitions `false → true`, on the next frame (after the DOM has expanded and layout settles) it:
+  1. Finds the appropriate scroll container — either `window` or the nearest scrollable ancestor (auto-detected by walking parents and checking `overflow-y`), overridable via option.
+  2. Computes the element's top relative to that container.
+  3. Subtracts a configurable `offset` (default 16px, or larger when a sticky header is present — most management panels have a ~64px sticky app header, so we default to 80px for management surfaces).
+  4. Scrolls smoothly (`behavior: 'smooth'`, respects `prefers-reduced-motion` by falling back to `'auto'`).
+- Does nothing on collapse (best UX per audit — see "Collapse behavior" below).
+- Does nothing on initial mount when a section starts open (only reacts to actual user-driven toggles).
 
-### 1. Move history-driven sections into the scrollable overview
+### 2. Collapse behavior
 
-In `src/components/management/ApplicationReviewDrawer.tsx`:
+Do **not** auto-scroll on collapse. Rationale: when a user closes a section, they usually want to browse siblings that are now visible above/below; snapping the (now-empty) header to the top would feel jarring and hide the surrounding context. This matches the "recommended" option from the question.
 
-- Keep only the header, tabs, and action footer as fixed (`shrink-0`) siblings of the scroll container.
-- Move these blocks **inside** the `#app-review-print-content` scroll region (rendered under the Overview tab, at the top, before Personal Info):
-  - `RevertedBanner`
-  - `CorrectionRequestStatusCard`
-  - The `revision_requested_at` banner (with `RevisionReplyAttachments` and `RevisionAuditLog`)
-- Keep the action footer (`Reviewer Notes`, Approve / Deny / Send back buttons) as a fixed bottom bar so staff can always act without scrolling.
-- Result: no matter how much correction history accumulates, the Overview scroll region keeps its full height and staff can always scroll down to Personal Info → CDL Info → etc.
+Multiple open sections: per your answer, we always scroll the just-opened section's header to the top, regardless of what else is open.
 
-### 2. Make sure Documents and PEI tabs also get the full height back
+### 3. Files to update (full audit)
 
-Because the correction/revision blocks currently render regardless of active tab, they also shrink Documents and PEI. Moving them into the Overview tab body fixes those tabs automatically. If we still want the correction summary visible on Documents/PEI, render a lightweight collapsed pill in the header row instead of the full card.
+Attach the hook's ref to the outermost wrapper of each collapsible section. No visual changes — behavior only.
 
-### 3. Ensure Print / Download includes CDL and medical card
+**Management dashboard — Driver Hub and related**
+- `src/components/drivers/DriverVaultCard.tsx` — top-level card and per-category sub-groups
+- `src/components/drivers/DriverHubView.tsx` — driver sections
+- `src/components/drivers/DriverRoster.tsx` — expandable driver rows
+- `src/components/management/CorrectionRequestStatusCard.tsx`
+- `src/components/management/RevisionAuditLog.tsx`
+- `src/components/management/ActivityLog.tsx`
+- `src/components/management/NotificationHistory.tsx`
+- `src/components/management/FaqManager.tsx`
+- `src/components/management/PipelineConfigEditor.tsx`
+- `src/components/management/ProposeChangesDrawer.tsx`
+- `src/components/management/StaffApplicationModal.tsx`
+- `src/components/management/SubmittedApplicationSnapshot.tsx`
+- `src/components/management/TruckOwnerCard.tsx`
+- `src/components/management/FormsCatalog.tsx`
+- `src/components/management/ResourceLibraryManager.tsx`
 
-- Confirm `#app-review-print-content` wraps the complete Overview (Personal, Address, CDL, Employment, Driving, Documents summary, Signature) after the restructure, so `handlePrint` produces a PDF containing the CDL number and medical-card expiration date.
-- In the Overview "Documents" section, render the medical certificate and DL front/rear as inline `<img>` thumbnails (using the same `preloadSignatureDataUrl` pattern already used for signatures) so the printed PDF includes the actual images, not just "View" buttons. Buttons stay for on-screen use; images render behind them and are visible in print via a `print:block hidden` / `hidden print:block` pair.
+**Onboarding pipeline (all stages, including Stage 9 Payroll and Procedures)**
+- `src/components/management/OperatorDetailPanel.tsx` — every stage accordion
+- `src/components/operator/ContractorPaySetup.tsx` (Stage 9 sub-sections)
+- `src/components/operator/OnboardingChecklist.tsx`
+- `src/components/operator/PEScreeningTimeline.tsx`
 
-### Files touched
+**Inspection Binder / Compliance**
+- `src/components/inspection/OperatorInspectionBinder.tsx` — the primary case the user called out
+- `src/components/inspection/BinderFlipbook.tsx`
+- `src/components/inspection/InspectionComplianceSummary.tsx`
+- `src/components/inspection/ComplianceAlertsPanel.tsx`
+- `src/components/inspection/DocRow.tsx`
 
-- `src/components/management/ApplicationReviewDrawer.tsx` — restructure JSX; no behavioral changes to approve/deny/revert flows.
-- (Optional) `src/components/management/SubmittedApplicationSnapshot.tsx` — no change needed; already prints CDL + medical card via its own "Print application" button.
+**Vehicle Hub / Equipment / Fleet**
+- `src/components/fleet/FleetDetailDrawer.tsx`
+- `src/components/fleet/FleetRoster.tsx`
+- `src/components/equipment/EquipmentAssetSheet.tsx`
+- `src/components/equipment/EquipmentInventory.tsx`
 
-### Out of scope
+**PEI / Applications**
+- `src/components/pei/PEIQueuePanel.tsx`
+- `src/components/pei/ApplicationPEITab.tsx`
 
-- No database, RLS, or edge-function changes.
-- No changes to the correction/revision workflow itself — only where those components render inside the drawer.
+**Driver-facing (SUPERDRIVE)** — same behavior for consistency
+- `src/components/operator/TruckInfoCard.tsx`
+- `src/components/operator/OperatorStatusPage.tsx`
+- `src/components/operator/OperatorResourcesAndFAQ.tsx`
+- `src/components/operator/DeletedDocumentsTray.tsx`
+- `src/components/operator/SettlementForecast/PastSettlements.tsx`
+- `src/components/documents/DocumentHub.tsx` (category expanders on driver side)
+- `src/pages/dispatch/DispatchPortal.tsx` (any collapsible cards)
+
+For each file: import the hook, call it with the section's `open` state, and attach the returned ref to that section's outer container. No prop or API changes on any component.
+
+### 4. Edge cases handled
+
+- **Sticky headers**: default offset of 80px keeps the section header visible below the app's sticky top bar. Where a panel has its own additional sticky sub-header (e.g. Inspection Binder's driver picker), we pass a larger offset (~128px).
+- **Drawers / modals with internal scroll** (e.g. `ApplicationReviewDrawer`, `FleetDetailDrawer`): the hook auto-detects the nearest scrollable ancestor, so scrolling stays inside the drawer and doesn't jump the page underneath.
+- **Reduced motion**: uses `auto` instead of `smooth` when the user has `prefers-reduced-motion: reduce`.
+- **Timing**: uses `requestAnimationFrame` (double-RAF where content includes async loads / images) so the scroll happens after the expanded content has actually taken its height.
+- **Initial open state**: sections that render already-open on first mount do NOT auto-scroll; only real user toggles trigger the scroll.
+
+### 5. Verification
+
+- Manually test the three called-out cases: Inspection Binder rows, Driver Documents category groups in Driver Hub, and Stage 9 in Onboarding.
+- Spot-check three more surfaces from different areas (Fleet Detail Drawer inside its own scroll container, PEI Queue Panel, and driver-facing Truck Info Card) to confirm both window-scroll and container-scroll paths work.
+- Confirm collapsing a section does not move the page.
+
+## Out of scope
+
+- No changes to what sections default to open vs. collapsed (that was already addressed in prior work).
+- No visual redesign of any collapsible — this is a pure behavior change.
+- No changes to non-collapsible navigation (tabs, route changes) — those already scroll to top on their own where appropriate.

@@ -582,11 +582,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
   const toggleStage = (stageKey: string) => {
+    let wasCollapsed = false;
     setCollapsedStages(prev => {
       const next = new Set(prev);
-      next.has(stageKey) ? next.delete(stageKey) : next.add(stageKey);
+      if (next.has(stageKey)) {
+        wasCollapsed = true;
+        next.delete(stageKey);
+      } else {
+        next.add(stageKey);
+      }
       return next;
     });
+    // When expanding, scroll the section header to the top of the viewport so
+    // the newly-revealed content starts at the visible area (users otherwise
+    // have to scroll up to find where the just-opened section begins).
+    if (wasCollapsed) {
+      const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = stageRefs.current[stageKey];
+          if (!el) return;
+          const top = el.getBoundingClientRect().top + window.scrollY - 80;
+          window.scrollTo({ top: Math.max(0, top), behavior: prefersReduced ? 'auto' : 'smooth' });
+        });
+      });
+    }
   };
 
   const scrollToStage = (stageKey: string) => {

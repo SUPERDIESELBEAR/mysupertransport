@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import ComplianceHistoryModal from './ComplianceHistoryModal';
@@ -100,6 +101,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   // Last-updated map: inspection_doc_id -> { by, at }
   const [lastUpdated, setLastUpdated] = useState<Record<string, { by: string; at: string }>>({});
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const summaryRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
   const [search, setSearch] = useState('');
@@ -1058,8 +1060,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   };
 
   return (
-    <div className={cn(
-      'border rounded-xl shadow-sm overflow-hidden',
+    <div ref={summaryRef} className={cn(
+      'border rounded-xl shadow-sm overflow-hidden scroll-mt-20',
       hasCritical ? 'border-warning/40 bg-warning/[0.03]' : 'border-border bg-card',
     )}>
       {/* ── Header ── */}
