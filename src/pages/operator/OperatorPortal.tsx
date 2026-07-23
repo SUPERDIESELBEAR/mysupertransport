@@ -133,10 +133,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   // "tapped X, ended up on Y" bounces (see the view-mismatch effect below).
   const lastRequestedViewRef = useRef<OperatorView | null>(null);
 
-  // In-app navigation counter. Ref keeps navigateToView's identity stable while
-  // still driving arrow visibility via a mirrored state below.
-  const inAppNavCountRef = useRef(0);
-  const [inAppNavCount, setInAppNavCount] = useState(0);
+  // In-app view stack. Instead of relying on browser history (which can point
+  // outside the portal after a replace-based landing redirect), we track the
+  // sequence of views the driver has visited and pop from it on back.
+  const viewStackRef = useRef<OperatorView[]>([]);
+  const [viewStackLen, setViewStackLen] = useState(0);
 
   // Single navigation entry point for the driver portal. Writes the URL once
   // via React Router; view/binderView update on the next render because they
@@ -174,11 +175,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       renderedTab: target,
       url: window.location.href,
     });
-    navigate(href, { replace: !!options.replace });
     if (!options.replace) {
-      inAppNavCountRef.current += 1;
-      setInAppNavCount(inAppNavCountRef.current);
+      // Push the view we're leaving so goBack can restore it.
+      viewStackRef.current = [...viewStackRef.current, view];
+      setViewStackLen(viewStackRef.current.length);
     }
+    navigate(href, { replace: !!options.replace });
   }, [isPreview, location.pathname, location.search, navigate, view, binderView]);
 
   const navigateWithinOperatorPortal = useCallback((path: string) => {
