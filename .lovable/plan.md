@@ -1,53 +1,55 @@
-## Goal
+## Scope: applies to every driver, not just Steve
 
-When a driver's **decal photos** or **truck photos** are uploaded in any one place (driver-app onboarding, staff editor, vehicle hub), they should automatically appear everywhere they're viewed: Dispatch Board decal icon, Vehicle Hub decal viewer, and Vehicle Hub truck-photo gallery. No manual re-upload, no drift.
+Steve is the reproduction case, but every step below operates on **all** operators. No driver-specific logic, no allowlists. When we're done, any driver with decal photos in Stage 5 will see them in the Dispatch Board modal — and the same treatment covers Vehicle Hub decal and truck-photo viewers.
 
-## What I found
+## What I confirmed
 
-All three viewers already read from the same source of truth on `onboarding_status`:
+Steve Figueroa (operator `2c24ca65…ee109`) has both decal URL columns populated:
+- `decal_photo_ds_url` and `decal_photo_ps_url` are Supabase `/object/sign/...` URLs whose tokens were issued in 2026.
 
-- Decal photos → `decal_photo_ds_url`, `decal_photo_ps_url`, `decal_photos` (jsonb of extra angles)
-- Truck photos → `truck_photo_front_url`, `truck_photo_back_url`, `truck_photo_ds_url`, `truck_photo_ps_url`, `truck_photos_extra` (jsonb)
+So the Dispatch icon is correctly enabled and `DecalPhotoViewerModal` receives both URLs — the failure is downstream (viewer/URL resolution), not row-sync. The prior turn's backfill + trigger already fixed the storage↔column drift class; this is a separate class of failure that also affects other drivers whose columns hold stale/invalid signed tokens.
 
-Both dispatch and vehicle-hub components resolve those paths through the existing `resolveDecalUrl` / truck-photo helpers, so the wiring is fine. The problem is that some uploads land in storage but the follow-up `UPDATE onboarding_status` never persists — so the file exists but the column stays `NULL`, and every downstream view shows nothing.
+## Root cause candidates (verify in this order, against real drivers)
 
-Confirmed drift today:
-- **13** operators have decal files in `operator-documents/{op}/decal_photos/`; only **11** have the URL columns populated. Two drivers (e.g. Matthew Clovis `aa76…0520`) have photos in storage but disabled icons everywhere.
-- The same class of drift exists for truck photos in `operator-documents/{op}/truck_photos/` — I'll audit exact counts as part of the migration.
+1. **Stored `/object/sign/...` URL is no longer honored.** When `resolveDecalUrl` fails to re-sign, it falls back to the original stored URL; if that URL's token is invalid (rotated key, `iat` skew, expired), the `<img>` load 400/403s and the modal shows nothing.
+2. **`FilePreviewModal` misroutes an image URL with `?token=…`** because file-type sniffing keys off the extension after the query string.
+3. **The storage object is actually missing** for that operator.
 
-## Fix (three parts, applied to both decal and truck photos)
+## Fix plan (all drivers)
 
-### 1. One-time backfill migration
+### Step 1 — Reproduce and capture the real failure
 
-For every operator whose `operator-documents/{op}/decal_photos/` or `truck_photos/` folder contains files but whose matching columns are `NULL`, populate them from the newest object of each side/angle. Store the bare storage path — resolvers already re-sign at read time. Extra files beyond the named slots get appended into the corresponding jsonb array so nothing is dropped.
+Sign in as a dispatcher via Playwright, open Steve's card, click Decals, and capture the final `<img>` src, network status, and any `resolveDecalUrl` errors. Then repeat on one more driver whose columns are also `/object/sign/...` URLs to confirm the same failure mode.
 
-Rows that already have values are left alone.
+### Step 2 — Harden the viewer for every driver
 
-### 2. Auto-sync trigger going forward
+Applied globally:
+- **Surface storage errors** in `resolveDecalUrl` instead of silently returning the stale URL. If re-signing succeeds, use the fresh URL; if it fails **and** the stored URL is a Supabase signed URL, treat the tile as "photo unavailable" rather than rendering a broken image.
+- **Fix image detection** in `FilePreviewModal` so any `.jpg/.jpeg/.png/.heic/.webp` path renders as `<img>` regardless of trailing `?token=…`.
+- **Missing-object state**: when the storage object doesn't exist, show a clear "File missing — re-upload from Stage 5" tile.
 
-Add an `AFTER INSERT` trigger on `storage.objects` scoped to `bucket_id = 'operator-documents'` that:
+These changes apply to every render of `DecalPhotoViewerModal` and `DecalPhotosQuickView` — Dispatch Board and Vehicle Hub both consume them.
 
-- On `<uuid>/decal_photos/(ds|ps)_...` → upserts the path into the matching `decal_photo_*_url`.
-- On any other `<uuid>/decal_photos/...` → appends into `decal_photos` jsonb.
-- On `<uuid>/truck_photos/(front|back|ds|ps)_...` → upserts the path into the matching `truck_photo_*_url`.
-- On any other `<uuid>/truck_photos/...` → appends into `truck_photos_extra` jsonb.
+### Step 3 — One-shot data normalization for every driver
 
-`SECURITY DEFINER`, with a session flag so the update bypasses the operator whitelist guard. Realtime subscriptions on `onboarding_status` already re-render Dispatch and Vehicle Hub, so the icon flips on without a manual refresh.
+Migration that rewrites, for **all** rows in `onboarding_status`:
+- `decal_photo_ds_url`, `decal_photo_ps_url`, and each `decal_photos[].url`
+- `truck_photo_front_url`, `_back_url`, `_ds_url`, `_ps_url`, and each `truck_photos_extra[].url`
 
-### 3. Harden the uploaders (small client change)
+…from any `/object/sign/{bucket}/{path}` (or `/object/public/{bucket}/{path}`) form back to the bare storage path (`{operator_id}/decal_photos/{file}` or `{operator_id}/truck_photos/{file}`). The resolver already handles bare paths and mints a fresh signed URL at read time, so this permanently removes the "stale signed token" failure mode for every driver, everywhere the columns are read.
 
-In `OperatorDocumentUpload.tsx` and `StaffDecalPhotoEditor.tsx` (and the truck-photo equivalents), verify the `onboarding_status` update succeeded and surface a toast on failure instead of swallowing it. Prevents future silent drift while the trigger above catches anything that still slips through.
+Rows already storing a bare path are left alone. The auto-sync trigger from the previous turn already writes bare paths going forward.
 
-## Verification
+### Step 4 — Verify across drivers, not just Steve
 
-- Re-run the audit query: 0 operators where storage has decal or truck files but columns are null.
-- Matthew Clovis (`aa76…0520`) and the second known driver show enabled decal icons on Dispatch and photos in the Vehicle Hub decal viewer.
-- Upload a new truck photo via the driver app on a fresh operator → the Vehicle Hub gallery updates without a page refresh (trigger + existing realtime).
-- Same test for a new decal upload → Dispatch icon enables automatically.
+- Query: count operators whose decal or truck URL columns still contain `object/sign` or `object/public` → must be `0` after Step 3.
+- Steve: Dispatch Decals → both photos render; Vehicle Hub → Decals → same; Vehicle Hub → Truck Photos → Stage 2 uploads render.
+- Two additional drivers picked at random from the set that Step 3 rewrote: same three checks pass.
+- One driver with **no** decal photos: Dispatch icon still disabled (no regression).
+- One driver whose Stage 5 upload happens **after** the fix ships: photos appear in Dispatch and Vehicle Hub without a manual refresh (trigger + realtime).
 
 ## Technical details
 
-- Migration: backfill CTEs selecting latest object per side/angle per operator from `storage.objects`, `UPDATE onboarding_status` conditionally.
-- Trigger function: `public.sync_photos_from_storage()`, one function branching on the folder name. Guarded by regex on `NEW.name`.
-- No changes to Dispatch board wiring, `DecalPhotoViewerModal`, truck-photo viewer, `FleetRoster`, or `OperatorDetailPanel` — they already consume the same columns.
-- No RLS or grant changes; trigger runs as definer.
+- Files touched: `src/lib/decalUrl.ts` (loud errors, prefer bare path), `src/components/fleet/DecalPhotoViewerModal.tsx` and `src/components/dispatch/DecalPhotosQuickView.tsx` (missing-file state), `src/components/inspection/DocRow.tsx` (`FilePreviewModal` image detection).
+- One migration to normalize `onboarding_status` URL columns to bare storage paths (decal + truck).
+- No changes to Dispatch card gating (`hasDecals`), the upload writers, or the sync trigger — they already work universally.
