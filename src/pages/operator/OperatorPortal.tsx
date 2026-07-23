@@ -237,24 +237,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button ────────────────────────────────────────────────────
-  // Uses the browser's real history (React Router already pushes URLs via
-  // navigateToView) so the header arrow behaves exactly like the phone's
-  // hardware back. `inAppNavCount` gates arrow visibility so it never
-  // appears stale on first entry into the portal.
-  const goBack = useCallback(() => {
-    if (inAppNavCount === 0) return;
-    inAppNavCountRef.current = Math.max(0, inAppNavCountRef.current - 1);
-    setInAppNavCount(inAppNavCountRef.current);
-    navigate(-1);
-  }, [inAppNavCount, navigate]);
-  useEffect(() => {
-    if (inAppNavCount === 0) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') goBack();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [inAppNavCount, goBack]);
+  // Deterministic back navigation via an in-memory view stack. This avoids
+  // exiting the portal when the browser history's previous entry lives
+  // outside /operator (e.g. after a replace-based landing redirect).
+  // Defined after `homeBaseView` below so we can fall back to Home/Progress.
   // Browser/hardware back is handled by the URL history naturally. Avoid
   // pushState interception here because it can race against tab navigation.
   // Empty driver URLs are normalized below after onboarding status loads.
