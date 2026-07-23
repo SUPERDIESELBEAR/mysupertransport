@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { differenceInDays, parseISO } from 'date-fns';
 import {
   Plus, Pencil, Trash2, GripVertical,
@@ -43,14 +43,16 @@ import LibraryAnalytics from './LibraryAnalytics';
 import ResourceTypeBadge from './ResourceTypeBadge';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
+import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 
 // ─── Sortable Service Row wrapper ────────────────────────────────────────────
 
 interface SortableServiceRowProps extends ServiceRowProps {
   isDragOverlay?: boolean;
+  rowRef?: (node: HTMLDivElement | null) => void;
 }
 
-function SortableServiceRow(props: SortableServiceRowProps) {
+function SortableServiceRow({ rowRef, ...props }: SortableServiceRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: props.service.id,
   });
@@ -64,7 +66,7 @@ function SortableServiceRow(props: SortableServiceRowProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={(node) => { setNodeRef(node); rowRef?.(node); }} style={style}>
       <ServiceRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
     </div>
   );
@@ -108,6 +110,7 @@ export default function ServiceLibraryManager() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedService, setExpandedService] = useState<string | null>(null);
+  const serviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [serviceResources, setServiceResources] = useState<Record<string, ServiceResource[]>>({});
   const [loadingResources, setLoadingResources] = useState<Set<string>>(new Set());
 
@@ -153,6 +156,9 @@ export default function ServiceLibraryManager() {
       setExpandedService(null);
     } else {
       setExpandedService(serviceId);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollElementIntoViewWithOffset(serviceRefs.current[serviceId]));
+      });
       if (!serviceResources[serviceId]) fetchResources(serviceId);
     }
   };
@@ -413,6 +419,7 @@ export default function ServiceLibraryManager() {
                   {services.map(service => (
                     <SortableServiceRow
                       key={service.id}
+                      rowRef={node => { serviceRefs.current[service.id] = node; }}
                       service={service}
                       expanded={expandedService === service.id}
                       resources={serviceResources[service.id] ?? []}
