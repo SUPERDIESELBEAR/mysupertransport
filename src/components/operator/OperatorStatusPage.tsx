@@ -496,7 +496,21 @@ export default function OperatorStatusPage({
     />
     {/* ── MOBILE: Checklist view (< md) ── */}
     <div className="md:hidden -mx-4 -mt-6 -mb-6">
-      {/* Pass banners first, then checklist */}
+      <OnboardingChecklist
+        stages={stages}
+        isFullyOnboarded={isFullyOnboarded}
+        progressPct={progressPct}
+        completedStages={completedStages}
+        onboardingStatus={onboardingStatus}
+        onNavigateTo={onNavigateTo}
+        displayName={displayName}
+        operatorId={operatorId}
+        uploadedDocs={uploadedDocs}
+        onUploadComplete={onUploadComplete}
+        unackedRequiredDocs={unackedRequiredDocs}
+        assignedCoordinator={assignedCoordinator}
+        onMessageCoordinator={onMessageCoordinator}
+      />
       {showCriticalBanner && (
         <div className="mx-4 mt-4">
           <div
@@ -629,21 +643,6 @@ export default function OperatorStatusPage({
           </div>
         </div>
       )}
-      <OnboardingChecklist
-        stages={stages}
-        isFullyOnboarded={isFullyOnboarded}
-        progressPct={progressPct}
-        completedStages={completedStages}
-        onboardingStatus={onboardingStatus}
-        onNavigateTo={onNavigateTo}
-        displayName={displayName}
-        operatorId={operatorId}
-        uploadedDocs={uploadedDocs}
-        onUploadComplete={onUploadComplete}
-        unackedRequiredDocs={unackedRequiredDocs}
-        assignedCoordinator={assignedCoordinator}
-        onMessageCoordinator={onMessageCoordinator}
-      />
     </div>
 
     {/* ── DESKTOP: Original timeline view (≥ md) ── */}
