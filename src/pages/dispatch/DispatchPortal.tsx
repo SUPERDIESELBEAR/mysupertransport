@@ -240,9 +240,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     psUrl: string | null;
     extras: DecalPhotoExtra[];
   } | null>(null);
-  useEffect(() => {
-    console.debug('[decals] target', decalTarget?.name ?? null);
-  }, [decalTarget]);
   // Excluded-from-dispatch tracking
   const [excludedRows, setExcludedRows] = useState<Array<{
     operator_id: string;
@@ -1861,11 +1858,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             size="sm"
                             disabled={!hasDecals}
                             onClick={() => {
-                              console.debug('[decals] click', row.operator_id, {
-                                ds: !!row.decal_photo_ds_url,
-                                ps: !!row.decal_photo_ps_url,
-                                extras: row.decal_photos.length,
-                              });
                               setDecalTarget({
                                 name: fullName,
                                 dsUrl: row.decal_photo_ds_url,
@@ -2350,7 +2342,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     </div>
   );
 
-  if (embedded) return board;
+  const decalModal = decalTarget && (
+    <DecalPhotoViewerModal
+      open
+      onClose={() => setDecalTarget(null)}
+      driverName={decalTarget.name ?? ''}
+      decalPhotoDsUrl={decalTarget.dsUrl ?? null}
+      decalPhotoPsUrl={decalTarget.psUrl ?? null}
+      decalPhotosExtra={decalTarget.extras ?? []}
+    />
+  );
+
+  if (embedded) return <>{board}{decalModal}</>;
 
   const navItems = [
     { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
