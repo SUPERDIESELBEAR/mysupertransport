@@ -71,9 +71,12 @@ export async function resolveDecalUrl(storedUrl: string | null | undefined): Pro
 
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
   if (error || !data?.signedUrl) {
-    // Re-signing failed (permission, transient, etc). Fall back to the stored URL —
-    // many of our older records are long-lived signed URLs that still work directly.
-    return storedUrl;
+    // Re-signing failed (permission, transient, missing object).
+    console.warn('[resolveDecalUrl] failed to sign', path, error);
+    // If the stored value is a bare path we can't render it directly — return null
+    // so the caller shows a "photo unavailable" tile instead of a broken image.
+    const isBarePath = !/^https?:/i.test(storedUrl.trim());
+    return isBarePath ? null : storedUrl;
   }
   return data.signedUrl;
 }

@@ -35,11 +35,9 @@ async function uploadDecalFile(operatorId: string, slot: string, file: File): Pr
     .from('operator-documents')
     .upload(path, file, { upsert: false });
   if (uploadErr) throw uploadErr;
-  const { data: signed } = await supabase.storage
-    .from('operator-documents')
-    .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-  const { data: pub } = supabase.storage.from('operator-documents').getPublicUrl(path);
-  return signed?.signedUrl ?? pub?.publicUrl ?? '';
+  // Store the bare storage path — viewers mint a fresh signed URL on read
+  // so links never expire.
+  return path;
 }
 
 export default function StaffDecalPhotoEditor({
