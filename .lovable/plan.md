@@ -1,21 +1,20 @@
-# Fuse Onboarding Progress Banner to Header
+# Reset scroll to top on every driver-app view change
 
 ## Problem
-The banner in `src/components/operator/OnboardingChecklist.tsx` (line 356) uses `sticky top-16 z-30` with `bg-surface-dark` and `shadow-lg`. It pins as a second dark strip below the black header, with page content visible both above and below it — so it reads as an orphaned floating bar instead of an extension of the header.
+In `OperatorPortal.tsx`, the bottom nav and hamburger menu swap the visible view (Home, Binder, Messages, Doc Hub, Dispatch, etc.) by updating internal state and the `?tab=` query — the underlying route doesn't change. Because the window keeps its scroll position across those swaps, tapping a new nav item lands the user wherever the previous view was scrolled to. Navigating back to a previously visited view has the same problem.
 
 ## Fix
-Make the header and progress banner behave as a single pinned unit.
+Force scroll to the top of the window (and any scroll container the view renders into) every time the active view changes.
 
-1. **Remove the shadow and border-bottom** on the progress banner so there is no visual seam between it and the header above it.
-2. **Match the header's bottom edge exactly** — the header is `h-16` on mobile, `md:h-20` on desktop, but the banner is hard-coded to `top-16`. Change it to `top-16 md:top-20` so it sits flush under the header at every breakpoint (this alone removes the desktop gap).
-3. **Add a shared shadow to the fused unit** by moving `shadow-lg` off the banner and onto the outer sticky wrapper, so header + banner cast one drop shadow onto the scrolling content beneath.
-4. **Tighten the top padding** on the banner (`pt-3` → `pt-2`) so the "ONBOARDING PROGRESS" label sits tight against the header edge rather than floating in space.
-5. **Keep the mini stage dots and progress bar** unchanged in position/content — only the framing changes.
+1. In `src/pages/operator/OperatorPortal.tsx`, add a `useEffect` keyed on the active view identifier (the same value the nav/hamburger writes) that runs on every change and calls `window.scrollTo({ top: 0, left: 0, behavior: 'auto' })`. Use `'auto'` (instant) so nav feels snappy, not smooth-scrolled.
+2. Also reset any inner scroll container the portal owns (the main `<main>` / content wrapper) by giving it a ref and setting `ref.current.scrollTop = 0` in the same effect — this covers the case where the page itself doesn't scroll but a nested container does.
+3. Run the reset regardless of whether the user is navigating forward to a new view or back to a previously visited one — the effect fires on any view change, so both directions are covered.
+4. Respect the existing `navigateToView` flow already used to route reliably; the scroll reset hooks off the resolved view value, so it runs after the view actually renders.
 
-## Result
-- Header + progress banner appear as one continuous black surface pinned to the top.
-- No visible gap or seam between them at any breakpoint.
-- Content scrolls cleanly beneath the fused unit with a single shadow line, so the "part above / part below" overlap the user reported disappears.
+## Out of scope
+- No changes to the staff/management dashboards — the user's request is scoped to the front-facing driver app.
+- No changes to browser back-button behavior beyond scroll: React Router still handles the history entry; only the scroll position is normalized.
+- Modals, drawers, and popovers are unaffected — this only fires on top-level view changes.
 
-## Files
-- `src/components/operator/OnboardingChecklist.tsx` — banner sticky container class updates only. No logic, no layout of the surrounding page.
+## File
+- `src/pages/operator/OperatorPortal.tsx` — add the ref, effect, and attach the ref to the main content wrapper. No other files touched.
