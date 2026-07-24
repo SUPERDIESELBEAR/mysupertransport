@@ -135,8 +135,7 @@ export default function NotifySafetyAdvisorDialog({
   return (
     <Dialog open={open} onOpenChange={() => { /* mandatory: no dismiss */ }}>
       <DialogContent
-        className="max-w-lg max-h-[90dvh] overflow-y-auto"
-        showCloseButton={false}
+        className="max-w-lg max-h-[90dvh] overflow-y-auto [&>button.absolute]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
