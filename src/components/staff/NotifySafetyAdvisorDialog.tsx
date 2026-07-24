@@ -137,12 +137,8 @@ export default function NotifySafetyAdvisorDialog({
       // Only clear the "notification required" banner when Tracey actually received the email.
       if (data?.tracey_included && data?.notified_at) {
         onSent(data.notified_at);
-      } else if (!data?.tracey_included) {
-        toast({
-          title: 'Test send only',
-          description: 'Tracey was not included, so the notification-required banner will stay until the real send.',
-        });
       }
+
     } catch (err: any) {
       const msg = err?.message ?? String(err);
       setError(msg);
@@ -375,7 +371,8 @@ export default function NotifySafetyAdvisorDialog({
           >
             {sending
               ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
-              : <><Send className="h-4 w-4" /> Send Email{toEmails.length > 1 ? ` (${toEmails.length} recipients)` : toEmails.length === 1 ? (toEmails[0] === RECIPIENT_EMAIL ? ` to ${RECIPIENT_NAME}` : ` to ${toEmails[0]}`) : ''}</>}
+              : <><Send className="h-4 w-4" /> Send Deactivation Notice</>}
+
           </Button>
         </div>
       </DialogContent>
