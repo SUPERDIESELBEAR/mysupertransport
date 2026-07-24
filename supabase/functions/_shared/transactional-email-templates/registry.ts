@@ -14,6 +14,7 @@ import { template as peiRequestFollowUp } from './pei-request-follow-up.tsx'
 import { template as peiRequestFinalNotice } from './pei-request-final-notice.tsx'
 import { template as equipmentReturnInstructions } from './equipment-return-instructions.tsx'
 import { template as passengerAuthRequest } from './passenger-auth-request.tsx'
+import { template as osasSignRequest } from './osas-sign-request.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'pei-request-initial': peiRequestInitial,
@@ -21,4 +22,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'pei-request-final-notice': peiRequestFinalNotice,
   'equipment-return-instructions': equipmentReturnInstructions,
   'passenger-auth-request': passengerAuthRequest,
+  'osas-sign-request': osasSignRequest,
 }
