@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ImageOff } from 'lucide-react';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 
@@ -77,8 +78,8 @@ export default function TruckPhotoViewerModal({ open, onClose, driverName, files
   if (!open) return null;
 
   if (tiles.length === 0) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-black" onClick={onClose}>
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex flex-col bg-black" onClick={onClose}>
         <div
           className="flex items-center gap-2 px-4 py-3 bg-surface-dark border-b border-surface-dark-border"
           onClick={(e) => e.stopPropagation()}
@@ -102,7 +103,8 @@ export default function TruckPhotoViewerModal({ open, onClose, driverName, files
           <ImageOff className="h-8 w-8 opacity-60" />
           No truck photos uploaded yet.
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
