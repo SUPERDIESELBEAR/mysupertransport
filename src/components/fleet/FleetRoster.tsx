@@ -10,7 +10,7 @@ import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
 import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
 import LogUpdateModal from './LogUpdateModal';
-import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
+import TruckPhotoViewerModal from '@/components/fleet/TruckPhotoViewerModal';
 import DecalPhotoViewerModal from './DecalPhotoViewerModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -659,11 +659,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         />
       )}
       {truckPhotoTarget && (
-        <TruckPhotoGridModal
+        <TruckPhotoViewerModal
           open={!!truckPhotoTarget}
           onClose={() => setTruckPhotoTarget(null)}
+          driverName={truckPhotoTarget.driverName}
           files={truckPhotoTarget.truckPhotos}
-          alreadyReceived
         />
       )}
       {decalPhotoTarget && (
