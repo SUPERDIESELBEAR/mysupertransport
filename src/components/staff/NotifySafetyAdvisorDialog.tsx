@@ -52,6 +52,7 @@ export default function NotifySafetyAdvisorDialog({
   const [toEmails, setToEmails] = useState<string[]>([]);
   const [toInput, setToInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [sentAndClosing, setSentAndClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
 
@@ -66,6 +67,7 @@ export default function NotifySafetyAdvisorDialog({
     setNotes(initialNotes);
     setError(null);
     setSending(false);
+    setSentAndClosing(false);
     setCcInput('');
     setToInput('');
     setInputError(null);
@@ -130,6 +132,7 @@ export default function NotifySafetyAdvisorDialog({
 
       const primary = toEmails[0] === RECIPIENT_EMAIL ? RECIPIENT_NAME : toEmails[0];
       const extras = toEmails.length - 1;
+      setSentAndClosing(true);
       toast({
         title: 'Deactivation email sent',
         description: `Sent to ${primary}${extras > 0 ? ` and ${extras} other${extras === 1 ? '' : 's'}` : ''}${ccEmails.length ? `, ${ccEmails.length} CC${ccEmails.length === 1 ? '' : 's'}` : ''}.`,
@@ -146,6 +149,8 @@ export default function NotifySafetyAdvisorDialog({
       setSending(false);
     }
   };
+
+  if (sentAndClosing) return null;
 
   return (
     <Dialog open={open} onOpenChange={() => { /* mandatory: no dismiss */ }}>

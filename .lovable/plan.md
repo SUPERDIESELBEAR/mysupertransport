@@ -1,15 +1,16 @@
-## Problem
-After the deactivation notice sends successfully, the mandatory Safety Advisor dialog stays open. `NotifySafetyAdvisorDialog` only calls `onSent` when Tracey is in the recipient list, and the parent only closes the dialog inside that `onSent` callback — so any send that omits Tracey (test send or intentional custom recipients) leaves the modal stuck on screen.
+## Plan
 
-## Fix
-Always close the dialog after a successful send; only stamp `safety_advisor_notified_at` when Tracey received it.
+1. **Make the modal close immediately on successful send**
+   - In `NotifySafetyAdvisorDialog`, add a local `sentAndClosing` guard that renders nothing after the email function returns success.
+   - Set that guard before showing the success toast so the blocking modal disappears right away, even if the parent state update is delayed.
 
-1. **`src/components/staff/NotifySafetyAdvisorDialog.tsx`**
-   - Change the `onSent` prop signature to `(notifiedAt: string | null) => void` and always invoke it on a successful send. Pass `data.notified_at` when `data.tracey_included` is true, otherwise `null`.
+2. **Keep the parent state in sync**
+   - Keep calling `onSent(...)` after success so `OperatorDetailPanel` still updates `safetyAdvisorNotifiedAt` when Tracey is included and still sets `showNotifyAdvisorDialog(false)`.
+   - Preserve the current rule: if Tracey is not included, the popup closes but the red “Safety Advisor notification required” banner remains available for a later send.
 
-2. **`src/pages/staff/OperatorDetailPanel.tsx`** (both `NotifySafetyAdvisorDialog` call sites, ~line 4129 and ~line 7136)
-   - Update the `onSent` handler to:
-     - Always call `setShowNotifyAdvisorDialog(false)` and set `autoNotifyPromptedRef.current = true`.
-     - Only call `setSafetyAdvisorNotifiedAt(sentAt)` when `sentAt` is non-null (so the red "notification required" banner still shows on test sends without Tracey).
+3. **Prevent stale reopen behavior**
+   - Reset the local close guard whenever the dialog opens for a new driver or a new send attempt.
+   - Keep outside-click and Escape disabled so staff cannot dismiss the notice manually before sending.
 
-No changes to the edge function, toast copy, or button label.
+4. **Verify the fix**
+   - Run a targeted check that the gold **Send Deactivation Notice** button no longer leaves the modal overlay on screen after a successful send path.
