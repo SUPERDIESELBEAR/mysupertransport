@@ -114,9 +114,9 @@ export const STAFF_HELP_INDEX: HelpEntry[] = [
     surface: 'management',
     route: '/dashboard?view=pipeline',
     breadcrumb: 'Pipeline → Stage 5',
-    keywords: ['stage 5', 'equipment', 'decal', 'eld', 'fuel card', 'truck photos', 'dash cam', 'equipment asset sheet', 'verified by staff', 'bestpass'],
+    keywords: ['stage 5', 'equipment', 'decal', 'eld', 'fuel card', 'truck photos', 'dash cam', 'onboard systems assignment sheet', 'osas', 'verified by staff', 'bestpass'],
     audience: ALL_STAFF,
-    steps: ['Open the driver in Onboarding Pipeline.', 'Expand Stage 5 — Equipment.', 'Verify equipment assignment on the Equipment Asset Sheet.', 'Confirm truck photos and decal are uploaded.'],
+    steps: ['Open the driver in Onboarding Pipeline.', 'Expand Stage 5 — Equipment.', 'Verify equipment assignment on the Onboard Systems Assignment Sheet (OSAS).', 'Confirm truck photos and decal are uploaded.'],
   },
   {
     id: 'stage-6-pe-screening',
@@ -925,7 +925,7 @@ export const SUGGESTION_POOL: Record<AppRole | 'generic', string[]> = {
     'How do I review Stage 5 equipment?',
     'How do I email Tracey McQuilken?',
     'How do I revert an application?',
-    'How do I verify the Equipment Asset Sheet?',
+    'How do I verify the Onboard Systems Assignment Sheet (OSAS)?',
   ],
   dispatcher: [
     'How do I use the Dispatch Board?',

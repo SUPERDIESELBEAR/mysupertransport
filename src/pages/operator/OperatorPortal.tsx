@@ -35,7 +35,7 @@ import EditProfileModal from '@/components/EditProfileModal';
 const OperatorInspectionBinder = lazy(() => import('@/components/inspection/OperatorInspectionBinder'));
 const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
-import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
+import OperatorReturnReceipts from '@/components/operator/OperatorReturnReceipts';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
@@ -288,7 +288,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [view]);
-  // If a notification deep-links to the Equipment Asset Sheet, scroll it into
+  // If a notification deep-links to the return receipts block, scroll it into
   // view once the My Truck page has mounted its content.
   useEffect(() => {
     if (view !== 'my-truck') return;
@@ -1782,16 +1782,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               shippingInfo={equipmentShipping}
             />
 
-            {/* ── EQUIPMENT ASSET SHEET (Driver signature + shipping receipts) ── */}
+            {/* ── RETURN RECEIPTS (legacy equipment asset sheet signing now handled via OSAS) ── */}
             {operatorId && (
-              <div id="equipment-asset-sheet-anchor" className="scroll-mt-24">
-                <EquipmentAssetSheet
-                  mode="driver"
-                  operatorId={operatorId}
-                  status={onboardingStatus as Record<string, any>}
-                  onStatusRefresh={fetchData}
-                />
-              </div>
+              <OperatorReturnReceipts
+                operatorId={operatorId}
+                status={onboardingStatus as Record<string, any>}
+              />
             )}
 
             {/* ── CONTACT SECTION ── */}

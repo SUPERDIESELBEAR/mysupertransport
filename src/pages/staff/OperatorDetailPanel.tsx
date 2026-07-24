@@ -3682,7 +3682,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           onTruckEdit={handleTruckInfoEdit}
         />
       </div>
-      {/* ── Equipment Asset Sheet (management) ── */}
+      {/* ── Onboard Systems Assignment Sheet (OSAS) / legacy equipment asset sheet (management) ── */}
       <div style={isQuickView ? { order: 6 } : undefined}>
         <EquipmentAssetSheet
           mode="management"
