@@ -525,60 +525,17 @@ export default function EquipmentAssetSheet({
             )}
           </div>
         ) : mode === 'driver' && !readOnly ? (
-          <div className="space-y-3">
-            {!allAssignedVerified ? (
-              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
-                <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>
-                  Staff is still verifying your equipment ({unverifiedLines.map(l => l.label).join(', ')}). You'll be able to sign once verification is complete.
-                </span>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                I acknowledge receipt of the equipment listed above. The signed date will be applied automatically.
-              </p>
-            )}
-            <div className="space-y-1">
-              <Label htmlFor="eld-typed-name" className="text-xs">Type your full name</Label>
-              <Input
-                id="eld-typed-name"
-                value={typedName}
-                onChange={e => setTypedName(e.target.value)}
-                placeholder="First Last"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Sign with your finger</Label>
-              <div className="rounded border border-border bg-white touch-none">
-                <SignatureCanvas
-                  ref={sigRef}
-                  canvasProps={{ className: 'w-full h-32' }}
-                  onEnd={() => setHasDrawn(true)}
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => { sigRef.current?.clear(); setHasDrawn(false); }}
-                >
-                  Clear
-                </Button>
-              </div>
-            </div>
-            <Button
-              onClick={handleExecute}
-              disabled={signing || !typedName.trim() || !hasDrawn || !allAssignedVerified}
-              className="w-full h-11 bg-primary text-primary-foreground font-semibold gap-2"
-            >
-              {signing ? <><Loader2 className="h-4 w-4 animate-spin" /> Executing…</> : <><CheckCircle2 className="h-4 w-4" /> Execute</>}
-            </Button>
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-3 text-xs text-foreground space-y-1">
+            <p className="font-medium">
+              Signing has moved to the Onboard Systems Assignment Sheet (OSAS).
+            </p>
+            <p className="text-muted-foreground">
+              When staff sends your assignment sheet you'll receive an email link and a card on your dashboard to review and sign your devices.
+            </p>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground italic">
-            Waiting on the driver to sign.
+            Signing now happens on the Onboard Systems Assignment Sheet (OSAS).
           </p>
         )}
       </div>
