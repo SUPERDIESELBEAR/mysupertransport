@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Image as ImageIcon } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
@@ -501,7 +501,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
-                        <ImageIcon className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
+                        <Badge className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
                       </div>
                       <div className="text-xs min-w-0">
                         <div className="font-medium text-foreground">Decal</div>
