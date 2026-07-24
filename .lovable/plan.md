@@ -1,18 +1,15 @@
-## Fix: pre-fill the sender's email as a CC chip alongside the owner
+## Fix the "Test send only" popup and rename the send button
 
-**Problem**
-When the Notify Safety Advisor dialog opens, the CC row should show two pre-filled chips: **Marcus Mueller (owner, locked)** and **the signed-in staff member** (removable). Right now only the owner chip appears.
+### Problem
+After sending a deactivation notice without Tracey in the **To** list, a secondary toast pops up saying *"Tracey was not included, so the notification-required banner will stay until the real send."* The user wants the send to complete cleanly without that extra popup, regardless of whether Tracey is a recipient.
 
-**Root cause (to confirm on open)**
-The current effect pre-fills CC from `session.user.email`. Two things can suppress the sender chip:
-1. `session` isn't hydrated yet when the effect runs, so `senderEmail` is `''` and the `EMAIL_RE.test` check drops it.
-2. When the signed-in staff member *is* Marcus, the `Set` dedupes owner + sender into a single chip — which is correct, but reads as "sender missing" if you're logged in as Marcus.
+### Changes
 
-**Changes** — `src/components/staff/NotifySafetyAdvisorDialog.tsx` only
+**`src/components/staff/NotifySafetyAdvisorDialog.tsx`**
+- Remove the secondary `toast({ title: 'Test send only', ... })` block in `handleSend`. Only the primary "Deactivation email sent" toast will show.
+- Keep the existing banner-clear logic unchanged: `onSent(data.notified_at)` still fires only when `data.tracey_included === true`, so the red "Safety Advisor notification required" banner on the driver profile still persists until Tracey actually receives the notice. This preserves the compliance guardrail silently.
+- Rename the gold send button from `Send Email to <recipient>` to **Send Deactivation Notice**. The recipient list is already visible in the chips directly above the button, so repeating the address in the label is redundant; naming the action keeps the label correct for any recipient (Tracey, the owner, or a test address).
 
-1. Re-run the CC pre-fill when `session?.user?.email` becomes available (add it to the effect deps), not only on `open` / `operatorId`. This fixes the "session not ready on first open" case.
-2. Keep owner locked; add sender as a separate removable chip. If sender === owner, keep just the owner chip (already correct behavior — no change needed, but note it in the helper text).
-3. Small helper-text tweak under the CC label so staff know both are pre-filled:
-   *"Marcus Mueller (owner) and you are pre-filled. The owner can't be removed."*
-
-No edge function or backend changes. No behavior change to the To field, banner, or send flow.
+### Out of scope
+- No change to the edge function, banner logic, or CC rules.
+- No change to who receives the email or when the banner clears.
