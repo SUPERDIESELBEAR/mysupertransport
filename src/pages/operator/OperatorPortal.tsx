@@ -28,6 +28,7 @@ const OperatorStatusPage = lazy(() => import('@/components/operator/OperatorStat
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
+import OperatorOSASSign from '@/components/operator/OperatorOSASSign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
@@ -1869,20 +1870,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── ONBOARD SYSTEMS (OSAS) VIEW ── */}
         {view === 'onboard-systems' && (
-          <div className="space-y-4 animate-fade-in">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                <HardDrive className="h-5 w-5 text-primary" />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-foreground">My Onboard Systems</h2>
-                <p className="text-xs text-muted-foreground">Review and sign your device assignment sheet.</p>
-              </div>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-              The signing flow for your Onboard Systems Assignment Sheet is coming soon. Please use the link from your email to return here once it is available.
-            </div>
-          </div>
+          <OperatorOSASSign
+            onBack={() => navigateToView('progress')}
+            onComplete={() => { fetchData(); }}
+          />
         )}
 
         {/* ── ICA SIGN VIEW ── */}
