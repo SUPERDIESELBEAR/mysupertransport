@@ -12,6 +12,7 @@ import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate, f
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useIsMobile } from '@/hooks/use-mobile';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
@@ -512,8 +513,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-black" onClick={onClose}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 min-w-0">
@@ -791,7 +792,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           </Suspense>
         </EditorErrorBoundary>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
