@@ -70,8 +70,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [logUpdateTarget, setLogUpdateTarget] = useState<FleetRow | null>(null);
   const [truckPhotoTarget, setTruckPhotoTarget] = useState<FleetRow | null>(null);
   const [decalPhotoTarget, setDecalPhotoTarget] = useState<FleetRow | null>(null);
-  // Signed thumbnails keyed by operatorId: { truck, decal }
-  const [thumbUrls, setThumbUrls] = useState<Record<string, { truck?: string; decal?: string }>>({});
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
   const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
@@ -215,46 +213,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   }, [buildRows]);
 
   useEffect(() => { fetchFleet(); }, [fetchFleet]);
-
-  // Build fresh signed thumbnail URLs (truck-first + decal driver-side) whenever rows change.
-  useEffect(() => {
-    const all = [...activeRows, ...deactivatedRows];
-    if (all.length === 0) { setThumbUrls({}); return; }
-    let cancelled = false;
-
-    const extractPath = (fileUrl: string): string => {
-      const marker = '/operator-documents/';
-      const idx = fileUrl.indexOf(marker);
-      if (idx >= 0) return decodeURIComponent(fileUrl.substring(idx + marker.length).split('?')[0]);
-      return fileUrl.replace(/^\//, '');
-    };
-    const sign = async (raw: string | null | undefined): Promise<string | undefined> => {
-      if (!raw) return undefined;
-      try {
-        const { data } = await supabase.storage
-          .from('operator-documents')
-          .createSignedUrl(extractPath(raw), 3600);
-        return data?.signedUrl ?? undefined;
-      } catch {
-        return undefined;
-      }
-    };
-
-    (async () => {
-      const entries = await Promise.all(
-        all.map(async r => {
-          const [truck, decal] = await Promise.all([
-            sign(r.truckPhotos[0]?.file_url ?? null),
-            sign(r.decalPhotoDsUrl ?? r.decalPhotoPsUrl ?? r.decalPhotosExtra[0]?.url ?? null),
-          ]);
-          return [r.operatorId, { truck, decal }] as const;
-        }),
-      );
-      if (!cancelled) setThumbUrls(Object.fromEntries(entries));
-    })();
-
-    return () => { cancelled = true; };
-  }, [activeRows, deactivatedRows]);
 
   const rows = showDeactivated ? deactivatedRows : activeRows;
 
@@ -514,7 +472,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
               {(() => {
                 const truckCount = row.truckPhotos.length;
                 const decalCount = (row.decalPhotoDsUrl ? 1 : 0) + (row.decalPhotoPsUrl ? 1 : 0) + row.decalPhotosExtra.length;
-                const thumbs = thumbUrls[row.operatorId] ?? {};
                 return (
                   <div className="border-t border-border pt-2.5 grid grid-cols-2 gap-2">
                     {/* Truck photos */}
@@ -526,11 +483,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       title={truckCount === 0 ? 'No truck photos yet' : 'View truck photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
-                        {thumbs.truck ? (
-                          <img src={thumbs.truck} alt="Truck" className="w-full h-full object-cover" />
-                        ) : (
-                          <Camera className="h-4 w-4 text-muted-foreground/50" />
-                        )}
+                        <Truck className={`h-5 w-5 ${truckCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
                       </div>
                       <div className="text-xs min-w-0">
                         <div className="font-medium text-foreground">Truck</div>
@@ -548,11 +501,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
-                        {thumbs.decal ? (
-                          <img src={thumbs.decal} alt="Decal" className="w-full h-full object-cover" />
-                        ) : (
-                          <ImageIcon className="h-4 w-4 text-muted-foreground/50" />
-                        )}
+                        <ImageIcon className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
                       </div>
                       <div className="text-xs min-w-0">
                         <div className="font-medium text-foreground">Decal</div>
