@@ -123,7 +123,15 @@ export default function NotifySafetyAdvisorDialog({
         title: 'Deactivation email sent',
         description: `Sent to ${primary}${extras > 0 ? ` and ${extras} other${extras === 1 ? '' : 's'}` : ''}${ccEmails.length ? `, ${ccEmails.length} CC${ccEmails.length === 1 ? '' : 's'}` : ''}.`,
       });
-      onSent(data.notified_at ?? new Date().toISOString());
+      // Only clear the "notification required" banner when Tracey actually received the email.
+      if (data?.tracey_included && data?.notified_at) {
+        onSent(data.notified_at);
+      } else if (!data?.tracey_included) {
+        toast({
+          title: 'Test send only',
+          description: 'Tracey was not included, so the notification-required banner will stay until the real send.',
+        });
+      }
     } catch (err: any) {
       const msg = err?.message ?? String(err);
       setError(msg);
