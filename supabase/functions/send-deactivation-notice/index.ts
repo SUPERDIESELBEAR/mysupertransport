@@ -172,14 +172,29 @@ Deno.serve(async (req) => {
       ? [callerProfileResult.data.first_name, callerProfileResult.data.last_name].filter(Boolean).join(' ').trim() || 'SUPERTRANSPORT Management'
       : 'SUPERTRANSPORT Management';
 
-    // Normalize CCs
+    // Normalize CCs from client + auto-add owner(s) via service role.
     const rawCcs = Array.isArray(body.cc_emails) ? body.cc_emails as unknown[] : [];
-    const ccEmails = Array.from(new Set(
+    const ccSet = new Set<string>(
       rawCcs
         .filter((v): v is string => typeof v === 'string')
         .map(v => v.trim().toLowerCase())
-        .filter(v => EMAIL_RE.test(v) && v !== RECIPIENT_EMAIL.toLowerCase())
-    )).slice(0, 15);
+        .filter(v => EMAIL_RE.test(v) && v !== RECIPIENT_EMAIL.toLowerCase()),
+    );
+    try {
+      const { data: ownerRoleRows } = await supabase
+        .from('user_roles').select('user_id').eq('role', 'owner');
+      const ownerIds = Array.from(new Set((ownerRoleRows ?? []).map((r: any) => r.user_id).filter(Boolean)));
+      for (const uid of ownerIds) {
+        try {
+          const { data: u } = await supabase.auth.admin.getUserById(uid as string);
+          const e = (u?.user?.email ?? '').toLowerCase();
+          if (e && EMAIL_RE.test(e) && e !== RECIPIENT_EMAIL.toLowerCase()) ccSet.add(e);
+        } catch (e) { console.warn('owner email lookup failed:', uid, e); }
+      }
+    } catch (e) {
+      console.warn('owner CC lookup failed:', e);
+    }
+    const ccEmails = Array.from(ccSet).slice(0, 15);
 
     // Reply-To: sender + all CCs, so Reply-All lands with the whole thread
     const replyToList = Array.from(new Set(
