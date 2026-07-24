@@ -53,7 +53,7 @@ export default function DecalPhotoViewerModal({
     // there's no Radix Dialog ↔ inline overlay swap that races history/focus.
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col bg-black/90"
+        className="fixed inset-0 z-50 flex flex-col bg-black"
         onClick={onClose}
       >
         <div
