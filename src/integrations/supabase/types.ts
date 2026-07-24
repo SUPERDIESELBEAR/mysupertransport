@@ -2461,6 +2461,125 @@ export type Database = {
         }
         Relationships: []
       }
+      onboard_assignment_sheet_items: {
+        Row: {
+          created_at: string
+          device_type: Database["public"]["Enums"]["osas_device_type"]
+          driver_confirmed_at: string | null
+          equipment_id: string | null
+          id: string
+          serial_snapshot: string
+          sheet_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_type: Database["public"]["Enums"]["osas_device_type"]
+          driver_confirmed_at?: string | null
+          equipment_id?: string | null
+          id?: string
+          serial_snapshot: string
+          sheet_id: string
+        }
+        Update: {
+          created_at?: string
+          device_type?: Database["public"]["Enums"]["osas_device_type"]
+          driver_confirmed_at?: string | null
+          equipment_id?: string | null
+          id?: string
+          serial_snapshot?: string
+          sheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboard_assignment_sheet_items_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboard_assignment_sheet_items_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "onboard_assignment_sheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboard_assignment_sheets: {
+        Row: {
+          access_token: string | null
+          assignment_date: string
+          bestpass_fee_cents: number | null
+          bestpass_included: boolean
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          driver_ip: string | null
+          driver_signature_data_url: string | null
+          driver_signature_name: string | null
+          id: string
+          operator_id: string
+          sent_at: string | null
+          signed_at: string | null
+          signed_pdf_url: string | null
+          status: Database["public"]["Enums"]["osas_status"]
+          terms_version: string
+          unit_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          assignment_date?: string
+          bestpass_fee_cents?: number | null
+          bestpass_included?: boolean
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          driver_ip?: string | null
+          driver_signature_data_url?: string | null
+          driver_signature_name?: string | null
+          id?: string
+          operator_id: string
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          status?: Database["public"]["Enums"]["osas_status"]
+          terms_version?: string
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          assignment_date?: string
+          bestpass_fee_cents?: number | null
+          bestpass_included?: boolean
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          driver_ip?: string | null
+          driver_signature_data_url?: string | null
+          driver_signature_name?: string | null
+          id?: string
+          operator_id?: string
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          status?: Database["public"]["Enums"]["osas_status"]
+          terms_version?: string
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboard_assignment_sheets_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_status: {
         Row: {
           bestpass_assignment_state: Database["public"]["Enums"]["equipment_assignment_state"]
@@ -4490,19 +4609,6 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
-      execute_equipment_asset_signature: {
-        Args: {
-          p_operator_id: string
-          p_signature_image_url: string
-          p_typed_name: string
-        }
-        Returns: {
-          eld_signature_image_url: string
-          eld_signature_signed_at: string
-          eld_signature_typed_name: string
-          operator_id: string
-        }[]
-      }
       get_application_by_draft_token: {
         Args: { p_token: string }
         Returns: {
@@ -4958,6 +5064,8 @@ export type Database = {
         | "truck_photos"
         | "truck_inspection"
         | "pe_receipt"
+      osas_device_type: "eld" | "dash_cam" | "bestpass"
+      osas_status: "draft" | "sent" | "signed" | "void"
       pandadoc_status: "sent" | "viewed" | "completed"
       pei_applicant_status: "not_started" | "in_progress" | "complete"
       pei_gfe_reason:
@@ -5189,6 +5297,8 @@ export const Constants = {
         "truck_inspection",
         "pe_receipt",
       ],
+      osas_device_type: ["eld", "dash_cam", "bestpass"],
+      osas_status: ["draft", "sent", "signed", "void"],
       pandadoc_status: ["sent", "viewed", "completed"],
       pei_applicant_status: ["not_started", "in_progress", "complete"],
       pei_gfe_reason: [
