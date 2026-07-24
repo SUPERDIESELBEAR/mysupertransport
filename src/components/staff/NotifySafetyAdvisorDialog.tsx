@@ -254,7 +254,7 @@ export default function NotifySafetyAdvisorDialog({
                       {!isOwner && (
                         <button
                           type="button"
-                          onClick={() => setCcEmails(prev => prev.filter(e => e !== email && e !== OWNER_EMAIL ? true : e !== email))}
+                          onClick={() => setCcEmails(prev => prev.filter(e => e !== email))}
                           className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
                           disabled={sending}
                           aria-label={`Remove ${email}`}
