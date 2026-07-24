@@ -1,27 +1,26 @@
-## Tighten the Notify Safety Advisor dialog copy and lock Marcus in as CC
+## Fix "Add" silently failing when an email already exists in the other list
 
-Three small, scoped tweaks to `src/components/staff/NotifySafetyAdvisorDialog.tsx` only. No edge function changes needed — the owner is already auto-CC'd server-side; this change just makes it visible and non-removable in the UI.
+### Root cause
+Both `addTo` and `addCc` reject any email that appears in the *other* list and just clear the input with no feedback:
 
-### 1. Remove the "send a test" helper line under **To**
-Delete the paragraph:
-> "Pre-filled with Tracey L. McQuilken. Remove her and add your own address to send a test."
+```ts
+// addTo (line ~88)
+if (ccEmails.includes(email)) { setToInput(''); return; }
 
-Tracey stays pre-filled and removable (functionality unchanged) — just no instructional text encouraging test sends.
+// addCc (line ~78)
+if (toEmails.includes(email)) { setCcInput(''); return; }
+```
 
-### 2. Pre-fill Marcus Mueller as a locked CC chip
-- On open, seed `ccEmails` with `marc@mysupertransport.com` (owner) in addition to the signed-in sender.
-- Render Marcus's chip **without** the `×` remove button (styled like Tracey's gold chip for visual parity, labeled `Marcus Mueller <marc@mysupertransport.com>`).
-- Guard the remove handler so Marcus can never be filtered out even if the DOM is manipulated.
-- Update the CC helper line from "Pre-filled with you. The owner is automatically copied." to "Marcus Mueller (owner) and you are pre-filled. Add more if needed."
+Because the dialog now auto-fills CC with **the signed-in user's email + the owner's email**, a staff member who tries to add themselves to **To** (to send themselves a test) hits the guard — their email is already in CC, so the input silently clears and nothing appears in To. Same thing when trying to add someone to CC who happens to already be listed elsewhere.
 
-Owner email is hardcoded as a constant (`OWNER_EMAIL`, `OWNER_NAME`) at the top of the file, matching the existing `RECIPIENT_EMAIL`/`RECIPIENT_NAME` pattern. No DB lookup or new RPC needed.
+The session replay confirms this: the user typed `emma@mysupertransport.com` into To, and Emma is the signed-in staffer, so her address was already seeded in CC.
 
-### 3. Replace the dialog description
-Current text under the "Notify Safety Advisor" title:
-> "{operatorName} has been deactivated. Send the deactivation notice — Tracey L. McQuilken is pre-filled as the recipient but can be removed for test sends. This dialog cannot be dismissed."
+### Fix (scoped to `NotifySafetyAdvisorDialog.tsx`)
+Treat cross-list additions as a **move**, not a rejection:
 
-Replace with a short purpose statement:
-> "{operatorName} has been deactivated. Send the required notice to the Safety Advisor so DQ files and compliance records stay current."
+- **`addTo`**: if the email is already in `ccEmails`, remove it from CC and add it to To. If it's already in `toEmails`, just clear the input (true duplicate).
+- **`addCc`**: mirror behavior — if it's already in `toEmails`, remove it from To and add it to CC. Marcus (owner) stays locked in CC as before; if someone tries to move him to To we still allow it (the CC lock only prevents the × remove button on his chip, not intentional moves via the To input).
+- Show a small inline hint under the input when an email is invalid so the user gets feedback instead of a silent clear. Nothing else needed for the "already in same list" case — clearing is fine.
 
 ### Files touched
 - `src/components/staff/NotifySafetyAdvisorDialog.tsx` (only)
