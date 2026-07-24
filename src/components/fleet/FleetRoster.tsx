@@ -597,7 +597,35 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       {dotStatusBadge(row.dotNextDue)}
                     </TableCell>
                     <TableCell className="text-center" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1 flex-wrap">
+                        {(() => {
+                          const truckCount = row.truckPhotos.length;
+                          const decalCount = (row.decalPhotoDsUrl ? 1 : 0) + (row.decalPhotoPsUrl ? 1 : 0) + row.decalPhotosExtra.length;
+                          return (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={() => setTruckPhotoTarget(row)}
+                                disabled={truckCount === 0}
+                                title={truckCount === 0 ? 'No truck photos yet' : 'View truck photos'}
+                              >
+                                <Truck className={`h-3.5 w-3.5 ${truckCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={() => setDecalPhotoTarget(row)}
+                                disabled={decalCount === 0}
+                                title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
+                              >
+                                <BadgeIcon className={`h-3.5 w-3.5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
+                              </Button>
+                            </>
+                          );
+                        })()}
                         <Button
                           size="icon"
                           variant="ghost"
