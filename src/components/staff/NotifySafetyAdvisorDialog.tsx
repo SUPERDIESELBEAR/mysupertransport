@@ -29,7 +29,7 @@ interface Props {
   unitNumber?: string | null;
   initialReason?: string;
   initialNotes?: string;
-  onSent: (notifiedAt: string) => void;
+  onSent: (notifiedAt: string | null) => void;
 }
 
 /**
@@ -134,10 +134,9 @@ export default function NotifySafetyAdvisorDialog({
         title: 'Deactivation email sent',
         description: `Sent to ${primary}${extras > 0 ? ` and ${extras} other${extras === 1 ? '' : 's'}` : ''}${ccEmails.length ? `, ${ccEmails.length} CC${ccEmails.length === 1 ? '' : 's'}` : ''}.`,
       });
-      // Only clear the "notification required" banner when Tracey actually received the email.
-      if (data?.tracey_included && data?.notified_at) {
-        onSent(data.notified_at);
-      }
+      // Always close the dialog; only pass a timestamp when Tracey actually
+      // received the email so the parent knows to clear the notification banner.
+      onSent(data?.tracey_included && data?.notified_at ? data.notified_at : null);
 
     } catch (err: any) {
       const msg = err?.message ?? String(err);
