@@ -1,73 +1,33 @@
-# Onboard Systems Assignment Sheet (OSAS) — Phased Build Plan
+Current verified state
+- OSAS core is built and wired: `onboard_assignment_sheets` / `onboard_assignment_sheet_items` tables, staff Assignment Sheets tab in Equipment Inventory, driver `OperatorOSASSign` signing view, `PendingOSASCard` dashboard prompt, `send-osas-to-operator` edge function, and `notify_staff_on_osas_signed` trigger.
+- The legacy `EquipmentAssetSheet` component still imports `SignatureCanvas` and contains the `handleExecute` handler that calls the dropped `execute_equipment_asset_signature` RPC. It is still rendered in both the staff Operator Detail panel and the driver portal.
+- The dead signature path will fail at runtime if a user tries to sign there, and the competing UI may confuse drivers.
 
-## Phase 0 — Already done: Database foundation
+Plan to finish the build
+1. Remove dead signature code from `EquipmentAssetSheet.tsx`
+   - Delete `SignatureCanvas` import, `sigRef`, `typedName`, `hasDrawn`, `signing`, and `handleExecute`.
+   - Remove or simplify the "Owner Operator Equipment Receipt Acknowledgment" block to show only the OSAS notice when unsigned.
+   - Preserve the assignment-status, serial verification, delivery-method, and shipping-receipt sections that staff still need.
 
-- Created `onboard_assignment_sheets` (one row per sign-off sheet) and `onboard_assignment_sheet_items` (line items per device).
-- Added RLS policies: staff full control; operators can view/sign their own.
-- Dropped the legacy `execute_equipment_asset_signature` function.
+2. Rename user-facing labels from "Equipment Asset Sheet" to "Onboard Systems Assignment Sheet (OSAS)"
+   - Card title and header in `EquipmentAssetSheet.tsx`.
+   - Return-instructions email dialog copy.
+   - Any remaining tooltips or empty-state text in the component.
 
-## Phase 1 — Backfill existing serials into inventory
+3. Retire the legacy card from the driver portal
+   - Remove the `<EquipmentAssetSheet mode="driver" ... />` block from `OperatorPortal.tsx`.
+   - Remove the `equipment-asset-sheet-anchor` scroll target and its `getElementById` reference.
+   - The `PendingOSASCard` + `OperatorOSASSign` view already replaces the driver signing flow.
 
-Goal: make sure every serial that currently lives in free-text onboarding fields also exists in `equipment_items`/`equipment_assignments`, so removing the text fields later is safe.
+4. Keep the staff-side card in `OperatorDetailPanel.tsx`
+   - Staff still use it to set assignment status, verify serials, record delivery method, and upload/view outbound and return shipping receipts.
 
-- One-time migration that iterates `onboarding_status` rows with non-empty `eld_serial_number`, `dash_cam_number`, or `bestpass_number`.
-- For each value, normalize the serial, create an `equipment_items` row if it doesn't exist, and create an active `equipment_assignments` row if the operator doesn't already have one for that device type.
-- Skip anything already synced — this is a no-op safety pass.
+5. Verify the end-to-end flow
+   - Run typecheck and confirm no unused imports or broken refs.
+   - Open the preview and test: staff creates a sheet → sends to driver → driver signs via the dashboard card → staff receives the `osas_signed` notification.
 
-## Phase 2 — Staff side: Onboard Systems Assignment Sheet
+Decision needed
+- Option A (recommended): Remove the legacy card from the driver portal entirely and rely on the new OSAS card/view.
+- Option B: Keep the old card as a read-only "Assignment & Receipts" summary for drivers.
 
-In the **Onboard Systems** menu:
-
-- Add an **"Assignment Sheets"** tab/section.
-- Add a **"Create Sign-off Sheet"** button that opens a modal.
-- Build the `CreateSignOffSheetModal`:
-  - Searchable driver dropdown.
-  - Auto-populate read-only: Name, Unit #, Phone, Email, Truck details.
-  - Assignment date picker (default today).
-  - **ELD** dropdown: available ELD items from inventory.
-  - **Dash Camera** dropdown: available dash cam items.
-  - **BestPass** toggle: "Issue transponder (+$60.00)"; when enabled, dropdown of available BestPass items.
-  - Built-in terms including $1,000 unreturned ELD charge and additional license-plate/equipment charges.
-  - Save Draft or Send to Operator.
-- Add an **Assignment Sheets table** showing Driver, Unit, Status, Date, Signed PDF link.
-- Move the existing **Outbound Shipment Receipts** section to the bottom of the Onboard Systems page and default it collapsed.
-- Create edge function `send-osas-to-operator`:
-  - Validates the sheet, flips items to `assigned`, creates `equipment_assignments`, enqueues an app email with a deep link to the driver app.
-- Add React transactional email template for the OSAS invite.
-
-## Phase 3 — Driver side: review and sign
-
-- Add a new **"My Onboard Systems"** page in the driver sidebar/app.
-- Build the `OperatorSignOffSheetView`:
-  - Shows read-only driver, truck, device, and terms details.
-  - Driver checks an acknowledgment per device confirming serial numbers match.
-  - Signature capture using the existing ICA signature component.
-- On signature:
-  - Mark sheet `signed`, store signature data URL/name/IP/timestamp.
-  - Call `finalize-osas-signature` edge function to generate a branded PDF, save to `operator-documents`, and file in the driver hub.
-- Same page also shows:
-  - Signed OSAS copy.
-  - Equipment Return section (return instructions, receipt upload).
-
-## Phase 4 — Cleanup and remove old workflow
-
-- Remove the old **Equipment Asset Sheet** section from the operator detail panel.
-- Remove the serial-number input fields from:
-  - Truck Details / Assigned Device Numbers on the operator detail panel.
-  - Onboarding stage forms that accept `eld_serial_number`, `dash_cam_number`, `bestpass_number` as free text.
-- Replace those inputs with read-only display of currently assigned serials from inventory.
-- Delete the old `EquipmentAssetSheet.tsx` component.
-- Remove the old `equipment_asset_sheet_ready_notified_at` column and related notification trigger from `onboarding_status`.
-- Update `src/lib/staffHelp/help-index.ts` with new Onboard Systems / OSAS entries.
-- Rename visible labels from "Equipment Asset Sheet" to "Onboard Systems Assignment Sheet".
-
-## Open question resolved
-
-**BestPass $60 fee:** display only on the sheet (no payroll deduction or auto-invoicing).
-**Send minimum:** at least one device (ELD, dash cam, or BestPass) must be selected before sending.
-**Existing sheets:** delete old sheets and run a backfill migration.
-**Bulk backfill for already-onboarded operators:** deferred to a follow-up after the single-driver flow is proven.
-
-## Suggested schedule
-
-Build one phase at a time, then pause for testing before moving to the next. This keeps risk low and lets staff confirm the inventory data is intact before the driver-side flow goes live.
+Please approve Option A or let me know if you prefer Option B, then I will execute the cleanup.

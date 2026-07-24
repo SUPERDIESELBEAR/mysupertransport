@@ -113,7 +113,7 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
           <div style={callout}>
             <strong>Important:</strong> after you mail the equipment, open the
             {' '}<a href={portalUrl} style={{ color: '#5A4A1F', textDecoration: 'underline' }}>
-              Equipment Asset Sheet
+              Onboard Systems Assignment Sheet (OSAS)
             </a>{' '}
             in your driver app and upload a photo of the shipping receipt along
             with the carrier and tracking number. Your account will remain open
