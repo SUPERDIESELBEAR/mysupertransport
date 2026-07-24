@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Truck, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Truck, ShieldAlert, ShieldCheck, Download } from 'lucide-react';
 import { ShipmentReceiptsBlock, Receipt } from './ShipmentReceipts';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
+import { downloadOperatorReturnsPdf, ReturnedItem } from '@/lib/equipmentReceiptPdf';
+import { toast as sonnerToast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
@@ -478,6 +480,44 @@ export default function EquipmentAssetSheet({
                 Return receipt received {format(parseISO(status.equipment_return_completed_at as string), 'MMM d')}
               </Badge>
             )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={async () => {
+                const { data, error } = await supabase
+                  .from('equipment_assignments')
+                  .select('assigned_at, returned_at, return_condition, notes, shipping_carrier, tracking_number, ship_date, equipment_items(device_type, serial_number)')
+                  .eq('operator_id', operatorId)
+                  .not('returned_at', 'is', null)
+                  .order('returned_at', { ascending: false });
+                if (error) { sonnerToast.error('Could not load return history.'); return; }
+                const { data: op } = await supabase
+                  .from('operators')
+                  .select('applications(first_name, last_name)')
+                  .eq('id', operatorId)
+                  .maybeSingle();
+                const app = (op as any)?.applications;
+                const operatorName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Operator';
+                const items: ReturnedItem[] = (data ?? []).map((r: any) => ({
+                  deviceType: r.equipment_items?.device_type ?? 'equipment',
+                  serialNumber: r.equipment_items?.serial_number ?? '—',
+                  assignedAt: r.assigned_at,
+                  returnedAt: r.returned_at,
+                  returnCondition: r.return_condition,
+                  notes: r.notes,
+                  shippingCarrier: r.shipping_carrier,
+                  trackingNumber: r.tracking_number,
+                  shipDate: r.ship_date,
+                }));
+                if (items.length === 0) { sonnerToast.info('No returned equipment on record yet.'); return; }
+                downloadOperatorReturnsPdf({ operatorName, items });
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download Return PDF
+            </Button>
           </div>
           {assignedForReturn.length === 0 && (
             <p className="text-[11px] text-amber-900/70">
