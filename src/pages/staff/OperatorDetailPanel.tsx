@@ -3681,15 +3681,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           onTruckEdit={handleTruckInfoEdit}
         />
       </div>
-      {/* ── Onboard Systems Assignment Sheet (OSAS) / legacy equipment asset sheet (management) ── */}
-      <div style={isQuickView ? { order: 6 } : undefined}>
-        <EquipmentAssetSheet
-          mode="management"
-          operatorId={operatorId}
-          status={status as unknown as Record<string, any>}
-          onStatusRefresh={() => { void fetchOperatorDetail(); }}
-        />
-      </div>
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {!isQuickView && (() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
