@@ -508,7 +508,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
   const [savingExclusion, setSavingExclusion] = useState(false);
-  const { isManagement, isOwner } = useAuth();
+  const { session, isManagement, isOwner } = useAuth() as any;
+  const senderEmail: string = (session?.user?.email ?? '').toString();
 
   // Go Live ack gate state
   const [goLiveBlockers, setGoLiveBlockers] = useState<{ document_id: string; title: string; version: number }[]>([]);
