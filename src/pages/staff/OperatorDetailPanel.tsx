@@ -4127,7 +4127,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         initialReason={lastDeactivateReason}
         initialNotes={lastDeactivateNotes}
         onSent={(sentAt) => {
-          setSafetyAdvisorNotifiedAt(sentAt);
+          if (sentAt) setSafetyAdvisorNotifiedAt(sentAt);
           setShowNotifyAdvisorDialog(false);
           autoNotifyPromptedRef.current = true;
         }}
