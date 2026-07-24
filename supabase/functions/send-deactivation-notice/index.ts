@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
       reason?: string;
       rehire?: string;
       notes?: string;
+      to_emails?: unknown;
       cc_emails?: unknown;
     };
 
@@ -151,6 +152,21 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Normalize To recipients (Tracey pre-filled client-side but removable).
+    const rawTos = Array.isArray(body.to_emails) ? body.to_emails as unknown[] : [];
+    const toEmails = Array.from(new Set(
+      rawTos
+        .filter((v): v is string => typeof v === 'string')
+        .map(v => v.trim().toLowerCase())
+        .filter(v => EMAIL_RE.test(v)),
+    )).slice(0, 15);
+    if (toEmails.length === 0) {
+      return new Response(JSON.stringify({ error: 'At least one To recipient is required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const includesTracey = toEmails.includes(RECIPIENT_EMAIL.toLowerCase());
+
     // Fetch driver context
     const [opResult, callerProfileResult] = await Promise.all([
       supabase.from('operators').select(`
@@ -173,12 +189,13 @@ Deno.serve(async (req) => {
       : 'SUPERTRANSPORT Management';
 
     // Normalize CCs from client + auto-add owner(s) via service role.
+    // Exclude anything already in the To list to avoid duplicates.
     const rawCcs = Array.isArray(body.cc_emails) ? body.cc_emails as unknown[] : [];
     const ccSet = new Set<string>(
       rawCcs
         .filter((v): v is string => typeof v === 'string')
         .map(v => v.trim().toLowerCase())
-        .filter(v => EMAIL_RE.test(v) && v !== RECIPIENT_EMAIL.toLowerCase()),
+        .filter(v => EMAIL_RE.test(v) && !toEmails.includes(v)),
     );
     try {
       const { data: ownerRoleRows } = await supabase
@@ -188,7 +205,7 @@ Deno.serve(async (req) => {
         try {
           const { data: u } = await supabase.auth.admin.getUserById(uid as string);
           const e = (u?.user?.email ?? '').toLowerCase();
-          if (e && EMAIL_RE.test(e) && e !== RECIPIENT_EMAIL.toLowerCase()) ccSet.add(e);
+          if (e && EMAIL_RE.test(e) && !toEmails.includes(e)) ccSet.add(e);
         } catch (e) { console.warn('owner email lookup failed:', uid, e); }
       }
     } catch (e) {
@@ -218,7 +235,7 @@ Deno.serve(async (req) => {
 
     const payload: Record<string, unknown> = {
       from: `SUPERTRANSPORT Management <onboarding@mysupertransport.com>`,
-      to: [RECIPIENT_EMAIL],
+      to: toEmails,
       subject,
       html,
     };
@@ -240,25 +257,28 @@ Deno.serve(async (req) => {
       }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Stamp operator notification timestamp
+    // Stamp operator notification timestamp only when Tracey actually received it.
+    // Test sends (Tracey removed) should not clear the "notification required" banner.
     const notifiedAt = new Date().toISOString();
-    const { error: stampErr } = await supabase
-      .from('operators')
-      .update({ safety_advisor_notified_at: notifiedAt } as any)
-      .eq('id', operator_id);
-    if (stampErr) console.error('Failed to stamp safety_advisor_notified_at:', stampErr.message);
+    if (includesTracey) {
+      const { error: stampErr } = await supabase
+        .from('operators')
+        .update({ safety_advisor_notified_at: notifiedAt } as any)
+        .eq('id', operator_id);
+      if (stampErr) console.error('Failed to stamp safety_advisor_notified_at:', stampErr.message);
+    }
 
     // Audit log
     await supabase.from('audit_log').insert({
       actor_id: caller.id,
       actor_name: senderName,
-      action: 'driver_deactivation_email_sent',
+      action: includesTracey ? 'driver_deactivation_email_sent' : 'driver_deactivation_email_test_sent',
       entity_type: 'operator',
       entity_id: operator_id,
       entity_label: driverName,
       metadata: {
-        recipient: RECIPIENT_EMAIL,
-        recipient_name: RECIPIENT_NAME,
+        to: toEmails,
+        tracey_included: includesTracey,
         cc: ccEmails,
         reply_to: replyToList,
         termination_date: terminationDate,
@@ -270,8 +290,9 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      sent_to: [RECIPIENT_EMAIL, ...ccEmails],
-      notified_at: notifiedAt,
+      sent_to: [...toEmails, ...ccEmails],
+      notified_at: includesTracey ? notifiedAt : null,
+      tracey_included: includesTracey,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('send-deactivation-notice error:', err);
