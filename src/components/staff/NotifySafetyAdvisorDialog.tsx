@@ -79,7 +79,7 @@ export default function NotifySafetyAdvisorDialog({
     if (senderEmail && EMAIL_RE.test(senderEmail)) defaults.add(senderEmail);
     setCcEmails(Array.from(defaults));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, operatorId]);
+  }, [open, operatorId, senderEmail]);
 
   const addCc = () => {
     const email = ccInput.trim().toLowerCase();
