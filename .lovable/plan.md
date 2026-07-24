@@ -1,15 +1,15 @@
-## Fix the "Test send only" popup and rename the send button
+## Problem
+After the deactivation notice sends successfully, the mandatory Safety Advisor dialog stays open. `NotifySafetyAdvisorDialog` only calls `onSent` when Tracey is in the recipient list, and the parent only closes the dialog inside that `onSent` callback — so any send that omits Tracey (test send or intentional custom recipients) leaves the modal stuck on screen.
 
-### Problem
-After sending a deactivation notice without Tracey in the **To** list, a secondary toast pops up saying *"Tracey was not included, so the notification-required banner will stay until the real send."* The user wants the send to complete cleanly without that extra popup, regardless of whether Tracey is a recipient.
+## Fix
+Always close the dialog after a successful send; only stamp `safety_advisor_notified_at` when Tracey received it.
 
-### Changes
+1. **`src/components/staff/NotifySafetyAdvisorDialog.tsx`**
+   - Change the `onSent` prop signature to `(notifiedAt: string | null) => void` and always invoke it on a successful send. Pass `data.notified_at` when `data.tracey_included` is true, otherwise `null`.
 
-**`src/components/staff/NotifySafetyAdvisorDialog.tsx`**
-- Remove the secondary `toast({ title: 'Test send only', ... })` block in `handleSend`. Only the primary "Deactivation email sent" toast will show.
-- Keep the existing banner-clear logic unchanged: `onSent(data.notified_at)` still fires only when `data.tracey_included === true`, so the red "Safety Advisor notification required" banner on the driver profile still persists until Tracey actually receives the notice. This preserves the compliance guardrail silently.
-- Rename the gold send button from `Send Email to <recipient>` to **Send Deactivation Notice**. The recipient list is already visible in the chips directly above the button, so repeating the address in the label is redundant; naming the action keeps the label correct for any recipient (Tracey, the owner, or a test address).
+2. **`src/pages/staff/OperatorDetailPanel.tsx`** (both `NotifySafetyAdvisorDialog` call sites, ~line 4129 and ~line 7136)
+   - Update the `onSent` handler to:
+     - Always call `setShowNotifyAdvisorDialog(false)` and set `autoNotifyPromptedRef.current = true`.
+     - Only call `setSafetyAdvisorNotifiedAt(sentAt)` when `sentAt` is non-null (so the red "notification required" banner still shows on test sends without Tracey).
 
-### Out of scope
-- No change to the edge function, banner logic, or CC rules.
-- No change to who receives the email or when the banner clears.
+No changes to the edge function, toast copy, or button label.
