@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CheckCircle2, Camera, ExternalLink, Loader2 } from 'lucide-react';
+import { CheckCircle2, Camera, ExternalLink, Loader2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PreviewLink } from '@/components/documents/PreviewLink';
 
