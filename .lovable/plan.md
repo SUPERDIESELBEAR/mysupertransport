@@ -1,21 +1,17 @@
-# Force truck/decal photo previews above everything
+## Goal
+Restore access to Truck and Decal photo viewers in the Vehicle Hub **Table view** (they currently exist only in Cards view), keeping the row compact.
 
-The `bg-black` fix removed the 10% translucency, but the user still sees UI (the red notification bell badge) peeking through. That means the overlay is not stacking above every sibling — either an ancestor establishes a stacking context, or something else in the app also uses `z-50` and wins the tie. The overlay needs to escape its parent and sit above all app chrome.
+## Change
+In `src/components/fleet/FleetRoster.tsx`, extend the Actions cell of each table row with two small icon buttons matching the cards view behavior:
 
-## Changes
+- **Truck icon** → opens `TruckPhotoViewerModal` (same handler used by the card).
+- **Badge icon** → opens `DecalPhotoViewerModal` (same handler used by the card).
 
-1. **Portal + higher z-index for `FilePreviewModal`** (`src/components/inspection/DocRow.tsx`)
-   - Wrap the returned root in `createPortal(..., document.body)` so it renders as a direct child of `<body>` and is immune to any ancestor stacking context.
-   - Change the root class from `z-50` to `z-[9999]` (matches the value already used elsewhere in this file for the Suspense fallback overlay).
-   - Keep `bg-black` (fully opaque) as-is.
+Details:
+- Icons colored gold (`text-primary`) when the driver has photos, muted (`text-muted-foreground`) when none — mirroring the card treatment for uniformity.
+- Size `h-7 w-7` ghost buttons to match the existing Edit/Add buttons; ordered as: Truck, Decal, Edit, Add.
+- Tooltips: "View truck photos" / "View decal photos".
+- Reuse the existing state/handlers already wired for the card view (`setTruckPhotoTarget`, `setDecalPhotoTarget`) — no new modals or fetching logic.
+- On narrow widths, wrap the action group with `flex-wrap` so the row stays clean instead of overflowing.
 
-2. **Same treatment for the empty-state overlays** in:
-   - `src/components/fleet/DecalPhotoViewerModal.tsx` (no-photos branch)
-   - `src/components/fleet/TruckPhotoViewerModal.tsx` (no-photos branch)
-   
-   Both render an inline `fixed inset-0 z-50 bg-black` div. Wrap each in `createPortal(..., document.body)` and bump to `z-[9999]` so the empty state behaves identically to the populated preview.
-
-## Out of scope
-
-- No prop or API changes on any modal.
-- No changes to header/bell/sidebar z-index — the fix stays inside the preview components.
+No changes to Cards view, data fetching, or the modals themselves.
