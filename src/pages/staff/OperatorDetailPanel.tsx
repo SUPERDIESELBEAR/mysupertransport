@@ -4118,6 +4118,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Mandatory Safety Advisor notification dialog */}
+      <NotifySafetyAdvisorDialog
+        open={showNotifyAdvisorDialog}
+        operatorId={operatorId}
+        operatorName={operatorName}
+        unitNumber={(status as any)?.unit_number ?? null}
+        deactivationReason={lastDeactivateReason}
+        deactivationNotes={lastDeactivateNotes}
+        senderEmail={senderEmail}
+        onSent={(sentAt) => {
+          setSafetyAdvisorNotifiedAt(sentAt);
+          setShowNotifyAdvisorDialog(false);
+          autoNotifyPromptedRef.current = true;
+        }}
+        onDismiss={() => setShowNotifyAdvisorDialog(false)}
+      />
+
       {/* ── Deactivate Confirmation Dialog ── */}
       <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
         <AlertDialogContent>
