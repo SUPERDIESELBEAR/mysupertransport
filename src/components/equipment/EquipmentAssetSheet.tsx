@@ -3,7 +3,8 @@ import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Cpu, Camera, Ga
 import { ShipmentReceiptsBlock, Receipt } from './ShipmentReceipts';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
-import { downloadOperatorReturnsPdf, ReturnedItem } from '@/lib/equipmentReceiptPdf';
+import { ReturnedItem, ReturnReceiptInput } from '@/lib/equipmentReceiptPdf';
+import { ReturnReceiptPreviewModal } from './ReturnReceiptPreviewModal';
 import { toast as sonnerToast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
