@@ -53,6 +53,7 @@ export default function NotifySafetyAdvisorDialog({
   const [toInput, setToInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   const senderEmail = (session?.user?.email ?? '').toLowerCase();
 
@@ -67,6 +68,7 @@ export default function NotifySafetyAdvisorDialog({
     setSending(false);
     setCcInput('');
     setToInput('');
+    setInputError(null);
     // Pre-fill To with Tracey; staff can remove her for test sends.
     setToEmails([RECIPIENT_EMAIL]);
 
@@ -81,22 +83,27 @@ export default function NotifySafetyAdvisorDialog({
 
   const addCc = () => {
     const email = ccInput.trim().toLowerCase();
-    if (!EMAIL_RE.test(email)) return;
-    if (toEmails.includes(email)) { setCcInput(''); return; }
+    if (!EMAIL_RE.test(email)) { setInputError('Enter a valid email address.'); return; }
+    if (ccEmails.length >= 15) { setInputError('CC is limited to 15 addresses.'); return; }
+    // Move from To → CC if present there
+    if (toEmails.includes(email)) setToEmails(prev => prev.filter(e => e !== email));
     if (ccEmails.includes(email)) { setCcInput(''); return; }
-    if (ccEmails.length >= 15) return;
     setCcEmails(prev => [...prev, email]);
     setCcInput('');
+    setInputError(null);
   };
 
   const addTo = () => {
     const email = toInput.trim().toLowerCase();
-    if (!EMAIL_RE.test(email)) return;
+    if (!EMAIL_RE.test(email)) { setInputError('Enter a valid email address.'); return; }
+    if (toEmails.length >= 15) { setInputError('To is limited to 15 addresses.'); return; }
+    // Move from CC → To if present there (owner stays permitted; the CC chip
+    // remove button is hidden, but moving via the To input is intentional).
+    if (ccEmails.includes(email)) setCcEmails(prev => prev.filter(e => e !== email));
     if (toEmails.includes(email)) { setToInput(''); return; }
-    if (ccEmails.includes(email)) { setToInput(''); return; }
-    if (toEmails.length >= 15) return;
     setToEmails(prev => [...prev, email]);
     setToInput('');
+    setInputError(null);
   };
 
   const canSend = toEmails.length > 0 && !!terminationDate && !!reason && (rehire === 'yes' || rehire === 'no') && !sending;
@@ -214,6 +221,9 @@ export default function NotifySafetyAdvisorDialog({
             )}
             {toEmails.length === 0 && (
               <p className="text-[11px] text-destructive pt-1">Add at least one recipient.</p>
+            )}
+            {inputError && (
+              <p className="text-[11px] text-destructive pt-1">{inputError}</p>
             )}
           </div>
 
