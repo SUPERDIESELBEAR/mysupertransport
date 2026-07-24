@@ -501,7 +501,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
-                        <Badge className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
+                        <BadgeIcon className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
                       </div>
                       <div className="text-xs min-w-0">
                         <div className="font-medium text-foreground">Decal</div>
