@@ -171,8 +171,15 @@ ${faqContext}`;
     const data = await gwRes.json();
     const answer = data?.choices?.[0]?.message?.content?.trim() ?? '';
 
-    // Only surface sources the model likely used (best-effort: keep top 4).
-    const surfaced = sources.slice(0, 4).map(s => ({ id: s.id, question: s.question, category: s.category }));
+    // Surface both FAQ and index sources so users can click through to the relevant page.
+    const faqSources = sources.slice(0, 4).map(s => ({ id: s.id, question: s.question, category: s.category }));
+    const indexSources = contextEntries.slice(0, 6).map(e => ({
+      id: e.id,
+      question: e.title,
+      category: e.breadcrumb,
+      route: e.route,
+    }));
+    const surfaced = [...indexSources, ...faqSources];
 
     return json(200, { answer, sources: surfaced });
   } catch (err) {
