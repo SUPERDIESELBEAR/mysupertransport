@@ -1,6 +1,6 @@
 // SUPERDRIVE Staff Help — AI assistant for staff on how to use the dashboard
-// and driver app. Grounded in staff-audience FAQs (via search_staff_faqs) and
-// supplemented with general product knowledge.
+// and driver app. Grounded in staff-audience FAQs, the live help index, and
+// general product knowledge.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -9,7 +9,20 @@ const AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const MODEL = 'google/gemini-3-flash-preview';
 
 interface Msg { role: 'user' | 'assistant'; content: string }
-interface Body { messages: Msg[] }
+interface HelpContextEntry {
+  id: string;
+  title: string;
+  page: string;
+  route: string;
+  breadcrumb: string;
+  steps?: string[];
+  keywords: string[];
+  surface: 'management' | 'driver-pwa';
+}
+interface Body {
+  messages: Msg[];
+  contextEntries?: HelpContextEntry[];
+}
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -89,6 +102,7 @@ Deno.serve(async (req) => {
 
     const lastUser = [...messages].reverse().find(m => m.role === 'user');
     const query = lastUser?.content ?? '';
+    const contextEntries = (body?.contextEntries ?? []).slice(0, 12);
 
     // Retrieve top staff FAQs for the latest user question.
     let sources: { id: string; question: string; answer: string; category: string }[] = [];
@@ -105,24 +119,34 @@ Deno.serve(async (req) => {
         ).join('\n\n---\n\n')
       : '(no FAQ articles matched this query)';
 
+    const indexContext = contextEntries.length
+      ? contextEntries.map((e, i) =>
+          `[INDEX ${i + 1}] (id: ${e.id}) ${e.title} — ${e.breadcrumb}\nRoute: ${e.route}\nPage: ${e.page}\nSurface: ${e.surface}\n${e.steps ? 'Steps:\n' + e.steps.map((s, j) => `${j + 1}. ${s}`).join('\n') : 'No steps provided.'}`,
+        ).join('\n\n---\n\n')
+      : '(no help index entries matched this query)';
+
     const system = `You are the SUPERDRIVE Staff Help assistant. You answer staff questions about how to use the SUPERDRIVE management dashboard and driver-facing app.
 
 Priorities:
 1. When any of the FAQ articles below are relevant, ground your answer in them and list which FAQ ids you used.
-2. Otherwise answer from the SUPERDRIVE product overview below.
-3. If neither covers the question, say plainly: "I don't have documentation for this yet. You can add it in FAQ Manager so staff can find it next time."
+2. When any of the help index entries below match the question, use their title, route, and steps to give accurate, clickable navigation. Use the markdown format [go:ENTRY_ID] to create links that jump to the relevant page. Only use ENTRY_ID values that are explicitly listed in the index.
+3. Otherwise answer from the SUPERDRIVE product overview below.
+4. If none of the above cover the question, say plainly: "I don't have documentation for this yet. You can add it in FAQ Manager so staff can find it next time."
 
 Rules:
 - Be concise. Use short numbered steps for procedures.
 - Never invent features, table names, keyboard shortcuts, or menu paths that aren't in the context.
 - Do not answer about specific driver, applicant, or operational data — you only explain how to USE the platform.
-- Format answers in markdown.
+- Format answers in markdown. Use [go:ENTRY_ID] markers inline where you mention a page/section so the user can click and jump there.
 
 ### SUPERDRIVE product overview
 ${PRODUCT_OVERVIEW}
 
 ### Relevant staff FAQ articles
-${faqContext}`;
+${faqContext}
+
+### Relevant help index entries
+${indexContext}`;
 
     const gwRes = await fetch(AI_GATEWAY, {
       method: 'POST',
