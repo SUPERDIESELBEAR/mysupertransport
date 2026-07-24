@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CheckCircle2, Camera, ExternalLink, X, Loader2 } from 'lucide-react';
+import { CheckCircle2, Camera, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PreviewLink } from '@/components/documents/PreviewLink';
 
@@ -146,14 +146,6 @@ export default function TruckPhotoGridModal({
                     {isMarkingReceived ? 'Saving…' : 'Mark as Received'}
                   </button>
                 )}
-                {alreadyReceived && (
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-status-complete">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Received
-                  </span>
-                )}
-                <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors ml-1">
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             </div>
           </DialogHeader>
