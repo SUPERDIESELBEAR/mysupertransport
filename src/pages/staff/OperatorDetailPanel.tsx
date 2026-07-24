@@ -55,6 +55,7 @@ import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
 import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
+import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDialog';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -496,11 +497,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const [deactivateNotes, setDeactivateNotes] = useState<string>('');
+  // Safety Advisor (Tracey McQuilken) mandatory notification state
+  const [safetyAdvisorNotifiedAt, setSafetyAdvisorNotifiedAt] = useState<string | null>(null);
+  const [showNotifyAdvisorDialog, setShowNotifyAdvisorDialog] = useState(false);
+  const [lastDeactivateReason, setLastDeactivateReason] = useState<string>('');
+  const [lastDeactivateNotes, setLastDeactivateNotes] = useState<string>('');
+  // Ensures the auto-open (for drivers already deactivated without notification) fires once per load
+  const autoNotifyPromptedRef = useRef(false);
   // Dispatch Hub exclusion state
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
   const [savingExclusion, setSavingExclusion] = useState(false);
   const { isManagement, isOwner } = useAuth();
+  const senderEmail: string = (session?.user?.email ?? '').toString();
 
   // Go Live ack gate state
   const [goLiveBlockers, setGoLiveBlockers] = useState<{ document_id: string; title: string; version: number }[]>([]);
@@ -1176,7 +1185,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, excluded_from_dispatch_reason, excluded_from_dispatch_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_line2, address_city, address_state, address_zip, address_duration, prev_address_street, prev_address_line2, prev_address_city, prev_address_state, prev_address_zip, cdl_state, cdl_number, cdl_class, cdl_expiration, endorsements, cdl_10_years, referral_source, employers, employment_gaps, employment_gaps_explanation, years_experience, equipment_operated, dot_accidents, dot_accidents_description, moving_violations, moving_violations_description, sap_process, dot_positive_test_past_2yr, dot_return_to_duty_docs, auth_safety_history, auth_drug_alcohol, auth_previous_employers, testing_policy_accepted, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, typed_full_name, signature_image_url, signed_date, submitted_at, submitted_by_staff, reviewer_notes)`)
+        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, excluded_from_dispatch_reason, excluded_from_dispatch_at, safety_advisor_notified_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_line2, address_city, address_state, address_zip, address_duration, prev_address_street, prev_address_line2, prev_address_city, prev_address_state, prev_address_zip, cdl_state, cdl_number, cdl_class, cdl_expiration, endorsements, cdl_10_years, referral_source, employers, employment_gaps, employment_gaps_explanation, years_experience, equipment_operated, dot_accidents, dot_accidents_description, moving_violations, moving_violations_description, sap_process, dot_positive_test_past_2yr, dot_return_to_duty_docs, auth_safety_history, auth_drug_alcohol, auth_previous_employers, testing_policy_accepted, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, typed_full_name, signature_image_url, signed_date, submitted_at, submitted_by_staff, reviewer_notes)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -1198,6 +1207,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (op) {
       setIsActive((op as any).is_active ?? true);
       setIsOnHold((op as any).on_hold ?? false);
+      setSafetyAdvisorNotifiedAt((op as any).safety_advisor_notified_at ?? null);
       setOnHoldReason((op as any).on_hold_reason ?? '');
       setOnHoldDate((op as any).on_hold_date ?? null);
       setExcludedFromDispatch((op as any).excluded_from_dispatch === true);
@@ -1911,9 +1921,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
 
       setIsActive(newActive);
+      // Snapshot the reason/notes for the mandatory Safety Advisor email dialog
+      const snapshotReason = deactivateReason;
+      const snapshotNotes = deactivateNotes;
       setDeactivateReason('');
       setDeactivateNotes('');
       setShowDeactivateConfirm(false);
+      if (!newActive) {
+        setLastDeactivateReason(snapshotReason);
+        setLastDeactivateNotes(snapshotNotes);
+        // Force the mandatory Safety Advisor notification dialog
+        setSafetyAdvisorNotifiedAt(null);
+        setShowNotifyAdvisorDialog(true);
+      } else {
+        // Reactivation clears the pending-notification banner for this driver
+        setShowNotifyAdvisorDialog(false);
+      }
       toast({
         title: newActive ? 'Driver reactivated' : 'Driver deactivated',
         description: newActive
@@ -2601,6 +2624,36 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {onHoldReason && <p className="text-xs text-blue-700 mt-0.5">{onHoldReason}</p>}
             {onHoldDate && <p className="text-xs text-blue-600 mt-0.5">Since {new Date(onHoldDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
           </div>
+        </div>
+      )}
+
+      {/* Safety Advisor notification banner */}
+      {!isActive && !safetyAdvisorNotifiedAt && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
+            <p className="text-xs text-destructive/80 mt-0.5">
+              {operatorName} was deactivated but Tracey McQuilken has not yet been emailed. Complete the notification before continuing.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5 shrink-0"
+            onClick={() => setShowNotifyAdvisorDialog(true)}
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Send email
+          </Button>
+        </div>
+      )}
+      {!isActive && safetyAdvisorNotifiedAt && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-status-complete/40 bg-status-complete/5">
+          <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+          <p className="text-xs text-status-complete font-medium">
+            Safety Advisor notified {new Date(safetyAdvisorNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
         </div>
       )}
 
@@ -4064,6 +4117,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mandatory Safety Advisor notification dialog */}
+      <NotifySafetyAdvisorDialog
+        open={showNotifyAdvisorDialog}
+        operatorId={operatorId}
+        operatorName={operatorName}
+        unitNumber={(status as any)?.unit_number ?? null}
+        initialReason={lastDeactivateReason}
+        initialNotes={lastDeactivateNotes}
+        onSent={(sentAt) => {
+          setSafetyAdvisorNotifiedAt(sentAt);
+          setShowNotifyAdvisorDialog(false);
+          autoNotifyPromptedRef.current = true;
+        }}
+      />
 
       {/* ── Deactivate Confirmation Dialog ── */}
       <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
