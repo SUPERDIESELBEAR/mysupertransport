@@ -169,6 +169,7 @@ export default function EquipmentAssetSheet({
   // ── Send Return Instructions (management) ──
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [sendingInstructions, setSendingInstructions] = useState(false);
+  const [returnPreview, setReturnPreview] = useState<ReturnReceiptInput | null>(null);
   const assignedForReturn = useMemo(
     () => LINES.filter(l => {
       const state = status?.[`${l.key}_assignment_state`] as AssignmentState | undefined;
@@ -513,11 +514,11 @@ export default function EquipmentAssetSheet({
                   shipDate: r.ship_date,
                 }));
                 if (items.length === 0) { sonnerToast.info('No returned equipment on record yet.'); return; }
-                downloadOperatorReturnsPdf({ operatorName, items });
+                setReturnPreview({ operatorName, items });
               }}
             >
               <Download className="h-3.5 w-3.5" />
-              Download Return PDF
+              Preview Return PDF
             </Button>
           </div>
           {assignedForReturn.length === 0 && (
