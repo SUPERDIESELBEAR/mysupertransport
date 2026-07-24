@@ -1978,7 +1978,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 )}
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operator</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[220px]">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Dispatcher</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
                 <th className="w-24" />
@@ -2037,7 +2037,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           />
                         </td>
                       )}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-middle">
                         <div className="flex items-center gap-2.5">
                           {/* Avatar */}
                           <div className="h-8 w-8 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
@@ -2074,10 +2074,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
+                      <td className="px-4 py-3 hidden md:table-cell align-middle">
                         <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground">{row.unit_number ?? '—'}</span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-middle min-w-[220px]">
                         {isEditing ? (
                           <Select
                             value={editData.dispatch_status}
@@ -2094,7 +2094,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             </SelectContent>
                           </Select>
                         ) : (
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5 min-h-[28px]">
                             <Badge className={`${cfg.badgeClass} text-xs gap-1 w-fit`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                               {cfg.label}
@@ -2104,25 +2104,26 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                               if (!streak) return null;
                               return (
                                 <span
-                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border w-fit ${cfg.badgeClass}`}
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground"
                                   title={streak.tooltip}
                                 >
+                                  <Clock className="h-2.5 w-2.5" />
                                   {streak.short}
                                 </span>
                               );
                             })()}
                             {!!unloggedCountMap[row.operator_id] && (
                               <span
-                                className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 w-fit"
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-amber-400/60 bg-transparent text-amber-700"
                                 title={`${unloggedCountMap[row.operator_id]} unlogged day${unloggedCountMap[row.operator_id] !== 1 ? 's' : ''} in the last ${UNLOGGED_WINDOW_DAYS} days`}
                               >
-                                <HelpCircle className="h-2.5 w-2.5" />
-                                {unloggedCountMap[row.operator_id]} unlogged
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                {unloggedCountMap[row.operator_id]}
                               </span>
                             )}
                             {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
                               <span
-                                className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit"
+                                className="inline-flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-1.5 py-0.5 rounded"
                                 title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
                               >
                                 <CheckCheck className="h-3 w-3 shrink-0" />
@@ -2133,7 +2134,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         )
                       }
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
+                      <td className="px-4 py-3 hidden lg:table-cell align-middle">
                         {isEditing ? (
                           <Select
                             value={editData.assigned_dispatcher ?? ''}
@@ -2163,7 +2164,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
+                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px] align-middle">
                         {isEditing ? (
                           <Textarea
                             value={editData.status_notes ?? ''}
@@ -2175,7 +2176,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-3 py-3 text-right align-middle">
                         {isEditing ? (
                           <div className="flex gap-1 justify-end items-center">
                             <Button
