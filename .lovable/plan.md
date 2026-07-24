@@ -1,20 +1,24 @@
-## Plan
+## Problem
 
-1. **Fix the decal carousel modal behavior**
-   - Update the decal photo viewer so moving from photo 1 to photo 2 changes the displayed image in-place instead of unmounting/remounting the preview modal.
-   - Keep the modal open while `activeIndex` changes.
+In `src/components/inspection/DocRow.tsx` (the shared preview modal used by the Dispatch Board decals viewer), the print button calls:
 
-2. **Prevent history/back-stack interference**
-   - Avoid triggering the modal back-button cleanup when only the selected decal image changes.
-   - Ensure the Back/Close action still returns to the Dispatch Board only when the user intentionally closes the modal.
+```ts
+iframeRef.current?.contentWindow?.print();
+```
 
-3. **Verify in the preview**
-   - Open the Dispatch Board on the current mobile-sized viewport.
-   - Click Steve’s Decals button.
-   - Click the next arrow and confirm the second decal photo appears without returning to the board.
+But images are rendered as a plain `<img>` element — no iframe is mounted for image files. `iframeRef.current` is therefore `null`, and clicking Print silently does nothing. This is exactly what happens for decal photos (JPEG/PNG), which is why every other action in the pop-up works except Print.
 
-## Technical notes
+## Fix
 
-- The decal viewer currently renders `FilePreviewModal` with `key={activeTile.key}`. Changing photos changes the key, which remounts `FilePreviewModal`.
-- `FilePreviewModal` uses `useBackButton`; remounting can pop the virtual modal history entry and close/navigate unexpectedly.
-- The fix is to remove the remount-on-photo-change pattern and let `FilePreviewModal` react to the new `url`/`name` props normally.
+Update `handlePrint` in the `n` (image/PDF) modal component in `src/components/inspection/DocRow.tsx` so it branches on file type:
+
+- **PDF / other (existing behavior):** keep `iframeRef.current?.contentWindow?.print()`.
+- **Image (new):** open a small print window containing only the signed image URL. Once the image loads, call `window.print()` inside that popup. If the popup is blocked (mobile Safari), fall back to a hidden iframe injected into the current document that hosts the image and triggers `print()` on load, then removes itself.
+
+Also drop the `disabled={!loaded}` guard on the image path once the image has resolved (still gate on `imageReady` / `loaded` so the button only enables when there's something to print).
+
+No other files need to change — the same modal powers Dispatch Decals, Vehicle Hub decals, DOT Binder, and the Driver Hub, so this single fix restores print for images everywhere.
+
+## Verification
+
+Launch Playwright against the running preview at `/dashboard?view=dispatch`, open a driver's Decals modal, click Print, and confirm a print dialog (or the fallback iframe print flow) fires. Screenshot the resulting state.
