@@ -6,7 +6,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
-const MODEL = 'google/gemini-3-flash-preview';
+const MODEL = 'google/gemini-3.6-flash';
 
 interface Msg { role: 'user' | 'assistant'; content: string }
 interface HelpContextEntry {
