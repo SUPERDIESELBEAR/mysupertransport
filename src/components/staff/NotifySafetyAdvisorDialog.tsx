@@ -63,27 +63,10 @@ export default function NotifySafetyAdvisorDialog({
     setSending(false);
     setCcInput('');
 
-    // Pre-fill CCs: sender + owner(s)
-    (async () => {
-      const defaults = new Set<string>();
-      if (senderEmail && EMAIL_RE.test(senderEmail)) defaults.add(senderEmail);
-      try {
-        const { data: ownerRoles } = await supabase
-          .from('user_roles').select('user_id').eq('role', 'owner');
-        const ownerIds = (ownerRoles ?? []).map((r: any) => r.user_id).filter(Boolean);
-        if (ownerIds.length) {
-          const { data: ownerProfiles } = await supabase
-            .from('profiles').select('email').in('user_id', ownerIds);
-          for (const p of (ownerProfiles ?? []) as any[]) {
-            const e = (p?.email ?? '').toString().trim().toLowerCase();
-            if (e && EMAIL_RE.test(e) && e !== RECIPIENT_EMAIL.toLowerCase()) defaults.add(e);
-          }
-        }
-      } catch (e) {
-        console.warn('Owner CC lookup failed:', e);
-      }
-      setCcEmails(Array.from(defaults));
-    })();
+    // Pre-fill CC with the sender; the edge function auto-adds owner(s) server-side.
+    const defaults = new Set<string>();
+    if (senderEmail && EMAIL_RE.test(senderEmail)) defaults.add(senderEmail);
+    setCcEmails(Array.from(defaults));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, operatorId]);
 
@@ -163,7 +146,7 @@ export default function NotifySafetyAdvisorDialog({
           {/* CC */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
-            <p className="text-[11px] text-muted-foreground">Pre-filled with you and the owner. Add more if needed.</p>
+            <p className="text-[11px] text-muted-foreground">Pre-filled with you. The owner is automatically copied. Add more if needed.</p>
             <div className="flex gap-2">
               <Input
                 type="email"
