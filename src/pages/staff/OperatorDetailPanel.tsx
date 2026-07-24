@@ -4124,15 +4124,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         operatorId={operatorId}
         operatorName={operatorName}
         unitNumber={(status as any)?.unit_number ?? null}
-        deactivationReason={lastDeactivateReason}
-        deactivationNotes={lastDeactivateNotes}
-        senderEmail={senderEmail}
+        initialReason={lastDeactivateReason}
+        initialNotes={lastDeactivateNotes}
         onSent={(sentAt) => {
           setSafetyAdvisorNotifiedAt(sentAt);
           setShowNotifyAdvisorDialog(false);
           autoNotifyPromptedRef.current = true;
         }}
-        onDismiss={() => setShowNotifyAdvisorDialog(false)}
       />
 
       {/* ── Deactivate Confirmation Dialog ── */}
