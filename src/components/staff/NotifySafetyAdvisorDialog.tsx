@@ -14,6 +14,8 @@ import { Loader2, Send, ShieldAlert, Mail } from 'lucide-react';
 
 const RECIPIENT_EMAIL = 'tracey@iondot.net';
 const RECIPIENT_NAME = 'Tracey L. McQuilken';
+const OWNER_EMAIL = 'marc@mysupertransport.com';
+const OWNER_NAME = 'Marcus Mueller';
 const REASON_OPTIONS = [
   'Resigned', 'Terminated', 'Personal Reasons', 'Truck Down',
   'Not Compliant', 'Medical', 'Abandoned', 'Other',
@@ -68,8 +70,10 @@ export default function NotifySafetyAdvisorDialog({
     // Pre-fill To with Tracey; staff can remove her for test sends.
     setToEmails([RECIPIENT_EMAIL]);
 
-    // Pre-fill CC with the sender; the edge function auto-adds owner(s) server-side.
+    // Pre-fill CC with the owner (locked) and the sender. The edge function
+    // also auto-adds owner(s) server-side as a safety net.
     const defaults = new Set<string>();
+    defaults.add(OWNER_EMAIL);
     if (senderEmail && EMAIL_RE.test(senderEmail)) defaults.add(senderEmail);
     setCcEmails(Array.from(defaults));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,7 +160,7 @@ export default function NotifySafetyAdvisorDialog({
           </DialogTitle>
           <DialogDescription>
             <strong className="text-foreground">{operatorName}</strong> has been deactivated.
-            Send the deactivation notice — <strong className="text-foreground">{RECIPIENT_NAME}</strong> is pre-filled as the recipient but can be removed for test sends. This dialog cannot be dismissed.
+            Send the required notice to the Safety Advisor so DQ files and compliance records stay current.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,9 +170,6 @@ export default function NotifySafetyAdvisorDialog({
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <Mail className="h-3 w-3" /> To <span className="text-destructive">*</span>
             </Label>
-            <p className="text-[11px] text-muted-foreground">
-              Pre-filled with {RECIPIENT_NAME}. Remove her and add your own address to send a test.
-            </p>
             <div className="flex gap-2">
               <Input
                 type="email"
@@ -219,7 +220,7 @@ export default function NotifySafetyAdvisorDialog({
           {/* CC */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
-            <p className="text-[11px] text-muted-foreground">Pre-filled with you. The owner is automatically copied. Add more if needed.</p>
+            <p className="text-[11px] text-muted-foreground">{OWNER_NAME} (owner) and you are pre-filled. Add more if needed.</p>
             <div className="flex gap-2">
               <Input
                 type="email"
@@ -237,18 +238,31 @@ export default function NotifySafetyAdvisorDialog({
             </div>
             {ccEmails.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {ccEmails.map(email => (
-                  <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted border border-border text-foreground">
-                    {email}
-                    <button
-                      type="button"
-                      onClick={() => setCcEmails(prev => prev.filter(e => e !== email))}
-                      className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
-                      disabled={sending}
-                      aria-label={`Remove ${email}`}
-                    >×</button>
-                  </span>
-                ))}
+                {ccEmails.map(email => {
+                  const isOwner = email === OWNER_EMAIL;
+                  return (
+                    <span
+                      key={email}
+                      className={
+                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ' +
+                        (isOwner
+                          ? 'bg-gold/10 border-gold/40 text-foreground'
+                          : 'bg-muted border-border text-foreground')
+                      }
+                    >
+                      {isOwner ? `${OWNER_NAME} <${email}>` : email}
+                      {!isOwner && (
+                        <button
+                          type="button"
+                          onClick={() => setCcEmails(prev => prev.filter(e => e !== email && e !== OWNER_EMAIL ? true : e !== email))}
+                          className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                          disabled={sending}
+                          aria-label={`Remove ${email}`}
+                        >×</button>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>
