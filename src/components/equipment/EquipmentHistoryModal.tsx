@@ -10,13 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
-import { Loader2, UserCheck, RotateCcw, History, Package, ExternalLink, FileText, Upload, X, Pencil, Save } from 'lucide-react';
+import { Loader2, UserCheck, RotateCcw, History, Package, ExternalLink, FileText, Upload, X, Pencil, Save, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { EquipmentItem } from './EquipmentInventory';
 import { DEVICE_CONFIG_LABELS } from './equipmentUtils';
 import { SHIPPING_CARRIERS, buildTrackingUrl, shortTracking } from './equipmentTracking';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { validateFile } from '@/lib/validateFile';
+import { downloadReturnReceiptPdf } from '@/lib/equipmentReceiptPdf';
 
 interface Assignment {
   id: string;
@@ -330,6 +331,31 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
                           >
                             <Pencil className="h-3 w-3" />
                             {a.tracking_number || a.tracking_receipt_url ? 'Edit' : 'Add'} tracking
+                          </Button>
+                        )}
+                        {!isActive && item && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[11px] gap-1"
+                            onClick={() => downloadReturnReceiptPdf({
+                              operatorName: a.operator_name,
+                              items: [{
+                                deviceType: item.device_type,
+                                serialNumber: item.serial_number,
+                                assignedAt: a.assigned_at,
+                                returnedAt: a.returned_at!,
+                                returnCondition: a.return_condition,
+                                notes: a.notes,
+                                shippingCarrier: a.shipping_carrier,
+                                trackingNumber: a.tracking_number,
+                                shipDate: a.ship_date,
+                                assignedByName: a.assigned_by_name,
+                              }],
+                            })}
+                          >
+                            <Download className="h-3 w-3" />
+                            Receipt PDF
                           </Button>
                         )}
                       </div>
