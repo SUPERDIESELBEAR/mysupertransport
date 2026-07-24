@@ -1,90 +1,112 @@
-## Goal
+# Onboard Systems Assignment Sheet (OSAS) — Rebuild Plan
 
-Make Staff Help the one place where any staff member can find *anywhere* in SUPERDRIVE (management dashboard + driver PWA) and *how* to do the action there — via keyword search with clickable "Go to" links AND an AI assistant whose answers cite live, clickable sources.
+Rework the current Equipment Asset Sheet into a standalone document generator that lives inside **Onboard Systems**, pulls all serials from inventory, and is sent to the driver for review + signature.
 
-## Where the index lives (FAQ vs. Staff Help)
+---
 
-**The index is part of Staff Help.** It lives in the app code (`src/lib/staffHelp/index.ts`) and is rendered in the **Staff Help page** (`src/components/management/StaffHelpPortal.tsx`). It is *not* a visible page in the driver portal; it is a staff-only tool.
+## 1. Rename & relocate
 
-**FAQ Manager** keeps its current role: staff (owner/operator + staff audience) can create and edit long-form FAQ articles. Those articles are one of the sources the Staff Help AI can draw from. FAQ Manager is the *content editor*; Staff Help is the *search and navigation experience*.
+- Rename **Equipment Asset Sheet → Onboard Systems Assignment Sheet (OSAS)** everywhere (staff UI, driver UI, emails, help index, notifications).
+- Remove the current OSAS section from the operator detail panel (Stage-side placement).
+- Add a new **"Assignment Sheets"** tab/section inside the **Onboard Systems** menu with:
+  - Primary action button: **"Create Sign-off Sheet"**.
+  - Table of existing sheets (driver, unit, status: Draft / Sent / Signed, created date, signed date, PDF link).
 
-What a staff member sees in Staff Help:
-- A search bar at the top.
-- As they type, a dropdown of matching index entries appears — each entry says what page/section and has a **Go →** button that jumps to that location in the app.
-- If they press Enter or ask a natural-language question, the AI answers using both the index entries and the FAQ articles, and returns **live clickable sources** that link to the actual pages or FAQ entries.
+## 2. Scope reduction
 
-## Recommendations (my picks for the open questions)
+- Only three devices tracked on OSAS: **ELD Unit, Dash Camera, BestPass** (BestPass optional).
+- Remove Fuel Card and any other device rows from OSAS (fuel cards remain managed in Onboard Systems inventory, just not on this sheet).
+- **Remove the "Verified by staff" checkbox** and its signature gate.
+- **Remove the "Return Shipment Receipts" section** entirely from the OSAS.
 
-- **Navigation targets → Routes + section anchors (with a lightweight "walk me through it" follow-up).** Deep-link to a route and, when applicable, auto-open the right tab/section (e.g. `/dashboard?tab=onboarding&stage=6`). The AI answer can narrate steps; a "Take me there" button does the routing. Full guided overlays would be too fragile right now.
-- **Search index source → Hybrid.** I generate a static baseline index (every sidebar route, driver PWA view, key sub-sections, and each FAQ) that ships with the app, and staff can extend the long-form answers via FAQ Manager. The index itself is code, so it stays in sync with routes.
-- **Instant search UX → Command-palette style typeahead.** As the user types, show live matches from the index with a "Go" button. Press Enter with no selection to ask the AI.
+## 3. Inventory as the single source of truth for serials
 
-## What we're building
+- Remove all serial-number **input fields** from:
+  - Truck Details / Assigned Device Numbers on the operator detail panel.
+  - Any onboarding stage forms that currently accept `eld_serial_number`, `dash_cam_number`, `bestpass_number` as free text.
+- Replace with **read-only display** of the serial(s) currently assigned via `equipment_assignments` (source: Onboard Systems).
+- All new serial numbers must be added in **Onboard Systems → Add Device** first, then selected on the OSAS via dropdown of `status='available'` items filtered by device type.
 
-### 1. SUPERDRIVE index (`src/lib/staffHelp/index.ts`)
-A single typed array of `HelpEntry`:
-```ts
-type HelpEntry = {
-  id: string;
-  title: string;              // e.g. "Deactivate a fuel card"
-  page: string;               // e.g. "Onboard Systems"
-  surface: "management" | "driver-pwa";
-  route: string;              // e.g. "/dashboard?tab=onboard-systems&section=fuel-cards"
-  keywords: string[];         // synonyms: "fuel card", "wex", "deactivate", "return"
-  audience: Array<"owner"|"management"|"onboarding_staff"|"dispatcher">;
-  steps?: string[];           // short numbered how-to
-  relatedFaqIds?: string[];
-};
-```
-Seeded with ~80–120 entries covering: every sidebar item, every onboarding stage (1–9), Fleet Compliance categories, Dispatch actions (Binder, Decals, History download), Equipment (Onboard Systems, MO Plate Registry), PEI workflow, ICA + ICA Amendments, Notifications, FAQ Manager, Staff Help itself, plus driver PWA views (Home/Status/Documents/Messages/Notifications/Equipment, Truck photos, Pay Setup, Handbook acks, ICA sign, etc.).
+## 4. Create Sign-off Sheet flow (staff)
 
-### 2. Typeahead search in Staff Help (`StaffHelpPortal.tsx`)
-- Composer becomes a search + chat hybrid.
-- As the user types (debounced via existing `useDebouncedValue`), a dropdown lists top matches from the index — page name, breadcrumb, keyword highlight, and a **Go →** button that navigates using `useNavigate` (with the query params from `route`).
-- Empty query → dynamic starter chips (see #4).
-- Pressing Enter with no selection sends the message to the AI (existing flow).
+Modal / drawer opened from the "Create Sign-off Sheet" button:
 
-### 3. Clickable, live sources
-- Extend `staff-help-chat` edge function to also return matched **index entries** (not just FAQs). Both go into `sources`.
-- Render each source as a real `<button>` that either navigates (index entry with `route`) or opens the FAQ Manager entry. This fixes the "sources aren't live" issue.
-- The AI system prompt is expanded to include the index snippets for the query so answers can name the exact page and end with a "Go there" cue that maps to a returned source.
+1. **Driver dropdown** — searchable list of active operators.
+2. Auto-populate (read-only):
+   - Name, Unit #, Phone, Email
+   - Truck details (Year, Make, VIN, Plate, State, Trailer #)
+3. **Assignment date** picker (defaults to today).
+4. **ELD Unit** — dropdown of available ELDs from inventory.
+5. **Dash Camera** — dropdown of available dash cams.
+6. **BestPass (optional)** — toggle "Issue BestPass transponder (+$60.00)"; when on, dropdown of available BestPass units.
+7. Standard OSAS terms are auto-rendered, including:
+   - "Unreturned ELD equipment will be assessed a **$1,000.00** replacement charge."
+   - "Additional charges may be incurred for unreturned license plates or other issued equipment."
+   - BestPass transponder fee ($60.00) shown as a line item when selected.
+8. **Save Draft** or **Send to Operator**.
 
-### 4. Fix broken suggestion chips + make dynamic per-user
-- Root cause: chips currently call `send(s)` which posts to the AI even for simple navigation. We keep AI answers, but also add a "Go to page" quick-action row above chat when the top typeahead match is a clear route hit.
-- Chips become **role-aware**: pull the user's role from `useAuth` and pick from role-tagged entries (dispatcher sees Binder/Decals/History; onboarding sees PEI/ICA/Stage tips; owner/management see analytics + compliance). Fallback to a generic set.
-- Ensure clicking a chip actually fires — the current bug is that `sending` state can leave chips disabled after an error; also disable pointer-events only during the in-flight send, and refocus after.
+Sending marks the sheet `sent`, creates matching `equipment_assignments` rows (flipping inventory items to `assigned`), and emails the operator a link that deep-links into the SUPERDRIVE app.
 
-### 5. AI answer upgrades
-- System prompt gains: "Whenever a step happens on a specific page, name the page and include a `[go:<entry-id>]` marker. The client will render clickable links from these markers."
-- Client parses `[go:xyz]` in the markdown and replaces them with inline navigate buttons — so instructions themselves are clickable ("Open **Onboard Systems → Fuel Cards** [Go →]").
+## 5. Driver review & signature flow
 
-### 6. Nice-to-haves I recommend including
-- **Recent pages** row (localStorage) under the composer so staff can jump back.
-- **"Copy link"** on each answer so staff can paste a deep link into chat/email to another staff member.
-- **"Not found? Add to FAQ"** button when the assistant hits its fallback line, deep-linking straight into FAQ Manager with the query prefilled.
+- In-app OSAS view under a new **"Onboard Systems"** entry in the driver sidebar (also linkable from the email).
+- Driver sees populated details, serial numbers, terms, and BestPass line if any.
+- Driver **confirms serial numbers match** the physical devices (single acknowledgment checkbox per device) and signs.
+- On signature: sheet status → `signed`, signed PDF generated and saved to `operator-documents` (bucket already exists) and displayed under Onboard Systems for both staff and driver.
 
-### 7. Deferred (call out, don't build now)
-- Full guided overlays (spotlight the exact button). Big scope; revisit if staff ask.
-- Fuzzy typo tolerance beyond substring match. If needed later, add `fuse.js`.
+## 6. Driver-side equipment center
 
-## Files touched
+New driver-side page under the sidebar (working title **"My Onboard Systems"**) containing:
+- Signed OSAS (view / download).
+- **Equipment Return (Management)** section — return instructions, upload receipt (existing `equipment_receipts` logic reused).
+- Staff can trigger **Send Return Instructions** email to the driver from the staff OSAS view.
 
-- **new** `src/lib/staffHelp/index.ts` — the typed entry catalog + search helpers (substring + keyword scoring, role filter).
-- **edit** `src/components/management/StaffHelpPortal.tsx` — typeahead dropdown, dynamic chips, clickable sources, `[go:…]` link rendering, recent pages, refocus/enable fix.
-- **edit** `supabase/functions/staff-help-chat/index.ts` — accept the top index matches from the client (or recompute), inject them into the system prompt, return them as `sources` alongside FAQs, allow `type: "route" | "faq"` in the response.
-- **new** `src/lib/staffHelp/search.ts` — pure scoring function so it's reusable by the composer and (optionally) other search entry points later.
-- **no schema changes.**
+## 7. Outbound Shipment Receipts (staff)
+
+- Move the existing **Outbound Shipment Receipts** section to the **bottom** of the Onboard Systems page and default it **collapsed** (rarely used since equipment is typically installed on-site at orientation).
+
+## 8. Suggested additional improvements
+
+- **Version history** for OSAS (so re-issued sheets — e.g. after a device swap — are audit-tracked).
+- **Auto-revoke on deactivation**: when a driver is deactivated, prompt staff to generate a **Return OSAS** listing all currently assigned devices with return deadlines.
+- **PDF export** with SUPERTRANSPORT branding for both signed OSAS and return receipts.
+- **Signed OSAS auto-filed** to Driver Hub → Documents alongside the ICA.
+- **Reminder cadence**: if an OSAS sits `sent` unsigned for 3 days, auto-remind the driver.
+
+---
 
 ## Technical notes
 
-- Navigation uses existing React Router `useNavigate`; routes that need a specific tab reuse the current `?tab=` / view-state patterns (see `operatorRoutes.ts` for driver PWA views).
-- Debounce reuses `src/hooks/useDebouncedValue.ts`.
-- Role source: `useAuth` (already used across staff surfaces).
-- Sanitize all rendered markdown via existing `ReactMarkdown` pipeline; `[go:id]` markers are parsed *before* markdown to avoid escape issues.
-- Edge function stays on `google/gemini-3.6-flash` (project default).
-- Index maintenance: entries live in one file; adding a new page = one entry. FAQ Manager continues to own long-form answers.
+**New table** `onboard_assignment_sheets`
+- `id`, `operator_id`, `unit_number`, `assignment_date`, `status` (`draft|sent|signed|void`), `sent_at`, `signed_at`, `signed_pdf_url`, `bestpass_fee_cents` (nullable), `terms_version`, `created_by`, timestamps.
+- Standard GRANTs + RLS: staff full access, operator select/update-signature-only on own rows.
 
-## Out of scope
+**New table** `onboard_assignment_sheet_items`
+- `id`, `sheet_id`, `device_type` (`eld|dash_cam|bestpass`), `equipment_id` FK → `equipment_items`, `serial_snapshot`, `driver_confirmed_at`.
 
-- Rebuilding the chat UI on AI Elements (would be a bigger refactor; current UI works).
-- Full-text search over driver/applicant data — Staff Help stays "how to use the platform," per the current system prompt.
+**Reuse:**
+- `equipment_items` / `equipment_assignments` (assignment created on send).
+- `equipment_receipts` for return uploads.
+- `operator-documents` bucket for signed PDFs.
+- Existing signature capture component from ICA flow.
+
+**Edge functions:**
+- `send-osas-to-operator` — enqueues app email with deep link.
+- `finalize-osas-signature` — generates PDF, saves to storage, files under Driver Hub.
+- `send-osas-return-instructions` — reuses existing `equipment-return-instructions` template.
+
+**Files to edit (major):**
+- `src/components/equipment/EquipmentAssetSheet.tsx` → delete/replace.
+- `src/components/equipment/EquipmentInventory.tsx` → add "Assignment Sheets" tab, "Create Sign-off Sheet" button, collapsed Outbound Receipts.
+- `src/pages/staff/OperatorDetailPanel.tsx` → remove serial inputs + old asset-sheet section, replace with read-only summary linking to OSAS.
+- `src/pages/operator/OperatorPortal.tsx` → add "My Onboard Systems" route/section.
+- `src/lib/staffHelp/help-index.ts` → update entries.
+- Migrations for the two new tables + RLS + GRANTs.
+
+---
+
+## Open questions before I build
+
+1. **BestPass fee ($60):** is that a one-time charge invoiced separately, or should it be recorded as a payroll deduction automatically?
+2. **Existing signed asset sheets** (Emma Mueller etc.): archive as-is, or migrate into the new `onboard_assignment_sheets` table?
+3. **ELD/Dash Cam required** to send a sheet? (I'll assume yes — BestPass optional — unless you say otherwise.)
