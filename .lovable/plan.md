@@ -1,24 +1,27 @@
-## Make Tracey a removable "To" recipient
+## Tighten the Notify Safety Advisor dialog copy and lock Marcus in as CC
 
-Right now `tracey@iondot.net` is hardcoded as the sole recipient in both the dialog and the edge function. To support test sends, treat Tracey the same way we treat CCs — pre-filled but editable.
+Three small, scoped tweaks to `src/components/staff/NotifySafetyAdvisorDialog.tsx` only. No edge function changes needed — the owner is already auto-CC'd server-side; this change just makes it visible and non-removable in the UI.
 
-### Dialog (`NotifySafetyAdvisorDialog.tsx`)
-- Add a new **To** field above the CC field, styled with the same chip UX as CCs.
-- Pre-populate it with `tracey@iondot.net` on open (alongside Marcus in CCs, from the previous plan).
-- Allow removing Tracey and adding other recipients (e.g., the sender's own email for testing).
-- Require at least one valid recipient in `To` for the Send button to enable.
-- Update the confirmation copy — instead of "Email sent to Tracey L. McQuilken…", show the actual recipient count/list.
+### 1. Remove the "send a test" helper line under **To**
+Delete the paragraph:
+> "Pre-filled with Tracey L. McQuilken. Remove her and add your own address to send a test."
 
-### Edge function (`send-deactivation-notice`)
-- Accept a new `to_emails: string[]` field in the request body.
-- Validate: at least one entry, each a valid email, cap at 15.
-- Use `to_emails` as the Resend `to` array instead of the hardcoded `RECIPIENT_EMAIL`.
-- Owner-auto-CC logic stays but skips any email already present in `to_emails`.
-- Subject/body wording that currently reads "Safety Advisor" stays the same — it still describes the notification's purpose regardless of who the test recipient is.
+Tracey stays pre-filled and removable (functionality unchanged) — just no instructional text encouraging test sends.
 
-### Banner + audit
-- Same banner logic ("Safety Advisor notification required") until any send succeeds. For test sends where Tracey was removed, staff can re-open the dialog later to send the real notification; the banner clears once any send completes. If you'd prefer the banner only clears when Tracey specifically is included, tell me and I'll gate `safety_advisor_notified_at` on that.
+### 2. Pre-fill Marcus Mueller as a locked CC chip
+- On open, seed `ccEmails` with `marc@mysupertransport.com` (owner) in addition to the signed-in sender.
+- Render Marcus's chip **without** the `×` remove button (styled like Tracey's gold chip for visual parity, labeled `Marcus Mueller <marc@mysupertransport.com>`).
+- Guard the remove handler so Marcus can never be filtered out even if the DOM is manipulated.
+- Update the CC helper line from "Pre-filled with you. The owner is automatically copied." to "Marcus Mueller (owner) and you are pre-filled. Add more if needed."
+
+Owner email is hardcoded as a constant (`OWNER_EMAIL`, `OWNER_NAME`) at the top of the file, matching the existing `RECIPIENT_EMAIL`/`RECIPIENT_NAME` pattern. No DB lookup or new RPC needed.
+
+### 3. Replace the dialog description
+Current text under the "Notify Safety Advisor" title:
+> "{operatorName} has been deactivated. Send the deactivation notice — Tracey L. McQuilken is pre-filled as the recipient but can be removed for test sends. This dialog cannot be dismissed."
+
+Replace with a short purpose statement:
+> "{operatorName} has been deactivated. Send the required notice to the Safety Advisor so DQ files and compliance records stay current."
 
 ### Files touched
-- `src/components/staff/NotifySafetyAdvisorDialog.tsx`
-- `supabase/functions/send-deactivation-notice/index.ts`
+- `src/components/staff/NotifySafetyAdvisorDialog.tsx` (only)
