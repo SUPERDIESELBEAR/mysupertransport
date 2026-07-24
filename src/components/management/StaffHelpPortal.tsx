@@ -229,16 +229,21 @@ export default function StaffHelpPortal() {
                         <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                           <BookOpen className="h-3 w-3" /> Sources:
                         </span>
-                        {m.sources.map(s => (
-                          <Badge
-                            key={s.id}
-                            variant="outline"
-                            className="text-[11px] font-normal max-w-[280px] truncate"
-                            title={s.question}
-                          >
-                            {s.question}
-                          </Badge>
-                        ))}
+                        {m.sources.map(s => {
+                          const entry = s.route ? getHelpEntryById(s.id) : undefined;
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => entry && navigateTo(entry.route)}
+                              disabled={!entry}
+                              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-border bg-white hover:border-gold/60 hover:bg-gold/5 text-foreground transition-colors disabled:opacity-60 max-w-[280px] truncate"
+                              title={entry ? `Go to ${s.question}` : s.question}
+                            >
+                              {s.question}
+                              {entry && <ArrowRight className="h-3 w-3 text-gold shrink-0" />}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
