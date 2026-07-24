@@ -38,6 +38,7 @@ import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/op
 import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
+import PendingOSASCard from '@/components/operator/PendingOSASCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
@@ -1682,6 +1683,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
 
               <PendingPassengerAuthCard operatorId={operatorId} />
+              <PendingOSASCard operatorId={operatorId} onOpen={() => navigateToView('onboard-systems')} />
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((t, idx) => (
