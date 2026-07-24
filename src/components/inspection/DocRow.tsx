@@ -481,8 +481,12 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
   const handlePrint = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isImage && resolvedUrl) {
+      printImageUrl(resolvedUrl, name);
+      return;
+    }
     iframeRef.current?.contentWindow?.print();
-  }, []);
+  }, [isImage, resolvedUrl, name]);
 
   const handleShareFile = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
