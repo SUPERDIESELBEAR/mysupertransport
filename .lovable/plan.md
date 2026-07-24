@@ -1,19 +1,15 @@
-## Goal
-The Onboard Systems Assignment Sheet (OSAS) card should not appear inside a driver's Onboarding Pipeline (staff Operator Detail Panel). It should live only under the **Onboard Systems** menu, where staff already create/manage sheets via `CreateSignOffSheetModal` + `SignOffSheetList` and where shipment receipts are tracked.
+## Fix: Unit number missing on Create Sign-off Sheet
 
-## Change
+### Root cause (verified)
+`CreateSignOffSheetModal.tsx` reads `unit_number` from `operators.unit_number`, but that column is empty for all active operators. The actual unit numbers live in `onboarding_status.unit_number` (confirmed via DB query — operators row shows 0 populated, onboarding_status shows real values like 222, 259, 185…).
 
-**`src/pages/staff/OperatorDetailPanel.tsx`**
-- Remove the `<EquipmentAssetSheet mode="management" ... />` block (lines ~3685–3693) from the pipeline view, including its `isQuickView` order wrapper.
-- Remove the now-unused `import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet'` (line 26).
-- If the surrounding equipment shipping/props (e.g. `equipmentShipping`) become unused only because of this removal, drop them too — otherwise leave untouched (Truck Info card above still uses them).
+### Change
+In `src/components/equipment/CreateSignOffSheetModal.tsx`:
 
-## Not changing
-- `EquipmentAssetSheet.tsx` component stays (still used inside Onboard Systems flows and history).
-- Driver portal OSAS surfaces (`PendingOSASCard`, `OperatorOSASSign`) stay.
-- `EquipmentInventory.tsx` (Onboard Systems menu) — unchanged; remains the sole home for sending/managing OSAS.
+1. Add `unit_number` to the `onboarding_status(...)` sub-select in `fetchOperators`.
+2. In the row mapper, set `unitNumber: o.unit_number ?? os?.unit_number ?? null` so the onboarding_status value fills in when the operators-level column is blank.
 
-## Verification
-- Typecheck.
-- Open a driver's onboarding pipeline: OSAS card should be gone; other stages intact.
-- Open Onboard Systems menu: Create Sign-off Sheet + Sheet list still work.
+No other files touched. No schema changes. The rest of the modal (truck, plate, phone, email) already pulls from `onboarding_status`/`applications` and continues to work.
+
+### Verification
+- Reopen "Create Sign-off Sheet", pick Matthew Clovis and a few others → Unit line shows the number instead of "—".

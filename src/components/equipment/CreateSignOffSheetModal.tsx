@@ -103,7 +103,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         user_id,
         unit_number,
         onboarding_status (
-          truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number
+          unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number
         ),
         applications (
           first_name, last_name, email, phone
@@ -125,7 +125,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         userId: o.user_id,
         operatorId: o.id,
         name,
-        unitNumber: o.unit_number ?? null,
+        unitNumber: o.unit_number ?? os?.unit_number ?? null,
         email: app?.email ?? null,
         phone: app?.phone ?? null,
         truckYear: os?.truck_year ?? null,
