@@ -55,6 +55,7 @@ import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
 import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
+import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDialog';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
