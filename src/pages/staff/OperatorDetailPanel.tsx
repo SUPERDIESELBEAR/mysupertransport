@@ -495,6 +495,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivating, setDeactivating] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
+  const [deactivateNotes, setDeactivateNotes] = useState<string>('');
   // Dispatch Hub exclusion state
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
@@ -1906,11 +1907,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         entity_label: operatorName,
         metadata: newActive
           ? { is_active: true }
-          : { is_active: false, reason: deactivateReason || null },
+          : { is_active: false, reason: deactivateReason || null, notes: deactivateNotes.trim() || null },
       });
 
       setIsActive(newActive);
       setDeactivateReason('');
+      setDeactivateNotes('');
       setShowDeactivateConfirm(false);
       toast({
         title: newActive ? 'Driver reactivated' : 'Driver deactivated',
@@ -4081,41 +4083,46 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="px-0 pb-2 space-y-2">
               <Label className="text-xs font-medium text-foreground">Reason for deactivation</Label>
               <Select
-                value={deactivateReason === '' || ['Resigned','Terminated','No Loads','Medical','Abandoned'].includes(deactivateReason) ? deactivateReason : 'Other'}
-                onValueChange={val => {
-                  if (val !== 'Other') setDeactivateReason(val);
-                  else setDeactivateReason('Other');
-                }}
+                value={deactivateReason}
+                onValueChange={val => setDeactivateReason(val)}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Select a reason (optional)…" />
+                  <SelectValue placeholder="Select a reason…" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Resigned">Resigned</SelectItem>
                   <SelectItem value="Terminated">Terminated</SelectItem>
-                  <SelectItem value="No Loads">No Loads</SelectItem>
+                  <SelectItem value="Personal Reasons">Personal Reasons</SelectItem>
+                  <SelectItem value="Truck Down">Truck Down</SelectItem>
+                  <SelectItem value="Not Compliant">Not Compliant</SelectItem>
                   <SelectItem value="Medical">Medical</SelectItem>
                   <SelectItem value="Abandoned">Abandoned</SelectItem>
                   <SelectItem value="Other">Other…</SelectItem>
                 </SelectContent>
               </Select>
-              {(deactivateReason === 'Other' || (!['', 'Resigned','Terminated','No Loads','Medical','Abandoned'].includes(deactivateReason) && deactivateReason !== '')) && (
-                <Input
-                  className="h-9 text-sm"
-                  placeholder="Describe the reason…"
-                  value={deactivateReason === 'Other' ? '' : deactivateReason}
-                  onChange={e => setDeactivateReason(e.target.value)}
-                  autoFocus
-                  maxLength={120}
-                />
-              )}
+              <Label className="text-xs font-medium text-foreground pt-1">
+                Notes {deactivateReason === 'Other' ? '(required)' : '(describe why this driver is leaving)'}
+              </Label>
+              <Textarea
+                className="text-sm min-h-[80px]"
+                placeholder="Add any additional context…"
+                value={deactivateNotes}
+                onChange={e => setDeactivateNotes(e.target.value)}
+                maxLength={500}
+              />
             </div>
           )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deactivating}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleToggleActive}
-              disabled={deactivating}
+              disabled={
+                deactivating ||
+                (isActive && (
+                  !deactivateReason ||
+                  (deactivateReason === 'Other' && !deactivateNotes.trim())
+                ))
+              }
               className={isActive ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' : ''}
             >
               {deactivating
