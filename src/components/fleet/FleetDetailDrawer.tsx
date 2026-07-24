@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { FilePreviewModal, bucketForBinderDoc } from '@/components/inspection/DocRow';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { toast } from '@/hooks/use-toast';
@@ -344,7 +344,9 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     maintenanceRecordId?: string,
   ) => {
     try {
-      const bucket = bucketForBinderDoc(filePath);
+      // Maintenance receipts and DOT inspection certs attached to fleet records
+      // all live in the 'fleet-documents' bucket (see MaintenanceRecordModal upload path).
+      const bucket = 'fleet-documents';
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
       if (error) throw error;
       if (data?.signedUrl) {
