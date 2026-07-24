@@ -23,7 +23,6 @@ import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, Aler
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
-import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
