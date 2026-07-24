@@ -17,7 +17,8 @@ import { DEVICE_CONFIG_LABELS } from './equipmentUtils';
 import { SHIPPING_CARRIERS, buildTrackingUrl, shortTracking } from './equipmentTracking';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { validateFile } from '@/lib/validateFile';
-import { downloadReturnReceiptPdf } from '@/lib/equipmentReceiptPdf';
+import { ReturnReceiptInput } from '@/lib/equipmentReceiptPdf';
+import { ReturnReceiptPreviewModal } from './ReturnReceiptPreviewModal';
 
 interface Assignment {
   id: string;
@@ -52,6 +53,7 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [returnPreview, setReturnPreview] = useState<ReturnReceiptInput | null>(null);
 
   // Edit-tracking state for active row
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -338,7 +340,7 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
                             variant="ghost"
                             size="sm"
                             className="h-6 px-2 text-[11px] gap-1"
-                            onClick={() => downloadReturnReceiptPdf({
+                            onClick={() => setReturnPreview({
                               operatorName: a.operator_name,
                               items: [{
                                 deviceType: item.device_type,
@@ -355,7 +357,7 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
                             })}
                           >
                             <Download className="h-3 w-3" />
-                            Receipt PDF
+                            Preview Receipt
                           </Button>
                         )}
                       </div>
@@ -465,6 +467,12 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
             bucketName="operator-documents"
           />
         )}
+        <ReturnReceiptPreviewModal
+          open={returnPreview !== null}
+          input={returnPreview}
+          onClose={() => setReturnPreview(null)}
+          title="Return Receipt Preview"
+        />
       </DialogContent>
     </Dialog>
   );

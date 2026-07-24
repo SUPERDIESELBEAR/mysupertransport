@@ -3,7 +3,8 @@ import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Cpu, Camera, Ga
 import { ShipmentReceiptsBlock, Receipt } from './ShipmentReceipts';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
-import { downloadOperatorReturnsPdf, ReturnedItem } from '@/lib/equipmentReceiptPdf';
+import { ReturnedItem, ReturnReceiptInput } from '@/lib/equipmentReceiptPdf';
+import { ReturnReceiptPreviewModal } from './ReturnReceiptPreviewModal';
 import { toast as sonnerToast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -168,6 +169,7 @@ export default function EquipmentAssetSheet({
   // ── Send Return Instructions (management) ──
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [sendingInstructions, setSendingInstructions] = useState(false);
+  const [returnPreview, setReturnPreview] = useState<ReturnReceiptInput | null>(null);
   const assignedForReturn = useMemo(
     () => LINES.filter(l => {
       const state = status?.[`${l.key}_assignment_state`] as AssignmentState | undefined;
@@ -512,11 +514,11 @@ export default function EquipmentAssetSheet({
                   shipDate: r.ship_date,
                 }));
                 if (items.length === 0) { sonnerToast.info('No returned equipment on record yet.'); return; }
-                downloadOperatorReturnsPdf({ operatorName, items });
+                setReturnPreview({ operatorName, items });
               }}
             >
               <Download className="h-3.5 w-3.5" />
-              Download Return PDF
+              Preview Return PDF
             </Button>
           </div>
           {assignedForReturn.length === 0 && (
@@ -641,6 +643,12 @@ export default function EquipmentAssetSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ReturnReceiptPreviewModal
+        open={returnPreview !== null}
+        input={returnPreview}
+        onClose={() => setReturnPreview(null)}
+        title="Return Receipts Preview"
+      />
     </div>
   );
 }

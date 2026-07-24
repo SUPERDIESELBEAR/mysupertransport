@@ -219,3 +219,62 @@ export function downloadOperatorReturnsPdf(input: ReturnReceiptInput): void {
   drawFooter(doc, input.generatedBy);
   doc.save(`return-receipts_${slug(input.operatorName)}.pdf`);
 }
+
+export interface BuiltReturnReceiptPdf {
+  blob: Blob;
+  blobUrl: string;
+  filename: string;
+}
+
+function buildSingleItemPdf(input: ReturnReceiptInput): BuiltReturnReceiptPdf {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const item = input.items[0];
+  drawHeader(
+    doc,
+    `${deviceLabel(item.deviceType)} — ${item.serialNumber}`,
+    `Operator: ${input.operatorName}`,
+  );
+  drawItem(doc, item, 100);
+  drawFooter(doc, input.generatedBy);
+  const blob = doc.output('blob');
+  return {
+    blob,
+    blobUrl: URL.createObjectURL(blob),
+    filename: `return-receipt_${slug(input.operatorName)}_${item.deviceType}_${slug(item.serialNumber)}.pdf`,
+  };
+}
+
+function buildConsolidatedPdf(input: ReturnReceiptInput): BuiltReturnReceiptPdf {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  drawHeader(
+    doc,
+    `Return Receipts — ${input.operatorName}`,
+    `${input.items.length} returned item${input.items.length === 1 ? '' : 's'}`,
+  );
+  let y = 100;
+  if (input.items.length === 0) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(...MUTED);
+    doc.text('No returned equipment on record for this operator.', MARGIN, y);
+  } else {
+    for (const item of input.items) {
+      y = drawItem(doc, item, y);
+    }
+  }
+  drawFooter(doc, input.generatedBy);
+  const blob = doc.output('blob');
+  return {
+    blob,
+    blobUrl: URL.createObjectURL(blob),
+    filename: `return-receipts_${slug(input.operatorName)}.pdf`,
+  };
+}
+
+/**
+ * Build a return-receipt PDF as a blob URL for in-app preview.
+ * Callers are responsible for revoking `blobUrl` when done.
+ */
+export function buildReturnReceiptPdf(input: ReturnReceiptInput): BuiltReturnReceiptPdf {
+  return input.items.length === 1 ? buildSingleItemPdf(input) : buildConsolidatedPdf(input);
+}
