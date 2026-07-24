@@ -47,6 +47,8 @@ export default function NotifySafetyAdvisorDialog({
   const [notes, setNotes] = useState<string>(initialNotes);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
   const [ccInput, setCcInput] = useState('');
+  const [toEmails, setToEmails] = useState<string[]>([]);
+  const [toInput, setToInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +64,9 @@ export default function NotifySafetyAdvisorDialog({
     setError(null);
     setSending(false);
     setCcInput('');
+    setToInput('');
+    // Pre-fill To with Tracey; staff can remove her for test sends.
+    setToEmails([RECIPIENT_EMAIL]);
 
     // Pre-fill CC with the sender; the edge function auto-adds owner(s) server-side.
     const defaults = new Set<string>();
@@ -73,14 +78,24 @@ export default function NotifySafetyAdvisorDialog({
   const addCc = () => {
     const email = ccInput.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) return;
-    if (email === RECIPIENT_EMAIL.toLowerCase()) return;
+    if (toEmails.includes(email)) { setCcInput(''); return; }
     if (ccEmails.includes(email)) { setCcInput(''); return; }
     if (ccEmails.length >= 15) return;
     setCcEmails(prev => [...prev, email]);
     setCcInput('');
   };
 
-  const canSend = !!terminationDate && !!reason && (rehire === 'yes' || rehire === 'no') && !sending;
+  const addTo = () => {
+    const email = toInput.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) return;
+    if (toEmails.includes(email)) { setToInput(''); return; }
+    if (ccEmails.includes(email)) { setToInput(''); return; }
+    if (toEmails.length >= 15) return;
+    setToEmails(prev => [...prev, email]);
+    setToInput('');
+  };
+
+  const canSend = toEmails.length > 0 && !!terminationDate && !!reason && (rehire === 'yes' || rehire === 'no') && !sending;
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -94,6 +109,7 @@ export default function NotifySafetyAdvisorDialog({
           reason,
           rehire,
           notes: notes.trim(),
+          to_emails: toEmails,
           cc_emails: ccEmails,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
@@ -101,9 +117,11 @@ export default function NotifySafetyAdvisorDialog({
       if (fnErr) throw new Error(fnErr.message || 'Failed to send email');
       if (!data?.success) throw new Error(data?.error || 'Failed to send email');
 
+      const primary = toEmails[0] === RECIPIENT_EMAIL ? RECIPIENT_NAME : toEmails[0];
+      const extras = toEmails.length - 1;
       toast({
-        title: 'Safety Advisor notified',
-        description: `Email sent to ${RECIPIENT_NAME}${ccEmails.length ? ` and ${ccEmails.length} CC${ccEmails.length === 1 ? '' : 's'}` : ''}.`,
+        title: 'Deactivation email sent',
+        description: `Sent to ${primary}${extras > 0 ? ` and ${extras} other${extras === 1 ? '' : 's'}` : ''}${ccEmails.length ? `, ${ccEmails.length} CC${ccEmails.length === 1 ? '' : 's'}` : ''}.`,
       });
       onSent(data.notified_at ?? new Date().toISOString());
     } catch (err: any) {
@@ -130,17 +148,64 @@ export default function NotifySafetyAdvisorDialog({
           </DialogTitle>
           <DialogDescription>
             <strong className="text-foreground">{operatorName}</strong> has been deactivated.
-            You must email <strong className="text-foreground">{RECIPIENT_NAME}</strong> (<span className="font-mono">{RECIPIENT_EMAIL}</span>) before continuing. This dialog cannot be dismissed.
+            Send the deactivation notice — <strong className="text-foreground">{RECIPIENT_NAME}</strong> is pre-filled as the recipient but can be removed for test sends. This dialog cannot be dismissed.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Recipients summary */}
-          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Mail className="h-3 w-3" /> To
+          {/* To */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Mail className="h-3 w-3" /> To <span className="text-destructive">*</span>
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              Pre-filled with {RECIPIENT_NAME}. Remove her and add your own address to send a test.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={toInput}
+                onChange={e => setToInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTo(); } }}
+                placeholder="name@example.com"
+                className="h-8 text-xs flex-1"
+                disabled={toEmails.length >= 15 || sending}
+              />
+              <Button type="button" variant="outline" size="sm" className="h-8 text-xs px-3"
+                onClick={addTo}
+                disabled={toEmails.length >= 15 || sending}
+              >Add</Button>
             </div>
-            <div className="mt-1 font-medium text-foreground">{RECIPIENT_NAME} &lt;{RECIPIENT_EMAIL}&gt;</div>
+            {toEmails.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {toEmails.map(email => {
+                  const isTracey = email === RECIPIENT_EMAIL;
+                  return (
+                    <span
+                      key={email}
+                      className={
+                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ' +
+                        (isTracey
+                          ? 'bg-gold/10 border-gold/40 text-foreground'
+                          : 'bg-muted border-border text-foreground')
+                      }
+                    >
+                      {isTracey ? `${RECIPIENT_NAME} <${email}>` : email}
+                      <button
+                        type="button"
+                        onClick={() => setToEmails(prev => prev.filter(e => e !== email))}
+                        className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                        disabled={sending}
+                        aria-label={`Remove ${email}`}
+                      >×</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {toEmails.length === 0 && (
+              <p className="text-[11px] text-destructive pt-1">Add at least one recipient.</p>
+            )}
           </div>
 
           {/* CC */}
@@ -278,7 +343,7 @@ export default function NotifySafetyAdvisorDialog({
           >
             {sending
               ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
-              : <><Send className="h-4 w-4" /> Send Email to {RECIPIENT_NAME}</>}
+              : <><Send className="h-4 w-4" /> Send Email{toEmails.length > 1 ? ` (${toEmails.length} recipients)` : toEmails.length === 1 ? (toEmails[0] === RECIPIENT_EMAIL ? ` to ${RECIPIENT_NAME}` : ` to ${toEmails[0]}`) : ''}</>}
           </Button>
         </div>
       </DialogContent>
