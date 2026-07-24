@@ -222,6 +222,9 @@ export default function NotifySafetyAdvisorDialog({
             {toEmails.length === 0 && (
               <p className="text-[11px] text-destructive pt-1">Add at least one recipient.</p>
             )}
+            {inputError && (
+              <p className="text-[11px] text-destructive pt-1">{inputError}</p>
+            )}
           </div>
 
           {/* CC */}
