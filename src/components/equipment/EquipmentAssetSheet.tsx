@@ -643,6 +643,12 @@ export default function EquipmentAssetSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ReturnReceiptPreviewModal
+        open={returnPreview !== null}
+        input={returnPreview}
+        onClose={() => setReturnPreview(null)}
+        title="Return Receipts Preview"
+      />
     </div>
   );
 }
