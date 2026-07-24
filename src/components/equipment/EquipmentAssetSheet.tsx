@@ -648,6 +648,7 @@ export default function EquipmentAssetSheet({
         input={returnPreview}
         onClose={() => setReturnPreview(null)}
         title="Return Receipts Preview"
+        operatorId={operatorId}
       />
     </div>
   );

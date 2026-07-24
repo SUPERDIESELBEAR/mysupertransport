@@ -54,6 +54,7 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [returnPreview, setReturnPreview] = useState<ReturnReceiptInput | null>(null);
+  const [returnPreviewOperatorId, setReturnPreviewOperatorId] = useState<string | null>(null);
 
   // Edit-tracking state for active row
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -340,21 +341,24 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
                             variant="ghost"
                             size="sm"
                             className="h-6 px-2 text-[11px] gap-1"
-                            onClick={() => setReturnPreview({
-                              operatorName: a.operator_name,
-                              items: [{
-                                deviceType: item.device_type,
-                                serialNumber: item.serial_number,
-                                assignedAt: a.assigned_at,
-                                returnedAt: a.returned_at!,
-                                returnCondition: a.return_condition,
-                                notes: a.notes,
-                                shippingCarrier: a.shipping_carrier,
-                                trackingNumber: a.tracking_number,
-                                shipDate: a.ship_date,
-                                assignedByName: a.assigned_by_name,
-                              }],
-                            })}
+                            onClick={() => {
+                              setReturnPreviewOperatorId(a.operator_id);
+                              setReturnPreview({
+                                operatorName: a.operator_name,
+                                items: [{
+                                  deviceType: item.device_type,
+                                  serialNumber: item.serial_number,
+                                  assignedAt: a.assigned_at,
+                                  returnedAt: a.returned_at!,
+                                  returnCondition: a.return_condition,
+                                  notes: a.notes,
+                                  shippingCarrier: a.shipping_carrier,
+                                  trackingNumber: a.tracking_number,
+                                  shipDate: a.ship_date,
+                                  assignedByName: a.assigned_by_name,
+                                }],
+                              });
+                            }}
                           >
                             <Download className="h-3 w-3" />
                             Preview Receipt
@@ -470,8 +474,9 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
         <ReturnReceiptPreviewModal
           open={returnPreview !== null}
           input={returnPreview}
-          onClose={() => setReturnPreview(null)}
+          onClose={() => { setReturnPreview(null); setReturnPreviewOperatorId(null); }}
           title="Return Receipt Preview"
+          operatorId={returnPreviewOperatorId}
         />
       </DialogContent>
     </Dialog>
