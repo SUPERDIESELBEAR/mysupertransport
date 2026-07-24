@@ -495,6 +495,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivating, setDeactivating] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
+  const [deactivateNotes, setDeactivateNotes] = useState<string>('');
   // Dispatch Hub exclusion state
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
