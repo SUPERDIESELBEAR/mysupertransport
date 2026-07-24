@@ -2626,6 +2626,36 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
+      {/* Safety Advisor notification banner */}
+      {!isActive && !safetyAdvisorNotifiedAt && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5">
+          <ShieldAlertIcon />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
+            <p className="text-xs text-destructive/80 mt-0.5">
+              {operatorName} was deactivated but Tracey McQuilken has not yet been emailed. Complete the notification before continuing.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5 shrink-0"
+            onClick={() => setShowNotifyAdvisorDialog(true)}
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Send email
+          </Button>
+        </div>
+      )}
+      {!isActive && safetyAdvisorNotifiedAt && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-status-complete/40 bg-status-complete/5">
+          <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+          <p className="text-xs text-status-complete font-medium">
+            Safety Advisor notified {new Date(safetyAdvisorNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
+      )}
+
       {/* Status overview */}
       <div className="flex flex-wrap gap-2">
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
