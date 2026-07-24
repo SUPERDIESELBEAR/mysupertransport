@@ -1907,11 +1907,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         entity_label: operatorName,
         metadata: newActive
           ? { is_active: true }
-          : { is_active: false, reason: deactivateReason || null },
+          : { is_active: false, reason: deactivateReason || null, notes: deactivateNotes.trim() || null },
       });
 
       setIsActive(newActive);
       setDeactivateReason('');
+      setDeactivateNotes('');
       setShowDeactivateConfirm(false);
       toast({
         title: newActive ? 'Driver reactivated' : 'Driver deactivated',
