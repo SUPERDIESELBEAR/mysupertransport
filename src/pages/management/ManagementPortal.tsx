@@ -107,23 +107,24 @@ const STATUS_COLORS: Record<string, string> = {
   revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
 };
 
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'];
+
 export default function ManagementPortal() {
   const { toast } = useToast();
   const { session } = useAuth();
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
-    const ALLOWED = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'];
     const urlView = searchParams.get('view') as ManagementView | null;
     const hasDeepLink = !!(searchParams.get('op') || searchParams.get('app'));
     // Honor URL only when it's an explicit deep-link from a notification/email.
-    if (urlView && ALLOWED.includes(urlView) && hasDeepLink) return urlView;
+    if (urlView && ALLOWED_VIEWS.includes(urlView) && hasDeepLink) return urlView;
     // Otherwise prefer the per-tab sessionStorage "last viewed section".
     try {
       const saved = sessionStorage.getItem('mgmt_last_view') as ManagementView | null;
-      if (saved && ALLOWED.includes(saved)) return saved;
+      if (saved && ALLOWED_VIEWS.includes(saved)) return saved;
     } catch { /* ignore */ }
-    if (urlView && ALLOWED.includes(urlView)) return urlView;
+    if (urlView && ALLOWED_VIEWS.includes(urlView)) return urlView;
     return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
@@ -233,10 +234,33 @@ export default function ManagementPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Writer: persist current view/operator/status to the URL so browser refresh
-  // restores the section. Reads the URL imperatively and does NOT depend on
-  // searchParams, so it can never feed back into itself.
+  const prevSearchParamsRef = useRef(searchParams);
+  const skipNextUrlSyncRef = useRef(false);
+
+  // When external navigation changes the URL view param (e.g., Staff Help
+  // typeahead), sync the active view so the portal reflects the new URL. Also
+  // set a flag so the state-to-URL writer below does not clobber the
+  // externally-driven URL on the same render cycle.
   useEffect(() => {
+    const currentUrlView = searchParams.get('view') as ManagementView | null;
+    const prevUrlView = prevSearchParamsRef.current.get('view') as ManagementView | null;
+    if (currentUrlView !== prevUrlView) {
+      if (currentUrlView && ALLOWED_VIEWS.includes(currentUrlView) && currentUrlView !== view) {
+        setView(currentUrlView);
+      }
+      skipNextUrlSyncRef.current = true;
+    }
+    prevSearchParamsRef.current = searchParams;
+  }, [searchParams, view]);
+
+  // Writer: persist current view/operator/status to the URL so browser refresh
+  // restores the section. If the URL was just changed by an external navigation,
+  // skip one cycle to avoid overwriting it.
+  useEffect(() => {
+    if (skipNextUrlSyncRef.current) {
+      skipNextUrlSyncRef.current = false;
+      return;
+    }
     const next = new URLSearchParams(window.location.search);
     if (view && view !== 'overview') next.set('view', view); else next.delete('view');
     if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId); else next.delete('op');
@@ -1912,7 +1936,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'equipment' && (
-          <EquipmentInventory isManagement={true} />
+          <EquipmentInventory isManagement={true} section={searchParams.get('section') as any} />
         )}
 
         {view === 'vehicle-hub' && (

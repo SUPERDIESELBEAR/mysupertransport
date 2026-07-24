@@ -53,7 +53,13 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
 
-export default function EquipmentInventory({ isManagement = false }: { isManagement?: boolean }) {
+export default function EquipmentInventory({
+  isManagement = false,
+  section,
+}: {
+  isManagement?: boolean;
+  section?: DeviceType | null;
+}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [items, setItems] = useState<EquipmentItem[]>([]);
@@ -83,6 +89,11 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
       if (child) cancelAnimationFrame(child);
     };
   }, [expandedType]);
+
+  useEffect(() => {
+    if (!section || !DEVICE_CONFIG[section]) return;
+    setExpandedType(section);
+  }, [section]);
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
