@@ -1,16 +1,16 @@
-## Goal
-Vehicle Hub cards currently show the first truck/decal photo as a small thumbnail on each card. Because these images sign & load in as the user scrolls, the cards look inconsistent and flicker. Replace the thumbnails with clean, uniform icons while keeping the click behavior (opens the photo viewer/carousel) untouched.
+Replace the generic `ImageIcon` currently used for decal photos in Vehicle Hub cards with the `Badge` icon from `lucide-react` so it visually matches the company-emblem/decal concept, while the truck photos continue to use the `Truck` icon.
 
-## Change (single file: `src/components/fleet/FleetRoster.tsx`)
+## Changes
+- Update `src/components/fleet/FleetRoster.tsx`:
+  - Import `Badge` from `lucide-react` (remove `ImageIcon` if no longer used).
+  - Swap the icon in the decal-photo card row from `<ImageIcon>` to `<Badge>`.
+  - Preserve existing gold color when photos exist, muted state when empty, click behavior, and accessibility labels.
 
-1. In the truck-photos tile (around line 529): remove the `<img src={thumbs.truck}>` branch. Always render a uniform icon tile — `Truck` icon (from lucide-react, already imported) on a subtle muted background. If `truckCount === 0`, dim the icon to indicate empty state.
-2. In the decal-photos tile (around line 551): same treatment using the `ImageIcon` (already imported) — or a dedicated decal-appropriate icon like `Sticker`. Recommend `ImageIcon` for visual distinction from the truck icon.
-3. Delete the now-unused thumbnail signing logic:
-   - `thumbUrls` state (line 74)
-   - The effect that builds signed URLs (starting near line 219)
-   - Any helper vars only used to compute those URLs
-   This removes the network calls that caused the pop-in during scroll.
-4. Keep everything else identical: click handlers, count text ("N photos" / "No photos"), modal wiring for `TruckPhotoGridModal` and `DecalPhotoViewerModal`.
+## Scope
+- Only affects the Vehicle Hub card view decal photo icon.
+- No data model, navigation, or modal behavior changes.
 
-## Result
-Every card shows the same two icon tiles (Truck | Decal) with photo counts. Clicking either still opens the existing modal with the full scrollable photo set. No more per-card thumbnail fetches → cleaner, uniform appearance and faster scroll.
+## Verification
+- Open the preview on the Vehicle Hub card view.
+- Confirm each row now shows a Badge icon for Decal photos and a Truck icon for Truck photos.
+- Confirm both icons still open their respective photo modals and carousels.
