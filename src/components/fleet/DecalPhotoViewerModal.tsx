@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ImageOff } from 'lucide-react';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 
@@ -51,9 +52,9 @@ export default function DecalPhotoViewerModal({
   if (tiles.length === 0) {
     // Inline empty-state overlay — same DOM shape as FilePreviewModal so
     // there's no Radix Dialog ↔ inline overlay swap that races history/focus.
-    return (
+    return createPortal(
       <div
-        className="fixed inset-0 z-50 flex flex-col bg-black"
+        className="fixed inset-0 z-[9999] flex flex-col bg-black"
         onClick={onClose}
       >
         <div
@@ -79,7 +80,8 @@ export default function DecalPhotoViewerModal({
           <ImageOff className="h-8 w-8 opacity-60" />
           No decal photos uploaded yet.
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
