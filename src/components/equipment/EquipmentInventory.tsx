@@ -9,14 +9,17 @@ import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
   ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
-  Pencil, Loader2, Download, Archive, HardDrive
+  Pencil, Loader2, Download, Archive, HardDrive, FileSignature
 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
 import FuelCardDeactivateModal from './FuelCardDeactivateModal';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
+import CreateSignOffSheetModal from './CreateSignOffSheetModal';
+import SignOffSheetList from './SignOffSheetList';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
@@ -103,6 +106,8 @@ export default function EquipmentInventory({
   const [returnItem, setReturnItem] = useState<EquipmentItem | null>(null);
   const [deactivateItem, setDeactivateItem] = useState<EquipmentItem | null>(null);
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
+  const [activeTab, setActiveTab] = useState<'inventory' | 'sheets'>('inventory');
+  const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -199,22 +204,36 @@ export default function EquipmentInventory({
             Onboard Systems
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Track ELDs, Dash Cams, BestPass tags, and Fuel Cards
+            Track ELDs, Dash Cams, BestPass tags, Fuel Cards, and operator sign-off sheets
           </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" onClick={() => setDownloadOpen(true)} className="gap-2">
-            <Download className="h-4 w-4" />
-            Download
-          </Button>
-          <Button onClick={() => setAddModalOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Device
-          </Button>
         </div>
       </div>
 
-      {/* Summary stat cards */}
+      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'inventory' | 'sheets')} className="w-full">
+        <TabsList className="w-full sm:w-auto mb-3">
+          <TabsTrigger value="inventory" className="gap-1.5">
+            <HardDrive className="h-3.5 w-3.5" />
+            Inventory
+          </TabsTrigger>
+          <TabsTrigger value="sheets" className="gap-1.5">
+            <FileSignature className="h-3.5 w-3.5" />
+            Assignment Sheets
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="inventory" className="mt-0 space-y-4">
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" onClick={() => setDownloadOpen(true)} className="gap-2">
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+            <Button onClick={() => setAddModalOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Device
+            </Button>
+          </div>
+
+          {/* Summary stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
         {(Object.entries(STATUS_CONFIG) as [EquipmentStatus, typeof STATUS_CONFIG[EquipmentStatus]][]).map(([status, cfg]) => (
           <button
@@ -406,6 +425,18 @@ export default function EquipmentInventory({
         </div>
       )}
 
+        </TabsContent>
+
+        <TabsContent value="sheets" className="mt-0">
+          <SignOffSheetList
+            onCreate={() => setSignOffSheetOpen(true)}
+            onPreview={sheet => {
+              toast({ title: 'Preview', description: `Sheet for ${sheet.operator?.applications?.first_name ?? 'driver'} will open here. (Full preview coming in next phase.)` });
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+
       {/* Modals */}
       <EquipmentItemModal
         open={addModalOpen || !!editItem}
@@ -441,6 +472,14 @@ export default function EquipmentInventory({
       <EquipmentDownloadModal
         open={downloadOpen}
         onClose={() => setDownloadOpen(false)}
+      />
+      <CreateSignOffSheetModal
+        open={signOffSheetOpen}
+        onClose={() => setSignOffSheetOpen(false)}
+        onSaved={() => {
+          setActiveTab('sheets');
+          setSignOffSheetOpen(false);
+        }}
       />
     </div>
   );

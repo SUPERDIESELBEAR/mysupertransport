@@ -8,6 +8,7 @@ import {
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
+  HardDrive,
 } from 'lucide-react';
 // Heavy view-gated panels are lazy-loaded so the initial portal mount and
 // switches between unrelated views don't pay the full bundle/render cost
@@ -1864,6 +1865,24 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
         {view === 'forecast' && !operatorId && (
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
+        )}
+
+        {/* ── ONBOARD SYSTEMS (OSAS) VIEW ── */}
+        {view === 'onboard-systems' && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                <HardDrive className="h-5 w-5 text-primary" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-foreground">My Onboard Systems</h2>
+                <p className="text-xs text-muted-foreground">Review and sign your device assignment sheet.</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+              The signing flow for your Onboard Systems Assignment Sheet is coming soon. Please use the link from your email to return here once it is available.
+            </div>
+          </div>
         )}
 
         {/* ── ICA SIGN VIEW ── */}
