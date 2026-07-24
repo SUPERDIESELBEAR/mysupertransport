@@ -1206,6 +1206,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (op) {
       setIsActive((op as any).is_active ?? true);
       setIsOnHold((op as any).on_hold ?? false);
+      setSafetyAdvisorNotifiedAt((op as any).safety_advisor_notified_at ?? null);
       setOnHoldReason((op as any).on_hold_reason ?? '');
       setOnHoldDate((op as any).on_hold_date ?? null);
       setExcludedFromDispatch((op as any).excluded_from_dispatch === true);
