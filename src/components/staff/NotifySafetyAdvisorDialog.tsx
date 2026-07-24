@@ -53,6 +53,7 @@ export default function NotifySafetyAdvisorDialog({
   const [toInput, setToInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
 
   const senderEmail = (session?.user?.email ?? '').toLowerCase();
 
@@ -67,6 +68,7 @@ export default function NotifySafetyAdvisorDialog({
     setSending(false);
     setCcInput('');
     setToInput('');
+    setInputError(null);
     // Pre-fill To with Tracey; staff can remove her for test sends.
     setToEmails([RECIPIENT_EMAIL]);
 
