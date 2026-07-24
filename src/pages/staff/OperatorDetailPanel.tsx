@@ -497,6 +497,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const [deactivateNotes, setDeactivateNotes] = useState<string>('');
+  // Safety Advisor (Tracey McQuilken) mandatory notification state
+  const [safetyAdvisorNotifiedAt, setSafetyAdvisorNotifiedAt] = useState<string | null>(null);
+  const [showNotifyAdvisorDialog, setShowNotifyAdvisorDialog] = useState(false);
+  const [lastDeactivateReason, setLastDeactivateReason] = useState<string>('');
+  const [lastDeactivateNotes, setLastDeactivateNotes] = useState<string>('');
+  // Ensures the auto-open (for drivers already deactivated without notification) fires once per load
+  const autoNotifyPromptedRef = useRef(false);
   // Dispatch Hub exclusion state
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
