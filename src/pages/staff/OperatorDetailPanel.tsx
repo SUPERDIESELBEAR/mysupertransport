@@ -1920,9 +1920,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
 
       setIsActive(newActive);
+      // Snapshot the reason/notes for the mandatory Safety Advisor email dialog
+      const snapshotReason = deactivateReason;
+      const snapshotNotes = deactivateNotes;
       setDeactivateReason('');
       setDeactivateNotes('');
       setShowDeactivateConfirm(false);
+      if (!newActive) {
+        setLastDeactivateReason(snapshotReason);
+        setLastDeactivateNotes(snapshotNotes);
+        // Force the mandatory Safety Advisor notification dialog
+        setSafetyAdvisorNotifiedAt(null);
+        setShowNotifyAdvisorDialog(true);
+      } else {
+        // Reactivation clears the pending-notification banner for this driver
+        setShowNotifyAdvisorDialog(false);
+      }
       toast({
         title: newActive ? 'Driver reactivated' : 'Driver deactivated',
         description: newActive
