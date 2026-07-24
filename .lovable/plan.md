@@ -1,33 +1,19 @@
-Current verified state
-- OSAS core is built and wired: `onboard_assignment_sheets` / `onboard_assignment_sheet_items` tables, staff Assignment Sheets tab in Equipment Inventory, driver `OperatorOSASSign` signing view, `PendingOSASCard` dashboard prompt, `send-osas-to-operator` edge function, and `notify_staff_on_osas_signed` trigger.
-- The legacy `EquipmentAssetSheet` component still imports `SignatureCanvas` and contains the `handleExecute` handler that calls the dropped `execute_equipment_asset_signature` RPC. It is still rendered in both the staff Operator Detail panel and the driver portal.
-- The dead signature path will fail at runtime if a user tries to sign there, and the competing UI may confuse drivers.
+## Goal
+The Onboard Systems Assignment Sheet (OSAS) card should not appear inside a driver's Onboarding Pipeline (staff Operator Detail Panel). It should live only under the **Onboard Systems** menu, where staff already create/manage sheets via `CreateSignOffSheetModal` + `SignOffSheetList` and where shipment receipts are tracked.
 
-Plan to finish the build
-1. Remove dead signature code from `EquipmentAssetSheet.tsx`
-   - Delete `SignatureCanvas` import, `sigRef`, `typedName`, `hasDrawn`, `signing`, and `handleExecute`.
-   - Remove or simplify the "Owner Operator Equipment Receipt Acknowledgment" block to show only the OSAS notice when unsigned.
-   - Preserve the assignment-status, serial verification, delivery-method, and shipping-receipt sections that staff still need.
+## Change
 
-2. Rename user-facing labels from "Equipment Asset Sheet" to "Onboard Systems Assignment Sheet (OSAS)"
-   - Card title and header in `EquipmentAssetSheet.tsx`.
-   - Return-instructions email dialog copy.
-   - Any remaining tooltips or empty-state text in the component.
+**`src/pages/staff/OperatorDetailPanel.tsx`**
+- Remove the `<EquipmentAssetSheet mode="management" ... />` block (lines ~3685–3693) from the pipeline view, including its `isQuickView` order wrapper.
+- Remove the now-unused `import EquipmentAssetSheet from '@/components/equipment/EquipmentAssetSheet'` (line 26).
+- If the surrounding equipment shipping/props (e.g. `equipmentShipping`) become unused only because of this removal, drop them too — otherwise leave untouched (Truck Info card above still uses them).
 
-3. Retire the legacy card from the driver portal
-   - Remove the `<EquipmentAssetSheet mode="driver" ... />` block from `OperatorPortal.tsx`.
-   - Remove the `equipment-asset-sheet-anchor` scroll target and its `getElementById` reference.
-   - The `PendingOSASCard` + `OperatorOSASSign` view already replaces the driver signing flow.
+## Not changing
+- `EquipmentAssetSheet.tsx` component stays (still used inside Onboard Systems flows and history).
+- Driver portal OSAS surfaces (`PendingOSASCard`, `OperatorOSASSign`) stay.
+- `EquipmentInventory.tsx` (Onboard Systems menu) — unchanged; remains the sole home for sending/managing OSAS.
 
-4. Keep the staff-side card in `OperatorDetailPanel.tsx`
-   - Staff still use it to set assignment status, verify serials, record delivery method, and upload/view outbound and return shipping receipts.
-
-5. Verify the end-to-end flow
-   - Run typecheck and confirm no unused imports or broken refs.
-   - Open the preview and test: staff creates a sheet → sends to driver → driver signs via the dashboard card → staff receives the `osas_signed` notification.
-
-Decision needed
-- Option A (recommended): Remove the legacy card from the driver portal entirely and rely on the new OSAS card/view.
-- Option B: Keep the old card as a read-only "Assignment & Receipts" summary for drivers.
-
-Please approve Option A or let me know if you prefer Option B, then I will execute the cleanup.
+## Verification
+- Typecheck.
+- Open a driver's onboarding pipeline: OSAS card should be gone; other stages intact.
+- Open Onboard Systems menu: Create Sign-off Sheet + Sheet list still work.
