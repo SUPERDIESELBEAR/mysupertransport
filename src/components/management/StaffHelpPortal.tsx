@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { searchHelp, getHelpEntryById, getSuggestionsForRole, type HelpEntry } from '@/lib/staffHelp';
 
-interface Source { id: string; question: string; category: string }
+interface Source { id: string; question: string; category: string; route?: string }
 interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
