@@ -2037,7 +2037,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           />
                         </td>
                       )}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-middle">
                         <div className="flex items-center gap-2.5">
                           {/* Avatar */}
                           <div className="h-8 w-8 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
@@ -2074,7 +2074,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
+                      <td className="px-4 py-3 hidden md:table-cell align-middle">
                         <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground">{row.unit_number ?? '—'}</span>
                       </td>
                       <td className="px-4 py-3 align-middle min-w-[220px]">
@@ -2134,7 +2134,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         )
                       }
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
+                      <td className="px-4 py-3 hidden lg:table-cell align-middle">
                         {isEditing ? (
                           <Select
                             value={editData.assigned_dispatcher ?? ''}
@@ -2164,7 +2164,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
+                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px] align-middle">
                         {isEditing ? (
                           <Textarea
                             value={editData.status_notes ?? ''}
@@ -2176,7 +2176,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-3 py-3 text-right align-middle">
                         {isEditing ? (
                           <div className="flex gap-1 justify-end items-center">
                             <Button
