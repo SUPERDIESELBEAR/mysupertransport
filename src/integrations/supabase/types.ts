@@ -3048,6 +3048,7 @@ export type Database = {
           on_hold_reason: string | null
           pay_percentage: number
           pwa_installed_at: string | null
+          safety_advisor_notified_at: string | null
           unit_number: string | null
           updated_at: string
           user_id: string
@@ -3070,6 +3071,7 @@ export type Database = {
           on_hold_reason?: string | null
           pay_percentage?: number
           pwa_installed_at?: string | null
+          safety_advisor_notified_at?: string | null
           unit_number?: string | null
           updated_at?: string
           user_id: string
@@ -3092,6 +3094,7 @@ export type Database = {
           on_hold_reason?: string | null
           pay_percentage?: number
           pwa_installed_at?: string | null
+          safety_advisor_notified_at?: string | null
           unit_number?: string | null
           updated_at?: string
           user_id?: string
