@@ -348,6 +348,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
+
+  useEffect(() => {}, []); // placeholder
     setAckLoading(true);
     try {
       await supabase.from('dispatch_status_history').insert({
