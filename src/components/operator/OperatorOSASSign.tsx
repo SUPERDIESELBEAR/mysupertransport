@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
+import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass';
 
@@ -120,6 +121,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
 
   const alreadySigned = sheet?.status === 'signed' && !!sheet?.signed_at;
   const allConfirmed = items.length > 0 && items.every(i => confirmedIds.has(i.id));
+  const signature = useSignatureUrl(sheet?.driver_signature_data_url ?? null);
 
   const toggleConfirm = (itemId: string, checked: boolean) => {
     setConfirmedIds(prev => {
@@ -294,10 +296,30 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
       </div>
 
       {alreadySigned ? (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-2 text-sm text-emerald-800">
-          <CheckCircle2 className="h-4 w-4" />
-          Signed on {sheet.signed_at ? new Date(sheet.signed_at).toLocaleString('en-US') : 'file'}
-          {sheet.driver_signature_name ? ` by ${sheet.driver_signature_name}` : ''}.
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3 text-sm text-emerald-800">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>
+              Signed on {sheet.signed_at ? new Date(sheet.signed_at).toLocaleString('en-US') : 'file'}
+              {sheet.driver_signature_name ? ` by ${sheet.driver_signature_name}` : ''}.
+            </span>
+          </div>
+          {signature.loading ? (
+            <div className="flex h-24 w-40 items-center justify-center rounded border border-border bg-muted/30 text-xs text-muted-foreground">
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              Loading signature…
+            </div>
+          ) : signature.url ? (
+            <img
+              src={signature.url}
+              alt="Your signature"
+              className="max-h-24 bg-white border border-border rounded"
+            />
+          ) : sheet.driver_signature_data_url ? (
+            <div className="flex h-24 w-40 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+              Signature image unavailable
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
