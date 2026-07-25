@@ -1,29 +1,29 @@
-## Problem
+## Plan
 
-Tapping the "Onboard Systems — signature required" card on the driver dashboard switches the view to the OSAS signer, but the page appears scrolled to the bottom. The card sits near the bottom of the dashboard, and the new view mounts with the scroll position preserved.
+Fix the Onboard Systems Assignment Sheet signature so the drawn signature is captured reliably on mobile and displayed immediately after signing.
 
-## Root cause
+### What I confirmed
+- The sheet row is being marked **signed** and has a saved signature path.
+- A PNG object exists in backend storage for the signed sheet.
+- The screenshot shows the app has a signed timestamp/name but the displayed image area is blank, which points to the captured canvas image being blank/transparent or not being restored correctly after the sign flow.
 
-`OperatorPortal.tsx` already resets scroll on every view change (lines 286–293), but it only calls `window.scrollTo(0)` / `document.documentElement.scrollTop = 0`. In the installed PWA / non-preview layout, the scrolling element is not the window — it is the inner content wrapper at line 1488–1494 (`flex-1 min-h-0 overflow-y-auto`). Because that container's own `scrollTop` is never reset, the new view renders with the previous scroll offset carried over, which lands the user at the bottom of the OSAS screen.
+### Implementation steps
+1. **Fix mobile signature canvas sizing**
+   - Update the signing canvas to initialize with explicit pixel dimensions instead of relying only on CSS sizing.
+   - Scale for device pixel ratio so touch drawing is captured accurately on phones.
+   - Prevent page scrolling/touch gestures from interfering while drawing.
 
-## Fix
+2. **Validate the captured image before upload**
+   - Add a small client-side check that the exported canvas actually contains non-white/non-transparent pixels.
+   - If the canvas export is blank, keep the driver on the signing screen and show a clear error instead of saving a signed sheet with an empty image.
 
-Attach a ref to the inner scroll container and reset its `scrollTop` alongside the existing window reset whenever `view` changes.
+3. **Improve post-sign display**
+   - After upload, show the locally captured data URL immediately while the stored image URL is resolving.
+   - Keep the existing stored-path display for management and driver document previews.
 
-### Technical details
+4. **Add a safe fallback for already affected sheets**
+   - If a sheet is marked signed but its signature image is unavailable/blank, show a clear “Signature needs to be re-signed” state instead of an empty white box.
+   - Allow the driver to re-sign that sheet so the bad signature can be replaced without staff deleting/recreating the assignment sheet.
 
-In `src/pages/operator/OperatorPortal.tsx`:
-
-1. Create `const contentScrollRef = useRef<HTMLDivElement>(null);` near the other refs.
-2. Assign `ref={contentScrollRef}` to the wrapper `<div>` at line 1488.
-3. In the existing view-change scroll-reset effect (lines 289–293), also do:
-   ```ts
-   if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
-   ```
-
-No other components need changes. The `PendingOSASCard` → `navigateToView('onboard-systems')` flow already updates `view`, so the effect fires on the transition and the OSAS screen will now open at the top.
-
-### Verification
-
-- Load the driver dashboard, scroll to the bottom to reveal the "Onboard Systems — signature required" card, tap it, and confirm the OSAS view opens scrolled to the top (both in the browser preview and the installed PWA layout).
-- Sanity-check other view transitions (Home → My Documents, Home → My Truck) still land at the top.
+5. **Verify**
+   - Use the live preview to confirm the signature drawing remains visible after tapping **Sign Assignment Sheet** and that the management preview displays the same signature.
