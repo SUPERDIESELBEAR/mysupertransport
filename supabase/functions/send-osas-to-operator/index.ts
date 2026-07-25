@@ -43,7 +43,7 @@ function generateToken(): string {
 
 Deno.serve(withErrorEnvelope(async (req) => {
   // Single, correct staff auth check.
-  const auth = await requireStaff(req, { roles: ['management', 'onboarding_staff', 'owner', 'admin'] })
+  const auth = await requireStaff(req, { roles: ['management', 'onboarding_staff', 'owner'] })
   if (auth instanceof Response) return auth
   const { supabase, authHeader, userId } = auth
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
