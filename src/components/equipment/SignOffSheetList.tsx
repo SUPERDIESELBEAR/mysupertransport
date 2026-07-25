@@ -155,7 +155,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-base font-semibold truncate">{driverName}</div>
-                      <div className="text-sm text-muted-foreground truncate">Unit {sheet.operator?.unit_number ?? '—'} • {driverEmail ?? '—'}</div>
+                      <div className="text-sm text-muted-foreground truncate">Unit {sheet.unit_number ?? sheet.operator?.unit_number ?? '—'} • {driverEmail ?? '—'}</div>
                     </div>
                     <Badge variant={status === 'signed' ? 'default' : status === 'sent' ? 'outline' : 'secondary'} className="shrink-0">
                       <span className="flex items-center gap-1.5">
