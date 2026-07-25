@@ -44,6 +44,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
   const [resending, setResending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const signatureUrl = useSignatureUrl(sheet?.driver_signature_data_url ?? null);
 
   if (!sheet) return null;
 
@@ -176,9 +177,9 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Signature</h3>
             {sheet.signed_at ? (
               <div className="rounded-md border border-border p-3 space-y-2">
-                {sheet.driver_signature_data_url && (
+                {signatureUrl && (
                   <img
-                    src={sheet.driver_signature_data_url}
+                    src={signatureUrl}
                     alt="Driver signature"
                     className="max-h-24 bg-white border border-border rounded"
                   />
