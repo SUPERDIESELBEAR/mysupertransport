@@ -318,13 +318,8 @@ Deno.serve(withErrorEnvelope(async (req) => {
     });
 
     if (emailError) {
-      return new Response(JSON.stringify({ success: false, error: emailError }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(502, 'Email delivery failed', emailError);
     }
 
-    return new Response(JSON.stringify({ success: true, sent_to: recipients }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  } catch (err) {
-    console.error('send-insurance-request error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-});
+    return ok({ success: true, sent_to: recipients });
+}, 'send-insurance-request'));
