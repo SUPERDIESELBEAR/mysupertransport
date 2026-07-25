@@ -1,5 +1,5 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
 
 /**
  * Staff-only: emails a consolidated equipment return receipt PDF (generated
@@ -10,13 +10,6 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 const FROM_ADDRESS = 'SUPERTRANSPORT Operations <onboarding@mysupertransport.com>';
 const REPLY_TO = 'onboarding@mysupertransport.com';
 const MAX_PDF_BYTES = 15 * 1024 * 1024; // Resend attachment safety cap
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -65,34 +58,19 @@ function buildHtml(opts: {
 </body></html>`;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
+Deno.serve(withErrorEnvelope(async (req) => {
+  if (req.method !== 'POST') return fail(405, 'Method not allowed');
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const authHeader = req.headers.get('Authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) return jsonResponse({ error: 'Unauthorized' }, 401);
-  const token = authHeader.replace('Bearer ', '');
-  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-  if (userErr || !userData?.user) return jsonResponse({ error: 'Unauthorized' }, 401);
-  const caller = userData.user;
-
-  const { data: roleRows } = await supabase
-    .from('user_roles').select('role').eq('user_id', caller.id)
-    .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner'])
-    .limit(1);
-  if (!roleRows?.length) return jsonResponse({ error: 'Forbidden' }, 403);
+  const auth = await requireStaff(req, { roles: ['onboarding_staff', 'dispatcher', 'management', 'owner'] });
+  if (auth instanceof Response) return auth;
+  const { supabase, userId } = auth;
+  const caller = { id: userId };
 
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-  if (!RESEND_API_KEY) return jsonResponse({ error: 'Email service not configured' }, 500);
+  if (!RESEND_API_KEY) return fail(500, 'Email provider not configured (RESEND_API_KEY missing)');
 
   let body: any;
-  try { body = await req.json(); } catch { return jsonResponse({ error: 'Invalid JSON body' }, 400); }
+  try { body = await req.json(); } catch { return fail(400, 'Invalid JSON body'); }
 
   const operatorId = typeof body?.operatorId === 'string' ? body.operatorId : null;
   const pdfBase64 = typeof body?.pdfBase64 === 'string' ? body.pdfBase64 : null;
@@ -101,12 +79,12 @@ Deno.serve(async (req) => {
   const note = typeof body?.note === 'string' ? body.note.slice(0, 2000) : null;
 
   if (!operatorId || !pdfBase64) {
-    return jsonResponse({ error: 'operatorId and pdfBase64 are required' }, 400);
+    return fail(400, 'operatorId and pdfBase64 are required');
   }
   // Rough byte estimate from base64 length
   const estBytes = Math.floor((pdfBase64.length * 3) / 4);
   if (estBytes > MAX_PDF_BYTES) {
-    return jsonResponse({ error: 'PDF exceeds the 15MB email attachment limit.' }, 413);
+    return fail(413, 'PDF exceeds the 15MB email attachment limit.');
   }
   const filename = /^[\w.\-]+\.pdf$/i.test(filenameRaw) ? filenameRaw : 'return-receipts.pdf';
 
@@ -115,10 +93,10 @@ Deno.serve(async (req) => {
     .select('id, applications(first_name, last_name, email)')
     .eq('id', operatorId)
     .maybeSingle();
-  if (opErr || !op) return jsonResponse({ error: 'Operator not found' }, 404);
+  if (opErr || !op) return fail(404, 'Operator not found', opErr?.message);
   const app: any = Array.isArray((op as any).applications) ? (op as any).applications[0] : (op as any).applications;
   const recipient = app?.email as string | undefined;
-  if (!recipient) return jsonResponse({ error: 'Operator has no email on file.' }, 400);
+  if (!recipient) return fail(400, 'Operator has no email on file.');
   const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || 'Driver';
 
   const { data: prof } = await supabase
@@ -165,6 +143,6 @@ Deno.serve(async (req) => {
     },
   });
 
-  if (emailError) return jsonResponse({ success: false, error: emailError }, 502);
-  return jsonResponse({ success: true, recipient });
-});
+  if (emailError) return fail(502, 'Email delivery failed', emailError);
+  return ok({ success: true, recipient });
+}, 'send-return-receipt-pdf'));

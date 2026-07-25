@@ -1,11 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
 
 interface AddressBlock {
   company: string | null;
@@ -121,44 +117,17 @@ function buildInsuranceEmail(data: {
 </html>`;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  try {
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    const token = authHeader.replace('Bearer ', '');
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: claimsData, error: authErr } = await supabaseUser.auth.getClaims(token);
-    if (authErr || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    const caller = { id: claimsData.claims.sub };
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    const { data: callerRoles } = await supabase
-      .from('user_roles').select('role').eq('user_id', caller.id)
-      .in('role', ['onboarding_staff', 'dispatcher', 'management']);
-    if (!callerRoles?.length) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+Deno.serve(withErrorEnvelope(async (req) => {
+    const auth = await requireStaff(req, { roles: ['onboarding_staff', 'dispatcher', 'management'] });
+    if (auth instanceof Response) return auth;
+    const { supabase, userId } = auth;
+    const caller = { id: userId };
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
+    if (!RESEND_API_KEY) return fail(500, 'Email provider not configured (RESEND_API_KEY missing)');
 
     const { operator_id } = await req.json() as { operator_id: string };
-    if (!operator_id) return new Response(JSON.stringify({ error: 'operator_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!operator_id) return fail(400, 'operator_id required');
 
     // Fetch all needed data in parallel
     const [opResult, settingsResult, callerProfileResult] = await Promise.all([
@@ -172,7 +141,7 @@ Deno.serve(async (req) => {
     ]);
 
     if (opResult.error || !opResult.data) {
-      return new Response(JSON.stringify({ error: 'Operator not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(404, 'Operator not found', opResult.error?.message);
     }
     const op = opResult.data;
     const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
@@ -349,13 +318,8 @@ Deno.serve(async (req) => {
     });
 
     if (emailError) {
-      return new Response(JSON.stringify({ success: false, error: emailError }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(502, 'Email delivery failed', emailError);
     }
 
-    return new Response(JSON.stringify({ success: true, sent_to: recipients }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  } catch (err) {
-    console.error('send-insurance-request error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-});
+    return ok({ success: true, sent_to: recipients });
+}, 'send-insurance-request'));

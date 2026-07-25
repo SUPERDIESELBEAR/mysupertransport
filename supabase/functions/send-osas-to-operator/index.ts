@@ -1,5 +1,10 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
+import {
+  requireStaff,
+  ok,
+  fail,
+  withErrorEnvelope,
+  sendTemplateEmail,
+} from '../_shared/email/index.ts'
 
 // Supabase-managed edge function for creating / sending Onboard Systems Assignment Sheets.
 
@@ -36,54 +41,20 @@ function generateToken(): string {
     .join('')
 }
 
-function isStaff(claims: Record<string, any>): boolean {
-  const roles = claims.user_roles || claims.roles || []
-  if (Array.isArray(roles)) {
-    return roles.includes('management') || roles.includes('onboarding_staff') || roles.includes('owner') || roles.includes('admin')
-  }
-  return false
-}
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
-
+Deno.serve(withErrorEnvelope(async (req) => {
+  // Single, correct staff auth check.
+  const auth = await requireStaff(req, { roles: ['management', 'onboarding_staff', 'owner', 'admin'] })
+  if (auth instanceof Response) return auth
+  const { supabase, authHeader, userId } = auth
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-
-  // Auth: staff only. The user JWT is passed via the Authorization header by the gateway.
-  const authHeader = req.headers.get('Authorization') || ''
-  if (!authHeader.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-  }
-  const token = authHeader.replace('Bearer ', '')
-  const { data: userData, error: userError } = await supabase.auth.getUser(token)
-  if (userError || !userData?.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-  }
-  const appMetadata = userData.user.app_metadata || {}
-  if (!isStaff(appMetadata)) {
-    // Also check user_roles table for staff roles
-    const { data: roles } = await supabase.rpc('get_user_roles', { _user_id: userData.user.id })
-    const roleList = (roles ?? []) as string[]
-    const isStaffRole = roleList.some(r => ['management', 'onboarding_staff', 'owner'].includes(r))
-    if (!isStaffRole) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-  }
 
   let body: any
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return fail(400, 'Invalid JSON body')
   }
 
-  try {
     if (body.sheetId) {
       const payload = body as ResendPayload
       const { data: sheet, error: sheetError } = await supabase
@@ -99,19 +70,19 @@ Deno.serve(async (req) => {
         .eq('id', payload.sheetId)
         .single()
       if (sheetError || !sheet) {
-        return new Response(JSON.stringify({ error: 'Sheet not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return fail(404, 'Sheet not found', sheetError?.message)
       }
-      await sendSheetEmail(supabase, sheet, supabaseUrl)
+      await sendSheetEmail(supabase, authHeader, sheet, supabaseUrl)
       await supabase.from('onboard_assignment_sheets').update({ sent_at: new Date().toISOString() }).eq('id', payload.sheetId)
-      return new Response(JSON.stringify({ success: true, sheetId: sheet.id }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return ok({ success: true, sheetId: sheet.id })
     }
 
     const payload = body as CreatePayload
     if (!payload.operatorId) {
-      return new Response(JSON.stringify({ error: 'operatorId is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(400, 'operatorId is required')
     }
     if (!payload.items || payload.items.length === 0) {
-      return new Response(JSON.stringify({ error: 'At least one device must be assigned' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(400, 'At least one device must be assigned')
     }
 
     // Validate items all belong to inventory and are available
@@ -121,19 +92,19 @@ Deno.serve(async (req) => {
       .select('id, device_type, serial_number, status')
       .in('id', equipmentIds)
     if (inventoryError) {
-      return new Response(JSON.stringify({ error: 'Failed to verify inventory' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(500, 'Failed to verify inventory', inventoryError.message)
     }
     const inventoryMap = new Map(inventoryRows?.map(r => [r.id, r]))
     for (const item of payload.items) {
       const inv = inventoryMap.get(item.equipmentId)
       if (!inv) {
-        return new Response(JSON.stringify({ error: `Equipment ${item.equipmentId} not found` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return fail(400, `Equipment ${item.equipmentId} not found`)
       }
       if (inv.status !== 'available') {
-        return new Response(JSON.stringify({ error: `Serial ${inv.serial_number} is not available (${inv.status})` }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return fail(409, `Serial ${inv.serial_number} is not available (${inv.status})`)
       }
       if (inv.device_type !== item.deviceType) {
-        return new Response(JSON.stringify({ error: `Device type mismatch for ${inv.serial_number}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return fail(400, `Device type mismatch for ${inv.serial_number}`)
       }
     }
 
@@ -143,12 +114,12 @@ Deno.serve(async (req) => {
       .eq('id', payload.operatorId)
       .single()
     if (operatorError || !operator) {
-      return new Response(JSON.stringify({ error: 'Operator not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(404, 'Operator not found', operatorError?.message)
     }
     const app = (operator as any).applications
     const email = app?.email
     if (!email) {
-      return new Response(JSON.stringify({ error: 'Operator has no email on file' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(400, 'Operator has no email on file')
     }
 
     const accessToken = generateToken()
@@ -169,13 +140,13 @@ Deno.serve(async (req) => {
         bestpass_included: bestpassIncluded,
         bestpass_fee_cents: bestpassFeeCents,
         sent_at: sentAt,
-        created_by: userData.user.id,
+        created_by: userId,
       })
       .select()
       .single()
     if (sheetError || !sheet) {
       console.error('Failed to create sheet', sheetError)
-      return new Response(JSON.stringify({ error: 'Failed to create assignment sheet' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(500, 'Failed to create assignment sheet', sheetError?.message)
     }
 
     const sheetItems = payload.items.map(item => ({
@@ -188,7 +159,7 @@ Deno.serve(async (req) => {
     if (itemsError) {
       console.error('Failed to insert sheet items', itemsError)
       await supabase.from('onboard_assignment_sheets').delete().eq('id', sheet.id)
-      return new Response(JSON.stringify({ error: 'Failed to create sheet items' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return fail(500, 'Failed to create sheet items', itemsError.message)
     }
 
     // Mark equipment as assigned and create assignment records
@@ -202,24 +173,20 @@ Deno.serve(async (req) => {
         equipment_id: item.equipmentId,
         operator_id: payload.operatorId,
         assigned_at: now,
-        assigned_by: userData.user.id,
+        assigned_by: userId,
       })
     }
 
     // Send email if requested
     if (body.sendToOperator) {
       const fullSheet = { ...sheet, items: sheetItems, operator }
-      await sendSheetEmail(supabase, fullSheet as any, supabaseUrl)
+      await sendSheetEmail(supabase, authHeader, fullSheet as any, supabaseUrl)
     }
 
-    return new Response(JSON.stringify({ success: true, sheetId: sheet.id }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-  } catch (err: any) {
-    console.error('send-osas-to-operator error', err)
-    return new Response(JSON.stringify({ error: err?.message || 'Internal error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-  }
-})
+    return ok({ success: true, sheetId: sheet.id })
+}, 'send-osas-to-operator'))
 
-async function sendSheetEmail(supabase: any, sheet: any, supabaseUrl: string) {
+async function sendSheetEmail(supabase: any, authHeader: string, sheet: any, supabaseUrl: string) {
   const app = sheet.operator?.applications
   const email = app?.email
   if (!email) {
@@ -237,22 +204,23 @@ async function sendSheetEmail(supabase: any, sheet: any, supabaseUrl: string) {
 
   const signUrl = `${supabaseUrl.replace('/supabase', '')}/operator/onboard-systems?osas_token=${sheet.access_token}`
 
-  const { error: sendError } = await supabase.functions.invoke('send-transactional-email', {
-    body: {
-      templateName: 'osas-sign-request',
-      recipientEmail: email,
-      idempotencyKey: `osas-${sheet.id}-${Date.now()}`,
-      templateData: {
-        operatorName,
-        assignmentDate,
-        unitNumber: sheet.unit_number,
-        devices,
-        bestpassIncluded: sheet.bestpass_included,
-        signUrl,
-      },
+  const result = await sendTemplateEmail({
+    supabase,
+    authHeader,
+    templateName: 'osas-sign-request',
+    recipientEmail: email,
+    // Stable per-sheet key; retries within the same sheet won't duplicate.
+    idempotencyKey: `osas-${sheet.id}`,
+    templateData: {
+      operatorName,
+      assignmentDate,
+      unitNumber: sheet.unit_number,
+      devices,
+      bestpassIncluded: sheet.bestpass_included,
+      signUrl,
     },
   })
-  if (sendError) {
-    throw new Error(`Failed to send email: ${sendError.message || sendError}`)
+  if (!result.success) {
+    throw new Error(`Failed to send OSAS email: ${result.error ?? 'unknown'} ${typeof result.details === 'string' ? '- ' + result.details : ''}`)
   }
 }

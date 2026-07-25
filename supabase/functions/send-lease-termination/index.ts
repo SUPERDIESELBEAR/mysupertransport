@@ -1,11 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
 
 const HARDCODED_CC = ['marc@mysupertranport.com'];
 
@@ -78,46 +74,17 @@ function buildHtml(d: {
 </body></html>`;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  try {
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    const token = authHeader.replace('Bearer ', '');
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: claimsData, error: authErr } = await supabaseUser.auth.getClaims(token);
-    if (authErr || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    const callerId = claimsData.claims.sub;
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // Owner/management only
-    const { data: callerRoles } = await supabase
-      .from('user_roles').select('role').eq('user_id', callerId)
-      .in('role', ['owner', 'management']).limit(1);
-    if (!callerRoles?.length) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+Deno.serve(withErrorEnvelope(async (req) => {
+    const auth = await requireStaff(req, { roles: ['owner', 'management'] });
+    if (auth instanceof Response) return auth;
+    const { supabase, userId: callerId } = auth;
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
+    if (!RESEND_API_KEY) return fail(500, 'Email provider not configured (RESEND_API_KEY missing)');
 
     const { termination_id } = await req.json() as { termination_id: string };
     if (!termination_id) {
-      return new Response(JSON.stringify({ error: 'termination_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(400, 'termination_id required');
     }
 
     // Load termination
@@ -271,13 +238,8 @@ Deno.serve(async (req) => {
     });
 
     if (emailError) {
-      return new Response(JSON.stringify({ success: false, error: emailError }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(502, 'Email delivery failed', emailError);
     }
 
-    return new Response(JSON.stringify({ success: true, sent_to: recipients, cc: HARDCODED_CC }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-  } catch (err) {
-    console.error('send-lease-termination error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-});
+    return ok({ success: true, sent_to: recipients, cc: HARDCODED_CC });
+}, 'send-lease-termination'));
