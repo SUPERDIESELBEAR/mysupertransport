@@ -95,6 +95,21 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
     }
   }, [initialOperatorId, open]);
 
+  useEffect(() => {
+    if (!open) {
+      setSelectedOperatorId(initialOperatorId ?? null);
+      setAssignmentDate(format(new Date(), 'yyyy-MM-dd'));
+      setDevices({
+        eld: { equipmentId: null, serial: null },
+        dash_cam: { equipmentId: null, serial: null },
+        bestpass: { equipmentId: null, serial: null },
+      });
+      setIncludeBestPass(false);
+      setSaving(false);
+      setSending(false);
+    }
+  }, [open, initialOperatorId]);
+
   const fetchOperators = async () => {
     const { data, error } = await supabase
       .from('operators')
