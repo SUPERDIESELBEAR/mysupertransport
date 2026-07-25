@@ -171,15 +171,9 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
         })
         .eq('id', sheet.id);
       if (uErr) throw uErr;
-
-      await supabase.from('audit_log').insert({
-        actor_id: user.id,
-        action: 'osas_signed',
-        entity_type: 'onboard_assignment_sheet',
-        entity_id: sheet.id,
-        entity_label: `OSAS ${sheet.unit_number ?? ''}`.trim(),
-        metadata: { operator_id: sheet.operator_id, item_count: items.length },
-      });
+      // Audit entry is written by the `trg_audit_osas_signed` trigger on
+      // `onboard_assignment_sheets` (SECURITY DEFINER) — drivers can't insert
+       // into `audit_log` directly under RLS.
 
       toast.success('Signed — thanks! Your onboard systems assignment is complete.');
       onComplete?.();
