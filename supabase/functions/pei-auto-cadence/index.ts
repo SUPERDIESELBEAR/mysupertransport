@@ -10,6 +10,7 @@
 // duplicate sends across retried cron runs.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { buildAppUrl } from '../_shared/app-url.ts';
 
 const MILESTONES = [5, 10, 15, 20, 25];
 const GFE_DAY = 30;
