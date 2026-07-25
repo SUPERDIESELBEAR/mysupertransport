@@ -72,7 +72,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       if (sheetError || !sheet) {
         return fail(404, 'Sheet not found', sheetError?.message)
       }
-      await sendSheetEmail(supabase, authHeader, sheet)
+      await sendSheetEmail(supabase, authHeader, sheet, { resend: true })
       await supabase.from('onboard_assignment_sheets').update({ sent_at: new Date().toISOString() }).eq('id', payload.sheetId)
       return ok({ success: true, sheetId: sheet.id })
     }
@@ -186,7 +186,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     return ok({ success: true, sheetId: sheet.id })
 }, 'send-osas-to-operator'))
 
-async function sendSheetEmail(supabase: any, authHeader: string, sheet: any) {
+async function sendSheetEmail(supabase: any, authHeader: string, sheet: any, opts: { resend?: boolean } = {}) {
   const app = sheet.operator?.applications
   const email = app?.email
   if (!email) {
@@ -204,13 +204,18 @@ async function sendSheetEmail(supabase: any, authHeader: string, sheet: any) {
 
   const signUrl = buildAppUrl(`/dashboard?view=onboard-systems&osas_token=${sheet.access_token}`)
 
+  // Initial send uses a stable per-sheet key. Resends must use a unique key so
+  // the transactional queue does not dedupe them into no-ops.
+  const idempotencyKey = opts.resend
+    ? `osas-${sheet.id}-resend-${Date.now()}`
+    : `osas-${sheet.id}`
+
   const result = await sendTemplateEmail({
     supabase,
     authHeader,
     templateName: 'osas-sign-request',
     recipientEmail: email,
-    // Stable per-sheet key; retries within the same sheet won't duplicate.
-    idempotencyKey: `osas-${sheet.id}`,
+    idempotencyKey,
     templateData: {
       operatorName,
       assignmentDate,
