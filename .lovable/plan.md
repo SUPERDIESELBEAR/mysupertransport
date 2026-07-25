@@ -1,29 +1,32 @@
 ## Plan
 
-Fix the Onboard Systems Assignment Sheet signature so the drawn signature is captured reliably on mobile and displayed immediately after signing.
+Fix the Onboard Systems Assignment Sheet signature area so it renders as a normal, bounded signing box on mobile and reliably captures the drawn signature.
 
 ### What I confirmed
-- The sheet row is being marked **signed** and has a saved signature path.
-- A PNG object exists in backend storage for the signed sheet.
-- The screenshot shows the app has a signed timestamp/name but the displayed image area is blank, which points to the captured canvas image being blank/transparent or not being restored correctly after the sign flow.
+- The screenshot shows the signature canvas itself is failing to render correctly on mobile: the browser displays a broken-image/frowning icon inside the signing area.
+- The OSAS signing screen currently uses `react-signature-canvas` without explicit `width`/`height` attributes on the rendered canvas, then resizes it after mount.
+- The current resize code clears the canvas when resizing and relies on a fixed `SIGNATURE_HEIGHT = 144`, but the mobile screenshot shows the visible signing block expanding far beyond that intended height.
+- No signature-related console or network errors were present in the available preview logs, so this is most likely a client-side canvas layout/rendering issue rather than a failed upload request.
 
 ### Implementation steps
-1. **Fix mobile signature canvas sizing**
-   - Update the signing canvas to initialize with explicit pixel dimensions instead of relying only on CSS sizing.
-   - Scale for device pixel ratio so touch drawing is captured accurately on phones.
-   - Prevent page scrolling/touch gestures from interfering while drawing.
+1. **Replace fragile canvas sizing with stable dimensions**
+   - Give the signature host an explicit, responsive, fixed-height box.
+   - Pass explicit canvas `width` and `height` props to `SignatureCanvas` from React state instead of relying on a post-render resize only.
+   - Keep the drawing surface from stretching vertically down the page on mobile.
 
-2. **Validate the captured image before upload**
-   - Add a small client-side check that the exported canvas actually contains non-white/non-transparent pixels.
-   - If the canvas export is blank, keep the driver on the signing screen and show a clear error instead of saving a signed sheet with an empty image.
+2. **Make mobile drawing reliable**
+   - Use the host width and device pixel ratio to size the backing canvas correctly.
+   - Prevent touch scrolling/gestures inside the signing box while still allowing normal page scroll outside it.
+   - Avoid clearing the canvas after a user has already started drawing unless they tap Clear.
 
-3. **Improve post-sign display**
-   - After upload, show the locally captured data URL immediately while the stored image URL is resolving.
-   - Keep the existing stored-path display for management and driver document previews.
+3. **Remove the broken canvas/frowning icon state**
+   - Ensure the canvas element always mounts with valid pixel dimensions.
+   - Add a clean fallback/loading state only while dimensions are being measured, so mobile browsers do not render a broken placeholder.
 
-4. **Add a safe fallback for already affected sheets**
-   - If a sheet is marked signed but its signature image is unavailable/blank, show a clear “Signature needs to be re-signed” state instead of an empty white box.
-   - Allow the driver to re-sign that sheet so the bad signature can be replaced without staff deleting/recreating the assignment sheet.
+4. **Preserve blank-signature protection**
+   - Keep the existing visible-ink validation before upload.
+   - If no ink is captured, keep the driver on the signing screen and prompt them to sign again.
 
-5. **Verify**
-   - Use the live preview to confirm the signature drawing remains visible after tapping **Sign Assignment Sheet** and that the management preview displays the same signature.
+5. **Verify on a mobile viewport**
+   - Load the driver-facing Onboard Systems signature screen in a mobile-sized browser viewport.
+   - Confirm the signature box is bounded, no frowning icon appears, drawing can occur, and the Sign button only enables after input is captured.
