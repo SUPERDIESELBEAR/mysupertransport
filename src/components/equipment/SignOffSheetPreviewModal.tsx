@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import type { SheetWithItems } from './SignOffSheetList';
+import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD Unit',
