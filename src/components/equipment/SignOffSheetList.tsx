@@ -4,7 +4,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye } from 'lucide-react';
+import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -49,6 +59,8 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [sheets, setSheets] = useState<SheetWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
@@ -104,6 +116,29 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     }
   };
 
+  const handleDelete = async (sheet: SheetWithItems) => {
+    setDeletingId(sheet.id);
+    try {
+      const { error } = await supabase.functions.invoke('delete-osas-sheet', {
+        body: { sheetId: sheet.id },
+      });
+      if (error) {
+        const details = error instanceof Error ? error.message : String(error);
+        console.error('[SignOffSheetList] delete failed', error);
+        toast({ title: 'Delete failed', description: details, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Assignment sheet deleted', description: 'Any assigned devices were released back to inventory.' });
+      setConfirmDelete(null);
+      fetchSheets();
+    } catch (err: any) {
+      console.error('[SignOffSheetList] delete exception', err);
+      toast({ title: 'Delete failed', description: err?.message ?? 'Could not delete', variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-12 flex items-center justify-center text-muted-foreground">
@@ -155,7 +190,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-base font-semibold truncate">{driverName}</div>
-                      <div className="text-sm text-muted-foreground truncate">Unit {sheet.operator?.unit_number ?? '—'} • {driverEmail ?? '—'}</div>
+                      <div className="text-sm text-muted-foreground truncate">Unit {sheet.unit_number ?? sheet.operator?.unit_number ?? '—'} • {driverEmail ?? '—'}</div>
                     </div>
                     <Badge variant={status === 'signed' ? 'default' : status === 'sent' ? 'outline' : 'secondary'} className="shrink-0">
                       <span className="flex items-center gap-1.5">
@@ -203,6 +238,20 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                         {status === 'draft' ? 'Send' : 'Resend'}
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 ml-auto"
+                      onClick={() => setConfirmDelete(sheet)}
+                      disabled={deletingId === sheet.id}
+                    >
+                      {deletingId === sheet.id ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      Delete
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -210,6 +259,31 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           })}
         </div>
       )}
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(v) => { if (!v && !deletingId) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this assignment sheet?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Any devices assigned on this sheet will be released back to inventory. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!deletingId}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmDelete) handleDelete(confirmDelete);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingId ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

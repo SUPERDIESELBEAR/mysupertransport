@@ -1,35 +1,48 @@
-## Fix: OSAS Assignment Sheet "View" opens a real preview
+## Three fixes for the Assignment Sheets list (Onboard Systems → Assignment Sheets)
 
-**Problem**
-On Onboard Systems → Assignment Sheets, clicking **View** shows a toast placeholder ("Full preview coming in next phase.") instead of the sheet.
+### 1. Resend actually sends nothing (toast lies)
 
-**Fix**
-Replace the toast with a real preview modal that renders the sheet contents already in memory — no new data fetches needed.
+**Root cause (confirmed in `supabase/functions/send-osas-to-operator/index.ts`):** `sendSheetEmail` uses `idempotencyKey: \`osas-${sheet.id}\``. The queue treats subsequent resends as duplicates of the original send and drops them silently — the function returns success, the toast fires, but no new email is enqueued.
 
-### Changes
+**Fix:** When invoked via the resend path (`body.sheetId` present), make the idempotency key unique per attempt so each reminder is a distinct send:
+```
+idempotencyKey: `osas-${sheet.id}-resend-${Date.now()}`
+```
+Keep the original stable key for the initial create+send. Pass a `resend: true` flag from `sendSheetEmail` (or split into two helpers) so the key is chosen correctly.
 
-1. **New `src/components/equipment/SignOffSheetPreviewModal.tsx`**
-   - Dialog (reuses shadcn `Dialog`) sized for desktop + mobile.
-   - Header: driver name, unit number, status badge, assignment date.
-   - Body:
-     - Driver contact (email, phone)
-     - Devices table: type label (ELD / Dash Cam / BestPass) + serial
-     - BestPass fee row ($60.00) when `bestpass_included`
-     - Standard unreturned-equipment notice ($1,000 ELD replacement) — same copy as the email template for consistency
-     - Signature block: if `signed_at` present, show signed timestamp and embedded signature image (from `signature_url` if the column exists on the row; otherwise just the timestamp)
-   - Footer actions: **Close**, **Resend** (only when status is `draft` or `sent`, wired to the same `send-osas-to-operator` invoke used in the list), **Copy sign link** (builds `/dashboard?view=onboard-systems&osas_token=<access_token>` from `window.location.origin`).
+### 2. `Unit —` shows a dash even though the sheet stored a unit number
 
-2. **`src/components/equipment/EquipmentInventory.tsx`**
-   - Add `previewSheet` state.
-   - `onPreview={sheet => setPreviewSheet(sheet)}` instead of the toast.
-   - Render `<SignOffSheetPreviewModal sheet={previewSheet} onClose={() => setPreviewSheet(null)} onResent={...} />`.
-   - On successful resend from the modal, refresh the list (reuse existing `SignOffSheetList` refresh — trigger via a small `refreshKey` state bumped on close, or expose a ref; simplest: bump a `listRefreshKey` passed as `key` to `<SignOffSheetList/>`).
+**Root cause (confirmed in `src/components/equipment/SignOffSheetList.tsx` line 158):** The card reads `sheet.operator?.unit_number`, but the unit number entered in the Create modal is written to `onboard_assignment_sheets.unit_number` on the sheet row itself. Operators created without a unit on their profile show `—`.
 
-### Out of scope
-- No schema changes.
-- No changes to the driver-facing signing page.
-- No PDF export (can be a follow-up if desired).
+**Fix:** Prefer the sheet's own unit, fall back to the operator's:
+```
+Unit {sheet.unit_number ?? sheet.operator?.unit_number ?? '—'}
+```
+Apply the same fallback in `SignOffSheetPreviewModal.tsx` header for consistency.
 
-### Technical notes
-- Preview reads from the `SheetWithItems` object already loaded by `SignOffSheetList` — no extra query, so it works for `draft`, `sent`, and `signed` alike.
-- Type import: reuse the existing `SheetWithItems` type by exporting it from `SignOffSheetList.tsx`.
+### 3. No way to delete assignment sheets
+
+Add a Delete action so test/mistaken sheets can be removed and their equipment released.
+
+**Edge function:** new `supabase/functions/delete-osas-sheet/index.ts` following the shared email/auth pattern (`requireStaff` with `['management','onboarding_staff','owner']`, `ok/fail/withErrorEnvelope`). Body: `{ sheetId }`. Actions:
+1. Load sheet + items.
+2. For each item's `equipment_id`: set `equipment_items.status = 'available'` and delete the matching `equipment_assignments` row (operator + equipment).
+3. Delete `onboard_assignment_sheet_items` for the sheet.
+4. Delete the `onboard_assignment_sheets` row.
+
+Deploy the new function.
+
+**UI (`SignOffSheetList.tsx`):**
+- Add a red-outline `Trash2` "Delete" button next to View / Resend.
+- Use an `AlertDialog` confirmation ("Delete this assignment sheet? Any assigned devices will be released back to inventory. This cannot be undone.").
+- On confirm, invoke `delete-osas-sheet`, toast result, refresh list. Track a `deletingId` for the spinner/disabled state.
+
+Also mirror the Delete action in `SignOffSheetPreviewModal.tsx` footer so it can be removed while previewing; close the modal and refresh the list on success.
+
+### Files touched
+- `supabase/functions/send-osas-to-operator/index.ts` — unique resend idempotency key
+- `src/components/equipment/SignOffSheetList.tsx` — unit fallback + Delete button/dialog
+- `src/components/equipment/SignOffSheetPreviewModal.tsx` — unit fallback + Delete button
+- `supabase/functions/delete-osas-sheet/index.ts` — new function (deploy)
+
+No schema changes, no migration.

@@ -444,6 +444,7 @@ export default function EquipmentInventory({
         sheet={previewSheet}
         onClose={() => setPreviewSheet(null)}
         onResent={() => setSheetListKey(k => k + 1)}
+        onDeleted={() => setSheetListKey(k => k + 1)}
       />
 
       {/* Modals */}
