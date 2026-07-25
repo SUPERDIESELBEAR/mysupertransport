@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,10 +36,13 @@ interface Props {
   sheet: SheetWithItems | null;
   onClose: () => void;
   onResent?: () => void;
+  onDeleted?: () => void;
 }
 
-export default function SignOffSheetPreviewModal({ sheet, onClose, onResent }: Props) {
+export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onDeleted }: Props) {
   const [resending, setResending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!sheet) return null;
 
@@ -70,6 +83,28 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent }: P
       toast.error('Resend failed', { description: err?.message ?? 'Could not send' });
     } finally {
       setResending(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!sheet) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-osas-sheet', {
+        body: { sheetId: sheet.id },
+      });
+      if (error) {
+        toast.error('Delete failed', { description: await getEdgeFunctionErrorMessage(error) });
+        return;
+      }
+      toast.success('Assignment sheet deleted');
+      setConfirmOpen(false);
+      onDeleted?.();
+      onClose();
+    } catch (err: any) {
+      toast.error('Delete failed', { description: err?.message ?? 'Could not delete' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -164,6 +199,16 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent }: P
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 mr-auto"
+            onClick={() => setConfirmOpen(true)}
+            disabled={deleting}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Delete
+          </Button>
           {signUrl && (
             <Button variant="outline" size="sm" onClick={handleCopy}>
               <Copy className="h-3.5 w-3.5 mr-1.5" />
@@ -179,6 +224,27 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent }: P
           <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmOpen} onOpenChange={(v) => { if (!deleting) setConfirmOpen(v); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this assignment sheet?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Any devices assigned on this sheet will be released back to inventory. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
