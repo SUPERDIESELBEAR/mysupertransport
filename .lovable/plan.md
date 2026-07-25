@@ -1,23 +1,22 @@
-## Diagnosis
+## Problem
+The "Review & Sign Sheet" button in the OSAS email points at the backend API host instead of the SUPERDRIVE app, so tapping it lands on a "requested path is invalid" JSON error page.
 
-The OSAS email failure is still the same backend role-check issue. The deployed function is trying to allow a role named `admin`, but this app’s role list does not include `admin`, so the database rejects the role filter before the email can be sent.
+## Root cause
+In `supabase/functions/send-osas-to-operator/index.ts`, the sign URL is built from the backend URL:
+```
+const signUrl = `${supabaseUrl.replace('/supabase', '')}/operator/onboard-systems?osas_token=...`
+```
+That resolves to `https://<project>.supabase.co/operator/onboard-systems?...`, which the backend rejects. It should point at the app, and the app reads `osas_token` on the `/dashboard?view=onboard-systems` route (via `OperatorPortal` + `OperatorOSASSign`), not `/operator/onboard-systems`.
 
-## Plan
+## Fix
+Update `send-osas-to-operator/index.ts`:
+- Import `buildAppUrl` from `../_shared/app-url.ts`.
+- Replace the `signUrl` line with:
+  ```
+  const signUrl = buildAppUrl(`/dashboard?view=onboard-systems&osas_token=${sheet.access_token}`);
+  ```
+- Redeploy the function.
 
-1. **Fix the shared staff auth helper**
-   - Remove the invalid `admin` role from the shared staff role type/defaults.
-   - Ensure role checks only use valid app roles: owner, management, onboarding staff, dispatcher, etc.
-   - This prevents future email functions from repeating this exact enum error.
+This matches the pattern already used by other transactional emails and honors the `APP_URL` env (with fallback to `https://mysupertransport.lovable.app`).
 
-2. **Fix the OSAS send function**
-   - Update the OSAS function’s allowed roles to remove `admin`.
-   - Keep owner, management, and onboarding staff access for sending sign-off sheets.
-
-3. **Improve the visible error message**
-   - Confirm the frontend reads the JSON error envelope when the function returns a non-2xx response.
-   - If it still only shows “Edge Function returned a non-2xx status code,” update the OSAS modal toast to show the backend’s readable error details.
-
-4. **Deploy and verify**
-   - Deploy the touched email function(s).
-   - Re-check function logs and make a direct test call with the authenticated preview session if possible.
-   - Confirm the old `invalid input value for enum app_role: "admin"` error no longer appears.
+No frontend changes needed — the operator portal already handles `osas_token` on the dashboard view.

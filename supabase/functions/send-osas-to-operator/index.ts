@@ -5,6 +5,7 @@ import {
   withErrorEnvelope,
   sendTemplateEmail,
 } from '../_shared/email/index.ts'
+import { buildAppUrl } from '../_shared/app-url.ts'
 
 // Supabase-managed edge function for creating / sending Onboard Systems Assignment Sheets.
 
@@ -46,7 +47,6 @@ Deno.serve(withErrorEnvelope(async (req) => {
   const auth = await requireStaff(req, { roles: ['management', 'onboarding_staff', 'owner'] })
   if (auth instanceof Response) return auth
   const { supabase, authHeader, userId } = auth
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 
   let body: any
   try {
@@ -72,7 +72,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       if (sheetError || !sheet) {
         return fail(404, 'Sheet not found', sheetError?.message)
       }
-      await sendSheetEmail(supabase, authHeader, sheet, supabaseUrl)
+      await sendSheetEmail(supabase, authHeader, sheet)
       await supabase.from('onboard_assignment_sheets').update({ sent_at: new Date().toISOString() }).eq('id', payload.sheetId)
       return ok({ success: true, sheetId: sheet.id })
     }
@@ -180,13 +180,13 @@ Deno.serve(withErrorEnvelope(async (req) => {
     // Send email if requested
     if (body.sendToOperator) {
       const fullSheet = { ...sheet, items: sheetItems, operator }
-      await sendSheetEmail(supabase, authHeader, fullSheet as any, supabaseUrl)
+      await sendSheetEmail(supabase, authHeader, fullSheet as any)
     }
 
     return ok({ success: true, sheetId: sheet.id })
 }, 'send-osas-to-operator'))
 
-async function sendSheetEmail(supabase: any, authHeader: string, sheet: any, supabaseUrl: string) {
+async function sendSheetEmail(supabase: any, authHeader: string, sheet: any) {
   const app = sheet.operator?.applications
   const email = app?.email
   if (!email) {
@@ -202,7 +202,7 @@ async function sendSheetEmail(supabase: any, authHeader: string, sheet: any, sup
     serial: it.serial_snapshot,
   }))
 
-  const signUrl = `${supabaseUrl.replace('/supabase', '')}/operator/onboard-systems?osas_token=${sheet.access_token}`
+  const signUrl = buildAppUrl(`/dashboard?view=onboard-systems&osas_token=${sheet.access_token}`)
 
   const result = await sendTemplateEmail({
     supabase,
