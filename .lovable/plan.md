@@ -1,15 +1,28 @@
-## Fix: Unit number missing on Create Sign-off Sheet
+# Fix: OSAS "Send to Operator" returns non-2xx error
 
-### Root cause (verified)
-`CreateSignOffSheetModal.tsx` reads `unit_number` from `operators.unit_number`, but that column is empty for all active operators. The actual unit numbers live in `onboarding_status.unit_number` (confirmed via DB query — operators row shows 0 populated, onboarding_status shows real values like 222, 259, 185…).
+## Root cause (verified)
 
-### Change
-In `src/components/equipment/CreateSignOffSheetModal.tsx`:
+The `send-osas-to-operator` edge function authorizes staff in two steps:
+1. Check `app_metadata.user_roles` / `roles` on the JWT.
+2. If that misses, fall back to the DB via `supabase.rpc('get_user_roles', { user_id: userData.user.id })`.
 
-1. Add `unit_number` to the `onboarding_status(...)` sub-select in `fetchOperators`.
-2. In the row mapper, set `unitNumber: o.unit_number ?? os?.unit_number ?? null` so the onboarding_status value fills in when the operators-level column is blank.
+Verified against the live DB: the function signature is `public.get_user_roles(_user_id uuid)` — the parameter is `_user_id`, not `user_id`. Passing `{ user_id: ... }` fails to bind, so the fallback returns no roles and the function responds `403 Forbidden`. That's what surfaces in the UI as "Edge Function returned a non-2xx status code".
 
-No other files touched. No schema changes. The rest of the modal (truck, plate, phone, email) already pulls from `onboarding_status`/`applications` and continues to work.
+Owner/staff JWTs on this project don't carry `user_roles` in `app_metadata` (roles live in the `user_roles` table), so every staff user hits the broken fallback.
 
-### Verification
-- Reopen "Create Sign-off Sheet", pick Matthew Clovis and a few others → Unit line shows the number instead of "—".
+## Fix
+
+In `supabase/functions/send-osas-to-operator/index.ts`, change the RPC call to use the correct argument name:
+
+```ts
+const { data: roles } = await supabase.rpc('get_user_roles', { _user_id: userData.user.id })
+```
+
+No other changes needed. The rest of the authorization logic (`.some(r => ['management','onboarding_staff','owner'].includes(r))`) works correctly once `roles` is populated.
+
+## Verification
+
+After the fix, clicking "Send to Operator" as Marcus (owner) should:
+- Return 200 with `{ success: true, sheetId }`.
+- Create the sheet row and mark equipment as `assigned`.
+- Trigger the `osas-sign-request` email to the operator.
