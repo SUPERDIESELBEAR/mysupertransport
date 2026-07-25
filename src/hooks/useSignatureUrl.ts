@@ -33,7 +33,7 @@ export function useSignatureUrl(value: string | null | undefined): SignatureUrlS
       if (cancelled) return;
       if (error) {
         console.error('[useSignatureUrl] failed to sign', value, error);
-        setState({ url: null, loading: false, error: error instanceof Error ? error : new Error(error.message) });
+        setState({ url: null, loading: false, error: error instanceof Error ? error : new Error('Could not create signature URL') });
         return;
       }
       setState({ url: data?.signedUrl ?? null, loading: false, error: null });
