@@ -197,6 +197,10 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
                         alt="Your signature"
                         className="max-h-24 bg-white border border-border rounded"
                       />
+                    ) : signature.blank ? (
+                      <div className="flex min-h-24 w-56 items-center justify-center rounded border border-amber-300 bg-amber-50 px-3 text-center text-xs text-amber-900">
+                        Signature needs to be re-signed
+                      </div>
                     ) : preview.driver_signature_data_url ? (
                       <div className="flex h-24 w-40 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
                         Signature image unavailable
