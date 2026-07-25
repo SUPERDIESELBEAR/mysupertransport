@@ -346,6 +346,32 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
   }, [operatorId]);
 
+  // Track OSAS assignment sheet counts to drive sidebar visibility and badge.
+  useEffect(() => {
+    if (!operatorId) { setOsasSheetTotal(0); setOsasPendingCount(0); return; }
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from('onboard_assignment_sheets')
+        .select('id, status')
+        .eq('operator_id', operatorId);
+      if (cancelled) return;
+      const rows = (data ?? []) as Array<{ id: string; status: string }>;
+      setOsasSheetTotal(rows.length);
+      setOsasPendingCount(rows.filter((r) => r.status === 'sent').length);
+    };
+    load();
+    const channel = supabase
+      .channel(`osas-portal-${operatorId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'onboard_assignment_sheets', filter: `operator_id=eq.${operatorId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [operatorId]);
+
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
     setAckLoading(true);
