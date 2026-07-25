@@ -433,13 +433,18 @@ export default function EquipmentInventory({
 
         <TabsContent value="sheets" className="mt-0">
           <SignOffSheetList
+            key={sheetListKey}
             onCreate={() => setSignOffSheetOpen(true)}
-            onPreview={sheet => {
-              toast({ title: 'Preview', description: `Sheet for ${sheet.operator?.applications?.first_name ?? 'driver'} will open here. (Full preview coming in next phase.)` });
-            }}
+            onPreview={sheet => setPreviewSheet(sheet)}
           />
         </TabsContent>
       </Tabs>
+
+      <SignOffSheetPreviewModal
+        sheet={previewSheet}
+        onClose={() => setPreviewSheet(null)}
+        onResent={() => setSheetListKey(k => k + 1)}
+      />
 
       {/* Modals */}
       <EquipmentItemModal
