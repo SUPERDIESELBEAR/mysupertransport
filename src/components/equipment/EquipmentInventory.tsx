@@ -20,6 +20,8 @@ import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import CreateSignOffSheetModal from './CreateSignOffSheetModal';
 import SignOffSheetList from './SignOffSheetList';
+import type { SheetWithItems } from './SignOffSheetList';
+import SignOffSheetPreviewModal from './SignOffSheetPreviewModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
