@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   const appMetadata = userData.user.app_metadata || {}
   if (!isStaff(appMetadata)) {
     // Also check user_roles table for staff roles
-    const { data: roles } = await supabase.rpc('get_user_roles', { user_id: userData.user.id })
+    const { data: roles } = await supabase.rpc('get_user_roles', { _user_id: userData.user.id })
     const roleList = (roles ?? []) as string[]
     const isStaffRole = roleList.some(r => ['management', 'onboarding_staff', 'owner'].includes(r))
     if (!isStaffRole) {
