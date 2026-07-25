@@ -159,6 +159,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const signature = useSignatureUrl(localSignedDataUrl ?? sheet?.driver_signature_data_url ?? null);
   const signatureNeedsReplacement = alreadySigned && (!!signature.blank || (!!sheet?.signed_at && !sheet?.driver_signature_data_url));
   const showSigningForm = !alreadySigned || signatureNeedsReplacement;
+  const termsAccepted = alreadySigned || termsAck;
 
   const resizeSignatureCanvas = useCallback(() => {
     const signaturePad = sigRef.current;
@@ -201,7 +202,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const handleSign = async () => {
     if (!sheet || !user) return;
     if (!allConfirmed) { toast.error('Confirm each device before signing'); return; }
-    if (!termsAck) { toast.error('You must acknowledge the terms'); return; }
+    if (!termsAccepted) { toast.error('You must acknowledge the terms'); return; }
     if (!typedName.trim()) { toast.error('Type your full legal name'); return; }
     if (!sigRef.current || sigRef.current.isEmpty()) { toast.error('Draw your signature'); return; }
 
@@ -439,7 +440,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
           </div>
           <Button
             onClick={handleSign}
-            disabled={saving || !allConfirmed || !termsAck || !hasDrawn || !typedName.trim()}
+            disabled={saving || !allConfirmed || !termsAccepted || !hasDrawn || !typedName.trim()}
             className="w-full gap-1.5 bg-primary text-primary-foreground"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
