@@ -184,11 +184,11 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
     const host = signatureBoxRef.current;
     if (!host || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      if (!hasDrawn) resizeSignatureCanvas();
+      if (sigRef.current?.isEmpty()) resizeSignatureCanvas();
     });
     observer.observe(host);
     return () => observer.disconnect();
-  }, [hasDrawn, resizeSignatureCanvas, showSigningForm]);
+  }, [resizeSignatureCanvas, showSigningForm]);
 
   const toggleConfirm = (itemId: string, checked: boolean) => {
     setConfirmedIds(prev => {
