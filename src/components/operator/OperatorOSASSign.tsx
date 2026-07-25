@@ -52,8 +52,32 @@ const DEVICE_ICON: Record<DeviceType, React.ReactNode> = {
 };
 
 const SIGNATURE_HEIGHT = 144;
+const SIGNATURE_FALLBACK_WIDTH = 280;
 const INK_ALPHA_THRESHOLD = 16;
 const INK_CHANNEL_THRESHOLD = 245;
+
+type SignatureCanvasSize = {
+  cssWidth: number;
+  cssHeight: number;
+  pixelWidth: number;
+  pixelHeight: number;
+  ratio: number;
+};
+
+function getSignatureCanvasSize(host: HTMLDivElement | null): SignatureCanvasSize {
+  const hostWidth = host ? Math.floor(host.getBoundingClientRect().width) : 0;
+  const cssWidth = hostWidth > 0 ? hostWidth : SIGNATURE_FALLBACK_WIDTH;
+  const cssHeight = SIGNATURE_HEIGHT;
+  const ratio = typeof window === 'undefined' ? 1 : Math.max(window.devicePixelRatio || 1, 1);
+
+  return {
+    cssWidth,
+    cssHeight,
+    pixelWidth: Math.floor(cssWidth * ratio),
+    pixelHeight: Math.floor(cssHeight * ratio),
+    ratio,
+  };
+}
 
 function canvasHasVisibleInk(canvas: HTMLCanvasElement): boolean {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -99,6 +123,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const [typedName, setTypedName] = useState('');
   const [hasDrawn, setHasDrawn] = useState(false);
   const [localSignedDataUrl, setLocalSignedDataUrl] = useState<string | null>(null);
+  const [signatureCanvasSize, setSignatureCanvasSize] = useState<SignatureCanvasSize>(() => getSignatureCanvasSize(null));
   const signatureBoxRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<SignatureCanvas>(null);
 
@@ -161,34 +186,46 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const showSigningForm = !alreadySigned || signatureNeedsReplacement;
   const termsAccepted = alreadySigned || termsAck;
 
-  const resizeSignatureCanvas = useCallback(() => {
-    const signaturePad = sigRef.current;
+  const measureSignatureCanvas = useCallback(() => {
+    if (sigRef.current && !sigRef.current.isEmpty()) return;
     const host = signatureBoxRef.current;
-    if (!signaturePad || !host) return;
-
-    const canvas = signaturePad.getCanvas();
-    const width = Math.max(Math.floor(host.getBoundingClientRect().width), 280);
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    canvas.width = Math.floor(width * ratio);
-    canvas.height = Math.floor(SIGNATURE_HEIGHT * ratio);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${SIGNATURE_HEIGHT}px`;
-    canvas.getContext('2d')?.scale(ratio, ratio);
-    signaturePad.clear();
-    setHasDrawn(false);
+    const next = getSignatureCanvasSize(host);
+    setSignatureCanvasSize(prev => {
+      if (
+        prev.cssWidth === next.cssWidth
+        && prev.cssHeight === next.cssHeight
+        && prev.pixelWidth === next.pixelWidth
+        && prev.pixelHeight === next.pixelHeight
+        && prev.ratio === next.ratio
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {
     if (!showSigningForm) return;
-    resizeSignatureCanvas();
+    measureSignatureCanvas();
     const host = signatureBoxRef.current;
     if (!host || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => {
-      if (sigRef.current?.isEmpty()) resizeSignatureCanvas();
-    });
+    const observer = new ResizeObserver(() => measureSignatureCanvas());
     observer.observe(host);
     return () => observer.disconnect();
-  }, [resizeSignatureCanvas, showSigningForm]);
+  }, [measureSignatureCanvas, showSigningForm]);
+
+  useEffect(() => {
+    if (!showSigningForm) return;
+    const signaturePad = sigRef.current;
+    if (!signaturePad) return;
+    const canvas = signaturePad.getCanvas();
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(signatureCanvasSize.ratio, 0, 0, signatureCanvasSize.ratio, 0, 0);
+    }
+    signaturePad.clear();
+    setHasDrawn(false);
+  }, [showSigningForm, signatureCanvasSize]);
 
   const toggleConfirm = (itemId: string, checked: boolean) => {
     setConfirmedIds(prev => {
@@ -421,11 +458,24 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
           </div>
           <div>
             <Label className="text-xs">Sign below</Label>
-            <div ref={signatureBoxRef} className="border border-dashed border-border rounded-md bg-white mt-1 overflow-hidden touch-none">
+            <div
+              ref={signatureBoxRef}
+              className="h-36 w-full min-w-0 rounded-md border border-dashed border-border bg-white mt-1 overflow-hidden touch-none overscroll-contain"
+            >
               <SignatureCanvas
                 ref={sigRef}
                 penColor="#000"
-                canvasProps={{ className: 'block rounded-md touch-none' }}
+                clearOnResize={false}
+                canvasProps={{
+                  width: signatureCanvasSize.pixelWidth,
+                  height: signatureCanvasSize.pixelHeight,
+                  className: 'block h-36 w-full rounded-md touch-none select-none',
+                  style: {
+                    width: `${signatureCanvasSize.cssWidth}px`,
+                    height: `${signatureCanvasSize.cssHeight}px`,
+                    maxWidth: '100%',
+                  },
+                }}
                 onEnd={() => setHasDrawn(true)}
               />
             </div>
