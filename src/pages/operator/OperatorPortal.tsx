@@ -223,6 +223,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [unackedRequiredDocs, setUnackedRequiredDocs] = useState(0);
+  const [osasSheetTotal, setOsasSheetTotal] = useState(0);
+  const [osasPendingCount, setOsasPendingCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [dispatchUpdatedAt, setDispatchUpdatedAt] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null; userId: string | null; avatarUrl: string | null } | null>(null);
