@@ -1,10 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const RECIPIENT_EMAIL = 'tracey@iondot.net';
 const RECIPIENT_NAME = 'Tracey L. McQuilken';
@@ -78,49 +74,14 @@ function buildHtml(d: {
 </body></html>`;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  try {
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const token = authHeader.replace('Bearer ', '');
-
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: claimsData, error: authErr } = await supabaseUser.auth.getClaims(token);
-    if (authErr || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const caller = { id: claimsData.claims.sub as string, email: (claimsData.claims.email as string) ?? '' };
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
-
-    const { data: callerRoles } = await supabase
-      .from('user_roles').select('role').eq('user_id', caller.id)
-      .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner'])
-      .limit(1);
-    if (!callerRoles?.length) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+Deno.serve(withErrorEnvelope(async (req) => {
+    const auth = await requireStaff(req, { roles: ['onboarding_staff', 'dispatcher', 'management', 'owner'] });
+    if (auth instanceof Response) return auth;
+    const { supabase, userId, email: callerEmail } = auth;
+    const caller = { id: userId, email: callerEmail };
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
+    if (!RESEND_API_KEY) return fail(500, 'Email provider not configured (RESEND_API_KEY missing)');
 
     const body = await req.json() as {
       operator_id?: string;
@@ -134,9 +95,7 @@ Deno.serve(async (req) => {
 
     const operator_id = body.operator_id;
     if (!operator_id) {
-      return new Response(JSON.stringify({ error: 'operator_id required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return fail(400, 'operator_id required');
     }
     const terminationDate = typeof body.termination_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.termination_date)
       ? body.termination_date
@@ -147,9 +106,7 @@ Deno.serve(async (req) => {
     const notes = typeof body.notes === 'string' ? body.notes.slice(0, 5000) : '';
 
     if (!terminationDate || !reason || !rehire) {
-      return new Response(JSON.stringify({
-        error: 'termination_date, reason, and rehire (yes|no) are required',
-      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(400, 'termination_date, reason, and rehire (yes|no) are required');
     }
 
     // Normalize To recipients (Tracey pre-filled client-side but removable).
@@ -161,9 +118,7 @@ Deno.serve(async (req) => {
         .filter(v => EMAIL_RE.test(v)),
     )).slice(0, 15);
     if (toEmails.length === 0) {
-      return new Response(JSON.stringify({ error: 'At least one To recipient is required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return fail(400, 'At least one To recipient is required');
     }
     const includesTracey = toEmails.includes(RECIPIENT_EMAIL.toLowerCase());
 
@@ -177,9 +132,7 @@ Deno.serve(async (req) => {
     ]);
 
     if (opResult.error || !opResult.data) {
-      return new Response(JSON.stringify({ error: 'Operator not found' }), {
-        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return fail(404, 'Operator not found', opResult.error?.message);
     }
     const op = opResult.data as any;
     const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
@@ -251,10 +204,7 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const errText = await res.text();
       console.error('send-deactivation-notice resend error:', res.status, errText);
-      return new Response(JSON.stringify({
-        success: false,
-        error: `Email delivery failed (${res.status}): ${errText}`,
-      }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return fail(502, `Email delivery failed (Resend ${res.status})`, errText);
     }
 
     // Stamp operator notification timestamp only when Tracey actually received it.
@@ -288,16 +238,10 @@ Deno.serve(async (req) => {
       },
     });
 
-    return new Response(JSON.stringify({
+    return ok({
       success: true,
       sent_to: [...toEmails, ...ccEmails],
       notified_at: includesTracey ? notifiedAt : null,
       tracey_included: includesTracey,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  } catch (err) {
-    console.error('send-deactivation-notice error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  }
-});
+}, 'send-deactivation-notice'));
