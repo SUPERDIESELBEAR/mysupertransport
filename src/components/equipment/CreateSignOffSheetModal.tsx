@@ -12,6 +12,7 @@ import DriverCombobox from '@/components/inspection/DriverCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 
 type OsasDeviceType = 'eld' | 'dash_cam' | 'bestpass';
 type OsasStatus = Database['public']['Enums']['osas_status'];
@@ -230,7 +231,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         },
       });
       if (error) {
-        const details = error instanceof Error ? error.message : String(error);
+        const details = await getEdgeFunctionErrorMessage(error, 'Could not save sheet');
         console.error('[CreateSignOffSheetModal] invoke failed', error);
         toast({ title: 'Error', description: details, variant: 'destructive' });
         return;

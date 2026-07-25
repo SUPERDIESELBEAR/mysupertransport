@@ -20,15 +20,13 @@ export type StaffRole =
   | 'owner'
   | 'management'
   | 'onboarding_staff'
-  | 'dispatcher'
-  | 'admin';
+  | 'dispatcher';
 
 export const DEFAULT_STAFF_ROLES: StaffRole[] = [
   'owner',
   'management',
   'onboarding_staff',
   'dispatcher',
-  'admin',
 ];
 
 export interface StaffAuth {
