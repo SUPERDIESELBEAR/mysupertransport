@@ -10,6 +10,7 @@
 // duplicate sends across retried cron runs.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { buildAppUrl } from '../_shared/app-url.ts';
 
 const MILESTONES = [5, 10, 15, 20, 25];
 const GFE_DAY = 30;
@@ -37,7 +38,6 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  const PUBLISHED_ORIGIN = 'https://mysupertransport.lovable.app';
   const now = new Date();
 
   // Candidates: still awaiting a response
@@ -136,8 +136,8 @@ Deno.serve(async (req) => {
         daysRemaining = Math.max(0, Math.ceil(ms / 86_400_000));
       }
 
-      const responseUrl = `${PUBLISHED_ORIGIN}/pei/respond/${r.response_token}`;
-      const releaseUrl = `${PUBLISHED_ORIGIN}/pei/release/${r.response_token}`;
+      const responseUrl = buildAppUrl(`/pei/respond/${r.response_token}`);
+      const releaseUrl = buildAppUrl(`/pei/release/${r.response_token}`);
 
       const invokeRes = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
         method: 'POST',

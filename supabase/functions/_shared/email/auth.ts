@@ -16,6 +16,11 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { fail } from './respond.ts';
 
+// Valid values for the `app_role` enum in the database. If you add a role
+// here that doesn't exist in the enum, the `user_roles` lookup in
+// `requireStaff` will fail with `invalid input value for enum app_role`.
+// Current enum members: applicant, dispatcher, management, onboarding_staff,
+// operator, owner, truck_owner. Only staff-side roles belong in this file.
 export type StaffRole =
   | 'owner'
   | 'management'
@@ -28,6 +33,28 @@ export const DEFAULT_STAFF_ROLES: StaffRole[] = [
   'onboarding_staff',
   'dispatcher',
 ];
+
+// Runtime guardrail: catches the `admin` bug and its future cousins by
+// verifying at first-call time that every role we plan to check is a real
+// enum member. Logs once per cold start and never blocks the request.
+const KNOWN_APP_ROLES: readonly StaffRole[] = [
+  'owner',
+  'management',
+  'onboarding_staff',
+  'dispatcher',
+];
+let _rolesValidated = false;
+function assertKnownRoles(roles: readonly string[]): void {
+  if (_rolesValidated) return;
+  const unknown = roles.filter((r) => !KNOWN_APP_ROLES.includes(r as StaffRole));
+  if (unknown.length > 0) {
+    console.warn(
+      `[requireStaff] role(s) not in app_role enum: ${unknown.join(', ')} — DB lookup will fail. ` +
+      `Valid staff roles: ${KNOWN_APP_ROLES.join(', ')}`,
+    );
+  }
+  _rolesValidated = true;
+}
 
 export interface StaffAuth {
   userId: string;
@@ -81,6 +108,7 @@ export async function requireStaff(
   const allowed = options.roles && options.roles.length > 0
     ? options.roles
     : DEFAULT_STAFF_ROLES;
+  assertKnownRoles(allowed);
 
   // Always query user_roles directly with the service client — the JWT rarely
   // has roles in app_metadata, so relying on claims silently locks users out.

@@ -2,8 +2,7 @@
 // tokenized link to sign it.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
-
-const SITE_URL = 'https://mysupertransport.lovable.app'
+import { buildAppUrl } from '../_shared/email/index.ts'
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -70,7 +69,7 @@ Deno.serve(async (req) => {
     .single()
   if (insErr || !row) return json(500, { error: insErr?.message || 'Insert failed' })
 
-  const responseUrl = `${SITE_URL}/passenger-auth/${row.response_token}`
+  const responseUrl = buildAppUrl(`/passenger-auth/${row.response_token}`)
 
   // In-app task: create a notification for the linked driver so the request
   // surfaces inside SUPERDRIVE alongside the email link.

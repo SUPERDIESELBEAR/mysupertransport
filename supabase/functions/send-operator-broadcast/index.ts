@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmailStrict, SUPPORT_EMAIL } from '../_shared/email-layout.ts';
+import { buildAppUrl } from '../_shared/app-url.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -280,11 +281,9 @@ Deno.serve(async (req) => {
     );
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const appBaseUrl = Deno.env.get('PUBLIC_APP_URL') || 'https://mysupertransport.lovable.app';
-
     function buildRecipientHtml(recipientId: string, token: string): string {
       const pixelUrl = `${supabaseUrl}/functions/v1/broadcast-track-open?b=${encodeURIComponent(activeBroadcastId)}&r=${encodeURIComponent(recipientId)}&t=${encodeURIComponent(token)}`;
-      const viewUrl = `${appBaseUrl}/operator?tab=messages&b=${encodeURIComponent(activeBroadcastId)}`;
+      const viewUrl = buildAppUrl(`/operator?tab=messages&b=${encodeURIComponent(activeBroadcastId)}`);
       const viewLink = `<div style="text-align:center;margin:14px 0 0;font-size:12px;color:#666;">
         <a href="${viewUrl}" style="color:#C9A84C;text-decoration:none;font-weight:600;">View in SUPERDRIVE →</a>
       </div>`;
