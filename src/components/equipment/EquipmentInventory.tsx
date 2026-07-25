@@ -20,6 +20,8 @@ import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import CreateSignOffSheetModal from './CreateSignOffSheetModal';
 import SignOffSheetList from './SignOffSheetList';
+import type { SheetWithItems } from './SignOffSheetList';
+import SignOffSheetPreviewModal from './SignOffSheetPreviewModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
@@ -108,6 +110,8 @@ export default function EquipmentInventory({
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
   const [activeTab, setActiveTab] = useState<'inventory' | 'sheets'>('inventory');
   const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
+  const [previewSheet, setPreviewSheet] = useState<SheetWithItems | null>(null);
+  const [sheetListKey, setSheetListKey] = useState(0);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -429,13 +433,18 @@ export default function EquipmentInventory({
 
         <TabsContent value="sheets" className="mt-0">
           <SignOffSheetList
+            key={sheetListKey}
             onCreate={() => setSignOffSheetOpen(true)}
-            onPreview={sheet => {
-              toast({ title: 'Preview', description: `Sheet for ${sheet.operator?.applications?.first_name ?? 'driver'} will open here. (Full preview coming in next phase.)` });
-            }}
+            onPreview={sheet => setPreviewSheet(sheet)}
           />
         </TabsContent>
       </Tabs>
+
+      <SignOffSheetPreviewModal
+        sheet={previewSheet}
+        onClose={() => setPreviewSheet(null)}
+        onResent={() => setSheetListKey(k => k + 1)}
+      />
 
       {/* Modals */}
       <EquipmentItemModal

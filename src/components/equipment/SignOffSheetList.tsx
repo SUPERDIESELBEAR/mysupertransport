@@ -12,7 +12,7 @@ type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
 type Operator = Database['public']['Tables']['operators']['Row'];
 
-type SheetWithItems = Sheet & {
+export type SheetWithItems = Sheet & {
   items: SheetItem[];
   operator: (Operator & {
     applications: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null;

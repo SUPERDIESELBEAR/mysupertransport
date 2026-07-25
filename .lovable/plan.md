@@ -1,50 +1,35 @@
-# Email Edge-Function Hardening Pass
+## Fix: OSAS Assignment Sheet "View" opens a real preview
 
-Goal: turn the recent OSAS lessons into durable guardrails so the next email feature can't repeat the same mistakes (bad links, role drift, opaque errors, hand-rolled CORS).
+**Problem**
+On Onboard Systems → Assignment Sheets, clicking **View** shows a toast placeholder ("Full preview coming in next phase.") instead of the sheet.
 
-## What we'll change
+**Fix**
+Replace the toast with a real preview modal that renders the sheet contents already in memory — no new data fetches needed.
 
-### 1. Centralize app URL building
-- Re-export `buildAppUrl` from `supabase/functions/_shared/email/index.ts` so any function importing email helpers gets it automatically.
-- Audit every edge function that constructs a user-facing link. Replace hand-rolled URLs (`SITE_URL` constants, hard-coded `mysupertransport.lovable.app`, string concatenation with `SUPABASE_URL`, etc.) with `buildAppUrl('/path')`.
-- Confirmed offenders to fix:
-  - `send-passenger-auth` (`const SITE_URL = ...`)
-  - `send-insurance-request`, `send-dot-consultant-request`, `send-return-receipt-pdf`, `send-lease-termination`, `send-deactivation-notice`, `send-operator-broadcast`, `send-notification`, `send-test-email`, `resend-invite`, `launch-superdrive-invite`, `invite-staff`, `notify-onboarding-update`, `notify-upload-attention`, `pei-auto-cadence`, `auth-email-hook` — each will be spot-checked and moved to `buildAppUrl` where it builds a link that appears in an email.
-- Non-email URL builders (`download-qpassport`, `_shared/qpassport-link.ts`) left alone unless they emit links into emails.
+### Changes
 
-### 2. Finish the shared-helpers migration
-Migrate remaining staff-triggered email functions to the `_shared/email/` helpers (`requireStaff`, `withErrorEnvelope`, `ok`/`fail`, `sendTemplateEmail` / `sendResendDirect`):
-- `send-passenger-auth`
-- `send-resource-email`
-- `send-release-note`
-- `send-payroll-docs`
-- `send-cert-reminder`
-- `send-operator-broadcast`
-- `notify-upload-attention`, `notify-onboarding-update`, `notify-pay-setup-submitted`, `notify-document-update`, `notify-new-message` (staff/system notifiers that still hand-roll auth or CORS)
+1. **New `src/components/equipment/SignOffSheetPreviewModal.tsx`**
+   - Dialog (reuses shadcn `Dialog`) sized for desktop + mobile.
+   - Header: driver name, unit number, status badge, assignment date.
+   - Body:
+     - Driver contact (email, phone)
+     - Devices table: type label (ELD / Dash Cam / BestPass) + serial
+     - BestPass fee row ($60.00) when `bestpass_included`
+     - Standard unreturned-equipment notice ($1,000 ELD replacement) — same copy as the email template for consistency
+     - Signature block: if `signed_at` present, show signed timestamp and embedded signature image (from `signature_url` if the column exists on the row; otherwise just the timestamp)
+   - Footer actions: **Close**, **Resend** (only when status is `draft` or `sent`, wired to the same `send-osas-to-operator` invoke used in the list), **Copy sign link** (builds `/dashboard?view=onboard-systems&osas_token=<access_token>` from `window.location.origin`).
 
-Each migration: replace ad-hoc CORS + JSON responses with `withErrorEnvelope` + `ok`/`fail`, replace role checks with `requireStaff`, and route sends through `sendTemplateEmail` (queued) unless the function has a specific reason to bypass the queue.
+2. **`src/components/equipment/EquipmentInventory.tsx`**
+   - Add `previewSheet` state.
+   - `onPreview={sheet => setPreviewSheet(sheet)}` instead of the toast.
+   - Render `<SignOffSheetPreviewModal sheet={previewSheet} onClose={() => setPreviewSheet(null)} onResent={...} />`.
+   - On successful resend from the modal, refresh the list (reuse existing `SignOffSheetList` refresh — trigger via a small `refreshKey` state bumped on close, or expose a ref; simplest: bump a `listRefreshKey` passed as `key` to `<SignOffSheetList/>`).
 
-### 3. Guardrails against the specific bugs we just hit
-- **Role enum drift** (`admin` bug): add a startup-time assertion in `_shared/email/auth.ts` that logs a warning if `DEFAULT_STAFF_ROLES` contains an unknown role. Document the valid `app_role` values in a comment next to the type.
-- **Marketing-host links**: `buildAppUrl` already rejects the marketing domain; add a unit-style self-test log line the first time it's called with a rejection so misconfiguration is visible in function logs.
-- **Opaque frontend errors**: sweep frontend call sites that invoke edge functions and confirm they use `getEdgeFunctionErrorMessage` (already used in OSAS). Fix any that still show generic "non-2xx" toasts.
+### Out of scope
+- No schema changes.
+- No changes to the driver-facing signing page.
+- No PDF export (can be a follow-up if desired).
 
-### 4. Documentation
-- Add a short `supabase/functions/_shared/email/README.md` describing the canonical pattern (import from barrel, use `requireStaff`, `buildAppUrl`, `sendTemplateEmail`, wrap with `withErrorEnvelope`) with a minimal template.
-
-## Out of scope
-- No changes to email templates, queue infrastructure, or `process-email-queue`.
-- No changes to auth-email-hook internals beyond swapping any hand-rolled URL for `buildAppUrl`.
-- No product/UX behavior changes — pure hardening/refactor.
-
-## Verification
-- After each function migration: deploy and, for the staff-triggered ones, trigger a real send from the UI (OSAS-style smoke test) and confirm the email arrives with a working in-app link.
-- `tsgo` typecheck across `supabase/functions/` after the sweep.
-
-## Rollout order
-1. Barrel export + README (safe, no behavior change).
-2. URL audit + `buildAppUrl` swaps (one commit per function).
-3. Helper migration for remaining functions (grouped by risk: notifiers first, then staff-triggered senders).
-4. Guardrail assertions.
-
-Estimated size: ~15 files touched, no schema changes, no template changes.
+### Technical notes
+- Preview reads from the `SheetWithItems` object already loaded by `SignOffSheetList` — no extra query, so it works for `draft`, `sent`, and `signed` alike.
+- Type import: reuse the existing `SheetWithItems` type by exporting it from `SignOffSheetList.tsx`.
