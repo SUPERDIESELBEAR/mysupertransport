@@ -52,7 +52,7 @@ const DEVICE_ICON: Record<DeviceType, React.ReactNode> = {
 };
 
 const SIGNATURE_HEIGHT = 144;
-const SIGNATURE_MIN_WIDTH = 280;
+const SIGNATURE_FALLBACK_WIDTH = 280;
 const INK_ALPHA_THRESHOLD = 16;
 const INK_CHANNEL_THRESHOLD = 245;
 
@@ -66,9 +66,9 @@ type SignatureCanvasSize = {
 
 function getSignatureCanvasSize(host: HTMLDivElement | null): SignatureCanvasSize {
   const hostWidth = host ? Math.floor(host.getBoundingClientRect().width) : 0;
-  const cssWidth = Math.max(hostWidth, SIGNATURE_MIN_WIDTH);
+  const cssWidth = hostWidth > 0 ? hostWidth : SIGNATURE_FALLBACK_WIDTH;
   const cssHeight = SIGNATURE_HEIGHT;
-  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  const ratio = typeof window === 'undefined' ? 1 : Math.max(window.devicePixelRatio || 1, 1);
 
   return {
     cssWidth,
@@ -187,6 +187,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const termsAccepted = alreadySigned || termsAck;
 
   const measureSignatureCanvas = useCallback(() => {
+    if (sigRef.current && !sigRef.current.isEmpty()) return;
     const host = signatureBoxRef.current;
     const next = getSignatureCanvasSize(host);
     setSignatureCanvasSize(prev => {
@@ -464,6 +465,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
               <SignatureCanvas
                 ref={sigRef}
                 penColor="#000"
+                clearOnResize={false}
                 canvasProps={{
                   width: signatureCanvasSize.pixelWidth,
                   height: signatureCanvasSize.pixelHeight,
