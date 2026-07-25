@@ -39,6 +39,7 @@ import OperatorReturnReceipts from '@/components/operator/OperatorReturnReceipts
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
+import SignedAssignmentSheetsCard from '@/components/operator/SignedAssignmentSheetsCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
@@ -222,6 +223,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [unackedRequiredDocs, setUnackedRequiredDocs] = useState(0);
+  const [osasSheetTotal, setOsasSheetTotal] = useState(0);
+  const [osasPendingCount, setOsasPendingCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [dispatchUpdatedAt, setDispatchUpdatedAt] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null; userId: string | null; avatarUrl: string | null } | null>(null);
@@ -341,6 +344,32 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     } catch {
       // Prefetch failures are silent — the destination view will fetch normally.
     }
+  }, [operatorId]);
+
+  // Track OSAS assignment sheet counts to drive sidebar visibility and badge.
+  useEffect(() => {
+    if (!operatorId) { setOsasSheetTotal(0); setOsasPendingCount(0); return; }
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from('onboard_assignment_sheets')
+        .select('id, status')
+        .eq('operator_id', operatorId);
+      if (cancelled) return;
+      const rows = (data ?? []) as Array<{ id: string; status: string }>;
+      setOsasSheetTotal(rows.length);
+      setOsasPendingCount(rows.filter((r) => r.status === 'sent').length);
+    };
+    load();
+    const channel = supabase
+      .channel(`osas-portal-${operatorId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'onboard_assignment_sheets', filter: `operator_id=eq.${operatorId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [operatorId]);
 
   const handleTruckDownAck = useCallback(async () => {
@@ -1145,6 +1174,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', shortLabel: 'Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
+    { view: 'onboard-systems' as OperatorView, label: 'Onboard Systems', shortLabel: 'Devices', icon: <HardDrive className="h-5 w-5" />, badge: osasPendingCount || undefined, showIf: osasSheetTotal > 0 },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
@@ -1846,6 +1876,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
             </div>
             <DriverVaultCard operatorId={operatorId} readOnly defaultCollapsed={false} />
+            <SignedAssignmentSheetsCard operatorId={operatorId} />
           </div>
         )}
 
