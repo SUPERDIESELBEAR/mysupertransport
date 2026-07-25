@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -51,6 +51,38 @@ const DEVICE_ICON: Record<DeviceType, React.ReactNode> = {
   bestpass: <Gauge className="h-4 w-4 text-primary" />,
 };
 
+const SIGNATURE_HEIGHT = 144;
+const INK_ALPHA_THRESHOLD = 16;
+const INK_CHANNEL_THRESHOLD = 245;
+
+function canvasHasVisibleInk(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx || !canvas.width || !canvas.height) return false;
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const alpha = data[i + 3];
+    const red = data[i];
+    const green = data[i + 1];
+    const blue = data[i + 2];
+    if (
+      alpha > INK_ALPHA_THRESHOLD
+      && (red < INK_CHANNEL_THRESHOLD || green < INK_CHANNEL_THRESHOLD || blue < INK_CHANNEL_THRESHOLD)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getSignatureDataUrl(sig: SignatureCanvas): string | null {
+  const canvas = sig.getCanvas();
+  if (!canvasHasVisibleInk(canvas)) return null;
+  const trimmedCanvas = sig.getTrimmedCanvas();
+  return canvasHasVisibleInk(trimmedCanvas) ? trimmedCanvas.toDataURL('image/png') : canvas.toDataURL('image/png');
+}
+
 interface Props {
   onBack?: () => void;
   onComplete?: () => void;
@@ -66,6 +98,8 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const [termsAck, setTermsAck] = useState(false);
   const [typedName, setTypedName] = useState('');
   const [hasDrawn, setHasDrawn] = useState(false);
+  const [localSignedDataUrl, setLocalSignedDataUrl] = useState<string | null>(null);
+  const signatureBoxRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<SignatureCanvas>(null);
 
   const tokenFromUrl = useMemo(() => {
@@ -99,6 +133,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
         }
         setSheet(s);
         setTypedName(s.driver_signature_name ?? '');
+        setLocalSignedDataUrl(null);
 
         const { data: rows, error: iErr } = await supabase
           .from('onboard_assignment_sheet_items')
@@ -120,8 +155,40 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   }, [tokenFromUrl]);
 
   const alreadySigned = sheet?.status === 'signed' && !!sheet?.signed_at;
-  const allConfirmed = items.length > 0 && items.every(i => confirmedIds.has(i.id));
-  const signature = useSignatureUrl(sheet?.driver_signature_data_url ?? null);
+  const allConfirmed = alreadySigned || (items.length > 0 && items.every(i => confirmedIds.has(i.id)));
+  const signature = useSignatureUrl(localSignedDataUrl ?? sheet?.driver_signature_data_url ?? null);
+  const signatureNeedsReplacement = alreadySigned && (!!signature.blank || (!!sheet?.signed_at && !sheet?.driver_signature_data_url));
+  const showSigningForm = !alreadySigned || signatureNeedsReplacement;
+  const termsAccepted = alreadySigned || termsAck;
+
+  const resizeSignatureCanvas = useCallback(() => {
+    const signaturePad = sigRef.current;
+    const host = signatureBoxRef.current;
+    if (!signaturePad || !host) return;
+
+    const canvas = signaturePad.getCanvas();
+    const width = Math.max(Math.floor(host.getBoundingClientRect().width), 280);
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    canvas.width = Math.floor(width * ratio);
+    canvas.height = Math.floor(SIGNATURE_HEIGHT * ratio);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${SIGNATURE_HEIGHT}px`;
+    canvas.getContext('2d')?.scale(ratio, ratio);
+    signaturePad.clear();
+    setHasDrawn(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showSigningForm) return;
+    resizeSignatureCanvas();
+    const host = signatureBoxRef.current;
+    if (!host || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (sigRef.current?.isEmpty()) resizeSignatureCanvas();
+    });
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [resizeSignatureCanvas, showSigningForm]);
 
   const toggleConfirm = (itemId: string, checked: boolean) => {
     setConfirmedIds(prev => {
@@ -135,9 +202,17 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const handleSign = async () => {
     if (!sheet || !user) return;
     if (!allConfirmed) { toast.error('Confirm each device before signing'); return; }
-    if (!termsAck) { toast.error('You must acknowledge the terms'); return; }
+    if (!termsAccepted) { toast.error('You must acknowledge the terms'); return; }
     if (!typedName.trim()) { toast.error('Type your full legal name'); return; }
     if (!sigRef.current || sigRef.current.isEmpty()) { toast.error('Draw your signature'); return; }
+
+    const dataUrl = getSignatureDataUrl(sigRef.current);
+    if (!dataUrl) {
+      toast.error('Signature was not captured. Please clear and sign again.');
+      sigRef.current.clear();
+      setHasDrawn(false);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -153,7 +228,6 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
       }
 
       // 2. upload signature image
-      const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
       const path = `osas/${sheet.operator_id}/${sheet.id}-${Date.now()}.png`;
       const { error: upErr } = await uploadToBucket('signatures', path, blob, {
@@ -178,9 +252,10 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
        // into `audit_log` directly under RLS.
 
       toast.success('Signed — thanks! Your onboard systems assignment is complete.');
-      onComplete?.();
       // refresh local state
+      setLocalSignedDataUrl(dataUrl);
       setSheet({ ...sheet, status: 'signed', signed_at: nowIso, driver_signature_data_url: path, driver_signature_name: typedName.trim() });
+      onComplete?.();
     } catch (e: any) {
       console.error('[OperatorOSASSign] sign failed', e);
       toast.error(e?.message ?? 'Sign failed');
@@ -240,7 +315,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
             <p className="text-xs text-muted-foreground italic">No devices listed on this sheet.</p>
           )}
           {items.map(it => {
-            const confirmed = confirmedIds.has(it.id);
+            const confirmed = alreadySigned || confirmedIds.has(it.id);
             return (
               <label
                 key={it.id}
@@ -295,7 +370,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
         </div>
       </div>
 
-      {alreadySigned ? (
+      {alreadySigned && !signatureNeedsReplacement ? (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3 text-sm text-emerald-800">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -315,6 +390,10 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
               alt="Your signature"
               className="max-h-24 bg-white border border-border rounded"
             />
+          ) : signature.blank ? (
+            <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Signature needs to be re-signed.
+            </div>
           ) : sheet.driver_signature_data_url ? (
             <div className="flex h-24 w-40 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
               Signature image unavailable
@@ -324,8 +403,13 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
       ) : (
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
-            <Pen className="h-3.5 w-3.5 text-primary" /> Your Signature
+            <Pen className="h-3.5 w-3.5 text-primary" /> {signatureNeedsReplacement ? 'Re-sign Assignment Sheet' : 'Your Signature'}
           </h3>
+          {signatureNeedsReplacement && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              The previous signature image was blank or unavailable. Please sign again to replace it.
+            </div>
+          )}
           <div>
             <Label className="text-xs">Full legal name</Label>
             <Input
@@ -337,11 +421,11 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
           </div>
           <div>
             <Label className="text-xs">Sign below</Label>
-            <div className="border border-dashed border-border rounded-md bg-white mt-1">
+            <div ref={signatureBoxRef} className="border border-dashed border-border rounded-md bg-white mt-1 overflow-hidden touch-none">
               <SignatureCanvas
                 ref={sigRef}
                 penColor="#000"
-                canvasProps={{ className: 'w-full h-32 rounded-md' }}
+                canvasProps={{ className: 'block rounded-md touch-none' }}
                 onEnd={() => setHasDrawn(true)}
               />
             </div>
@@ -356,7 +440,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
           </div>
           <Button
             onClick={handleSign}
-            disabled={saving || !allConfirmed || !termsAck || !hasDrawn || !typedName.trim()}
+            disabled={saving || !allConfirmed || !termsAccepted || !hasDrawn || !typedName.trim()}
             className="w-full gap-1.5 bg-primary text-primary-foreground"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
