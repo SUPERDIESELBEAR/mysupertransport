@@ -110,6 +110,8 @@ export default function EquipmentInventory({
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
   const [activeTab, setActiveTab] = useState<'inventory' | 'sheets'>('inventory');
   const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
+  const [previewSheet, setPreviewSheet] = useState<SheetWithItems | null>(null);
+  const [sheetListKey, setSheetListKey] = useState(0);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
