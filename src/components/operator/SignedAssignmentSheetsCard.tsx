@@ -100,7 +100,7 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
 
   const preview = sheets.find((s) => s.id === previewId) ?? null;
   const previewItems = preview ? (itemsBySheet[preview.id] ?? []) : [];
-  const signatureUrl = useSignatureUrl(preview?.driver_signature_data_url ?? null);
+  const signature = useSignatureUrl(preview?.driver_signature_data_url ?? null);
 
   if (loading) return null;
   if (sheets.length === 0) return null;
@@ -187,12 +187,21 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Your Signature</h4>
                 {preview.signed_at ? (
                   <div className="rounded-md border border-border p-3 space-y-2">
-                    {signatureUrl && (
+                    {signature.loading ? (
+                      <div className="flex h-24 w-40 items-center justify-center rounded border border-border bg-muted/30 text-xs text-muted-foreground">
+                        Loading signature…
+                      </div>
+                    ) : signature.url ? (
                       <img
-                        src={signatureUrl}
+                        src={signature.url}
                         alt="Your signature"
                         className="max-h-24 bg-white border border-border rounded"
                       />
+                    ) : preview.driver_signature_data_url ? (
+                      <div className="flex h-24 w-40 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+                        Signature image unavailable
+                      </div>
+                    ) : null}
                     )}
                     <div className="text-xs text-muted-foreground">
                       {preview.driver_signature_name ? <div className="text-sm font-medium text-foreground">{preview.driver_signature_name}</div> : null}
