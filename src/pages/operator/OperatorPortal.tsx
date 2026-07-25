@@ -241,6 +241,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
   // Latest committed view, used by navigation callbacks to avoid stale closures.
   const viewRef = useRef(view);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => { viewRef.current = view; }, [view]);
   // ── Back button ────────────────────────────────────────────────────
   // Deterministic back navigation via an in-memory view stack. This avoids
@@ -290,6 +291,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+    if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
   }, [view]);
   // If a notification deep-links to the return receipts block, scroll it into
   // view once the My Truck page has mounted its content.
@@ -1486,6 +1488,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       </header>
 
       <div
+        ref={contentScrollRef}
         className={
           isPreview
             ? "relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
