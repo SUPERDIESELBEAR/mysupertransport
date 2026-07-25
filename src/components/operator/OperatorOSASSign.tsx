@@ -155,7 +155,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   }, [tokenFromUrl]);
 
   const alreadySigned = sheet?.status === 'signed' && !!sheet?.signed_at;
-  const allConfirmed = items.length > 0 && items.every(i => confirmedIds.has(i.id));
+  const allConfirmed = alreadySigned || (items.length > 0 && items.every(i => confirmedIds.has(i.id)));
   const signature = useSignatureUrl(localSignedDataUrl ?? sheet?.driver_signature_data_url ?? null);
   const signatureNeedsReplacement = alreadySigned && (!!signature.blank || (!!sheet?.signed_at && !sheet?.driver_signature_data_url));
   const showSigningForm = !alreadySigned || signatureNeedsReplacement;
@@ -315,7 +315,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
             <p className="text-xs text-muted-foreground italic">No devices listed on this sheet.</p>
           )}
           {items.map(it => {
-            const confirmed = confirmedIds.has(it.id);
+            const confirmed = alreadySigned || confirmedIds.has(it.id);
             return (
               <label
                 key={it.id}
