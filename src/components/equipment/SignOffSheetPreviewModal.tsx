@@ -193,7 +193,6 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
                     Signature image unavailable
                   </div>
                 ) : null}
-                )}
                 <div className="text-sm">
                   <div className="font-medium">{sheet.driver_signature_name || driverName}</div>
                   <div className="text-xs text-muted-foreground">

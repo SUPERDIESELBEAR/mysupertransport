@@ -202,7 +202,6 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
                         Signature image unavailable
                       </div>
                     ) : null}
-                    )}
                     <div className="text-xs text-muted-foreground">
                       {preview.driver_signature_name ? <div className="text-sm font-medium text-foreground">{preview.driver_signature_name}</div> : null}
                       Signed {format(new Date(preview.signed_at), 'MM/dd/yyyy h:mm a')}
