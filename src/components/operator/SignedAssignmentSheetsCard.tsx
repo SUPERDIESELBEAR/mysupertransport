@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass';
 
@@ -99,6 +100,7 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
 
   const preview = sheets.find((s) => s.id === previewId) ?? null;
   const previewItems = preview ? (itemsBySheet[preview.id] ?? []) : [];
+  const signatureUrl = useSignatureUrl(preview?.driver_signature_data_url ?? null);
 
   if (loading) return null;
   if (sheets.length === 0) return null;
@@ -185,9 +187,9 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Your Signature</h4>
                 {preview.signed_at ? (
                   <div className="rounded-md border border-border p-3 space-y-2">
-                    {preview.driver_signature_data_url && (
+                    {signatureUrl && (
                       <img
-                        src={preview.driver_signature_data_url}
+                        src={signatureUrl}
                         alt="Your signature"
                         className="max-h-24 bg-white border border-border rounded"
                       />
