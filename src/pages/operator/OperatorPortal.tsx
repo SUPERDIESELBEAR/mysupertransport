@@ -1174,6 +1174,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', shortLabel: 'Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
+    { view: 'onboard-systems' as OperatorView, label: 'Onboard Systems', shortLabel: 'Devices', icon: <HardDrive className="h-5 w-5" />, badge: osasPendingCount || undefined, showIf: osasSheetTotal > 0 },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
