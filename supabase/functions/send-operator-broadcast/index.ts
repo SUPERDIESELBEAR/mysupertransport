@@ -279,6 +279,7 @@ Deno.serve(async (req) => {
       SUPPORT_EMAIL
     );
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     function buildRecipientHtml(recipientId: string, token: string): string {
       const pixelUrl = `${supabaseUrl}/functions/v1/broadcast-track-open?b=${encodeURIComponent(activeBroadcastId)}&r=${encodeURIComponent(recipientId)}&t=${encodeURIComponent(token)}`;
       const viewUrl = buildAppUrl(`/operator?tab=messages&b=${encodeURIComponent(activeBroadcastId)}`);
