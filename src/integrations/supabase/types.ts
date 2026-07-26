@@ -3326,6 +3326,9 @@ export type Database = {
           passenger_typed_name: string | null
           passenger_waiver_reason: string | null
           response_token: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
           sent_at: string
           sent_by: string | null
           status: string
@@ -3366,6 +3369,9 @@ export type Database = {
           passenger_typed_name?: string | null
           passenger_waiver_reason?: string | null
           response_token?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           sent_at?: string
           sent_by?: string | null
           status?: string
@@ -3406,6 +3412,9 @@ export type Database = {
           passenger_typed_name?: string | null
           passenger_waiver_reason?: string | null
           response_token?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           sent_at?: string
           sent_by?: string | null
           status?: string

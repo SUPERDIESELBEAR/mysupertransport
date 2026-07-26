@@ -38,14 +38,96 @@ Deno.serve(async (req) => {
     driverName?: string
     unitNumber?: string
     driverEmail?: string
+    /** Re-email an existing pending request instead of creating a new one. */
+    resendId?: string
+    /** Revoke any existing pending request for this driver, then send fresh. */
+    replaceExisting?: boolean
   }
   try { body = await req.json() } catch { return json(400, { error: 'Bad JSON' }) }
+
+  const nowIso = new Date().toISOString()
+
+  // ---- Resend path: re-email the existing link, no new row, no new card ----
+  if (body.resendId) {
+    const { data: existing, error: exErr } = await admin
+      .from('passenger_authorizations')
+      .select('id, response_token, driver_name, unit_number, driver_email, status')
+      .eq('id', body.resendId)
+      .maybeSingle()
+    if (exErr) return json(500, { error: exErr.message })
+    if (!existing) return json(404, { error: 'Not found' })
+    if (!['sent', 'opened'].includes(existing.status as string)) {
+      return json(409, { error: 'Only pending requests can be resent.' })
+    }
+    const url = buildAppUrl(`/passenger-auth/${existing.response_token}`)
+    const { error: reErr } = await admin.functions.invoke('send-transactional-email', {
+      body: {
+        templateName: 'passenger-auth-request',
+        recipientEmail: existing.driver_email,
+        idempotencyKey: `passenger-auth-${existing.id}-${Date.now()}`,
+        templateData: {
+          driverName: existing.driver_name,
+          unitNumber: existing.unit_number,
+          responseUrl: url,
+        },
+      },
+    })
+    if (reErr) console.error('resend email failed', reErr)
+    await admin
+      .from('passenger_authorizations')
+      .update({ sent_at: nowIso })
+      .eq('id', existing.id)
+    return json(200, { id: existing.id, responseUrl: url, resent: true })
+  }
 
   const driverName = (body.driverName || '').trim()
   const unitNumber = (body.unitNumber || '').trim()
   const driverEmail = (body.driverEmail || '').trim().toLowerCase()
   if (!driverName || !unitNumber || !driverEmail) {
     return json(400, { error: 'driverName, unitNumber, and driverEmail are required' })
+  }
+
+  // ---- One open request per driver ----
+  // A driver may hold unlimited SIGNED authorizations (different passengers,
+  // yearly renewals), but only one unsigned request at a time.
+  if (body.operatorId) {
+    const { data: pending } = await admin
+      .from('passenger_authorizations')
+      .select('id, created_at, status, driver_name')
+      .eq('operator_id', body.operatorId)
+      .in('status', ['sent', 'opened'])
+      .order('created_at', { ascending: false })
+
+    if (pending && pending.length > 0) {
+      if (!body.replaceExisting) {
+        // 200 so the browser client receives the payload (non-2xx bodies are
+        // swallowed into an opaque FunctionsHttpError).
+        return json(200, {
+          conflict: 'pending_request_exists',
+          pending: pending.map(p => ({
+            id: p.id,
+            createdAt: p.created_at,
+            status: p.status,
+          })),
+        })
+      }
+      const ids = pending.map(p => p.id)
+      await admin
+        .from('passenger_authorizations')
+        .update({
+          status: 'revoked',
+          revoked_at: nowIso,
+          revoked_by: userData.user.id,
+          revoke_reason: 'Replaced by a newer Passenger Authorization request.',
+        })
+        .in('id', ids)
+      await admin
+        .from('notifications')
+        .update({ archived_at: nowIso, read_at: nowIso })
+        .eq('entity_type', 'passenger_authorization')
+        .in('entity_id', ids)
+        .is('archived_at', null)
+    }
   }
 
   const { data: carrier } = await admin
