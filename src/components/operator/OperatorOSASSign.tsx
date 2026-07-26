@@ -312,6 +312,92 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
         </Button>
       )}
 
+      {receiptMode ? (
+        <>
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" />
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-foreground">Assignment Sheet Signed</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Unit {sheet.unit_number ?? '—'} · Assignment date{' '}
+                  {new Date(sheet.assignment_date + 'T12:00:00').toLocaleDateString('en-US')}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Signed{sheet.driver_signature_name ? ` by ${sheet.driver_signature_name}` : ''} on{' '}
+                  {sheet.signed_at ? new Date(sheet.signed_at).toLocaleString('en-US') : 'file'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-5 w-5 text-primary" />
+              <h3 className="text-sm font-semibold">Devices issued to you</h3>
+            </div>
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No devices listed on this sheet.</p>
+            ) : (
+              <div className="space-y-2">
+                {items.map(it => (
+                  <div
+                    key={it.id}
+                    className="flex items-start gap-3 rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3"
+                  >
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 text-sm font-medium">
+                        {DEVICE_ICON[it.device_type]}
+                        {DEVICE_LABEL[it.device_type]}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Serial <span className="font-mono text-foreground">{it.serial_snapshot}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <AssignmentSheetTerms
+              bestpassIncluded={sheet.bestpass_included}
+              acknowledgedBy={sheet.driver_signature_name}
+              acknowledgedAt={sheet.signed_at ? new Date(sheet.signed_at).toLocaleString('en-US') : null}
+            />
+
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                Your signature
+              </div>
+              {signature.loading ? (
+                <div className="flex h-24 w-40 items-center justify-center rounded border border-border bg-muted/30 text-xs text-muted-foreground">
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Loading signature…
+                </div>
+              ) : signature.url ? (
+                <img
+                  src={signature.url}
+                  alt="Your signature"
+                  className="max-h-24 bg-white border border-border rounded"
+                />
+              ) : sheet.driver_signature_data_url ? (
+                <div className="flex h-24 w-40 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+                  Signature image unavailable
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <Button
+            onClick={() => (onBack ? onBack() : onComplete?.())}
+            className="w-full gap-1.5 bg-primary text-primary-foreground"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> Done
+          </Button>
+        </>
+      ) : (
+      <>
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <div className="flex items-center gap-2">
           <HardDrive className="h-5 w-5 text-primary" />
