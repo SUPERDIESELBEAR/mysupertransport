@@ -559,6 +559,8 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
           )}
         </div>
       )}
+      </>
+      )}
     </div>
   );
 }
