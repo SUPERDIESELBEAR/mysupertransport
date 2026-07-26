@@ -116,6 +116,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const [localSignedDataUrl, setLocalSignedDataUrl] = useState<string | null>(null);
   const [signatureCanvasSize, setSignatureCanvasSize] = useState<SignatureCanvasSize>(() => getSignatureCanvasSize(null));
   const signatureBoxRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<SignatureCanvas>(null);
 
   const tokenFromUrl = useMemo(() => {
@@ -210,9 +211,9 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
 
   useEffect(() => {
     if (!receiptMode) return;
-    const scroller = document.querySelector<HTMLElement>('[data-operator-scroll-container]');
-    if (scroller) scroller.scrollTop = 0;
-    window.scrollTo({ top: 0 });
+    rootRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [receiptMode]);
 
   const toggleConfirm = (itemId: string, checked: boolean) => {
@@ -313,7 +314,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-4 animate-fade-in">
+    <div ref={rootRef} className="max-w-2xl mx-auto p-4 space-y-4 animate-fade-in">
       {onBack && (
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 h-8">
           <ArrowLeft className="h-3.5 w-3.5" /> Back
