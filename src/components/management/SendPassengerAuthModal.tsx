@@ -89,7 +89,7 @@ export default function SendPassengerAuthModal({ open, onOpenChange, initialOper
           replaceExisting: !!opts?.replaceExisting,
         },
       });
-      if ((data as any)?.error === 'pending_request_exists') {
+      if ((data as any)?.conflict === 'pending_request_exists') {
         setConflict(((data as any).pending ?? []).map((p: any) => ({ id: p.id, createdAt: p.createdAt })));
         return;
       }

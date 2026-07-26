@@ -100,8 +100,10 @@ Deno.serve(async (req) => {
 
     if (pending && pending.length > 0) {
       if (!body.replaceExisting) {
-        return json(409, {
-          error: 'pending_request_exists',
+        // 200 so the browser client receives the payload (non-2xx bodies are
+        // swallowed into an opaque FunctionsHttpError).
+        return json(200, {
+          conflict: 'pending_request_exists',
           pending: pending.map(p => ({
             id: p.id,
             createdAt: p.created_at,
