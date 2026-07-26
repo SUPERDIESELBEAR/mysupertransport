@@ -55,7 +55,7 @@ interface Props {
   operatorId: string;
 }
 
-export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
+export default function SignedAssignmentSheetsCard({ operatorId, embedded = false, onSummary }: Props) {
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [itemsBySheet, setItemsBySheet] = useState<Record<string, Item[]>>({});
   const [loading, setLoading] = useState(true);
@@ -106,17 +106,25 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
   const previewItems = preview ? (itemsBySheet[preview.id] ?? []) : [];
   const signature = useSignatureUrl(preview?.driver_signature_data_url ?? null);
 
+  const awaitingReturnSummary = sheets.some((s) => s.return_requested_at && !s.return_completed_at);
+  useEffect(() => {
+    if (loading) return;
+    onSummary?.({ count: sheets.length, actionNeeded: awaitingReturnSummary });
+  }, [loading, sheets.length, awaitingReturnSummary, onSummary]);
+
   if (loading) return null;
   if (sheets.length === 0) return null;
 
   const awaitingReturn = sheets.some((s) => s.return_requested_at && !s.return_completed_at);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <HardDrive className="h-5 w-5 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Onboard Systems Assignment Sheets</h3>
-      </div>
+    <div className={embedded ? 'space-y-3' : 'rounded-2xl border border-border bg-card p-4 space-y-3'}>
+      {!embedded && (
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-5 w-5 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Onboard Systems Assignment Sheets</h3>
+        </div>
+      )}
       {awaitingReturn && (
         <button
           type="button"
