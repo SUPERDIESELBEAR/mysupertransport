@@ -36,10 +36,9 @@ const OperatorInspectionBinder = lazy(() => import('@/components/inspection/Oper
 const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import OperatorReturnReceipts from '@/components/operator/OperatorReturnReceipts';
-import DriverVaultCard from '@/components/drivers/DriverVaultCard';
+import MyDocumentsFolders from '@/components/operator/MyDocumentsFolders';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
-import SignedAssignmentSheetsCard from '@/components/operator/SignedAssignmentSheetsCard';
 import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
