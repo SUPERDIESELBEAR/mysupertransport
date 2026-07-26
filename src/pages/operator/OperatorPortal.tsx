@@ -36,10 +36,9 @@ const OperatorInspectionBinder = lazy(() => import('@/components/inspection/Oper
 const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import OperatorReturnReceipts from '@/components/operator/OperatorReturnReceipts';
-import DriverVaultCard from '@/components/drivers/DriverVaultCard';
+import MyDocumentsFolders from '@/components/operator/MyDocumentsFolders';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
-import SignedAssignmentSheetsCard from '@/components/operator/SignedAssignmentSheetsCard';
 import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
@@ -1876,12 +1875,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <FolderOpen className="h-6 w-6 text-primary" />
               <div>
                 <h2 className="text-lg font-bold text-foreground">My Documents</h2>
-                <p className="text-sm text-muted-foreground">Documents on file with your profile</p>
+                <p className="text-sm text-muted-foreground">Organized by document type — tap a folder to open it</p>
               </div>
             </div>
-            <DriverVaultCard operatorId={operatorId} readOnly defaultCollapsed={false} />
-            <EquipmentReturnCard operatorId={operatorId} />
-            <SignedAssignmentSheetsCard operatorId={operatorId} />
+            <MyDocumentsFolders operatorId={operatorId} />
           </div>
         )}
 

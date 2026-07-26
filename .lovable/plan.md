@@ -1,51 +1,40 @@
-# Passenger Authorization — stop pending requests from stacking
+## Goal
 
-## Recommendation
+In the driver app's **My Documents** page, replace the current flat list + separate cards with a single set of **document-type folders**, all collapsed by default. Each folder shows its name and a count; tapping expands it. New documents automatically drop into the matching folder, and an unmatched document type creates a new folder on the fly.
 
-Do **not** limit a driver to one Passenger Authorization. A driver can legitimately have several over time (different passengers, renewals after the 1-year expiration), and each signed one is a compliance record that must be kept.
+## What the driver sees
 
-The real problem is **unsigned/pending requests piling up**. So the rule is:
+```text
+My Documents
+  ▸ Passenger Authorization        (2)
+  ▸ IRS Form 2290                  (1)
+  ▸ Truck Title                    (1)
+  ▸ Truck Photos                   (4)
+  ▸ Signed Assignment Sheets       (3)
+  ▸ Equipment Return Receipts      (1)
+  ▸ Receipts                       (2)
+  ▸ Other                          (1)
+```
 
-> A driver may have unlimited *signed* authorizations, but only **one open (pending) request at a time**.
+- All folders start collapsed; expanding one keeps the others closed state untouched (no accordion lock).
+- Empty folders are hidden entirely.
+- Folder order: known types first in a fixed sensible order, then any auto-created types alphabetically, with **Other** always last.
+- Inside a folder, rows keep today's behavior: file name, upload date, expiry badge, view/download actions, in-app preview modal.
+- If an action is pending (e.g. a return receipt still needed), that folder gets a small "Action needed" badge so it isn't buried while collapsed.
 
-Everything else follows from that.
+## Folder naming rules
 
-## What to build
-
-**1. One open request per driver (send-side guard)**
-When staff sends a Passenger Authorization to a driver who already has an open request (`sent` or `opened`), the send dialog warns:
-
-- "Marcus Mueller already has an open request from 7/21 that hasn't been signed."
-- Choices: **Resend the existing link** (re-emails the same request, no new row, no new card) or **Replace it** (revokes the old one and issues a fresh request).
-
-This makes accidental stacking impossible going forward, while still allowing a genuine new request for a different passenger — staff just explicitly replaces or waits until the current one is signed.
-
-**2. Staff management list (Passenger Authorizations panel)**
-A list in the management portal showing every authorization with driver, unit, passenger name, status, sent/signed/expiration dates, and actions:
-
-- **Resend** — re-email the existing link
-- **Revoke** — cancels a pending request; the driver's home card disappears; the record stays in history as `revoked`
-- **View PDF** — for signed ones
-- **Send new** — the existing send dialog
-
-Signed records are never deletable from here (compliance), only revocable while pending.
-
-**3. Driver home card cleanup**
-- The card only shows requests in `sent`/`opened` status (already true) — with rule 1 in place, that's at most one card.
-- Revoking a pending request also dismisses its in-app notification, so the bell doesn't keep an orphan task.
-- If any stacked duplicates ever exist, the card groups them and shows only the newest, with the older ones auto-revoked.
-
-**4. Renewal support (natural follow-on)**
-Since signed authorizations expire 1 year after the effective date, the staff list flags ones expiring within 60 days with a **Send renewal** action — which is just a fresh request, allowed because the prior one is signed, not pending.
-
-## Cleanup of Marcus Mueller's existing 4
-
-Revoke the 3 older pending requests and keep the newest. Cards drop from 4 to 1, and the revoked rows stay visible in the staff list as history. (Say the word if you'd rather delete them outright — but revoking preserves the audit trail, which is the safer default.)
+1. A vault document's `category` maps to its known display name (IRS Form 2290, Truck Photos, Truck Title, Receipt, Passenger Authorization).
+2. If the category is unknown/`other` but the document has a meaningful `label`, that label becomes the folder name — so a new doc type creates its own folder automatically.
+3. Anything with no usable label falls into **Other**.
+4. Non-vault items are folded in as their own fixed folders: **Signed Assignment Sheets** and **Equipment Return**.
 
 ## Technical notes
 
-- `passenger_authorizations.status` already supports `revoked`; `get-passenger-auth` and `finalize-passenger-auth` already reject revoked tokens, so no token-security work is needed.
-- New edge functions: `revoke-passenger-auth` (staff-only, sets `revoked` + dismisses the related notification) and a resend path added to `send-passenger-auth` (accepts an existing `authorizationId` and re-emails rather than inserting).
-- `send-passenger-auth` gains a pre-insert check for an existing `sent`/`opened` row for the same operator, returning a conflict the modal can act on.
-- New component `PassengerAuthorizationsPanel.tsx` in the management portal; `SendPassengerAuthModal.tsx` gains the conflict prompt.
-- No schema change expected beyond an index on `(operator_id, status)`; revocation is a data update, not a migration.
+- New presentational component `src/components/operator/MyDocumentsFolders.tsx` that:
+  - loads vault docs (same query/signed-URL logic as `DriverVaultCard`, read-only path),
+  - accepts the assignment-sheet and equipment-return content as additional folder entries,
+  - derives folder groups from a small pure helper (`groupDocumentsByType`) so naming rules are unit-testable.
+- `src/pages/operator/OperatorPortal.tsx` (`view === 'my-docs'` block) renders the new folder list instead of the three stacked cards. `EquipmentReturnCard` and `SignedAssignmentSheetsCard` are reused unchanged as folder bodies, with their own internal card chrome/collapse suppressed via a prop so we don't get a collapse-inside-a-collapse.
+- `DriverVaultCard` stays as-is for the management side; only the driver-facing read-only usage changes.
+- No database or schema changes required — grouping is derived from existing `driver_vault_documents.category` / `label`.
