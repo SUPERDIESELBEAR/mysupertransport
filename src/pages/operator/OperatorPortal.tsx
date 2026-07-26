@@ -1902,10 +1902,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── ONBOARD SYSTEMS (OSAS) VIEW ── */}
         {view === 'onboard-systems' && (
-          <OperatorOSASSign
-            onBack={() => navigateToView('progress')}
-            onComplete={() => { fetchData(); }}
-          />
+          <div className="space-y-4">
+            {operatorId && <EquipmentReturnCard operatorId={operatorId} />}
+            <OperatorOSASSign
+              onBack={() => navigateToView('progress')}
+              onComplete={() => { fetchData(); }}
+            />
+          </div>
         )}
 
         {/* ── ICA SIGN VIEW ── */}
