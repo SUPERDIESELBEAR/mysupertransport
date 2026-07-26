@@ -371,6 +371,37 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!confirmReturn} onOpenChange={(v) => { if (!v && !returnSendingId) setConfirmReturn(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Email equipment return instructions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const app = confirmReturn?.operator?.applications;
+                const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || 'this driver';
+                return `${name} will be emailed the two mailing addresses, the list of equipment on this sheet, and a button that opens the assignment sheet so they can upload their shipping receipt and tracking number.`;
+              })()}
+              {confirmReturn?.operator?.applications?.email
+                ? ` Sending to ${confirmReturn.operator.applications.email}.`
+                : ' No email address is on file for this driver.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!returnSendingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!returnSendingId || !confirmReturn?.operator?.applications?.email}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmReturn) handleSendReturnInstructions(confirmReturn);
+              }}
+            >
+              {returnSendingId ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
+              Send Instructions
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
