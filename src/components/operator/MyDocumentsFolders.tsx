@@ -71,7 +71,8 @@ function FolderShell({ name, count, icon, actionNeeded, expiredCount = 0, open, 
         )}
         <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? '' : '-rotate-90'}`} />
       </button>
-      {open && <div className="px-4 pb-4">{children}</div>}
+      {/* Children stay mounted so embedded cards can report their counts. */}
+      <div className={open ? 'px-4 pb-4' : 'hidden'}>{children}</div>
     </div>
   );
 }
