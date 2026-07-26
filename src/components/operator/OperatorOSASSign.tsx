@@ -208,8 +208,14 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
     setHasDrawn(false);
   }, [showSigningForm, signatureCanvasSize]);
 
+  useEffect(() => {
+    if (!receiptMode) return;
+    const scroller = document.querySelector<HTMLElement>('[data-operator-scroll-container]');
+    if (scroller) scroller.scrollTop = 0;
+    window.scrollTo({ top: 0 });
+  }, [receiptMode]);
+
   const toggleConfirm = (itemId: string, checked: boolean) => {
-    void 0;
     setConfirmedIds(prev => {
       const next = new Set(prev);
       if (checked) next.add(itemId);
