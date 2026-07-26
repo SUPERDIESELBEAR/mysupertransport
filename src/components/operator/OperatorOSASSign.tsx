@@ -12,6 +12,7 @@ import {
 import SignatureCanvas from 'react-signature-canvas';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
+import AssignmentSheetTerms, { ASSIGNMENT_SHEET_ACK_TEXT } from '@/components/equipment/AssignmentSheetTerms';
 
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass';
 
@@ -360,18 +361,8 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
           })}
         </div>
 
-        <div className="rounded-md border border-gold/30 bg-gold/5 p-3 text-xs space-y-1.5">
-          <div className="flex items-center gap-1.5 text-gold font-semibold">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Terms you are acknowledging
-          </div>
-          <ul className="list-disc pl-4 text-muted-foreground space-y-1">
-            <li>Unreturned ELD equipment will be assessed a <strong className="text-foreground">$1,000.00</strong> replacement charge.</li>
-            <li>Additional charges may be incurred for unreturned license plates or other issued equipment.</li>
-            {sheet.bestpass_included && (
-              <li>A BestPass transponder fee of <strong className="text-foreground">$60.00</strong> is acknowledged on this sheet.</li>
-            )}
-          </ul>
+        <div className="space-y-1.5">
+          <AssignmentSheetTerms bestpassIncluded={sheet.bestpass_included} />
           <label className={`flex items-start gap-2 pt-1 ${alreadySigned ? 'pointer-events-none opacity-90' : 'cursor-pointer'}`}>
             <Checkbox
               checked={alreadySigned ? true : termsAck}
@@ -380,7 +371,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
               className="mt-0.5"
             />
             <span className="text-xs text-foreground">
-              I have received the devices listed above and agree to these terms.
+              {ASSIGNMENT_SHEET_ACK_TEXT}
             </span>
           </label>
         </div>
