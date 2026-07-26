@@ -133,28 +133,6 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
     }
   };
 
-  const handleDeleteLegacy = async () => {
-    if (!sheet) return;
-    setDeleting(true);
-    try {
-      const { error } = await supabase.functions.invoke('delete-osas-sheet', {
-        body: { sheetId: sheet.id },
-      });
-      if (error) {
-        toast.error('Delete failed', { description: await getEdgeFunctionErrorMessage(error) });
-        return;
-      }
-      toast.success('Assignment sheet deleted');
-      setConfirmOpen(false);
-      onDeleted?.();
-      onClose();
-    } catch (err: any) {
-      toast.error('Delete failed', { description: err?.message ?? 'Could not delete' });
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
     <Dialog open={!!sheet} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
