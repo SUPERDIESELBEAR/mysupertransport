@@ -190,28 +190,6 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     }
   };
 
-  const handleDeleteUnused = async (sheet: SheetWithItems) => {
-    setDeletingId(sheet.id);
-    try {
-      const { error } = await supabase.functions.invoke('delete-osas-sheet', {
-        body: { sheetId: sheet.id },
-      });
-      if (error) {
-        const details = error instanceof Error ? error.message : String(error);
-        console.error('[SignOffSheetList] delete failed', error);
-        toast({ title: 'Delete failed', description: details, variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Assignment sheet deleted', description: 'Any assigned devices were released back to inventory.' });
-      setConfirmDelete(null);
-      fetchSheets();
-    } catch (err: any) {
-      console.error('[SignOffSheetList] delete exception', err);
-      toast({ title: 'Delete failed', description: err?.message ?? 'Could not delete', variant: 'destructive' });
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   if (loading) {
     return (
