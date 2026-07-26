@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2 } from 'lucide-react';
+import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +45,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
   const [resending, setResending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sendingReturn, setSendingReturn] = useState(false);
   const signature = useSignatureUrl(sheet?.driver_signature_data_url ?? null);
 
   if (!sheet) return null;
@@ -54,6 +55,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
   const status = sheet.status ?? 'draft';
   const meta = STATUS_META[status] ?? STATUS_META.draft;
   const canResend = status === 'draft' || status === 'sent';
+  const returnReceipts = sheet.return_receipts ?? [];
 
   const signUrl = sheet.access_token
     ? `${window.location.origin}/dashboard?view=onboard-systems&osas_token=${sheet.access_token}`
