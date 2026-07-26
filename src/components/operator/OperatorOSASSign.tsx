@@ -175,6 +175,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   const signature = useSignatureUrl(localSignedDataUrl ?? sheet?.driver_signature_data_url ?? null);
   const signatureNeedsReplacement = alreadySigned && (!!signature.blank || (!!sheet?.signed_at && !sheet?.driver_signature_data_url));
   const showSigningForm = !alreadySigned || signatureNeedsReplacement;
+  const receiptMode = alreadySigned && !signatureNeedsReplacement;
   const termsAccepted = alreadySigned || termsAck;
 
   const measureSignatureCanvas = useCallback(() => {
