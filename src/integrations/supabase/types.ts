@@ -1337,6 +1337,7 @@ export type Database = {
           file_url: string
           id: string
           operator_id: string
+          sheet_id: string | null
           tracking_number: string | null
           uploaded_at: string
           uploaded_by: string | null
@@ -1351,6 +1352,7 @@ export type Database = {
           file_url: string
           id?: string
           operator_id: string
+          sheet_id?: string | null
           tracking_number?: string | null
           uploaded_at?: string
           uploaded_by?: string | null
@@ -1365,6 +1367,7 @@ export type Database = {
           file_url?: string
           id?: string
           operator_id?: string
+          sheet_id?: string | null
           tracking_number?: string | null
           uploaded_at?: string
           uploaded_by?: string | null
@@ -1376,6 +1379,13 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_receipts_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "onboard_assignment_sheets"
             referencedColumns: ["id"]
           },
         ]
@@ -2520,6 +2530,10 @@ export type Database = {
           driver_signature_name: string | null
           id: string
           operator_id: string
+          return_completed_at: string | null
+          return_requested_at: string | null
+          return_requested_by: string | null
+          return_requested_by_name: string | null
           sent_at: string | null
           signed_at: string | null
           signed_pdf_url: string | null
@@ -2541,6 +2555,10 @@ export type Database = {
           driver_signature_name?: string | null
           id?: string
           operator_id: string
+          return_completed_at?: string | null
+          return_requested_at?: string | null
+          return_requested_by?: string | null
+          return_requested_by_name?: string | null
           sent_at?: string | null
           signed_at?: string | null
           signed_pdf_url?: string | null
@@ -2562,6 +2580,10 @@ export type Database = {
           driver_signature_name?: string | null
           id?: string
           operator_id?: string
+          return_completed_at?: string | null
+          return_requested_at?: string | null
+          return_requested_by?: string | null
+          return_requested_by_name?: string | null
           sent_at?: string | null
           signed_at?: string | null
           signed_pdf_url?: string | null
@@ -4850,6 +4872,10 @@ export type Database = {
         Returns: number
       }
       operator_awaiting_return: {
+        Args: { _operator_id: string }
+        Returns: boolean
+      }
+      operator_return_requested: {
         Args: { _operator_id: string }
         Returns: boolean
       }
