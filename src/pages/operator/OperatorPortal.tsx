@@ -1876,12 +1876,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               <FolderOpen className="h-6 w-6 text-primary" />
               <div>
                 <h2 className="text-lg font-bold text-foreground">My Documents</h2>
-                <p className="text-sm text-muted-foreground">Documents on file with your profile</p>
+                <p className="text-sm text-muted-foreground">Organized by document type — tap a folder to open it</p>
               </div>
             </div>
-            <DriverVaultCard operatorId={operatorId} readOnly defaultCollapsed={false} />
-            <EquipmentReturnCard operatorId={operatorId} />
-            <SignedAssignmentSheetsCard operatorId={operatorId} />
+            <MyDocumentsFolders operatorId={operatorId} />
           </div>
         )}
 
