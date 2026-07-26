@@ -1,21 +1,24 @@
 ## Problem
 
-While drawing on the Onboard Systems Assignment Sheet signature pad, the ink renders tiny in the top-left corner. Once saved, the stored image looks correct.
-
-Cause (as coded in `src/components/operator/OperatorOSASSign.tsx`): the canvas backing store is sized to `cssWidth * devicePixelRatio` while the CSS box stays at `cssWidth`, and the compensating `ctx.setTransform(ratio, ...)` is applied in an effect that runs before `signaturePad.clear()` and before the library's own internal resize/context handling. When that transform is not in force, strokes are drawn in CSS-pixel coordinates into a backing store `ratio` times larger, so the visible stroke is scaled down by `1/ratio` and anchored at the top-left.
+The driver-facing signed Assignment Sheet preview (`src/components/operator/SignedAssignmentSheetsCard.tsx`) renders only a summary: assignment date, status, device/serial list, and the signature block. It omits the terms verbiage the driver actually agreed to — the $1,000.00 unreturned-ELD replacement charge, the note about additional charges for unreturned plates/other issued equipment, the BestPass $60.00 acknowledgement line, and the "I have received the devices listed above and agree to these terms" acknowledgement statement. Those paragraphs exist today only in the signing screen (`OperatorOSASSign.tsx`) and, partially, in the staff preview (`SignOffSheetPreviewModal.tsx`, which shows one condensed "Important:" line).
 
 ## Fix
 
-In `src/components/operator/OperatorOSASSign.tsx`:
+1. **Create one canonical terms source** — a small presentational module (e.g. `src/components/equipment/AssignmentSheetTerms.tsx`) exporting the full terms block, taking `bestpassIncluded` as a prop and rendering:
+   - Heading: "Important Notice — Equipment Return & Charges"
+   - Unreturned ELD equipment → $1,000.00 replacement charge
+   - Additional charges may be incurred for unreturned license plates or other issued equipment
+   - BestPass transponder fee of $60.00 acknowledged (only when included)
+   - The acknowledgement sentence: "I have received the devices listed above and agree to these terms."
 
-1. Remove the manual high-DPI scheme: stop computing `pixelWidth`/`pixelHeight`/`ratio` for the canvas attributes and stop calling `ctx.setTransform(...)`.
-2. Size the canvas element with `width`/`height` attributes equal to the measured CSS size (`cssWidth` x 144), and keep the matching inline CSS width/height so backing store and display size agree 1:1. This guarantees pointer coordinates and rendered ink match exactly.
-3. Keep the existing `ResizeObserver` + `measureSignatureCanvas` logic (with the "don't resize while ink exists" guard) and keep `clearOnResize={false}`, so the pad still fills its container and never mounts with zero dimensions.
-4. Keep the clear-on-resize effect but reduce it to `signaturePad.clear(); setHasDrawn(false);` — no transform manipulation.
-5. Leave the ink-detection helpers (`canvasHasVisibleInk`, `getSignatureDataUrl`) and the rest of the sign/upload flow untouched.
+2. **Driver signed preview** — render the full terms block inside the preview dialog in `SignedAssignmentSheetsCard.tsx`, between the device table and the signature block, styled as the document body (gold-accented notice consistent with the signing screen). For signed sheets, show the acknowledgement as an affirmed statement (checkmark + "Acknowledged by {name} on {date}") rather than an interactive checkbox. Also surface the unit number, driver name, and terms version so the preview reads as the complete document.
 
-Trade-off: on high-DPI phones the saved PNG is 1x rather than 2x/3x, so it is slightly less crisp when blown up — but it is drawn and stored at the correct scale and position, which is what is broken today. Signature images are displayed small (max-h-24 / preview blocks), so the resolution loss is not visible.
+3. **Signing screen** — replace the inline terms `<ul>` in `OperatorOSASSign.tsx` with the shared component so the signed record and the signing view can never drift apart.
+
+4. **Staff preview** — replace the single condensed "Important:" line in `SignOffSheetPreviewModal.tsx` with the same shared block, so staff and driver see identical verbiage.
+
+No database or business-logic changes; this is presentation only. Existing terms wording is preserved verbatim.
 
 ## Verification
 
-Run a Playwright pointer-drag over the signature box at a mobile viewport with `deviceScaleFactor: 2` and screenshot the canvas element to confirm the stroke follows the finger at full size instead of shrinking into the corner.
+Open a signed sheet in the driver app preview via Playwright at a mobile viewport, screenshot the dialog, and confirm the full notice text and acknowledgement line appear above the signature, with the dialog still scrollable within `max-h-[90dvh]`.
