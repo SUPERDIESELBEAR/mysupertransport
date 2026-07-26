@@ -135,7 +135,7 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
   if (loading || sheets.length === 0) return null;
 
   return (
-    <div ref={rootRef} className="rounded-2xl border border-primary/30 bg-card p-4 space-y-4 scroll-mt-24">
+    <div id="equipment-return" ref={rootRef} className="rounded-2xl border border-primary/30 bg-card p-4 space-y-4 scroll-mt-24">
       <div className="flex items-center gap-2">
         <Package className="h-5 w-5 text-primary" />
         <div className="min-w-0">
