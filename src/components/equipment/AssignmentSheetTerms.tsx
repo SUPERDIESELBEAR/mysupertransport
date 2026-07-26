@@ -5,6 +5,8 @@ interface Props {
   /** When provided, the acknowledgement renders as an affirmed statement instead of plain text. */
   acknowledgedBy?: string | null;
   acknowledgedAt?: string | null;
+  /** Hide the acknowledgement sentence (e.g. when a checkbox renders it separately). */
+  hideAcknowledgement?: boolean;
   className?: string;
 }
 
@@ -15,6 +17,7 @@ export default function AssignmentSheetTerms({
   bestpassIncluded,
   acknowledgedBy,
   acknowledgedAt,
+  hideAcknowledgement,
   className = '',
 }: Props) {
   return (
@@ -36,7 +39,7 @@ export default function AssignmentSheetTerms({
           </li>
         )}
       </ul>
-      {acknowledgedAt ? (
+      {hideAcknowledgement ? null : acknowledgedAt ? (
         <div className="flex items-start gap-2 pt-1 text-foreground">
           <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-complete" />
           <span>

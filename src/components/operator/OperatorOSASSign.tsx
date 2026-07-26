@@ -362,7 +362,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <AssignmentSheetTerms bestpassIncluded={sheet.bestpass_included} />
+          <AssignmentSheetTerms bestpassIncluded={sheet.bestpass_included} hideAcknowledgement />
           <label className={`flex items-start gap-2 pt-1 ${alreadySigned ? 'pointer-events-none opacity-90' : 'cursor-pointer'}`}>
             <Checkbox
               checked={alreadySigned ? true : termsAck}
