@@ -40,6 +40,7 @@ import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
 import SignedAssignmentSheetsCard from '@/components/operator/SignedAssignmentSheetsCard';
+import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
 const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
