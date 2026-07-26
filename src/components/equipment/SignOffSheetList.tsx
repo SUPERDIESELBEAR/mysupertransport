@@ -347,6 +347,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
       )}
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(v) => { if (!v && !deletingId) setConfirmDelete(null); }}>
+        {/* delete confirmation */}
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this assignment sheet?</AlertDialogTitle>
