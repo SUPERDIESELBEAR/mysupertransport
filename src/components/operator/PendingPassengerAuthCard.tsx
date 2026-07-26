@@ -46,9 +46,13 @@ export default function PendingPassengerAuthCard({ operatorId }: { operatorId: s
 
   if (rows.length === 0) return null;
 
+  // Only one open request should exist per driver; if legacy duplicates linger,
+  // show only the newest so the home screen never stacks identical tasks.
+  const visible = rows.slice(0, 1);
+
   return (
     <div className="space-y-2">
-      {rows.map(r => (
+      {visible.map(r => (
         <button
           key={r.id}
           type="button"

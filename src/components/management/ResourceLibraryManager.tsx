@@ -60,6 +60,7 @@ import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import SendPassengerAuthModal from '@/components/management/SendPassengerAuthModal';
+import PassengerAuthorizationsPanel from '@/components/management/PassengerAuthorizationsPanel';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
@@ -144,6 +145,8 @@ export default function ResourceLibraryManager() {
   const [deleting, setDeleting] = useState(false);
 
   const [passengerAuthOpen, setPassengerAuthOpen] = useState(false);
+  const [passengerAuthOperatorId, setPassengerAuthOperatorId] = useState<string | null>(null);
+  const [passengerAuthRefresh, setPassengerAuthRefresh] = useState(0);
 
   // History panel
   const [historyResource, setHistoryResource] = useState<ResourceRow | null>(null);
@@ -477,11 +480,25 @@ export default function ResourceLibraryManager() {
             signed, the executed form is filed automatically to the Driver Hub.
           </p>
         </div>
-        <Button size="sm" className="shrink-0" onClick={() => setPassengerAuthOpen(true)}>
+        <Button
+          size="sm"
+          className="shrink-0"
+          onClick={() => { setPassengerAuthOperatorId(null); setPassengerAuthOpen(true); }}
+        >
           <Send className="h-4 w-4 mr-1.5" /> Send to driver
         </Button>
       </div>
-      <SendPassengerAuthModal open={passengerAuthOpen} onOpenChange={setPassengerAuthOpen} />
+      <SendPassengerAuthModal
+        open={passengerAuthOpen}
+        onOpenChange={setPassengerAuthOpen}
+        initialOperatorId={passengerAuthOperatorId}
+        onSent={() => setPassengerAuthRefresh(k => k + 1)}
+      />
+
+      <PassengerAuthorizationsPanel
+        refreshKey={passengerAuthRefresh}
+        onSendNew={(operatorId) => { setPassengerAuthOperatorId(operatorId ?? null); setPassengerAuthOpen(true); }}
+      />
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
