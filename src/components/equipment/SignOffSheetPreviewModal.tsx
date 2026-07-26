@@ -237,6 +237,37 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
               </div>
             )}
           </section>
+
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Equipment Return</h3>
+            {returnReceipts.length > 0 ? (
+              <div className="rounded-md border border-status-complete/40 bg-status-complete/10 p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-status-complete">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Return receipt received
+                </div>
+                {returnReceipts.map((r) => (
+                  <div key={r.id} className="text-xs text-muted-foreground">
+                    Tracking <span className="font-mono text-foreground">{r.tracking_number ?? '—'}</span>
+                    {r.carrier ? ` • ${r.carrier}` : ''} • uploaded {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
+                    {' • '}
+                    <a href={r.file_url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+                      View receipt
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : sheet.return_requested_at ? (
+              <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+                Return instructions sent {format(new Date(sheet.return_requested_at), 'MM/dd/yyyy h:mm a')}
+                {sheet.return_requested_by_name ? ` by ${sheet.return_requested_by_name}` : ''} — awaiting the driver's shipping receipt.
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed border-border p-3 text-muted-foreground text-xs">
+                No return instructions sent for this sheet yet.
+              </div>
+            )}
+          </section>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -262,6 +293,10 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
               {status === 'draft' ? 'Send to Operator' : 'Resend'}
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={handleSendReturn} disabled={sendingReturn}>
+            {sendingReturn ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
+            {sheet.return_requested_at ? 'Resend Return Instructions' : 'Send Return Instructions'}
+          </Button>
           <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
