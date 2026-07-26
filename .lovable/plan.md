@@ -1,32 +1,51 @@
-## What the message means
+# Passenger Authorization — stop pending requests from stacking
 
-"Operators/truck owners may only self-update decal photos and ELD signature fields on onboarding_status" is **not** a storage/upload problem — the file itself now uploads fine (the earlier folder-path fix worked). This is a **database safety rule firing after the receipt row is saved**.
+## Recommendation
 
-Chain of events when a driver uploads a receipt:
+Do **not** limit a driver to one Passenger Authorization. A driver can legitimately have several over time (different passengers, renewals after the 1-year expiration), and each signed one is a compliance record that must be kept.
 
-```text
-driver inserts row into equipment_receipts
-   -> trigger mark_equipment_return_completed()
-        UPDATE onboarding_status SET equipment_return_completed_at = now()
-   -> guard triggers on onboarding_status see a NON-STAFF user
-        and reject the update -> whole insert rolls back
-```
+The real problem is **unsigned/pending requests piling up**. So the rule is:
 
-Verified in the database:
-- `equipment_receipts` has an AFTER INSERT trigger `mark_equipment_return_completed` that writes `equipment_return_completed_at` on `onboarding_status`, and `notify_staff_on_return_receipt` that stamps `return_completed_at` on the assignment sheet and notifies staff.
-- `onboarding_status` has three driver-restriction guards: `enforce_onboarding_status_self_update`, `enforce_onboarding_status_operator_update`, and `enforce_onboarding_status_operator_column_whitelist`. Their allow-lists cover only decal photos, truck photos, ICA status, and ELD signature fields — `equipment_return_completed_at` is not allowed, so the driver-initiated cascade is blocked and the receipt insert fails.
+> A driver may have unlimited *signed* authorizations, but only **one open (pending) request at a time**.
 
-These guards were added deliberately (past security findings) to stop drivers editing onboarding fields, so the correct fix is a narrow, audited exception for this one system-generated column — not loosening the guards.
+Everything else follows from that.
 
-## Plan
+## What to build
 
-1. Migration: in `mark_equipment_return_completed()` (and, defensively, `notify_staff_on_return_receipt()`), set a scoped session flag `app.equipment_return_receipt = '1'` immediately before the `onboarding_status` / assignment-sheet writes and reset it right after, mirroring the existing `app.ica_sync_cascade` / `app.equipment_asset_signature_execute` pattern already used elsewhere.
-2. Same migration: teach the three guard functions to honor that flag — but only for the return-related columns (`equipment_return_completed_at`, and the assignment-sheet `return_completed_at` path). Any other column change stays blocked even with the flag set, so a driver still cannot touch onboarding fields.
-3. Keep the triggers SECURITY DEFINER and leave RLS policies untouched — no widening of driver write access.
-4. Verify by inserting a return receipt under the driver's own identity (not service role) against the real path, confirming: the receipt row persists, `equipment_return_completed_at` is stamped, the sheet's `return_completed_at` is set, and staff notifications are created.
-5. Re-check the driver UI so the success toast and the "Receipt received — staff notified" panel appear, and confirm the error toast no longer shows.
+**1. One open request per driver (send-side guard)**
+When staff sends a Passenger Authorization to a driver who already has an open request (`sent` or `opened`), the send dialog warns:
+
+- "Marcus Mueller already has an open request from 7/21 that hasn't been signed."
+- Choices: **Resend the existing link** (re-emails the same request, no new row, no new card) or **Replace it** (revokes the old one and issues a fresh request).
+
+This makes accidental stacking impossible going forward, while still allowing a genuine new request for a different passenger — staff just explicitly replaces or waits until the current one is signed.
+
+**2. Staff management list (Passenger Authorizations panel)**
+A list in the management portal showing every authorization with driver, unit, passenger name, status, sent/signed/expiration dates, and actions:
+
+- **Resend** — re-email the existing link
+- **Revoke** — cancels a pending request; the driver's home card disappears; the record stays in history as `revoked`
+- **View PDF** — for signed ones
+- **Send new** — the existing send dialog
+
+Signed records are never deletable from here (compliance), only revocable while pending.
+
+**3. Driver home card cleanup**
+- The card only shows requests in `sent`/`opened` status (already true) — with rule 1 in place, that's at most one card.
+- Revoking a pending request also dismisses its in-app notification, so the bell doesn't keep an orphan task.
+- If any stacked duplicates ever exist, the card groups them and shows only the newest, with the older ones auto-revoked.
+
+**4. Renewal support (natural follow-on)**
+Since signed authorizations expire 1 year after the effective date, the staff list flags ones expiring within 60 days with a **Send renewal** action — which is just a fresh request, allowed because the prior one is signed, not pending.
+
+## Cleanup of Marcus Mueller's existing 4
+
+Revoke the 3 older pending requests and keep the newest. Cards drop from 4 to 1, and the revoked rows stay visible in the staff list as history. (Say the word if you'd rather delete them outright — but revoking preserves the audit trail, which is the safer default.)
 
 ## Technical notes
 
-- No frontend logic changes are expected; `EquipmentReturnCard.tsx` already handles the insert correctly. Only the error-copy fallback may stay as-is.
-- The guard message the driver saw is a raw database exception surfaced in the toast; after the fix I'll also make sure any residual unexpected database error shows plain-language text rather than the internal rule wording.
+- `passenger_authorizations.status` already supports `revoked`; `get-passenger-auth` and `finalize-passenger-auth` already reject revoked tokens, so no token-security work is needed.
+- New edge functions: `revoke-passenger-auth` (staff-only, sets `revoked` + dismisses the related notification) and a resend path added to `send-passenger-auth` (accepts an existing `authorizationId` and re-emails rather than inserting).
+- `send-passenger-auth` gains a pre-insert check for an existing `sent`/`opened` row for the same operator, returning a conflict the modal can act on.
+- New component `PassengerAuthorizationsPanel.tsx` in the management portal; `SendPassengerAuthModal.tsx` gains the conflict prompt.
+- No schema change expected beyond an index on `(operator_id, status)`; revocation is a data update, not a migration.
