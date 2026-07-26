@@ -86,6 +86,14 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
 
   const receiptsFor = (sheetId: string) => receipts.filter(r => r.sheet_id === sheetId || r.sheet_id === null);
 
+  const pendingReturns = sheets.filter(
+    s => !s.return_completed_at && receipts.filter(r => r.sheet_id === s.id || r.sheet_id === null).length === 0,
+  ).length;
+  useEffect(() => {
+    if (loading) return;
+    onSummary?.({ count: sheets.length, actionNeeded: pendingReturns > 0 });
+  }, [loading, sheets.length, pendingReturns, onSummary]);
+
   const handleUpload = async (sheet: Sheet) => {
     if (guardDemo()) return;
     if (!user?.id) { toast.error('You must be signed in.'); return; }
@@ -149,14 +157,22 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
   if (loading || sheets.length === 0) return null;
 
   return (
-    <div id="equipment-return" ref={rootRef} className="rounded-2xl border border-primary/30 bg-card p-4 space-y-4 scroll-mt-24">
-      <div className="flex items-center gap-2">
-        <Package className="h-5 w-5 text-primary" />
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">Return Your Equipment</h3>
-          <p className="text-xs text-muted-foreground">Mail your equipment back, then upload the shipping receipt below.</p>
+    <div
+      id="equipment-return"
+      ref={rootRef}
+      className={embedded ? 'space-y-4 scroll-mt-24' : 'rounded-2xl border border-primary/30 bg-card p-4 space-y-4 scroll-mt-24'}
+    >
+      {embedded ? (
+        <p className="text-xs text-muted-foreground">Mail your equipment back, then upload the shipping receipt below.</p>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Package className="h-5 w-5 text-primary" />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">Return Your Equipment</h3>
+            <p className="text-xs text-muted-foreground">Mail your equipment back, then upload the shipping receipt below.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <AddressCard
