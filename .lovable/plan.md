@@ -1,24 +1,24 @@
-## Problem
+## Goal
 
-The driver-facing signed Assignment Sheet preview (`src/components/operator/SignedAssignmentSheetsCard.tsx`) renders only a summary: assignment date, status, device/serial list, and the signature block. It omits the terms verbiage the driver actually agreed to — the $1,000.00 unreturned-ELD replacement charge, the note about additional charges for unreturned plates/other issued equipment, the BestPass $60.00 acknowledgement line, and the "I have received the devices listed above and agree to these terms" acknowledgement statement. Those paragraphs exist today only in the signing screen (`OperatorOSASSign.tsx`) and, partially, in the staff preview (`SignOffSheetPreviewModal.tsx`, which shows one condensed "Important:" line).
+After a driver signs and submits the Onboard Systems Assignment Sheet, the screen should convert in place into a clean signed receipt — no lingering form — and the driver leaves on their own with a Done control.
 
-## Fix
+## Current behavior
 
-1. **Create one canonical terms source** — a small presentational module (e.g. `src/components/equipment/AssignmentSheetTerms.tsx`) exporting the full terms block, taking `bestpassIncluded` as a prop and rendering:
-   - Heading: "Important Notice — Equipment Return & Charges"
-   - Unreturned ELD equipment → $1,000.00 replacement charge
-   - Additional charges may be incurred for unreturned license plates or other issued equipment
-   - BestPass transponder fee of $60.00 acknowledged (only when included)
-   - The acknowledgement sentence: "I have received the devices listed above and agree to these terms."
+In `src/components/operator/OperatorOSASSign.tsx`, signing updates local state and shows a toast. Because `alreadySigned` becomes true, the signature form is replaced by a small "Signed on …" strip, but the rest of the page still reads as the interactive sheet (device checkboxes, terms checkbox, signing-oriented headers), so it feels like nothing happened.
 
-2. **Driver signed preview** — render the full terms block inside the preview dialog in `SignedAssignmentSheetsCard.tsx`, between the device table and the signature block, styled as the document body (gold-accented notice consistent with the signing screen). For signed sheets, show the acknowledgement as an affirmed statement (checkmark + "Acknowledged by {name} on {date}") rather than an interactive checkbox. Also surface the unit number, driver name, and terms version so the preview reads as the complete document.
+## Changes (all in `OperatorOSASSign.tsx`)
 
-3. **Signing screen** — replace the inline terms `<ul>` in `OperatorOSASSign.tsx` with the shared component so the signed record and the signing view can never drift apart.
+1. **Post-sign receipt mode.** Track a `justSigned` state set on successful submit. When the sheet is signed (either loaded already-signed or `justSigned`), render a receipt layout instead of the signing layout:
+   - Header block: green check + "Assignment Sheet Signed", unit number, assignment date, signer name, signed timestamp.
+   - Devices rendered as a static confirmed list (no checkboxes, no interactive labels) with the check icon per row.
+   - The full terms via the existing shared `AssignmentSheetTerms`, using `acknowledgedBy` / `acknowledgedAt` so it reads as an affirmed acknowledgement rather than a checkbox.
+   - Signature image block (existing `useSignatureUrl` handling, including the blank-signature re-sign fallback, which must still be reachable).
+2. **Scroll to top** when entering receipt mode so the driver sees the confirmation header, not the bottom of the page.
+3. **Done control.** A primary "Done" button at the bottom of the receipt that calls `onBack` (falling back to `onComplete`) — no auto-redirect, no timer. Keep the existing top Back button.
+4. Keep the existing success toast and the `onComplete?.()` callback so the parent portal refreshes its Onboard Systems badge/status.
 
-4. **Staff preview** — replace the single condensed "Important:" line in `SignOffSheetPreviewModal.tsx` with the same shared block, so staff and driver see identical verbiage.
-
-No database or business-logic changes; this is presentation only. Existing terms wording is preserved verbatim.
+No database, RLS, or edge function changes; presentation and local state only.
 
 ## Verification
 
-Open a signed sheet in the driver app preview via Playwright at a mobile viewport, screenshot the dialog, and confirm the full notice text and acknowledgement line appear above the signature, with the dialog still scrollable within `max-h-[90dvh]`.
+Load the signing view in Playwright at a mobile viewport, complete a signature, and confirm the page swaps to the receipt (checkmark header, static device list, acknowledged terms, signature image, Done button), scrolls to top, and stays put until Done is tapped.
