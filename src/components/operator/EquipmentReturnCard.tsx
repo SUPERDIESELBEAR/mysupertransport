@@ -119,7 +119,10 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw error;
       }
-      toast.success('Return receipt uploaded. Thank you!');
+      toast.success('Receipt received — staff have been notified', {
+        description: `Tracking ${tracking.trim()}${carrier ? ` • ${carrier}` : ''} was saved to your assignment sheet. No further action is needed from you.`,
+        duration: 8000,
+      });
       setFile(null);
       setTracking('');
       setCarrier('');
@@ -171,14 +174,19 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
                   <div key={r.id} className="flex items-start gap-2 rounded-lg border border-status-complete/40 bg-status-complete/10 p-3">
                     <CheckCircle2 className="h-4 w-4 text-status-complete mt-0.5 shrink-0" />
                     <div className="min-w-0 text-xs">
-                      <div className="text-sm font-medium text-foreground">Receipt received</div>
+                      <div className="text-sm font-medium text-foreground">Receipt received — staff notified</div>
                       <div className="text-muted-foreground">
                         Tracking <span className="font-mono">{r.tracking_number ?? '—'}</span>
                         {r.carrier ? ` • ${r.carrier}` : ''} • {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
                       </div>
+                      <ul className="mt-2 space-y-1 text-muted-foreground">
+                        <li>• Your receipt was attached to this assignment sheet and the SUPERTRANSPORT team was notified automatically.</li>
+                        <li>• Staff will confirm the shipment when your equipment arrives and close out the return.</li>
+                        <li>• Your driver login stays active — nothing else is needed from you unless staff reach out.</li>
+                      </ul>
                       <button
                         type="button"
-                        className="mt-1 text-primary underline underline-offset-2"
+                        className="mt-2 text-primary underline underline-offset-2"
                         onClick={() => setPreview({ url: r.file_url, name: r.file_name ?? 'Shipping receipt' })}
                       >
                         View receipt
