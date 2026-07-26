@@ -236,6 +236,8 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
             const app = sheet.operator?.applications;
             const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || '—';
             const driverEmail = app?.email ?? null;
+            const returnReceipts = sheet.return_receipts ?? [];
+            const returnRequested = !!sheet.return_requested_at;
             return (
               <Card key={sheet.id} className="overflow-hidden">
                 <CardHeader className="p-4 pb-0">
@@ -272,6 +274,27 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                     {sheet.signed_at && (
                       <div className="text-xs text-muted-foreground">Signed: {format(new Date(sheet.signed_at), 'MM/dd/yyyy h:mm a')}</div>
                     )}
+                    {returnRequested && returnReceipts.length === 0 && (
+                      <div className="mt-2 flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs text-warning">
+                        <Package className="h-3.5 w-3.5 shrink-0" />
+                        Return requested {format(new Date(sheet.return_requested_at as string), 'MM/dd/yyyy')}
+                        {sheet.return_requested_by_name ? ` by ${sheet.return_requested_by_name}` : ''} — awaiting receipt
+                      </div>
+                    )}
+                    {returnReceipts.length > 0 && (
+                      <div className="mt-2 rounded-md border border-status-complete/40 bg-status-complete/10 px-2.5 py-2 text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 font-medium text-status-complete">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Return receipt received
+                        </div>
+                        {returnReceipts.map(r => (
+                          <div key={r.id} className="text-muted-foreground">
+                            Tracking <span className="font-mono text-foreground">{r.tracking_number ?? '—'}</span>
+                            {r.carrier ? ` • ${r.carrier}` : ''} • {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 mt-4">
                     <Button size="sm" variant="outline" onClick={() => onPreview(sheet)}>
@@ -290,6 +313,17 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                         {status === 'draft' ? 'Send' : 'Resend'}
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmReturn(sheet)}
+                      disabled={returnSendingId === sheet.id}
+                    >
+                      {returnSendingId === sheet.id
+                        ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        : <Package className="h-3.5 w-3.5 mr-1.5" />}
+                      {returnRequested ? 'Resend Return Instructions' : 'Send Return Instructions'}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
