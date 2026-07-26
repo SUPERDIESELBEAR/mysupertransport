@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import type { SheetWithItems } from './SignOffSheetList';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
+import AssignmentSheetTerms from './AssignmentSheetTerms';
 
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD Unit',
