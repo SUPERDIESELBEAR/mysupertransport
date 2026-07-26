@@ -59,24 +59,14 @@ const INK_CHANNEL_THRESHOLD = 245;
 type SignatureCanvasSize = {
   cssWidth: number;
   cssHeight: number;
-  pixelWidth: number;
-  pixelHeight: number;
-  ratio: number;
 };
 
 function getSignatureCanvasSize(host: HTMLDivElement | null): SignatureCanvasSize {
   const hostWidth = host ? Math.floor(host.getBoundingClientRect().width) : 0;
   const cssWidth = hostWidth > 0 ? hostWidth : SIGNATURE_FALLBACK_WIDTH;
   const cssHeight = SIGNATURE_HEIGHT;
-  const ratio = typeof window === 'undefined' ? 1 : Math.max(window.devicePixelRatio || 1, 1);
 
-  return {
-    cssWidth,
-    cssHeight,
-    pixelWidth: Math.floor(cssWidth * ratio),
-    pixelHeight: Math.floor(cssHeight * ratio),
-    ratio,
-  };
+  return { cssWidth, cssHeight };
 }
 
 function canvasHasVisibleInk(canvas: HTMLCanvasElement): boolean {
@@ -191,13 +181,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
     const host = signatureBoxRef.current;
     const next = getSignatureCanvasSize(host);
     setSignatureCanvasSize(prev => {
-      if (
-        prev.cssWidth === next.cssWidth
-        && prev.cssHeight === next.cssHeight
-        && prev.pixelWidth === next.pixelWidth
-        && prev.pixelHeight === next.pixelHeight
-        && prev.ratio === next.ratio
-      ) {
+      if (prev.cssWidth === next.cssWidth && prev.cssHeight === next.cssHeight) {
         return prev;
       }
       return next;
@@ -218,11 +202,6 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
     if (!showSigningForm) return;
     const signaturePad = sigRef.current;
     if (!signaturePad) return;
-    const canvas = signaturePad.getCanvas();
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.setTransform(signatureCanvasSize.ratio, 0, 0, signatureCanvasSize.ratio, 0, 0);
-    }
     signaturePad.clear();
     setHasDrawn(false);
   }, [showSigningForm, signatureCanvasSize]);
@@ -467,8 +446,8 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
                 penColor="#000"
                 clearOnResize={false}
                 canvasProps={{
-                  width: signatureCanvasSize.pixelWidth,
-                  height: signatureCanvasSize.pixelHeight,
+                  width: signatureCanvasSize.cssWidth,
+                  height: signatureCanvasSize.cssHeight,
                   className: 'block h-36 w-full rounded-md touch-none select-none',
                   style: {
                     width: `${signatureCanvasSize.cssWidth}px`,
