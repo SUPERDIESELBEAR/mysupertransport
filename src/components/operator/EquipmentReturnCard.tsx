@@ -135,7 +135,7 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
   if (loading || sheets.length === 0) return null;
 
   return (
-    <div ref={rootRef} className="rounded-2xl border border-primary/30 bg-card p-4 space-y-4 scroll-mt-24">
+    <div id="equipment-return" ref={rootRef} className="rounded-2xl border border-primary/30 bg-card p-4 space-y-4 scroll-mt-24">
       <div className="flex items-center gap-2">
         <Package className="h-5 w-5 text-primary" />
         <div className="min-w-0">
@@ -148,7 +148,7 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
         <AddressCard
           title="Option 1 — The UPS Store #4564"
           lines={['608 W. Parkway Dr.', 'Russellville, AR 72801']}
-          note={'Mon–Fri 7:30a–6:00p\nSat 9:00a–2:30p · Sun 10:00a–3:00p\nP: (479) 498-2041'}
+          note={'P: (479) 498-2041'}
         />
         <AddressCard
           title="Option 2 — USPS (P.O. Box)"

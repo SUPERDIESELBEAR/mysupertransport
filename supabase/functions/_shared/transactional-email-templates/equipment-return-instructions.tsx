@@ -107,8 +107,6 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
                     608 W. Parkway Dr.<br />
                     Russellville, AR 72801<br />
                     <span style={{ color: '#5A5A5A' }}>
-                      Mon–Fri 7:30a–6:00p<br />
-                      Sat 9:00a–2:30p · Sun 10:00a–3:00p<br />
                       P: (479) 498-2041
                     </span>
                   </div>

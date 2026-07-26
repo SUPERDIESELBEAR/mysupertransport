@@ -28,6 +28,8 @@ type Sheet = {
   bestpass_included: boolean | null;
   driver_ip: string | null;
   terms_version: string | null;
+  return_requested_at: string | null;
+  return_completed_at: string | null;
 };
 
 type Item = {
@@ -66,7 +68,7 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
       setLoading(true);
       const { data: sheetRows } = await supabase
         .from('onboard_assignment_sheets')
-        .select('id, unit_number, assignment_date, status, signed_at, sent_at, driver_signature_data_url, driver_signature_name, bestpass_included, driver_ip, terms_version')
+        .select('id, unit_number, assignment_date, status, signed_at, sent_at, driver_signature_data_url, driver_signature_name, bestpass_included, driver_ip, terms_version, return_requested_at, return_completed_at')
         .eq('operator_id', operatorId)
         .in('status', ['signed', 'sent'])
         .order('signed_at', { ascending: false, nullsFirst: false })
@@ -107,12 +109,24 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
   if (loading) return null;
   if (sheets.length === 0) return null;
 
+  const awaitingReturn = sheets.some((s) => s.return_requested_at && !s.return_completed_at);
+
   return (
     <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
       <div className="flex items-center gap-2">
         <HardDrive className="h-5 w-5 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">Onboard Systems Assignment Sheets</h3>
       </div>
+      {awaitingReturn && (
+        <button
+          type="button"
+          onClick={() => document.getElementById('equipment-return')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className="w-full rounded-xl border border-primary/40 bg-primary/10 p-3 text-left"
+        >
+          <span className="block text-sm font-medium text-foreground">Return requested — upload your shipping receipt</span>
+          <span className="block text-xs text-muted-foreground mt-0.5">Tap here to jump to the Return Your Equipment section.</span>
+        </button>
+      )}
       <div className="space-y-2">
         {sheets.map((s) => {
           const isSigned = s.status === 'signed';
