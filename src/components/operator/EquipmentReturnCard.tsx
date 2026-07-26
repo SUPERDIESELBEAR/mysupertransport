@@ -93,8 +93,10 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
 
     setUploadingId(sheet.id);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
-      const path = `equipment-receipts/${operatorId}/return-${Date.now()}.${ext}`;
+      const rawExt = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const ext = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : 'bin';
+      // Must live under the operator's own folder — storage rules key off folder[1].
+      const path = `${operatorId}/equipment-receipts/return-${Date.now()}.${ext}`;
       const { error: upErr } = await uploadToBucket('operator-documents', path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: signed } = await supabase.storage
@@ -129,7 +131,13 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
       load();
     } catch (err: any) {
       console.error('[EquipmentReturnCard] upload failed', err);
-      toast.error("We couldn't upload that receipt", { description: err?.message ?? 'Please try again.' });
+      const msg: string = err?.message ?? '';
+      const permissionish = /row-level security|unauthorized|jwt|permission/i.test(msg);
+      toast.error("We couldn't upload that receipt", {
+        description: permissionish
+          ? 'Your session may have expired. Please sign out, sign back in, and try again.'
+          : msg || 'Please try again.',
+      });
     } finally {
       setUploadingId(null);
     }
