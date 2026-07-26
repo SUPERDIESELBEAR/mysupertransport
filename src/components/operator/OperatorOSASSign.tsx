@@ -209,6 +209,7 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
   }, [showSigningForm, signatureCanvasSize]);
 
   const toggleConfirm = (itemId: string, checked: boolean) => {
+    void 0;
     setConfirmedIds(prev => {
       const next = new Set(prev);
       if (checked) next.add(itemId);
