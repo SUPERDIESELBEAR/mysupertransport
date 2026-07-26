@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
+import AssignmentSheetTerms from '@/components/equipment/AssignmentSheetTerms';
 
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass';
 
@@ -26,6 +27,7 @@ type Sheet = {
   driver_signature_name: string | null;
   bestpass_included: boolean | null;
   driver_ip: string | null;
+  terms_version: string | null;
 };
 
 type Item = {
@@ -64,7 +66,7 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
       setLoading(true);
       const { data: sheetRows } = await supabase
         .from('onboard_assignment_sheets')
-        .select('id, unit_number, assignment_date, status, signed_at, sent_at, driver_signature_data_url, driver_signature_name, bestpass_included, driver_ip')
+        .select('id, unit_number, assignment_date, status, signed_at, sent_at, driver_signature_data_url, driver_signature_name, bestpass_included, driver_ip, terms_version')
         .eq('operator_id', operatorId)
         .in('status', ['signed', 'sent'])
         .order('signed_at', { ascending: false, nullsFirst: false })
@@ -155,6 +157,8 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
               <div className="grid grid-cols-2 gap-3 rounded-md border border-border bg-muted/30 p-3">
                 <Field label="Assignment Date" value={preview.assignment_date ? format(new Date(preview.assignment_date + 'T12:00:00'), 'MM/dd/yyyy') : '—'} />
                 <Field label="Status" value={preview.status === 'signed' ? 'Signed' : preview.status === 'sent' ? 'Sent — pending' : preview.status} />
+                <Field label="Unit" value={preview.unit_number || '—'} />
+                <Field label="Driver" value={preview.driver_signature_name || '—'} />
               </div>
 
               <div>
@@ -181,6 +185,18 @@ export default function SignedAssignmentSheetsCard({ operatorId }: Props) {
                     </ul>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Terms You Agreed To</h4>
+                <AssignmentSheetTerms
+                  bestpassIncluded={preview.bestpass_included}
+                  acknowledgedBy={preview.driver_signature_name}
+                  acknowledgedAt={preview.signed_at ? format(new Date(preview.signed_at), 'MM/dd/yyyy h:mm a') : null}
+                />
+                {preview.terms_version && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">Terms version {preview.terms_version}</p>
+                )}
               </div>
 
               <div>
