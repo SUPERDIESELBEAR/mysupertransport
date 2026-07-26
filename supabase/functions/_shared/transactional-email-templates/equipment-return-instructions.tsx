@@ -1,7 +1,7 @@
 /// <reference types="npm:@types/react@18.3.1" />
 import * as React from 'npm:react@18.3.1'
 import {
-  Body, Container, Head, Heading, Html, Preview, Text,
+  Body, Button, Container, Head, Heading, Html, Preview, Section, Text,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 import {
@@ -14,6 +14,7 @@ export interface EquipmentReturnProps {
   items?: { label: string; serial: string | null }[]
   portalUrl?: string
   senderName?: string
+  unitNumber?: string | null
 }
 
 const twoColRow = { verticalAlign: 'top' as const, width: '50%', padding: '0 8px' }
@@ -32,6 +33,18 @@ const addressTitle = {
   color: '#5A4A1F',
   margin: '0 0 6px',
   letterSpacing: '0.04em',
+}
+
+const ctaWrap = { textAlign: 'center' as const, margin: '22px 0 6px' }
+const ctaButton = {
+  backgroundColor: '#C9A84C',
+  color: '#0D0D0D',
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
+  textDecoration: 'none',
+  padding: '13px 26px',
+  borderRadius: '6px',
+  display: 'inline-block',
 }
 
 const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
@@ -54,6 +67,9 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
 
           <Heading style={h1}>Please return your equipment</Heading>
           <Text style={text}>Hi {driver},</Text>
+          {props.unitNumber ? (
+            <Text style={muted}>Unit {props.unitNumber}</Text>
+          ) : null}
           <Text style={text}>
             Our records show you're still holding company-issued equipment.
             Please ship the items listed below back to {BRAND_NAME} using
@@ -111,14 +127,17 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
           </table>
 
           <div style={callout}>
-            <strong>Important:</strong> after you mail the equipment, open the
-            {' '}<a href={portalUrl} style={{ color: '#5A4A1F', textDecoration: 'underline' }}>
-              Onboard Systems Assignment Sheet (OSAS)
-            </a>{' '}
-            in your driver app and upload a photo of the shipping receipt along
-            with the carrier and tracking number. Your account will remain open
-            until at least one return receipt is on file.
+            <strong>Important:</strong> after you mail the equipment, open your
+            Onboard Systems Assignment Sheet in the driver app and upload a photo
+            of the shipping receipt along with the tracking number. Your account
+            will remain open until at least one return receipt is on file.
           </div>
+
+          <Section style={ctaWrap}>
+            <Button href={portalUrl} style={ctaButton}>
+              Open Assignment Sheet &amp; Upload Receipt
+            </Button>
+          </Section>
 
           <Text style={muted}>
             Questions? Just reply to this email and it will reach {sender}.

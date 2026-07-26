@@ -1,24 +1,56 @@
+# Equipment Return Instructions & Receipt Tracking
+
 ## Goal
+Staff click a button on any cataloged Assignment Sheet (OSAS) to email the driver mailing instructions. The email's button opens the driver app directly on that assignment sheet, where the driver uploads a shipping receipt photo and tracking number. The receipt then appears on the same sheet in the management dashboard, and staff are notified.
 
-After a driver signs and submits the Onboard Systems Assignment Sheet, the screen should convert in place into a clean signed receipt — no lingering form — and the driver leaves on their own with a Done control.
+## Mailing addresses (already on file, reused as-is)
+```text
+OPTION 1 — The UPS Store #4564          OPTION 2 — USPS (P.O. Box)
+608 W. Parkway Dr.                      SuperTransport
+Russellville, AR 72801                  c/o Craig Pate
+Mon–Fri 7:30a–6:00p                     P.O. Box 718
+Sat 9:00a–2:30p · Sun 10:00a–3:00p      Dover, AR 72837
+P: (479) 498-2041
+```
 
-## Current behavior
+## Flow
+```text
+Staff → [Send Return Instructions] on a sheet
+      → email to driver (device list + both addresses + "Open Assignment Sheet" button)
+Driver → app deep link → sheet view → Upload Return Receipt (photo + tracking, carrier optional)
+      → receipt saved against that sheet
+Management → sheet card + preview show receipt thumbnail, tracking #, carrier, date
+           → staff notification "Return receipt uploaded"
+```
 
-In `src/components/operator/OperatorOSASSign.tsx`, signing updates local state and shows a toast. Because `alreadySigned` becomes true, the signature form is replaced by a small "Signed on …" strip, but the rest of the page still reads as the interactive sheet (device checkboxes, terms checkbox, signing-oriented headers), so it feels like nothing happened.
+## What gets built
 
-## Changes (all in `OperatorOSASSign.tsx`)
+**1. Database**
+- Add to `onboard_assignment_sheets`: `return_requested_at`, `return_requested_by`, `return_requested_by_name`, `return_completed_at`.
+- Add `sheet_id` (nullable FK) to `equipment_receipts` so a return receipt attaches to a specific sheet; existing rows unaffected.
+- Update the driver INSERT policy so a driver may add a `return` receipt when either the existing awaiting-return condition holds **or** one of their sheets has `return_requested_at` set. Require `tracking_number` non-empty for driver-uploaded return receipts (check constraint scoped to `direction = 'return'` + `uploader_role = 'driver'`).
+- Trigger on insert of a driver return receipt: stamp `return_completed_at` on the sheet and create a staff notification (reusing the existing notification pattern used for OSAS signing).
 
-1. **Post-sign receipt mode.** Track a `justSigned` state set on successful submit. When the sheet is signed (either loaded already-signed or `justSigned`), render a receipt layout instead of the signing layout:
-   - Header block: green check + "Assignment Sheet Signed", unit number, assignment date, signer name, signed timestamp.
-   - Devices rendered as a static confirmed list (no checkboxes, no interactive labels) with the check icon per row.
-   - The full terms via the existing shared `AssignmentSheetTerms`, using `acknowledgedBy` / `acknowledgedAt` so it reads as an affirmed acknowledgement rather than a checkbox.
-   - Signature image block (existing `useSignatureUrl` handling, including the blank-signature re-sign fallback, which must still be reachable).
-2. **Scroll to top** when entering receipt mode so the driver sees the confirmation header, not the bottom of the page.
-3. **Done control.** A primary "Done" button at the bottom of the receipt that calls `onBack` (falling back to `onComplete`) — no auto-redirect, no timer. Keep the existing top Back button.
-4. Keep the existing success toast and the `onComplete?.()` callback so the parent portal refreshes its Onboard Systems badge/status.
+**2. Email**
+- Reuse the existing `equipment-return-instructions` template; add a prominent CTA button linking to the driver deep link, and populate the device list from the sheet's items (label + serial snapshot).
+- New edge function `send-equipment-return-instructions` built on the shared `_shared/email` toolkit (`requireStaff`, CORS, idempotency key that includes a timestamp so resends actually resend). It loads the sheet + items + driver email, enqueues the email, and stamps `return_requested_at`.
 
-No database, RLS, or edge function changes; presentation and local state only.
+**3. Management UI (`SignOffSheetList.tsx` + `SignOffSheetPreviewModal.tsx`)**
+- New "Send Return Instructions" button (package icon) on every sheet card, any status. Confirmation dialog naming the driver and email address.
+- Once sent: an amber "Return requested — {date}" badge; button label becomes "Resend Return Instructions".
+- Once a receipt exists: a green "Return receipt received" panel on the card and in the preview modal, showing carrier, tracking number, upload date, and a clickable thumbnail that opens the existing `FilePreviewModal`.
 
-## Verification
+**4. Driver UI**
+- Deep link `/dashboard?view=onboard-systems&sheet={id}&return=1`, which scrolls to that sheet and opens the return-receipt section (same pattern already used for the signature deep link).
+- On the driver's Onboard Systems / signed sheet card, when `return_requested_at` is set and no receipt is on file: a "Return Your Equipment" block showing both mailing addresses, plus an upload form — photo/PDF (required), tracking number (required), carrier (optional dropdown: UPS / USPS / FedEx / Other).
+- Uploads go through the existing `uploadToBucket` helper into `operator-documents` under `equipment-receipts/{operatorId}/`, then insert into `equipment_receipts` with `sheet_id`, `direction: 'return'`, `uploader_role: 'driver'`.
+- After upload the block flips to a receipt confirmation (tracking #, date, thumbnail) — same "stay as a receipt" pattern used after signing.
 
-Load the signing view in Playwright at a mobile viewport, complete a signature, and confirm the page swaps to the receipt (checkmark header, static device list, acknowledged terms, signature image, Done button), scrolls to top, and stays put until Done is tapped.
+## Technical notes
+- Login access is already gated on at least one return receipt existing via `operator_awaiting_return`; this work adds the sheet-scoped path without weakening that.
+- Tracking number is enforced both client-side and by the database check constraint.
+- Edge function must be deployed after creation; the email template edit requires redeploying `send-transactional-email`.
+
+## Out of scope (say the word if you want them)
+- Automated reminder cadence if no receipt arrives after N days.
+- Marking individual devices returned/received from the receipt (still done in Onboard Systems).
