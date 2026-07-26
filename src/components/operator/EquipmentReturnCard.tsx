@@ -148,7 +148,7 @@ export default function EquipmentReturnCard({ operatorId }: Props) {
         <AddressCard
           title="Option 1 — The UPS Store #4564"
           lines={['608 W. Parkway Dr.', 'Russellville, AR 72801']}
-          note={'Mon–Fri 7:30a–6:00p\nSat 9:00a–2:30p · Sun 10:00a–3:00p\nP: (479) 498-2041'}
+          note={'P: (479) 498-2041'}
         />
         <AddressCard
           title="Option 2 — USPS (P.O. Box)"

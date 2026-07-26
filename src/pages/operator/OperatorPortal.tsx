@@ -1880,6 +1880,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
             </div>
             <DriverVaultCard operatorId={operatorId} readOnly defaultCollapsed={false} />
+            <EquipmentReturnCard operatorId={operatorId} />
             <SignedAssignmentSheetsCard operatorId={operatorId} />
           </div>
         )}

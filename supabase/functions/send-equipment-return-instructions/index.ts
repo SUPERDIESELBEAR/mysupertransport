@@ -54,7 +54,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     serial: it.serial_snapshot || null,
   }))
 
-  const portalUrl = buildAppUrl(`/dashboard?view=onboard-systems&sheet=${sheet.id}&return=1`)
+  const portalUrl = buildAppUrl(`/operator/onboard-systems?sheet=${sheet.id}&return=1`)
 
   const { data: profile } = await supabase
     .from('profiles')
