@@ -82,8 +82,10 @@ export default function OperatorReturnReceipts({ operatorId, status }: OperatorR
     }
     setUploadingKey(`return-${formId}`);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
-      const path = `equipment-receipts/${operatorId}/return-${Date.now()}.${ext}`;
+      const rawExt = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const ext = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : 'bin';
+      // Must live under the operator's own folder — storage rules key off folder[1].
+      const path = `${operatorId}/equipment-receipts/return-${Date.now()}.${ext}`;
       const { error: upErr } = await uploadToBucket('operator-documents', path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: signedUrl } = await supabase.storage
