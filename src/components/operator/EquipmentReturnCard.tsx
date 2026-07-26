@@ -15,6 +15,9 @@ import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 interface Props {
   operatorId: string;
+  /** Render without the outer card + header (used inside a My Documents folder). */
+  embedded?: boolean;
+  onSummary?: (s: { count: number; actionNeeded: boolean }) => void;
 }
 
 type Sheet = {
@@ -36,7 +39,7 @@ type Receipt = {
 
 const CARRIERS = ['UPS', 'USPS', 'FedEx', 'Other'];
 
-export default function EquipmentReturnCard({ operatorId }: Props) {
+export default function EquipmentReturnCard({ operatorId, embedded = false, onSummary }: Props) {
   const { user } = useAuth();
   const { guardDemo } = useDemoMode();
   const [sheets, setSheets] = useState<Sheet[]>([]);
