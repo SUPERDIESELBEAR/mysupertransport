@@ -53,6 +53,9 @@ const DEVICE_ICON: Record<DeviceType, React.ReactNode> = {
 
 interface Props {
   operatorId: string;
+  /** Render without the outer card + header (used inside a My Documents folder). */
+  embedded?: boolean;
+  onSummary?: (s: { count: number; actionNeeded: boolean }) => void;
 }
 
 export default function SignedAssignmentSheetsCard({ operatorId, embedded = false, onSummary }: Props) {
