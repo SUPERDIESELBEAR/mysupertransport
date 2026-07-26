@@ -168,9 +168,12 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
             </div>
           </section>
 
-          <section className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 text-xs leading-relaxed">
-            <strong>Important:</strong> Unreturned ELD equipment will result in a $1,000.00 replacement charge.
-            Additional charges may apply for unreturned license plates or other issued equipment.
+          <section>
+            <AssignmentSheetTerms
+              bestpassIncluded={sheet.bestpass_included}
+              acknowledgedBy={sheet.driver_signature_name}
+              acknowledgedAt={sheet.signed_at ? new Date(sheet.signed_at).toLocaleString('en-US') : null}
+            />
           </section>
 
           <section>
