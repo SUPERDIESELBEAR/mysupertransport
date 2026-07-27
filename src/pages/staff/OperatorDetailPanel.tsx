@@ -453,6 +453,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotAttachments, setDotAttachments] = useState<File[]>([]);
   const [dotCcEmails, setDotCcEmails] = useState<string[]>([]);
   const [dotCcInput, setDotCcInput] = useState('');
+  // DOT consultant "To" recipients: loaded from saved settings, editable per send.
+  const [dotToEmails, setDotToEmails] = useState<string[]>([]);
+  const [dotToInput, setDotToInput] = useState('');
+  const [savingDotRecipients, setSavingDotRecipients] = useState(false);
+  // Friendly label: keep Tracey's name when she's the primary recipient, otherwise generic.
+  const dotConsultantLabel = dotToEmails.some(e => e.toLowerCase() === 'tracey@iondot.net')
+    ? 'Tracey McQuilken'
+    : 'DOT Consultant';
 
   // Cert history timeline
   type CertHistoryEntry = {
@@ -1305,6 +1313,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
     }
 
+    // Load persistent DOT consultant email recipients
+    const { data: dotSettings } = await supabase
+      .from('dot_consultant_email_settings')
+      .select('recipient_emails')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .maybeSingle();
+    setDotToEmails(((dotSettings as any)?.recipient_emails ?? []) as string[]);
+
     // Build truck info: prefer onboarding_status fields, fall back to ICA
     const osTruck = (op as any)?.onboarding_status as any;
     const { data: icaData } = await supabase
@@ -1401,6 +1417,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const handleSendDotConsultantEmail = async () => {
     if (guardDemo()) return;
+    if (dotToEmails.length === 0) {
+      toast({ title: 'Add a recipient', description: 'Enter at least one "To" address before sending.', variant: 'destructive' });
+      return;
+    }
     setSendingDotEmail(true);
     try {
       // Upload attachments first
@@ -1420,6 +1440,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operator_id: operatorId,
           notes: dotEmailNotes.trim() || null,
           attachment_paths: uploadedPaths,
+          to_emails: dotToEmails,
           cc_emails: dotCcEmails,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
@@ -1429,12 +1450,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDotEmailNotes('');
       setDotAttachments([]);
       setDotCcEmails([]);
-      toast({ title: 'Email sent to Tracey McQuilken', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      toast({ title: `Email sent to ${dotConsultantLabel}`, description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
       setTimeout(() => setDotEmailSent(false), 5000);
     } catch (err: any) {
       toast({ title: 'Failed to send email', description: err.message, variant: 'destructive' });
     } finally {
       setSendingDotEmail(false);
+    }
+  };
+
+  const handleSaveDotRecipients = async () => {
+    if (guardDemo()) return;
+    setSavingDotRecipients(true);
+    try {
+      const { error } = await supabase
+        .from('dot_consultant_email_settings')
+        .update({
+          recipient_emails: dotToEmails,
+          updated_at: new Date().toISOString(),
+          updated_by: session?.user?.id ?? null,
+        })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+      if (error) throw error;
+      toast({ title: 'Default recipients saved', description: `${dotToEmails.length} recipient(s) will be pre-filled next time.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to save recipients', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingDotRecipients(false);
     }
   };
 
@@ -6303,21 +6345,90 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     </div>
                   )}
 
-                  {/* Email Tracey McQuilken (DOT Consultant) */}
+                  {/* Email DOT Consultant */}
                   <div className="mt-4 pt-4 border-t border-border space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
                       <Mail className="h-3 w-3" />
-                      Email Tracey McQuilken (DOT Consultant)
+                      Email {dotConsultantLabel} (DOT Consultant)
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Sends driver + truck details, driver's license, and any attached files to <strong className="text-foreground">tracey@iondot.net</strong>.
+                      Sends driver + truck details, driver's license, and any attached files to the recipients below.
                     </p>
 
+                    {/* To recipients — pre-filled from saved defaults, editable per send */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to Tracey</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">To</Label>
+                      <p className="text-[11px] text-muted-foreground">Edit for this send only, or save as the default for all future DOT consultant emails.</p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="email"
+                          value={dotToInput}
+                          onChange={e => setDotToInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && dotToInput.trim()) {
+                              e.preventDefault();
+                              const email = dotToInput.trim().toLowerCase();
+                              if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !dotToEmails.includes(email) && dotToEmails.length < 15) {
+                                setDotToEmails(prev => [...prev, email]);
+                              }
+                              setDotToInput('');
+                            }
+                          }}
+                          placeholder="consultant@example.com"
+                          className="h-8 text-xs flex-1"
+                          disabled={dotToEmails.length >= 15}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs px-3"
+                          onClick={() => {
+                            const email = dotToInput.trim().toLowerCase();
+                            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !dotToEmails.includes(email) && dotToEmails.length < 15) {
+                              setDotToEmails(prev => [...prev, email]);
+                            }
+                            setDotToInput('');
+                          }}
+                          disabled={dotToEmails.length >= 15}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {dotToEmails.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {dotToEmails.map(email => (
+                            <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gold/10 border border-gold/40 text-foreground">
+                              {email}
+                              <button
+                                type="button"
+                                onClick={() => setDotToEmails(prev => prev.filter(e => e !== email))}
+                                className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                              >×</button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-destructive">Add at least one recipient to send this email.</p>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[11px] px-2"
+                        onClick={handleSaveDotRecipients}
+                        disabled={savingDotRecipients}
+                      >
+                        {savingDotRecipients ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                        Save as default recipients
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to {dotConsultantLabel}</Label>
                       <Textarea
                         rows={3}
-                        placeholder="Anything Tracey should know…"
+                        placeholder="Anything the consultant should know…"
                         value={dotEmailNotes}
                         onChange={(e) => setDotEmailNotes(e.target.value)}
                         maxLength={5000}
@@ -6437,7 +6548,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       ) : dotEmailSent ? (
                         <><CheckCircle2 className="h-3.5 w-3.5" /> Email Sent</>
                       ) : (
-                        <><Send className="h-3.5 w-3.5" /> Email Tracey McQuilken</>
+                        <><Send className="h-3.5 w-3.5" /> Email {dotConsultantLabel}</>
                       )}
                     </Button>
                   </div>

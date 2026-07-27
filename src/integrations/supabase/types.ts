@@ -926,6 +926,27 @@ export type Database = {
           },
         ]
       }
+      dot_consultant_email_settings: {
+        Row: {
+          id: string
+          recipient_emails: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          recipient_emails?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          recipient_emails?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       driver_documents: {
         Row: {
           blocks_go_live: boolean
