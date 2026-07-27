@@ -12,7 +12,61 @@ import type {
 export async function fetchPEIQueue(): Promise<PEIQueueRow[]> {
   const { data, error } = await supabase.rpc('get_pei_queue');
   if (error) throw error;
-  return (data ?? []) as PEIQueueRow[];
+  return ((data ?? []) as unknown) as PEIQueueRow[];
+}
+
+/** Records (or corrects) the date a PEI was sent outside the app. No email is sent. */
+export async function logManualSend(
+  requestId: string,
+  dateSent: string,
+  method: string,
+  note?: string
+): Promise<void> {
+  const { error } = await supabase.rpc('log_pei_manual_send', {
+    _request_id: requestId,
+    _date_sent: dateSent,
+    _method: method,
+    _note: note ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function logPhoneAttempt(
+  requestId: string,
+  attemptDate: string,
+  spokeWith: string,
+  outcome: string
+): Promise<void> {
+  const { error } = await supabase.rpc('log_pei_phone_attempt', {
+    _request_id: requestId,
+    _attempt_date: attemptDate,
+    _spoke_with: spokeWith,
+    _outcome: outcome,
+  });
+  if (error) throw error;
+}
+
+export async function addStaffNote(requestId: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc('add_pei_staff_note', {
+    _request_id: requestId,
+    _note: note,
+  });
+  if (error) throw error;
+}
+
+export async function archiveApplicant(applicationId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('archive_applicant_pei', {
+    _application_id: applicationId,
+    _reason: reason,
+  });
+  if (error) throw error;
+}
+
+export async function restoreApplicant(applicationId: string): Promise<void> {
+  const { error } = await supabase.rpc('restore_applicant_pei', {
+    _application_id: applicationId,
+  });
+  if (error) throw error;
 }
 
 export async function fetchPEIRequestsByApplication(
