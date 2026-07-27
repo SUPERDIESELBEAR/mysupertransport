@@ -324,11 +324,13 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatTile icon={<Mail className="h-4 w-4" />} label="Active Applicants" value={stats.applicants} />
         <StatTile icon={<Clock className="h-4 w-4" />} label="Awaiting Response" value={stats.awaiting} />
         <StatTile icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={stats.overdue} tone="destructive" />
         <StatTile icon={<CheckCircle2 className="h-4 w-4" />} label="Completed This Month" value={stats.completedThisMonth} />
+        <StatTile icon={<Archive className="h-4 w-4" />} label="Archive (Hired)" value={stats.archivedHired} />
+        <StatTile icon={<Archive className="h-4 w-4" />} label="Archive (Not Hired)" value={stats.archivedNotHired} />
       </div>
 
       <Card className="overflow-hidden">
