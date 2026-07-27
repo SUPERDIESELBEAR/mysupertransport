@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { resolveResourceUrl } from '@/lib/resourceUrl';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -76,6 +77,14 @@ function SortableRow({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const [richTextOpen, setRichTextOpen] = useState(false);
+  const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!previewOpen || !doc.pdf_url) { setSignedPdfUrl(null); return; }
+    resolveResourceUrl(doc.pdf_url).then((u) => { if (!cancelled) setSignedPdfUrl(u); });
+    return () => { cancelled = true; };
+  }, [previewOpen, doc.pdf_url]);
   const {
     attributes,
     listeners,
@@ -230,8 +239,8 @@ function SortableRow({
       </div>
 
       {/* PDF preview */}
-      {previewOpen && doc.pdf_url && (
-        <FilePreviewModal url={doc.pdf_url} name={doc.title} onClose={() => setPreviewOpen(false)} />
+      {previewOpen && signedPdfUrl && (
+        <FilePreviewModal url={signedPdfUrl} name={doc.title} onClose={() => setPreviewOpen(false)} />
       )}
 
       {/* Video preview */}

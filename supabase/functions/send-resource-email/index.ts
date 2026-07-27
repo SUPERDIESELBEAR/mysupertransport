@@ -108,9 +108,34 @@ serve(async (req) => {
     `;
 
     const subject = `${BRAND_NAME} — ${resourceTitle}`;
+
+    // resource-library is a private bucket — mint a time-limited signed link
+    // (30 days) so the emailed URL works without exposing the bucket publicly.
+    let downloadUrl = resourceUrl as string;
+    const markers = [
+      '/storage/v1/object/public/resource-library/',
+      '/storage/v1/object/sign/resource-library/',
+    ];
+    for (const marker of markers) {
+      const idx = downloadUrl.indexOf(marker);
+      if (idx === -1) continue;
+      const path = decodeURIComponent(downloadUrl.slice(idx + marker.length).split('?')[0]);
+      const { data: signedData, error: signedError } = await supabaseAdmin.storage
+        .from('resource-library')
+        .createSignedUrl(path, 60 * 60 * 24 * 30);
+      if (signedError || !signedData?.signedUrl) {
+        console.error('signed url failed', signedError);
+        return new Response(JSON.stringify({ error: 'Could not prepare download link' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      downloadUrl = signedData.signedUrl;
+      break;
+    }
+
     const html = buildEmail(subject, 'Document Shared With You', bodyHtml, {
       label: 'Download File',
-      url: resourceUrl,
+      url: downloadUrl,
     });
 
     await sendEmail(recipientEmail, subject, html, resendKey);

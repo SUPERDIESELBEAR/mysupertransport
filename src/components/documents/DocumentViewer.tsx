@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { sanitizeRichHtml } from '@/lib/sanitize';
+import { resolveResourceUrl } from '@/lib/resourceUrl';
 
 interface DocumentViewerProps {
   doc: DriverDocument;
@@ -23,7 +24,15 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [hasOpenedPdf, setHasOpenedPdf] = useState(false);
   const [hasReadToBottom, setHasReadToBottom] = useState(false);
+  const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
   const richTextScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!doc.pdf_url) { setSignedPdfUrl(null); return; }
+    resolveResourceUrl(doc.pdf_url).then((u) => { if (!cancelled) setSignedPdfUrl(u); });
+    return () => { cancelled = true; };
+  }, [doc.pdf_url]);
 
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
@@ -136,9 +145,9 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
               Version {doc.version}
             </span>
             <span>Last updated {new Date(doc.updated_at).toLocaleDateString()}</span>
-            {isPdf && doc.pdf_url && (
+            {isPdf && signedPdfUrl && (
               <button
-                onClick={() => downloadBlob(doc.pdf_url!, `${doc.title}.pdf`)}
+                onClick={() => downloadBlob(signedPdfUrl, `${doc.title}.pdf`)}
                 className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors font-medium"
               >
                 <Download className="h-4 w-4" />
@@ -184,8 +193,8 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
                 <FileText className="h-4 w-4" />
                 View PDF
               </Button>
-              {pdfPreviewOpen && (
-                <FilePreviewModal url={doc.pdf_url} name={doc.title} onClose={() => setPdfPreviewOpen(false)} />
+              {pdfPreviewOpen && signedPdfUrl && (
+                <FilePreviewModal url={signedPdfUrl} name={doc.title} onClose={() => setPdfPreviewOpen(false)} />
               )}
             </div>
           ) : (
