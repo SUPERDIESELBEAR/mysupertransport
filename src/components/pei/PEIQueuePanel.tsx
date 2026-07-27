@@ -48,14 +48,25 @@ const STATUS_ORDER: PEIRequestStatus[] = [
   'gfe_documented',
 ];
 
-type SectionKey = 'overdue' | 'pending' | 'in_progress' | 'completed' | 'archived';
+type SectionKey = 'overdue' | 'pending' | 'in_progress' | 'completed' | 'archived_hired' | 'archived_not_hired';
 
-const SECTIONS: Array<{ key: SectionKey; label: string; hint: string; defaultOpen: boolean }> = [
-  { key: 'overdue', label: 'Overdue', hint: 'Past the 30-day deadline and unresolved', defaultOpen: true },
-  { key: 'pending', label: 'Pending', hint: 'Nothing sent yet', defaultOpen: true },
-  { key: 'in_progress', label: 'In Progress', hint: 'Awaiting a previous employer response', defaultOpen: true },
-  { key: 'completed', label: 'Completed', hint: 'Every employer resolved or GFE documented', defaultOpen: false },
-  { key: 'archived', label: 'Archived', hint: 'Applicants removed from the active queue', defaultOpen: false },
+interface SectionDef {
+  key: SectionKey;
+  label: string;
+  hint: string;
+  defaultOpen: boolean;
+  stripe: string;
+  badge: 'destructive' | 'secondary' | 'default' | 'outline';
+  showWhenEmpty?: boolean;
+}
+
+const SECTIONS: SectionDef[] = [
+  { key: 'overdue', label: 'Overdue', hint: 'Past the 30-day deadline and unresolved', defaultOpen: true, stripe: 'border-l-4 border-l-rose-500', badge: 'destructive' },
+  { key: 'pending', label: 'Pending', hint: 'Nothing sent yet', defaultOpen: true, stripe: 'border-l-4 border-l-slate-500', badge: 'secondary' },
+  { key: 'in_progress', label: 'In Progress', hint: 'Awaiting a previous employer response', defaultOpen: true, stripe: 'border-l-4 border-l-blue-500', badge: 'secondary' },
+  { key: 'completed', label: 'Completed', hint: 'Every employer resolved or GFE documented', defaultOpen: false, stripe: 'border-l-4 border-l-emerald-500', badge: 'secondary' },
+  { key: 'archived_hired', label: 'Archive (Hired)', hint: 'Archived applicants who were hired by SUPERTRANSPORT', defaultOpen: false, stripe: 'border-l-4 border-l-amber-400', badge: 'secondary', showWhenEmpty: true },
+  { key: 'archived_not_hired', label: 'Archive (Not Hired)', hint: 'Archived applicants who were not hired', defaultOpen: false, stripe: 'border-l-4 border-l-slate-400', badge: 'secondary', showWhenEmpty: true },
 ];
 
 interface ApplicantGroup {
@@ -66,6 +77,7 @@ interface ApplicantGroup {
   archivedAt: string | null;
   archiveReason: string | null;
   archivedByName: string | null;
+  archiveCategory: 'hired' | 'not_hired' | null;
 }
 
 function isResolved(r: PEIQueueRow) {
@@ -74,7 +86,10 @@ function isResolved(r: PEIQueueRow) {
 
 /** Highest-severity rule: Archived > Overdue > Pending/In Progress > Completed. */
 function sectionFor(rows: PEIQueueRow[]): SectionKey {
-  if (rows[0]?.pei_archived_at) return 'archived';
+  const first = rows[0];
+  if (first?.pei_archived_at) {
+    return first.pei_archive_category === 'hired' ? 'archived_hired' : 'archived_not_hired';
+  }
   if (rows.some((r) => r.is_overdue)) return 'overdue';
   if (rows.every(isResolved)) return 'completed';
   if (rows.every((r) => r.status === 'pending' || isResolved(r))) return 'pending';
@@ -136,8 +151,10 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       const parsed = new Date(d);
       return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
     }).length;
-    return { applicants, awaiting, overdue, completedThisMonth };
-  }, [activeRows]);
+    const archivedHired = rows.filter((r) => r.pei_archive_category === 'hired').length;
+    const archivedNotHired = rows.filter((r) => r.pei_archive_category === 'not_hired').length;
+    return { applicants, awaiting, overdue, completedThisMonth, archivedHired, archivedNotHired };
+  }, [activeRows, rows]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -171,6 +188,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         archivedAt: groupRows[0].pei_archived_at,
         archiveReason: groupRows[0].pei_archive_reason,
         archivedByName: groupRows[0].pei_archived_by_name,
+        archiveCategory: groupRows[0].pei_archive_category,
         fullName:
           [groupRows[0].applicant_first_name, groupRows[0].applicant_last_name].filter(Boolean).join(' ') || '—',
       }))
@@ -307,11 +325,13 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatTile icon={<Mail className="h-4 w-4" />} label="Active Applicants" value={stats.applicants} />
         <StatTile icon={<Clock className="h-4 w-4" />} label="Awaiting Response" value={stats.awaiting} />
         <StatTile icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={stats.overdue} tone="destructive" />
         <StatTile icon={<CheckCircle2 className="h-4 w-4" />} label="Completed This Month" value={stats.completedThisMonth} />
+        <StatTile icon={<Archive className="h-4 w-4" />} label="Archive (Hired)" value={stats.archivedHired} />
+        <StatTile icon={<Archive className="h-4 w-4" />} label="Archive (Not Hired)" value={stats.archivedNotHired} />
       </div>
 
       <Card className="overflow-hidden">
@@ -369,30 +389,36 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           <div className="divide-y divide-border">
             {SECTIONS.map((section) => {
               const groups = bySection.get(section.key) ?? [];
-              if (groups.length === 0) return null;
+              const isEmpty = groups.length === 0;
+              if (isEmpty && !section.showWhenEmpty) return null;
               const sectionOpen = openSections.has(section.key);
               return (
                 <Collapsible key={section.key} open={sectionOpen} onOpenChange={() => toggleSection(section.key)}>
                   <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center gap-2 px-4 py-2.5 text-left bg-muted/40 hover:bg-muted/60 transition-colors">
+                    <button className={`w-full flex items-center gap-2 px-4 py-3.5 text-left bg-muted/40 hover:bg-muted/60 transition-colors ${section.stripe}`}>
                       {sectionOpen ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                       )}
-                      <span className="text-xs font-semibold uppercase tracking-wide">{section.label}</span>
+                      <span className="text-sm font-bold uppercase tracking-wide">{section.label}</span>
                       <Badge
-                        variant={section.key === 'overdue' ? 'destructive' : 'secondary'}
+                        variant={section.badge}
                         className="text-[10px]"
                       >
                         {groups.length}
                       </Badge>
-                      <span className="text-[11px] text-muted-foreground hidden sm:inline">{section.hint}</span>
+                      <span className="text-xs text-muted-foreground hidden sm:inline">{section.hint}</span>
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="divide-y divide-border">
-                      {groups.map((group) => {
+                      {isEmpty && section.showWhenEmpty ? (
+                        <div className="px-4 py-6 text-sm text-muted-foreground text-center">
+                          No archived applicants in this category.
+                        </div>
+                      ) : (
+                        groups.map((group) => {
                         const isOpen = openGroups.has(group.applicationId);
                         const summary = groupSummary(group.rows);
                         return (
@@ -566,7 +592,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                             </CollapsibleContent>
                           </Collapsible>
                         );
-                      })}
+                      })
+                    )}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

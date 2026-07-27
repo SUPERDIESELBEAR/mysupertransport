@@ -345,6 +345,7 @@ export type Database = {
           moving_violations: boolean | null
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_category: string | null
           pei_archive_reason: string | null
           pei_archived_at: string | null
           pei_archived_by: string | null
@@ -427,6 +428,7 @@ export type Database = {
           moving_violations?: boolean | null
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_category?: string | null
           pei_archive_reason?: string | null
           pei_archived_at?: string | null
           pei_archived_by?: string | null
@@ -509,6 +511,7 @@ export type Database = {
           moving_violations?: boolean | null
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_category?: string | null
           pei_archive_reason?: string | null
           pei_archived_at?: string | null
           pei_archived_by?: string | null
@@ -4710,10 +4713,19 @@ export type Database = {
           request_id: string
         }[]
       }
-      archive_applicant_pei: {
-        Args: { _application_id: string; _reason: string }
-        Returns: undefined
-      }
+      archive_applicant_pei:
+        | {
+            Args: { _application_id: string; _reason: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _application_id: string
+              _archive_category: string
+              _reason: string
+            }
+            Returns: undefined
+          }
       assign_user_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
@@ -4795,6 +4807,7 @@ export type Database = {
           moving_violations: boolean | null
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_category: string | null
           pei_archive_reason: string | null
           pei_archived_at: string | null
           pei_archived_by: string | null
@@ -4917,6 +4930,7 @@ export type Database = {
           employer_state: string
           gfe_reason: Database["public"]["Enums"]["pei_gfe_reason"]
           is_overdue: boolean
+          pei_archive_category: string
           pei_archive_reason: string
           pei_archived_at: string
           pei_archived_by_name: string

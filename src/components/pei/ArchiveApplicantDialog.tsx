@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { archiveApplicant } from '@/lib/pei/api';
+import type { PEIArchiveCategory } from '@/lib/pei/types';
+import { ARCHIVE_CATEGORY_LABEL } from '@/lib/pei/types';
 
 const REASONS = [
   'Applicant withdrew',
@@ -18,7 +20,7 @@ const REASONS = [
   'Duplicate record',
 ] as const;
 
-const schema = z.string().trim().min(1, 'A reason is required').max(500, 'Reason is too long');
+const reasonSchema = z.string().trim().min(1, 'A reason is required').max(500, 'Reason is too long');
 
 interface Props {
   open: boolean;
@@ -34,21 +36,22 @@ export function ArchiveApplicantDialog({
 }: Props) {
   const [choice, setChoice] = useState<string>(REASONS[0]);
   const [other, setOther] = useState('');
+  const [category, setCategory] = useState<PEIArchiveCategory>('not_hired');
   const [saving, setSaving] = useState(false);
 
   const isOther = choice === 'Other';
 
   async function handleArchive() {
     const reason = isOther ? other : choice;
-    const parsed = schema.safeParse(reason);
+    const parsed = reasonSchema.safeParse(reason);
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
     }
     setSaving(true);
     try {
-      await archiveApplicant(applicationId, parsed.data);
-      toast.success(`${applicantName} archived — automated follow-ups stopped`);
+      await archiveApplicant(applicationId, parsed.data, category);
+      toast.success(`${applicantName} archived — ${ARCHIVE_CATEGORY_LABEL[category]} — automated follow-ups stopped`);
       onDone();
     } catch (e: any) {
       toast.error(e.message ?? 'Failed to archive applicant');
@@ -71,25 +74,41 @@ export function ArchiveApplicantDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <Label>Reason <span className="text-destructive">*</span></Label>
-          <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
-            {[...REASONS, 'Other'].map((r) => (
-              <div key={r} className="flex items-center gap-2">
-                <RadioGroupItem value={r} id={`archive-${r}`} />
-                <Label htmlFor={`archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
+        <div className="space-y-5">
+          <div className="space-y-3">
+            <Label>Archive category <span className="text-destructive">*</span></Label>
+            <RadioGroup value={category} onValueChange={(v) => setCategory(v as PEIArchiveCategory)} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="not_hired" id="archive-not-hired" />
+                <Label htmlFor="archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
               </div>
-            ))}
-          </RadioGroup>
-          {isOther && (
-            <Textarea
-              value={other}
-              maxLength={500}
-              rows={3}
-              placeholder="Describe the reason"
-              onChange={(e) => setOther(e.target.value)}
-            />
-          )}
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="hired" id="archive-hired" />
+                <Label htmlFor="archive-hired" className="font-normal cursor-pointer">Hired</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-3">
+            <Label>Reason <span className="text-destructive">*</span></Label>
+            <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
+              {[...REASONS, 'Other'].map((r) => (
+                <div key={r} className="flex items-center gap-2">
+                  <RadioGroupItem value={r} id={`archive-${r}`} />
+                  <Label htmlFor={`archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+            {isOther && (
+              <Textarea
+                value={other}
+                maxLength={500}
+                rows={3}
+                placeholder="Describe the reason"
+                onChange={(e) => setOther(e.target.value)}
+              />
+            )}
+          </div>
         </div>
 
         <DialogFooter>
