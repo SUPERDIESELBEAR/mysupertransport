@@ -572,8 +572,17 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                             onOpenChange={() => toggleGroup(group.applicationId)}
                           >
                             <div className="flex items-center gap-2 pr-3 hover:bg-muted/30 transition-colors">
+                              {isManagement && (
+                                <div className="pl-4">
+                                  <Checkbox
+                                    checked={selected.has(group.applicationId)}
+                                    onCheckedChange={() => toggleSelected(group.applicationId)}
+                                    aria-label={`Select ${group.fullName}`}
+                                  />
+                                </div>
+                              )}
                               <CollapsibleTrigger asChild>
-                                <button className="flex-1 flex items-center gap-3 px-4 py-3 text-left min-w-0">
+                                <button className="flex-1 flex items-center gap-3 px-3 py-3 text-left min-w-0">
                                   {isOpen ? (
                                     <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                                   ) : (
