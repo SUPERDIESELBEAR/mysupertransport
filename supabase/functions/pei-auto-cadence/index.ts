@@ -63,13 +63,13 @@ Deno.serve(async (req) => {
       const dateSent = new Date(r.date_sent as string);
       const daysSince = Math.floor((now.getTime() - dateSent.getTime()) / 86_400_000);
 
-      // Skip if applicant application was denied
+      // Skip if applicant application was denied or archived out of the PEI queue
       const { data: app } = await supabase
         .from('applications')
-        .select('first_name, last_name, review_status')
+        .select('first_name, last_name, review_status, pei_archived_at')
         .eq('id', r.application_id)
         .maybeSingle();
-      if (app?.review_status === 'denied') {
+      if (app?.review_status === 'denied' || app?.pei_archived_at) {
         summary.skipped++;
         continue;
       }
