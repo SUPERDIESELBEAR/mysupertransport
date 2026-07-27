@@ -44,7 +44,7 @@ interface BulkArchiveProps {
 export function BulkArchiveDialog({ open, applicationIds, onClose, onDone }: BulkArchiveProps) {
   const [choice, setChoice] = useState<string>(REASONS[0]);
   const [other, setOther] = useState('');
-  const [category, setCategory] = useState<PEIArchiveCategory>('not_hired');
+  const [category, setCategory] = useState<PEIArchiveCategory>('hired');
   const [saving, setSaving] = useState(false);
   const isOther = choice === 'Other';
   const count = applicationIds.length;
