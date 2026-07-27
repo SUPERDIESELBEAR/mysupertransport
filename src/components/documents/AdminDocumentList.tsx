@@ -230,8 +230,8 @@ function SortableRow({
       </div>
 
       {/* PDF preview */}
-      {previewOpen && doc.pdf_url && (
-        <FilePreviewModal url={doc.pdf_url} name={doc.title} onClose={() => setPreviewOpen(false)} />
+      {previewOpen && signedPdfUrl && (
+        <FilePreviewModal url={signedPdfUrl} name={doc.title} onClose={() => setPreviewOpen(false)} />
       )}
 
       {/* Video preview */}
