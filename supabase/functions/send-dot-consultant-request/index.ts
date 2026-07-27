@@ -255,24 +255,15 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
     const payload: Record<string, unknown> = {
       from: `SUPERTRANSPORT Onboarding <onboarding@mysupertransport.com>`,
-      to: [RECIPIENT_EMAIL],
+      to: toEmails,
       reply_to: 'onboarding@mysupertransport.com',
       subject,
       html,
     };
     if (attachments.length) payload.attachments = attachments;
 
-    // Optional CC recipients (per-send). Validate, dedupe, drop primary recipient, cap at 10.
-    const rawCcs = Array.isArray((body as any)?.cc_emails) ? ((body as any).cc_emails as unknown[]) : [];
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const ccEmails = Array.from(
-      new Set(
-        rawCcs
-          .filter((v): v is string => typeof v === 'string')
-          .map(v => v.trim().toLowerCase())
-          .filter(v => EMAIL_RE.test(v) && v !== RECIPIENT_EMAIL.toLowerCase())
-      )
-    ).slice(0, 10);
+    // Optional CC recipients (per-send). Validate, dedupe, drop anything already in To, cap at 10.
+    const ccEmails = normalizeList(body.cc_emails, 10).filter(v => !toEmails.includes(v));
     if (ccEmails.length) payload.cc = ccEmails;
 
     const res = await fetch('https://api.resend.com/emails', {
@@ -295,8 +286,8 @@ Deno.serve(withErrorEnvelope(async (req) => {
       entity_label: driverName,
       action: 'dot_consultant_request_sent',
       metadata: {
-        recipient: RECIPIENT_EMAIL,
-        recipient_name: RECIPIENT_NAME,
+        recipients: toEmails,
+        cc: ccEmails,
         attachment_count: attachments.length - (dlBase64 ? 1 : 0),
         extra_link_count: extraLinks.length,
         has_notes: !!notes,
@@ -308,5 +299,5 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return fail(502, 'Email delivery failed', emailError);
     }
 
-    return ok({ success: true, sent_to: [RECIPIENT_EMAIL, ...ccEmails] });
+    return ok({ success: true, sent_to: [...toEmails, ...ccEmails] });
 }, 'send-dot-consultant-request'));
