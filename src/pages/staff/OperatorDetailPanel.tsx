@@ -55,6 +55,7 @@ import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
 import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
 import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDialog';
+import DeactivationWizard from '@/components/management/DeactivationWizard';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -509,6 +510,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showNotifyAdvisorDialog, setShowNotifyAdvisorDialog] = useState(false);
   const [lastDeactivateReason, setLastDeactivateReason] = useState<string>('');
   const [lastDeactivateNotes, setLastDeactivateNotes] = useState<string>('');
+  // Guided deactivation & delease wizard
+  const [showDeactivationWizard, setShowDeactivationWizard] = useState(false);
   // Ensures the auto-open (for drivers already deactivated without notification) fires once per load
   const autoNotifyPromptedRef = useRef(false);
   // Dispatch Hub exclusion state
@@ -2476,7 +2479,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           dateStr ? `On Hold since ${dateStr}: ${onHoldReason}` : `On Hold: ${onHoldReason}`
                         );
                       }
-                      setShowDeactivateConfirm(true);
+                      setShowDeactivationWizard(true);
                     }}
                     disabled={deactivating}
                     className={isActive
@@ -2682,10 +2685,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             size="sm"
             variant="outline"
             className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5 shrink-0"
-            onClick={() => setShowNotifyAdvisorDialog(true)}
+            onClick={() => setShowDeactivationWizard(true)}
           >
             <Mail className="h-3.5 w-3.5" />
-            Send email
+            Complete Offboarding
           </Button>
         </div>
       )}
@@ -4162,6 +4165,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           if (sentAt) setSafetyAdvisorNotifiedAt(sentAt);
           setShowNotifyAdvisorDialog(false);
           autoNotifyPromptedRef.current = true;
+        }}
+      />
+
+      {/* Guided Deactivation & Delease Wizard */}
+      <DeactivationWizard
+        open={showDeactivationWizard}
+        operatorId={operatorId}
+        operatorName={operatorName}
+        unitNumber={(status as any)?.unit_number ?? null}
+        isActive={isActive}
+        isManagement={isManagement || isOwner}
+        onClose={() => setShowDeactivationWizard(false)}
+        onComplete={() => {
+          setShowDeactivationWizard(false);
+          setIsActive(false);
+          setLastDeactivateReason(deactivateReason);
+          setLastDeactivateNotes(deactivateNotes);
+          // Safety advisor notice was handled inside the wizard, so mark the legacy banner resolved
+          setSafetyAdvisorNotifiedAt(new Date().toISOString());
+          void fetchOperatorDetail();
         }}
       />
 

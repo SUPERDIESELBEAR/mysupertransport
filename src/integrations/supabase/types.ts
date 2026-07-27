@@ -3191,12 +3191,65 @@ export type Database = {
           },
         ]
       }
+      operator_offboarding_steps: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          operator_id: string
+          skipped: boolean
+          skipped_reason: string | null
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          operator_id: string
+          skipped?: boolean
+          skipped_reason?: string | null
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          operator_id?: string
+          skipped?: boolean
+          skipped_reason?: string | null
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_offboarding_steps_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operators: {
         Row: {
           anticipated_start_date: string | null
           application_id: string | null
           assigned_onboarding_staff: string | null
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
           excluded_from_dispatch: boolean
           excluded_from_dispatch_at: string | null
           excluded_from_dispatch_by: string | null
@@ -3220,6 +3273,9 @@ export type Database = {
           application_id?: string | null
           assigned_onboarding_staff?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
@@ -3243,6 +3299,9 @@ export type Database = {
           application_id?: string | null
           assigned_onboarding_staff?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
