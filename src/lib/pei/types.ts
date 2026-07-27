@@ -70,6 +70,30 @@ export interface PEIQueueRow {
   deadline_date: string | null;
   days_remaining: number | null;
   is_overdue: boolean;
+  send_method: PEISendMethod | null;
+  staff_notes: PEIStaffNote[] | null;
+  days_since_sent: number | null;
+  date_response_received: string | null;
+  date_gfe_created: string | null;
+  gfe_reason: PEIGFEReason | null;
+  pei_archived_at: string | null;
+  pei_archive_reason: string | null;
+  pei_archived_by_name: string | null;
+}
+
+export type PEISendMethod = 'email_external' | 'fax' | 'mail' | 'phone';
+
+export const SEND_METHOD_LABEL: Record<PEISendMethod, string> = {
+  email_external: 'Email (sent outside app)',
+  fax: 'Fax',
+  mail: 'Mail',
+  phone: 'Phone',
+};
+
+export interface PEIStaffNote {
+  note: string;
+  author: string;
+  at: string;
 }
 
 export interface PEIResponse {
@@ -134,7 +158,9 @@ export interface PEIAccident {
 export type PEIRequestEventType =
   | 'opened_response_link'
   | 'opened_release_link'
-  | 'submitted';
+  | 'submitted'
+  | 'phone_attempt'
+  | 'manual_send_logged';
 
 export interface PEIRequestEvent {
   id: string;
