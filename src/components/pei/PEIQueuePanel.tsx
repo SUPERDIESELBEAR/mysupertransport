@@ -389,7 +389,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           <div className="divide-y divide-border">
             {SECTIONS.map((section) => {
               const groups = bySection.get(section.key) ?? [];
-              if (groups.length === 0) return null;
+              const isEmpty = groups.length === 0;
+              if (isEmpty && !section.showWhenEmpty) return null;
               const sectionOpen = openSections.has(section.key);
               return (
                 <Collapsible key={section.key} open={sectionOpen} onOpenChange={() => toggleSection(section.key)}>
