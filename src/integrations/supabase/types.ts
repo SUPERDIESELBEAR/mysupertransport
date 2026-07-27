@@ -5189,6 +5189,14 @@ export type Database = {
           version: number
         }[]
       }
+      update_pei_archive_category: {
+        Args: {
+          _application_id: string
+          _archive_category: string
+          _note?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       account_status: "pending" | "active" | "denied" | "inactive"
