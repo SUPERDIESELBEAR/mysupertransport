@@ -4726,7 +4726,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s1Complete = status.mvr_ch_approval === 'approved';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
-            <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage1')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -4830,7 +4830,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             status.truck_inspection === 'received';
           const s2Collapsed = collapsedStages.has('stage2');
           return (
-        <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
+        <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
           <button onClick={() => toggleStage('stage2')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
             <div className="flex items-center gap-2">
               <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5175,7 +5175,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s3Complete = status.ica_status === 'complete';
           const s3Collapsed = collapsedStages.has('stage3');
           return (
-            <div ref={el => { stageRefs.current['stage3'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage3'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage3')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <FileCheck className={`h-4 w-4 ${s3Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5394,7 +5394,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s4Complete = status.mo_reg_received === 'yes';
           const s4Collapsed = collapsedStages.has('stage4');
           return (
-            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
+            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl overflow-hidden shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
               <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <FileCheck className={`h-4 w-4 ${isNa ? 'text-muted-foreground' : s4Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5469,7 +5469,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s5Collapsed = collapsedStages.has('stage5');
           const borderCls = allEquipmentReady ? 'border-status-complete' : exceptionActiveS5 ? 'border-gold' : 'border-border';
           return (
-            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${borderCls}`}>
+            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${borderCls}`}>
               <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
@@ -5712,7 +5712,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const spComplete = status.pe_screening_result === 'clear';
           const spCollapsed = collapsedStages.has('stagePE');
           return (
-            <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stagePE')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${spComplete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5883,7 +5883,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s6Collapsed = collapsedStages.has('stage6');
           const addToPolicy = status.insurance_policy_type === 'add_to_supertransport' || !status.insurance_policy_type;
           return (
-            <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -6272,7 +6272,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s7Complete = !!status.go_live_date;
           const s7Collapsed = collapsedStages.has('stage7');
           return (
-            <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
