@@ -42,8 +42,8 @@ export function ArchiveApplicantDialog({
   const isOther = choice === 'Other';
 
   async function handleArchive() {
-    const reason = isOther ? other : choice;
-    const parsed = reasonSchema.safeParse(reason);
+    const reason = category === 'not_hired' ? (isOther ? other : choice) : null;
+    const parsed = reason === null ? { success: true, data: null } : reasonSchema.safeParse(reason);
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
