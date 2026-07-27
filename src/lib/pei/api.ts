@@ -54,10 +54,15 @@ export async function addStaffNote(requestId: string, note: string): Promise<voi
   if (error) throw error;
 }
 
-export async function archiveApplicant(applicationId: string, reason: string): Promise<void> {
+export async function archiveApplicant(
+  applicationId: string,
+  reason: string,
+  archiveCategory: 'hired' | 'not_hired'
+): Promise<void> {
   const { error } = await supabase.rpc('archive_applicant_pei', {
     _application_id: applicationId,
     _reason: reason,
+    _archive_category: archiveCategory,
   });
   if (error) throw error;
 }
