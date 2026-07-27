@@ -254,6 +254,8 @@ const EVENT_LABEL: Record<PEIRequestEvent['event_type'], string> = {
   opened_response_link: 'Opened response link',
   opened_release_link: 'Opened FCRA release',
   submitted: 'Submitted response',
+  phone_attempt: 'Phone attempt logged',
+  manual_send_logged: 'Manual send logged',
 };
 
 function esc(v: unknown): string {
