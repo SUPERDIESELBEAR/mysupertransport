@@ -13,7 +13,7 @@ type DeliveryMethod = 'shipped' | 'orientation' | 'on_site' | 'awaiting_return' 
 
 const LINES: { key: EquipmentLine; label: string; deliveryMethodColumn: string }[] = [
   { key: 'eld', label: 'ELD Unit', deliveryMethodColumn: 'eld_delivery_method' },
-  { key: 'dash_cam', label: 'Dash Cam', deliveryMethodColumn: 'dash_cam_delivery_method' },
+  { key: 'dash_cam', label: 'Dash Camera', deliveryMethodColumn: 'dash_cam_delivery_method' },
   { key: 'bestpass', label: 'BestPass', deliveryMethodColumn: 'bestpass_delivery_method' },
   { key: 'fuel_card', label: 'Fuel Card', deliveryMethodColumn: 'fuel_card_delivery_method' },
   { key: 'decal', label: 'Decal', deliveryMethodColumn: 'decal_delivery_method' },

@@ -349,7 +349,7 @@ export const STAFF_HELP_INDEX: HelpEntry[] = [
     breadcrumb: 'Operations',
     keywords: ['onboard systems', 'equipment inventory', 'equipment', 'eld', 'bestpass', 'fuel card', 'dash cam', 'assign', 'return', 'deactivate', 'unassigned inventory'],
     audience: ALL_STAFF,
-    steps: ['Go to Onboard Systems.', 'Select a device category (ELD, Dash Cam, BestPass, Fuel Card).', 'Assign, return, or deactivate items.'],
+    steps: ['Go to Onboard Systems.', 'Select a device category (ELD, Dash Camera, BestPass, Fuel Card).', 'Assign, return, or deactivate items.'],
   },
   {
     id: 'fuel-cards',
@@ -386,14 +386,14 @@ export const STAFF_HELP_INDEX: HelpEntry[] = [
   },
   {
     id: 'dash-cams',
-    title: 'Dash Cams',
+    title: 'Dash Cameras',
     page: 'Onboard Systems',
     surface: 'management',
     route: '/dashboard?view=equipment&section=dash_cam',
     breadcrumb: 'Operations → Onboard Systems',
     keywords: ['dash cam', 'camera', 'dashcam', 'assign dash cam', 'available'],
     audience: ALL_STAFF,
-    steps: ['Go to Onboard Systems.', 'Scroll to Dash Cams.', 'Assign or return cameras.'],
+    steps: ['Go to Onboard Systems.', 'Scroll to Dash Cameras.', 'Assign or return cameras.'],
   },
   {
     id: 'mo-plate-registry',

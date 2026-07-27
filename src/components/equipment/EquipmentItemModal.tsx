@@ -21,7 +21,7 @@ interface Props {
 
 const DEVICE_TYPES: { value: DeviceType; label: string }[] = [
   { value: 'eld',       label: 'ELD' },
-  { value: 'dash_cam',  label: 'Dash Cam' },
+  { value: 'dash_cam',  label: 'Dash Camera' },
   { value: 'bestpass',  label: 'BestPass' },
   { value: 'fuel_card', label: 'Fuel Card' },
 ];

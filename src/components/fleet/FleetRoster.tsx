@@ -455,7 +455,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <div className="font-mono text-foreground truncate">{row.eldSerial || '—'}</div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">Dash Cam</div>
+                  <div className="text-muted-foreground">Dash Camera</div>
                   <div className="font-mono text-foreground truncate">{row.dashCamSerial || '—'}</div>
                 </div>
                 <div>

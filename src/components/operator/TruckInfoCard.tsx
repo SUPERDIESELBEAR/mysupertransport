@@ -400,7 +400,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                   {[
                     { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
                     { key: 'eld_serial_number' as const, label: 'ELD Serial #', placeholder: 'Serial number' },
-                    { key: 'dash_cam_number' as const, label: 'Dash Cam #', placeholder: 'Device number' },
+                    { key: 'dash_cam_number' as const, label: 'Dash Camera #', placeholder: 'Device number' },
                     { key: 'bestpass_number' as const, label: 'BestPass #', placeholder: 'Account number' },
                     { key: 'fuel_card_number' as const, label: 'Fuel Card #', placeholder: 'Card number' },
                   ].map(({ key, label, placeholder }) => (
@@ -482,7 +482,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                 {deviceInfo?.dash_cam_number && (
                   <DeviceCell
                     icon={<Camera className="h-3.5 w-3.5 text-primary" />}
-                    label="Dash Cam #"
+                    label="Dash Camera #"
                     value={deviceInfo.dash_cam_number}
                     shipping={shippingByDevice['dash_cam']}
                     onPreviewReceipt={setReceiptPreview}

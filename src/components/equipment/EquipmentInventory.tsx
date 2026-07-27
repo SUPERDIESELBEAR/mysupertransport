@@ -45,7 +45,7 @@ export interface EquipmentItem {
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
   eld:       { label: 'ELD',        icon: <Cpu className="h-4 w-4" />,        color: 'text-primary' },
-  dash_cam:  { label: 'Dash Cam',   icon: <Camera className="h-4 w-4" />,     color: 'text-status-progress' },
+  dash_cam:  { label: 'Dash Camera',   icon: <Camera className="h-4 w-4" />,     color: 'text-status-progress' },
   bestpass:  { label: 'BestPass',   icon: <Tag className="h-4 w-4" />,        color: 'text-status-complete' },
   fuel_card: { label: 'Fuel Card',  icon: <CreditCard className="h-4 w-4" />, color: 'text-warning' },
 };
@@ -223,7 +223,7 @@ export default function EquipmentInventory({
             Onboard Systems
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Track ELDs, Dash Cams, BestPass tags, Fuel Cards, and operator sign-off sheets
+            Track ELDs, Dash Cameras, BestPass tags, Fuel Cards, and operator sign-off sheets
           </p>
         </div>
       </div>

@@ -5553,7 +5553,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         />
                         <span className="flex-1">
                           <span className="text-xs font-semibold text-foreground block">ELD Exempt — Pre-2000 truck (paper logs allowed)</span>
-                          <span className="text-[11px] text-muted-foreground block mt-0.5">FMCSA §395.8(a)(1)(iii). When on, ELD device + Dash Cam are not required for Stage 5 completion.</span>
+                          <span className="text-[11px] text-muted-foreground block mt-0.5">FMCSA §395.8(a)(1)(iii). When on, ELD device + Dash Camera are not required for Stage 5 completion.</span>
                         </span>
                       </label>
                       {!status.eld_exempt && looksPre2000((status as any).truck_year) && (
@@ -5573,7 +5573,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           />
                           <div className="flex items-center gap-1.5 p-2 rounded bg-gold/10 border border-gold/30">
                             <span className="text-base">🛡️</span>
-                            <p className="text-[11px] text-gold-muted font-medium">ELD Exempt — Paper logs in use. ELD/Dash Cam serial numbers are not required.</p>
+                            <p className="text-[11px] text-gold-muted font-medium">ELD Exempt — Paper logs in use. ELD/Dash Camera serial numbers are not required.</p>
                           </div>
                         </div>
                       )}
