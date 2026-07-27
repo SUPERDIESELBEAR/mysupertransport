@@ -59,6 +59,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { resolveResourceUrl } from '@/lib/resourceUrl';
 import SendPassengerAuthModal from '@/components/management/SendPassengerAuthModal';
 import PassengerAuthorizationsPanel from '@/components/management/PassengerAuthorizationsPanel';
 
