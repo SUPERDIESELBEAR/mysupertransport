@@ -79,12 +79,12 @@ export function ArchiveApplicantDialog({
             <Label>Archive category <span className="text-destructive">*</span></Label>
             <RadioGroup value={category} onValueChange={(v) => setCategory(v as PEIArchiveCategory)} className="space-y-2">
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="not_hired" id="archive-not-hired" />
-                <Label htmlFor="archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
-              </div>
-              <div className="flex items-center gap-2">
                 <RadioGroupItem value="hired" id="archive-hired" />
                 <Label htmlFor="archive-hired" className="font-normal cursor-pointer">Hired</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="not_hired" id="archive-not-hired" />
+                <Label htmlFor="archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
               </div>
             </RadioGroup>
           </div>
