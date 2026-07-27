@@ -48,14 +48,24 @@ const STATUS_ORDER: PEIRequestStatus[] = [
   'gfe_documented',
 ];
 
-type SectionKey = 'overdue' | 'pending' | 'in_progress' | 'completed' | 'archived';
+type SectionKey = 'overdue' | 'pending' | 'in_progress' | 'completed' | 'archived_hired' | 'archived_not_hired';
 
-const SECTIONS: Array<{ key: SectionKey; label: string; hint: string; defaultOpen: boolean }> = [
-  { key: 'overdue', label: 'Overdue', hint: 'Past the 30-day deadline and unresolved', defaultOpen: true },
-  { key: 'pending', label: 'Pending', hint: 'Nothing sent yet', defaultOpen: true },
-  { key: 'in_progress', label: 'In Progress', hint: 'Awaiting a previous employer response', defaultOpen: true },
-  { key: 'completed', label: 'Completed', hint: 'Every employer resolved or GFE documented', defaultOpen: false },
-  { key: 'archived', label: 'Archived', hint: 'Applicants removed from the active queue', defaultOpen: false },
+interface SectionDef {
+  key: SectionKey;
+  label: string;
+  hint: string;
+  defaultOpen: boolean;
+  stripe: string;
+  badge: 'destructive' | 'secondary' | 'default' | 'outline';
+}
+
+const SECTIONS: SectionDef[] = [
+  { key: 'overdue', label: 'Overdue', hint: 'Past the 30-day deadline and unresolved', defaultOpen: true, stripe: 'border-l-4 border-l-rose-500', badge: 'destructive' },
+  { key: 'pending', label: 'Pending', hint: 'Nothing sent yet', defaultOpen: true, stripe: 'border-l-4 border-l-slate-500', badge: 'secondary' },
+  { key: 'in_progress', label: 'In Progress', hint: 'Awaiting a previous employer response', defaultOpen: true, stripe: 'border-l-4 border-l-blue-500', badge: 'secondary' },
+  { key: 'completed', label: 'Completed', hint: 'Every employer resolved or GFE documented', defaultOpen: false, stripe: 'border-l-4 border-l-emerald-500', badge: 'secondary' },
+  { key: 'archived_hired', label: 'Archive (Hired)', hint: 'Archived applicants who were hired by SUPERTRANSPORT', defaultOpen: false, stripe: 'border-l-4 border-l-amber-400', badge: 'secondary' },
+  { key: 'archived_not_hired', label: 'Archive (Not Hired)', hint: 'Archived applicants who were not hired', defaultOpen: false, stripe: 'border-l-4 border-l-slate-400', badge: 'secondary' },
 ];
 
 interface ApplicantGroup {
@@ -66,6 +76,7 @@ interface ApplicantGroup {
   archivedAt: string | null;
   archiveReason: string | null;
   archivedByName: string | null;
+  archiveCategory: 'hired' | 'not_hired' | null;
 }
 
 function isResolved(r: PEIQueueRow) {
@@ -74,7 +85,10 @@ function isResolved(r: PEIQueueRow) {
 
 /** Highest-severity rule: Archived > Overdue > Pending/In Progress > Completed. */
 function sectionFor(rows: PEIQueueRow[]): SectionKey {
-  if (rows[0]?.pei_archived_at) return 'archived';
+  const first = rows[0];
+  if (first?.pei_archived_at) {
+    return first.pei_archive_category === 'hired' ? 'archived_hired' : 'archived_not_hired';
+  }
   if (rows.some((r) => r.is_overdue)) return 'overdue';
   if (rows.every(isResolved)) return 'completed';
   if (rows.every((r) => r.status === 'pending' || isResolved(r))) return 'pending';
