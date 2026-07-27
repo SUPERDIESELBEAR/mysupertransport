@@ -393,20 +393,20 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
               return (
                 <Collapsible key={section.key} open={sectionOpen} onOpenChange={() => toggleSection(section.key)}>
                   <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center gap-2 px-4 py-2.5 text-left bg-muted/40 hover:bg-muted/60 transition-colors">
+                    <button className={`w-full flex items-center gap-2 px-4 py-3.5 text-left bg-muted/40 hover:bg-muted/60 transition-colors ${section.stripe}`}>
                       {sectionOpen ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                       )}
-                      <span className="text-xs font-semibold uppercase tracking-wide">{section.label}</span>
+                      <span className="text-sm font-bold uppercase tracking-wide">{section.label}</span>
                       <Badge
-                        variant={section.key === 'overdue' ? 'destructive' : 'secondary'}
+                        variant={section.badge}
                         className="text-[10px]"
                       >
                         {groups.length}
                       </Badge>
-                      <span className="text-[11px] text-muted-foreground hidden sm:inline">{section.hint}</span>
+                      <span className="text-xs text-muted-foreground hidden sm:inline">{section.hint}</span>
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
