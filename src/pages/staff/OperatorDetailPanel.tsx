@@ -2702,6 +2702,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
+      {!isActive && <OffboardingHistoryPanel operatorId={operatorId} />}
+
       {/* Status overview */}
       <div className="flex flex-wrap gap-2">
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
