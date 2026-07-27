@@ -1135,10 +1135,10 @@ export function DeactivationWizardContent({
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
       <div className="lg:w-72 xl:w-80 shrink-0 overflow-y-auto">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <UserX className="h-5 w-5 text-destructive" />
             Deactivation & Delease
-          </h2>
+          </h1>
           <p className="text-xs text-muted-foreground mt-1">
             {operatorName} — Unit {unitNumber || '—'}
           </p>
