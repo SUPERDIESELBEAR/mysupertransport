@@ -27,6 +27,7 @@ const HEADERS = [
   'GFE Created',
   'GFE Reason',
   'Archived',
+  'Archive Category',
   'Archive Reason',
 ];
 
