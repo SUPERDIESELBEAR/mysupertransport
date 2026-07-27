@@ -43,14 +43,16 @@ export function ArchiveApplicantDialog({
 
   async function handleArchive() {
     const reason = category === 'not_hired' ? (isOther ? other : choice) : null;
-    const parsed = reason === null ? { success: true, data: null } : reasonSchema.safeParse(reason);
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0].message);
-      return;
+    if (reason !== null) {
+      const parsed = reasonSchema.safeParse(reason);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0].message);
+        return;
+      }
     }
     setSaving(true);
     try {
-      await archiveApplicant(applicationId, parsed.data, category);
+      await archiveApplicant(applicationId, reason, category);
       toast.success(`${applicantName} archived — ${ARCHIVE_CATEGORY_LABEL[category]} — automated follow-ups stopped`);
       onDone();
     } catch (e: any) {
