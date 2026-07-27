@@ -37,6 +37,7 @@ const OperatorPortal = lazy(() => import("./pages/operator/OperatorPortal"));
 const StaffPortal = lazy(() => import("./pages/staff/StaffPortal"));
 const ManagementPortal = lazy(() => import("./pages/management/ManagementPortal"));
 const DispatchPortal = lazy(() => import("./pages/dispatch/DispatchPortal"));
+const DeactivationPage = lazy(() => import("./pages/management/DeactivationPage"));
 
 const queryClient = new QueryClient();
 
@@ -167,6 +168,12 @@ function AppRoutes() {
       <Route path="/dispatch/*" element={
         !user ? <LoginRedirect /> :
         (isDispatcher || isManagement) ? <DispatchPortal /> :
+        !rolesLoaded ? <PortalFallback /> :
+        <Navigate to="/dashboard" replace />
+      } />
+      <Route path="/management/deactivate/:operatorId" element={
+        !user ? <LoginRedirect /> :
+        isManagement ? <DeactivationPage /> :
         !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
