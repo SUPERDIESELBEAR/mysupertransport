@@ -72,13 +72,27 @@ export default function EquipmentInventory({
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
-  const [expandedType, setExpandedType] = useState<DeviceType | null>(null);
+  const [expandedTypes, setExpandedTypes] = useState<Set<DeviceType>>(new Set());
+  const [lastOpened, setLastOpened] = useState<DeviceType | null>(null);
   const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
   const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
 
+  const toggleType = useCallback((type: DeviceType) => {
+    setExpandedTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+        setLastOpened(type);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
-    if (!expandedType) return;
-    const el = sectionRefs.current[expandedType];
+    if (!lastOpened) return;
+    const el = sectionRefs.current[lastOpened];
     if (!el) return;
 
     const raf1 = requestAnimationFrame(() => {
@@ -93,11 +107,12 @@ export default function EquipmentInventory({
       const child = (raf1 as unknown as { _child?: number })._child;
       if (child) cancelAnimationFrame(child);
     };
-  }, [expandedType]);
+  }, [lastOpened, expandedTypes]);
 
   useEffect(() => {
     if (!section || !DEVICE_CONFIG[section]) return;
-    setExpandedType(section);
+    setExpandedTypes(prev => new Set(prev).add(section));
+    setLastOpened(section);
   }, [section]);
 
   // Modals
