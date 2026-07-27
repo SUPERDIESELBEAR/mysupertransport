@@ -57,6 +57,13 @@ export interface PEIRequest {
   last_auto_send_at?: string | null;
 }
 
+export type PEIArchiveCategory = 'hired' | 'not_hired';
+
+export const ARCHIVE_CATEGORY_LABEL: Record<PEIArchiveCategory, string> = {
+  hired: 'Hired',
+  not_hired: 'Not Hired',
+};
+
 export interface PEIQueueRow {
   request_id: string;
   application_id: string;
@@ -79,6 +86,7 @@ export interface PEIQueueRow {
   pei_archived_at: string | null;
   pei_archive_reason: string | null;
   pei_archived_by_name: string | null;
+  pei_archive_category: PEIArchiveCategory | null;
 }
 
 export type PEISendMethod = 'email_external' | 'fax' | 'mail' | 'phone';
