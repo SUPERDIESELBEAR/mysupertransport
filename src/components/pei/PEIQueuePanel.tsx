@@ -209,6 +209,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return map;
   }, [grouped]);
 
+  const selectedGroups = useMemo(
+    () => grouped.filter((g) => selected.has(g.applicationId)),
+    [grouped, selected]
+  );
+
+  const selectedUnresolvedRequestIds = useMemo(
+    () => selectedGroups.flatMap((g) => g.rows.filter((r) => !isResolved(r)).map((r) => r.request_id)),
+    [selectedGroups]
+  );
+
+  const selectedArchivedCount = useMemo(
+    () => selectedGroups.filter((g) => g.archivedAt).length,
+    [selectedGroups]
+  );
+  const selectedActiveCount = selectedGroups.length - selectedArchivedCount;
+
   function toggleGroup(id: string) {
     setOpenGroups((prev) => {
       const next = new Set(prev);
