@@ -88,13 +88,6 @@ export async function updateArchiveCategory(
   if (error) throw error;
 }
 
-async function _unusedRestore(applicationId: string): Promise<void> {
-  const { error } = await supabase.rpc('restore_applicant_pei', {
-    _application_id: applicationId,
-  });
-  if (error) throw error;
-}
-
 /** Marks a set of PEI requests resolved as Completed (staff override). */
 export async function bulkMarkCompleted(requestIds: string[]): Promise<void> {
   if (requestIds.length === 0) return;
