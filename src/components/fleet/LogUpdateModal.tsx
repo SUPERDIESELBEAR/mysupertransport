@@ -7,21 +7,24 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
-import { Wrench, ShieldCheck, NotebookPen, Loader2, ArrowLeft } from 'lucide-react';
+import { Wrench, ShieldCheck, NotebookPen, Loader2, ArrowLeft, FileBadge } from 'lucide-react';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
+import Registration2290Modal from './Registration2290Modal';
 
 interface LogUpdateModalProps {
   open: boolean;
   onClose: () => void;
   operatorId: string;
   driverName: string;
+  /** Auth user id of the driver — required for Registration / 2290 uploads. */
+  driverUserId?: string | null;
   onSaved: () => void;
 }
 
-type Mode = 'choose' | 'maintenance' | 'inspection' | 'note';
+type Mode = 'choose' | 'maintenance' | 'inspection' | 'note' | 'reg2290';
 
-export default function LogUpdateModal({ open, onClose, operatorId, driverName, onSaved }: LogUpdateModalProps) {
+export default function LogUpdateModal({ open, onClose, operatorId, driverName, driverUserId, onSaved }: LogUpdateModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<Mode>('choose');
@@ -94,6 +97,17 @@ export default function LogUpdateModal({ open, onClose, operatorId, driverName, 
     );
   }
 
+  if (mode === 'reg2290') {
+    return (
+      <Registration2290Modal
+        open={open}
+        onClose={handleClose}
+        driverUserId={driverUserId ?? null}
+        onSaved={() => { onSaved(); }}
+      />
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) handleClose(); }}>
       <DialogContent className="max-w-md">
@@ -145,6 +159,23 @@ export default function LogUpdateModal({ open, onClose, operatorId, driverName, 
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-foreground">Quick Note</div>
                 <div className="text-xs text-muted-foreground">Capture a short status or observation in maintenance history.</div>
+              </div>
+            </button>
+            <button
+              onClick={() => { if (driverUserId) setMode('reg2290'); }}
+              disabled={!driverUserId}
+              className="flex items-start gap-3 p-3 rounded-lg border border-border transition-colors text-left enabled:hover:border-primary/40 enabled:hover:bg-muted/30 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                <FileBadge className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-foreground">Registration / 2290</div>
+                <div className="text-xs text-muted-foreground">
+                  {driverUserId
+                    ? 'Upload a new registration or Form 2290 with its expiration date.'
+                    : 'Unavailable — this driver has no linked account yet.'}
+                </div>
               </div>
             </button>
           </div>
