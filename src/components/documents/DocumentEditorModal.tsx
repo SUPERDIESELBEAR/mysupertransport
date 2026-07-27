@@ -79,6 +79,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   const [pdfUploading, setPdfUploading] = useState(false);
   const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
   const [signedPreviewUrl, setSignedPreviewUrl] = useState<string | null>(null);
+
   const [pendingPdfUrl, setPendingPdfUrl] = useState<string | null>(null);
   const [pendingPdfPath, setPendingPdfPath] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
