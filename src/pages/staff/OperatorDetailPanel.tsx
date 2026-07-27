@@ -56,6 +56,7 @@ import SubmittedApplicationSnapshot from '@/components/management/SubmittedAppli
 import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
 import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDialog';
 import DeactivationWizard from '@/components/management/DeactivationWizard';
+import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
