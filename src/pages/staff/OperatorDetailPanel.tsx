@@ -1413,6 +1413,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const handleSendDotConsultantEmail = async () => {
     if (guardDemo()) return;
+    if (dotToEmails.length === 0) {
+      toast({ title: 'Add a recipient', description: 'Enter at least one "To" address before sending.', variant: 'destructive' });
+      return;
+    }
     setSendingDotEmail(true);
     try {
       // Upload attachments first
@@ -1432,6 +1436,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operator_id: operatorId,
           notes: dotEmailNotes.trim() || null,
           attachment_paths: uploadedPaths,
+          to_emails: dotToEmails,
           cc_emails: dotCcEmails,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
@@ -1441,12 +1446,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDotEmailNotes('');
       setDotAttachments([]);
       setDotCcEmails([]);
-      toast({ title: 'Email sent to Tracey McQuilken', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      toast({ title: `Email sent to ${dotConsultantLabel}`, description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
       setTimeout(() => setDotEmailSent(false), 5000);
     } catch (err: any) {
       toast({ title: 'Failed to send email', description: err.message, variant: 'destructive' });
     } finally {
       setSendingDotEmail(false);
+    }
+  };
+
+  const handleSaveDotRecipients = async () => {
+    if (guardDemo()) return;
+    setSavingDotRecipients(true);
+    try {
+      const { error } = await supabase
+        .from('dot_consultant_email_settings')
+        .update({
+          recipient_emails: dotToEmails,
+          updated_at: new Date().toISOString(),
+          updated_by: session?.user?.id ?? null,
+        })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+      if (error) throw error;
+      toast({ title: 'Default recipients saved', description: `${dotToEmails.length} recipient(s) will be pre-filled next time.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to save recipients', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingDotRecipients(false);
     }
   };
 
