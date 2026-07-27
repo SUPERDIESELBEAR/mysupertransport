@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -468,7 +468,7 @@ export default function MoPlateRegistry() {
                   : 'text-muted-foreground';
                 const isRowOpen = expandedRows.has(plate.id);
                 return (
-                  <>
+                  <Fragment key={plate.id}>
                   <TableRow key={plate.id} className="hover:bg-muted/30">
                     <TableCell className="pr-0">
                       <Button
@@ -539,7 +539,7 @@ export default function MoPlateRegistry() {
                       </TableCell>
                     </TableRow>
                   )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
