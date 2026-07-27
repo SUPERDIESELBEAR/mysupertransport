@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Loader2, Truck, AlertTriangle, RefreshCcw, UserCheck } from 'lucide-react';
+import { Loader2, UserCheck } from 'lucide-react';
 import type { MoPlate } from './MoPlateFormModal';
+import { PLATE_EVENT_CONFIG } from './MoPlateHistoryStrip';
 
 type Assignment = {
   id: string;
@@ -22,26 +23,7 @@ interface Props {
   plate: MoPlate | null;
 }
 
-const EVENT_CONFIG = {
-  assignment: {
-    icon: <Truck className="h-3.5 w-3.5" />,
-    dot: 'bg-primary',
-    label: 'ASSIGNED',
-    labelClass: 'text-primary',
-  },
-  lost_stolen: {
-    icon: <AlertTriangle className="h-3.5 w-3.5" />,
-    dot: 'bg-destructive',
-    label: 'LOST / STOLEN',
-    labelClass: 'text-destructive',
-  },
-  replacement_received: {
-    icon: <RefreshCcw className="h-3.5 w-3.5" />,
-    dot: 'bg-status-complete',
-    label: 'REPLACEMENT REC\'D',
-    labelClass: 'text-status-complete',
-  },
-};
+const EVENT_CONFIG = PLATE_EVENT_CONFIG;
 
 export default function MoPlateHistoryModal({ open, onClose, plate }: Props) {
   const [loading, setLoading] = useState(false);
