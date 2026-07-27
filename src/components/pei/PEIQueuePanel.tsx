@@ -413,7 +413,12 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="divide-y divide-border">
-                      {groups.map((group) => {
+                      {isEmpty && section.showWhenEmpty ? (
+                        <div className="px-4 py-6 text-sm text-muted-foreground text-center">
+                          No archived applicants in this category.
+                        </div>
+                      ) : (
+                        groups.map((group) => {
                         const isOpen = openGroups.has(group.applicationId);
                         const summary = groupSummary(group.rows);
                         return (
