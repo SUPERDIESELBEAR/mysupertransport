@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchPEIQueue, restoreApplicant } from '@/lib/pei/api';
+import { fetchPEIQueue, restoreApplicant, bulkMarkCompleted, runBulk } from '@/lib/pei/api';
 import type { PEIQueueRow, PEIRequestStatus, PEIStaffNote } from '@/lib/pei/types';
 import { downloadPEICsv } from '@/lib/pei/exportCsv';
 import { PEIStatusBadge } from './StatusBadge';
@@ -34,6 +35,7 @@ import { LogSendModal } from './LogSendModal';
 import { LogPhoneAttemptModal } from './LogPhoneAttemptModal';
 import { ArchiveApplicantDialog } from './ArchiveApplicantDialog';
 import { StaffNotesPopover } from './StaffNotesPopover';
+import { BulkArchiveDialog, BulkSendDateDialog } from './PEIBulkDialogs';
 
 interface Props {
   onOpenApplication?: (applicationId: string) => void;
@@ -122,6 +124,11 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   );
   const [deleteTarget, setDeleteTarget] = useState<PEIQueueRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkSendOpen, setBulkSendOpen] = useState(false);
+  const [bulkCompleteOpen, setBulkCompleteOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -218,6 +225,62 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       else next.add(key);
       return next;
     });
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function setSectionSelected(keys: string[], checked: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (checked) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() { setSelected(new Set()); }
+
+  async function reloadAndClear() {
+    clearSelection();
+    await reload();
+  }
+
+  async function handleBulkRestore() {
+    setBulkBusy(true);
+    try {
+      const ids = selectedGroups.filter((g) => g.archivedAt).map((g) => g.applicationId);
+      const result = await runBulk(ids, (id) => restoreApplicant(id));
+      if (result.failed === 0) toast.success(`${result.ok} restored to the active queue`);
+      else toast.error(`${result.ok} restored, ${result.failed} failed — ${result.firstError}`);
+      await reloadAndClear();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkComplete() {
+    setBulkBusy(true);
+    try {
+      await bulkMarkCompleted(selectedUnresolvedRequestIds);
+      toast.success(
+        `${selectedUnresolvedRequestIds.length} ${selectedUnresolvedRequestIds.length === 1 ? 'investigation' : 'investigations'} marked Completed`
+      );
+      setBulkCompleteOpen(false);
+      await reloadAndClear();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Failed to mark completed');
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   function expandAll() { setOpenGroups(new Set(grouped.map((g) => g.applicationId))); }
