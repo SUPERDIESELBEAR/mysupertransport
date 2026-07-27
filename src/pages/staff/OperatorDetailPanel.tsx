@@ -457,6 +457,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotToEmails, setDotToEmails] = useState<string[]>([]);
   const [dotToInput, setDotToInput] = useState('');
   const [savingDotRecipients, setSavingDotRecipients] = useState(false);
+  // Friendly label: keep Tracey's name when she's the primary recipient, otherwise generic.
+  const dotConsultantLabel = dotToEmails.some(e => e.toLowerCase() === 'tracey@iondot.net')
+    ? 'Tracey McQuilken'
+    : 'DOT Consultant';
 
   // Cert history timeline
   type CertHistoryEntry = {
