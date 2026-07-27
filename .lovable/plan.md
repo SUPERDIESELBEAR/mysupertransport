@@ -1,29 +1,32 @@
-## Current state (verified)
-
-- `supabase/functions/send-dot-consultant-request/index.ts` has `const RECIPIENT_EMAIL = 'tracey@iondot.net'` and always sends `to: [RECIPIENT_EMAIL]`. The client can only pass `cc_emails`, so the To line is hardcoded and cannot be changed or removed today.
-- Stage 7's insurance email already uses the pattern we want: a single-row `insurance_email_settings` table (`recipient_emails text[]`, staff-only read/update) loaded into the panel and editable/saveable from the card.
-
 ## Goal
 
-Mirror the Stage 7 pattern for the DOT consultant email: a saved default recipient list (pre-filled with Tracey) that management can change once, plus the ability to edit the To list for an individual send.
+Make onboarding stages 1–8 behave like Stage 9 / Inspection Binder / Driver Documents: one stage per full-width row, so expanding Stage 2 no longer stretches Stage 1.
 
-## Plan
+## Root cause
 
-1. **Database** — new single-row table `dot_consultant_email_settings` with `recipient_emails text[]`, `updated_at`, `updated_by`; grants + RLS mirroring `insurance_email_settings` (staff read, staff update), seeded with `tracey@iondot.net`.
+In `src/pages/staff/OperatorDetailPanel.tsx` (line ~4723) stages 1–8 are wrapped in `grid grid-cols-1 lg:grid-cols-2 gap-5`. CSS grid equalizes row heights, so an expanded card forces its side-by-side neighbor to grow with empty space. The sections below (Stage 9, Inspection Binder, Driver Documents, Settlement Forecast) are already stacked full-width rows and don't have the problem.
 
-2. **Edge function** (`send-dot-consultant-request`)
-   - Remove the hardcoded To. Load `recipient_emails` from the settings row as the default.
-   - Accept an optional `to_emails` array from the client; validate, lowercase, dedupe, cap (15). If provided and non-empty, use it; otherwise fall back to the saved defaults.
-   - Error 400 if the resulting To list is empty.
-   - Keep CC handling; exclude any address already in To.
-   - Update the audit log metadata and the `sent_to` response to use the resolved recipient list instead of the constant.
+## Changes
 
-3. **Stage 8 card UI** (`src/pages/staff/OperatorDetailPanel.tsx`)
-   - Load saved DOT recipients alongside the existing insurance settings load.
-   - Add a "To" recipient chip editor above the existing CC editor, pre-filled from the saved list and editable per send.
-   - Add a "Save as default" action (same behavior as the insurance recipients save) that writes back to the settings table.
-   - Pass `to_emails` in the `functions.invoke` body; keep the button label and success toast, showing the actual recipients returned.
+**1. Single-column stack**
+Replace the two-column grid wrapper with a vertical stack (`space-y-3`) so each stage card is its own full-width row at every breakpoint. Card markup itself is unchanged — only the container.
 
-4. **Copy** — replace the hardcoded "Tracey" name in the card heading/button with the saved primary recipient's label where it is user-facing, defaulting to "DOT Consultant" if the list is customized. The email body greeting stays generic ("Hi," / recipient name from settings) so it doesn't say Tracey when sent elsewhere.
+**2. Tighter collapsed rows**
+Because rows are now full-width, collapsed headers get slightly reduced vertical padding (`py-3` instead of `py-4`) so a full 8-stage list stays scannable without excessive scrolling. Status pills, stage icons, and chevrons stay exactly as they are.
 
-5. **Deploy** the edge function after the changes.
+**3. Sticky stage header**
+Each stage's header button becomes `sticky` with a solid background and a subtle bottom border/shadow when the card is expanded, so while scrolling through a long stage (e.g. Stage 2's document fields) the stage title and status pill stay pinned. Sticky offset accounts for the existing stage-dots / Collapse All toolbar above so headers don't hide under it.
+
+**4. Behavior kept as-is**
+- Multiple stages can remain open simultaneously.
+- Expand All / Collapse All, the stage-dot jump links, and `stageRefs` scroll targets keep working unchanged.
+- Auto-collapse-on-complete logic (e.g. Stage 1 collapsing when MVR/CH is approved) is untouched.
+
+**5. Wide-form check**
+With full width available, form field grids inside stages that were sized for a half-width card (`grid-cols-1 sm:grid-cols-2`) will be reviewed so fields don't stretch awkwardly — capping the expanded body content width or promoting dense stages to 2 columns where it reads better. No field, option, or persistence logic changes.
+
+## Technical notes
+
+- Single file: `src/pages/staff/OperatorDetailPanel.tsx`.
+- Purely presentational — no changes to `onboarding_status` writes, pipeline config, or stage completion rules.
+- Quick-view mode (`isQuickView`) ordering via inline `style.order` is preserved.

@@ -4720,14 +4720,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}</div>}
 
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 24 } : undefined}><div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 24 } : undefined}><div className="space-y-3">
         {/* Stage 1 — Background */}
         {(() => {
           const s1Complete = status.mvr_ch_approval === 'approved';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
             <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage1')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stage1')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
@@ -4750,7 +4750,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s1Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* MVR */}
                   <div className="space-y-2">
                     <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
@@ -4831,7 +4831,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s2Collapsed = collapsedStages.has('stage2');
           return (
         <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
-          <button onClick={() => toggleStage('stage2')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+          <button onClick={() => toggleStage('stage2')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
             <div className="flex items-center gap-2">
               <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
               <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
@@ -4861,7 +4861,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </button>
           {!s2Collapsed && (
-          <div className="px-5 pb-5 space-y-3">
+          <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
               <Select
@@ -5176,7 +5176,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s3Collapsed = collapsedStages.has('stage3');
           return (
             <div ref={el => { stageRefs.current['stage3'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage3')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stage3')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <FileCheck className={`h-4 w-4 ${s3Complete ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
@@ -5194,7 +5194,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s3Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
+                <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Status</Label>
               <Select
@@ -5395,7 +5395,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s4Collapsed = collapsedStages.has('stage4');
           return (
             <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
-              <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <FileCheck className={`h-4 w-4 ${isNa ? 'text-muted-foreground' : s4Complete ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className={`font-semibold text-sm ${isNa ? 'text-muted-foreground' : 'text-foreground'}`}>Stage 4 — Missouri Registration</h3>
@@ -5412,7 +5412,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s4Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
+                <div className="px-5 pb-5 max-w-4xl space-y-3">
                   {isNa ? (
                     <p className="text-xs text-muted-foreground italic">This operator uses their own registration — Missouri registration is not required.</p>
                   ) : (
@@ -5470,7 +5470,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const borderCls = allEquipmentReady ? 'border-status-complete' : exceptionActiveS5 ? 'border-gold' : 'border-border';
           return (
             <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${borderCls}`}>
-              <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
@@ -5495,7 +5495,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s5Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
 
                   {/* Assigned Unit Number — placed above Truck Decals */}
                   <div className="space-y-1.5">
@@ -5713,7 +5713,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const spCollapsed = collapsedStages.has('stagePE');
           return (
             <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stagePE')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stagePE')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${spComplete ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 6 — Pre-Employment Screening</h3>
@@ -5731,7 +5731,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!spCollapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* PE Screening */}
                   <div className="space-y-2">
                     <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
@@ -5884,7 +5884,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const addToPolicy = status.insurance_policy_type === 'add_to_supertransport' || !status.insurance_policy_type;
           return (
             <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 7 — Insurance</h3>
@@ -5907,7 +5907,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s6Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
 
                   {/* Physical Damage Insurance */}
                   <div className="space-y-3">
@@ -6273,7 +6273,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s7Collapsed = collapsedStages.has('stage7');
           return (
             <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-3 text-left sticky top-0 z-20 bg-white rounded-t-xl">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 8 — Go Live & Dispatch Readiness</h3>
@@ -6286,7 +6286,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s7Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
 
                   {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
