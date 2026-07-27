@@ -1309,6 +1309,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
     }
 
+    // Load persistent DOT consultant email recipients
+    const { data: dotSettings } = await supabase
+      .from('dot_consultant_email_settings')
+      .select('recipient_emails')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .maybeSingle();
+    setDotToEmails(((dotSettings as any)?.recipient_emails ?? []) as string[]);
+
     // Build truck info: prefer onboarding_status fields, fall back to ICA
     const osTruck = (op as any)?.onboarding_status as any;
     const { data: icaData } = await supabase
