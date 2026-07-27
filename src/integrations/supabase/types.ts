@@ -345,6 +345,10 @@ export type Database = {
           moving_violations: boolean | null
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_reason: string | null
+          pei_archived_at: string | null
+          pei_archived_by: string | null
+          pei_archived_by_name: string | null
           pei_deadline: string | null
           pei_status: Database["public"]["Enums"]["pei_applicant_status"]
           phone: string | null
@@ -423,6 +427,10 @@ export type Database = {
           moving_violations?: boolean | null
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_reason?: string | null
+          pei_archived_at?: string | null
+          pei_archived_by?: string | null
+          pei_archived_by_name?: string | null
           pei_deadline?: string | null
           pei_status?: Database["public"]["Enums"]["pei_applicant_status"]
           phone?: string | null
@@ -501,6 +509,10 @@ export type Database = {
           moving_violations?: boolean | null
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_reason?: string | null
+          pei_archived_at?: string | null
+          pei_archived_by?: string | null
+          pei_archived_by_name?: string | null
           pei_deadline?: string | null
           pei_status?: Database["public"]["Enums"]["pei_applicant_status"]
           phone?: string | null
@@ -3622,10 +3634,13 @@ export type Database = {
           is_dot_regulated: boolean
           last_auto_send_at: string | null
           last_email_message_id: string | null
+          manual_send_logged_by: string | null
           response_document_url: string | null
           response_token: string
           response_token_used: boolean
+          send_method: string | null
           sent_by_staff_id: string | null
+          staff_notes: Json
           status: Database["public"]["Enums"]["pei_request_status"]
           updated_at: string
         }
@@ -3660,10 +3675,13 @@ export type Database = {
           is_dot_regulated?: boolean
           last_auto_send_at?: string | null
           last_email_message_id?: string | null
+          manual_send_logged_by?: string | null
           response_document_url?: string | null
           response_token?: string
           response_token_used?: boolean
+          send_method?: string | null
           sent_by_staff_id?: string | null
+          staff_notes?: Json
           status?: Database["public"]["Enums"]["pei_request_status"]
           updated_at?: string
         }
@@ -3698,10 +3716,13 @@ export type Database = {
           is_dot_regulated?: boolean
           last_auto_send_at?: string | null
           last_email_message_id?: string | null
+          manual_send_logged_by?: string | null
           response_document_url?: string | null
           response_token?: string
           response_token_used?: boolean
+          send_method?: string | null
           sent_by_staff_id?: string | null
+          staff_notes?: Json
           status?: Database["public"]["Enums"]["pei_request_status"]
           updated_at?: string
         }
@@ -4673,6 +4694,10 @@ export type Database = {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
       _audit_actor_name: { Args: { _actor: string }; Returns: string }
       _gen_correction_token: { Args: never; Returns: string }
+      add_pei_staff_note: {
+        Args: { _note: string; _request_id: string }
+        Returns: Json
+      }
       approve_application_correction: {
         Args: {
           p_meta: Json
@@ -4684,6 +4709,10 @@ export type Database = {
           application_id: string
           request_id: string
         }[]
+      }
+      archive_applicant_pei: {
+        Args: { _application_id: string; _reason: string }
+        Returns: undefined
       }
       assign_user_role: {
         Args: {
@@ -4766,6 +4795,10 @@ export type Database = {
           moving_violations: boolean | null
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
+          pei_archive_reason: string | null
+          pei_archived_at: string | null
+          pei_archived_by: string | null
+          pei_archived_by_name: string | null
           pei_deadline: string | null
           pei_status: Database["public"]["Enums"]["pei_applicant_status"]
           phone: string | null
@@ -4873,14 +4906,23 @@ export type Database = {
           applicant_first_name: string
           applicant_last_name: string
           application_id: string
+          date_gfe_created: string
+          date_response_received: string
           date_sent: string
           days_remaining: number
+          days_since_sent: number
           deadline_date: string
           employer_city: string
           employer_name: string
           employer_state: string
+          gfe_reason: Database["public"]["Enums"]["pei_gfe_reason"]
           is_overdue: boolean
+          pei_archive_reason: string
+          pei_archived_at: string
+          pei_archived_by_name: string
           request_id: string
+          send_method: string
+          staff_notes: Json
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
@@ -4946,6 +4988,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_pei_manual_send: {
+        Args: {
+          _date_sent: string
+          _method: string
+          _note?: string
+          _request_id: string
+        }
+        Returns: undefined
+      }
+      log_pei_phone_attempt: {
+        Args: {
+          _attempt_date: string
+          _outcome: string
+          _request_id: string
+          _spoke_with: string
+        }
+        Returns: undefined
+      }
       mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
       move_revisions_to_pending: {
         Args: { p_application_id: string }
@@ -4987,6 +5047,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["app_role"]
           p_user_id: string
         }
+        Returns: undefined
+      }
+      restore_applicant_pei: {
+        Args: { _application_id: string }
         Returns: undefined
       }
       save_application_draft: {
