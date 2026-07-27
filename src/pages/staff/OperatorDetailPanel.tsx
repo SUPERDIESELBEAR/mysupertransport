@@ -453,6 +453,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotAttachments, setDotAttachments] = useState<File[]>([]);
   const [dotCcEmails, setDotCcEmails] = useState<string[]>([]);
   const [dotCcInput, setDotCcInput] = useState('');
+  // DOT consultant "To" recipients: loaded from saved settings, editable per send.
+  const [dotToEmails, setDotToEmails] = useState<string[]>([]);
+  const [dotToInput, setDotToInput] = useState('');
+  const [savingDotRecipients, setSavingDotRecipients] = useState(false);
 
   // Cert history timeline
   type CertHistoryEntry = {
