@@ -1,9 +1,39 @@
-The user reports that the full-width stage cards for stages 1–8 in `OperatorDetailPanel` still appear to have sharp/less-rounded corners compared to Stage 9, the Inspection Binder, and Driver Documents.
+## Goal
 
-Verified cause: Stage 9 (`div className="...rounded-xl overflow-hidden shadow-sm"`) and the `InspectionBinderPanel` wrapper both use `overflow-hidden`, which clips the inner content to the card's rounded border. The 8 stage wrappers for stages 1–8 (code keys `stage1`, `stage2`, `stage3`, `stage4`, `stage5`, `stagePE`, `stage6`, `stage7`) use `rounded-xl` but are missing `overflow-hidden`. Their sticky headers have `bg-white rounded-t-xl`, so without clipping the corners look slightly off/less soft.
+Show plate history directly on the MO Plate Registry cards (and table rows) so staff don't have to open the History modal for routine checks. Applies to all tabs: All, Available, Assigned, Lost/Stolen, Retired.
 
-Plan
-1. In `src/pages/staff/OperatorDetailPanel.tsx`, find each of the 8 stage card wrappers (stage 1–7 plus the Pre-Employment Screening stage) that render the full-width accordion rows.
-2. Add `overflow-hidden` to their outer `className` strings, keeping the existing `rounded-xl`, `bg-white`, conditional border colors, `shadow-sm`, and transition classes intact.
-3. Keep the sticky headers as-is — `overflow-hidden` will clip them to the card's rounded corners rather than letting them spill past the border, which is the desired behavior.
-4. Verify by loading the driver detail view in the preview and capturing a screenshot to confirm stages 1–8 now have the same soft rounded corners as Stage 9, Inspection Binder, and Driver Documents.
+## What it will look like
+
+Each plate card gets a "Recent activity" section above the action buttons:
+
+```text
+Recent activity
+● Assigned — J. Smith (Unit 1900) · Mar 4, 2026
+● Returned — K. Lopez (Unit 1421) · Jan 12, 2026
+                                    Show all (7)
+```
+
+- Always shows the two most recent events, newest first.
+- Colored dot per event type, matching the existing History modal palette: assignment = primary, lost/stolen = destructive, replacement received = green.
+- Each line is a compact one-liner: event label — driver name (Unit #) · date. Return events render as "Returned — <driver>" using the returned_at date.
+- "Show all (N)" expands the full history inline for that plate; it becomes "Show less" when open. Long lists scroll within the card.
+- If a plate has no history: a single muted line "No activity yet."
+- The existing "History" button stays as-is for the full modal view.
+
+Table view: each row gets a chevron in the leftmost cell. Clicking expands a sub-row with the same two-event timeline and the same "Show all" behavior. Rows stay collapsed by default.
+
+## Technical approach
+
+Single file change plus one small shared component.
+
+1. **Batch fetch history in `MoPlateRegistry.tsx`.** `fetchPlates` already queries `mo_plate_assignments` for open assignments only. Add a second query pulling all rows for the visible plate IDs (`id, plate_id, driver_name, unit_number, event_type, assigned_at, returned_at, notes`), ordered by `assigned_at` descending. Group them into a `Record<plateId, Assignment[]>` in state. This keeps it to one extra round trip for the whole page — no per-card requests.
+
+2. **New `MoPlateHistoryStrip.tsx`** in `src/components/mo-plates/`. Props: `events: Assignment[]`, optional `className`. Owns its own `expanded` boolean, renders the two-event preview, the expand toggle, and the empty state. Event label/dot config is extracted from the existing `EVENT_CONFIG` in `MoPlateHistoryModal.tsx` into a shared const so both stay in sync.
+
+3. **Card view**: render `<MoPlateHistoryStrip>` between the notes line and the actions row.
+
+4. **Table view**: add an `expandedRows: Set<string>` state, a chevron button cell, and a conditional `<TableRow>` containing a full-width `<TableCell colSpan>` with the strip.
+
+5. Refresh: history state is repopulated by the existing `fetchPlates()` call, which every mutation handler already invokes, so assign/return/lost/retire actions update the strip automatically.
+
+No database or RLS changes — `mo_plate_assignments` is already read by this page under the same policies.

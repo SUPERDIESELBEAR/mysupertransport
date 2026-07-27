@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import {
   Plus, Search, Loader2, Car, CheckCircle2, UserCheck,
   AlertTriangle, Archive, History, Pencil, RotateCcw,
   RefreshCcw, Trash2, UserX, CalendarClock, ArrowLeftRight, User, Hash,
+  ChevronRight, ChevronDown,
 } from 'lucide-react';
 
 // ── Expiry helpers (mirrors Inspection Binder logic) ──────────────────────────
@@ -38,6 +39,7 @@ function daysUntilExpiry(expiresAt: string | null): number | null {
 import MoPlateFormModal, { type MoPlate } from './MoPlateFormModal';
 import MoPlateAssignModal from './MoPlateAssignModal';
 import MoPlateHistoryModal from './MoPlateHistoryModal';
+import MoPlateHistoryStrip, { type PlateAssignmentEvent } from './MoPlateHistoryStrip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -63,6 +65,8 @@ export default function MoPlateRegistry() {
   const { toast } = useToast();
   const { session } = useAuth();
   const [plates, setPlates] = useState<PlateWithAssignee[]>([]);
+  const [historyByPlate, setHistoryByPlate] = useState<Record<string, PlateAssignmentEvent[]>>({});
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
@@ -115,6 +119,19 @@ export default function MoPlateRegistry() {
       .select('plate_id, driver_name, unit_number, event_type, assigned_at, operator_id')
       .in('plate_id', plateIds)
       .is('returned_at', null);
+
+    // Fetch the full event history for all plates at once (for the inline strips)
+    const { data: allEvents } = await supabase
+      .from('mo_plate_assignments')
+      .select('id, plate_id, driver_name, unit_number, event_type, assigned_at, returned_at, notes, operator_id')
+      .in('plate_id', plateIds)
+      .order('assigned_at', { ascending: false });
+
+    const grouped: Record<string, PlateAssignmentEvent[]> = {};
+    for (const e of (allEvents ?? []) as any[]) {
+      (grouped[e.plate_id] ??= []).push(e as PlateAssignmentEvent);
+    }
+    setHistoryByPlate(grouped);
 
     // Fetch truck plates for assigned operators
     const operatorIds = [...new Set((openAssignments ?? []).filter(a => a.operator_id).map(a => a.operator_id!))];
@@ -432,6 +449,7 @@ export default function MoPlateRegistry() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                <TableHead className="w-8" />
                 <TableHead>Plate #</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Current Driver</TableHead>
@@ -448,8 +466,25 @@ export default function MoPlateRegistry() {
                 const expClass = expStatus === 'expired' ? 'text-destructive font-semibold'
                   : expStatus === 'expiring_soon' ? 'text-status-warning font-medium'
                   : 'text-muted-foreground';
+                const isRowOpen = expandedRows.has(plate.id);
                 return (
+                  <Fragment key={plate.id}>
                   <TableRow key={plate.id} className="hover:bg-muted/30">
+                    <TableCell className="pr-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                        title={isRowOpen ? 'Hide activity' : 'Show activity'}
+                        onClick={() => setExpandedRows(prev => {
+                          const next = new Set(prev);
+                          next.has(plate.id) ? next.delete(plate.id) : next.add(plate.id);
+                          return next;
+                        })}
+                      >
+                        {isRowOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                      </Button>
+                    </TableCell>
                     <TableCell className="font-mono font-bold tracking-wider text-foreground">
                       {plate.plate_number}
                       {plate.registration_number && (
@@ -494,6 +529,17 @@ export default function MoPlateRegistry() {
                       </div>
                     </TableCell>
                   </TableRow>
+                  {isRowOpen && (
+                    <TableRow key={`${plate.id}-activity`} className="bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={8} className="py-2">
+                        <MoPlateHistoryStrip
+                          events={historyByPlate[plate.id] ?? []}
+                          className="border-t-0 pt-0 max-w-xl"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </Fragment>
                 );
               })}
             </TableBody>
@@ -580,6 +626,9 @@ export default function MoPlateRegistry() {
                 {plate.notes && (
                   <p className="text-xs text-muted-foreground italic line-clamp-2">{plate.notes}</p>
                 )}
+
+                {/* Inline recent activity */}
+                <MoPlateHistoryStrip events={historyByPlate[plate.id] ?? []} />
 
                 {/* Actions */}
                 <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/60">
