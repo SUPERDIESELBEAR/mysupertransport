@@ -391,7 +391,7 @@ export const STAFF_HELP_INDEX: HelpEntry[] = [
     surface: 'management',
     route: '/dashboard?view=equipment&section=dash_cam',
     breadcrumb: 'Operations → Onboard Systems',
-    keywords: ['dash cam', 'camera', 'dashcam', 'assign dash cam', 'available'],
+    keywords: ['dash cam', 'dash camera', 'camera', 'dashcam', 'assign dash camera', 'available'],
     audience: ALL_STAFF,
     steps: ['Go to Onboard Systems.', 'Scroll to Dash Cameras.', 'Assign or return cameras.'],
   },
