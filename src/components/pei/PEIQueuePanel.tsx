@@ -798,6 +798,44 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
       <SendTestPEIDialog open={testOpen} onOpenChange={setTestOpen} />
 
+      {bulkArchiveOpen && (
+        <BulkArchiveDialog
+          open
+          applicationIds={selectedGroups.filter((g) => !g.archivedAt).map((g) => g.applicationId)}
+          onClose={() => setBulkArchiveOpen(false)}
+          onDone={() => { setBulkArchiveOpen(false); reloadAndClear(); }}
+        />
+      )}
+      {bulkSendOpen && (
+        <BulkSendDateDialog
+          open
+          requestIds={selectedUnresolvedRequestIds}
+          applicantCount={selectedGroups.length}
+          onClose={() => setBulkSendOpen(false)}
+          onDone={() => { setBulkSendOpen(false); reloadAndClear(); }}
+        />
+      )}
+
+      <AlertDialog open={bulkCompleteOpen} onOpenChange={(o) => !o && !bulkBusy && setBulkCompleteOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark {selectedUnresolvedRequestIds.length} investigations Completed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This resolves every unresolved investigation for the {selectedGroups.length} selected{' '}
+              {selectedGroups.length === 1 ? 'applicant' : 'applicants'} and stops automated follow-ups. Use this only
+              when the responses were received outside the app — otherwise document a Good Faith Effort instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleBulkComplete(); }} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Mark Completed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
