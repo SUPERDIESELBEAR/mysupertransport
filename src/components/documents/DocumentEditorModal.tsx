@@ -405,6 +405,13 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   const shownPdfUrl  = signedPreviewUrl;
   const hasPdf = !!pendingPdfUrl || !!form.pdf_url;
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!rawPdfUrl) { setSignedPreviewUrl(null); return; }
+    resolveResourceUrl(rawPdfUrl).then((u) => { if (!cancelled) setSignedPreviewUrl(u); });
+    return () => { cancelled = true; };
+  }, [rawPdfUrl]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
