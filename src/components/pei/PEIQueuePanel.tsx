@@ -450,6 +450,58 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           </div>
         </div>
 
+        {isManagement && selectedGroups.length > 0 && (
+          <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 px-3 py-2.5 border-b bg-foreground text-background">
+            <span className="text-xs font-semibold">
+              {selectedGroups.length} selected
+              {selectedUnresolvedRequestIds.length > 0 && (
+                <span className="font-normal opacity-80">
+                  {' '}· {selectedUnresolvedRequestIds.length} unresolved{' '}
+                  {selectedUnresolvedRequestIds.length === 1 ? 'investigation' : 'investigations'}
+                </span>
+              )}
+            </span>
+            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedUnresolvedRequestIds.length === 0}
+                onClick={() => setBulkCompleteOpen(true)}
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />Mark Completed
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedUnresolvedRequestIds.length === 0}
+                onClick={() => setBulkSendOpen(true)}
+              >
+                <CalendarClock className="h-3 w-3 mr-1" />Send date &amp; note
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedActiveCount === 0}
+                onClick={() => setBulkArchiveOpen(true)}
+              >
+                <Archive className="h-3 w-3 mr-1" />Archive
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedArchivedCount === 0}
+                onClick={handleBulkRestore}
+              >
+                {bulkBusy ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ArchiveRestore className="h-3 w-3 mr-1" />}
+                Restore
+              </Button>
+              <button onClick={clearSelection} className="text-xs underline opacity-80 hover:opacity-100 px-1">
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading…
