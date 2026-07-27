@@ -241,37 +241,16 @@ export default function EquipmentInventory({
         </TabsList>
 
         <TabsContent value="inventory" className="mt-0 space-y-4">
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" onClick={() => setDownloadOpen(true)} className="gap-2">
+          <div className="flex items-center gap-2 shrink-0 sm:justify-end">
+            <Button variant="outline" onClick={() => setDownloadOpen(true)} className="gap-2 flex-1 sm:flex-none">
               <Download className="h-4 w-4" />
               Download
             </Button>
-            <Button onClick={() => setAddModalOpen(true)} className="gap-2">
+            <Button onClick={() => setAddModalOpen(true)} className="gap-2 flex-1 sm:flex-none">
               <Plus className="h-4 w-4" />
               Add Device
             </Button>
           </div>
-
-          {/* Summary stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-        {(Object.entries(STATUS_CONFIG) as [EquipmentStatus, typeof STATUS_CONFIG[EquipmentStatus]][]).map(([status, cfg]) => (
-          <button
-            key={status}
-            onClick={() => setStatusFilter(prev => prev === status ? 'all' : status)}
-            className={`rounded-xl border p-3 text-left transition-all hover:shadow-sm ${
-              statusFilter === status ? cfg.color + ' border-current/50 shadow-sm' : 'bg-card border-border hover:border-primary/30'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className={statusFilter === status ? '' : 'text-muted-foreground'}>
-                {cfg.icon}
-              </span>
-              <span className="text-xs text-muted-foreground">{cfg.label}</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{counts[status]}</p>
-          </button>
-        ))}
-      </div>
 
       {/* Per-type quick summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -301,8 +280,8 @@ export default function EquipmentInventory({
       </div>
 
       {/* Search + status filter bar */}
-      <div className="flex gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-48">
+      <div className="flex flex-col sm:flex-row gap-2 sm:flex-wrap">
+        <div className="relative w-full sm:flex-1 sm:min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
             value={search}
@@ -311,22 +290,34 @@ export default function EquipmentInventory({
             className="pl-8 h-9 text-sm"
           />
         </div>
-        <div className="flex gap-1">
-          {(['all', 'available', 'assigned', 'damaged', 'lost', 'deactivated'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border ${
-                statusFilter === s
-                  ? s === 'all' ? 'bg-primary text-primary-foreground border-primary' : STATUS_CONFIG[s as EquipmentStatus].color
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/30'
-              }`}
-            >
-              {s === 'all' ? 'All' : STATUS_CONFIG[s as EquipmentStatus].label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex gap-1 overflow-x-auto flex-nowrap min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(['all', 'available', 'assigned', 'damaged', 'lost', 'deactivated'] as const).map(s => {
+              const count = s === 'all'
+                ? items.length
+                : counts[s as EquipmentStatus];
+              const isActive = statusFilter === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(prev => (s !== 'all' && prev === s) ? 'all' : s)}
+                  className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border inline-flex items-center gap-1.5 ${
+                    isActive
+                      ? s === 'all' ? 'bg-primary text-primary-foreground border-primary' : STATUS_CONFIG[s as EquipmentStatus].color
+                      : 'bg-background text-muted-foreground border-border hover:border-primary/30'
+                  }`}
+                >
+                  {s !== 'all' && (
+                    <span className={isActive ? '' : 'text-muted-foreground'}>{STATUS_CONFIG[s as EquipmentStatus].icon}</span>
+                  )}
+                  <span>{s === 'all' ? 'All' : STATUS_CONFIG[s as EquipmentStatus].label}</span>
+                  <span className={`tabular-nums font-semibold ${isActive ? '' : 'text-foreground'}`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} className="ml-auto shrink-0" />
         </div>
-        <ViewModeToggle value={viewMode} onChange={setViewMode} className="ml-auto" />
       </div>
 
       {/* Device groups */}
