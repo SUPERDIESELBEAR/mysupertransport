@@ -339,20 +339,25 @@ export default function EquipmentInventory({
           {activeTypes.map(type => {
             const cfg = DEVICE_CONFIG[type];
             const typeItems = grouped[type];
-            const isExpanded = expandedType === type || typeItems.length <= 8;
-            const showToggle = typeItems.length > 8;
-            const displayItems = isExpanded ? typeItems : typeItems.slice(0, 8);
+            const isExpanded = expandedTypes.has(type);
+            const displayItems = typeItems;
 
             return (
               <div key={type} ref={el => { sectionRefs.current[type] = el; }} className="border border-border rounded-xl bg-card overflow-hidden">
                 {/* Group header */}
-                <div className={`px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2`}>
+                <button
+                  type="button"
+                  onClick={() => toggleType(type)}
+                  aria-expanded={isExpanded}
+                  className={`w-full text-left px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors flex items-center gap-2 ${isExpanded ? 'border-b border-border' : ''}`}
+                >
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
                   <span className={cfg.color}>{cfg.icon}</span>
                   <span className="font-semibold text-foreground text-sm">{cfg.label}</span>
                   <span className="text-xs text-muted-foreground ml-1">
                     {typeItems.length} device{typeItems.length !== 1 ? 's' : ''}
                   </span>
-                  <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="text-status-complete font-medium">{typeItems.filter(i => i.status === 'available').length} Available</span>
                     <span>·</span>
                     <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} Assigned</span>
@@ -364,10 +369,10 @@ export default function EquipmentInventory({
                     )}
                     <span>·</span>
                     <span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span>
-                  </div>
-                </div>
+                  </span>
+                </button>
 
-                {typeItems.length === 0 ? (
+                {!isExpanded ? null : typeItems.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-sm">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     No {cfg.label} devices found
@@ -415,18 +420,6 @@ export default function EquipmentInventory({
                           />
                         ))}
                       </div>
-                    )}
-                    {showToggle && (
-                      <button
-                        onClick={() => setExpandedType(isExpanded ? null : type)}
-                        className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1 border-t border-border"
-                      >
-                        {isExpanded ? (
-                          <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
-                        ) : (
-                          <><ChevronDown className="h-3.5 w-3.5" /> Show all {typeItems.length} {cfg.label} devices</>
-                        )}
-                      </button>
                     )}
                   </>
                 )}
