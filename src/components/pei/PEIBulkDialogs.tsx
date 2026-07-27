@@ -50,15 +50,18 @@ export function BulkArchiveDialog({ open, applicationIds, onClose, onDone }: Bul
   const count = applicationIds.length;
 
   async function handleArchive() {
-    const parsed = reasonSchema.safeParse(isOther ? other : choice);
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0].message);
-      return;
+    const reason = category === 'not_hired' ? (isOther ? other : choice) : null;
+    if (reason !== null) {
+      const parsed = reasonSchema.safeParse(reason);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0].message);
+        return;
+      }
     }
     setSaving(true);
     try {
       const result = await runBulk(applicationIds, (id) =>
-        archiveApplicant(id, parsed.data, category)
+        archiveApplicant(id, reason, category)
       );
       reportBulk(result, `archived as ${ARCHIVE_CATEGORY_LABEL[category]}`);
       onDone();
