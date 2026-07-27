@@ -227,6 +227,24 @@ export default function DeactivationWizard({
         setExistingTerminationId((terminationRes.data as any).id);
         setTerminationCreated(true);
       }
+
+      // Resume: hydrate step statuses previously persisted for this operator
+      const { data: savedSteps } = await supabase
+        .from('operator_offboarding_steps')
+        .select('step_key, completed, skipped, skipped_reason')
+        .eq('operator_id', operatorId);
+      if (savedSteps?.length) {
+        setSteps(prev => {
+          const next = { ...prev };
+          for (const row of savedSteps as any[]) {
+            const key = row.step_key as OffboardingStepKey;
+            if (!next[key]) continue;
+            if (row.completed) next[key] = { ...next[key], status: 'completed', skippedReason: undefined };
+            else if (row.skipped) next[key] = { ...next[key], status: 'skipped', skippedReason: row.skipped_reason || undefined };
+          }
+          return next;
+        });
+      }
     } catch (err) {
       console.error('Failed to load offboarding data', err);
     } finally {
