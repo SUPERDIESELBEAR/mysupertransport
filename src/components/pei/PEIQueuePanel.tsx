@@ -57,6 +57,7 @@ interface SectionDef {
   defaultOpen: boolean;
   stripe: string;
   badge: 'destructive' | 'secondary' | 'default' | 'outline';
+  showWhenEmpty?: boolean;
 }
 
 const SECTIONS: SectionDef[] = [
@@ -64,8 +65,8 @@ const SECTIONS: SectionDef[] = [
   { key: 'pending', label: 'Pending', hint: 'Nothing sent yet', defaultOpen: true, stripe: 'border-l-4 border-l-slate-500', badge: 'secondary' },
   { key: 'in_progress', label: 'In Progress', hint: 'Awaiting a previous employer response', defaultOpen: true, stripe: 'border-l-4 border-l-blue-500', badge: 'secondary' },
   { key: 'completed', label: 'Completed', hint: 'Every employer resolved or GFE documented', defaultOpen: false, stripe: 'border-l-4 border-l-emerald-500', badge: 'secondary' },
-  { key: 'archived_hired', label: 'Archive (Hired)', hint: 'Archived applicants who were hired by SUPERTRANSPORT', defaultOpen: false, stripe: 'border-l-4 border-l-amber-400', badge: 'secondary' },
-  { key: 'archived_not_hired', label: 'Archive (Not Hired)', hint: 'Archived applicants who were not hired', defaultOpen: false, stripe: 'border-l-4 border-l-slate-400', badge: 'secondary' },
+  { key: 'archived_hired', label: 'Archive (Hired)', hint: 'Archived applicants who were hired by SUPERTRANSPORT', defaultOpen: false, stripe: 'border-l-4 border-l-amber-400', badge: 'secondary', showWhenEmpty: true },
+  { key: 'archived_not_hired', label: 'Archive (Not Hired)', hint: 'Archived applicants who were not hired', defaultOpen: false, stripe: 'border-l-4 border-l-slate-400', badge: 'secondary', showWhenEmpty: true },
 ];
 
 interface ApplicantGroup {
