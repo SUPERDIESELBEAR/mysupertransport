@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
@@ -15,6 +15,9 @@ import DecalPhotoViewerModal from './DecalPhotoViewerModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import DeactivationWizard from '@/components/management/DeactivationWizard';
+import { useAuth } from '@/hooks/useAuth';
 
 type DotFilter = 'all' | 'overdue' | 'due_soon' | 'no_record';
 type DotSort = 'unit' | 'due_asc' | 'due_desc';
@@ -79,6 +82,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [dotSort, setDotSort] = useState<DotSort>(() => {
     return (localStorage.getItem('vehicle_hub_dot_sort') as DotSort) || 'unit';
   });
+  const [deactivationTarget, setDeactivationTarget] = useState<FleetRow | null>(null);
+  const { isManagement, isOwner } = useAuth();
 
   useEffect(() => { localStorage.setItem('vehicle_hub_dot_filter', dotFilter); }, [dotFilter]);
   useEffect(() => { localStorage.setItem('vehicle_hub_dot_sort', dotSort); }, [dotSort]);
@@ -548,6 +553,33 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <Plus className="h-3.5 w-3.5" />
                     Log Update
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={e => e.stopPropagation()}
+                        title="More actions"
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {(isManagement || isOwner) && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                          onClick={e => { e.stopPropagation(); setDeactivationTarget(row); }}
+                        >
+                          <UserX className="h-3.5 w-3.5 mr-2" />
+                          Deactivate & Delease
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={e => { e.stopPropagation(); onSelectOperator(row.operatorId); }}>
+                        Open driver profile
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -647,6 +679,32 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </Button>
+                        {(isManagement || isOwner) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                title="More actions"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                onClick={() => setDeactivationTarget(row)}
+                              >
+                                <UserX className="h-3.5 w-3.5 mr-2" />
+                                Deactivate & Delease
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onSelectOperator(row.operatorId)}>
+                                Open driver profile
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
