@@ -26,6 +26,7 @@ function daysUntilDue(nextDue: string | null): number | null {
 
 interface FleetRow {
   operatorId: string;
+  driverUserId: string | null;
   unitNumber: string | null;
   driverName: string;
   ownerName: string;
@@ -87,6 +88,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       .from('operators')
       .select(`
         id,
+        user_id,
         unit_number,
         applications(first_name, last_name),
         onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
@@ -170,6 +172,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
 
       return {
         operatorId: op.id,
+        driverUserId: op.user_id ?? null,
         unitNumber: os?.unit_number || op.unit_number || null,
         driverName,
         ownerName,
@@ -683,6 +686,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           onClose={() => setLogUpdateTarget(null)}
           operatorId={logUpdateTarget.operatorId}
           driverName={logUpdateTarget.driverName}
+          driverUserId={logUpdateTarget.driverUserId}
           onSaved={fetchFleet}
         />
       )}

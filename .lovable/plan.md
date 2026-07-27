@@ -1,25 +1,26 @@
-## Goal
+## What's there today
 
-Remove the circled status summary cards (Available, Assigned, Damaged / Needs Repair, Lost/Missing, Deactivated) from the **Inventory** tab of Onboard Systems, without losing the counts or the click-to-filter behavior. Assignment Sheets tab is untouched.
+In Vehicle Hub (`FleetRoster`), the `+` button on each truck row/card opens **Log Update**, which offers three choices: Repair / Maintenance, DOT Inspection, Quick Note. Registration / 2290 upload only exists inside the driver's detail drawer (`FleetDetailDrawer` → "Registration and 2290" card → `Registration2290Modal`), so staff must open the card first.
 
-## Changes (all in `src/components/equipment/EquipmentInventory.tsx`)
+## Recommendation
 
-1. **Delete the summary stat card grid** (the 5-card row above the per-type cards).
+Add **Registration / 2290** as a fourth tile in the Log Update chooser. It matches the existing pattern (Log Update is already the "quick action from the roster" hub), reuses `Registration2290Modal` unchanged, and requires no new UI surface. Alternatives considered and not recommended: a separate roster icon (button clutter — the row already has edit, photos, decals, `+`), or a bulk uploader (different problem, worth its own pass later).
 
-2. **Preserve filtering + counts in the existing status filter chip bar** (already present under the search box):
-   - Each chip gains its count as a small badge: `All 42`, `Available 12`, `Assigned 21`, etc. Counts come from the existing `counts` object, so no new logic.
-   - Chips keep the current toggle behavior; clicking an active chip other than "All" clears back to "All", matching the old card toggle.
+## Changes
 
-3. **Keep the per-type quick summary cards** (ELD, Dash Camera, BestPass, Fuel Card) exactly as they are.
+**1. `src/components/fleet/FleetRoster.tsx`**
+- Add `driverUserId: string | null` to the `FleetRow` interface.
+- Include `user_id` in the `operators` select inside `buildRows` and map it onto each row.
+- Pass `driverUserId={logUpdateTarget.driverUserId}` into `LogUpdateModal`.
 
-4. **Layout decision (question 3):** keep Download / Add Device buttons where they are, but pull them up onto the same row as the tab strip on desktop so the reclaimed vertical space goes to the device ribbons instead of leaving a gap. On mobile they stay on their own full-width row.
+**2. `src/components/fleet/LogUpdateModal.tsx`**
+- Accept a new optional `driverUserId: string | null` prop.
+- Add mode `'reg2290'` and a fourth tile ("Registration / 2290" — file-badge icon, subtext "Upload a new registration or Form 2290 with its expiration date.").
+- When that mode is active, render `Registration2290Modal` with the same `open`/`onClose`/`onSaved` wiring used for the maintenance and inspection sub-modals.
+- If `driverUserId` is null (driver has no linked account), show the tile disabled with a short hint rather than opening a modal that can't save.
 
-5. **Mobile scaling (question 5):**
-   - Status chips become a single horizontally scrollable row (`overflow-x-auto`, no wrap, hidden scrollbar) so all six fit cleanly without stacking.
-   - Search input takes full width on its own row on small screens; chips + view-mode toggle sit on the row below.
-   - Per-type cards stay 2-up on mobile, 4-up on desktop.
+**3. No changes** to `Registration2290Modal`, `FleetDetailDrawer`, or the database — the drawer's existing entry point stays as-is, and saving from either place writes the same `inspection_documents` row and refreshes the roster via `onSaved`.
 
 ## Notes
 
-- No database or business-logic changes; purely presentational.
-- `statusFilter` state, `counts`, and `STATUS_CONFIG` all stay in place and are reused by the chips.
+The 2290 modal replaces any existing row for that driver + document type, so uploading from the roster keeps "latest = source of truth" exactly as it does from the drawer.
