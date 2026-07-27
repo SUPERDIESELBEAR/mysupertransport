@@ -1,66 +1,54 @@
-## PEI Queue Overhaul
+# Plan: Split PEI Archive into Hired / Not Hired Sections
 
-Reorganizes the Previous Employment Investigations queue around applicant status, adds archiving, manual send dates, and staff tooling.
+## What we will build
 
-### 1. Status-grouped, collapsible layout
-Replace the flat applicant list with four collapsible sections, each showing a count and each applicant's card inside:
+1. **Two archive sections** in the PEI Queue: **Archive (Hired)** and **Archive (Not Hired)**. The existing single "Archived" section will be removed.
+2. **Archive classification** when staff archive an applicant: a required "Hired / Not Hired" choice in the archive dialog, separate from the reason.
+3. **Header styling** that stands out more: each section gets a colored left stripe and a stronger, taller header with a count pill and hint.
+4. **Backfill**: existing archived applicants are placed in **Archive (Not Hired)** by default, since most current archive reasons (withdrew, hired elsewhere, did not onboard) point to not hired.
 
-```text
-▸ Overdue (3)        — any employer past its 30-day deadline, unresolved
-▸ Pending (5)        — nothing sent yet for any employer
-▸ In Progress (8)    — at least one sent / follow-up / final notice outstanding
-▸ Completed (12)     — every employer is Completed or GFE Documented
-▸ Archived (4)       — manually archived applicants (collapsed by default)
-```
+## Database changes
 
-An applicant appears in exactly one section, by highest-severity rule: Archived > Overdue > Pending/In Progress > Completed. Completed and Archived collapse by default; Overdue expands by default. Existing filter chips stay as a cross-cutting quick filter.
+- Add `pei_archive_category` (`text`) to `public.applications` with values constrained to `hired` and `not_hired`.
+- Default any existing `pei_archived_at` rows to `not_hired`.
+- Update the `archive_applicant_pei` RPC to accept an `_archive_category` parameter and store it.
+- Update the `restore_applicant_pei` RPC to clear the new category on restore.
+- Update the `get_pei_queue` RPC to return `pei_archive_category`.
 
-### 2. Auto-move to Completed
-An applicant lands in Completed when every one of their employer requests is `completed` or `gfe_documented` — this already covers the day-30 auto-GFE from the existing cadence job, so the 30-day cycle naturally resolves into Completed with no extra step. Completed rows keep a "Resolved on {date}" line and remain fully viewable.
+## UI changes
 
-### 3. Manual date sent
-New "Log send" action on each employer row opens a small dialog with a date picker plus a method selector (Email sent outside app / Fax / Mail / Phone) and an optional note.
-- On a `pending` request: marks it Sent using the chosen date and starts the 30-day deadline from that date. No email is sent.
-- On an already-sent request: edits the recorded send date and recomputes the deadline.
-Both are audit-logged with the staff member's name.
+- `src/lib/pei/types.ts`:
+  - Add `PEIArchiveCategory` type and `ARCHIVE_CATEGORY_LABEL`.
+  - Add `pei_archive_category` to `PEIQueueRow`.
+- `src/lib/pei/api.ts`:
+  - Update `archiveApplicant()` to accept and send the category.
+- `src/components/pei/ArchiveApplicantDialog.tsx`:
+  - Add a required "Archive as" radio group: **Hired** / **Not Hired**.
+  - Keep the existing reason radio group + Other text field.
+- `src/components/pei/PEIQueuePanel.tsx`:
+  - Replace single `archived` section with `archived_hired` and `archived_not_hired`.
+  - Update `SectionKey`, `SECTIONS`, `sectionFor()`, and grouping logic.
+  - Add color-coded left stripe styles to each section header.
+  - Update stat tile labels to include the two archive categories.
+  - Preserve the archive/restore buttons and archived-by metadata.
+- `src/lib/pei/exportCsv.ts`:
+  - Add an `Archive Category` column to the CSV export.
 
-### 4. Archive an applicant
-"Archive" action on each applicant header (management only), with a required reason (Applicant withdrew / Did not onboard / Hired elsewhere / Duplicate / Other + free text).
-- Moves all of that applicant's PEI requests into the Archived section.
-- Stops the auto-cadence job from sending any further follow-ups or creating auto-GFEs for them.
-- Fully reversible via "Restore" in the Archived section.
-- Archived applicants are excluded from the stat tiles and the compliance counts.
+## Visual style
 
-### 5. Additional staff/management tooling (all included)
-- **Search box** — filter by applicant name or previous employer name, live.
-- **Staff notes per employer request** — a notes field on each row, timestamped and attributed, for logging call attempts and back-and-forth.
-- **Phone attempt logging** — "Log phone attempt" records date, who was reached, and outcome, appended to the request's event timeline. Counts as documented good-faith effort.
-- **CSV export** — exports the current view (respecting section/filter/search) with applicant, employer, status, date sent, deadline, days remaining, resolution, and GFE reason.
-- **Aging indicator** — each in-progress row shows a small day counter (e.g. "Day 12 of 30") so staff can see cadence position at a glance.
-- **Stat tiles updated** to: Active Applicants / Awaiting Response / Overdue / Completed this month.
+Section headers will use a colored left border stripe and a slightly more prominent background. Proposed color mapping:
 
----
+- Overdue → red/rose stripe
+- Pending → slate/neutral stripe
+- In Progress → blue stripe
+- Completed → emerald stripe
+- Archive (Hired) → gold/amber stripe
+- Archive (Not Hired) → gray/slate stripe
 
-### Technical notes
+The exact Tailwind token colors will be chosen from the existing theme without hardcoding hex values.
 
-**Database (one migration)**
-- Add to `pei_requests`: `send_method text`, `manual_send_logged_by text`, `staff_notes jsonb default '[]'`.
-- Add to `applications`: `pei_archived_at timestamptz`, `pei_archived_by uuid`, `pei_archived_by_name text`, `pei_archive_reason text`.
-- Extend `pei_request_events` event type enum with `phone_attempt` and `manual_send_logged`.
-- Update `get_pei_queue()` to also return `pei_archived_at`, `pei_archive_reason`, `send_method`, and a computed `days_since_sent`.
-- Add `set_pei_deadline()` handling so a manually changed `date_sent` recomputes `deadline_date`; keep the existing first-send behaviour.
-- New security-definer RPCs `archive_applicant_pei(application_id, reason)` and `restore_applicant_pei(application_id)`, staff-gated via `is_staff()`.
-- Grants for `authenticated` and `service_role` on any touched objects; no new tables required.
+## Out of scope
 
-**Edge function**
-- `pei-auto-cadence`: add `pei_archived_at is null` to the candidate filter so archived applicants stop receiving automated follow-ups and auto-GFEs.
-
-**Frontend**
-- `src/lib/pei/types.ts` — extend `PEIQueueRow` and `PEIRequest` with the new fields.
-- `src/lib/pei/api.ts` — add `logManualSend`, `logPhoneAttempt`, `addStaffNote`, `archiveApplicant`, `restoreApplicant`.
-- `src/components/pei/PEIQueuePanel.tsx` — restructure into status sections, add search, export, and section-level expand/collapse state.
-- New: `src/components/pei/LogSendModal.tsx`, `src/components/pei/ArchiveApplicantDialog.tsx`, `src/components/pei/StaffNotesPopover.tsx`, `src/lib/pei/exportCsv.ts`.
-- Zod validation on all new inputs (date not in the future, reason and note length limits).
-</content>
-<summary>Restructure the PEI Queue into status-grouped collapsible sections with auto-Completed, applicant archiving, manual send-date logging, staff notes, phone-attempt logging, search, and CSV export.</summary>
-</invoke>
+- No change to the PEI auto-cadence logic (it already skips archived applicants).
+- No new search or filter capabilities beyond what exists; the existing search bar will still match applicant/employer names across both archive sections.
+- No changes to the unarchive/restore behavior beyond clearing the new category.
