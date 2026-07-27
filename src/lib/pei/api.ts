@@ -74,6 +74,27 @@ export async function restoreApplicant(applicationId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Changes an already-archived applicant's category, recording who changed it. */
+export async function updateArchiveCategory(
+  applicationId: string,
+  archiveCategory: 'hired' | 'not_hired',
+  note?: string
+): Promise<void> {
+  const { error } = await (supabase.rpc as any)('update_pei_archive_category', {
+    _application_id: applicationId,
+    _archive_category: archiveCategory,
+    _note: note?.trim() || null,
+  });
+  if (error) throw error;
+}
+
+async function _unusedRestore(applicationId: string): Promise<void> {
+  const { error } = await supabase.rpc('restore_applicant_pei', {
+    _application_id: applicationId,
+  });
+  if (error) throw error;
+}
+
 /** Marks a set of PEI requests resolved as Completed (staff override). */
 export async function bulkMarkCompleted(requestIds: string[]): Promise<void> {
   if (requestIds.length === 0) return;
