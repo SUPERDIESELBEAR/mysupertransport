@@ -592,7 +592,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                             </CollapsibleContent>
                           </Collapsible>
                         );
-                      })}
+                      })
+                    )}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
