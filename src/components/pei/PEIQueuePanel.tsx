@@ -34,6 +34,7 @@ import { SendTestPEIDialog } from './SendTestPEIDialog';
 import { LogSendModal } from './LogSendModal';
 import { LogPhoneAttemptModal } from './LogPhoneAttemptModal';
 import { ArchiveApplicantDialog } from './ArchiveApplicantDialog';
+import { ChangeArchiveCategoryDialog } from './ChangeArchiveCategoryDialog';
 import { StaffNotesPopover } from './StaffNotesPopover';
 import { BulkArchiveDialog, BulkSendDateDialog } from './PEIBulkDialogs';
 
@@ -113,6 +114,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [logSendFor, setLogSendFor] = useState<PEIQueueRow | null>(null);
   const [phoneFor, setPhoneFor] = useState<PEIQueueRow | null>(null);
   const [archiveFor, setArchiveFor] = useState<ApplicantGroup | null>(null);
+  const [changeCategoryFor, setChangeCategoryFor] = useState<ApplicantGroup | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
   const [search, setSearch] = useState('');
@@ -619,6 +621,15 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                               </CollapsibleTrigger>
                               {isManagement && (
                                 group.archivedAt ? (
+                                  <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setChangeCategoryFor(group)}
+                                  >
+                                    <Archive className="h-3 w-3 mr-1" />
+                                    Change type
+                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -632,6 +643,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                     )}
                                     Restore
                                   </Button>
+                                  </>
                                 ) : (
                                   <Button size="sm" variant="ghost" onClick={() => setArchiveFor(group)}>
                                     <Archive className="h-3 w-3 mr-1" />
@@ -793,6 +805,16 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           requestCount={archiveFor.rows.length}
           onClose={() => setArchiveFor(null)}
           onDone={() => { setArchiveFor(null); reload(); }}
+        />
+      )}
+      {changeCategoryFor && (
+        <ChangeArchiveCategoryDialog
+          open
+          applicationId={changeCategoryFor.applicationId}
+          applicantName={changeCategoryFor.fullName}
+          current={changeCategoryFor.archiveCategory ?? 'not_hired'}
+          onClose={() => setChangeCategoryFor(null)}
+          onDone={() => { setChangeCategoryFor(null); reload(); }}
         />
       )}
       <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
