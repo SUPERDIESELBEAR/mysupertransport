@@ -4750,7 +4750,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s1Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* MVR */}
                   <div className="space-y-2">
                     <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
@@ -4861,7 +4861,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </button>
           {!s2Collapsed && (
-          <div className="px-5 pb-5 space-y-3">
+          <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
               <Select
@@ -5194,7 +5194,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s3Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
+                <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Status</Label>
               <Select
@@ -5412,7 +5412,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s4Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
+                <div className="px-5 pb-5 max-w-4xl space-y-3">
                   {isNa ? (
                     <p className="text-xs text-muted-foreground italic">This operator uses their own registration — Missouri registration is not required.</p>
                   ) : (
@@ -5495,7 +5495,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s5Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
 
                   {/* Assigned Unit Number — placed above Truck Decals */}
                   <div className="space-y-1.5">
@@ -5731,7 +5731,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!spCollapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* PE Screening */}
                   <div className="space-y-2">
                     <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
@@ -5907,7 +5907,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s6Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
 
                   {/* Physical Damage Insurance */}
                   <div className="space-y-3">
@@ -6286,7 +6286,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s7Collapsed && (
-                <div className="px-5 pb-5 space-y-4">
+                <div className="px-5 pb-5 max-w-4xl space-y-4">
 
                   {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
