@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchPEIQueue, restoreApplicant } from '@/lib/pei/api';
+import { fetchPEIQueue, restoreApplicant, bulkMarkCompleted, runBulk } from '@/lib/pei/api';
 import type { PEIQueueRow, PEIRequestStatus, PEIStaffNote } from '@/lib/pei/types';
 import { downloadPEICsv } from '@/lib/pei/exportCsv';
 import { PEIStatusBadge } from './StatusBadge';
@@ -34,6 +35,7 @@ import { LogSendModal } from './LogSendModal';
 import { LogPhoneAttemptModal } from './LogPhoneAttemptModal';
 import { ArchiveApplicantDialog } from './ArchiveApplicantDialog';
 import { StaffNotesPopover } from './StaffNotesPopover';
+import { BulkArchiveDialog, BulkSendDateDialog } from './PEIBulkDialogs';
 
 interface Props {
   onOpenApplication?: (applicationId: string) => void;
@@ -122,6 +124,11 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   );
   const [deleteTarget, setDeleteTarget] = useState<PEIQueueRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkSendOpen, setBulkSendOpen] = useState(false);
+  const [bulkCompleteOpen, setBulkCompleteOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -202,6 +209,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return map;
   }, [grouped]);
 
+  const selectedGroups = useMemo(
+    () => grouped.filter((g) => selected.has(g.applicationId)),
+    [grouped, selected]
+  );
+
+  const selectedUnresolvedRequestIds = useMemo(
+    () => selectedGroups.flatMap((g) => g.rows.filter((r) => !isResolved(r)).map((r) => r.request_id)),
+    [selectedGroups]
+  );
+
+  const selectedArchivedCount = useMemo(
+    () => selectedGroups.filter((g) => g.archivedAt).length,
+    [selectedGroups]
+  );
+  const selectedActiveCount = selectedGroups.length - selectedArchivedCount;
+
   function toggleGroup(id: string) {
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -218,6 +241,62 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       else next.add(key);
       return next;
     });
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function setSectionSelected(keys: string[], checked: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (checked) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() { setSelected(new Set()); }
+
+  async function reloadAndClear() {
+    clearSelection();
+    await reload();
+  }
+
+  async function handleBulkRestore() {
+    setBulkBusy(true);
+    try {
+      const ids = selectedGroups.filter((g) => g.archivedAt).map((g) => g.applicationId);
+      const result = await runBulk(ids, (id) => restoreApplicant(id));
+      if (result.failed === 0) toast.success(`${result.ok} restored to the active queue`);
+      else toast.error(`${result.ok} restored, ${result.failed} failed — ${result.firstError}`);
+      await reloadAndClear();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkComplete() {
+    setBulkBusy(true);
+    try {
+      await bulkMarkCompleted(selectedUnresolvedRequestIds);
+      toast.success(
+        `${selectedUnresolvedRequestIds.length} ${selectedUnresolvedRequestIds.length === 1 ? 'investigation' : 'investigations'} marked Completed`
+      );
+      setBulkCompleteOpen(false);
+      await reloadAndClear();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Failed to mark completed');
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   function expandAll() { setOpenGroups(new Set(grouped.map((g) => g.applicationId))); }
@@ -371,6 +450,58 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           </div>
         </div>
 
+        {isManagement && selectedGroups.length > 0 && (
+          <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 px-3 py-2.5 border-b bg-foreground text-background">
+            <span className="text-xs font-semibold">
+              {selectedGroups.length} selected
+              {selectedUnresolvedRequestIds.length > 0 && (
+                <span className="font-normal opacity-80">
+                  {' '}· {selectedUnresolvedRequestIds.length} unresolved{' '}
+                  {selectedUnresolvedRequestIds.length === 1 ? 'investigation' : 'investigations'}
+                </span>
+              )}
+            </span>
+            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedUnresolvedRequestIds.length === 0}
+                onClick={() => setBulkCompleteOpen(true)}
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />Mark Completed
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedUnresolvedRequestIds.length === 0}
+                onClick={() => setBulkSendOpen(true)}
+              >
+                <CalendarClock className="h-3 w-3 mr-1" />Send date &amp; note
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedActiveCount === 0}
+                onClick={() => setBulkArchiveOpen(true)}
+              >
+                <Archive className="h-3 w-3 mr-1" />Archive
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={bulkBusy || selectedArchivedCount === 0}
+                onClick={handleBulkRestore}
+              >
+                {bulkBusy ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ArchiveRestore className="h-3 w-3 mr-1" />}
+                Restore
+              </Button>
+              <button onClick={clearSelection} className="text-xs underline opacity-80 hover:opacity-100 px-1">
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading…
@@ -392,10 +523,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
               const isEmpty = groups.length === 0;
               if (isEmpty && !section.showWhenEmpty) return null;
               const sectionOpen = openSections.has(section.key);
+              const sectionIds = groups.map((g) => g.applicationId);
+              const allSelected = sectionIds.length > 0 && sectionIds.every((id) => selected.has(id));
               return (
                 <Collapsible key={section.key} open={sectionOpen} onOpenChange={() => toggleSection(section.key)}>
-                  <CollapsibleTrigger asChild>
-                    <button className={`w-full flex items-center gap-2 px-4 py-3.5 text-left bg-muted/40 hover:bg-muted/60 transition-colors ${section.stripe}`}>
+                  <div className={`flex items-center bg-muted/40 ${section.stripe}`}>
+                    {isManagement && sectionIds.length > 0 && (
+                      <div className="pl-4">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(c) => setSectionSelected(sectionIds, c === true)}
+                          aria-label={`Select all in ${section.label}`}
+                        />
+                      </div>
+                    )}
+                    <CollapsibleTrigger asChild>
+                    <button className="flex-1 flex items-center gap-2 px-4 py-3.5 text-left hover:bg-muted/60 transition-colors">
                       {sectionOpen ? (
                         <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
                       ) : (
@@ -410,7 +553,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                       </Badge>
                       <span className="text-xs text-muted-foreground hidden sm:inline">{section.hint}</span>
                     </button>
-                  </CollapsibleTrigger>
+                    </CollapsibleTrigger>
+                  </div>
                   <CollapsibleContent>
                     <div className="divide-y divide-border">
                       {isEmpty && section.showWhenEmpty ? (
@@ -428,8 +572,17 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                             onOpenChange={() => toggleGroup(group.applicationId)}
                           >
                             <div className="flex items-center gap-2 pr-3 hover:bg-muted/30 transition-colors">
+                              {isManagement && (
+                                <div className="pl-4">
+                                  <Checkbox
+                                    checked={selected.has(group.applicationId)}
+                                    onCheckedChange={() => toggleSelected(group.applicationId)}
+                                    aria-label={`Select ${group.fullName}`}
+                                  />
+                                </div>
+                              )}
                               <CollapsibleTrigger asChild>
-                                <button className="flex-1 flex items-center gap-3 px-4 py-3 text-left min-w-0">
+                                <button className="flex-1 flex items-center gap-3 px-3 py-3 text-left min-w-0">
                                   {isOpen ? (
                                     <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                                   ) : (
@@ -644,6 +797,44 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       )}
       <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
       <SendTestPEIDialog open={testOpen} onOpenChange={setTestOpen} />
+
+      {bulkArchiveOpen && (
+        <BulkArchiveDialog
+          open
+          applicationIds={selectedGroups.filter((g) => !g.archivedAt).map((g) => g.applicationId)}
+          onClose={() => setBulkArchiveOpen(false)}
+          onDone={() => { setBulkArchiveOpen(false); reloadAndClear(); }}
+        />
+      )}
+      {bulkSendOpen && (
+        <BulkSendDateDialog
+          open
+          requestIds={selectedUnresolvedRequestIds}
+          applicantCount={selectedGroups.length}
+          onClose={() => setBulkSendOpen(false)}
+          onDone={() => { setBulkSendOpen(false); reloadAndClear(); }}
+        />
+      )}
+
+      <AlertDialog open={bulkCompleteOpen} onOpenChange={(o) => !o && !bulkBusy && setBulkCompleteOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark {selectedUnresolvedRequestIds.length} investigations Completed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This resolves every unresolved investigation for the {selectedGroups.length} selected{' '}
+              {selectedGroups.length === 1 ? 'applicant' : 'applicants'} and stops automated follow-ups. Use this only
+              when the responses were received outside the app — otherwise document a Good Faith Effort instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleBulkComplete(); }} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Mark Completed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}>
         <AlertDialogContent>

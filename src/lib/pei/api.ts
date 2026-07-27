@@ -74,6 +74,39 @@ export async function restoreApplicant(applicationId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Marks a set of PEI requests resolved as Completed (staff override). */
+export async function bulkMarkCompleted(requestIds: string[]): Promise<void> {
+  if (requestIds.length === 0) return;
+  const { error } = await supabase
+    .from('pei_requests')
+    .update({
+      status: 'completed',
+      date_response_received: new Date().toISOString(),
+    } as any)
+    .in('id', requestIds);
+  if (error) throw error;
+}
+
+/** Runs an async op over many ids, collecting failures instead of aborting. */
+export async function runBulk<T>(
+  ids: T[],
+  fn: (id: T) => Promise<void>
+): Promise<{ ok: number; failed: number; firstError?: string }> {
+  let ok = 0;
+  let failed = 0;
+  let firstError: string | undefined;
+  for (const id of ids) {
+    try {
+      await fn(id);
+      ok++;
+    } catch (e: any) {
+      failed++;
+      firstError ??= e?.message ?? 'Operation failed';
+    }
+  }
+  return { ok, failed, firstError };
+}
+
 export async function fetchPEIRequestsByApplication(
   applicationId: string
 ): Promise<PEIRequest[]> {
