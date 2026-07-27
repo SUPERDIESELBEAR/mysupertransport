@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +17,7 @@ import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import DeactivationWizard from '@/components/management/DeactivationWizard';
+
 import { useAuth } from '@/hooks/useAuth';
 
 type DotFilter = 'all' | 'overdue' | 'due_soon' | 'no_record';
@@ -82,7 +83,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [dotSort, setDotSort] = useState<DotSort>(() => {
     return (localStorage.getItem('vehicle_hub_dot_sort') as DotSort) || 'unit';
   });
-  const [deactivationTarget, setDeactivationTarget] = useState<FleetRow | null>(null);
+  const navigate = useNavigate();
   const { isManagement, isOwner } = useAuth();
 
   useEffect(() => { localStorage.setItem('vehicle_hub_dot_filter', dotFilter); }, [dotFilter]);
@@ -569,7 +570,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       {(isManagement || isOwner) && (
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                          onClick={e => { e.stopPropagation(); setDeactivationTarget(row); }}
+                          onClick={e => { e.stopPropagation(); navigate(`/management/deactivate/${row.operatorId}`); }}
                         >
                           <UserX className="h-3.5 w-3.5 mr-2" />
                           Deactivate & Delease
@@ -694,7 +695,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                onClick={() => setDeactivationTarget(row)}
+                                onClick={() => navigate(`/management/deactivate/${row.operatorId}`)}
                               >
                                 <UserX className="h-3.5 w-3.5 mr-2" />
                                 Deactivate & Delease
