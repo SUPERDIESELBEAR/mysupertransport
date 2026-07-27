@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
-  ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
+  ChevronDown, History, UserCheck, RotateCcw,
   Pencil, Loader2, Download, Archive, HardDrive, FileSignature
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
