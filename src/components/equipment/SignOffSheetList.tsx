@@ -61,7 +61,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD',
-  dash_cam: 'Dash Cam',
+  dash_cam: 'Dash Camera',
   bestpass: 'BestPass',
 };
 

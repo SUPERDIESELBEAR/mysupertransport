@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
-  ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
+  ChevronDown, History, UserCheck, RotateCcw,
   Pencil, Loader2, Download, Archive, HardDrive, FileSignature
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -45,7 +45,7 @@ export interface EquipmentItem {
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
   eld:       { label: 'ELD',        icon: <Cpu className="h-4 w-4" />,        color: 'text-primary' },
-  dash_cam:  { label: 'Dash Cam',   icon: <Camera className="h-4 w-4" />,     color: 'text-status-progress' },
+  dash_cam:  { label: 'Dash Camera',   icon: <Camera className="h-4 w-4" />,     color: 'text-status-progress' },
   bestpass:  { label: 'BestPass',   icon: <Tag className="h-4 w-4" />,        color: 'text-status-complete' },
   fuel_card: { label: 'Fuel Card',  icon: <CreditCard className="h-4 w-4" />, color: 'text-warning' },
 };
@@ -72,13 +72,27 @@ export default function EquipmentInventory({
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
-  const [expandedType, setExpandedType] = useState<DeviceType | null>(null);
+  const [expandedTypes, setExpandedTypes] = useState<Set<DeviceType>>(new Set());
+  const [lastOpened, setLastOpened] = useState<DeviceType | null>(null);
   const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
   const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
 
+  const toggleType = useCallback((type: DeviceType) => {
+    setExpandedTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+        setLastOpened(type);
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
-    if (!expandedType) return;
-    const el = sectionRefs.current[expandedType];
+    if (!lastOpened) return;
+    const el = sectionRefs.current[lastOpened];
     if (!el) return;
 
     const raf1 = requestAnimationFrame(() => {
@@ -93,11 +107,12 @@ export default function EquipmentInventory({
       const child = (raf1 as unknown as { _child?: number })._child;
       if (child) cancelAnimationFrame(child);
     };
-  }, [expandedType]);
+  }, [lastOpened, expandedTypes]);
 
   useEffect(() => {
     if (!section || !DEVICE_CONFIG[section]) return;
-    setExpandedType(section);
+    setExpandedTypes(prev => new Set(prev).add(section));
+    setLastOpened(section);
   }, [section]);
 
   // Modals
@@ -208,7 +223,7 @@ export default function EquipmentInventory({
             Onboard Systems
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Track ELDs, Dash Cams, BestPass tags, Fuel Cards, and operator sign-off sheets
+            Track ELDs, Dash Cameras, BestPass tags, Fuel Cards, and operator sign-off sheets
           </p>
         </div>
       </div>
@@ -324,20 +339,25 @@ export default function EquipmentInventory({
           {activeTypes.map(type => {
             const cfg = DEVICE_CONFIG[type];
             const typeItems = grouped[type];
-            const isExpanded = expandedType === type || typeItems.length <= 8;
-            const showToggle = typeItems.length > 8;
-            const displayItems = isExpanded ? typeItems : typeItems.slice(0, 8);
+            const isExpanded = expandedTypes.has(type);
+            const displayItems = typeItems;
 
             return (
               <div key={type} ref={el => { sectionRefs.current[type] = el; }} className="border border-border rounded-xl bg-card overflow-hidden">
                 {/* Group header */}
-                <div className={`px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2`}>
+                <button
+                  type="button"
+                  onClick={() => toggleType(type)}
+                  aria-expanded={isExpanded}
+                  className={`w-full text-left px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors flex items-center gap-2 ${isExpanded ? 'border-b border-border' : ''}`}
+                >
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
                   <span className={cfg.color}>{cfg.icon}</span>
                   <span className="font-semibold text-foreground text-sm">{cfg.label}</span>
                   <span className="text-xs text-muted-foreground ml-1">
                     {typeItems.length} device{typeItems.length !== 1 ? 's' : ''}
                   </span>
-                  <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="text-status-complete font-medium">{typeItems.filter(i => i.status === 'available').length} Available</span>
                     <span>·</span>
                     <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} Assigned</span>
@@ -349,10 +369,10 @@ export default function EquipmentInventory({
                     )}
                     <span>·</span>
                     <span className="text-muted-foreground font-medium">{typeItems.filter(i => i.status === 'deactivated').length} Deactivated</span>
-                  </div>
-                </div>
+                  </span>
+                </button>
 
-                {typeItems.length === 0 ? (
+                {!isExpanded ? null : typeItems.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-sm">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     No {cfg.label} devices found
@@ -400,18 +420,6 @@ export default function EquipmentInventory({
                           />
                         ))}
                       </div>
-                    )}
-                    {showToggle && (
-                      <button
-                        onClick={() => setExpandedType(isExpanded ? null : type)}
-                        className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1 border-t border-border"
-                      >
-                        {isExpanded ? (
-                          <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
-                        ) : (
-                          <><ChevronDown className="h-3.5 w-3.5" /> Show all {typeItems.length} {cfg.label} devices</>
-                        )}
-                      </button>
                     )}
                   </>
                 )}

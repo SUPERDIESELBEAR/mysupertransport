@@ -23,7 +23,7 @@ const SCOPE_OPTIONS: { value: ExportScope; label: string }[] = [
   { value: 'dash_cam', label: SCOPE_LABEL.dash_cam + ' only' },
   { value: 'eld_dash_cam', label: SCOPE_LABEL.eld_dash_cam },
   { value: 'fuel_card', label: SCOPE_LABEL.fuel_card + ' only' },
-  { value: 'drivers_equipment', label: 'Drivers + Equipment (ELD & Dash Cam)' },
+  { value: 'drivers_equipment', label: 'Drivers + Equipment (ELD & Dash Camera)' },
 ];
 
 export default function EquipmentDownloadModal({
@@ -96,7 +96,7 @@ export default function EquipmentDownloadModal({
         const operators = await fetchActiveOperators();
         const report = buildDriverEquipmentRows(items, operators);
         if (report.driverRows.length === 0 && report.unassigned.length === 0) {
-          toast({ title: 'Nothing to export', description: 'No active drivers or ELD/Dash Cam devices found.' });
+          toast({ title: 'Nothing to export', description: 'No active drivers or ELD/Dash Camera devices found.' });
           setBusy(false);
           return;
         }

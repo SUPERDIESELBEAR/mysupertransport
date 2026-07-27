@@ -3,7 +3,7 @@
  *
  * The ELD requirement is satisfied when the device is installed
  * OR when the truck is marked ELD Exempt (pre-2000, FMCSA §395.8(a)(1)(iii)).
- * When exempt, the operator runs paper logs and no ELD/Dash Cam serial is required.
+ * When exempt, the operator runs paper logs and no ELD/Dash Camera serial is required.
  */
 
 export interface EquipmentStatusLike {
@@ -36,7 +36,7 @@ export function isEquipmentInstallComplete(s: EquipmentStatusLike): boolean {
 
 /**
  * Full Stage 5 completion — install + all assigned device numbers populated.
- * When eld_exempt is true, ELD serial and Dash Cam are not required.
+ * When eld_exempt is true, ELD serial and Dash Camera are not required.
  */
 export function isEquipmentFullyComplete(s: EquipmentStatusLike): boolean {
   if (!isEquipmentInstallComplete(s)) return false;

@@ -4,7 +4,7 @@ export type ExportScope = 'eld' | 'dash_cam' | 'eld_dash_cam' | 'fuel_card' | 'd
 
 const TYPE_LABEL: Record<DeviceType, string> = {
   eld: 'ELD',
-  dash_cam: 'Dash Cam',
+  dash_cam: 'Dash Camera',
   bestpass: 'BestPass',
   fuel_card: 'Fuel Card',
 };
@@ -18,8 +18,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 export const SCOPE_LABEL: Record<ExportScope, string> = {
   eld: 'ELDs',
-  dash_cam: 'Dash Cams',
-  eld_dash_cam: 'ELDs + Dash Cams',
+  dash_cam: 'Dash Cameras',
+  eld_dash_cam: 'ELDs + Dash Cameras',
   fuel_card: 'Fuel Cards',
   drivers_equipment: 'Drivers + Equipment',
 };
@@ -198,7 +198,7 @@ export function buildDriverEquipmentRows(
         cam_status: cam ? (STATUS_LABEL[cam.status] ?? cam.status) : '',
         assignment_state: !eld && !cam
           ? 'Unassigned'
-          : (!eld ? 'No ELD' : (!cam ? 'No Dash Cam' : 'Assigned')),
+          : (!eld ? 'No ELD' : (!cam ? 'No Dash Camera' : 'Assigned')),
       };
     })
     .sort((a, b) => a.driver.localeCompare(b.driver));
@@ -227,8 +227,8 @@ const DRIVER_HEADERS: Array<[keyof DriverEquipmentRow, string]> = [
   ['assignment_state', 'Assignment'],
   ['eld_serial', 'ELD Serial'],
   ['eld_status', 'ELD Status'],
-  ['cam_serial', 'Dash Cam Serial'],
-  ['cam_status', 'Dash Cam Status'],
+  ['cam_serial', 'Dash Camera Serial'],
+  ['cam_status', 'Dash Camera Status'],
 ];
 
 const UNASSIGNED_HEADERS: Array<[keyof ExportRow, string]> = [
@@ -249,7 +249,7 @@ export function downloadDriverEquipmentCsv(report: DriverEquipmentReport) {
     lines.push(DRIVER_HEADERS.map(([k]) => csvCell(r[k] ?? '')).join(','));
   }
   lines.push('');
-  lines.push('Unassigned ELDs & Dash Cams');
+  lines.push('Unassigned ELDs & Dash Cameras');
   lines.push(UNASSIGNED_HEADERS.map(([, l]) => csvCell(l)).join(','));
   for (const r of report.unassigned) {
     lines.push(UNASSIGNED_HEADERS.map(([k]) => csvCell(r[k] ?? '')).join(','));
@@ -286,8 +286,8 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
           <th style="width:12%">Assignment</th>
           <th style="width:16%">ELD Serial</th>
           <th style="width:16%">ELD Status</th>
-          <th style="width:16%">Dash Cam Serial</th>
-          <th style="width:16%">Dash Cam Status</th>
+          <th style="width:16%">Dash Camera Serial</th>
+          <th style="width:16%">Dash Camera Status</th>
         </tr>
       </thead>
       <tbody>
@@ -308,10 +308,10 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
   `;
 
   const unassignedSection = report.unassigned.length === 0 ? `
-    <h2>Unassigned ELDs &amp; Dash Cams <span class="count">(0)</span></h2>
-    <p class="empty">All ELDs and Dash Cams are currently assigned.</p>
+    <h2>Unassigned ELDs &amp; Dash Cameras <span class="count">(0)</span></h2>
+    <p class="empty">All ELDs and Dash Cameras are currently assigned.</p>
   ` : `
-    <h2>Unassigned ELDs &amp; Dash Cams <span class="count">(${report.unassigned.length})</span></h2>
+    <h2>Unassigned ELDs &amp; Dash Cameras <span class="count">(${report.unassigned.length})</span></h2>
     <table>
       <thead>
         <tr>
@@ -379,7 +379,7 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
   <div class="spacer"></div>
   <div class="brand">SUPERTRANSPORT</div>
   <h1>${esc(title)}</h1>
-  <div class="meta">Generated ${esc(generated)} · ${driverCount} active driver${driverCount === 1 ? '' : 's'} · ${eldAssigned} ELD${eldAssigned === 1 ? '' : 's'} assigned · ${camAssigned} Dash Cam${camAssigned === 1 ? '' : 's'} assigned</div>
+  <div class="meta">Generated ${esc(generated)} · ${driverCount} active driver${driverCount === 1 ? '' : 's'} · ${eldAssigned} ELD${eldAssigned === 1 ? '' : 's'} assigned · ${camAssigned} Dash Camera${camAssigned === 1 ? '' : 's'} assigned</div>
   ${driverTable}
   ${unassignedSection}
   <script>

@@ -419,7 +419,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
               <Input id="add-eld" value={form.eld_serial_number} onChange={e => set('eld_serial_number', e.target.value)} placeholder="ELD serial" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="add-dashcam">Dash Cam #</Label>
+              <Label htmlFor="add-dashcam">Dash Camera #</Label>
               <Input id="add-dashcam" value={form.dash_cam_number} onChange={e => set('dash_cam_number', e.target.value)} placeholder="Dash cam #" />
             </div>
           </div>

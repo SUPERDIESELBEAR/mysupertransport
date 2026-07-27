@@ -886,7 +886,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           { label: 'Exception Status', value: 'Approved — En Route to Shop', status: 'in_progress' as StageStatus },
         ] : []),
         ...(!(onboardingStatus as any).eld_exempt && onboardingStatus.eld_serial_number ? [{ label: 'ELD Serial #', value: onboardingStatus.eld_serial_number as string, status: 'complete' as StageStatus }] : []),
-        ...(!(onboardingStatus as any).eld_exempt && onboardingStatus.dash_cam_number ? [{ label: 'Dash Cam #', value: onboardingStatus.dash_cam_number as string, status: 'complete' as StageStatus }] : []),
+        ...(!(onboardingStatus as any).eld_exempt && onboardingStatus.dash_cam_number ? [{ label: 'Dash Camera #', value: onboardingStatus.dash_cam_number as string, status: 'complete' as StageStatus }] : []),
         ...(onboardingStatus.bestpass_number ? [{ label: 'BestPass #', value: onboardingStatus.bestpass_number as string, status: 'complete' as StageStatus }] : []),
         ...(onboardingStatus.fuel_card_number ? [{ label: 'Fuel Card #', value: onboardingStatus.fuel_card_number as string, status: 'complete' as StageStatus }] : []),
       ],
