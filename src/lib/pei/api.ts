@@ -56,14 +56,14 @@ export async function addStaffNote(requestId: string, note: string): Promise<voi
 
 export async function archiveApplicant(
   applicationId: string,
-  reason: string,
+  reason: string | null,
   archiveCategory: 'hired' | 'not_hired'
 ): Promise<void> {
   const { error } = await supabase.rpc('archive_applicant_pei', {
     _application_id: applicationId,
     _reason: reason,
     _archive_category: archiveCategory,
-  });
+  } as any);
   if (error) throw error;
 }
 

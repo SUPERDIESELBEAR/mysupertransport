@@ -44,21 +44,24 @@ interface BulkArchiveProps {
 export function BulkArchiveDialog({ open, applicationIds, onClose, onDone }: BulkArchiveProps) {
   const [choice, setChoice] = useState<string>(REASONS[0]);
   const [other, setOther] = useState('');
-  const [category, setCategory] = useState<PEIArchiveCategory>('not_hired');
+  const [category, setCategory] = useState<PEIArchiveCategory>('hired');
   const [saving, setSaving] = useState(false);
   const isOther = choice === 'Other';
   const count = applicationIds.length;
 
   async function handleArchive() {
-    const parsed = reasonSchema.safeParse(isOther ? other : choice);
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0].message);
-      return;
+    const reason = category === 'not_hired' ? (isOther ? other : choice) : null;
+    if (reason !== null) {
+      const parsed = reasonSchema.safeParse(reason);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0].message);
+        return;
+      }
     }
     setSaving(true);
     try {
       const result = await runBulk(applicationIds, (id) =>
-        archiveApplicant(id, parsed.data, category)
+        archiveApplicant(id, reason, category)
       );
       reportBulk(result, `archived as ${ARCHIVE_CATEGORY_LABEL[category]}`);
       onDone();
@@ -86,36 +89,38 @@ export function BulkArchiveDialog({ open, applicationIds, onClose, onDone }: Bul
             <Label>Archive category <span className="text-destructive">*</span></Label>
             <RadioGroup value={category} onValueChange={(v) => setCategory(v as PEIArchiveCategory)} className="space-y-2">
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="not_hired" id="bulk-archive-not-hired" />
-                <Label htmlFor="bulk-archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
-              </div>
-              <div className="flex items-center gap-2">
                 <RadioGroupItem value="hired" id="bulk-archive-hired" />
                 <Label htmlFor="bulk-archive-hired" className="font-normal cursor-pointer">Hired</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="not_hired" id="bulk-archive-not-hired" />
+                <Label htmlFor="bulk-archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
               </div>
             </RadioGroup>
           </div>
 
-          <div className="space-y-3">
-            <Label>Reason <span className="text-destructive">*</span></Label>
-            <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
-              {[...REASONS, 'Other'].map((r) => (
-                <div key={r} className="flex items-center gap-2">
-                  <RadioGroupItem value={r} id={`bulk-archive-${r}`} />
-                  <Label htmlFor={`bulk-archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-            {isOther && (
-              <Textarea
-                value={other}
-                maxLength={500}
-                rows={3}
-                placeholder="Describe the reason"
-                onChange={(e) => setOther(e.target.value)}
-              />
-            )}
-          </div>
+          {category === 'not_hired' && (
+            <div className="space-y-3">
+              <Label>Reason <span className="text-destructive">*</span></Label>
+              <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
+                {[...REASONS, 'Other'].map((r) => (
+                  <div key={r} className="flex items-center gap-2">
+                    <RadioGroupItem value={r} id={`bulk-archive-${r}`} />
+                    <Label htmlFor={`bulk-archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              {isOther && (
+                <Textarea
+                  value={other}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Describe the reason"
+                  onChange={(e) => setOther(e.target.value)}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

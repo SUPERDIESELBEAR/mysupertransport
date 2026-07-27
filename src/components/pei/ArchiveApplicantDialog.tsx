@@ -36,21 +36,23 @@ export function ArchiveApplicantDialog({
 }: Props) {
   const [choice, setChoice] = useState<string>(REASONS[0]);
   const [other, setOther] = useState('');
-  const [category, setCategory] = useState<PEIArchiveCategory>('not_hired');
+  const [category, setCategory] = useState<PEIArchiveCategory>('hired');
   const [saving, setSaving] = useState(false);
 
   const isOther = choice === 'Other';
 
   async function handleArchive() {
-    const reason = isOther ? other : choice;
-    const parsed = reasonSchema.safeParse(reason);
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0].message);
-      return;
+    const reason = category === 'not_hired' ? (isOther ? other : choice) : null;
+    if (reason !== null) {
+      const parsed = reasonSchema.safeParse(reason);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0].message);
+        return;
+      }
     }
     setSaving(true);
     try {
-      await archiveApplicant(applicationId, parsed.data, category);
+      await archiveApplicant(applicationId, reason, category);
       toast.success(`${applicantName} archived — ${ARCHIVE_CATEGORY_LABEL[category]} — automated follow-ups stopped`);
       onDone();
     } catch (e: any) {
@@ -79,36 +81,38 @@ export function ArchiveApplicantDialog({
             <Label>Archive category <span className="text-destructive">*</span></Label>
             <RadioGroup value={category} onValueChange={(v) => setCategory(v as PEIArchiveCategory)} className="space-y-2">
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="not_hired" id="archive-not-hired" />
-                <Label htmlFor="archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
-              </div>
-              <div className="flex items-center gap-2">
                 <RadioGroupItem value="hired" id="archive-hired" />
                 <Label htmlFor="archive-hired" className="font-normal cursor-pointer">Hired</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="not_hired" id="archive-not-hired" />
+                <Label htmlFor="archive-not-hired" className="font-normal cursor-pointer">Not Hired</Label>
               </div>
             </RadioGroup>
           </div>
 
-          <div className="space-y-3">
-            <Label>Reason <span className="text-destructive">*</span></Label>
-            <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
-              {[...REASONS, 'Other'].map((r) => (
-                <div key={r} className="flex items-center gap-2">
-                  <RadioGroupItem value={r} id={`archive-${r}`} />
-                  <Label htmlFor={`archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-            {isOther && (
-              <Textarea
-                value={other}
-                maxLength={500}
-                rows={3}
-                placeholder="Describe the reason"
-                onChange={(e) => setOther(e.target.value)}
-              />
-            )}
-          </div>
+          {category === 'not_hired' && (
+            <div className="space-y-3">
+              <Label>Reason <span className="text-destructive">*</span></Label>
+              <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
+                {[...REASONS, 'Other'].map((r) => (
+                  <div key={r} className="flex items-center gap-2">
+                    <RadioGroupItem value={r} id={`archive-${r}`} />
+                    <Label htmlFor={`archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              {isOther && (
+                <Textarea
+                  value={other}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Describe the reason"
+                  onChange={(e) => setOther(e.target.value)}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
