@@ -591,7 +591,12 @@ export default function ResourceLibraryManager() {
                 {r.file_url && (
                   <>
                     <button
-                      onClick={() => { setPreviewUrl(r.file_url); setPreviewTitle(r.title); }}
+                      onClick={async () => {
+                        const signed = await resolveResourceUrl(r.file_url);
+                        if (!signed) { toast.error('Could not open this file.'); return; }
+                        setPreviewUrl(signed);
+                        setPreviewTitle(r.title);
+                      }}
                       title="Preview file"
                       className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                     >
