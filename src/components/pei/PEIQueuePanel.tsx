@@ -523,10 +523,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
               const isEmpty = groups.length === 0;
               if (isEmpty && !section.showWhenEmpty) return null;
               const sectionOpen = openSections.has(section.key);
+              const sectionIds = groups.map((g) => g.applicationId);
+              const allSelected = sectionIds.length > 0 && sectionIds.every((id) => selected.has(id));
               return (
                 <Collapsible key={section.key} open={sectionOpen} onOpenChange={() => toggleSection(section.key)}>
-                  <CollapsibleTrigger asChild>
-                    <button className={`w-full flex items-center gap-2 px-4 py-3.5 text-left bg-muted/40 hover:bg-muted/60 transition-colors ${section.stripe}`}>
+                  <div className={`flex items-center bg-muted/40 ${section.stripe}`}>
+                    {isManagement && sectionIds.length > 0 && (
+                      <div className="pl-4">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(c) => setSectionSelected(sectionIds, c === true)}
+                          aria-label={`Select all in ${section.label}`}
+                        />
+                      </div>
+                    )}
+                    <CollapsibleTrigger asChild>
+                    <button className="flex-1 flex items-center gap-2 px-4 py-3.5 text-left hover:bg-muted/60 transition-colors">
                       {sectionOpen ? (
                         <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
                       ) : (
@@ -541,7 +553,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                       </Badge>
                       <span className="text-xs text-muted-foreground hidden sm:inline">{section.hint}</span>
                     </button>
-                  </CollapsibleTrigger>
+                    </CollapsibleTrigger>
+                  </div>
                   <CollapsibleContent>
                     <div className="divide-y divide-border">
                       {isEmpty && section.showWhenEmpty ? (
