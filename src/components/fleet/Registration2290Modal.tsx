@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -139,7 +140,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
         }
         const { error: updErr } = await supabase
           .from('inspection_documents')
-          .update(payload)
+          .update(updatePayload('inspection_documents', payload))
           .eq('id', existing.id);
         if (updErr) throw updErr;
       } else {
