@@ -51,6 +51,7 @@ export function buildPEICsv(rows: PEIQueueRow[]): string {
         fmt(r.date_gfe_created),
         r.gfe_reason ? GFE_REASON_LABEL[r.gfe_reason] : '',
         r.pei_archived_at ? 'Yes' : 'No',
+        r.pei_archive_category ? r.pei_archive_category.replace('_', ' ') : '',
         r.pei_archive_reason ?? '',
       ]
         .map(cell)
