@@ -185,6 +185,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         archivedAt: groupRows[0].pei_archived_at,
         archiveReason: groupRows[0].pei_archive_reason,
         archivedByName: groupRows[0].pei_archived_by_name,
+        archiveCategory: groupRows[0].pei_archive_category,
         fullName:
           [groupRows[0].applicant_first_name, groupRows[0].applicant_last_name].filter(Boolean).join(' ') || '—',
       }))
