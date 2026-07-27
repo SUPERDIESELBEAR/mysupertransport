@@ -99,26 +99,28 @@ export function BulkArchiveDialog({ open, applicationIds, onClose, onDone }: Bul
             </RadioGroup>
           </div>
 
-          <div className="space-y-3">
-            <Label>Reason <span className="text-destructive">*</span></Label>
-            <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
-              {[...REASONS, 'Other'].map((r) => (
-                <div key={r} className="flex items-center gap-2">
-                  <RadioGroupItem value={r} id={`bulk-archive-${r}`} />
-                  <Label htmlFor={`bulk-archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-            {isOther && (
-              <Textarea
-                value={other}
-                maxLength={500}
-                rows={3}
-                placeholder="Describe the reason"
-                onChange={(e) => setOther(e.target.value)}
-              />
-            )}
-          </div>
+          {category === 'not_hired' && (
+            <div className="space-y-3">
+              <Label>Reason <span className="text-destructive">*</span></Label>
+              <RadioGroup value={choice} onValueChange={setChoice} className="space-y-2">
+                {[...REASONS, 'Other'].map((r) => (
+                  <div key={r} className="flex items-center gap-2">
+                    <RadioGroupItem value={r} id={`bulk-archive-${r}`} />
+                    <Label htmlFor={`bulk-archive-${r}`} className="font-normal cursor-pointer">{r}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              {isOther && (
+                <Textarea
+                  value={other}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Describe the reason"
+                  onChange={(e) => setOther(e.target.value)}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
