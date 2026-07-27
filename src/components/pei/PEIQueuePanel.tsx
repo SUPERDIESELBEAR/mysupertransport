@@ -150,8 +150,10 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       const parsed = new Date(d);
       return parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear();
     }).length;
-    return { applicants, awaiting, overdue, completedThisMonth };
-  }, [activeRows]);
+    const archivedHired = rows.filter((r) => r.pei_archive_category === 'hired').length;
+    const archivedNotHired = rows.filter((r) => r.pei_archive_category === 'not_hired').length;
+    return { applicants, awaiting, overdue, completedThisMonth, archivedHired, archivedNotHired };
+  }, [activeRows, rows]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
