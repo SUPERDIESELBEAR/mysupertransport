@@ -251,7 +251,6 @@ export function DeactivationWizardContent({
   useEffect(() => {
     setCurrentStep('reason');
     setDeactivationDate(new Date().toISOString().slice(0, 10));
-    setTerminationDate(new Date().toISOString().slice(0, 10));
     setEffectiveTerminationDate(new Date().toISOString().slice(0, 10));
     setSafetySent(false);
     setTerminationCreated(false);
@@ -267,8 +266,8 @@ export function DeactivationWizardContent({
     }
     setDeactivationReason('');
     setDeactivationNotes('');
-    setSafetyReason('');
     setSafetyNotes('');
+    setSafetyNotesTouched(false);
     setLeaseNotes('');
     setLeaseReason('voluntary');
     fetchAllData();
@@ -331,14 +330,14 @@ export function DeactivationWizardContent({
   };
 
   const handleSendSafetyNotice = async () => {
-    if (!terminationDate || !safetyReason || !rehire) return;
+    if (!deactivationDate || !deactivationReason || !rehire) return;
     setSaving(true);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('send-deactivation-notice', {
         body: {
           operator_id: operatorId,
-          termination_date: terminationDate,
-          reason: safetyReason,
+          termination_date: deactivationDate,
+          reason: deactivationReason,
           rehire,
           notes: safetyNotes.trim(),
           to_emails: toEmails,
