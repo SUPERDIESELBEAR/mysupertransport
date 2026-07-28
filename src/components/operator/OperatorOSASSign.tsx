@@ -8,13 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Loader2, Pen, CheckCircle2, ArrowLeft, HardDrive, Cpu, Camera, Gauge, AlertTriangle,
+  RectangleHorizontal, FileText,
 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 import AssignmentSheetTerms, { ASSIGNMENT_SHEET_ACK_TEXT } from '@/components/equipment/AssignmentSheetTerms';
 
-type DeviceType = 'eld' | 'dash_cam' | 'bestpass';
+type DeviceType = 'eld' | 'dash_cam' | 'license_plate' | 'registration' | 'bestpass';
 
 type Sheet = {
   id: string;
@@ -43,12 +44,16 @@ type Item = {
 const DEVICE_LABEL: Record<DeviceType, string> = {
   eld: 'ELD Unit',
   dash_cam: 'Dash Camera',
+  license_plate: 'License Plate',
+  registration: 'Truck Registration',
   bestpass: 'BestPass Transponder',
 };
 
 const DEVICE_ICON: Record<DeviceType, React.ReactNode> = {
   eld: <Cpu className="h-4 w-4 text-primary" />,
   dash_cam: <Camera className="h-4 w-4 text-primary" />,
+  license_plate: <RectangleHorizontal className="h-4 w-4 text-primary" />,
+  registration: <FileText className="h-4 w-4 text-primary" />,
   bestpass: <Gauge className="h-4 w-4 text-primary" />,
 };
 

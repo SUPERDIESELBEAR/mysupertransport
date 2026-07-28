@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DateInput } from '@/components/ui/date-input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Send, Save, Cpu, Camera, Gauge, AlertTriangle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Send, Save, Cpu, Camera, Gauge, AlertTriangle, RectangleHorizontal, FileText } from 'lucide-react';
 import DriverCombobox from '@/components/inspection/DriverCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
@@ -15,6 +16,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 
 type OsasDeviceType = 'eld' | 'dash_cam' | 'bestpass';
+type InventoryDeviceType = OsasDeviceType;
 type OsasStatus = Database['public']['Enums']['osas_status'];
 type EquipmentItem = Database['public']['Tables']['equipment_items']['Row'];
 
@@ -57,6 +59,12 @@ const DEVICE_ICONS: Record<OsasDeviceType, React.ReactNode> = {
   bestpass: <Gauge className="h-4 w-4" />,
 };
 
+interface PlateAssignment {
+  id: string;
+  plateNumber: string;
+  unitNumber: string | null;
+}
+
 const BESTPASS_FEE_CENTS = 6000;
 
 export default function CreateSignOffSheetModal({ open, initialOperatorId, onClose, onSaved }: Props) {
@@ -77,6 +85,11 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
     bestpass: { equipmentId: null, serial: null },
   });
   const [includeBestPass, setIncludeBestPass] = useState(false);
+  const [plateAssignment, setPlateAssignment] = useState<PlateAssignment | null>(null);
+  const [plateLoading, setPlateLoading] = useState(false);
+  const [includePlate, setIncludePlate] = useState(false);
+  const [includeRegistration, setIncludeRegistration] = useState(false);
+  const [registrationNote, setRegistrationNote] = useState('');
 
   const selectedOperator = useMemo(() => operators.find(o => o.operatorId === selectedOperatorId), [operators, selectedOperatorId]);
 
@@ -106,10 +119,37 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         bestpass: { equipmentId: null, serial: null },
       });
       setIncludeBestPass(false);
+      setIncludePlate(false);
+      setIncludeRegistration(false);
+      setRegistrationNote('');
+      setPlateAssignment(null);
       setSaving(false);
       setSending(false);
     }
   }, [open, initialOperatorId]);
+
+  // Pull the driver's currently open MO Plate Registry assignment.
+  useEffect(() => {
+    if (!open || !selectedOperatorId) { setPlateAssignment(null); setIncludePlate(false); return; }
+    let cancelled = false;
+    setPlateLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from('mo_plate_assignments')
+        .select('id, unit_number, mo_plates(plate_number)')
+        .eq('operator_id', selectedOperatorId)
+        .is('returned_at', null)
+        .order('assigned_at', { ascending: false })
+        .limit(1);
+      if (cancelled) return;
+      const row: any = (data ?? [])[0];
+      const plateNumber = row?.mo_plates?.plate_number ?? null;
+      setPlateAssignment(row && plateNumber ? { id: row.id, plateNumber, unitNumber: row.unit_number ?? null } : null);
+      setIncludePlate(false);
+      setPlateLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, selectedOperatorId]);
 
   const fetchOperators = async () => {
     const { data, error } = await supabase
@@ -170,11 +210,11 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
     setInventory((data ?? []) as EquipmentItem[]);
   };
 
-  const availableDevices = (type: OsasDeviceType) => {
+  const availableDevices = (type: InventoryDeviceType) => {
     return inventory.filter(i => i.device_type === type && i.status === 'available');
   };
 
-  const updateDevice = (type: OsasDeviceType, equipmentId: string | null) => {
+  const updateDevice = (type: InventoryDeviceType, equipmentId: string | null) => {
     const serial = equipmentId ? inventory.find(i => i.id === equipmentId)?.serial_number ?? null : null;
     setDevices(prev => ({ ...prev, [type]: { equipmentId, serial } }));
   };
@@ -182,17 +222,30 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
   const hasAtLeastOneDevice = useMemo(() => {
     if (devices.eld.equipmentId) return true;
     if (devices.dash_cam.equipmentId) return true;
+    if (includePlate && plateAssignment) return true;
+    if (includeRegistration) return true;
     if (includeBestPass && devices.bestpass.equipmentId) return true;
     return false;
-  }, [devices, includeBestPass]);
+  }, [devices, includeBestPass, includePlate, plateAssignment, includeRegistration]);
 
   const buildPayload = (): any => {
-    const items = [] as { deviceType: OsasDeviceType; equipmentId: string; serial: string }[];
+    const items = [] as { deviceType: string; equipmentId: string | null; serial: string; plateAssignmentId?: string }[];
     if (devices.eld.equipmentId) {
       items.push({ deviceType: 'eld', equipmentId: devices.eld.equipmentId, serial: devices.eld.serial ?? '' });
     }
     if (devices.dash_cam.equipmentId) {
       items.push({ deviceType: 'dash_cam', equipmentId: devices.dash_cam.equipmentId, serial: devices.dash_cam.serial ?? '' });
+    }
+    if (includePlate && plateAssignment) {
+      items.push({
+        deviceType: 'license_plate',
+        equipmentId: null,
+        serial: `${plateAssignment.plateNumber} (MO)`,
+        plateAssignmentId: plateAssignment.id,
+      });
+    }
+    if (includeRegistration) {
+      items.push({ deviceType: 'registration', equipmentId: null, serial: registrationNote.trim() || '—' });
     }
     if (includeBestPass && devices.bestpass.equipmentId) {
       items.push({ deviceType: 'bestpass', equipmentId: devices.bestpass.equipmentId, serial: devices.bestpass.serial ?? '' });
@@ -347,6 +400,59 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="license-plate"
+                      checked={includePlate}
+                      disabled={!plateAssignment}
+                      onCheckedChange={c => setIncludePlate(c === true)}
+                    />
+                    <Label htmlFor="license-plate" className="font-normal cursor-pointer flex items-center gap-2">
+                      <RectangleHorizontal className="h-4 w-4" />
+                      Issue License Plate
+                    </Label>
+                  </div>
+                  {plateLoading ? (
+                    <p className="text-xs text-muted-foreground pl-6">Checking MO Plate Registry…</p>
+                  ) : plateAssignment ? (
+                    <p className="text-xs text-muted-foreground pl-6">
+                      From MO Plate Registry:{' '}
+                      <span className="font-mono font-medium text-foreground">{plateAssignment.plateNumber} (MO)</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground pl-6">
+                      No active plate assignment — assign a plate in MO Plate Registry first.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="truck-registration"
+                      checked={includeRegistration}
+                      onCheckedChange={c => {
+                        setIncludeRegistration(c === true);
+                        if (c !== true) setRegistrationNote('');
+                      }}
+                    />
+                    <Label htmlFor="truck-registration" className="font-normal cursor-pointer flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Issue Truck Registration
+                    </Label>
+                  </div>
+                  {includeRegistration && (
+                    <Input
+                      className="h-9"
+                      value={registrationNote}
+                      maxLength={120}
+                      placeholder="Optional note (e.g. registration number)"
+                      onChange={e => setRegistrationNote(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 <div className="rounded-lg border border-border p-3 space-y-3">

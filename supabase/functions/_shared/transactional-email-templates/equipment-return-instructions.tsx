@@ -131,6 +131,12 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
             will remain open until at least one return receipt is on file.
           </div>
 
+          <Text style={muted}>
+            If a license plate is listed above, remove it from the truck and mail
+            it back with the other items. Your truck registration stays with the
+            truck and does not need to be returned.
+          </Text>
+
           <Section style={ctaWrap}>
             <Button href={portalUrl} style={ctaButton}>
               Open Assignment Sheet &amp; Upload Receipt
