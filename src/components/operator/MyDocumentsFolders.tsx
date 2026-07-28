@@ -143,7 +143,7 @@ export default function MyDocumentsFolders({ operatorId }: Props) {
               onToggle={() => toggle(folder.key)}
             >
               <div className="divide-y divide-border">
-                {folder.docs.map(doc => (
+                {folder.docs.map((doc, docIdx) => (
                   <div key={doc.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                     <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -162,7 +162,7 @@ export default function MyDocumentsFolders({ operatorId }: Props) {
                             variant="ghost"
                             className="h-8 w-8"
                             aria-label={`View ${doc.label}`}
-                            onClick={() => setPreviewDoc({ url: doc.file_url!, name: doc.label })}
+                            onClick={() => setPreview({ folderKey: folder.key, index: docIdx })}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
