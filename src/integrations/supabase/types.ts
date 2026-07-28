@@ -5041,6 +5041,16 @@ export type Database = {
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
+      get_staff_contact_info: {
+        Args: { _user_ids: string[] }
+        Returns: {
+          avatar_url: string
+          first_name: string
+          last_name: string
+          primary_role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
