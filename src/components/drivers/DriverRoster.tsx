@@ -18,6 +18,8 @@ import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useShowDemo } from '@/hooks/useShowDemo';
 import DemoAccountBadge from '@/components/DemoAccountBadge';
+import MobilePreviewQRModal from '@/components/staff/MobilePreviewQRModal';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DriverRow {
   operator_id: string;
@@ -364,6 +366,8 @@ export default function DriverRoster({
   onDriversChange,
 }: DriverRosterProps) {
   const { showDemo } = useShowDemo();
+  const { isManagement } = useAuth();
+  const [previewTarget, setPreviewTarget] = useState<{ userId: string; name: string } | null>(null);
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1055,6 +1059,17 @@ export default function DriverRoster({
                         <MessageSquare className="h-3.5 w-3.5" />
                       </Button>
                     )}
+                    {isManagement && driver.operator_user_id && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        title="Open on my phone as this driver"
+                        onClick={() => setPreviewTarget({ userId: driver.operator_user_id, name })}
+                      >
+                        <Smartphone className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -1437,6 +1452,14 @@ export default function DriverRoster({
         </div>
       )}
       <PwaReminderPreviewModal open={installPreviewOpen} onOpenChange={setInstallPreviewOpen} />
+      {previewTarget && (
+        <MobilePreviewQRModal
+          open={!!previewTarget}
+          onOpenChange={(open) => { if (!open) setPreviewTarget(null); }}
+          targetUserId={previewTarget.userId}
+          targetName={previewTarget.name}
+        />
+      )}
     </div>
   );
 }

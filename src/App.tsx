@@ -32,6 +32,8 @@ import PEIRelease from "./pages/PEIRelease";
 import ApplicationApprove from "./pages/ApplicationApprove";
 import QPassportView from "./pages/QPassportView";
 import PassengerAuthSign from "./pages/PassengerAuthSign";
+import PreviewLogin from "./pages/PreviewLogin";
+import PreviewSessionBanner from "@/components/PreviewSessionBanner";
 
 // Heavy authenticated portals — code-split out of the initial bundle
 const OperatorPortal = lazy(() => import("./pages/operator/OperatorPortal"));
@@ -138,6 +140,7 @@ function AppRoutes() {
       <Route path="/install" element={<InstallApp />} />
       <Route path="/qpassport/view" element={<QPassportView />} />
       <Route path="/passenger-auth/:token" element={<PassengerAuthSign />} />
+      <Route path="/preview-login" element={<PreviewLogin />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
@@ -233,6 +236,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <NavTraceRouterListener />
+            <PreviewSessionBanner />
             <AppRoutes />
             <IdleWarningModal />
             <TrackOperatorPresence />
