@@ -1162,12 +1162,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
     ]);
 
-    if (!opData) { setLoading(false); return; }
+    if (!rawOpData) { setLoading(false); return; }
 
     // Hide demo driver accounts unless the staff member opted in.
-    if (!showDemo) {
-      opData = (opData as any[]).filter((o: any) => o.is_demo !== true) as typeof opData;
-    }
+    const opData = showDemo
+      ? (rawOpData as any[])
+      : (rawOpData as any[]).filter((o: any) => o.is_demo !== true);
 
     const allStaffUserIds = (staffRoles ?? []).map((r: any) => r.user_id);
 
