@@ -9,14 +9,18 @@ import { buildAppUrl } from '../_shared/app-url.ts'
 
 // Supabase-managed edge function for creating / sending Onboard Systems Assignment Sheets.
 
-const DEVICE_TYPES = ['eld', 'dash_cam', 'bestpass'] as const
+const DEVICE_TYPES = ['eld', 'dash_cam', 'license_plate', 'registration', 'bestpass'] as const
 
 type OsasDeviceType = typeof DEVICE_TYPES[number]
 
+// Items that are NOT tracked in equipment_items inventory.
+const NON_INVENTORY_TYPES = new Set<string>(['license_plate', 'registration'])
+
 interface DeviceInput {
   deviceType: OsasDeviceType
-  equipmentId: string
+  equipmentId: string | null
   serial: string
+  plateAssignmentId?: string | null
 }
 
 interface CreatePayload {
@@ -85,8 +89,10 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return fail(400, 'At least one device must be assigned')
     }
 
-    // Validate items all belong to inventory and are available
-    const equipmentIds = payload.items.map(i => i.equipmentId)
+    const inventoryItems = payload.items.filter(i => !NON_INVENTORY_TYPES.has(i.deviceType) && i.equipmentId)
+
+    // Validate inventory-backed items exist and are available
+    const equipmentIds = inventoryItems.map(i => i.equipmentId as string)
     const { data: inventoryRows, error: inventoryError } = await supabase
       .from('equipment_items')
       .select('id, device_type, serial_number, status')
@@ -95,8 +101,8 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return fail(500, 'Failed to verify inventory', inventoryError.message)
     }
     const inventoryMap = new Map(inventoryRows?.map(r => [r.id, r]))
-    for (const item of payload.items) {
-      const inv = inventoryMap.get(item.equipmentId)
+    for (const item of inventoryItems) {
+      const inv = inventoryMap.get(item.equipmentId as string)
       if (!inv) {
         return fail(400, `Equipment ${item.equipmentId} not found`)
       }
@@ -152,8 +158,9 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const sheetItems = payload.items.map(item => ({
       sheet_id: sheet.id,
       device_type: item.deviceType,
-      equipment_id: item.equipmentId,
-      serial_snapshot: item.serial || inventoryMap.get(item.equipmentId)?.serial_number || '',
+      equipment_id: NON_INVENTORY_TYPES.has(item.deviceType) ? null : item.equipmentId,
+      plate_assignment_id: item.plateAssignmentId ?? null,
+      serial_snapshot: item.serial || (item.equipmentId ? inventoryMap.get(item.equipmentId)?.serial_number : '') || '',
     }))
     const { error: itemsError } = await supabase.from('onboard_assignment_sheet_items').insert(sheetItems)
     if (itemsError) {
@@ -164,7 +171,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
     // Mark equipment as assigned and create assignment records
     const now = new Date().toISOString()
-    for (const item of payload.items) {
+    for (const item of inventoryItems) {
       const { error: updateErr } = await supabase.from('equipment_items').update({ status: 'assigned' }).eq('id', item.equipmentId)
       if (updateErr) {
         console.error('Failed to update equipment status', updateErr)
