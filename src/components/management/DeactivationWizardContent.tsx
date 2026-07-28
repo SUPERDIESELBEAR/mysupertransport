@@ -329,6 +329,11 @@ export function DeactivationWizardContent({
     setInput('');
   };
 
+  // Pre-fill the Safety Advisor notes from Step 1's internal notes until staff edit them.
+  useEffect(() => {
+    if (!safetyNotesTouched) setSafetyNotes(deactivationNotes);
+  }, [deactivationNotes, safetyNotesTouched]);
+
   const handleSendSafetyNotice = async () => {
     if (!deactivationDate || !deactivationReason || !rehire) return;
     setSaving(true);
