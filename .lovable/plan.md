@@ -1,66 +1,54 @@
-# Add MS Fleet Fuel Card Instructions to the Resource Center
+## Repairs & Maintenance — Mobile Layout + View Invoice Fix
 
-The Resource Center on both the driver-facing Resources tab and the staff **Services** tab reads from the `services` / `service_resources` tables, so adding one service with two resources publishes it in both places automatically — no component changes required.
+Two changes to the driver-facing "My Truck" page (`src/components/fleet/FleetDetailDrawer.tsx`) and one targeted fix to the shared PDF preview (`src/components/inspection/DocRow.tsx`). No changes to the detail dialog that opens when a row is tapped — that stays exactly as it is.
 
-The existing hidden **Comdata Fuel Card** service is left untouched.
+### 1. Recommended layout: mobile-first cards (replaces the table on small screens)
 
-## What will change
+The current view is a 5-column table crammed into ~731px of width. Shop names wrap vertically ("Love's / Travel / Stops & / Country / Stores, / Inc."), descriptions truncate at ~200px, and the category badge column disappears off-screen. Drivers can't see what a record actually is without tapping in.
 
-**1. New service: "MS Fleet Fuel Card Instructions"**
-- `is_visible = true`, `is_new_driver_essential = true`
-- Description: "How to fuel your truck using the MS Fleet card and app."
-- `sort_order`: placed near the top of the essentials list.
+Proposed card design (one card per record):
 
-**2. Setup Guide resource** — "How to Fuel with the MS Fleet Card (Step-by-Step)"
-- `resource_type = 'Setup Guide'`, `is_start_here = true`, `estimated_minutes = 3`
-- Body (markdown, rendered by existing `ResourceViewer`):
+```text
+┌──────────────────────────────────────────────┐
+│ 7/12/26 · Tires                    $1,563.31 │  ← date · category chip, amount right
+│ Love's Travel Stop #0360                     │  ← shop, single line, truncates w/ ellipsis
+│ Roadside service for the replacement of      │  ← description, 2-line clamp
+│ three blown or damaged trailer tires…        │
+│                                              │
+│ [ 👁 View invoice ]                          │  ← only shown if invoice exists
+└──────────────────────────────────────────────┘
+```
 
-> **Before you start**
-> Every MS Fleet transaction needs a fresh 6-digit one-time PIN from the MS Fleet app. The PIN is only good for **4 minutes**, so generate it at the counter — not out in the truck.
->
-> **Step-by-step**
-> 1. **Go inside** to the fuel desk. Do **not** use the pump keypad.
-> 2. Have two things ready: your **phone open to the MS Fleet app**, and your **MS Fleet card** in your other hand.
-> 3. Hand the card to the cashier when they're ready. They'll swipe it.
-> 4. The cashier will ask for your **"Driver ID."** That's the **one-time PIN** from the app.
-> 5. In the MS Fleet app, tap the **lock icon** at the bottom of the screen.
-> 6. A **6-digit PIN** appears. Read it to the cashier right away (it expires in 4 minutes).
-> 7. If asked, give your **truck number**.
-> 8. The cashier may ask for other info to fill their screen — you don't need to track it.
-> 9. **Watch the pump.** Confirm it turns on after the card is authorized *before* you start pumping. If the card wasn't accepted and you pump anyway, you could be stuck paying out of pocket for a full tank.
+- Whole card is tappable → opens the existing Maintenance Record dialog (unchanged).
+- Description gets 2 lines of room (`line-clamp-2`) instead of one truncated line.
+- Category chip moves to the top row so it's always visible.
+- Amount is right-aligned and prominent.
+- "View invoice" button lives inside the card with `e.stopPropagation()` so it doesn't also open the detail.
+- Search + category filter stay above the list, unchanged.
+- On `sm:` and up, keep the current table (staff/desktop use). The card view applies to mobile only (`sm:hidden` for cards, `hidden sm:block` for the table).
 
-**3. FAQ resource** — "MS Fleet Card — Quick Answers"
-- `resource_type = 'FAQ'`, `is_start_here = false`, `estimated_minutes = 2`
-- Body:
+### 2. Fix "View Invoice" broken link on mobile
 
-> **Do I need a new PIN every time?**
-> Yes. A one-time PIN is required for every MS Fleet transaction.
->
-> **How long is the PIN good for?**
-> 4 minutes. If it expires, tap the lock icon again for a new one.
->
-> **Can I use the card at the pump?**
-> No. Always go inside to the fuel desk.
->
-> **What if the cashier asks for a "Driver ID"?**
-> They mean the 6-digit one-time PIN from the MS Fleet app.
->
-> **What if the card is declined?**
-> Stop — do not pump. Contact dispatch before trying another card.
->
-> **What info do I need to give besides the PIN?**
-> Just your truck number. The cashier may ask for other fields to fill their screen; you don't need to track those.
+Root cause (verified in `src/components/inspection/DocRow.tsx` line 701): the mobile PDF fallback card's **Open PDF** button calls `window.open(blobUrl, '_blank')`. iOS Safari blocks `blob:` URLs opened in a new tab — the tab opens black/empty, which is what the screenshot shows. The link isn't actually broken; the target scheme is unsupported.
 
-## Wording notes for your review
+Fix: open the signed https URL instead of the blob URL. iOS Safari renders PDFs from https URLs natively in a new tab.
 
-- Original mixed steps with warnings; I split them so drivers can scan the numbered list at the counter and keep the "watch the pump" caution as its own high-visibility step (#9).
-- Renamed the "Driver ID" moment to explicitly tie it to the one-time PIN, since that's the single most common point of confusion.
-- Removed "you may find out after pumping $600 of fuel" (kept the substance, dropped the dollar figure so it doesn't age).
-- Moved the "PIN needed every time" line to the top as a **Before you start** callout, since drivers who miss it are the ones who get stuck.
+```tsx
+// before
+onClick={() => window.open(blobUrl, '_blank')}
+// after
+onClick={() => window.open(resolvedUrl, '_blank', 'noopener,noreferrer')}
+```
 
-Happy to adjust tone, add photos/screenshots later, or wire in a phone/support contact for the service card once you have one.
+`resolvedUrl` is already computed in the same component and is the signed Supabase Storage URL. Share and Save buttons keep using the blob (they need the fetched bytes) — no change there.
 
-## Technical details
+This fix benefits every PDF preview app-wide (inspection certs, registrations, invoices), not just Repairs & Maintenance.
 
-- One `INSERT` for the service, two `INSERT`s for the resources — done through the insert tool (data change, not schema).
-- No migration, no code changes, no RLS updates.
+### Files touched
+
+- `src/components/fleet/FleetDetailDrawer.tsx` — add mobile card list next to the existing table in the Repairs & Maintenance section (~lines 679–742). No data or state changes.
+- `src/components/inspection/DocRow.tsx` — one-line change to the mobile PDF fallback "Open PDF" button (~line 701).
+
+### Out of scope
+
+- Comdata / MS Fleet resources, other sections of the page, staff drawer behavior, and the maintenance detail dialog remain untouched.
