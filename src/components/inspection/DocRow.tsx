@@ -698,7 +698,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               </div>
               <div className="space-y-2">
                 <button
-                  onClick={() => window.open(blobUrl, '_blank')}
+                  onClick={() => window.open(resolvedUrl, '_blank', 'noopener,noreferrer')}
                   className="w-full flex items-center justify-center gap-2 bg-gold text-white font-semibold text-sm py-3 rounded-xl hover:bg-gold-light transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" /> Open PDF
