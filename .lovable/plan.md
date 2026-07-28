@@ -1,19 +1,18 @@
-## Add Delete for Angle Photos (Driver App)
+## Carousel Navigation in My Documents Folders
 
-In the driver-facing decal upload UI, the "Angle" photos below Driver/Passenger Side currently have no way to remove them. Add a delete control per angle so drivers can remove any uploaded angle photo.
+In the driver's My Documents view, tapping a file's eye icon opens `FilePreviewModal` for that single file. Add prev/next navigation so drivers can flip through every file in the same folder (e.g. all 10 Truck Photos) without closing the modal.
 
-### Changes
-- **File:** `src/components/operator/OperatorDocumentUpload.tsx`
-  - Add a `handleDeleteDecalExtra(idx)` handler:
-    - Optimistically remove the entry from local `decalExtras` state.
-    - Persist by updating `onboarding_status.decal_photos` to the new array (same pattern as the add handler).
-    - On failure, restore state and show an error toast; on success, show "Angle removed" toast.
-  - In the angles grid (around line 969–977), render each tile with:
-    - The existing image preview (still opens in modal via `PreviewLink`).
-    - A small trash icon button in the top-right corner of the tile (semi-transparent black bg, white icon) that stops event propagation and opens a lightweight confirm (using `window.confirm` or existing `AlertDialog` if used elsewhere) before calling the delete handler.
-    - Keep the label caption below.
-  - No changes to storage: leave the underlying storage object in place (matches the existing pattern for the DS/PS Replace flow and the staff `StaffDecalPhotoEditor`, which also only removes the DB reference).
+### Change
+**File:** `src/components/operator/MyDocumentsFolders.tsx`
+
+- Replace the single-doc `previewDoc` state with `{ folderKey, index }` state.
+- On eye-icon click, set the folder key and the index of that doc within its folder's `docs` array.
+- Compute the active folder and active doc from state; pass to `FilePreviewModal`:
+  - `url`, `name`, `filePath` from the active doc
+  - `onPrev` / `onNext` that step the index (bounded), reusing the same modal
+  - `counter` = `"{i} of {n}"` when the folder has more than one doc
+- `FilePreviewModal` already handles image swipes and prev/next arrows (used by `TruckPhotoViewerModal`), so no changes needed there.
 
 ### Out of scope
-- Deleting Driver Side / Passenger Side photos (those already have Replace; user asked specifically about angle photos).
-- Storage garbage collection.
+- No layout changes to folder tiles or list rows.
+- Signed Assignment Sheets and Equipment Return folders keep their existing embedded viewers.
