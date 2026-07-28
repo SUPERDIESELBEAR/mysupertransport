@@ -517,18 +517,17 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black" onClick={onClose}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={(e) => { e.stopPropagation(); onClose(); }}
             className="h-8 px-2 flex items-center gap-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors shrink-0"
             title="Back"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-xs font-medium">Back</span>
+            <span className="hidden sm:inline text-xs font-medium">Back</span>
           </button>
-          <FileText className="h-4 w-4 text-gold shrink-0" />
-          <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[40vw]">{name}</span>
+          <span className="text-sm font-semibold text-surface-dark-foreground truncate min-w-0 flex-1">{name}</span>
           {counter && (
             <span className="text-[11px] font-medium text-muted-foreground shrink-0 ml-1">{counter}</span>
           )}
@@ -553,9 +552,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          {/* Zoom controls — hide on mobile PDF fallback */}
-          {!showMobilePdfFallback && (
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          {/* Zoom controls — hide on mobile (pinch-zoom is native) and on the mobile PDF fallback */}
+          {!showMobilePdfFallback && !isMobile && (
             <>
               <button
                 onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.max(0, i - 1)); }}
@@ -633,16 +632,18 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           >
             <Download className="h-4 w-4" />
           </button>
-          <a
-            href={resolvedUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-            onClick={e => e.stopPropagation()}
-            title="Open in new tab"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </a>
+          {!isMobile && (
+            <a
+              href={resolvedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+              onClick={e => e.stopPropagation()}
+              title="Open in new tab"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
           <button
             onClick={onClose}
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
