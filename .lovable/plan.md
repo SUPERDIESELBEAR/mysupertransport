@@ -1,35 +1,39 @@
-## Problems
+Current state
+- The `public.services` table stores support contact fields: `support_phone`, `support_email`, `support_chat_url`, `support_hours`, and `known_issues_notes`.
+- The service "MS Fleet Fuel Card Instructions" has id `3ce86eaa-357b-46ce-8d46-bd383fb72945` and currently has support contact data.
+- The management resource center uses `ServiceFormModal.tsx` to edit services, which renders a "Support Contact" section (Phone, Email, Live Chat URL, Support Hours) plus a separate "Tips & Known Issues" textarea.
+- The driver-facing service detail page (`ServiceDetailPage.tsx`) renders a support contact card whenever any of those fields are non-null.
 
-1. **Driver can't reply** — `OperatorMessagesView` sets its own fixed height `calc(100vh - 180px)`, but it's rendered *inside* `OperatorMessagesHub` which already uses that same height minus a tab header (~50px). The nested view overflows the viewport, pushing the `MessageComposer` below the fold. On mobile there's also the bottom nav bar eating additional space, so the composer is never visible.
+Goal
+Delete the support contact portion for the MS Fleet Fuel Card Instructions service only.
 
-2. **Staff name shows as "Staff Member"** — The `profiles` table RLS only lets staff view all profiles and lets users view their own. Drivers have **no SELECT policy** for staff profiles, so `first_name`/`last_name` come back null and the code falls back to the literal string `'Staff Member'` (line 120 of `OperatorMessagesView.tsx`).
+Plan
+1. Database cleanup
+   - Write a small migration that nullifies the support contact fields for the single service row:
+     ```sql
+     UPDATE public.services
+     SET support_phone = NULL,
+         support_email = NULL,
+         support_chat_url = NULL,
+         support_hours = NULL,
+         known_issues_notes = NULL
+     WHERE id = '3ce86eaa-357b-46ce-8d46-bd383fb72945';
+     ```
+   - This removes the stored data and automatically hides the support contact card on the driver detail page (which only renders when fields are non-null).
 
-3. **Subtitle is hardcoded** — Line 314 passes `otherSubtitle="Onboarding Coordinator"` for every staff member regardless of their actual role (`owner`, `management`, `dispatcher`, `onboarding_staff`, etc.).
+2. Hide the form section in the management UI
+   - In `src/components/service-library/ServiceFormModal.tsx`, add a guard so the "Support Contact" block is not rendered when the service being edited has id `3ce86eaa-357b-46ce-8d46-bd383fb72945`.
+   - Keep the form state/payload as-is; when the fields are hidden, empty values will save as `NULL`, which is consistent with the migration.
+   - Leave the "Tips & Known Issues" section visible unless you want it removed too (it is not strictly support contact).
 
-## Fix
+3. Verification
+   - Open the management resource center, edit the MS Fleet Fuel Card Instructions service, and confirm the Support Contact fields are gone.
+   - Open the driver service detail page for MS Fleet Fuel Card Instructions and confirm no support contact card appears.
 
-### 1. Composer visibility (frontend only)
-- In `src/components/operator/OperatorMessagesView.tsx`, remove the outer wrapper's fixed `calc(100vh - 180px)` height and its border/rounding. Let it be `h-full flex flex-col` and inherit height from its parent (`OperatorMessagesHub` already provides the fixed height + tab layout).
-- Result: the tab content correctly bounds the messages panel, `flex-1 overflow-y-auto` for the message list works, and `MessageComposer` (`shrink-0`) stays pinned at the bottom above the mobile nav.
+Technical details
+- One new Supabase migration.
+- One small conditional in `ServiceFormModal.tsx` (no new state or props needed).
+- No changes to `ServiceDetailPage.tsx` required because it already hides the card when the fields are null.
 
-### 2. Show real staff name + role
-- Add a security-definer RPC `public.get_staff_contact_info(_user_ids uuid[])` returning `{ user_id, first_name, last_name, avatar_url, primary_role }` for the given IDs, but only for users that actually have a staff role (`is_staff(user_id)` check inside the function). Safe because it only exposes name/avatar/role — nothing sensitive — and only for staff members the driver has messaged.
-- Grant EXECUTE to `authenticated`.
-- Replace the direct `profiles` query in `loadStaff` with `supabase.rpc('get_staff_contact_info', { _user_ids: staffUserIds })`.
-- Extend the `StaffMember` / `Thread` types to include `role: string | null`, map `primary_role` to a human label:
-  - `owner` → "Owner"
-  - `management` → "Management"
-  - `onboarding_staff` → "Onboarding Coordinator"
-  - `dispatcher` → "Dispatcher"
-  - `safety` → "Safety Advisor" (if present)
-  - fallback → "SUPERTRANSPORT Staff"
-- Pass that computed label as `otherSubtitle` to `<MessageThread />` instead of the hardcoded string.
-
-### 3. Verify
-- Reload driver Messages → Direct tab: staff row shows real name (e.g., "Emma Mueller") and correct role subtitle, and the reply composer is visible at the bottom on both mobile and desktop.
-
-## Files touched
-- `src/components/operator/OperatorMessagesView.tsx` — remove nested fixed height, swap profile query for RPC, derive role label, pass real subtitle.
-- New migration — `get_staff_contact_info` RPC + GRANT.
-
-No changes to management-side messaging, message table schema, or RLS on `messages`.
+Out of scope
+- This plan only affects the MS Fleet Fuel Card Instructions service; support contact fields remain available for other services.
