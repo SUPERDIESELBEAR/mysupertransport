@@ -1,72 +1,35 @@
-## What's happening
+## Problems
 
-**1. "Remove failed" on Angle 1 (root cause confirmed)**
+1. **Driver can't reply** — `OperatorMessagesView` sets its own fixed height `calc(100vh - 180px)`, but it's rendered *inside* `OperatorMessagesHub` which already uses that same height minus a tab header (~50px). The nested view overflows the viewport, pushing the `MessageComposer` below the fold. On mobile there's also the bottom nav bar eating additional space, so the composer is never visible.
 
-`public.onboarding_status` has **two** operator-column whitelist triggers:
+2. **Staff name shows as "Staff Member"** — The `profiles` table RLS only lets staff view all profiles and lets users view their own. Drivers have **no SELECT policy** for staff profiles, so `first_name`/`last_name` come back null and the code falls back to the literal string `'Staff Member'` (line 120 of `OperatorMessagesView.tsx`).
 
-- `trg_onboarding_status_operator_column_whitelist` → allows `decal_photos` ✅
-- `trg_enforce_onboarding_status_operator_update` → **does NOT allow `decal_photos`** ❌
+3. **Subtitle is hardcoded** — Line 314 passes `otherSubtitle="Onboarding Coordinator"` for every staff member regardless of their actual role (`owner`, `management`, `dispatcher`, `onboarding_staff`, etc.).
 
-Any driver-side write to `decal_photos` runs both triggers. The second one rejects the update with `Operators may only update their own decal photos, truck_photos, ica_status, and equipment asset sheet signature`, so the delete PATCH fails and the UI reverts the tile. (Adds happened to slip through only when performed in a session where staff impersonation or a cascade flag was set — for a real driver session both add and delete are currently blocked.)
+## Fix
 
-Compounding the UX: `handleDeleteDecalExtra`'s catch does `err instanceof Error ? err.message : 'Please try again.'`. Supabase's `PostgrestError` is a plain object, not an `Error`, so the real DB message is swallowed and the user only sees "Please try again."
+### 1. Composer visibility (frontend only)
+- In `src/components/operator/OperatorMessagesView.tsx`, remove the outer wrapper's fixed `calc(100vh - 180px)` height and its border/rounding. Let it be `h-full flex flex-col` and inherit height from its parent (`OperatorMessagesHub` already provides the fixed height + tab layout).
+- Result: the tab content correctly bounds the messages panel, `flex-1 overflow-y-auto` for the message list works, and `MessageComposer` (`shrink-0`) stays pinned at the bottom above the mobile nav.
 
-**2. Photo edit save (crop/rotate) — verified working, one gap**
+### 2. Show real staff name + role
+- Add a security-definer RPC `public.get_staff_contact_info(_user_ids uuid[])` returning `{ user_id, first_name, last_name, avatar_url, primary_role }` for the given IDs, but only for users that actually have a staff role (`is_staff(user_id)` check inside the function). Safe because it only exposes name/avatar/role — nothing sensitive — and only for staff members the driver has messaged.
+- Grant EXECUTE to `authenticated`.
+- Replace the direct `profiles` query in `loadStaff` with `supabase.rpc('get_staff_contact_info', { _user_ids: staffUserIds })`.
+- Extend the `StaffMember` / `Thread` types to include `role: string | null`, map `primary_role` to a human label:
+  - `owner` → "Owner"
+  - `management` → "Management"
+  - `onboarding_staff` → "Onboarding Coordinator"
+  - `dispatcher` → "Dispatcher"
+  - `safety` → "Safety Advisor" (if present)
+  - fallback → "SUPERTRANSPORT Staff"
+- Pass that computed label as `otherSubtitle` to `<MessageThread />` instead of the hardcoded string.
 
-`DocumentEditor.handleSave` re-uploads the cropped PNG to the same `bucketName` + `filePath` with `upsert: true` and mints a fresh 5-year signed URL. When the editor is opened from a decal tile, `FilePreviewModal` infers bucket/path from the signed URL via `inferStorageInfo`, so the overwrite lands on the correct object. The saved bytes are persisted in storage.
+### 3. Verify
+- Reload driver Messages → Direct tab: staff row shows real name (e.g., "Emma Mueller") and correct role subtitle, and the reply composer is visible at the bottom on both mobile and desktop.
 
-The one gap: for decal extras, `onboarding_status.decal_photos[i].url` stores the **bare storage path** and `resolveDecalUrl` re-signs on every read, so edits do appear on refresh. But the `<img>` element already on screen keeps its stale signed URL until the parent re-resolves. The current `onSaved` prop on `FilePreviewModal` for the decal preview isn't wired, so the tile doesn't refresh until a full reload.
+## Files touched
+- `src/components/operator/OperatorMessagesView.tsx` — remove nested fixed height, swap profile query for RPC, derive role label, pass real subtitle.
+- New migration — `get_staff_contact_info` RPC + GRANT.
 
-## Fix plan
-
-### A. Unblock decal_photos writes (delete + add) for drivers
-
-Migration: add `decal_photos` to the allow-list in `public.enforce_onboarding_status_operator_update` so both triggers agree.
-
-```sql
-CREATE OR REPLACE FUNCTION public.enforce_onboarding_status_operator_update()
-... v_allowed text[] := ARRAY[
-  'decal_photo_ds_url',
-  'decal_photo_ps_url',
-  'decal_photos',        -- NEW
-  'truck_photos',
-  'eld_signature_typed_name',
-  'eld_signature_image_url',
-  'eld_signature_signed_at',
-  'updated_at',
-  'updated_by'
-] ...
-```
-
-(Body otherwise unchanged — keep the staff bypass, cascade GUC bypass, and equipment-return branch intact.)
-
-### B. Surface real DB errors in the driver toast
-
-In `src/components/operator/OperatorDocumentUpload.tsx`, update `handleDeleteDecalExtra` (and mirror in `handleDecalExtra` / `handleDecalPhoto`) to read `err?.message` from any object, and log the full error so future failures aren't opaque:
-
-```ts
-const msg =
-  (err as any)?.message ??
-  (typeof err === 'string' ? err : 'Please try again.');
-console.error('[decal delete] failed', err);
-toast({ title: 'Remove failed', description: msg, variant: 'destructive' });
-```
-
-### C. Refresh decal tile after in-place edit
-
-In `OperatorDocumentUpload.tsx`, when the extras tile's `PreviewLink` opens `FilePreviewModal`, pass an `onSaved` callback that re-hydrates `decalExtras` from the DB (same query used in the mount effect). This forces `resolveDecalUrl` to mint a fresh signed URL so the cropped/rotated image shows immediately without a page reload. Do the same for the Driver Side / Passenger Side tiles by re-reading `decal_photo_ds_url` / `decal_photo_ps_url`.
-
-No schema changes here — just prop wiring.
-
-### D. Verification
-
-1. Apply migration.
-2. As a driver demo account on mobile preview: add Angle 2, then delete Angle 1. Both should succeed with no red banner. Confirm the row in `onboarding_status.decal_photos` reflects the change.
-3. Open Driver Side → tap Edit → rotate 90° → Save. Confirm the tile re-renders rotated without reload, and the storage object at the same path is overwritten.
-4. Re-check with a staff session that decal management still works (staff bypass path is untouched).
-
-## Technical notes
-
-- Both whitelist triggers coexist because they were added in separate migrations; consolidating them is out of scope for this fix — we just align their allow-lists.
-- `resolveDecalUrl` already prepends the storage prefix and re-signs, so no client cache-busting query string is needed once state is refreshed.
-- `DocumentEditor` already uses `upsert: true` so overwrites don't create orphan objects.
+No changes to management-side messaging, message table schema, or RLS on `messages`.
