@@ -22,6 +22,7 @@ interface HelpContextEntry {
 interface Body {
   messages: Msg[];
   contextEntries?: HelpContextEntry[];
+  threadId?: string | null;
 }
 
 function json(status: number, body: unknown) {
@@ -138,6 +139,13 @@ Rules:
 - Never invent features, table names, keyboard shortcuts, or menu paths that aren't in the context.
 - Do not answer about specific driver, applicant, or operational data — you only explain how to USE the platform.
 - Format answers in markdown. Use [go:ENTRY_ID] markers inline where you mention a page/section so the user can click and jump there.
+- After your answer, on a new line, add exactly this block:
+  <FOLLOWUPS>
+  question 1
+  question 2
+  question 3
+  </FOLLOWUPS>
+  Each follow-up must be a short, natural next question a staff user might ask given the conversation so far. Provide 2–3 items. If you truly cannot think of any, output an empty <FOLLOWUPS></FOLLOWUPS> block.
 
 ### SUPERDRIVE product overview
 ${PRODUCT_OVERVIEW}
@@ -169,7 +177,20 @@ ${faqContext}`;
     }
 
     const data = await gwRes.json();
-    const answer = data?.choices?.[0]?.message?.content?.trim() ?? '';
+    const raw = data?.choices?.[0]?.message?.content?.trim() ?? '';
+
+    // Extract follow-ups block, strip it from displayed answer.
+    let answer = raw;
+    let followUps: string[] = [];
+    const fuMatch = raw.match(/<FOLLOWUPS>([\s\S]*?)<\/FOLLOWUPS>/i);
+    if (fuMatch) {
+      answer = raw.replace(fuMatch[0], '').trim();
+      followUps = fuMatch[1]
+        .split('\n')
+        .map(s => s.replace(/^\s*[-*\d.)\s]+/, '').trim())
+        .filter(s => s.length > 3 && s.length < 200)
+        .slice(0, 3);
+    }
 
     // Surface both FAQ and index sources so users can click through to the relevant page.
     const faqSources = sources.slice(0, 4).map(s => ({ id: s.id, question: s.question, category: s.category }));
@@ -181,7 +202,28 @@ ${faqContext}`;
     }));
     const surfaced = [...indexSources, ...faqSources];
 
-    return json(200, { answer, sources: surfaced });
+    // Log the query for analytics (best-effort, do not fail the request).
+    try {
+      const answeredFrom = sources.length > 0
+        ? 'faq'
+        : contextEntries.length > 0
+          ? 'index'
+          : /don't have documentation/i.test(answer)
+            ? 'none'
+            : 'overview';
+      await admin.from('staff_help_query_log').insert({
+        user_id: userId,
+        thread_id: body?.threadId ?? null,
+        query: query.slice(0, 500),
+        matched_faq_ids: sources.map(s => s.id),
+        matched_help_entry_ids: contextEntries.map(e => e.id),
+        answered_from: answeredFrom,
+      });
+    } catch (logErr) {
+      console.warn('query log insert failed', logErr);
+    }
+
+    return json(200, { answer, sources: surfaced, followUps });
   } catch (err) {
     console.error('staff-help-chat error', err);
     return json(500, { error: 'Something went wrong. Please try again.' });
