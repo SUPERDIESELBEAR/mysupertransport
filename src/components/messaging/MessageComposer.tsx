@@ -131,7 +131,7 @@ export function MessageComposer({
           }}
           onBlur={onStoppedTyping}
           placeholder={placeholder}
-          className="flex-1 h-10 text-sm"
+          className="flex-1 h-10 text-base sm:text-sm"
           disabled={sending}
           onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey) {
