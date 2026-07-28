@@ -390,12 +390,32 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       toast({ title: 'Angle removed' });
     } catch (err: unknown) {
       setDecalExtras(prev);
+      console.error('[decal delete] failed', err);
+      const msg =
+        (err as { message?: string })?.message ??
+        (typeof err === 'string' ? err : 'Please try again.');
       toast({
         title: 'Remove failed',
-        description: err instanceof Error ? err.message : 'Please try again.',
+        description: msg,
         variant: 'destructive',
       });
     }
+  };
+
+  // Re-read decal state from DB so the tiles show the freshly edited photo
+  // (upserts land at the same storage path — resolveDecalUrl mints a new
+  // signed URL when we reset local state).
+  const refreshDecalState = async () => {
+    const { data } = await supabase
+      .from('onboarding_status')
+      .select('decal_photo_ds_url, decal_photo_ps_url, decal_photos')
+      .eq('operator_id', operatorId)
+      .maybeSingle();
+    if (!data) return;
+    setDecalPhotoDs((data.decal_photo_ds_url as string | null) ?? null);
+    setDecalPhotoPs((data.decal_photo_ps_url as string | null) ?? null);
+    const raw = (data.decal_photos as unknown) as Array<{ url: string; label?: string }> | null;
+    if (Array.isArray(raw)) setDecalExtras([...raw]);
   };
 
   return (
@@ -915,7 +935,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 {decalPhotoDs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
               </div>
               {decalPhotoDs && decalPhotoDsResolved ? (
-                <PreviewLink url={decalPhotoDsResolved} name="Decal — Driver Side">
+                <PreviewLink
+                  url={decalPhotoDsResolved}
+                  name="Decal — Driver Side"
+                  bucketName="operator-documents"
+                  filePath={decalPhotoDs}
+                  onSaved={refreshDecalState}
+                >
                   <img src={decalPhotoDsResolved} alt="Decal Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                 </PreviewLink>
               ) : (
@@ -955,7 +981,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 {decalPhotoPs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
               </div>
               {decalPhotoPs && decalPhotoPsResolved ? (
-                <PreviewLink url={decalPhotoPsResolved} name="Decal — Passenger Side">
+                <PreviewLink
+                  url={decalPhotoPsResolved}
+                  name="Decal — Passenger Side"
+                  bucketName="operator-documents"
+                  filePath={decalPhotoPs}
+                  onSaved={refreshDecalState}
+                >
                   <img src={decalPhotoPsResolved} alt="Decal Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                 </PreviewLink>
               ) : (
@@ -995,7 +1027,14 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
               {decalExtrasResolved.map((p, idx) => (
                 <div key={idx} className="space-y-1">
                   <div className="relative">
-                    <PreviewLink url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="block">
+                    <PreviewLink
+                      url={p.url}
+                      name={p.label ?? `Angle ${idx + 1}`}
+                      bucketName="operator-documents"
+                      filePath={decalExtras[idx]?.url}
+                      onSaved={refreshDecalState}
+                      className="block"
+                    >
                       <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                     </PreviewLink>
                     <button
