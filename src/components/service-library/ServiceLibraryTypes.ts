@@ -33,6 +33,7 @@ export interface ServiceResource {
   thumbnail_url: string | null;
   is_start_here: boolean;
   is_visible: boolean;
+  is_reference_only?: boolean;
   estimated_minutes: number | null;
   last_verified_at: string | null;
   sort_order: number;
