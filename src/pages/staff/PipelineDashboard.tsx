@@ -4,6 +4,7 @@ import { formatPhoneDisplay } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
+import { useShowDemo } from '@/hooks/useShowDemo';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
