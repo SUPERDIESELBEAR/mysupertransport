@@ -1,65 +1,26 @@
-## Goal
+## Answers
 
-Add first-class **Demo driver accounts** to SUPERDRIVE: real, fully functional driver records flagged as demo, hidden from normal staff views, safe to write to, safe to email, and resettable to a chosen scenario. Use them for staff training, feature testing, and driver-side (PWA) walkthroughs.
+**1. Can existing drivers be marked as Demo?** Yes. Marcus Mueller, Emma Mueller, Craig Pate, Omar Tarar, and King Kong all exist as operator records today with the demo flag off. Turning it on is a flag change, not a rebuild — no data is deleted and nothing about their history changes. It only affects: they disappear from live rosters/pipeline/compliance unless "Show demo accounts" is on, they get a purple DEMO badge, and any email meant for them is rerouted to whoever triggered the send. It's fully reversible.
 
-Note this is different from the existing staff-side Demo Mode (read-only browsing of real data). That stays as-is. The new capability is the opposite: **real writes against fake drivers.**
+One caution: Marcus Mueller is the owner account. Flagging it demo would hide it from staff-facing driver lists and reroute its mail — usable, but worth deciding deliberately.
 
-Yes — all three reset behaviors are possible, and they compose. The plan implements one reset action with a scenario picker: **Blank / New applicant / Mid-onboarding / Fully live / Offboarding**, so "clean state", "seed presets", and "just make a new one" are all covered.
+**2. Do demo accounts get new features automatically?** Yes. Demo drivers are real records in the same database running the same code — there's no separate copy or sandbox build. Every published feature, UI change, migration, and email template applies to them the moment it goes live. The only intentional differences are visibility filtering, email rerouting, and exclusion from scheduled jobs and analytics.
 
-## 1. Flagging demo accounts
+## Plan: convert existing drivers to/from demo
 
-- Add `is_demo boolean not null default false` to `operators`, `applications`, and `profiles` (profiles so driver-side login and emails can be recognized without an operator join).
-- Add `demo_owner_user_id` (which staff member created/owns the demo driver) and `demo_label` (e.g. "Training — Onboarding Stage 4") to `operators`.
-- Only Management/Owner can set or clear `is_demo` (enforced by a trigger, same pattern as the existing column-whitelist triggers).
+**1. Backend action**
+Add a `set-demo-flag` edge function (management/owner only, same auth pattern as `provision-demo-driver`) that takes an operator id, a target on/off state, and an optional demo label. It sets `is_demo` consistently across the operator record, its linked application, and the driver's profile so email safety and visibility filters all agree. Turning demo off clears the label and scenario but touches nothing else.
 
-## 2. Visibility — hidden by default
+**2. UI in Management → Demo Accounts**
+- New "Convert existing driver" button next to "New demo driver".
+- Dialog with a searchable driver picker (active + inactive operators, demo ones excluded), an optional demo label field, and a plain-language warning describing exactly what changes.
+- On the existing demo cards, add a "Return to live" action with a confirm dialog that removes the demo flag.
+- Guard the owner account with an extra confirmation line so it can't be flagged by accident.
 
-- Global staff preference `show_demo_accounts` (localStorage, default off) exposed as a small **"Show demo accounts"** switch in the staff/management header, next to the existing Demo Mode toggle.
-- When off, demo drivers are excluded from: Driver Roster, Onboarding Pipeline, Dispatch Board, Compliance Summary, Vehicle Hub, MO Plate Registry, Onboard Systems, PEI Queue, Messages recipient pickers, and all dashboard counts.
-- When on, they appear everywhere with a purple **DEMO** badge and are still excluded from compliance/analytics metrics and from scheduled jobs (birthday emails, PWA reminders, PEI auto-cadence, cert reminders).
-- Implementation: a shared `useShowDemo()` hook plus a `demoFilter()` query helper applied to the list surfaces above, and `and is_demo = false` added to the scheduled-job queries and the compliance view.
+**3. Scenario reset stays optional**
+Converting a real driver does not reset or reseed them — their current state is preserved. The scenario reset control remains available on the card if you later want to snap them to a preset, with a clear warning that reset is destructive.
 
-## 3. Email & notification safety
-
-- All outbound email for a demo driver is **redirected to the acting staff member's address**, with subject prefixed `[DEMO]` and a banner line at the top of the body saying which demo driver it was for.
-- Implemented centrally in `send-transactional-email` (and the OSAS / return-instructions / DOT-consultant / PEI senders that build their own recipients): resolve recipient → if the target is a demo profile, swap `to` for the caller's email and prefix the subject.
-- If no acting staff email can be resolved (cron path), the send is skipped and logged instead.
-- In-app notifications still generate normally so staff can demo the bell/history UI.
-
-## 4. Creating a demo driver
-
-New **"Create demo driver"** action in Management → Drivers:
-- Generates a demo identity (name prefixed `DEMO`, a `+demo` alias on a staff-controlled domain, fake DOB/CDL/truck data).
-- Creates the auth user with a staff-set password so it can actually be logged into on the phone for a PWA walkthrough, plus a "Copy login details" button.
-- Optionally clones the shape of an existing driver's onboarding state (no real PII copied — names, SSN, DOB, documents and signatures are replaced with placeholders).
-
-## 5. Reset with scenario presets
-
-**"Reset demo driver"** action (Management/Owner only, confirm dialog) that wipes and re-seeds the driver to a chosen scenario:
-
-| Scenario | Resulting state |
-|---|---|
-| Blank | Operator exists, no onboarding rows, nothing uploaded |
-| New applicant | Submitted application awaiting review, PEI pending |
-| Mid-onboarding | Stages 1–4 complete, docs approved, ICA in progress |
-| Fully live | Go Live set, OSAS signed, dispatch active, plate assigned |
-| Offboarding | Deactivation started, equipment return instructions sent |
-
-Reset deletes the demo driver's documents, storage objects, onboarding status, dispatch history, OSAS sheets, ICA records, messages, and notifications, then re-inserts the preset rows. Guarded server-side to refuse any operator where `is_demo = false`.
-
-## 6. Driver-side walkthrough
-
-- Demo drivers log into the normal SUPERDRIVE PWA with their credentials — the experience is identical, so nothing extra is needed beyond a persistent purple **DEMO ACCOUNT** ribbon at the top of the driver portal so nobody confuses it with a live account.
-- A "Demo drivers" panel in Management lists each demo account, its label, owner, current scenario, and quick actions: Reset, Copy login, Show/Hide, Delete.
-
-## 7. Cleanup
-
-- "Delete demo driver" fully removes the auth user, operator, application, storage folder, and all child rows — only permitted when `is_demo = true`.
-
-## Technical notes
-
-- Migration adds the three `is_demo` columns, `demo_owner_user_id`, `demo_label`, `demo_scenario`, plus a guard trigger and updated RLS/GRANTs.
-- Two new edge functions: `provision-demo-driver` and `reset-demo-driver` (service-role, management-authorized via `getClaims`, both refuse non-demo operators).
-- `v_compliance_items` and the cron-driven queries get `is_demo = false` predicates.
-- Email redirection lands in one shared helper under `supabase/functions/_shared/` so every sender picks it up.
-- Existing `useDemoMode` (read-only staff browsing) is untouched; the new toggle is named "Show demo accounts" to avoid confusion.
+### Technical notes
+- No schema migration needed; the `is_demo` columns and the `enforce_demo_flag_management_only` trigger already exist and already restrict flag changes to management/owner.
+- The function runs with service role, so the trigger's role check is bypassed at the database level — authorization is enforced in the function via `getClaims` before any write, matching the existing demo functions.
+- Files touched: new `supabase/functions/set-demo-flag/index.ts`, and `src/components/management/DemoAccountsPanel.tsx`.
