@@ -935,7 +935,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 {decalPhotoDs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
               </div>
               {decalPhotoDs && decalPhotoDsResolved ? (
-                <PreviewLink url={decalPhotoDsResolved} name="Decal — Driver Side">
+                <PreviewLink
+                  url={decalPhotoDsResolved}
+                  name="Decal — Driver Side"
+                  bucketName="operator-documents"
+                  filePath={decalPhotoDs}
+                  onSaved={refreshDecalState}
+                >
                   <img src={decalPhotoDsResolved} alt="Decal Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                 </PreviewLink>
               ) : (
@@ -975,7 +981,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 {decalPhotoPs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
               </div>
               {decalPhotoPs && decalPhotoPsResolved ? (
-                <PreviewLink url={decalPhotoPsResolved} name="Decal — Passenger Side">
+                <PreviewLink
+                  url={decalPhotoPsResolved}
+                  name="Decal — Passenger Side"
+                  bucketName="operator-documents"
+                  filePath={decalPhotoPs}
+                  onSaved={refreshDecalState}
+                >
                   <img src={decalPhotoPsResolved} alt="Decal Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                 </PreviewLink>
               ) : (
@@ -1015,7 +1027,14 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
               {decalExtrasResolved.map((p, idx) => (
                 <div key={idx} className="space-y-1">
                   <div className="relative">
-                    <PreviewLink url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="block">
+                    <PreviewLink
+                      url={p.url}
+                      name={p.label ?? `Angle ${idx + 1}`}
+                      bucketName="operator-documents"
+                      filePath={decalExtras[idx]?.url}
+                      onSaved={refreshDecalState}
+                      className="block"
+                    >
                       <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                     </PreviewLink>
                     <button
