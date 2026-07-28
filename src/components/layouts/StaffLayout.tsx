@@ -376,6 +376,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
           </button>
           <div className="flex-1 min-w-0" />
           {headerActions}
+          <ShowDemoToggle />
           <button
             onClick={handleRefresh}
             disabled={refreshing}
