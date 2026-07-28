@@ -677,7 +677,59 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
 
           {/* Records table */}
           {filteredMaintenance.length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile: card list */}
+            <div className="sm:hidden space-y-2">
+              <TooltipProvider delayDuration={200}>
+              {filteredMaintenance.map(r => (
+                <div
+                  key={r.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setViewingMaintenance(r)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingMaintenance(r); } }}
+                  className="border border-border rounded-lg p-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="text-xs font-semibold text-foreground whitespace-nowrap">
+                        {format(parseISO(r.service_date), 'M/d/yy')}
+                      </span>
+                      {r.categories?.length > 0 && (
+                        <div className="flex gap-1 flex-wrap">
+                          {r.categories.map(c => categoryBadge(c))}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm font-mono font-semibold text-foreground whitespace-nowrap shrink-0">
+                      {r.amount ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+                    </span>
+                  </div>
+                  {r.shop_name && (
+                    <p className="text-xs text-muted-foreground mt-1.5 truncate">{r.shop_name}</p>
+                  )}
+                  {r.description && (
+                    <p className="text-xs text-foreground mt-1 line-clamp-2">{r.description}</p>
+                  )}
+                  {r.invoice_file_path && !missingInvoiceIds.has(r.id) && (
+                    <div className="mt-2.5" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1.5"
+                        onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice', r.id)}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View invoice
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              </TooltipProvider>
+            </div>
+
+            {/* Desktop: existing table */}
+            <div className="overflow-x-auto hidden sm:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
@@ -740,6 +792,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                 </TableBody>
               </Table>
             </div>
+            </>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-4">
               {maintenance.length > 0 ? 'No records match your filters.' : 'No maintenance records yet.'}
