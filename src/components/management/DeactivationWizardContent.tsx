@@ -764,21 +764,24 @@ export function DeactivationWizardContent({
                 The Safety Advisor must be notified of every deactivation so DQ files and compliance records stay current.
               </AlertDescription>
             </Alert>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Termination Date <span className="text-destructive">*</span></Label>
-                <DateInput value={terminationDate} onChange={v => setTerminationDate(v ?? '')} className="h-9 text-sm mt-1.5" />
+            <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">From Step 1</span>
+                <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setCurrentStep('reason')}>Edit</Button>
               </div>
-              <div>
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reason <span className="text-destructive">*</span></Label>
-                <Select value={safetyReason} onValueChange={setSafetyReason}>
-                  <SelectTrigger className="h-9 text-sm mt-1.5"><SelectValue placeholder="Select…" /></SelectTrigger>
-                  <SelectContent>
-                    {REASON_OPTIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Driver</span><span className="font-medium">{operatorName}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Unit #</span><span className="font-medium">{unitNumber || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Termination date</span><span className="font-medium">{deactivationDate ? new Date(`${deactivationDate}T12:00:00`).toLocaleDateString('en-US') : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Reason</span><span className="font-medium">{deactivationReason || '—'}</span></div>
             </div>
+            {(!deactivationDate || !deactivationReason) && (
+              <Alert className="border-warning/30 bg-warning/5">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-xs">
+                  Finish Step 1 (Reason &amp; Date) before sending the notice — the email uses those values.
+                </AlertDescription>
+              </Alert>
+            )}
             <div>
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Available for Rehire? <span className="text-destructive">*</span></Label>
               <div className="mt-1.5 flex gap-2">
@@ -790,8 +793,9 @@ export function DeactivationWizardContent({
               </div>
             </div>
             <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</Label>
-              <Textarea value={safetyNotes} onChange={e => setSafetyNotes(e.target.value)} placeholder="Context for the Safety Advisor…" className="text-sm min-h-[60px] resize-none mt-1.5" />
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to the Safety Advisor</Label>
+              <Textarea value={safetyNotes} onChange={e => { setSafetyNotesTouched(true); setSafetyNotes(e.target.value); }} placeholder="Context for the Safety Advisor…" className="text-sm min-h-[60px] resize-none mt-1.5" />
+              <p className="text-[11px] text-muted-foreground mt-1">Pre-filled from your Step 1 notes — review before sending, this goes to an outside party.</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">To</Label>
@@ -824,7 +828,7 @@ export function DeactivationWizardContent({
                 <CheckCircle2 className="h-4 w-4" /> Notice sent to {SAFETY_ADVISOR_NAME}
               </div>
             ) : (
-              <Button className="w-full bg-gold hover:bg-gold/90 text-black gap-1.5" onClick={handleSendSafetyNotice} disabled={!terminationDate || !safetyReason || !rehire || saving}>
+              <Button className="w-full bg-gold hover:bg-gold/90 text-black gap-1.5" onClick={handleSendSafetyNotice} disabled={!deactivationDate || !deactivationReason || !rehire || saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send Deactivation Notice
               </Button>
