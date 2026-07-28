@@ -34,13 +34,14 @@ import QPassportView from "./pages/QPassportView";
 import PassengerAuthSign from "./pages/PassengerAuthSign";
 import PreviewLogin from "./pages/PreviewLogin";
 import PreviewSessionBanner from "@/components/PreviewSessionBanner";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Heavy authenticated portals — code-split out of the initial bundle
-const OperatorPortal = lazy(() => import("./pages/operator/OperatorPortal"));
-const StaffPortal = lazy(() => import("./pages/staff/StaffPortal"));
-const ManagementPortal = lazy(() => import("./pages/management/ManagementPortal"));
-const DispatchPortal = lazy(() => import("./pages/dispatch/DispatchPortal"));
-const DeactivationPage = lazy(() => import("./pages/management/DeactivationPage"));
+const OperatorPortal = lazyWithRetry(() => import("./pages/operator/OperatorPortal"));
+const StaffPortal = lazyWithRetry(() => import("./pages/staff/StaffPortal"));
+const ManagementPortal = lazyWithRetry(() => import("./pages/management/ManagementPortal"));
+const DispatchPortal = lazyWithRetry(() => import("./pages/dispatch/DispatchPortal"));
+const DeactivationPage = lazyWithRetry(() => import("./pages/management/DeactivationPage"));
 
 const queryClient = new QueryClient();
 

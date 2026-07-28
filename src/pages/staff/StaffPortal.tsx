@@ -1,3 +1,4 @@
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
@@ -8,7 +9,7 @@ import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
 // Lazy-load the operator detail drawer — it's the largest panel in the staff portal
 // and only renders after a row click.
-const OperatorDetailPanel = lazy(() => import('./OperatorDetailPanel'));
+const OperatorDetailPanel = lazyWithRetry(() => import('./OperatorDetailPanel'));
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';

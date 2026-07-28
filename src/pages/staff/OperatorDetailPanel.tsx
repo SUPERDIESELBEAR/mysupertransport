@@ -47,7 +47,7 @@ const ALL_COLLAPSIBLE_KEYS = [
 ] as const;
 import { Switch } from '@/components/ui/switch';
 import { Suspense } from 'react';
-const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import SettlementForecast from '@/components/operator/SettlementForecast';
 import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
@@ -58,6 +58,7 @@ import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
 import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDialog';
 
 import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 interface OperatorDetailPanelProps {
   operatorId: string;

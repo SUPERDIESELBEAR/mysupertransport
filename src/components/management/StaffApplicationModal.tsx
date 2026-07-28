@@ -5,18 +5,19 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
-const Step2CDL = lazy(() => import('@/components/application/Step2CDL'));
-const Step3Employment = lazy(() => import('@/components/application/Step3Employment'));
-const Step4Driving = lazy(() => import('@/components/application/Step4Driving'));
-const Step5Accidents = lazy(() => import('@/components/application/Step5Accidents'));
-const Step6DrugAlcohol = lazy(() => import('@/components/application/Step6DrugAlcohol'));
-const Step7Documents = lazy(() => import('@/components/application/Step7Documents'));
-const Step8Disclosures = lazy(() => import('@/components/application/Step8Disclosures'));
-const Step9Signature = lazy(() => import('@/components/application/Step9Signature'));
+const Step2CDL = lazyWithRetry(() => import('@/components/application/Step2CDL'));
+const Step3Employment = lazyWithRetry(() => import('@/components/application/Step3Employment'));
+const Step4Driving = lazyWithRetry(() => import('@/components/application/Step4Driving'));
+const Step5Accidents = lazyWithRetry(() => import('@/components/application/Step5Accidents'));
+const Step6DrugAlcohol = lazyWithRetry(() => import('@/components/application/Step6DrugAlcohol'));
+const Step7Documents = lazyWithRetry(() => import('@/components/application/Step7Documents'));
+const Step8Disclosures = lazyWithRetry(() => import('@/components/application/Step8Disclosures'));
+const Step9Signature = lazyWithRetry(() => import('@/components/application/Step9Signature'));
 import { ApplicationFormData, defaultFormData } from '@/components/application/types';
 import { validateStep, buildPayload } from '@/components/application/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { TablesInsert } from '@/integrations/supabase/types';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 const STEP_LABELS = [
   'Personal Info', 'CDL Info', 'Employment', 'Experience',

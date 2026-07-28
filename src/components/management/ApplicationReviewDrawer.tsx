@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import React, { Suspense } from 'react';
-const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
@@ -34,6 +34,7 @@ import { CorrectionRequestStatusCard } from '@/components/management/CorrectionR
 import { RevisionReplyAttachments } from '@/components/management/RevisionReplyAttachments';
 import { RevisionAuditLog } from '@/components/management/RevisionAuditLog';
 import { ReviewActionButton } from '@/components/management/ReviewActionButton';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 

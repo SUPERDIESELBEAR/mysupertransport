@@ -15,8 +15,9 @@ import React, { Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useIsMobile } from '@/hooks/use-mobile';
-const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 /**
  * Derives the correct storage bucket for an inspection-binder document based on its file_path.
