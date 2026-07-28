@@ -1,65 +1,66 @@
-## Goal
+# Add MS Fleet Fuel Card Instructions to the Resource Center
 
-From the staff portal on desktop, pick a driver, get a QR code, scan it with your phone, and the phone opens SUPERDRIVE already signed in as that driver — a real, fully interactive session, no credentials typed.
+The Resource Center on both the driver-facing Resources tab and the staff **Services** tab reads from the `services` / `service_resources` tables, so adding one service with two resources publishes it in both places automatically — no component changes required.
 
-## How it works
+The existing hidden **Comdata Fuel Card** service is left untouched.
 
-```text
-Desktop (staff)                Phone
-  pick driver                    |
-  -> create-preview-session      |
-     returns one-time code       |
-  show QR of /preview-login?c=.. |
-                          scan --+--> /preview-login
-                                       -> redeem-preview-session
-                                          (verifies code, mints login link)
-                                       -> real driver session
-                                       -> driver portal + "Previewing as" banner
-```
+## What will change
 
-## What gets built
+**1. New service: "MS Fleet Fuel Card Instructions"**
+- `is_visible = true`, `is_new_driver_essential = true`
+- Description: "How to fuel your truck using the MS Fleet card and app."
+- `sort_order`: placed near the top of the essentials list.
 
-**1. One-time code store (database)**
-- New table `preview_sessions`: id, code hash, target user id, created-by staff id, created/expires/used/revoked timestamps.
-- Codes are single-use and expire after 3 minutes.
-- No client access at all (RLS closed, service-role only); everything goes through backend functions.
+**2. Setup Guide resource** — "How to Fuel with the MS Fleet Card (Step-by-Step)"
+- `resource_type = 'Setup Guide'`, `is_start_here = true`, `estimated_minutes = 3`
+- Body (markdown, rendered by existing `ResourceViewer`):
 
-**2. `create-preview-session` (backend function)**
-- Verifies the caller is signed in and holds `management` or `owner`.
-- Refuses if the target is not an operator, and refuses to target another owner account.
-- Stores the hashed code, writes an `audit_log` entry (who, whom, when).
-- Returns the raw code plus its expiry once, to be rendered as the QR.
+> **Before you start**
+> Every MS Fleet transaction needs a fresh 6-digit one-time PIN from the MS Fleet app. The PIN is only good for **4 minutes**, so generate it at the counter — not out in the truck.
+>
+> **Step-by-step**
+> 1. **Go inside** to the fuel desk. Do **not** use the pump keypad.
+> 2. Have two things ready: your **phone open to the MS Fleet app**, and your **MS Fleet card** in your other hand.
+> 3. Hand the card to the cashier when they're ready. They'll swipe it.
+> 4. The cashier will ask for your **"Driver ID."** That's the **one-time PIN** from the app.
+> 5. In the MS Fleet app, tap the **lock icon** at the bottom of the screen.
+> 6. A **6-digit PIN** appears. Read it to the cashier right away (it expires in 4 minutes).
+> 7. If asked, give your **truck number**.
+> 8. The cashier may ask for other info to fill their screen — you don't need to track it.
+> 9. **Watch the pump.** Confirm it turns on after the card is authorized *before* you start pumping. If the card wasn't accepted and you pump anyway, you could be stuck paying out of pocket for a full tank.
 
-**3. `redeem-preview-session` (backend function, public)**
-- Looks up the code, rejects if missing, expired, already used, or revoked.
-- Marks it used immediately, then mints a one-time login token for the target driver (same admin link mechanism already used by the invite functions).
-- Writes a second audit entry recording the redemption.
-- Returns the token so the phone can establish the session.
+**3. FAQ resource** — "MS Fleet Card — Quick Answers"
+- `resource_type = 'FAQ'`, `is_start_here = false`, `estimated_minutes = 2`
+- Body:
 
-**4. `/preview-login` page (new, public route)**
-- Reads the code from the URL, calls the redeem function, establishes the driver session, then redirects into the driver portal.
-- Shows a clear failure state for expired/used codes with a "ask staff for a new code" message.
-- Records a local marker so the app knows this session is a preview.
+> **Do I need a new PIN every time?**
+> Yes. A one-time PIN is required for every MS Fleet transaction.
+>
+> **How long is the PIN good for?**
+> 4 minutes. If it expires, tap the lock icon again for a new one.
+>
+> **Can I use the card at the pump?**
+> No. Always go inside to the fuel desk.
+>
+> **What if the cashier asks for a "Driver ID"?**
+> They mean the 6-digit one-time PIN from the MS Fleet app.
+>
+> **What if the card is declined?**
+> Stop — do not pump. Contact dispatch before trying another card.
+>
+> **What info do I need to give besides the PIN?**
+> Just your truck number. The cashier may ask for other fields to fill their screen; you don't need to track those.
 
-**5. Staff-facing QR modal**
-- New "Open on my phone" action added to the existing Operator Preview picker and to the driver roster row menu.
-- Modal shows the QR code, the raw link (copyable), a live countdown to expiry, and a "Generate new code" button.
-- QR rendering uses the `qrcode` library (small dependency, added).
+## Wording notes for your review
 
-**6. Preview session banner (driver app)**
-- While the local preview marker is present, a fixed bar sits at the top of the driver portal: "Preview session — signed in as {name}" with an "End preview" button that signs out and returns to the login screen.
-- The banner is visually distinct (uses the existing demo/warning treatment) so a preview is never mistaken for a real driver's own session.
-- Auto sign-out after 60 minutes of preview session age.
+- Original mixed steps with warnings; I split them so drivers can scan the numbered list at the counter and keep the "watch the pump" caution as its own high-visibility step (#9).
+- Renamed the "Driver ID" moment to explicitly tie it to the one-time PIN, since that's the single most common point of confusion.
+- Removed "you may find out after pumping $600 of fuel" (kept the substance, dropped the dollar figure so it doesn't age).
+- Moved the "PIN needed every time" line to the top as a **Before you start** callout, since drivers who miss it are the ones who get stuck.
 
-## Notes and trade-offs
+Happy to adjust tone, add photos/screenshots later, or wire in a phone/support contact for the service card once you have one.
 
-- Because you chose real impersonation over read-only, actions taken in a preview are real: uploads, signatures, acknowledgments, and emails all behave as if the driver did them. For live (non-demo) drivers this writes to production data — the audit trail records every preview so those actions can be traced back to the staff member who started them.
-- Email rerouting only applies to accounts flagged `is_demo`; previewing a live driver will send real mail to that driver.
-- Anyone who intercepts the QR within its 3-minute window can take the session, so codes are short-lived, single-use, and revocable by generating a new one.
+## Technical details
 
-## Technical detail
-
-- Session minting reuses `auth.admin.generateLink` + `verifyOtp` with the token hash, matching the existing pattern in `invite-staff` / `resend-invite`.
-- Both functions validate the caller with `getClaims(token)` from the Authorization header and check roles via `has_role` with `.limit(1)`, per existing project conventions.
-- The redeem function is intentionally public (no JWT) since the phone has no session yet; its only credential is the one-time code.
-- The banner mounts inside `OperatorPortal`, separate from the existing `previewUserId` read-only path, which stays unchanged.
+- One `INSERT` for the service, two `INSERT`s for the resources — done through the insert tool (data change, not schema).
+- No migration, no code changes, no RLS updates.
