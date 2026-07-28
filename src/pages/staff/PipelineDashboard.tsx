@@ -668,6 +668,7 @@ function MultiBlockedCallout({
 export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, onOpenOperatorAtBinder, onOpenOperatorAtStage, onOpenInspectionBinder, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const { showDemo } = useShowDemo();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [complianceExpanded, setComplianceExpanded] = useState(false);
@@ -963,7 +964,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     fetchOperators();
     fetchComplianceAlerts();
     fetchStageConfigs();
-  }, [fetchComplianceAlerts, fetchStageConfigs]);
+  }, [fetchComplianceAlerts, fetchStageConfigs, showDemo]);
 
   // Realtime: re-fetch pipeline_config whenever a stage is saved in the editor
   useEffect(() => {
@@ -1121,6 +1122,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         application_id,
         created_at,
         unit_number,
+        is_demo,
         assigned_onboarding_staff,
         on_hold,
         on_hold_reason,
@@ -1161,6 +1163,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     ]);
 
     if (!opData) { setLoading(false); return; }
+
+    // Hide demo driver accounts unless the staff member opted in.
+    if (!showDemo) {
+      opData = (opData as any[]).filter((o: any) => o.is_demo !== true) as typeof opData;
+    }
 
     const allStaffUserIds = (staffRoles ?? []).map((r: any) => r.user_id);
 
