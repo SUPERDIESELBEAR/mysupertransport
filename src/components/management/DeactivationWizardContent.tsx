@@ -112,11 +112,10 @@ export function DeactivationWizardContent({
   const [deactivationReason, setDeactivationReason] = useState<string>('');
   const [deactivationNotes, setDeactivationNotes] = useState<string>('');
 
-  // Step 2: Safety advisor
-  const [terminationDate, setTerminationDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [safetyReason, setSafetyReason] = useState<string>('');
+  // Step 2: Safety advisor — date & reason are inherited from Step 1
   const [rehire, setRehire] = useState<'yes' | 'no' | ''>('');
   const [safetyNotes, setSafetyNotes] = useState<string>('');
+  const [safetyNotesTouched, setSafetyNotesTouched] = useState(false);
   const [toEmails, setToEmails] = useState<string[]>([SAFETY_ADVISOR_EMAIL]);
   const [ccEmails, setCcEmails] = useState<string[]>([OWNER_EMAIL]);
   const [toInput, setToInput] = useState('');
