@@ -12,6 +12,7 @@ import { DriverDocument, DocumentAcknowledgment, CATEGORIES, DocCategory } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { withTimeout } from '@/lib/withTimeout';
+import { resolveResourceUrl } from '@/lib/resourceUrl';
 import { toast } from 'sonner';
 
 interface DocumentHubProps {
@@ -29,6 +30,9 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<DocCategory | 'All'>('All');
   const [viewingDoc, setViewingDoc] = useState<DriverDocument | null>(null);
+  const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const [initialOpened, setInitialOpened] = useState(false);
+  const [pdfSignedUrls, setPdfSignedUrls] = useState<Record<string, string>>({});
   const [editorOpen, setEditorOpen] = useState(false);
   const [editDoc, setEditDoc] = useState<DriverDocument | null>(null);
   const [adminTab, setAdminTab] = useState<AdminTab>('documents');
@@ -127,6 +131,32 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
     if (isAdmin) fetchAckCounts();
   }, [fetchDocuments, fetchAcknowledgments, fetchAckCounts]);
 
+  // Prefetch signed URLs for PDFs so the driver-view card can open the native
+  // PDF viewer synchronously on mobile (bypassing popup blockers).
+  useEffect(() => {
+    if (isAdmin) return;
+    let cancelled = false;
+    const pdfs = documents.filter(d => d.content_type === 'pdf' && d.pdf_url && !pdfSignedUrls[d.id]);
+    if (pdfs.length === 0) return;
+    (async () => {
+      const entries = await Promise.all(
+        pdfs.map(async d => {
+          try {
+            const url = await resolveResourceUrl(d.pdf_url as string);
+            return [d.id, url] as const;
+          } catch { return [d.id, ''] as const; }
+        }),
+      );
+      if (cancelled) return;
+      setPdfSignedUrls(prev => {
+        const next = { ...prev };
+        entries.forEach(([id, url]) => { if (url) next[id] = url; });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [documents, isAdmin, pdfSignedUrls]);
+
   const handleRefresh = () => {
     fetchDocuments();
     if (isAdmin) fetchAckCounts();
@@ -183,8 +213,10 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
         doc={viewingDoc}
         userId={user?.id ?? ''}
         acknowledgment={getAck(viewingDoc.id)}
-        onBack={() => setViewingDoc(null)}
-        onAcknowledged={() => { fetchAcknowledgments(); setViewingDoc(null); onAcknowledged?.(); }}
+        autoOpenPdf={autoOpenPdf}
+        initialOpened={initialOpened}
+        onBack={() => { setViewingDoc(null); setAutoOpenPdf(false); setInitialOpened(false); }}
+        onAcknowledged={() => { fetchAcknowledgments(); setViewingDoc(null); setAutoOpenPdf(false); setInitialOpened(false); onAcknowledged?.(); }}
       />
     );
   }
@@ -362,7 +394,12 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
               key={doc.id}
               doc={doc}
               acknowledgment={getAck(doc.id)}
-              onView={setViewingDoc}
+              pdfSignedUrl={pdfSignedUrls[doc.id] ?? null}
+              onView={(d, opts) => {
+                setAutoOpenPdf(!!opts?.autoOpenPdf);
+                setInitialOpened(!!opts?.markOpened);
+                setViewingDoc(d);
+              }}
             />
           ))}
         </div>

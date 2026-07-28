@@ -2,18 +2,39 @@ import { Clock, CheckCircle2, Pin, AlertTriangle, BookOpen, FileText, Video } fr
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DocumentCardProps {
   doc: DriverDocument;
   acknowledgment: { document_version: number } | null;
-  onView: (doc: DriverDocument) => void;
+  onView: (doc: DriverDocument, opts?: { autoOpenPdf?: boolean; markOpened?: boolean }) => void;
+  pdfSignedUrl?: string | null;
 }
 
-export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCardProps) {
+export default function DocumentCard({ doc, acknowledgment, onView, pdfSignedUrl }: DocumentCardProps) {
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
   const isPdf = doc.content_type === 'pdf';
   const isVideo = doc.content_type === 'video';
+  const isMobile = useIsMobile();
+
+  const handleClick = () => {
+    // PDF fast-path: skip the intermediate viewer button entirely.
+    if (isPdf) {
+      if (isMobile && pdfSignedUrl) {
+        // Open the signed URL in the device's native PDF viewer synchronously
+        // (must happen inside the click handler to avoid popup blockers), then
+        // route to the viewer page so the acknowledgment step is one tap away.
+        window.open(pdfSignedUrl, '_blank', 'noopener,noreferrer');
+        onView(doc, { markOpened: true });
+        return;
+      }
+      // Desktop (or URL not ready) → viewer auto-mounts the preview modal.
+      onView(doc, { autoOpenPdf: true });
+      return;
+    }
+    onView(doc);
+  };
 
   return (
     <div
@@ -104,7 +125,7 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
             {doc.is_required ? 'Acknowledgment required' : 'Tap to view'}
           </span>
         )}
-        <Button size="sm" onClick={() => onView(doc)} className="text-xs h-8">
+        <Button size="sm" onClick={handleClick} className="text-xs h-8">
           {isPdf ? 'View PDF' : isVideo ? 'Watch Video' : 'View Document'}
         </Button>
       </div>

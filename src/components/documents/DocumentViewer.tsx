@@ -14,15 +14,17 @@ interface DocumentViewerProps {
   doc: DriverDocument;
   userId: string;
   acknowledgment: { id: string; document_version: number } | null;
+  autoOpenPdf?: boolean;
+  initialOpened?: boolean;
   onBack: () => void;
   onAcknowledged: () => void;
 }
 
-export default function DocumentViewer({ doc, userId, acknowledgment, onBack, onAcknowledged }: DocumentViewerProps) {
+export default function DocumentViewer({ doc, userId, acknowledgment, autoOpenPdf, initialOpened, onBack, onAcknowledged }: DocumentViewerProps) {
   const { toast } = useToast();
   const [acknowledging, setAcknowledging] = useState(false);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
-  const [hasOpenedPdf, setHasOpenedPdf] = useState(false);
+  const [hasOpenedPdf, setHasOpenedPdf] = useState(!!initialOpened);
   const [hasReadToBottom, setHasReadToBottom] = useState(false);
   const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
   const richTextScrollRef = useRef<HTMLDivElement>(null);
@@ -33,6 +35,17 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
     resolveResourceUrl(doc.pdf_url).then((u) => { if (!cancelled) setSignedPdfUrl(u); });
     return () => { cancelled = true; };
   }, [doc.pdf_url]);
+
+  // Auto-open the inline PDF preview when the driver arrived here by tapping
+  // "View PDF" on the Document Hub card (desktop path). Waits for the signed
+  // URL to be ready so the modal opens with content already loaded.
+  useEffect(() => {
+    if (!autoOpenPdf) return;
+    if (doc.content_type !== 'pdf') return;
+    if (!signedPdfUrl) return;
+    setPdfPreviewOpen(true);
+    setHasOpenedPdf(true);
+  }, [autoOpenPdf, doc.content_type, signedPdfUrl]);
 
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
@@ -189,9 +202,21 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
                 <p className="text-foreground font-medium mb-1">{doc.title}</p>
                 <p className="text-muted-foreground text-sm">PDF Document</p>
               </div>
-              <Button onClick={() => { setPdfPreviewOpen(true); setHasOpenedPdf(true); }} className="gap-2">
+              <Button
+                variant={hasOpenedPdf ? 'outline' : 'default'}
+                onClick={() => {
+                  // On mobile, re-open in the native viewer for a real PDF experience.
+                  if (signedPdfUrl && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
+                    window.open(signedPdfUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    setPdfPreviewOpen(true);
+                  }
+                  setHasOpenedPdf(true);
+                }}
+                className="gap-2"
+              >
                 <FileText className="h-4 w-4" />
-                View PDF
+                {hasOpenedPdf ? 'Reopen PDF' : 'View PDF'}
               </Button>
               {pdfPreviewOpen && signedPdfUrl && (
                 <FilePreviewModal url={signedPdfUrl} name={doc.title} onClose={() => setPdfPreviewOpen(false)} />
