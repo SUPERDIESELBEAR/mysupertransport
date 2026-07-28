@@ -34,7 +34,7 @@ export function onboardingStatusForScenario(scenario: DemoScenario) {
     ch_status: 'not_started',
     mvr_ch_approval: 'pending',
     pe_screening: 'not_started',
-    pe_screening_result: null,
+    pe_screening_result: 'pending',
     form_2290: 'not_started',
     truck_title: 'not_started',
     truck_photos: 'not_started',
@@ -47,7 +47,6 @@ export function onboardingStatusForScenario(scenario: DemoScenario) {
     fuel_card_issued: 'no',
     insurance_added_date: null,
     go_live_date: null,
-    fully_onboarded: false,
   };
 
   switch (scenario) {
@@ -91,7 +90,6 @@ export function onboardingStatusForScenario(scenario: DemoScenario) {
         fuel_card_issued: 'yes',
         insurance_added_date: today,
         go_live_date: today,
-        fully_onboarded: true,
       };
   }
 }
