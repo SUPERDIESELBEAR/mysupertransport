@@ -57,9 +57,9 @@ export default function DeactivationPage() {
           .maybeSingle(),
         supabase
           .from('mo_plate_assignments')
-          .select('unit_number, released_at')
+          .select('unit_number, returned_at')
           .eq('operator_id', operatorId)
-          .order('created_at', { ascending: false })
+          .order('assigned_at', { ascending: false })
           .limit(5),
       ]);
       if (error) {
@@ -75,7 +75,7 @@ export default function DeactivationPage() {
       }
       const app = (data as any).applications;
       const application = Array.isArray(app) ? app[0] : app;
-      const plateUnit = (plateRes.data ?? []).find((r: any) => !r.released_at && r.unit_number)?.unit_number
+      const plateUnit = (plateRes.data ?? []).find((r: any) => !r.returned_at && r.unit_number)?.unit_number
         ?? (plateRes.data ?? []).find((r: any) => r.unit_number)?.unit_number
         ?? null;
       const resolvedUnit =
