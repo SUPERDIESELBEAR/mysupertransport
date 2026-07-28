@@ -1,12 +1,19 @@
-## Problem
-When a driver taps **View Document** on the Doc Hub, the DocumentViewer renders in place of the hub but inherits the previous scroll position, so drivers land near the bottom of the article and have to scroll up.
+## Add Delete for Angle Photos (Driver App)
 
-## Fix
-Reset the scroll position when `DocumentViewer` mounts (and when the viewed doc changes) so every "View Document" tap starts at the top.
+In the driver-facing decal upload UI, the "Angle" photos below Driver/Passenger Side currently have no way to remove them. Add a delete control per angle so drivers can remove any uploaded angle photo.
 
-## File
-- `src/components/documents/DocumentViewer.tsx` — add a `useEffect` on mount / on `doc.id` change that scrolls the window (and the nearest scrollable ancestor, since the driver app uses a fixed shell with an inner scroll container) to the top. Use `window.scrollTo(0, 0)` plus a walk up from the component root to reset any `overflow-auto` ancestor's `scrollTop`.
+### Changes
+- **File:** `src/components/operator/OperatorDocumentUpload.tsx`
+  - Add a `handleDeleteDecalExtra(idx)` handler:
+    - Optimistically remove the entry from local `decalExtras` state.
+    - Persist by updating `onboarding_status.decal_photos` to the new array (same pattern as the add handler).
+    - On failure, restore state and show an error toast; on success, show "Angle removed" toast.
+  - In the angles grid (around line 969–977), render each tile with:
+    - The existing image preview (still opens in modal via `PreviewLink`).
+    - A small trash icon button in the top-right corner of the tile (semi-transparent black bg, white icon) that stops event propagation and opens a lightweight confirm (using `window.confirm` or existing `AlertDialog` if used elsewhere) before calling the delete handler.
+    - Keep the label caption below.
+  - No changes to storage: leave the underlying storage object in place (matches the existing pattern for the DS/PS Replace flow and the staff `StaffDecalPhotoEditor`, which also only removes the DB reference).
 
-## Out of scope
-- No changes to the Doc Hub list, PDF flow, or acknowledgment logic.
-- No route-level scroll-restoration change.
+### Out of scope
+- Deleting Driver Side / Passenger Side photos (those already have Replace; user asked specifically about angle photos).
+- Storage garbage collection.
