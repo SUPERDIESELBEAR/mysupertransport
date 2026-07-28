@@ -75,6 +75,10 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
   const [crop, setCrop] = useState<CropRect>({ left: 0, top: 0, right: 0, bottom: 0 });
   const [dragging, setDragging] = useState<Edge | null>(null);
   const dragStart = useRef<{ x: number; y: number; crop: CropRect } | null>(null);
+  // Suppresses the synthetic mousedown iOS fires ~300ms after touchstart,
+  // which was starting a second drag with a stale crop snapshot and pinning
+  // handles after the first crop.
+  const lastTouchAt = useRef<number>(0);
 
   const hasCrop = crop.left > 0.5 || crop.top > 0.5 || crop.right > 0.5 || crop.bottom > 0.5;
 
@@ -198,11 +202,13 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onUp);
+    window.addEventListener('touchcancel', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onUp);
+      window.removeEventListener('touchcancel', onUp);
     };
   }, [dragging]);
 
@@ -263,12 +269,16 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
 
   /* ─── handle helpers for mouse/touch on edges ─── */
   const onEdgeMouseDown = (edge: Edge) => (e: ReactMouseEvent) => {
+    // Ignore the synthetic mousedown iOS emits right after a touch handle.
+    if (Date.now() - lastTouchAt.current < 500) return;
     e.preventDefault();
     e.stopPropagation();
     startDrag(edge, e.clientX, e.clientY);
   };
   const onEdgeTouchStart = (edge: Edge) => (e: ReactTouchEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+    lastTouchAt.current = Date.now();
     const t = e.touches[0];
     startDrag(edge, t.clientX, t.clientY);
   };
@@ -308,7 +318,10 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
         )}
 
         {imageSource && !loading && !loadError && (
-          <div className="relative inline-block select-none" style={{ cursor: dragging ? 'grabbing' : 'default' }}>
+          <div
+            className="relative inline-block select-none"
+            style={{ cursor: dragging ? 'grabbing' : 'default', touchAction: 'none' }}
+          >
             {/* The image */}
             <img
               ref={imgRef}
