@@ -4490,6 +4490,115 @@ export type Database = {
           },
         ]
       }
+      staff_help_messages: {
+        Row: {
+          content: string
+          created_at: string
+          follow_ups: string[]
+          id: string
+          role: string
+          sources: Json
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          follow_ups?: string[]
+          id?: string
+          role: string
+          sources?: Json
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          follow_ups?: string[]
+          id?: string
+          role?: string
+          sources?: Json
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_help_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "staff_help_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_help_query_log: {
+        Row: {
+          answered_from: string
+          created_at: string
+          id: string
+          matched_faq_ids: string[]
+          matched_help_entry_ids: string[]
+          query: string
+          thread_id: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_from: string
+          created_at?: string
+          id?: string
+          matched_faq_ids?: string[]
+          matched_help_entry_ids?: string[]
+          query: string
+          thread_id?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_from?: string
+          created_at?: string
+          id?: string
+          matched_faq_ids?: string[]
+          matched_help_entry_ids?: string[]
+          query?: string
+          thread_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_help_query_log_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "staff_help_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_help_threads: {
+        Row: {
+          created_at: string
+          id: string
+          pinned: boolean
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
