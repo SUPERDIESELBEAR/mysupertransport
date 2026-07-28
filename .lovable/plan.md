@@ -1,52 +1,59 @@
-## Problem
+## Root cause
 
-The MS Fleet Fuel Card Instructions resources have two issues on mobile:
+Two independent bugs on the driver-facing "Decal Install Photos" card in `src/components/operator/OperatorDocumentUpload.tsx`.
 
-1. **Layout runs together.** The body content is stored as raw markdown (`**bold**`, no paragraph breaks), but the viewer renders it as HTML via `sanitizeRichHtml`. Result: the asterisks show literally and everything collapses into one giant block of text.
-2. **Reference content behaves like a checklist item.** The Step-by-Step guide is flagged `is_start_here = true`, so it appears in the "Getting Started Checklist". Once a driver taps "Mark Complete" (or the FAQ), both items render with a line-through and show as "completed" — implying they only need to be read once. The user wants these to be always-available reference material with no completion tracking.
+### 1. Photos render as a broken-image placeholder
 
-## Plan
+`handleDecalPhoto` stores the **bare storage path** (e.g. `<operator-id>/decal_photos/ds_...jpg`) in `decal_photo_ds_url` / `decal_photo_ps_url` — this was intentional so viewers always mint a fresh signed URL (see `src/lib/decalUrl.ts`, used by Dispatch and Vehicle Hub).
 
-### 1. Reformat both MS Fleet resource bodies as clean HTML (data-only migration)
+But this component renders it directly:
 
-Rewrite `service_resources.body` for the two MS Fleet rows using semantic HTML that the existing `prose` styles already support:
-
-- **How to Fuel with the MS Fleet Card (Step-by-Step)** — break into:
-  - `<h3>Before you start</h3>` intro paragraph
-  - `<h3>Step-by-step</h3>` `<ol>` with 9 numbered steps (one `<li>` each)
-  - `<h3>If the card is declined</h3>` short paragraph
-- **MS Fleet Card — Quick Answers** — convert each Q into `<h3>Question</h3>` followed by a `<p>Answer</p>`, so questions are visually separated on mobile.
-
-No prose or wording changes beyond formatting.
-
-### 2. Make these resources "reference-only" (no completion, no checklist)
-
-Add a new boolean column `is_reference_only` to `service_resources` (default `false`). When `true`:
-
-- **ResourceViewer** (`src/components/service-library/ResourceViewer.tsx`) hides the "Mark Complete" button (Bookmark stays).
-- **ServiceDetailPage** (`src/components/service-library/ServiceDetailPage.tsx`) skips these rows from the "Getting Started Checklist" counts/progress bar and never applies the `line-through` completed style to their titles.
-- **DriverServiceLibrary** (`src/components/service-library/DriverServiceLibrary.tsx`) excludes them from Start-Here progress rollups.
-
-Set `is_reference_only = true` and `is_start_here = false` on both MS Fleet rows in the same migration, and clear any prior completions for them so nothing shows crossed out:
-
-```sql
-DELETE FROM public.service_resource_completions
-WHERE resource_id IN ('<step-by-step id>', '<faq id>');
+```tsx
+<img src={decalPhotoDs} alt="Decal Driver Side" ... />
 ```
 
-### 3. Type + interface updates
+The browser treats the bare path as a relative URL, gets a 404/HTML back, and shows the OS broken-image glyph (the blue `?` box). The `alt` text ("Decal Driver Side") is what shows in the driver-side tile in the screenshot.
 
-- Add `is_reference_only: boolean` to `ServiceResource` in `src/components/service-library/ServiceLibraryTypes.ts`.
-- Include it in the `select` used by `DriverServiceLibrary` so the flag flows through to both components.
+The extras array (`decal_photos` jsonb) is loaded raw with no resolution either.
 
-### Out of scope
+### 2. "Add Another Angle" always fails
 
-- No changes to the Comdata card, other services, or the Resource Center layout.
-- No changes to bookmarks — drivers can still bookmark the MS Fleet instructions.
-- No admin UI for the new flag right now (the flag is set directly by the migration for these two rows; a future edit form can expose it).
+`handleDecalExtra` writes to `onboarding_status.decal_photos` (jsonb). Confirmed by inspecting the database trigger `enforce_onboarding_status_operator_column_whitelist`: driver updates are only allowed on this exact set —
+
+```
+decal_photo_ds_url, decal_photo_ps_url, truck_photos,
+eld_signature_typed_name, eld_signature_image_url, eld_signature_signed_at,
+updated_at, updated_by
+```
+
+`decal_photos` is not in the list, so the trigger raises: *"Operators may only update their own decal photos, truck_photos, ica_status, and equipment asset sheet signature"*. That's the red "Upload failed" toast (the storage upload actually succeeds — the failure is on the `.update({ decal_photos: next })` call).
+
+## Fix
+
+### A. Render decals through the signed-URL resolver (frontend only)
+
+In `src/components/operator/OperatorDocumentUpload.tsx`:
+
+- Add state for resolved URLs: `decalPhotoDsResolved`, `decalPhotoPsResolved`, and per-extra resolved URLs.
+- On mount and whenever the stored value changes, call `resolveDecalUrl(...)` from `@/lib/decalUrl` to mint a fresh signed URL, and use that in every `<img src>` and `<PreviewLink url>` in the Decal Install Photos section.
+- For the extras array, keep raw storage paths in state but map through `resolveDecalUrl` for display (same pattern as `DecalPhotosQuickView.tsx`).
+- After a successful `handleDecalPhoto` / `handleDecalExtra`, re-resolve so the newly uploaded tile shows immediately without a page refresh.
+- Also, stop persisting a signed URL for extras in `handleDecalExtra` — store the **bare path** the same way the DS/PS uploader does (`fileUrl = path`). Signed URLs written to the DB expire; the resolver handles both formats but bare paths are the canonical form used elsewhere.
+
+No changes to `resolveDecalUrl` itself — it already handles bare paths, `object/sign/...`, and `object/public/...`.
+
+### B. Whitelist `decal_photos` for driver self-updates (migration)
+
+Extend `public.enforce_onboarding_status_operator_column_whitelist` to include `decal_photos` in the `v_allowed` array so drivers can add additional angles. No other logic changes; still blocks everything else, still bypasses for staff and internal cascade sessions.
+
+## Out of scope
+
+- Staff-side `StaffDecalPhotoEditor.tsx` and `DecalPhotosQuickView.tsx` already use `resolveDecalUrl` — no change.
+- Vehicle Hub decal viewer — unchanged.
+- No schema changes; only the trigger body is updated.
 
 ## Technical notes
 
-- Files touched: `ResourceViewer.tsx`, `ServiceDetailPage.tsx`, `DriverServiceLibrary.tsx`, `ServiceLibraryTypes.ts`, plus one migration.
-- Migration steps: `ALTER TABLE ... ADD COLUMN is_reference_only boolean NOT NULL DEFAULT false;` → `UPDATE` the two MS Fleet rows (new HTML body, `is_reference_only = true`, `is_start_here = false`) → `DELETE` their completions.
-- `sanitizeRichHtml` already allows `h1`–`h6`, `p`, `ol`, `ul`, `li`, `strong`, `em`, so no sanitizer changes are needed.
+- Files touched: `src/components/operator/OperatorDocumentUpload.tsx` + one migration replacing the trigger function body.
+- No new dependencies; `resolveDecalUrl` is already imported/used elsewhere.
+- Verification: after fix, an existing driver with uploaded decals should see both DS/PS tiles render, and tapping "Add Another Angle" should upload + append a new tile with no red error toast.
