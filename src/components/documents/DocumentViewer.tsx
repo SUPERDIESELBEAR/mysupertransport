@@ -95,8 +95,22 @@ export default function DocumentViewer({ doc, userId, acknowledgment, autoOpenPd
     onAcknowledged();
   };
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Reset scroll to the top whenever a document opens so drivers start at the
+  // header — not wherever the Doc Hub list was scrolled to.
+  useEffect(() => {
+    // Walk up from our root and reset any scrollable ancestor.
+    let el: HTMLElement | null = rootRef.current;
+    while (el) {
+      if (el.scrollTop > 0) el.scrollTop = 0;
+      el = el.parentElement;
+    }
+    try { window.scrollTo(0, 0); } catch { /* no-op */ }
+  }, [doc.id]);
+
   return (
-    <div className="animate-fade-in">
+    <div ref={rootRef} className="animate-fade-in">
       {/* Back button */}
       <button
         onClick={onBack}
