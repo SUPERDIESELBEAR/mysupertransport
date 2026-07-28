@@ -1,59 +1,52 @@
-## Root cause
+## Scope
 
-Two independent bugs on the driver-facing "Decal Install Photos" card in `src/components/operator/OperatorDocumentUpload.tsx`.
+Fixes to the front-facing driver **Documents → View** experience, contained to `src/components/inspection/DocRow.tsx` (viewer toolbar + download) and `src/components/shared/DocumentEditor.tsx` (crop lockup). No business logic or data changes.
 
-### 1. Photos render as a broken-image placeholder
+## 1. Header overcrowding (circled area in screenshot)
 
-`handleDecalPhoto` stores the **bare storage path** (e.g. `<operator-id>/decal_photos/ds_...jpg`) in `decal_photo_ds_url` / `decal_photo_ps_url` — this was intentional so viewers always mint a fresh signed URL (see `src/lib/decalUrl.ts`, used by Dispatch and Vehicle Hub).
+On a phone-width screen the top bar packs 12 controls into one row — Back label + file icon + filename + "100%" zoom pill + zoom in/out + edit + share + print + download + open-in-new-tab + close — so the file icon collides with the "100%" pill and the filename gets clipped.
 
-But this component renders it directly:
+Changes to `FilePreviewModal`'s header:
 
-```tsx
-<img src={decalPhotoDs} alt="Decal Driver Side" ... />
-```
+- Drop the redundant `FileText` icon next to the filename (the whole modal is a file viewer; the icon adds no info and is what visibly overlaps).
+- On mobile only (`isMobile`), hide the "Back" text label and keep just the arrow (the ✕ close button already handles closing; Back + ✕ side-by-side is redundant).
+- On mobile only, collapse the zoom cluster to a single "100%" pill that opens a small popover with –/reset/+ (or simply hide zoom on mobile PDFs, which already happens, and on mobile images since pinch-zoom is native). Desktop keeps the full inline zoom cluster.
+- On mobile only, hide the "Open in new tab" button — the Download and Share buttons already cover that need, and it's the least-used control.
+- Tighten spacing: `gap-0.5` between action buttons on mobile, and let the filename take remaining width with `flex-1 min-w-0 truncate` instead of a fixed `max-w-[40vw]`.
 
-The browser treats the bare path as a relative URL, gets a 404/HTML back, and shows the OS broken-image glyph (the blue `?` box). The `alt` text ("Decal Driver Side") is what shows in the driver-side tile in the screenshot.
+Result on a 390px phone: Back arrow · filename (truncated) · counter · prev/next · 100% · edit · share · print · download · close — fits without overlap.
 
-The extras array (`decal_photos` jsonb) is loaded raw with no resolution either.
+## 2. Download does nothing on mobile
 
-### 2. "Add Another Angle" always fails
+`downloadBlob` fetches the file as a blob, creates an `<a download>`, and clicks it. iOS Safari (and in-app WebViews like the PWA) silently ignores the `download` attribute on blob URLs and often on cross-origin URLs, which matches the reported "nothing happens."
 
-`handleDecalExtra` writes to `onboarding_status.decal_photos` (jsonb). Confirmed by inspecting the database trigger `enforce_onboarding_status_operator_column_whitelist`: driver updates are only allowed on this exact set —
+Changes to `src/lib/downloadBlob.ts`:
 
-```
-decal_photo_ds_url, decal_photo_ps_url, truck_photos,
-eld_signature_typed_name, eld_signature_image_url, eld_signature_signed_at,
-updated_at, updated_by
-```
+- Detect iOS / standalone PWA. On those, open the fetched blob URL in a new tab (`window.open(blobUrl, '_blank')`) so the OS presents its native "Save to Files / Share" sheet, which is the only reliable save path on iOS.
+- On other browsers, keep the current `<a download>` click path.
+- Delay `URL.revokeObjectURL` (e.g. 60s via `setTimeout`) so the new tab has time to load the blob before it's revoked — the current immediate revoke can also break the download on some browsers.
+- Wrap the fetch in a try/catch and surface a toast on failure (currently a failed fetch throws silently from the click handler).
 
-`decal_photos` is not in the list, so the trigger raises: *"Operators may only update their own decal photos, truck_photos, ica_status, and equipment asset sheet signature"*. That's the red "Upload failed" toast (the storage upload actually succeeds — the failure is on the `.update({ decal_photos: next })` call).
+The download button call sites in `DocRow.tsx` don't need to change.
 
-## Fix
+## 3. Edit / crop locks after first adjustment
 
-### A. Render decals through the signed-URL resolver (frontend only)
+In `DocumentEditor.tsx`, drag deltas are computed against `imgRef.current.getBoundingClientRect()`. Once the user drags the crop handles inward, the underlying `<img>` element's rendered box does not shrink (the crop is a CSS overlay), so this alone is fine — but the reported symptom ("crops once, then locks on further adjustment before save") points to two real issues in the drag logic:
 
-In `src/components/operator/OperatorDocumentUpload.tsx`:
+- **Stale start crop after the first drag.** `startDrag` snapshots `crop` at pointer-down, but when a touch handle re-fires quickly (iOS often emits a synthetic `mousedown` right after `touchstart`), a second `startDrag` runs with the *pre-first-drag* crop, which combined with the just-applied crop pushes the new value against `100 - other - MIN_SIZE` and pins the handle. Fix by ignoring `mousedown` on handles when a touch drag just ended (guard with a short-lived `lastTouchAt` ref, ~300ms), and by adding `e.preventDefault()` to the handle `onTouchStart`.
+- **`touchmove` listener with `{ passive: false }` but `touchend` cleanup happens only on `touchend`**, not on `touchcancel`. iOS fires `touchcancel` (e.g. when the browser starts a scroll gesture) and the drag state stays `true`, so the next tap on a handle is treated as a continuation with a stale `dragStart`. Fix by also listening for `touchcancel` and clearing `dragging` + `dragStart.current` there.
+- **Handles beyond `100 - MIN_SIZE`** can end up unreachable when the crop rect gets small. Enlarge the touch target: the current 40×`HANDLE` bars are fine, but move the handle divs to `pointerEvents: 'auto'` on a wrapper with `touch-action: none` so browser gesture handling doesn't hijack the second drag. Add `touch-action: none` to the crop overlay container.
 
-- Add state for resolved URLs: `decalPhotoDsResolved`, `decalPhotoPsResolved`, and per-extra resolved URLs.
-- On mount and whenever the stored value changes, call `resolveDecalUrl(...)` from `@/lib/decalUrl` to mint a fresh signed URL, and use that in every `<img src>` and `<PreviewLink url>` in the Decal Install Photos section.
-- For the extras array, keep raw storage paths in state but map through `resolveDecalUrl` for display (same pattern as `DecalPhotosQuickView.tsx`).
-- After a successful `handleDecalPhoto` / `handleDecalExtra`, re-resolve so the newly uploaded tile shows immediately without a page refresh.
-- Also, stop persisting a signed URL for extras in `handleDecalExtra` — store the **bare path** the same way the DS/PS uploader does (`fileUrl = path`). Signed URLs written to the DB expire; the resolver handles both formats but bare paths are the canonical form used elsewhere.
+Also: after a successful crop-and-save the modal closes, so no change needed there. Before save, tapping the "Undo" button already resets `crop` to zeros; verify it also clears `dragging`/`dragStart.current` (it should since drag state only lives while pointer is down).
 
-No changes to `resolveDecalUrl` itself — it already handles bare paths, `object/sign/...`, and `object/public/...`.
+## Files changed
 
-### B. Whitelist `decal_photos` for driver self-updates (migration)
+- `src/components/inspection/DocRow.tsx` — header layout only (FilePreviewModal).
+- `src/lib/downloadBlob.ts` — iOS-safe download path + delayed revoke + error toast.
+- `src/components/shared/DocumentEditor.tsx` — touchcancel cleanup, touch/mouse guard, `touch-action: none` on crop overlay.
 
-Extend `public.enforce_onboarding_status_operator_column_whitelist` to include `decal_photos` in the `v_allowed` array so drivers can add additional angles. No other logic changes; still blocks everything else, still bypasses for staff and internal cascade sessions.
+## Verification
 
-## Out of scope
-
-- Staff-side `StaffDecalPhotoEditor.tsx` and `DecalPhotosQuickView.tsx` already use `resolveDecalUrl` — no change.
-- Vehicle Hub decal viewer — unchanged.
-- No schema changes; only the trigger body is updated.
-
-## Technical notes
-
-- Files touched: `src/components/operator/OperatorDocumentUpload.tsx` + one migration replacing the trigger function body.
-- No new dependencies; `resolveDecalUrl` is already imported/used elsewhere.
-- Verification: after fix, an existing driver with uploaded decals should see both DS/PS tiles render, and tapping "Add Another Angle" should upload + append a new tile with no red error toast.
+- Preview in mobile viewport: confirm the header no longer overlaps and every button is tappable.
+- On an iOS device (or Safari responsive mode), tap Download on a PDF and an image and confirm the OS share/save sheet appears.
+- In the editor, crop, release, drag a different handle, release, drag again — confirm handles remain draggable until Save is pressed.
