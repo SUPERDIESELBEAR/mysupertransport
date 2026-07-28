@@ -10,6 +10,7 @@ import { FlaskConical, Loader2, Plus, RotateCcw, UserCheck, Undo2, AlertTriangle
 import { toast } from '@/hooks/use-toast';
 import { useShowDemo } from '@/hooks/useShowDemo';
 import DemoAccountBadge from '@/components/DemoAccountBadge';
+import ShowDemoToggle from '@/components/ShowDemoToggle';
 
 const SCENARIOS = [
   { value: 'blank', label: 'Blank (nothing started)' },
@@ -163,6 +164,7 @@ export default function DemoAccountsPanel() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ShowDemoToggle />
           <Button variant="outline" onClick={openConvert}>
             <UserCheck className="h-4 w-4 mr-1.5" /> Convert existing driver
           </Button>
