@@ -24,6 +24,8 @@ import AssignmentSheetTerms from './AssignmentSheetTerms';
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD Unit',
   dash_cam: 'Dash Camera',
+  license_plate: 'License Plate',
+  registration: 'Truck Registration',
   bestpass: 'BestPass',
 };
 
