@@ -1115,7 +1115,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const fetchOperators = async () => {
     setLoading(true);
 
-    const [{ data: opData }, { data: staffRoles }] = await Promise.all([
+    const [{ data: rawOpData }, { data: staffRoles }] = await Promise.all([
       supabase.from('operators').select(`
         id,
         user_id,
