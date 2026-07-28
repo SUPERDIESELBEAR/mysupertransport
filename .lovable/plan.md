@@ -1,35 +1,36 @@
-## Root cause: duplicate `new_message` in-app notifications
+## Problem
+The driver app currently has two top-level menu items that read almost identically:
 
-The staff Messages view uses `MessageThread` → `useMessageThread`, which already invokes the `notify-new-message` edge function on every send. `notify-new-message` inserts the in-app notification (title `New message from {sender}`) and handles the offline-throttled email.
+- **Documents** (icon: Upload) — opens the **Document Uploads** page where the driver uploads onboarding documents (Form 2290, truck title, truck photos, etc.).
+- **My Documents** (icon: FolderOpen) — opens the read-only file vault where the driver can view previously uploaded/assigned documents organized by type (Truck Photos, ICA Summary, Signed Assignment Sheets, Equipment Return receipts, etc.).
 
-However, `src/components/staff/MessagesView.tsx` (`handleMessageSent`) *also* invokes `send-notification` with `type: 'new_message'`, and that function inserts a second in-app notification (title `💬 New message from {sender}`) plus a second email. Verified against the database: recipient `1af…` has two rows per message — one titled `New message from …` and one titled `💬 New message from …`, seconds apart.
+Because both labels start with "Documents," drivers tap the wrong one and are unsure which page holds what.
 
-## Fix
+## Recommended change
+Rename the **action-oriented** page, not the vault. The vault name "My Documents" is already accurate and widely understood. The upload page is the one whose label is too generic.
 
-**1. Remove the redundant call from staff Messages view**  
-`src/components/staff/MessagesView.tsx`: delete the `handleMessageSent` callback and the `onMessageSent={handleMessageSent}` prop on `<MessageThread />`. `notify-new-message` (already fired inside `useMessageThread.sendMessage`) is the single source of truth for both in-app + email of DM notifications.
+| Current | Proposed | Rationale |
+|---|---|---|
+| Menu: **Documents** | Menu: **Upload Documents** (short: **Upload Docs**) | The word "Upload" immediately signals this is where you *put* documents, not where you *find* them. It also matches the existing page title "Document Uploads". |
+| Menu: **My Documents** | Keep as-is | This is the personal file cabinet. The "My" prefix clearly distinguishes it from the company/Doc Hub. |
+| Page title: **Document Uploads** | Keep as-is, or align to **Upload Documents** | Either works; keeping the current title is fine since the menu now uses the same verb. |
 
-**2. Leave the other `new_message` producers alone (verified single-source)**
-- `useMessageThread.ts` → `notify-new-message` (only path for 1:1 chat in staff/operator/dispatch UIs).
-- `BulkMessageModal.tsx` → inserts messages directly and calls `send-notification` once; no `useMessageThread`, so no duplicate.
-- `OperatorPortal.tsx` and `DispatchPortal.tsx` realtime handlers only fire desktop/OS push (`fireNotification`) — they do not insert `notifications` rows.
+### Alternative options if you prefer a different direction
+1. **Rename the vault instead**: keep **Documents** for the upload page, change **My Documents** → **My Files** / **File Vault** / **Driver Vault**. This is less intuitive for drivers looking for their onboarding paperwork.
+2. **Rename both**: **Upload Center** + **My Files**. Cleanest pair, but "My Files" loses the "documents" association.
+3. **Use onboarding context**: **Onboarding Documents** + **My Documents**. Accurate, but the menu item becomes long and stops making sense once the driver is fully onboarded.
 
-## Broader audit — other duplicate/near-duplicate notifications
+My recommendation is **Option 1** (rename the upload menu item to "Upload Documents" / "Upload Docs").
 
-Checked the DB and code paths:
+## Implementation scope
+- Update `src/pages/operator/OperatorPortal.tsx`:
+  - Change the hamburger menu item label from `Documents` to `Upload Documents` and add a short label `Upload Docs`.
+  - Optional: adjust the page title to match if desired.
+- No route changes, no backend changes, no icon changes needed (the Upload icon already fits).
+- Optionally update the `Document Uploads` heading inside `src/components/operator/OperatorDocumentUpload.tsx` to match the new menu label.
 
-- **Fully-onboarded milestone** — historic rows show two in-app notifs (`🎉 You are fully onboarded!` from the DB trigger, plus `Welcome to SUPERTRANSPORT — You're Fully Onboarded!` from `send-notification`). This was already fixed by `skipSendNotification: true` in `OperatorDetailPanel.tsx` (rows from 2026-07-27 onward only show the single trigger notif). No further change needed; the older duplicates in the screenshot are pre-fix data.
-- **ICA complete** — `send-notification` has an explicit skip comment to prevent a duplicate operator email against `notify-onboarding-update`. Already handled.
-- **`go_live_set` vs `fully_onboarded` emails** — consolidated in `notify-onboarding-update` (10-minute suppression window). Already handled.
-- All other `send-notification` types (`truck_down`, `document_uploaded`, `dispatch_status_change`, `pay_setup_submitted`, `application_approved`, etc.) are each fired from a single call site with no parallel trigger/edge insert. Confirmed via `rg` on their producers.
-
-## Verification after the change
-
-1. From staff Messages, send a message to a demo driver.
-2. Query `notifications` for the recipient — expect exactly one row per message (title `New message from …`, no `💬` variant).
-3. Confirm the driver still sees the notification in the bell dropdown and still gets the throttled offline email from `notify-new-message`.
-
-## Technical details
-
-- Files changed: `src/components/staff/MessagesView.tsx` only (delete `handleMessageSent` and the `onMessageSent` prop). No migrations, no edge function changes.
-- No behavioral change for email delivery: `notify-new-message` already sends the offline-throttled email; the removed path was sending a second, non-throttled email in addition.
+## Verification
+- Open the driver portal on mobile width.
+- Confirm the hamburger menu now shows: **Upload Documents**, **My Documents**.
+- Tap each and confirm the destination matches the label.
+- Confirm no other references in the codebase still use the old label.

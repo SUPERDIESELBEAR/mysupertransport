@@ -421,7 +421,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-foreground">Document Uploads</h2>
+        <h2 className="text-xl font-bold text-foreground">Upload Documents</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Upload your required onboarding documents. Staff will review and confirm each one.
         </p>

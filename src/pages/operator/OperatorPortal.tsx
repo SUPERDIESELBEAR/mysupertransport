@@ -1172,7 +1172,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
     { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', shortLabel: isFullyOnboarded ? 'Status' : 'Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
-    { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
+    { view: 'documents' as OperatorView, label: 'Upload Documents', shortLabel: 'Upload Docs', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', shortLabel: 'Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
