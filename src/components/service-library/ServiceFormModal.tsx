@@ -147,27 +147,30 @@ export default function ServiceFormModal({ service, onClose, onSaved }: ServiceF
             <Textarea id="desc" value={form.description} onChange={set('description')} placeholder="Brief description of this service" rows={2} />
           </div>
 
-          <div className="border-t border-border pt-4 space-y-3">
-            <p className="text-sm font-medium text-foreground">Support Contact</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-xs">Phone</Label>
-                <Input id="phone" value={form.support_phone} onChange={set('support_phone')} placeholder="+1 (800) 000-0000" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs">Email</Label>
-                <Input id="email" type="email" value={form.support_email} onChange={set('support_email')} placeholder="support@example.com" />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label htmlFor="chat" className="text-xs">Live Chat URL</Label>
-                <Input id="chat" value={form.support_chat_url} onChange={set('support_chat_url')} placeholder="https://…" />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label htmlFor="hours" className="text-xs">Support Hours</Label>
-                <Input id="hours" value={form.support_hours} onChange={set('support_hours')} placeholder="Mon–Fri 8am–6pm CST" />
+          {service?.id !== '3ce86eaa-357b-46ce-8d46-bd383fb72945' && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">Support Contact</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-xs">Phone</Label>
+                  <Input id="phone" value={form.support_phone} onChange={set('support_phone')} placeholder="+1 (800) 000-0000" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs">Email</Label>
+                  <Input id="email" type="email" value={form.support_email} onChange={set('support_email')} placeholder="support@example.com" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label htmlFor="chat" className="text-xs">Live Chat URL</Label>
+                  <Input id="chat" value={form.support_chat_url} onChange={set('support_chat_url')} placeholder="https://…" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label htmlFor="hours" className="text-xs">Support Hours</Label>
+                  <Input id="hours" value={form.support_hours} onChange={set('support_hours')} placeholder="Mon–Fri 8am–6pm CST" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
 
           <div className="space-y-1.5">
             <Label htmlFor="issues">Tips & Known Issues</Label>
