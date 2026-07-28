@@ -1,27 +1,47 @@
-import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, KeyboardEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { LifeBuoy, Send, BookOpen, Loader2, ArrowRight, X, ExternalLink } from 'lucide-react';
+import { LifeBuoy, Send, BookOpen, Loader2, ArrowRight, X, ExternalLink, Plus, Trash2, MessageSquare, Pin, PinOff, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { searchHelp, getHelpEntryById, getSuggestionsForRole, type HelpEntry } from '@/lib/staffHelp';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Source { id: string; question: string; category: string; route?: string }
 interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
   sources?: Source[];
+  followUps?: string[];
+}
+interface Thread {
+  id: string;
+  title: string;
+  pinned: boolean;
+  updated_at: string;
 }
 
 const MAX_CONTEXT_ENTRIES = 10;
 
 export default function StaffHelpPortal() {
-  const { activeRole } = useAuth();
+  const { activeRole, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const threadIdParam = searchParams.get('thread');
+
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(true);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(threadIdParam);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<Thread | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -33,13 +53,79 @@ export default function StaffHelpPortal() {
 
   const results = input.trim() ? searchHelp(input, activeRole) : [];
 
+  // Load threads for the current user.
+  const loadThreads = useCallback(async () => {
+    if (!user) return;
+    setThreadsLoading(true);
+    const { data, error } = await supabase
+      .from('staff_help_threads')
+      .select('id, title, pinned, updated_at')
+      .eq('user_id', user.id)
+      .order('pinned', { ascending: false })
+      .order('updated_at', { ascending: false });
+    if (error) {
+      console.error('load threads', error);
+    } else {
+      setThreads((data ?? []) as Thread[]);
+    }
+    setThreadsLoading(false);
+  }, [user]);
+
+  useEffect(() => { loadThreads(); }, [loadThreads]);
+
+  // Load messages for the active thread.
+  useEffect(() => {
+    if (!activeThreadId) { setMessages([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('staff_help_messages')
+        .select('role, content, sources, follow_ups')
+        .eq('thread_id', activeThreadId)
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        console.error('load messages', error);
+        return;
+      }
+      setMessages((data ?? []).map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        sources: Array.isArray(m.sources) ? m.sources : undefined,
+        followUps: Array.isArray(m.follow_ups) ? m.follow_ups : undefined,
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [activeThreadId]);
+
+  // Keep URL and active thread in sync.
+  useEffect(() => {
+    if (threadIdParam && threadIdParam !== activeThreadId) {
+      setActiveThreadId(threadIdParam);
+    }
+  }, [threadIdParam, activeThreadId]);
+
+  const openThread = useCallback((id: string | null) => {
+    setActiveThreadId(id);
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set('thread', id); else next.delete('thread');
+    setSearchParams(next, { replace: true });
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [searchParams, setSearchParams]);
+
+  const newChat = useCallback(() => {
+    setMessages([]);
+    setInput('');
+    openThread(null);
+  }, [openThread]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, sending]);
 
   useEffect(() => {
     textareaRef.current?.focus();
-  }, []);
+  }, [activeThreadId]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -65,9 +151,36 @@ export default function StaffHelpPortal() {
     }
   }, [navigate]);
 
+  async function ensureThread(firstUserText: string): Promise<string | null> {
+    if (activeThreadId) return activeThreadId;
+    if (!user) return null;
+    const title = firstUserText.trim().slice(0, 60) || 'New chat';
+    const { data, error } = await supabase
+      .from('staff_help_threads')
+      .insert({ user_id: user.id, title })
+      .select('id, title, pinned, updated_at')
+      .single();
+    if (error || !data) {
+      console.error('create thread', error);
+      toast.error('Could not start a new chat.');
+      return null;
+    }
+    setThreads(prev => [data as Thread, ...prev]);
+    setActiveThreadId(data.id);
+    const next = new URLSearchParams(searchParams);
+    next.set('thread', data.id);
+    setSearchParams(next, { replace: true });
+    return data.id;
+  }
+
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || sending) return;
+    if (!user) return;
+
+    const threadId = await ensureThread(content);
+    if (!threadId) return;
+
     const nextMessages: ChatMsg[] = [...messages, { role: 'user', content }];
     setMessages(nextMessages);
     setInput('');
@@ -76,9 +189,18 @@ export default function StaffHelpPortal() {
 
     const contextEntries = input.trim() ? results.slice(0, MAX_CONTEXT_ENTRIES).map(r => r.entry) : [];
 
+    // Persist the user message.
+    await supabase.from('staff_help_messages').insert({
+      thread_id: threadId,
+      user_id: user.id,
+      role: 'user',
+      content,
+    });
+
     try {
       const { data, error } = await supabase.functions.invoke('staff-help-chat', {
         body: {
+          threadId,
           messages: nextMessages.map(({ role, content }) => ({ role, content })),
           contextEntries: contextEntries.map(e => ({
             id: e.id,
@@ -96,7 +218,25 @@ export default function StaffHelpPortal() {
       if ((data as any)?.error) throw new Error((data as any).error);
       const answer = (data as any)?.answer as string;
       const sources = ((data as any)?.sources ?? []) as Source[];
-      setMessages(prev => [...prev, { role: 'assistant', content: answer || '(no response)', sources }]);
+      const followUps = ((data as any)?.followUps ?? []) as string[];
+      setMessages(prev => [...prev, { role: 'assistant', content: answer || '(no response)', sources, followUps }]);
+      await supabase.from('staff_help_messages').insert({
+        thread_id: threadId,
+        user_id: user.id,
+        role: 'assistant',
+        content: answer || '(no response)',
+        sources: sources as any,
+        follow_ups: followUps,
+      });
+      // Auto-title thread if still default.
+      const t = threads.find(x => x.id === threadId);
+      if (t && (t.title === 'New chat' || t.title === content.slice(0, 60))) {
+        const newTitle = content.trim().slice(0, 50);
+        if (newTitle && newTitle !== t.title) {
+          await supabase.from('staff_help_threads').update({ title: newTitle }).eq('id', threadId);
+          setThreads(prev => prev.map(x => x.id === threadId ? { ...x, title: newTitle } : x));
+        }
+      }
     } catch (err: any) {
       console.error('staff-help-chat failed', err);
       const msg = err?.message?.includes('rate') ? 'The assistant is busy. Please retry in a moment.'
@@ -107,6 +247,7 @@ export default function StaffHelpPortal() {
     } finally {
       setSending(false);
       setTimeout(() => textareaRef.current?.focus(), 0);
+      loadThreads();
     }
   };
 
@@ -142,19 +283,177 @@ export default function StaffHelpPortal() {
 
   const SUGGESTIONS = getSuggestionsForRole(activeRole);
 
+  // Group threads by recency for the sidebar.
+  const grouped = useMemo(() => {
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    const buckets: Record<string, Thread[]> = { Pinned: [], Today: [], Yesterday: [], 'Last 7 days': [], Older: [] };
+    for (const t of threads) {
+      if (t.pinned) { buckets.Pinned.push(t); continue; }
+      const age = now - new Date(t.updated_at).getTime();
+      if (age < day) buckets.Today.push(t);
+      else if (age < 2 * day) buckets.Yesterday.push(t);
+      else if (age < 7 * day) buckets['Last 7 days'].push(t);
+      else buckets.Older.push(t);
+    }
+    return buckets;
+  }, [threads]);
+
+  async function togglePin(t: Thread) {
+    const next = !t.pinned;
+    setThreads(prev => prev.map(x => x.id === t.id ? { ...x, pinned: next } : x));
+    const { error } = await supabase.from('staff_help_threads').update({ pinned: next }).eq('id', t.id);
+    if (error) { toast.error('Could not update pin.'); loadThreads(); }
+  }
+
+  async function saveRename() {
+    if (!renaming) return;
+    const title = renaming.value.trim().slice(0, 80) || 'New chat';
+    const id = renaming.id;
+    setThreads(prev => prev.map(x => x.id === id ? { ...x, title } : x));
+    setRenaming(null);
+    const { error } = await supabase.from('staff_help_threads').update({ title }).eq('id', id);
+    if (error) { toast.error('Could not rename.'); loadThreads(); }
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
+    setThreads(prev => prev.filter(x => x.id !== id));
+    if (activeThreadId === id) openThread(null);
+    const { error } = await supabase.from('staff_help_threads').delete().eq('id', id);
+    if (error) { toast.error('Could not delete chat.'); loadThreads(); }
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100dvh-8rem)] animate-fade-in" ref={containerRef}>
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-          <LifeBuoy className="h-6 w-6 text-gold shrink-0" />
-          Staff Help
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Search for a page, feature, or workflow — then click <span className="font-medium text-foreground">Go</span> to
-          jump there, or ask the AI for step-by-step instructions.
-        </p>
-      </div>
+    <div className="flex h-[calc(100dvh-8rem)] gap-3 animate-fade-in" ref={containerRef}>
+      {/* Threads sidebar */}
+      {sidebarOpen && (
+        <aside className="w-64 shrink-0 flex flex-col rounded-xl border border-border bg-white overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chats</span>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="text-muted-foreground hover:text-foreground p-1 rounded"
+              aria-label="Hide chats"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </div>
+          <button
+            onClick={newChat}
+            className="mx-3 mt-3 mb-2 flex items-center justify-center gap-1.5 rounded-lg bg-gold hover:bg-gold/90 text-surface-dark text-sm font-medium py-2 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> New chat
+          </button>
+          <div className="flex-1 overflow-y-auto px-2 pb-3">
+            {threadsLoading ? (
+              <div className="flex items-center justify-center py-6 text-muted-foreground text-xs">
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Loading…
+              </div>
+            ) : threads.length === 0 ? (
+              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                No chats yet. Ask a question below to start.
+              </div>
+            ) : (
+              Object.entries(grouped).map(([label, list]) =>
+                list.length === 0 ? null : (
+                  <div key={label} className="mb-3">
+                    <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      {label}
+                    </div>
+                    <ul className="space-y-0.5">
+                      {list.map(t => {
+                        const active = t.id === activeThreadId;
+                        const isRenaming = renaming?.id === t.id;
+                        return (
+                          <li key={t.id}>
+                            <div
+                              className={`group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                                active ? 'bg-gold/15 text-foreground' : 'hover:bg-muted/60 text-foreground'
+                              }`}
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              {isRenaming ? (
+                                <input
+                                  autoFocus
+                                  value={renaming!.value}
+                                  onChange={e => setRenaming({ id: t.id, value: e.target.value })}
+                                  onBlur={saveRename}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
+                                    if (e.key === 'Escape') setRenaming(null);
+                                  }}
+                                  className="flex-1 min-w-0 bg-transparent border-b border-gold outline-none text-sm"
+                                />
+                              ) : (
+                                <button
+                                  onClick={() => openThread(t.id)}
+                                  onDoubleClick={() => setRenaming({ id: t.id, value: t.title })}
+                                  className="flex-1 min-w-0 text-left truncate"
+                                  title={t.title}
+                                >
+                                  {t.title}
+                                </button>
+                              )}
+                              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+                                <button
+                                  onClick={() => togglePin(t)}
+                                  className="text-muted-foreground hover:text-foreground p-0.5 rounded"
+                                  aria-label={t.pinned ? 'Unpin' : 'Pin'}
+                                  title={t.pinned ? 'Unpin' : 'Pin'}
+                                >
+                                  {t.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                                </button>
+                                <button
+                                  onClick={() => setPendingDelete(t)}
+                                  className="text-muted-foreground hover:text-red-600 p-0.5 rounded"
+                                  aria-label="Delete chat"
+                                  title="Delete chat"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                              {t.pinned && !isRenaming && (
+                                <Pin className="h-3 w-3 text-gold shrink-0 group-hover:hidden" />
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )
+              )
+            )}
+          </div>
+        </aside>
+      )}
+
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="mb-3 flex items-start gap-2">
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="mt-1 p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label="Show chats"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+              <LifeBuoy className="h-6 w-6 text-gold shrink-0" />
+              Staff Help
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Ask any question about SUPERDRIVE. Chats are saved to your account — click a past chat on the left to continue it.
+            </p>
+          </div>
+        </div>
 
       {/* Transcript */}
       <div
@@ -244,6 +543,19 @@ export default function StaffHelpPortal() {
                             </button>
                           );
                         })}
+                      </div>
+                    )}
+                    {m.followUps && m.followUps.length > 0 && i === messages.length - 1 && !sending && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {m.followUps.map((q, qi) => (
+                          <button
+                            key={qi}
+                            onClick={() => send(q)}
+                            className="text-xs px-3 py-1.5 rounded-full border border-gold/40 bg-gold/5 hover:bg-gold/15 text-foreground transition-colors"
+                          >
+                            {q}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -347,6 +659,22 @@ export default function StaffHelpPortal() {
           </div>
         )}
       </div>
+      </div>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(v) => !v && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDelete?.title}" and all its messages will be permanently removed. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
