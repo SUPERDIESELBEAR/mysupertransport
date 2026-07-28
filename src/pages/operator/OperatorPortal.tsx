@@ -1,3 +1,4 @@
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -49,7 +50,6 @@ import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
 import { appendNavTrace, ensurePointerTraceInstalled } from '@/lib/navTrace';
 import {
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
   type OperatorNavigateOptions,
   type OperatorView,
   type OperatorViewState,
