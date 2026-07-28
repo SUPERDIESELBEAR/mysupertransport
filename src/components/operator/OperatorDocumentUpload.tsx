@@ -890,9 +890,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 <p className="text-sm font-medium text-foreground">Driver Side</p>
                 {decalPhotoDs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
               </div>
-              {decalPhotoDs ? (
-                <PreviewLink url={decalPhotoDs} name="Decal — Driver Side">
-                  <img src={decalPhotoDs} alt="Decal Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+              {decalPhotoDs && decalPhotoDsResolved ? (
+                <PreviewLink url={decalPhotoDsResolved} name="Decal — Driver Side">
+                  <img src={decalPhotoDsResolved} alt="Decal Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                 </PreviewLink>
               ) : (
                 <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/30 flex items-center justify-center">
@@ -930,9 +930,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 <p className="text-sm font-medium text-foreground">Passenger Side</p>
                 {decalPhotoPs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
               </div>
-              {decalPhotoPs ? (
-                <PreviewLink url={decalPhotoPs} name="Decal — Passenger Side">
-                  <img src={decalPhotoPs} alt="Decal Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+              {decalPhotoPs && decalPhotoPsResolved ? (
+                <PreviewLink url={decalPhotoPsResolved} name="Decal — Passenger Side">
+                  <img src={decalPhotoPsResolved} alt="Decal Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                 </PreviewLink>
               ) : (
                 <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/30 flex items-center justify-center">
@@ -966,9 +966,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
           </div>
 
           {/* Additional angles */}
-          {decalExtras.length > 0 && (
+          {decalExtrasResolved.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-              {decalExtras.map((p, idx) => (
+              {decalExtrasResolved.map((p, idx) => (
                 <PreviewLink key={idx} url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="space-y-1 block">
                   <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
                   <p className="text-[11px] text-muted-foreground text-center">{p.label ?? `Angle ${idx + 1}`}</p>
