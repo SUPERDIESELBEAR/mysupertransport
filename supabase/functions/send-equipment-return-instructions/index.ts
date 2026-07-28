@@ -17,7 +17,12 @@ const DEVICE_LABELS: Record<string, string> = {
   bestpass: 'BestPass',
   fuel_card: 'Fuel Card',
   decal: 'Decal',
+  license_plate: 'License Plate',
+  registration: 'Truck Registration',
 }
+
+// Truck Registration stays with the truck — it is never mailed back.
+const RETURNABLE_TYPES = new Set(['eld', 'dash_cam', 'bestpass', 'fuel_card', 'decal', 'license_plate'])
 
 Deno.serve(withErrorEnvelope(async (req) => {
   const auth = await requireStaff(req, { roles: ['management', 'onboarding_staff', 'owner'] })
@@ -49,10 +54,12 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
   const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || 'Driver'
 
-  const items = ((sheet as any).items || []).map((it: any) => ({
-    label: DEVICE_LABELS[it.device_type] ?? it.device_type,
-    serial: it.serial_snapshot || null,
-  }))
+  const items = ((sheet as any).items || [])
+    .filter((it: any) => RETURNABLE_TYPES.has(it.device_type))
+    .map((it: any) => ({
+      label: DEVICE_LABELS[it.device_type] ?? it.device_type,
+      serial: it.serial_snapshot || null,
+    }))
 
   const portalUrl = buildAppUrl(`/operator/onboard-systems?sheet=${sheet.id}&return=1`)
 
