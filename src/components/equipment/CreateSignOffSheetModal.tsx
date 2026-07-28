@@ -402,11 +402,63 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
                   </Select>
                 </div>
 
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="license-plate"
+                      checked={includePlate}
+                      disabled={!plateAssignment}
+                      onCheckedChange={c => setIncludePlate(c === true)}
+                    />
+                    <Label htmlFor="license-plate" className="font-normal cursor-pointer flex items-center gap-2">
+                      <RectangleHorizontal className="h-4 w-4" />
+                      Issue License Plate
+                    </Label>
+                  </div>
+                  {plateLoading ? (
+                    <p className="text-xs text-muted-foreground pl-6">Checking MO Plate Registry…</p>
+                  ) : plateAssignment ? (
+                    <p className="text-xs text-muted-foreground pl-6">
+                      From MO Plate Registry:{' '}
+                      <span className="font-mono font-medium text-foreground">{plateAssignment.plateNumber} (MO)</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground pl-6">
+                      No active plate assignment — assign a plate in MO Plate Registry first.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="truck-registration"
+                      checked={includeRegistration}
+                      onCheckedChange={c => {
+                        setIncludeRegistration(c === true);
+                        if (c !== true) setRegistrationNote('');
+                      }}
+                    />
+                    <Label htmlFor="truck-registration" className="font-normal cursor-pointer flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Issue Truck Registration
+                    </Label>
+                  </div>
+                  {includeRegistration && (
+                    <Input
+                      className="h-9"
+                      value={registrationNote}
+                      maxLength={120}
+                      placeholder="Optional note (e.g. registration number)"
+                      onChange={e => setRegistrationNote(e.target.value)}
+                    />
+                  )}
+                </div>
+
                 <div className="rounded-lg border border-border p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="bestpass"
-                      checked={includeBestPass}
                       checked={includeBestPass}
                       onCheckedChange={c => {
                         setIncludeBestPass(c === true);
