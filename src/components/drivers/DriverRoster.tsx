@@ -1452,6 +1452,14 @@ export default function DriverRoster({
         </div>
       )}
       <PwaReminderPreviewModal open={installPreviewOpen} onOpenChange={setInstallPreviewOpen} />
+      {previewTarget && (
+        <MobilePreviewQRModal
+          open={!!previewTarget}
+          onOpenChange={(open) => { if (!open) setPreviewTarget(null); }}
+          targetUserId={previewTarget.userId}
+          targetName={previewTarget.name}
+        />
+      )}
     </div>
   );
 }
