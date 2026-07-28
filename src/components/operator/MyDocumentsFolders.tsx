@@ -81,7 +81,7 @@ export default function MyDocumentsFolders({ operatorId }: Props) {
   const [docs, setDocs] = useState<VaultDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});
-  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
+  const [preview, setPreview] = useState<{ folderKey: string; index: number } | null>(null);
 
   const [sheetSummary, setSheetSummary] = useState({ count: 0, actionNeeded: false });
   const [returnSummary, setReturnSummary] = useState({ count: 0, actionNeeded: false });
@@ -221,15 +221,27 @@ export default function MyDocumentsFolders({ operatorId }: Props) {
         )}
       </div>
 
-      {previewDoc && (
-        <FilePreviewModal
-          url={previewDoc.url}
-          name={previewDoc.name}
-          onClose={() => setPreviewDoc(null)}
-          bucketName="operator-documents"
-          filePath={docs.find(d => d.file_url === previewDoc.url)?.file_path ?? undefined}
-        />
-      )}
+      {(() => {
+        if (!preview) return null;
+        const activeFolder = folders.find(f => f.key === preview.folderKey);
+        if (!activeFolder) return null;
+        const safeIndex = Math.min(preview.index, activeFolder.docs.length - 1);
+        const activeDoc = activeFolder.docs[safeIndex];
+        if (!activeDoc?.file_url) return null;
+        const total = activeFolder.docs.length;
+        return (
+          <FilePreviewModal
+            url={activeDoc.file_url}
+            name={activeDoc.label}
+            onClose={() => setPreview(null)}
+            bucketName="operator-documents"
+            filePath={activeDoc.file_path ?? undefined}
+            onPrev={safeIndex > 0 ? () => setPreview({ folderKey: preview.folderKey, index: safeIndex - 1 }) : undefined}
+            onNext={safeIndex < total - 1 ? () => setPreview({ folderKey: preview.folderKey, index: safeIndex + 1 }) : undefined}
+            counter={total > 1 ? `${safeIndex + 1} of ${total}` : undefined}
+          />
+        );
+      })()}
     </>
   );
 }
