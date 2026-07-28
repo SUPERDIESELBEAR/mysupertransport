@@ -407,6 +407,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
                     <Checkbox
                       id="bestpass"
                       checked={includeBestPass}
+                      checked={includeBestPass}
                       onCheckedChange={c => {
                         setIncludeBestPass(c === true);
                         if (c !== true) updateDevice('bestpass', null);
