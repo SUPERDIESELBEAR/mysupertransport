@@ -9,6 +9,7 @@ import { withTimeout } from '@/lib/withTimeout';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
+import { resolveDecalUrl } from '@/lib/decalUrl';
 interface DocumentSlot {
   key: string;
   label: string;
@@ -72,6 +73,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const [decalPhotoDs, setDecalPhotoDs] = useState<string | null>(onboardingStatus.decal_photo_ds_url ?? null);
   const [decalPhotoPs, setDecalPhotoPs] = useState<string | null>(onboardingStatus.decal_photo_ps_url ?? null);
   const [decalExtras, setDecalExtras] = useState<Array<{ url: string; label?: string }>>([]);
+  const [decalPhotoDsResolved, setDecalPhotoDsResolved] = useState<string | null>(null);
+  const [decalPhotoPsResolved, setDecalPhotoPsResolved] = useState<string | null>(null);
+  const [decalExtrasResolved, setDecalExtrasResolved] = useState<Array<{ url: string; label?: string }>>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const decalDsRef = useRef<HTMLInputElement | null>(null);
   const decalPsRef = useRef<HTMLInputElement | null>(null);
@@ -92,6 +96,36 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     })();
     return () => { cancelled = true; };
   }, [operatorId]);
+
+  // Resolve bare storage paths (or stale signed URLs) into fresh signed URLs for display
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const resolved = await resolveDecalUrl(decalPhotoDs);
+      if (!cancelled) setDecalPhotoDsResolved(resolved);
+    })();
+    return () => { cancelled = true; };
+  }, [decalPhotoDs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const resolved = await resolveDecalUrl(decalPhotoPs);
+      if (!cancelled) setDecalPhotoPsResolved(resolved);
+    })();
+    return () => { cancelled = true; };
+  }, [decalPhotoPs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const resolved = await Promise.all(
+        decalExtras.map(async p => ({ ...p, url: (await resolveDecalUrl(p.url)) ?? '' })),
+      );
+      if (!cancelled) setDecalExtrasResolved(resolved);
+    })();
+    return () => { cancelled = true; };
+  }, [decalExtras]);
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
 
