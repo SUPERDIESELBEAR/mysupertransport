@@ -1,36 +1,28 @@
 ## Problem
-The driver app currently has two top-level menu items that read almost identically:
 
-- **Documents** (icon: Upload) — opens the **Document Uploads** page where the driver uploads onboarding documents (Form 2290, truck title, truck photos, etc.).
-- **My Documents** (icon: FolderOpen) — opens the read-only file vault where the driver can view previously uploaded/assigned documents organized by type (Truck Photos, ICA Summary, Signed Assignment Sheets, Equipment Return receipts, etc.).
+On iOS Safari (and the PWA), any `<input>` with a font-size smaller than 16px triggers an automatic zoom-in when it gains focus. The reply composer in the driver messages view uses `text-sm` (14px), which is why tapping "Reply to Emma Mueller…" zooms the screen.
 
-Because both labels start with "Documents," drivers tap the wrong one and are unsure which page holds what.
+## Fix
 
-## Recommended change
-Rename the **action-oriented** page, not the vault. The vault name "My Documents" is already accurate and widely understood. The upload page is the one whose label is too generic.
+Bump the composer input's font-size to 16px on mobile so iOS no longer zooms. Keep the visual density on larger screens if desired.
 
-| Current | Proposed | Rationale |
-|---|---|---|
-| Menu: **Documents** | Menu: **Upload Documents** (short: **Upload Docs**) | The word "Upload" immediately signals this is where you *put* documents, not where you *find* them. It also matches the existing page title "Document Uploads". |
-| Menu: **My Documents** | Keep as-is | This is the personal file cabinet. The "My" prefix clearly distinguishes it from the company/Doc Hub. |
-| Page title: **Document Uploads** | Keep as-is, or align to **Upload Documents** | Either works; keeping the current title is fine since the menu now uses the same verb. |
+**File:** `src/components/messaging/MessageComposer.tsx` (line 134)
 
-### Alternative options if you prefer a different direction
-1. **Rename the vault instead**: keep **Documents** for the upload page, change **My Documents** → **My Files** / **File Vault** / **Driver Vault**. This is less intuitive for drivers looking for their onboarding paperwork.
-2. **Rename both**: **Upload Center** + **My Files**. Cleanest pair, but "My Files" loses the "documents" association.
-3. **Use onboarding context**: **Onboarding Documents** + **My Documents**. Accurate, but the menu item becomes long and stops making sense once the driver is fully onboarded.
+Change the input className from:
+```
+flex-1 h-10 text-sm
+```
+to:
+```
+flex-1 h-10 text-base sm:text-sm
+```
 
-My recommendation is **Option 1** (rename the upload menu item to "Upload Documents" / "Upload Docs").
+This keeps the compact 14px appearance on tablet/desktop but renders at 16px on phones, which is the iOS threshold that disables focus-zoom.
 
-## Implementation scope
-- Update `src/pages/operator/OperatorPortal.tsx`:
-  - Change the hamburger menu item label from `Documents` to `Upload Documents` and add a short label `Upload Docs`.
-  - Optional: adjust the page title to match if desired.
-- No route changes, no backend changes, no icon changes needed (the Upload icon already fits).
-- Optionally update the `Document Uploads` heading inside `src/components/operator/OperatorDocumentUpload.tsx` to match the new menu label.
+## Why not edit the viewport meta
+
+Adding `maximum-scale=1, user-scalable=no` to `index.html` would also stop the zoom, but it disables pinch-zoom app-wide and hurts accessibility. Fixing the input font-size is the standard, targeted fix.
 
 ## Verification
-- Open the driver portal on mobile width.
-- Confirm the hamburger menu now shows: **Upload Documents**, **My Documents**.
-- Tap each and confirm the destination matches the label.
-- Confirm no other references in the codebase still use the old label.
+
+Open the driver app on a phone (or iOS simulator), navigate to Messages → a thread, tap the reply box. The keyboard should slide up without the page zooming.
