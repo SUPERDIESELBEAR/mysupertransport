@@ -227,6 +227,9 @@ export default function DemoAccountsPanel() {
                       : <RotateCcw className="h-4 w-4" />}
                   </Button>
                 </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Reset wipes this driver's onboarding, documents and dispatch activity, then re-seeds the chosen scenario.
+                </p>
                 <Button
                   variant="ghost"
                   size="sm"
