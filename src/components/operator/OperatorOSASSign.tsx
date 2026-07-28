@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Loader2, Pen, CheckCircle2, ArrowLeft, HardDrive, Cpu, Camera, Gauge, AlertTriangle,
+  RectangleHorizontal, FileText,
 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
