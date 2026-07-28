@@ -390,12 +390,32 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       toast({ title: 'Angle removed' });
     } catch (err: unknown) {
       setDecalExtras(prev);
+      console.error('[decal delete] failed', err);
+      const msg =
+        (err as { message?: string })?.message ??
+        (typeof err === 'string' ? err : 'Please try again.');
       toast({
         title: 'Remove failed',
-        description: err instanceof Error ? err.message : 'Please try again.',
+        description: msg,
         variant: 'destructive',
       });
     }
+  };
+
+  // Re-read decal state from DB so the tiles show the freshly edited photo
+  // (upserts land at the same storage path — resolveDecalUrl mints a new
+  // signed URL when we reset local state).
+  const refreshDecalState = async () => {
+    const { data } = await supabase
+      .from('onboarding_status')
+      .select('decal_photo_ds_url, decal_photo_ps_url, decal_photos')
+      .eq('operator_id', operatorId)
+      .maybeSingle();
+    if (!data) return;
+    setDecalPhotoDs((data.decal_photo_ds_url as string | null) ?? null);
+    setDecalPhotoPs((data.decal_photo_ps_url as string | null) ?? null);
+    const raw = (data.decal_photos as unknown) as Array<{ url: string; label?: string }> | null;
+    if (Array.isArray(raw)) setDecalExtras([...raw]);
   };
 
   return (
