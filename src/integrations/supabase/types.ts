@@ -4346,6 +4346,7 @@ export type Database = {
           description: string | null
           estimated_minutes: number | null
           id: string
+          is_reference_only: boolean
           is_start_here: boolean
           is_visible: boolean
           last_verified_at: string | null
@@ -4363,6 +4364,7 @@ export type Database = {
           description?: string | null
           estimated_minutes?: number | null
           id?: string
+          is_reference_only?: boolean
           is_start_here?: boolean
           is_visible?: boolean
           last_verified_at?: string | null
@@ -4380,6 +4382,7 @@ export type Database = {
           description?: string | null
           estimated_minutes?: number | null
           id?: string
+          is_reference_only?: boolean
           is_start_here?: boolean
           is_visible?: boolean
           last_verified_at?: string | null
