@@ -62,6 +62,8 @@ const STATUS_LABELS: Record<string, string> = {
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD',
   dash_cam: 'Dash Camera',
+  license_plate: 'License Plate',
+  registration: 'Truck Registration',
   bestpass: 'BestPass',
 };
 
