@@ -293,12 +293,14 @@ function ResourceRow({ resource, onClick, onToggleComplete, onToggleBookmark }: 
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary/30 transition-all group">
+      {!resource.is_reference_only && (
       <button onClick={onToggleComplete} className="shrink-0">
         {resource.is_completed
           ? <CheckCircle2 className="h-5 w-5 text-status-complete" />
           : <Circle className="h-5 w-5 text-muted-foreground/40 group-hover:text-muted-foreground" />
         }
       </button>
+      )}
       {thumbUrl && (
         <button onClick={onClick} className="shrink-0 relative rounded-lg overflow-hidden w-16 h-10 bg-muted">
           <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
@@ -319,7 +321,7 @@ function ResourceRow({ resource, onClick, onToggleComplete, onToggleBookmark }: 
               <AlertTriangle className="h-2.5 w-2.5" /> Outdated
             </Badge>
           )}
-          <p className={`text-sm font-medium ${resource.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+          <p className={`text-sm font-medium ${resource.is_completed && !resource.is_reference_only ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
             {resource.title}
           </p>
         </div>

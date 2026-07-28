@@ -1,54 +1,52 @@
-## Repairs & Maintenance — Mobile Layout + View Invoice Fix
+## Problem
 
-Two changes to the driver-facing "My Truck" page (`src/components/fleet/FleetDetailDrawer.tsx`) and one targeted fix to the shared PDF preview (`src/components/inspection/DocRow.tsx`). No changes to the detail dialog that opens when a row is tapped — that stays exactly as it is.
+The MS Fleet Fuel Card Instructions resources have two issues on mobile:
 
-### 1. Recommended layout: mobile-first cards (replaces the table on small screens)
+1. **Layout runs together.** The body content is stored as raw markdown (`**bold**`, no paragraph breaks), but the viewer renders it as HTML via `sanitizeRichHtml`. Result: the asterisks show literally and everything collapses into one giant block of text.
+2. **Reference content behaves like a checklist item.** The Step-by-Step guide is flagged `is_start_here = true`, so it appears in the "Getting Started Checklist". Once a driver taps "Mark Complete" (or the FAQ), both items render with a line-through and show as "completed" — implying they only need to be read once. The user wants these to be always-available reference material with no completion tracking.
 
-The current view is a 5-column table crammed into ~731px of width. Shop names wrap vertically ("Love's / Travel / Stops & / Country / Stores, / Inc."), descriptions truncate at ~200px, and the category badge column disappears off-screen. Drivers can't see what a record actually is without tapping in.
+## Plan
 
-Proposed card design (one card per record):
+### 1. Reformat both MS Fleet resource bodies as clean HTML (data-only migration)
 
-```text
-┌──────────────────────────────────────────────┐
-│ 7/12/26 · Tires                    $1,563.31 │  ← date · category chip, amount right
-│ Love's Travel Stop #0360                     │  ← shop, single line, truncates w/ ellipsis
-│ Roadside service for the replacement of      │  ← description, 2-line clamp
-│ three blown or damaged trailer tires…        │
-│                                              │
-│ [ 👁 View invoice ]                          │  ← only shown if invoice exists
-└──────────────────────────────────────────────┘
+Rewrite `service_resources.body` for the two MS Fleet rows using semantic HTML that the existing `prose` styles already support:
+
+- **How to Fuel with the MS Fleet Card (Step-by-Step)** — break into:
+  - `<h3>Before you start</h3>` intro paragraph
+  - `<h3>Step-by-step</h3>` `<ol>` with 9 numbered steps (one `<li>` each)
+  - `<h3>If the card is declined</h3>` short paragraph
+- **MS Fleet Card — Quick Answers** — convert each Q into `<h3>Question</h3>` followed by a `<p>Answer</p>`, so questions are visually separated on mobile.
+
+No prose or wording changes beyond formatting.
+
+### 2. Make these resources "reference-only" (no completion, no checklist)
+
+Add a new boolean column `is_reference_only` to `service_resources` (default `false`). When `true`:
+
+- **ResourceViewer** (`src/components/service-library/ResourceViewer.tsx`) hides the "Mark Complete" button (Bookmark stays).
+- **ServiceDetailPage** (`src/components/service-library/ServiceDetailPage.tsx`) skips these rows from the "Getting Started Checklist" counts/progress bar and never applies the `line-through` completed style to their titles.
+- **DriverServiceLibrary** (`src/components/service-library/DriverServiceLibrary.tsx`) excludes them from Start-Here progress rollups.
+
+Set `is_reference_only = true` and `is_start_here = false` on both MS Fleet rows in the same migration, and clear any prior completions for them so nothing shows crossed out:
+
+```sql
+DELETE FROM public.service_resource_completions
+WHERE resource_id IN ('<step-by-step id>', '<faq id>');
 ```
 
-- Whole card is tappable → opens the existing Maintenance Record dialog (unchanged).
-- Description gets 2 lines of room (`line-clamp-2`) instead of one truncated line.
-- Category chip moves to the top row so it's always visible.
-- Amount is right-aligned and prominent.
-- "View invoice" button lives inside the card with `e.stopPropagation()` so it doesn't also open the detail.
-- Search + category filter stay above the list, unchanged.
-- On `sm:` and up, keep the current table (staff/desktop use). The card view applies to mobile only (`sm:hidden` for cards, `hidden sm:block` for the table).
+### 3. Type + interface updates
 
-### 2. Fix "View Invoice" broken link on mobile
-
-Root cause (verified in `src/components/inspection/DocRow.tsx` line 701): the mobile PDF fallback card's **Open PDF** button calls `window.open(blobUrl, '_blank')`. iOS Safari blocks `blob:` URLs opened in a new tab — the tab opens black/empty, which is what the screenshot shows. The link isn't actually broken; the target scheme is unsupported.
-
-Fix: open the signed https URL instead of the blob URL. iOS Safari renders PDFs from https URLs natively in a new tab.
-
-```tsx
-// before
-onClick={() => window.open(blobUrl, '_blank')}
-// after
-onClick={() => window.open(resolvedUrl, '_blank', 'noopener,noreferrer')}
-```
-
-`resolvedUrl` is already computed in the same component and is the signed Supabase Storage URL. Share and Save buttons keep using the blob (they need the fetched bytes) — no change there.
-
-This fix benefits every PDF preview app-wide (inspection certs, registrations, invoices), not just Repairs & Maintenance.
-
-### Files touched
-
-- `src/components/fleet/FleetDetailDrawer.tsx` — add mobile card list next to the existing table in the Repairs & Maintenance section (~lines 679–742). No data or state changes.
-- `src/components/inspection/DocRow.tsx` — one-line change to the mobile PDF fallback "Open PDF" button (~line 701).
+- Add `is_reference_only: boolean` to `ServiceResource` in `src/components/service-library/ServiceLibraryTypes.ts`.
+- Include it in the `select` used by `DriverServiceLibrary` so the flag flows through to both components.
 
 ### Out of scope
 
-- Comdata / MS Fleet resources, other sections of the page, staff drawer behavior, and the maintenance detail dialog remain untouched.
+- No changes to the Comdata card, other services, or the Resource Center layout.
+- No changes to bookmarks — drivers can still bookmark the MS Fleet instructions.
+- No admin UI for the new flag right now (the flag is set directly by the migration for these two rows; a future edit form can expose it).
+
+## Technical notes
+
+- Files touched: `ResourceViewer.tsx`, `ServiceDetailPage.tsx`, `DriverServiceLibrary.tsx`, `ServiceLibraryTypes.ts`, plus one migration.
+- Migration steps: `ALTER TABLE ... ADD COLUMN is_reference_only boolean NOT NULL DEFAULT false;` → `UPDATE` the two MS Fleet rows (new HTML body, `is_reference_only = true`, `is_start_here = false`) → `DELETE` their completions.
+- `sanitizeRichHtml` already allows `h1`–`h6`, `p`, `ol`, `ul`, `li`, `strong`, `em`, so no sanitizer changes are needed.

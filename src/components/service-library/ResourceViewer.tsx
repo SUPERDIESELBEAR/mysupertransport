@@ -318,6 +318,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
 
         {/* Action bar */}
         <div className="flex items-center gap-2 flex-wrap">
+          {!resource.is_reference_only && (
           <Button
             variant={resource.is_completed ? 'default' : 'outline'}
             size="sm"
@@ -330,6 +331,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
               : <><Circle className="h-4 w-4" /> Mark Complete</>
             }
           </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
