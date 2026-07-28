@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
+import { ShowDemoProvider } from "@/hooks/useShowDemo";
 import IdleWarningModal from "@/components/IdleWarningModal";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import PWAInstallBannerBoundary from "@/components/PWAInstallBannerBoundary";
@@ -226,6 +227,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <DemoModeProvider>
+        <ShowDemoProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -240,6 +242,7 @@ const App = () => (
             <PWAInstallBanner />
           </PWAInstallBannerBoundary>
         </TooltipProvider>
+        </ShowDemoProvider>
       </DemoModeProvider>
       </AuthProvider>
       <BuildStatusBanner />

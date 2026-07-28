@@ -4,6 +4,7 @@ import { formatPhoneDisplay } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
+import { useShowDemo } from '@/hooks/useShowDemo';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -668,6 +669,7 @@ function MultiBlockedCallout({
 export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, onOpenOperatorAtBinder, onOpenOperatorAtStage, onOpenInspectionBinder, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const { showDemo } = useShowDemo();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [complianceExpanded, setComplianceExpanded] = useState(false);
@@ -963,7 +965,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     fetchOperators();
     fetchComplianceAlerts();
     fetchStageConfigs();
-  }, [fetchComplianceAlerts, fetchStageConfigs]);
+  }, [fetchComplianceAlerts, fetchStageConfigs, showDemo]);
 
   // Realtime: re-fetch pipeline_config whenever a stage is saved in the editor
   useEffect(() => {
@@ -1114,13 +1116,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const fetchOperators = async () => {
     setLoading(true);
 
-    const [{ data: opData }, { data: staffRoles }] = await Promise.all([
+    const [{ data: rawOpData }, { data: staffRoles }] = await Promise.all([
       supabase.from('operators').select(`
         id,
         user_id,
         application_id,
         created_at,
         unit_number,
+        is_demo,
         assigned_onboarding_staff,
         on_hold,
         on_hold_reason,
@@ -1160,7 +1163,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
     ]);
 
-    if (!opData) { setLoading(false); return; }
+    if (!rawOpData) { setLoading(false); return; }
+
+    // Hide demo driver accounts unless the staff member opted in.
+    const opData = showDemo
+      ? (rawOpData as any[])
+      : (rawOpData as any[]).filter((o: any) => o.is_demo !== true);
 
     const allStaffUserIds = (staffRoles ?? []).map((r: any) => r.user_id);
 

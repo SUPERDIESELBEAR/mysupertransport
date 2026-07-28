@@ -16,6 +16,8 @@ import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { useShowDemo } from '@/hooks/useShowDemo';
+import DemoAccountBadge from '@/components/DemoAccountBadge';
 
 interface DriverRow {
   operator_id: string;
@@ -33,6 +35,7 @@ interface DriverRow {
   pwa_installed_at: string | null;
   last_web_seen_at: string | null;
   excluded_from_dispatch: boolean;
+  is_demo?: boolean;
 }
 
 interface ReminderEntry {
@@ -360,6 +363,7 @@ export default function DriverRoster({
   onUpdateCompliance,
   onDriversChange,
 }: DriverRosterProps) {
+  const { showDemo } = useShowDemo();
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -448,6 +452,7 @@ export default function DriverRoster({
           id,
           user_id,
           unit_number,
+          is_demo,
           onboarding_status!inner (fully_onboarded, unit_number),
           active_dispatch (dispatch_status),
           applications (first_name, last_name, phone, email, address_state, cdl_expiration, medical_cert_expiration)
@@ -492,8 +497,11 @@ export default function DriverRoster({
     }
     const activeSet = new Set(Object.entries(activeMap).filter(([, v]) => v.is_active === !showInactive).map(([k]) => k));
 
-    // Filter to only operators matching is_active state
-    const data = (rawData as any[] ?? []).filter((op: any) => activeSet.has(op.id));
+    // Filter to only operators matching is_active state, hiding demo accounts
+    // unless the staff member has opted into showing them.
+    const data = (rawData as any[] ?? [])
+      .filter((op: any) => activeSet.has(op.id))
+      .filter((op: any) => showDemo || op.is_demo !== true);
 
     // Build per-operator reminder maps
     const latestMap: Record<string, string> = {};
@@ -553,6 +561,7 @@ export default function DriverRoster({
           cdl_expiration: binderDates[op.user_id]?.cdl ?? app?.cdl_expiration ?? null,
           medical_cert_expiration: binderDates[op.user_id]?.med ?? app?.medical_cert_expiration ?? null,
           is_active: activeSet.has(op.id),
+          is_demo: op.is_demo === true,
           pwa_installed_at: activeMap[op.id]?.pwa_installed_at ?? null,
           last_web_seen_at: activeMap[op.id]?.last_web_seen_at ?? null,
           excluded_from_dispatch: activeMap[op.id]?.excluded_from_dispatch ?? false,
@@ -579,7 +588,7 @@ export default function DriverRoster({
     }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [showDemo]);
 
   useEffect(() => {
     fetchDrivers();
@@ -960,6 +969,7 @@ export default function DriverRoster({
                     <div className="min-w-0">
                       <div className="font-medium text-sm text-foreground truncate flex items-center gap-1.5">
                         {name}
+                        {driver.is_demo && <DemoAccountBadge />}
                         {driver.pwa_installed_at ? (
                           <Smartphone className="h-3 w-3 shrink-0 text-emerald-500" />
                         ) : driver.last_web_seen_at ? (
@@ -1186,6 +1196,7 @@ export default function DriverRoster({
                           <span className="text-xs font-bold text-gold">{initials}</span>
                         </div>
                         <span className="font-medium text-sm text-foreground">{name}</span>
+                        {driver.is_demo && <DemoAccountBadge />}
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger>

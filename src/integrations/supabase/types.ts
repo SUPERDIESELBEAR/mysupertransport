@@ -338,6 +338,7 @@ export type Database = {
           equipment_operated: string[] | null
           first_name: string | null
           id: string
+          is_demo: boolean
           is_draft: boolean | null
           last_name: string | null
           medical_cert_expiration: string | null
@@ -421,6 +422,7 @@ export type Database = {
           equipment_operated?: string[] | null
           first_name?: string | null
           id?: string
+          is_demo?: boolean
           is_draft?: boolean | null
           last_name?: string | null
           medical_cert_expiration?: string | null
@@ -504,6 +506,7 @@ export type Database = {
           equipment_operated?: string[] | null
           first_name?: string | null
           id?: string
+          is_demo?: boolean
           is_draft?: boolean | null
           last_name?: string | null
           medical_cert_expiration?: string | null
@@ -3275,12 +3278,16 @@ export type Database = {
           deactivated_at: string | null
           deactivated_by: string | null
           deactivation_reason: string | null
+          demo_label: string | null
+          demo_owner_user_id: string | null
+          demo_scenario: string | null
           excluded_from_dispatch: boolean
           excluded_from_dispatch_at: string | null
           excluded_from_dispatch_by: string | null
           excluded_from_dispatch_reason: string | null
           id: string
           is_active: boolean
+          is_demo: boolean
           last_web_seen_at: string | null
           notes: string | null
           on_hold: boolean
@@ -3301,12 +3308,16 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           deactivation_reason?: string | null
+          demo_label?: string | null
+          demo_owner_user_id?: string | null
+          demo_scenario?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
           excluded_from_dispatch_reason?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           last_web_seen_at?: string | null
           notes?: string | null
           on_hold?: boolean
@@ -3327,12 +3338,16 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           deactivation_reason?: string | null
+          demo_label?: string | null
+          demo_owner_user_id?: string | null
+          demo_scenario?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
           excluded_from_dispatch_reason?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           last_web_seen_at?: string | null
           notes?: string | null
           on_hold?: boolean
@@ -3991,6 +4006,7 @@ export type Database = {
           home_state: string | null
           id: string
           invited_by: string | null
+          is_demo: boolean
           last_name: string | null
           phone: string | null
           updated_at: string
@@ -4004,6 +4020,7 @@ export type Database = {
           home_state?: string | null
           id?: string
           invited_by?: string | null
+          is_demo?: boolean
           last_name?: string | null
           phone?: string | null
           updated_at?: string
@@ -4017,6 +4034,7 @@ export type Database = {
           home_state?: string | null
           id?: string
           invited_by?: string | null
+          is_demo?: boolean
           last_name?: string | null
           phone?: string | null
           updated_at?: string
@@ -4810,6 +4828,7 @@ export type Database = {
           equipment_operated: string[] | null
           first_name: string | null
           id: string
+          is_demo: boolean
           is_draft: boolean | null
           last_name: string | null
           medical_cert_expiration: string | null

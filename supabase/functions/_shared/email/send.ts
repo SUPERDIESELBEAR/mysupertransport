@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { buildFrom, replyTo, type SenderRole } from './sender.ts';
+import { isDemoRecipient, resolveCallerEmail, demoSubject } from '../demo-email.ts';
 
 // Resend limit is ~40MB base64 total. Leave headroom for HTML + headers.
 const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -93,6 +94,8 @@ export interface DirectSendOptions {
   logLabel: string;
   /** Skip suppression check (rare: staff-only internal notifications). */
   skipSuppression?: boolean;
+  /** Caller's Authorization header — required to reroute demo-account mail to staff. */
+  authHeader?: string;
 }
 
 export interface DirectSendResult {
@@ -137,6 +140,7 @@ export async function sendResendDirect(
     attachments,
     logLabel,
     skipSuppression,
+    authHeader,
   } = opts;
 
   const apiKey = Deno.env.get('RESEND_API_KEY');
@@ -144,9 +148,37 @@ export async function sendResendDirect(
     return { success: false, status: 500, error: 'RESEND_API_KEY not configured' };
   }
 
-  const recipients = normalizeRecipients(to);
+  let recipients = normalizeRecipients(to);
   if (recipients.length === 0) {
     return { success: false, status: 400, error: 'At least one recipient is required' };
+  }
+
+  // Demo-account safety: if any recipient is a demo driver, never deliver to
+  // real inboxes — reroute the whole send to the acting staff member.
+  let effectiveSubject = subject;
+  let effectiveHtml = html;
+  let effectiveText = text;
+  let demoCc = cc;
+  const demoFlags = await Promise.all(recipients.map(r => isDemoRecipient(supabase, r)));
+  if (demoFlags.some(Boolean)) {
+    const staffEmail = await resolveCallerEmail(supabase, authHeader ?? null);
+    const originals = recipients.join(', ');
+    if (!staffEmail) {
+      await supabase.from('email_send_log').insert({
+        message_id: crypto.randomUUID(),
+        template_name: logLabel,
+        recipient_email: recipients[0],
+        status: 'skipped_demo',
+      });
+      return { success: false, status: 200, error: 'Demo account: no staff recipient to reroute to' };
+    }
+    const bannerText = `DEMO EMAIL — generated for the demo account ${originals} and rerouted to you. No driver received it.`;
+    const bannerHtml = `<div style="background:#f3e8ff;border:1px solid #c084fc;color:#6b21a8;padding:12px 16px;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;">${bannerText}</div>`;
+    effectiveHtml = bannerHtml + html;
+    effectiveText = text ? `${bannerText}\n\n${text}` : bannerText;
+    effectiveSubject = demoSubject(subject, originals);
+    demoCc = undefined;
+    recipients = [staffEmail.toLowerCase()];
   }
 
   // Suppression: block any recipient on the list.
@@ -197,11 +229,11 @@ export async function sendResendDirect(
   const payload: Record<string, unknown> = {
     from: buildFrom(role),
     to: recipients,
-    subject,
-    html,
+    subject: effectiveSubject,
+    html: effectiveHtml,
   };
-  if (text) payload.text = text;
-  if (cc && cc.length > 0) payload.cc = cc;
+  if (effectiveText) payload.text = effectiveText;
+  if (demoCc && demoCc.length > 0) payload.cc = demoCc;
   if (replyToList && replyToList.length > 0) payload.reply_to = replyToList;
   else payload.reply_to = replyTo(role);
   if (attachments && attachments.length > 0) payload.attachments = attachments;

@@ -3,6 +3,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { resolveDemoRedirect, demoSubject } from '../_shared/demo-email.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -103,7 +104,7 @@ Deno.serve(async (req) => {
   // Resolve effective recipient: template-level `to` takes precedence over
   // the caller-provided recipientEmail. This allows notification templates
   // to always send to a fixed address (e.g., site owner from env var).
-  const effectiveRecipient = template.to || recipientEmail
+  let effectiveRecipient = template.to || recipientEmail
 
   if (!effectiveRecipient) {
     return new Response(
@@ -119,6 +120,31 @@ Deno.serve(async (req) => {
 
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  // Demo-account safety: never deliver to a demo driver. Reroute to the acting
+  // staff member, or skip entirely when no staff member can be resolved.
+  let demoNotice: string | null = null
+  const demoRedirect = await resolveDemoRedirect(
+    supabase,
+    effectiveRecipient,
+    req.headers.get('Authorization'),
+  )
+  if (demoRedirect.isDemo) {
+    if (!demoRedirect.redirectTo) {
+      await supabase.from('email_send_log').insert({
+        message_id: messageId,
+        template_name: templateName,
+        recipient_email: effectiveRecipient,
+        status: 'skipped_demo',
+      })
+      return new Response(
+        JSON.stringify({ success: false, reason: 'demo_account_no_staff_recipient' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+    demoNotice = effectiveRecipient
+    effectiveRecipient = demoRedirect.redirectTo
+  }
 
   // 2. Check suppression list (fail-closed: if we can't verify, don't send)
   const { data: suppressed, error: suppressionError } = await supabase
@@ -278,19 +304,28 @@ Deno.serve(async (req) => {
   }
 
   // 4. Render React Email template to HTML and plain text
-  const html = await renderAsync(
+  let html = await renderAsync(
     React.createElement(template.component, templateData)
   )
-  const plainText = await renderAsync(
+  let plainText = await renderAsync(
     React.createElement(template.component, templateData),
     { plainText: true }
   )
 
   // Resolve subject — supports static string or dynamic function
-  const resolvedSubject =
+  let resolvedSubject =
     typeof template.subject === 'function'
       ? template.subject(templateData)
       : template.subject
+
+  if (demoNotice) {
+    const bannerText = `DEMO EMAIL — generated for the demo account ${demoNotice} and rerouted to you. No driver received it.`
+    const bannerHtml = `<div style="background:#f3e8ff;border:1px solid #c084fc;color:#6b21a8;padding:12px 16px;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;">${bannerText}</div>`
+    html = html.replace(/(<body[^>]*>)/i, `$1${bannerHtml}`)
+    if (!html.includes(bannerHtml)) html = bannerHtml + html
+    plainText = `${bannerText}\n\n${plainText}`
+    resolvedSubject = demoSubject(resolvedSubject, demoNotice)
+  }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.

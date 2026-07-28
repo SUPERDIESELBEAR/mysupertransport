@@ -9,6 +9,7 @@ import {
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
+import ShowDemoToggle from '@/components/ShowDemoToggle';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import { BuildInfo } from '@/components/BuildInfo';
@@ -376,6 +377,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
           </button>
           <div className="flex-1 min-w-0" />
           {headerActions}
+          <ShowDemoToggle />
           <button
             onClick={handleRefresh}
             disabled={refreshing}
