@@ -44,11 +44,24 @@ export default function DeactivationPage() {
     }
 
     async function loadOperator() {
-      const { data, error } = await supabase
-        .from('operators')
-        .select('id, user_id, is_active, unit_number, applications!inner(first_name, last_name)')
-        .eq('id', operatorId)
-        .maybeSingle();
+      const [{ data, error }, onbRes, plateRes] = await Promise.all([
+        supabase
+          .from('operators')
+          .select('id, user_id, is_active, unit_number, applications!inner(first_name, last_name)')
+          .eq('id', operatorId)
+          .maybeSingle(),
+        supabase
+          .from('onboarding_status')
+          .select('unit_number')
+          .eq('operator_id', operatorId)
+          .maybeSingle(),
+        supabase
+          .from('mo_plate_assignments')
+          .select('unit_number, released_at')
+          .eq('operator_id', operatorId)
+          .order('created_at', { ascending: false })
+          .limit(5),
+      ]);
       if (error) {
         console.error('Failed to load operator for deactivation', error);
         toast({ title: 'Error loading driver', description: error.message, variant: 'destructive' });
@@ -62,11 +75,16 @@ export default function DeactivationPage() {
       }
       const app = (data as any).applications;
       const application = Array.isArray(app) ? app[0] : app;
+      const plateUnit = (plateRes.data ?? []).find((r: any) => !r.released_at && r.unit_number)?.unit_number
+        ?? (plateRes.data ?? []).find((r: any) => r.unit_number)?.unit_number
+        ?? null;
+      const resolvedUnit =
+        (data.unit_number || (onbRes.data as any)?.unit_number || plateUnit || null) as string | null;
       setOperator({
         id: data.id,
         user_id: data.user_id ?? null,
         is_active: data.is_active ?? true,
-        unit_number: data.unit_number ?? null,
+        unit_number: resolvedUnit,
         first_name: application?.first_name ?? null,
         last_name: application?.last_name ?? null,
       });
@@ -191,7 +209,7 @@ export default function DeactivationPage() {
     >
       <div className="h-full flex flex-col">
         <div className="flex items-center gap-2 mb-4">
-          <Button variant="outline" size="sm" onClick={handleCancel} className="gap-1 lg:hidden">
+          <Button variant="outline" size="sm" onClick={handleCancel} className="gap-1">
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
         </div>
