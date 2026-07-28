@@ -3,8 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Eye, Search, User } from 'lucide-react';
+import { ArrowLeft, Eye, Search, User, Smartphone } from 'lucide-react';
 import OperatorPortal from '@/pages/operator/OperatorPortal';
+import MobilePreviewQRModal from '@/components/staff/MobilePreviewQRModal';
+import { useAuth } from '@/hooks/useAuth';
 
 interface OperatorOption {
   userId: string;
@@ -14,8 +16,10 @@ interface OperatorOption {
 }
 
 export default function OperatorPreviewPicker() {
+  const { isManagement } = useAuth();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [previewTarget, setPreviewTarget] = useState<OperatorOption | null>(null);
 
   const { data: operators = [], isLoading } = useQuery({
     queryKey: ['operator-preview-list'],
@@ -80,7 +84,10 @@ export default function OperatorPreviewPicker() {
           <Eye className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold text-foreground">Operator Preview</h1>
         </div>
-        <p className="text-sm text-muted-foreground">Select an operator to see their portal exactly as they see it — read-only.</p>
+        <p className="text-sm text-muted-foreground">
+          Select an operator to see their portal exactly as they see it — read-only.
+          {isManagement && ' Use the phone icon to open a live session on your own device.'}
+        </p>
       </div>
 
       <div className="relative max-w-md">
@@ -100,25 +107,49 @@ export default function OperatorPreviewPicker() {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(op => (
-            <button
+            <div
               key={op.userId}
-              onClick={() => setSelectedUserId(op.userId)}
-              className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/30 transition-colors text-left group"
+              className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/30 transition-colors group"
             >
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground truncate">{op.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {op.unitNumber ? `Unit ${op.unitNumber}` : 'No unit assigned'}
-                  {!op.isActive && ' · Inactive'}
-                </p>
-              </div>
-              <Eye className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-            </button>
+              <button
+                onClick={() => setSelectedUserId(op.userId)}
+                className="flex items-center gap-3 min-w-0 flex-1 text-left"
+              >
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground truncate">{op.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {op.unitNumber ? `Unit ${op.unitNumber}` : 'No unit assigned'}
+                    {!op.isActive && ' · Inactive'}
+                  </p>
+                </div>
+                <Eye className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              </button>
+              {isManagement && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 shrink-0"
+                  title="Open on my phone as this driver"
+                  onClick={() => setPreviewTarget(op)}
+                >
+                  <Smartphone className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           ))}
         </div>
+      )}
+
+      {previewTarget && (
+        <MobilePreviewQRModal
+          open={!!previewTarget}
+          onOpenChange={(open) => { if (!open) setPreviewTarget(null); }}
+          targetUserId={previewTarget.userId}
+          targetName={previewTarget.name}
+        />
       )}
     </div>
   );
