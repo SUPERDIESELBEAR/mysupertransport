@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle2, AlertTriangle, Send, UserX, FileSignature, RotateCcw, CreditCard, ShieldAlert, MapPin, LogOut, ChevronRight, ChevronLeft, Ban } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Send, UserX, FileSignature, RotateCcw, CreditCard, ShieldAlert, MapPin, LogOut, ChevronRight, ChevronLeft, Ban, ArrowLeft } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
 export interface DeactivationWizardContentProps {
@@ -670,11 +670,29 @@ export function DeactivationWizardContent({
     </div>
   );
 
+  const hasStep1Input = !!deactivationReason || !!deactivationNotes.trim();
+  const requestExit = () => {
+    if (hasStep1Input && !window.confirm('Leave the deactivation wizard? Unsaved entries on this step will be lost.')) return;
+    onCancel();
+  };
+
+  const backToDriverButton = (
+    <Button variant="ghost" size="sm" onClick={requestExit} className="gap-1 -ml-2 mb-2 text-muted-foreground hover:text-foreground">
+      <ArrowLeft className="h-4 w-4" /> Back to driver
+    </Button>
+  );
+
   const actionButtons = (
     <>
-      <Button variant="outline" size="sm" onClick={goBack} disabled={stepIndex === 0 || finalizing} className="gap-1">
-        <ChevronLeft className="h-4 w-4" /> Back
-      </Button>
+      {stepIndex === 0 ? (
+        <Button variant="outline" size="sm" onClick={requestExit} disabled={finalizing} className="gap-1">
+          <ArrowLeft className="h-4 w-4" /> Cancel
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" onClick={goBack} disabled={finalizing} className="gap-1">
+          <ChevronLeft className="h-4 w-4" /> Back
+        </Button>
+      )}
       <div className="flex items-center gap-2">
         {currentStep !== 'confirm' && currentStep !== 'reason' && (
           <Button variant="ghost" size="sm" onClick={() => {
@@ -1108,6 +1126,7 @@ export function DeactivationWizardContent({
     return (
       <div className="flex flex-col h-full max-h-[80dvh]">
         <div className="px-6 pt-6 pb-2">
+          {backToDriverButton}
           <div className="flex items-center gap-2 text-foreground">
             <UserX className="h-5 w-5 text-destructive" />
             <h2 className="text-lg font-semibold">Deactivation & Delease Wizard</h2>
@@ -1135,6 +1154,7 @@ export function DeactivationWizardContent({
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
       <div className="lg:w-72 xl:w-80 shrink-0 overflow-y-auto">
         <div className="mb-4">
+          {backToDriverButton}
           <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <UserX className="h-5 w-5 text-destructive" />
             Deactivation & Delease
