@@ -2514,6 +2514,7 @@ export type Database = {
           driver_confirmed_at: string | null
           equipment_id: string | null
           id: string
+          plate_assignment_id: string | null
           serial_snapshot: string
           sheet_id: string
         }
@@ -2523,6 +2524,7 @@ export type Database = {
           driver_confirmed_at?: string | null
           equipment_id?: string | null
           id?: string
+          plate_assignment_id?: string | null
           serial_snapshot: string
           sheet_id: string
         }
@@ -2532,6 +2534,7 @@ export type Database = {
           driver_confirmed_at?: string | null
           equipment_id?: string | null
           id?: string
+          plate_assignment_id?: string | null
           serial_snapshot?: string
           sheet_id?: string
         }
@@ -2541,6 +2544,13 @@ export type Database = {
             columns: ["equipment_id"]
             isOneToOne: false
             referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboard_assignment_sheet_items_plate_assignment_id_fkey"
+            columns: ["plate_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "mo_plate_assignments"
             referencedColumns: ["id"]
           },
           {
@@ -5265,7 +5275,12 @@ export type Database = {
         | "truck_photos"
         | "truck_inspection"
         | "pe_receipt"
-      osas_device_type: "eld" | "dash_cam" | "bestpass"
+      osas_device_type:
+        | "eld"
+        | "dash_cam"
+        | "bestpass"
+        | "license_plate"
+        | "registration"
       osas_status: "draft" | "sent" | "signed" | "void"
       pandadoc_status: "sent" | "viewed" | "completed"
       pei_applicant_status: "not_started" | "in_progress" | "complete"
@@ -5498,7 +5513,13 @@ export const Constants = {
         "truck_inspection",
         "pe_receipt",
       ],
-      osas_device_type: ["eld", "dash_cam", "bestpass"],
+      osas_device_type: [
+        "eld",
+        "dash_cam",
+        "bestpass",
+        "license_plate",
+        "registration",
+      ],
       osas_status: ["draft", "sent", "signed", "void"],
       pandadoc_status: ["sent", "viewed", "completed"],
       pei_applicant_status: ["not_started", "in_progress", "complete"],
