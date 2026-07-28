@@ -187,27 +187,10 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
     ));
   }, [selectedUserId]);
 
-  // ── Fire notification edge function after a message is sent
-  const handleMessageSent = useCallback(async (msg: ChatMessage) => {
-    if (!user?.id) return;
-    const senderProfile = await supabase
-      .from('profiles')
-      .select('first_name, last_name')
-      .eq('user_id', user.id)
-      .single();
-    const senderName = senderProfile.data
-      ? `${senderProfile.data.first_name ?? ''} ${senderProfile.data.last_name ?? ''}`.trim() || 'Your coordinator'
-      : 'Your coordinator';
-    const preview = msg.body || (msg.attachment_name ? `📎 ${msg.attachment_name}` : '');
-    supabase.functions.invoke('send-notification', {
-      body: {
-        type: 'new_message',
-        recipient_user_id: msg.recipient_id,
-        sender_name: senderName,
-        message_preview: preview,
-      },
-    }).catch(err => console.warn('Message notification failed:', err));
-  }, [user?.id]);
+  // Notification delivery (in-app + throttled email) is handled by the
+  // `notify-new-message` edge function invoked inside `useMessageThread.sendMessage`.
+  // Do NOT invoke `send-notification` here — that produced a second duplicate
+  // in-app notification and email per DM.
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -313,7 +296,6 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
             onBack={() => setSelectedUserId(null)}
             placeholder={`Message ${selectedThread?.name ?? 'operator'}…`}
             onMessagesChanged={handleMessagesChanged}
-            onMessageSent={handleMessageSent}
           />
         )}
       </div>
