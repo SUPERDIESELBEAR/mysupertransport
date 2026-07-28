@@ -13,18 +13,18 @@ import {
 // Heavy view-gated panels are lazy-loaded so the initial portal mount and
 // switches between unrelated views don't pay the full bundle/render cost
 // (see audit item #5 — OperatorPortal jank on mid-range Android).
-const DocumentHub = lazy(() => import('@/components/documents/DocumentHub'));
-const DriverServiceLibrary = lazy(() => import('@/components/service-library/DriverServiceLibrary'));
+const DocumentHub = lazyWithRetry(() => import('@/components/documents/DocumentHub'));
+const DriverServiceLibrary = lazyWithRetry(() => import('@/components/service-library/DriverServiceLibrary'));
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-const NotificationHistory = lazy(() => import('@/components/management/NotificationHistory'));
+const NotificationHistory = lazyWithRetry(() => import('@/components/management/NotificationHistory'));
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
-const OperatorMessagesHub = lazy(() => import('@/components/operator/OperatorMessagesHub'));
+const OperatorMessagesHub = lazyWithRetry(() => import('@/components/operator/OperatorMessagesHub'));
 import NotificationBell from '@/components/NotificationBell';
-const OperatorStatusPage = lazy(() => import('@/components/operator/OperatorStatusPage'));
+const OperatorStatusPage = lazyWithRetry(() => import('@/components/operator/OperatorStatusPage'));
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
@@ -32,23 +32,24 @@ import OperatorOSASSign from '@/components/operator/OperatorOSASSign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
-const OperatorInspectionBinder = lazy(() => import('@/components/inspection/OperatorInspectionBinder'));
-const ContractorPaySetup = lazy(() => import('@/components/operator/ContractorPaySetup'));
+const OperatorInspectionBinder = lazyWithRetry(() => import('@/components/inspection/OperatorInspectionBinder'));
+const ContractorPaySetup = lazyWithRetry(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import OperatorReturnReceipts from '@/components/operator/OperatorReturnReceipts';
 import MyDocumentsFolders from '@/components/operator/MyDocumentsFolders';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
 import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
-const FleetDetailDrawer = lazy(() => import('@/components/fleet/FleetDetailDrawer'));
+const FleetDetailDrawer = lazyWithRetry(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
-const SettlementForecast = lazy(() => import('@/components/operator/SettlementForecast'));
+const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
 import { appendNavTrace, ensurePointerTraceInstalled } from '@/lib/navTrace';
 import {
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
   type OperatorNavigateOptions,
   type OperatorView,
   type OperatorViewState,

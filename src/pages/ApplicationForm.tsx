@@ -9,14 +9,14 @@ import FormProgress from '@/components/application/FormProgress';
 // Step 1 stays eagerly imported (it's the first paint). Steps 2-9 lazy-load
 // to keep the initial /apply bundle small for first-time applicants.
 import Step1Personal from '@/components/application/Step1Personal';
-const Step2CDL = lazy(() => import('@/components/application/Step2CDL'));
-const Step3Employment = lazy(() => import('@/components/application/Step3Employment'));
-const Step4Driving = lazy(() => import('@/components/application/Step4Driving'));
-const Step5Accidents = lazy(() => import('@/components/application/Step5Accidents'));
-const Step6DrugAlcohol = lazy(() => import('@/components/application/Step6DrugAlcohol'));
-const Step7Documents = lazy(() => import('@/components/application/Step7Documents'));
-const Step8Disclosures = lazy(() => import('@/components/application/Step8Disclosures'));
-const Step9Signature = lazy(() => import('@/components/application/Step9Signature'));
+const Step2CDL = lazyWithRetry(() => import('@/components/application/Step2CDL'));
+const Step3Employment = lazyWithRetry(() => import('@/components/application/Step3Employment'));
+const Step4Driving = lazyWithRetry(() => import('@/components/application/Step4Driving'));
+const Step5Accidents = lazyWithRetry(() => import('@/components/application/Step5Accidents'));
+const Step6DrugAlcohol = lazyWithRetry(() => import('@/components/application/Step6DrugAlcohol'));
+const Step7Documents = lazyWithRetry(() => import('@/components/application/Step7Documents'));
+const Step8Disclosures = lazyWithRetry(() => import('@/components/application/Step8Disclosures'));
+const Step9Signature = lazyWithRetry(() => import('@/components/application/Step9Signature'));
 import { ApplicationFormData, defaultFormData } from '@/components/application/types';
 
 const STEP_LABELS = [
@@ -34,6 +34,7 @@ const STEP_LABELS = [
 const DRAFT_TOKEN_KEY = 'supertransport_draft_token';
 
 import { validateStep, buildPayload } from '@/components/application/utils';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Fire-and-forget telemetry for submit failures
 async function logApplicationError(payload: {
