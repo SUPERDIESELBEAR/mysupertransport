@@ -14,12 +14,14 @@ interface StaffMember {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  role: string | null;
 }
 
 interface Thread {
   staffUserId: string;
   name: string;
   avatarUrl: string | null;
+  roleLabel: string;
   lastMessage: string;
   lastAt: string;
   unreadCount: number;
@@ -35,6 +37,16 @@ function formatMessageTime(iso: string) {
 }
 
 import { initials } from '@/lib/initials';
+
+function roleToLabel(role: string | null | undefined): string {
+  switch (role) {
+    case 'owner': return 'Owner';
+    case 'management': return 'Management';
+    case 'onboarding_staff': return 'Onboarding Coordinator';
+    case 'dispatcher': return 'Dispatcher';
+    default: return 'SUPERTRANSPORT Staff';
+  }
+}
 
 function previewBody(m: { body: string; deleted_at: string | null; attachment_name: string | null } | null): string {
   if (!m) return 'No messages yet';
@@ -79,14 +91,18 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
     if (staffUserIds.length === 0) { setLoadingThreads(false); return; }
 
     const { data: profs } = await supabase
-      .from('profiles')
-      .select('user_id, first_name, last_name, avatar_url')
-      .in('user_id', staffUserIds);
+      .rpc('get_staff_contact_info', { _user_ids: staffUserIds });
 
     setStaffList(
       staffUserIds.map(uid => {
-        const p = profs?.find(x => x.user_id === uid);
-        return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null, avatar_url: p?.avatar_url ?? null };
+        const p = profs?.find((x: any) => x.user_id === uid);
+        return {
+          user_id: uid,
+          first_name: p?.first_name ?? null,
+          last_name: p?.last_name ?? null,
+          avatar_url: p?.avatar_url ?? null,
+          role: p?.primary_role ?? null,
+        };
       })
     );
   }, [user?.id, initialUserId]);
@@ -123,6 +139,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
         staffUserId: s.user_id,
         name,
         avatarUrl: s.avatar_url ?? null,
+        roleLabel: roleToLabel(s.role),
         lastMessage: previewBody(latest ?? null),
         lastAt: latest?.sent_at ?? '',
         unreadCount: unread,
@@ -199,7 +216,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="bg-white border border-border rounded-2xl overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 180px)', minHeight: '480px' }}>
+    <div className="bg-white overflow-hidden flex flex-col h-full min-h-0">
       {noMessagesYet ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-10 gap-4">
           <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
@@ -311,7 +328,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                 myUserId={user?.id ?? null}
                 otherUserId={selectedUserId}
                 otherName={selectedThread?.name ?? 'Your Coordinator'}
-                otherSubtitle="Onboarding Coordinator"
+                otherSubtitle={selectedThread?.roleLabel ?? 'SUPERTRANSPORT Staff'}
                 otherAvatarUrl={selectedThread?.avatarUrl ?? null}
                 isStaff={false}
                 onBack={() => setSelectedUserId(null)}
