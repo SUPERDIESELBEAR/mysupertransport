@@ -1,41 +1,65 @@
 ## Goal
 
-Add two new issued items to the Onboard Systems Assignment Sheet (OSAS), listed **above BestPass**:
+Add first-class **Demo driver accounts** to SUPERDRIVE: real, fully functional driver records flagged as demo, hidden from normal staff views, safe to write to, safe to email, and resettable to a chosen scenario. Use them for staff training, feature testing, and driver-side (PWA) walkthroughs.
 
-1. **License Plate** — pulled from the MO Plate Registry assignment for the driver.
-2. **Truck Registration** — a simple issued line item.
+Note this is different from the existing staff-side Demo Mode (read-only browsing of real data). That stays as-is. The new capability is the opposite: **real writes against fake drivers.**
 
-When equipment return instructions go out, the **License Plate** is listed alongside the ELD and Dash Camera. Truck Registration is *not* a returned item. Marking the plate returned does **not** auto-release it in the MO Plate Registry — staff still do that manually.
+Yes — all three reset behaviors are possible, and they compose. The plan implements one reset action with a scenario picker: **Blank / New applicant / Mid-onboarding / Fully live / Offboarding**, so "clean state", "seed presets", and "just make a new one" are all covered.
 
-## What staff will see
+## 1. Flagging demo accounts
 
-**Creating an assignment sheet**
-- Item order becomes: ELD → Dash Camera → **License Plate** → **Truck Registration** → BestPass.
-- License Plate row auto-fills the plate number + state from the driver's active MO Plate Registry assignment. If none exists, the row shows "No active plate assignment" and is disabled with a hint to assign one first.
-- Truck Registration row is a simple opt-in line item with an optional note field — no document lookup, no expiration display, no preview link.
-- Both new rows are opt-in checkboxes like BestPass, so sheets without them still work.
+- Add `is_demo boolean not null default false` to `operators`, `applications`, and `profiles` (profiles so driver-side login and emails can be recognized without an operator join).
+- Add `demo_owner_user_id` (which staff member created/owns the demo driver) and `demo_label` (e.g. "Training — Onboarding Stage 4") to `operators`.
+- Only Management/Owner can set or clear `is_demo` (enforced by a trigger, same pattern as the existing column-whitelist triggers).
 
-**Signed sheet / preview / PDF**
-- New rows appear in the item table in the same order, with the plate showing plate number + state and Truck Registration showing its note (or a dash).
-- Existing verification toggles and the driver signature gate apply to the new items the same way.
+## 2. Visibility — hidden by default
 
-**Equipment return**
-- Return instructions email lists "License Plate — <plate> (<state>)" with the other returnable devices. Truck Registration is excluded from the return list.
-- The driver-side return card and receipt upload flow already covers whatever is returnable on the sheet; the plate simply shows up as one more item to mail back.
-- A short note on the sheet and email clarifies the plate must be removed from the truck and mailed with the other devices.
+- Global staff preference `show_demo_accounts` (localStorage, default off) exposed as a small **"Show demo accounts"** switch in the staff/management header, next to the existing Demo Mode toggle.
+- When off, demo drivers are excluded from: Driver Roster, Onboarding Pipeline, Dispatch Board, Compliance Summary, Vehicle Hub, MO Plate Registry, Onboard Systems, PEI Queue, Messages recipient pickers, and all dashboard counts.
+- When on, they appear everywhere with a purple **DEMO** badge and are still excluded from compliance/analytics metrics and from scheduled jobs (birthday emails, PWA reminders, PEI auto-cadence, cert reminders).
+- Implementation: a shared `useShowDemo()` hook plus a `demoFilter()` query helper applied to the list surfaces above, and `and is_demo = false` added to the scheduled-job queries and the compliance view.
 
-## Technical details
+## 3. Email & notification safety
 
-- **Enum**: extend `osas_device_type` with `license_plate` and `registration` (migration). Existing rows unaffected.
-- **Sheet items**: `onboard_assignment_sheet_items` already stores `device_type` + `serial_snapshot`; the plate stores `"<PLATE> (<ST>)"` and Truck Registration stores the optional note. Add a nullable column to record the source plate assignment id so the sheet keeps a stable link.
-- **Data source**: read the driver's active row from `mo_plate_assignments` joined to `mo_plates`.
-- **Label maps / ordering** to update so the new types render everywhere in the right order: `equipmentUtils.ts`, `CreateSignOffSheetModal.tsx`, `SignOffSheetList.tsx`, `SignOffSheetPreviewModal.tsx`, `EquipmentAssetSheet.tsx`, `send-osas-to-operator` (`DEVICE_TYPES`), and `send-equipment-return-instructions` (`DEVICE_LABELS`).
-- **Non-inventory items**: `license_plate` and `registration` are not rows in `equipment_items`, so `send-osas-to-operator` must skip inventory validation, status flips, and `equipment_assignments` inserts for those two types.
-- **Return filter**: the return-instructions function and driver return card include `eld`, `dash_cam`, `bestpass`, `fuel_card`, `license_plate`; exclude `registration`.
-- **No MO Plate mutation**: nothing in this flow writes to `mo_plate_assignments`.
+- All outbound email for a demo driver is **redirected to the acting staff member's address**, with subject prefixed `[DEMO]` and a banner line at the top of the body saying which demo driver it was for.
+- Implemented centrally in `send-transactional-email` (and the OSAS / return-instructions / DOT-consultant / PEI senders that build their own recipients): resolve recipient → if the target is a demo profile, swap `to` for the caller's email and prefix the subject.
+- If no acting staff email can be resolved (cron path), the send is skipped and logged instead.
+- In-app notifications still generate normally so staff can demo the bell/history UI.
 
-## Out of scope
+## 4. Creating a demo driver
 
-- Auto-releasing plates in MO Plate Registry on return.
-- Tracking plates as inventory items with statuses.
-- Linking or previewing the registration document on the sheet.
+New **"Create demo driver"** action in Management → Drivers:
+- Generates a demo identity (name prefixed `DEMO`, a `+demo` alias on a staff-controlled domain, fake DOB/CDL/truck data).
+- Creates the auth user with a staff-set password so it can actually be logged into on the phone for a PWA walkthrough, plus a "Copy login details" button.
+- Optionally clones the shape of an existing driver's onboarding state (no real PII copied — names, SSN, DOB, documents and signatures are replaced with placeholders).
+
+## 5. Reset with scenario presets
+
+**"Reset demo driver"** action (Management/Owner only, confirm dialog) that wipes and re-seeds the driver to a chosen scenario:
+
+| Scenario | Resulting state |
+|---|---|
+| Blank | Operator exists, no onboarding rows, nothing uploaded |
+| New applicant | Submitted application awaiting review, PEI pending |
+| Mid-onboarding | Stages 1–4 complete, docs approved, ICA in progress |
+| Fully live | Go Live set, OSAS signed, dispatch active, plate assigned |
+| Offboarding | Deactivation started, equipment return instructions sent |
+
+Reset deletes the demo driver's documents, storage objects, onboarding status, dispatch history, OSAS sheets, ICA records, messages, and notifications, then re-inserts the preset rows. Guarded server-side to refuse any operator where `is_demo = false`.
+
+## 6. Driver-side walkthrough
+
+- Demo drivers log into the normal SUPERDRIVE PWA with their credentials — the experience is identical, so nothing extra is needed beyond a persistent purple **DEMO ACCOUNT** ribbon at the top of the driver portal so nobody confuses it with a live account.
+- A "Demo drivers" panel in Management lists each demo account, its label, owner, current scenario, and quick actions: Reset, Copy login, Show/Hide, Delete.
+
+## 7. Cleanup
+
+- "Delete demo driver" fully removes the auth user, operator, application, storage folder, and all child rows — only permitted when `is_demo = true`.
+
+## Technical notes
+
+- Migration adds the three `is_demo` columns, `demo_owner_user_id`, `demo_label`, `demo_scenario`, plus a guard trigger and updated RLS/GRANTs.
+- Two new edge functions: `provision-demo-driver` and `reset-demo-driver` (service-role, management-authorized via `getClaims`, both refuse non-demo operators).
+- `v_compliance_items` and the cron-driven queries get `is_demo = false` predicates.
+- Email redirection lands in one shared helper under `supabase/functions/_shared/` so every sender picks it up.
+- Existing `useDemoMode` (read-only staff browsing) is untouched; the new toggle is named "Show demo accounts" to avoid confusion.
