@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
 import { withTimeout } from '@/lib/withTimeout';
@@ -371,6 +371,30 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       });
     } finally {
       setUploading(null);
+    }
+  };
+
+  const handleDeleteDecalExtra = async (idx: number) => {
+    const target = decalExtras[idx];
+    if (!target) return;
+    if (!window.confirm('Remove this angle photo?')) return;
+    const prev = decalExtras;
+    const next = decalExtras.filter((_, i) => i !== idx);
+    setDecalExtras(next);
+    try {
+      const { error: updErr } = await supabase
+        .from('onboarding_status')
+        .update({ decal_photos: next })
+        .eq('operator_id', operatorId);
+      if (updErr) throw updErr;
+      toast({ title: 'Angle removed' });
+    } catch (err: unknown) {
+      setDecalExtras(prev);
+      toast({
+        title: 'Remove failed',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -969,10 +993,26 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
           {decalExtrasResolved.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
               {decalExtrasResolved.map((p, idx) => (
-                <PreviewLink key={idx} url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="space-y-1 block">
-                  <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                <div key={idx} className="space-y-1">
+                  <div className="relative">
+                    <PreviewLink url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="block">
+                      <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                    </PreviewLink>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDeleteDecalExtra(idx);
+                      }}
+                      aria-label={`Delete ${p.label ?? `Angle ${idx + 1}`}`}
+                      className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <p className="text-[11px] text-muted-foreground text-center">{p.label ?? `Angle ${idx + 1}`}</p>
-                </PreviewLink>
+                </div>
               ))}
             </div>
           )}
