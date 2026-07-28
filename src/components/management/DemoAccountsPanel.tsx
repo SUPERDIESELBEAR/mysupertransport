@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { FlaskConical, Loader2, Plus, RotateCcw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { FlaskConical, Loader2, Plus, RotateCcw, UserCheck, Undo2, AlertTriangle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useShowDemo } from '@/hooks/useShowDemo';
 import DemoAccountBadge from '@/components/DemoAccountBadge';
@@ -28,6 +28,14 @@ interface DemoRow {
   applications: { first_name: string | null; last_name: string | null; email: string | null } | null;
 }
 
+interface LiveDriverRow {
+  id: string;
+  user_id: string | null;
+  unit_number: string | null;
+  is_active: boolean | null;
+  applications: { first_name: string | null; last_name: string | null; email: string | null } | null;
+}
+
 export default function DemoAccountsPanel() {
   const { showDemo, setShowDemo } = useShowDemo();
   const [rows, setRows] = useState<DemoRow[]>([]);
@@ -35,6 +43,14 @@ export default function DemoAccountsPanel() {
   const [createOpen, setCreateOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [liveDrivers, setLiveDrivers] = useState<LiveDriverRow[]>([]);
+  const [ownerUserIds, setOwnerUserIds] = useState<string[]>([]);
+  const [driverSearch, setDriverSearch] = useState('');
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [convertLabel, setConvertLabel] = useState('');
+  const [revertRow, setRevertRow] = useState<DemoRow | null>(null);
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', unitNumber: '', demoLabel: '', scenario: 'mid_onboarding',
@@ -52,6 +68,48 @@ export default function DemoAccountsPanel() {
   }, []);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
+
+  const openConvert = useCallback(async () => {
+    setConvertOpen(true);
+    setSelectedDriverId(null);
+    setDriverSearch('');
+    setConvertLabel('');
+    const [{ data: drivers }, { data: owners }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select('id, user_id, unit_number, is_active, applications (first_name, last_name, email)')
+        .eq('is_demo', false)
+        .order('created_at', { ascending: false }),
+      supabase.from('user_roles').select('user_id').eq('role', 'owner'),
+    ]);
+    setLiveDrivers((drivers as any[] ?? []) as LiveDriverRow[]);
+    setOwnerUserIds(((owners as any[]) ?? []).map(r => r.user_id));
+  }, []);
+
+  const setDemoFlag = async (operatorId: string, isDemo: boolean, demoLabel?: string | null) => {
+    setSaving(true);
+    const { data, error } = await supabase.functions.invoke('set-demo-flag', {
+      body: { operatorId, isDemo, demoLabel: demoLabel ?? null },
+    });
+    setSaving(false);
+    if (error || (data as any)?.error) {
+      toast({
+        title: isDemo ? 'Could not convert driver' : 'Could not return driver to live',
+        description: String((data as any)?.error ?? error?.message),
+        variant: 'destructive',
+      });
+      return false;
+    }
+    toast({
+      title: isDemo ? 'Driver marked as demo' : 'Driver returned to live',
+      description: isDemo
+        ? 'Their data is untouched — they are now hidden from live views and their email is rerouted.'
+        : 'They appear in live views again and receive their own email.',
+    });
+    if (isDemo && !showDemo) setShowDemo(true);
+    fetchRows();
+    return true;
+  };
 
   const createDemo = async () => {
     setSaving(true);
@@ -104,9 +162,14 @@ export default function DemoAccountsPanel() {
             their mail is rerouted to whoever triggered the send.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-1.5" /> New demo driver
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={openConvert}>
+            <UserCheck className="h-4 w-4 mr-1.5" /> Convert existing driver
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" /> New demo driver
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -164,6 +227,14 @@ export default function DemoAccountsPanel() {
                       : <RotateCcw className="h-4 w-4" />}
                   </Button>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs text-muted-foreground"
+                  onClick={() => setRevertRow(row)}
+                >
+                  <Undo2 className="h-4 w-4 mr-1.5" /> Return to live
+                </Button>
               </Card>
             );
           })}
