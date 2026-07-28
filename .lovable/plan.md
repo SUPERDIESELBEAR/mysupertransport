@@ -1,52 +1,41 @@
-## Scope
+## Problem
 
-Fixes to the front-facing driver **Documents → View** experience, contained to `src/components/inspection/DocRow.tsx` (viewer toolbar + download) and `src/components/shared/DocumentEditor.tsx` (crop lockup). No business logic or data changes.
+Opening a PDF from the Document Hub currently takes 3 taps on mobile:
 
-## 1. Header overcrowding (circled area in screenshot)
+1. Tap **View PDF** on the card → routes to the DocumentViewer page.
+2. Tap **View PDF** again on that page → opens the `FilePreviewModal`.
+3. Tap **Open PDF** inside the modal's mobile fallback → finally opens the PDF in a new tab.
 
-On a phone-width screen the top bar packs 12 controls into one row — Back label + file icon + filename + "100%" zoom pill + zoom in/out + edit + share + print + download + open-in-new-tab + close — so the file icon collides with the "100%" pill and the filename gets clipped.
+Root causes:
 
-Changes to `FilePreviewModal`'s header:
+- `DocumentViewer` renders its own "View PDF" button gate instead of auto-opening the preview.
+- `FilePreviewModal` (in `src/components/inspection/DocRow.tsx`) shows a mobile fallback card because inline `<iframe>` PDF rendering is unreliable on iOS Safari, forcing a second tap to `window.open`.
 
-- Drop the redundant `FileText` icon next to the filename (the whole modal is a file viewer; the icon adds no info and is what visibly overlaps).
-- On mobile only (`isMobile`), hide the "Back" text label and keep just the arrow (the ✕ close button already handles closing; Back + ✕ side-by-side is redundant).
-- On mobile only, collapse the zoom cluster to a single "100%" pill that opens a small popover with –/reset/+ (or simply hide zoom on mobile PDFs, which already happens, and on mobile images since pinch-zoom is native). Desktop keeps the full inline zoom cluster.
-- On mobile only, hide the "Open in new tab" button — the Download and Share buttons already cover that need, and it's the least-used control.
-- Tighten spacing: `gap-0.5` between action buttons on mobile, and let the filename take remaining width with `flex-1 min-w-0 truncate` instead of a fixed `max-w-[40vw]`.
+## Recommended Fix — collapse to a single tap
 
-Result on a 390px phone: Back arrow · filename (truncated) · counter · prev/next · 100% · edit · share · print · download · close — fits without overlap.
+**Mobile (iOS/Android):** From the Document Hub card, tap **View PDF** → the signed PDF URL opens immediately in the device's native PDF viewer (new tab / in-app viewer). No intermediate screen, no modal.
 
-## 2. Download does nothing on mobile
+**Desktop:** Tap **View PDF** on the card → the `FilePreviewModal` opens directly over the Doc Hub with the PDF rendered inline in an iframe. No intermediate viewer page.
 
-`downloadBlob` fetches the file as a blob, creates an `<a download>`, and clicks it. iOS Safari (and in-app WebViews like the PWA) silently ignores the `download` attribute on blob URLs and often on cross-origin URLs, which matches the reported "nothing happens."
+Acknowledgment tracking is preserved: opening the PDF (via either path) still records `hasOpenedPdf = true`, so the **Acknowledge** button unlocks. The DocumentViewer page is still reachable for the acknowledgment step — it just no longer sits between the tap and the PDF.
 
-Changes to `src/lib/downloadBlob.ts`:
+## Behavior details
 
-- Detect iOS / standalone PWA. On those, open the fetched blob URL in a new tab (`window.open(blobUrl, '_blank')`) so the OS presents its native "Save to Files / Share" sheet, which is the only reliable save path on iOS.
-- On other browsers, keep the current `<a download>` click path.
-- Delay `URL.revokeObjectURL` (e.g. 60s via `setTimeout`) so the new tab has time to load the blob before it's revoked — the current immediate revoke can also break the download on some browsers.
-- Wrap the fetch in a try/catch and surface a toast on failure (currently a failed fetch throws silently from the click handler).
+- Card click on a **PDF** doc: resolve signed URL, mark opened for acknowledgment, then:
+  - Mobile → `window.open(signedUrl, '_blank')`, then route to the DocumentViewer page in the background so the driver lands on the acknowledgment screen when they return.
+  - Desktop → route to the DocumentViewer page with a query flag (`?preview=1`) that auto-mounts `FilePreviewModal` on load.
+- Card click on **non-PDF** (rich text / video) docs: unchanged — routes to the viewer page as today.
+- DocumentViewer page: when `?preview=1` is set (or on desktop by default for PDFs), auto-open the preview modal on mount and drop the intermediate "View PDF" button; keep a small "Reopen PDF" link for when the modal is dismissed.
+- **Download PDF** link stays where it is on the viewer page.
 
-The download button call sites in `DocRow.tsx` don't need to change.
+## Files to touch (frontend only)
 
-## 3. Edit / crop locks after first adjustment
+- `src/components/documents/DocumentCard.tsx` — branch PDF click to open signed URL directly (mobile) or navigate with `?preview=1` (desktop); notify parent that the PDF was opened.
+- `src/components/documents/DocumentHub.tsx` — pass a "PDF opened" callback so the acknowledgment state persists when the driver lands on the viewer.
+- `src/components/documents/DocumentViewer.tsx` — auto-open `FilePreviewModal` on mount for PDFs (or when `?preview=1`); remove the redundant middle "View PDF" button and replace with a subtle "Reopen PDF" secondary action.
+- No changes to `FilePreviewModal` / `DocRow.tsx` — the mobile fallback stays for other surfaces that still rely on it.
 
-In `DocumentEditor.tsx`, drag deltas are computed against `imgRef.current.getBoundingClientRect()`. Once the user drags the crop handles inward, the underlying `<img>` element's rendered box does not shrink (the crop is a CSS overlay), so this alone is fine — but the reported symptom ("crops once, then locks on further adjustment before save") points to two real issues in the drag logic:
+## Out of scope
 
-- **Stale start crop after the first drag.** `startDrag` snapshots `crop` at pointer-down, but when a touch handle re-fires quickly (iOS often emits a synthetic `mousedown` right after `touchstart`), a second `startDrag` runs with the *pre-first-drag* crop, which combined with the just-applied crop pushes the new value against `100 - other - MIN_SIZE` and pins the handle. Fix by ignoring `mousedown` on handles when a touch drag just ended (guard with a short-lived `lastTouchAt` ref, ~300ms), and by adding `e.preventDefault()` to the handle `onTouchStart`.
-- **`touchmove` listener with `{ passive: false }` but `touchend` cleanup happens only on `touchend`**, not on `touchcancel`. iOS fires `touchcancel` (e.g. when the browser starts a scroll gesture) and the drag state stays `true`, so the next tap on a handle is treated as a continuation with a stale `dragStart`. Fix by also listening for `touchcancel` and clearing `dragging` + `dragStart.current` there.
-- **Handles beyond `100 - MIN_SIZE`** can end up unreachable when the crop rect gets small. Enlarge the touch target: the current 40×`HANDLE` bars are fine, but move the handle divs to `pointerEvents: 'auto'` on a wrapper with `touch-action: none` so browser gesture handling doesn't hijack the second drag. Add `touch-action: none` to the crop overlay container.
-
-Also: after a successful crop-and-save the modal closes, so no change needed there. Before save, tapping the "Undo" button already resets `crop` to zeros; verify it also clears `dragging`/`dragStart.current` (it should since drag state only lives while pointer is down).
-
-## Files changed
-
-- `src/components/inspection/DocRow.tsx` — header layout only (FilePreviewModal).
-- `src/lib/downloadBlob.ts` — iOS-safe download path + delayed revoke + error toast.
-- `src/components/shared/DocumentEditor.tsx` — touchcancel cleanup, touch/mouse guard, `touch-action: none` on crop overlay.
-
-## Verification
-
-- Preview in mobile viewport: confirm the header no longer overlaps and every button is tappable.
-- On an iOS device (or Safari responsive mode), tap Download on a PDF and an image and confirm the OS share/save sheet appears.
-- In the editor, crop, release, drag a different handle, release, drag again — confirm handles remain draggable until Save is pressed.
+- Replacing the mobile PDF fallback with a bundled PDF.js viewer (larger change, deferred).
+- Any change to acknowledgment rules, versions, or storage.
