@@ -1,37 +1,12 @@
-## Goal
+## Skip the intermediate PDF popup
 
-Fix the **driver app binder list-mode “Open” preview** so a tapped document/image starts in a true **Fit to screen** view. The full document/image should be visible immediately, and the driver can zoom in afterward for details.
+**Where it lives:** `src/components/inspection/DocRow.tsx` — the `FilePreviewModal` renders a "Tap below to open or share this PDF" card whenever the file is a PDF on mobile (the `showMobilePdfFallback` branch, lines ~719–753). Company Documents route through the same modal, so tapping Open shows this card before the PDF actually opens.
 
-## Current issue
+**Fix:** Remove the intermediate card so the first tap opens the PDF directly.
 
-The list-mode Open button in `DocRow` opens the older `PDFModal` in `src/components/inspection/DocRow.tsx`.
+1. In `DocRow.tsx`, when `showMobilePdfFallback` becomes true (mobile + PDF + blob ready), auto-invoke `window.open(resolvedUrl, '_blank', 'noopener,noreferrer')` via a `useEffect` and immediately call `onClose()` to dismiss the preview modal.
+2. Guard the effect with a `useRef` so it fires only once per opened document (prevents re-opening if state re-renders).
+3. Keep the fallback JSX as a graceful backup in case the popup is blocked, but it will normally never render because the modal closes as soon as the tab opens.
+4. Desktop PDF rendering (iframe) and image previews (fit-to-screen) are unchanged.
 
-That modal uses fixed zoom percentages (`100%`, minimum `50%`) and renders files through an iframe/blob flow. For large image scans like CDL photos, `100%` means intrinsic image size, not fit-to-screen. Even `50%` can still be larger than the phone viewport, which matches the screenshots.
-
-The newer `FilePreviewModal` already uses an image-specific rendering path with `object-contain`, but it still starts at `100%` scale, so for this task the default image zoom should become a real fit mode.
-
-## Plan
-
-1. Update `FilePreviewModal` in `src/components/inspection/DocRow.tsx` to support a dedicated initial **Fit** zoom state for images.
-   - Add a fit/default zoom option before the existing numeric zoom values.
-   - In Fit mode, render images with `max-w-full max-h-full object-contain` and **no scale transform**, so the whole image is visible.
-   - When the user taps zoom-in, move from Fit to the first numeric zoom step.
-   - Keep numeric zoom behavior for manual zooming.
-
-2. Route list-mode binder `Open` actions through `FilePreviewModal` instead of the older `PDFModal`.
-   - This applies to both My Documents and Company Documents because both use `DocRow`.
-   - Preserve existing edit support by passing the existing bucket/path props and save callback.
-
-3. Keep `PDFModal` exported for any existing legacy consumers, but stop using it for the driver binder row Open action.
-
-4. Verify the behavior on mobile:
-   - Open a CDL/front image from list mode: full image is visible initially.
-   - Zoom-in still works for closer inspection.
-   - Open PDF flow remains functional.
-   - Edit/save still works for editable binder documents.
-
-## Out of scope
-
-- No changes to flipbook mode.
-- No changes to binder list row layout.
-- No database or storage changes.
+**Result:** Tapping Open on a Company Document PDF opens the PDF immediately in the device's native viewer with no intermediate "Open PDF / Share / Save" card.
