@@ -524,7 +524,7 @@ export default function StaffHelpPortal() {
                       </ReactMarkdown>
                     </div>
                     {m.sources && m.sources.length > 0 && (
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                           <BookOpen className="h-3 w-3" /> Sources:
                         </span>
@@ -535,11 +535,11 @@ export default function StaffHelpPortal() {
                               key={s.id}
                               onClick={() => entry && navigateTo(entry.route)}
                               disabled={!entry}
-                              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-border bg-white hover:border-gold/60 hover:bg-gold/5 text-foreground transition-colors disabled:opacity-60 max-w-[280px] truncate"
+                              className="inline-flex items-start gap-1 text-[11px] px-2 py-1 rounded-lg border border-border bg-white hover:border-gold/60 hover:bg-gold/5 text-foreground transition-colors disabled:opacity-60 text-left whitespace-normal leading-snug"
                               title={entry ? `Go to ${s.question}` : s.question}
                             >
-                              {s.question}
-                              {entry && <ArrowRight className="h-3 w-3 text-gold shrink-0" />}
+                              <span className="break-words">{s.question}</span>
+                              {entry && <ArrowRight className="h-3 w-3 text-gold shrink-0 mt-0.5" />}
                             </button>
                           );
                         })}
@@ -563,8 +563,15 @@ export default function StaffHelpPortal() {
               </div>
             ))}
             {sending && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+              <div className="flex">
+                <div className="max-w-[95%] rounded-2xl rounded-tl-sm bg-white border border-border px-4 py-2.5 flex items-center gap-2">
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 bg-muted-foreground/70 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 bg-muted-foreground/70 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="h-1.5 w-1.5 bg-muted-foreground/70 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                  <span className="text-xs italic text-muted-foreground">SUPERDRIVE is thinking…</span>
+                </div>
               </div>
             )}
           </div>
