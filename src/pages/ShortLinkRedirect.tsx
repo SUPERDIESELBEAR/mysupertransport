@@ -24,16 +24,12 @@ export default function ShortLinkRedirect() {
         if (!cancelled) setState({ status: 'not_found' });
         return;
       }
-      const { data, error } = await supabase
-        .from('document_short_links')
-        .select('share_token')
-        .eq('code', code)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('resolve_short_link', { _code: code });
       if (cancelled) return;
-      if (error || !data?.share_token) {
+      if (error || typeof data !== 'string' || !data) {
         setState({ status: 'not_found' });
       } else {
-        setState({ status: 'found', token: data.share_token });
+        setState({ status: 'found', token: data });
       }
     })();
     return () => { cancelled = true; };
