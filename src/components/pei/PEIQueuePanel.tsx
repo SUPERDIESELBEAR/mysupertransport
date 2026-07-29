@@ -768,8 +768,19 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                                   <FileWarning className="h-3 w-3 mr-1" />GFE
                                                 </Button>
                                               )}
-                                              <Button size="sm" variant="ghost" onClick={() => onOpenApplication?.(r.application_id)}>
-                                                <Eye className="h-3 w-3 mr-1" />Open
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={loadingRecordId === r.request_id}
+                                                onClick={() => openRecord(r.request_id)}
+                                                title="View this employer's PEI record"
+                                              >
+                                                {loadingRecordId === r.request_id ? (
+                                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                ) : (
+                                                  <Eye className="h-3 w-3 mr-1" />
+                                                )}
+                                                View
                                               </Button>
                                               {canDelete(r) && (
                                                 <Button
