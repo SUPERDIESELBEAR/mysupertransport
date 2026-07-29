@@ -334,15 +334,56 @@ export default function BinderFlipbook({
 
   const buildLink = (token: string) => `${window.location.origin}/inspect/${token}`;
 
+  /**
+   * Compute the share payload for the CURRENT page, branching by kind:
+   *  - cover  → binder-wide list of all shareable pages
+   *  - upload → the signed fileUrl (uploads have no /inspect token)
+   *  - doc    → the per-doc /inspect/{token} URL
+   */
+  const currentShare = useMemo(() => {
+    if (!current) return null;
+    if (current.kind === 'cover') {
+      const docs = pages.filter(p => p.shareToken);
+      if (!docs.length) return null;
+      const lines = docs.map(d => `${d.title}: ${buildLink(d.shareToken!)}`);
+      // If only one shareable doc, encode that URL directly for a cleaner QR.
+      const qrData = docs.length === 1
+        ? buildLink(docs[0].shareToken!)
+        : `${driverName} — Digital Inspection Binder\n\n${lines.join('\n')}`;
+      return {
+        subject: `${driverName} — Digital Inspection Binder`,
+        body: lines.join('\n'),
+        qrData,
+        ephemeral: false,
+      };
+    }
+    if (current.shareToken) {
+      const url = buildLink(current.shareToken);
+      return {
+        subject: 'Roadside Document — SuperTransport',
+        body: `${current.title}: ${url}`,
+        qrData: url,
+        ephemeral: false,
+      };
+    }
+    if (current.fileUrl) {
+      return {
+        subject: 'Roadside Document — SuperTransport',
+        body: `${current.title}: ${current.fileUrl}`,
+        qrData: current.fileUrl,
+        ephemeral: true,
+      };
+    }
+    return null;
+  }, [current, pages, driverName]);
+
   const shareCurrentEmail = () => {
-    if (!current?.shareToken) return;
-    const body = `${current.title}: ${buildLink(current.shareToken)}`;
-    window.open(`mailto:?subject=${encodeURIComponent('Roadside Document — SuperTransport')}&body=${encodeURIComponent(body)}`);
+    if (!currentShare) return;
+    window.open(`mailto:?subject=${encodeURIComponent(currentShare.subject)}&body=${encodeURIComponent(currentShare.body)}`);
   };
   const shareCurrentText = () => {
-    if (!current?.shareToken) return;
-    const body = `Roadside Document — SuperTransport\n\n${current.title}: ${buildLink(current.shareToken)}`;
-    window.open(`sms:?body=${encodeURIComponent(body)}`);
+    if (!currentShare) return;
+    window.open(`sms:?body=${encodeURIComponent(`${currentShare.subject}\n\n${currentShare.body}`)}`);
   };
   const shareSelectedEmail = () => {
     const docs = pages.filter(p => selected.has(p.id) && p.shareToken);
@@ -376,8 +417,8 @@ export default function BinderFlipbook({
     return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>;
   }, [current?.expiresAt]);
 
-  const qrSrc = current?.shareToken
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(buildLink(current.shareToken))}`
+  const qrSrc = currentShare
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentShare.qrData)}`
     : null;
 
   const overlay = (
@@ -421,13 +462,13 @@ export default function BinderFlipbook({
           <DropdownMenuContent align="end" className="w-56 z-[110]">
             {!selectMode ? (
               <>
-                <DropdownMenuItem onClick={shareCurrentEmail} disabled={!current?.shareToken}>
+                <DropdownMenuItem onClick={shareCurrentEmail} disabled={!currentShare}>
                   <Mail className="h-4 w-4 mr-2" /> Email this page
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={shareCurrentText} disabled={!current?.shareToken}>
+                <DropdownMenuItem onClick={shareCurrentText} disabled={!currentShare}>
                   <MessageSquare className="h-4 w-4 mr-2" /> Text this page
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowQR(true)} disabled={!current?.shareToken}>
+                <DropdownMenuItem onClick={() => setShowQR(true)} disabled={!currentShare}>
                   <QrCode className="h-4 w-4 mr-2" /> Show QR code
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -556,7 +597,16 @@ export default function BinderFlipbook({
           <div className="bg-card border border-border rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-sm" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-bold text-foreground text-center">{current?.title}</p>
             <img src={qrSrc} alt="QR code" className="h-64 w-64" />
-            <p className="text-xs text-muted-foreground text-center">Officer can scan this QR to open the document.</p>
+            <p className="text-xs text-muted-foreground text-center">
+              {current?.kind === 'cover'
+                ? 'Scan to see every document in this binder.'
+                : 'Officer can scan this QR to open the document.'}
+            </p>
+            {currentShare?.ephemeral && (
+              <p className="text-[10px] text-muted-foreground text-center">
+                Link expires in ~1 hour — rescan if needed.
+              </p>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowQR(false)} className="text-xs">Close</Button>
           </div>
         </div>
