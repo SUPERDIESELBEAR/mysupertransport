@@ -6,11 +6,15 @@ import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { PinnedMessagesSheet } from './PinnedMessagesSheet';
 import { ChatMessage } from './types';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MessageThreadProps {
   myUserId: string | null;
-  threadId: string | null;
-  /** Display name in the header (for 1:1) */
+  /** Thread ID for an existing thread (1:1 or group). If provided, otherUserId is ignored. */
+  threadId?: string | null;
+  /** Legacy 1:1 target user — MessageThread will find/create the direct thread. */
+  otherUserId?: string | null;
+  /** Display name in the header (for 1:1 or fallback) */
   otherName: string;
   /** Subtitle (e.g. "Owner-Operator" or "3 participants") */
   otherSubtitle?: string;
