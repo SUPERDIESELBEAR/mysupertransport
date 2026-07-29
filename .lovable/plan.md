@@ -1,35 +1,44 @@
-Messaging Overhaul — Remaining Phases
+## Phase 3 — Group Chats
 
-## Already shipped (Phase 1)
-- Database foundation: `message_threads`, `thread_participants`, `staff_messaging_settings`, `driver_staff_contacts`, `can_driver_message_staff`, `list_driver_contacts`.
-- Staff availability mode (`all_drivers | specific_drivers | none`) in the Messages header.
-- Driver Contacts tab, auto-populated with assigned dispatcher/onboarding lead + available staff.
-- Oldest-unanswered-first sort for staff inboxes.
-- Notification fan-out to all thread participants.
+Add multi-participant chats on top of the existing `message_threads` foundation. Preserve 1:1 threads and read receipts.
 
-## Phase 2: Floating staff chat window
-Build a draggable, minimizable chat window for staff so they can keep a conversation open while working in other parts of SUPERDRIVE.
+### Rules (from your answers)
+- **Staff can create groups with:** other staff + multiple drivers (mixed).
+- **Drivers can create groups with:** multiple staff (from their contacts). Drivers cannot add other drivers.
+- **Only the creator (or any staff admin)** renames the group or adds/removes members.
+- **Drivers see:** group name, staff participants by name, other drivers hidden as "and N others".
+- **Leaving:** staff can leave anytime (system message posts). Drivers cannot self-leave — creator/admin removes them.
 
-- New component: `src/components/messaging/FloatingChatWindow.tsx`.
-- Persist window position/size per user in `localStorage` so it survives navigation.
-- Hook into the same `message_threads`/`messages` data layer used by the full Messages page.
-- Show unread badge; collapse to a bubble when minimized.
-- Restrict to a single floating window at a time (per the approved plan).
+### Data model
+- Reuse `message_threads` (`id`, `is_group`, `title`, `created_by`) and `thread_participants` (`role_in_thread`: `admin` | `member`).
+- Extend `messages` with `thread_id` as the primary link (existing column). Keep `recipient_id` populated as sender's counterpart for 1:1 back-compat; for groups `recipient_id = created_by` (satisfies NOT NULL) but reads go by `thread_id`.
+- New RLS: participants can `SELECT` messages where `thread_id` is in their participant set; `INSERT` requires participant membership; staff admins/creator can `UPDATE` thread title & participants.
+- Add `has_thread_access(thread_id, uid)` SECURITY DEFINER helper to avoid recursive RLS.
+- Add system-message support (`sender_id = created_by`, `body = 'Emma added Robert', is_system = true`) via new `is_system boolean` column on `messages`.
 
-## Phase 3: Group chats
-Allow mixed staff/driver conversations and staff-only groups.
+### Edge function
+- `create-group-thread`: validates caller role, enforces "drivers cannot add drivers", creates thread + participants + initial system message.
+- `manage-group-participants`: add/remove/rename with admin check; posts system message; fan-out notifications to all participants (reuse `notify-new-message`).
 
-- Create group UI in `MessagesView.tsx` for staff, and in `OperatorMessagesHub.tsx` for drivers.
-- Rules:
-  - Drivers can create groups with staff only (no driver-to-driver groups).
-  - Staff can create mixed groups including drivers and other staff.
-- Use existing `message_threads` + `thread_participants` tables; add UI for selecting participants and naming the group.
-- Ensure notifications still fan out to every participant.
+### Front-end
+- **`useMessageThread` refactor:** switch from `(myUserId, otherUserId)` to `(myUserId, threadId)`. Load messages by `thread_id`. Realtime filter on `thread_id=eq.<id>`. Send inserts `thread_id`; for groups omits per-recipient assumptions.
+- **`MessageThread` wrapper:** accept either `otherUserId` (1:1 legacy, resolves thread) or `threadId` (group).
+- **Staff `MessagesView`:** add a "New group" button in the sidebar → `NewGroupModal` (multi-select staff + drivers). Show group threads with a group icon + participant count. Sort/unread logic unchanged.
+- **Driver `OperatorMessagesHub`:** add "New group with staff" in Contacts tab → modal to multi-select available staff. Group thread rows show `title` + "You, Emma, Kevin, and 2 others".
+- **Group header:** shows title, participant chips. Admin sees "Manage" button → `ManageGroupModal` (rename, add/remove, leave for staff). Drivers see the collapsed roster only.
+- **System messages:** centered gray pill in transcript (`is_system`).
+- **Notifications:** `notify-new-message` already reads participants — extend to fan out one in-app notification per participant (excluding sender) for group threads.
 
-## Optional follow-up phases (not required to close the approved scope)
-- Phase 4: Notification polish — desktop/browser push, read receipts, and a unified unread badge in the top bar.
-- Phase 5: Search & thread management — search messages by participant or keyword; staff ability to mute/archive old threads.
-- Phase 6: Mobile chat polish — bottom-sheet composer, better contact picker, and swipe gestures on driver app.
+### Files touched
+- Migration: `messages.is_system`, `messages` RLS by `thread_id`, `has_thread_access`, `message_threads.title` (already exists), grants.
+- New: `supabase/functions/create-group-thread/index.ts`, `manage-group-participants/index.ts`.
+- New: `src/components/messaging/NewGroupModal.tsx`, `ManageGroupModal.tsx`, `GroupHeader.tsx`.
+- Edit: `useMessageThread.ts` (thread_id mode), `MessageThread.tsx`, `MessageBubble.tsx` (system pill + per-message sender label for groups), `MessagesView.tsx` (staff sidebar + group rows), `OperatorMessagesHub.tsx` + `DriverContactsPanel.tsx` (driver "New group" entry point), `FloatingChatWindow.tsx` (group rows).
+- Edit: `notify-new-message` edge function (fan-out).
 
-## Recommendation
-Proceed with Phase 2 first, then Phase 3. Phase 2 is a pure UI addition on top of the tables already shipped, so it can land cleanly. Phase 3 depends on the same tables and can reuse the notification/availability logic already built.
+### Out of scope for this turn
+- Group reactions/pins already work via existing message-level RLS.
+- Typing indicators in groups (defer — noisy with many participants).
+- Group avatars (initials from title for now).
+
+I'll ship this in one pass and run the typecheck before handing back.

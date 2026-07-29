@@ -9,7 +9,15 @@ import { ChatMessage } from './types';
 
 interface MessageThreadProps {
   myUserId: string | null;
-  otherUserId: string | null;
+  otherUserId?: string | null;
+  /** Group-thread mode: when set, otherUserId is ignored. */
+  threadId?: string | null;
+  /** True if this thread is a group. Controls header/composer/labels. */
+  isGroup?: boolean;
+  /** For groups: current participants keyed by user_id → display name */
+  participantNames?: Record<string, string>;
+  /** Right-side header action (e.g. Manage group) */
+  headerAction?: React.ReactNode;
   /** Display name for the other party in the header */
   otherName: string;
   /** Subtitle (e.g. "Owner-Operator" or "Onboarding Coordinator") */
@@ -33,7 +41,8 @@ interface MessageThreadProps {
 import { initials } from '@/lib/initials';
 
 export function MessageThread({
-  myUserId, otherUserId, otherName, otherSubtitle, otherAvatarUrl,
+  myUserId, otherUserId, threadId, isGroup, participantNames, headerAction,
+  otherName, otherSubtitle, otherAvatarUrl,
   isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
 }: MessageThreadProps) {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -51,7 +60,8 @@ export function MessageThread({
     notifyTyping, notifyStoppedTyping,
   } = useMessageThread({
     myUserId,
-    otherUserId,
+    otherUserId: otherUserId ?? null,
+    threadId: threadId ?? null,
     onIncomingMessage: handleIncomingMessage,
   });
 
@@ -64,7 +74,7 @@ export function MessageThread({
   }, [messages.length, otherTyping]);
 
   // Reset reply-target when switching threads
-  useEffect(() => { setReplyTo(null); }, [otherUserId]);
+  useEffect(() => { setReplyTo(null); }, [otherUserId, threadId]);
 
   const pinned = useMemo(
     () => messages
@@ -125,6 +135,7 @@ export function MessageThread({
             {otherTyping ? <span className="text-primary italic">typing…</span> : (otherSubtitle ?? '')}
           </p>
         </div>
+        {headerAction}
       </div>
 
       {/* Pinned banner */}
@@ -213,6 +224,8 @@ export function MessageThread({
                     reactions={reactionsByMsg.get(m.id) ?? []}
                     myUserId={myUserId}
                     isStaff={isStaff}
+                    showSenderName={!!isGroup}
+                    senderName={participantNames?.[m.sender_id]}
                     onReply={setReplyTo}
                     onEdit={editMessage}
                     onDelete={deleteMessage}

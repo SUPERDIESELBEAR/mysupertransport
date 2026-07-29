@@ -25,6 +25,10 @@ interface Props {
   myUserId: string | null;
   /** Whether the current user is staff (controls pin permission) */
   isStaff: boolean;
+  /** Sender display name shown above group messages */
+  senderName?: string;
+  /** Show the sender name label (groups) */
+  showSenderName?: boolean;
   onReply: (msg: ChatMessage) => void;
   onEdit: (msg: ChatMessage, newBody: string) => Promise<void> | void;
   onDelete: (msg: ChatMessage) => Promise<void> | void;
@@ -34,7 +38,7 @@ interface Props {
 }
 
 export function MessageBubble({
-  message, allMessages, reactions, myUserId, isStaff,
+  message, allMessages, reactions, myUserId, isStaff, senderName, showSenderName,
   onReply, onEdit, onDelete, onPinToggle, onToggleReaction, onJumpToMessage,
 }: Props) {
   const isMe = message.sender_id === myUserId;
@@ -46,6 +50,17 @@ export function MessageBubble({
   const replyTarget = message.reply_to_id
     ? allMessages.find(m => m.id === message.reply_to_id) ?? null
     : null;
+
+  // System message (rendered after hooks so hook order stays stable across renders)
+  if (message.is_system) {
+    return (
+      <div id={`msg-${message.id}`} className="flex justify-center my-2">
+        <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-full px-3 py-1">
+          {message.body}
+        </div>
+      </div>
+    );
+  }
 
   const canEdit =
     isMe &&
@@ -71,6 +86,11 @@ export function MessageBubble({
           <div className="flex items-center gap-1 text-[10px] text-primary font-semibold mb-0.5">
             <Pin className="h-2.5 w-2.5 fill-current" />
             <span>Pinned</span>
+          </div>
+        )}
+        {showSenderName && !isMe && senderName && (
+          <div className="text-[10px] font-semibold text-muted-foreground mb-0.5 px-1">
+            {senderName}
           </div>
         )}
 

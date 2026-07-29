@@ -10,7 +10,7 @@ export interface ChatMessage {
   id: string;
   thread_id: string;
   sender_id: string;
-  recipient_id: string;
+  recipient_id: string | null;
   body: string;
   sent_at: string;
   read_at: string | null;
@@ -23,10 +23,11 @@ export interface ChatMessage {
   attachment_name: string | null;
   attachment_mime: string | null;
   attachment_size_bytes: number | null;
+  is_system?: boolean | null;
 }
 
 export const MESSAGE_SELECT =
-  'id, thread_id, sender_id, recipient_id, body, sent_at, read_at, edited_at, deleted_at, pinned_at, pinned_by, reply_to_id, attachment_url, attachment_name, attachment_mime, attachment_size_bytes';
+  'id, thread_id, sender_id, recipient_id, body, sent_at, read_at, edited_at, deleted_at, pinned_at, pinned_by, reply_to_id, attachment_url, attachment_name, attachment_mime, attachment_size_bytes, is_system';
 
 export const QUICK_EMOJIS = ['👍', '❤️', '✅', '😂', '🎉', '😮'];
 
