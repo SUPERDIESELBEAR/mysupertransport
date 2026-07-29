@@ -10,6 +10,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
+  ClipboardList,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
   HardDrive,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ const FleetDetailDrawer = lazyWithRetry(() => import('@/components/fleet/FleetDe
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
 const ELDMalfunctionView = lazyWithRetry(() => import('@/components/operator/eld/ELDMalfunctionView'));
+const RodsView = lazyWithRetry(() => import('@/components/operator/rods/RodsView'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
@@ -1183,6 +1185,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'onboard-systems' as OperatorView, label: 'Onboard Systems', shortLabel: 'Devices', icon: <HardDrive className="h-5 w-5" />, badge: osasPendingCount || undefined, showIf: osasSheetTotal > 0 },
     { view: 'eld-malfunction' as OperatorView, label: 'ELD Malfunction', shortLabel: 'ELD', icon: <AlertTriangle className="h-5 w-5" />, criticalDot: !!eldActiveEvent },
+    { view: 'paper-logs' as OperatorView, label: 'Paper Logs', shortLabel: 'Logs', icon: <ClipboardList className="h-5 w-5" />, showIf: !!eldActiveEvent, criticalDot: !!eldActiveEvent },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
@@ -1940,6 +1943,20 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA AMENDMENT SIGN VIEW ── */}
+        {view === 'paper-logs' && (
+          operatorId ? (
+            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+              <RodsView
+                operatorId={operatorId}
+                driverName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || displayName}
+                unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
+              />
+            </Suspense>
+          ) : (
+            <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
+          )
+        )}
+
         {view === 'ica-amendment' && (() => {
           const amendmentId = new URLSearchParams(location.search).get('id') ?? '';
           if (!amendmentId) {
