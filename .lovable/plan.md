@@ -1,43 +1,25 @@
-## What I found (confirmed in code)
+## What's actually wrong
 
-`DeactivationWizardContent.tsx` keeps two completely separate sets of state:
+The data is correct. In the database, fuel card **900** has an open (not returned) assignment to Marcus Mueller's operator record, and his onboarding record also lists fuel card number 900.
 
-- Step 1 "Reason & Date": `deactivationDate`, `deactivationReason`, `deactivationNotes`
-- Step 2 "Safety Advisor": `terminationDate`, `safetyReason`, `safetyNotes` (plus `rehire`, To/CC)
+The Deactivation wizard shows "No fuel cards are assigned to this driver" because of a bad query in the wizard, not missing data:
 
-They both default to today and both use the same `REASON_OPTIONS` list, but nothing links them. Staff type the same three things twice, and the two values can silently disagree — the audit record saves the Step 1 values while the email to Tracey sends the Step 2 values.
+1. **It asks for columns that don't exist.** The wizard loads equipment with `select(id, device_type, serial_number, status, current_assignment_id, current_operator_name)` from the equipment items table. Those last two fields are *not* real columns — the Onboard Systems page computes them in the browser by joining the assignments table. The request is therefore rejected, the result comes back empty, and the step falls through to the "none assigned" message and marks itself skipped.
+2. **It never filters by the driver.** Even if the columns existed, the query has no operator filter — it pulls every assigned item fleet-wide. So the step was never correctly scoped to the driver being deactivated.
 
-## My recommendation
+## Fix
 
-Don't merge Step 1 and Step 2 into one screen. They are different actions: Step 1 records the internal decision, Step 2 sends an external compliance email with its own recipients and its own rehire question. Merging them makes a long, dense first screen and hides the "send email" action.
+In `DeactivationWizardContent.tsx`:
 
-Instead: **make Step 1 the single source of truth and let Step 2 inherit from it**, with an explicit override.
+- Replace the equipment fetch with a scoped, valid query: read open assignments for this operator (`equipment_assignments` where `operator_id = operatorId` and `returned_at is null`) joined to their equipment item (`id, device_type, serial_number, status`).
+- Build the fuel-card list from that result, mapping the assignment row's id into `current_assignment_id` and the wizard's known operator name into `current_operator_name`, so the existing deactivate handler (which closes the assignment row and clears the fuel card number) keeps working unchanged.
+- Add loud error handling: if the query fails, surface an error state in the Fuel Card step instead of silently rendering "No fuel cards are assigned," so a broken query can never masquerade as "nothing to do" again.
+- Re-evaluate the step status from the scoped list: pending when the driver has an active card, completed when all are deactivated, skipped only when the query genuinely returns zero rows.
 
-## Plan
+## Also worth checking in the same pass
 
-**1. Carry values forward**
-- Remove the separate `terminationDate` / `safetyReason` / `safetyNotes` state. Step 2 reads directly from the Step 1 values.
-- Notes: since the Step 1 label is "Internal Notes" (audit log) and Step 2 notes go to an outside party, pre-fill the email notes with the Step 1 text but keep it editable — internal wording shouldn't be sent out unreviewed by accident.
+The MO Plate step is already scoped by `operator_id`, so it is unaffected. No database or schema changes are needed.
 
-**2. Show them as a read-only summary in Step 2**
-- Replace the Termination Date / Reason inputs on Step 2 with a compact read-only summary block: Driver, Unit #, Termination date, Reason — matching the summary card style already used on Step 1.
-- Add a small "Edit" link on that block that either jumps back to Step 1 or unlocks the fields inline for a one-off override (default: jump to Step 1, so the record and the email stay in sync).
+## Result
 
-**3. Step 2 keeps only what is genuinely its own**
-- Available for Rehire (required)
-- Notes to the Safety Advisor (pre-filled, editable)
-- To / CC recipients
-- Send Deactivation Notice button
-
-**4. Gate Step 2 on Step 1 being complete**
-- Step 2 already can't send without a date and reason; with the carry-over it will simply show a prompt to finish Step 1 if either is blank, instead of offering empty duplicate inputs.
-
-**5. Keep the standalone dialog consistent**
-- `NotifySafetyAdvisorDialog.tsx` (used outside the wizard) already accepts `initialReason` / `initialNotes` and keeps its own date field — leave it as is, since there is no Step 1 in that context.
-
-## Technical notes
-
-- File: `src/components/management/DeactivationWizardContent.tsx`
-- `handleSendSafetyNotice` currently posts `termination_date: terminationDate, reason: safetyReason, notes: safetyNotes` — repoint to `deactivationDate` / `deactivationReason` / the email-notes field.
-- The `canProceed` check for `safety_advisor` and the Send button's `disabled` condition switch to the Step 1 values.
-- No database or edge-function changes; `send-deactivation-notice` receives the same payload shape.
+Opening the wizard for Marcus Mueller will show fuel card 900 with a Deactivate action, and the step will no longer auto-skip.
