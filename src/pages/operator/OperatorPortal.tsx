@@ -1,4 +1,6 @@
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useEldMalfunction } from '@/hooks/useEldMalfunction';
+import ELDMalfunctionBanner from '@/components/operator/eld/ELDMalfunctionBanner';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,6 +46,7 @@ import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
 const FleetDetailDrawer = lazyWithRetry(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
+const ELDMalfunctionView = lazyWithRetry(() => import('@/components/operator/eld/ELDMalfunctionView'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
@@ -1168,6 +1171,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const icaActionDot = isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract);
   const icaComplete = isIcaComplete(effectiveOnboardingStatus, latestIcaContract);
+  const { activeEvent: eldActiveEvent } = useEldMalfunction(operatorId ?? null);
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
@@ -1178,6 +1182,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'onboard-systems' as OperatorView, label: 'Onboard Systems', shortLabel: 'Devices', icon: <HardDrive className="h-5 w-5" />, badge: osasPendingCount || undefined, showIf: osasSheetTotal > 0 },
+    { view: 'eld-malfunction' as OperatorView, label: 'ELD Malfunction', shortLabel: 'ELD', icon: <AlertTriangle className="h-5 w-5" />, criticalDot: !!eldActiveEvent },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
@@ -1487,6 +1492,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           </div>
         )}
       </header>
+
+      <ELDMalfunctionBanner
+        event={eldActiveEvent}
+        onOpen={() => navigateToView('eld-malfunction')}
+      />
 
       <div
         ref={contentScrollRef}
@@ -1913,6 +1923,21 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── ICA SIGN VIEW ── */}
         {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />}
+
+        {/* ── ELD MALFUNCTION VIEW ── */}
+        {view === 'eld-malfunction' && (
+          operatorId ? (
+            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+              <ELDMalfunctionView
+                operatorId={operatorId}
+                driverName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || displayName}
+                unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
+              />
+            </Suspense>
+          ) : (
+            <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
+          )
+        )}
 
         {/* ── ICA AMENDMENT SIGN VIEW ── */}
         {view === 'ica-amendment' && (() => {
