@@ -44,6 +44,7 @@ import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
 const FleetDetailDrawer = lazyWithRetry(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
+const ELDMalfunctionView = lazyWithRetry(() => import('@/components/operator/eld/ELDMalfunctionView'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
@@ -1178,6 +1179,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'onboard-systems' as OperatorView, label: 'Onboard Systems', shortLabel: 'Devices', icon: <HardDrive className="h-5 w-5" />, badge: osasPendingCount || undefined, showIf: osasSheetTotal > 0 },
+    { view: 'eld-malfunction' as OperatorView, label: 'ELD Malfunction', shortLabel: 'ELD', icon: <AlertTriangle className="h-5 w-5" />, criticalDot: !!eldActiveEvent },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
