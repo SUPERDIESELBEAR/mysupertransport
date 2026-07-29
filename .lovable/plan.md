@@ -1,25 +1,29 @@
-## What's actually wrong
+## Short answer for your assistant
 
-The data is correct. In the database, fuel card **900** has an open (not returned) assignment to Marcus Mueller's operator record, and his onboarding record also lists fuel card number 900.
+Yes — the ICA will go to **David Mitchell**, not Kevin Foy. The wording on the final step is wrong, not the routing.
 
-The Deactivation wizard shows "No fuel cards are assigned to this driver" because of a bad query in the wizard, not missing data:
+Verified in the code:
+- `send-notification` (milestone `ica_sent`) looks up the `truck_owners` row for the operator first. When one exists (David, linked on Kevin's profile), the signature email goes to the owner's address, not the driver's.
+- `OperatorICASign` resolves the signed-in user as either `driver` or `truck_owner`. A truck-owner signer gets "This ICA is ready for your signature", can correct their contact fields, and writes `contractor_signed_at`.
+- Kevin, as the driver on an owner-signed ICA, gets the read-and-acknowledge card (`DriverICAAcknowledgment`) — not the signature block.
 
-1. **It asks for columns that don't exist.** The wizard loads equipment with `select(id, device_type, serial_number, status, current_assignment_id, current_operator_name)` from the equipment items table. Those last two fields are *not* real columns — the Onboard Systems page computes them in the browser by joining the assignments table. The request is therefore rejected, the result comes back empty, and the step falls through to the "none assigned" message and marks itself skipped.
-2. **It never filters by the driver.** Even if the columns existed, the query has no operator filter — it pulls every assigned item fleet-wide. So the step was never correctly scoped to the driver being deactivated.
+One thing to confirm before sending: David must have an actual login (`truck_owners.user_id` populated via the Invite Truck Owner action on his card). If he has never been invited, the email lands but he has nowhere to sign.
 
-## Fix
+## What to change
 
-In `DeactivationWizardContent.tsx`:
+Step 4 of the ICA builder is hardcoded to the driver's name and the word "operator". Make it reflect the real signer.
 
-- Replace the equipment fetch with a scoped, valid query: read open assignments for this operator (`equipment_assignments` where `operator_id = operatorId` and `returned_at is null`) joined to their equipment item (`id, device_type, serial_number, status`).
-- Build the fuel-card list from that result, mapping the assignment row's id into `current_assignment_id` and the wizard's known operator name into `current_operator_name`, so the existing deactivate handler (which closes the assignment row and clears the fuel card number) keeps working unchanged.
-- Add loud error handling: if the query fails, surface an error state in the Fuel Card step instead of silently rendering "No fuel cards are assigned," so a broken query can never masquerade as "nothing to do" again.
-- Re-evaluate the step status from the scoped list: pending when the driver has an active card, completed when all are deactivated, skipped only when the query genuinely returns zero rows.
+### `src/components/ica/ICABuilderModal.tsx`
+1. Keep the `truck_owners` row already fetched in `loadDraft` in state (name, email, `user_id`) instead of discarding it after pre-fill. Also select `user_id`.
+2. Derive a `signer` value: the truck owner when a row exists, otherwise the operator.
+3. Step 4 rewrite:
+   - Heading: "Ready to send to truck owner" / "Ready to send to operator".
+   - Body: "**David Mitchell** (truck owner) will review the full agreement and sign digitally from their portal. **Kevin Foy** will be notified to read and acknowledge the executed ICA."
+   - Add a "Signature Required From" summary row showing the signer's name and email, alongside the existing Operator row so both parties are visible.
+   - If the owner row has no `user_id`, show an amber inline warning: "David Mitchell has not been invited yet — send the truck-owner invite so he can sign." with a pointer to the Truck Owner card.
+4. Update the footer send button label and the success toast to name the actual recipient ("ICA sent to David Mitchell").
+5. Step 3 carrier-signature disclaimer ("will be sent to the operator") gets the same signer-aware wording.
 
-## Also worth checking in the same pass
-
-The MO Plate step is already scoped by `operator_id`, so it is unaffected. No database or schema changes are needed.
-
-## Result
-
-Opening the wizard for Marcus Mueller will show fuel card 900 with a Deactivate action, and the step will no longer auto-skip.
+### Notes
+- No routing, database, or edge-function changes — delivery is already correct.
+- Copy-only change plus one extra selected column and a piece of local state.
