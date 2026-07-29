@@ -18,7 +18,7 @@ import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
-import Registration2290Modal from './Registration2290Modal';
+import Registration2290Modal, { REGISTRATION_DOC_NAME, REGISTRATION_DOC_LABEL } from './Registration2290Modal';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -61,7 +61,7 @@ interface DOTInspection {
 
 interface Reg2290Record {
   id: string;
-  name: 'Registration' | 'Form 2290' | string;
+  name: typeof REGISTRATION_DOC_NAME | 'Form 2290' | string;
   file_url: string | null;
   file_path: string | null;
   expires_at: string | null;
@@ -236,7 +236,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by')
         .eq('scope', 'per_driver')
         .eq('driver_id', uid)
-        .in('name', ['Registration', 'Form 2290'])
+        .in('name', [REGISTRATION_DOC_NAME, 'Form 2290'])
         .order('uploaded_at', { ascending: false });
       setReg2290((reg as Reg2290Record[]) ?? []);
     } else {
@@ -850,7 +850,9 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                     const expiredCls = days !== null && days < 0 ? 'text-destructive font-semibold' : days !== null && days <= 30 ? 'text-amber-600 font-semibold' : '';
                     return (
                       <TableRow key={r.id}>
-                        <TableCell className="text-xs font-medium whitespace-nowrap">{r.name}</TableCell>
+                        <TableCell className="text-xs font-medium whitespace-nowrap">
+                          {r.name === REGISTRATION_DOC_NAME ? REGISTRATION_DOC_LABEL : r.name}
+                        </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.uploaded_at), 'M/d/yy')}</TableCell>
                         <TableCell className={'text-xs whitespace-nowrap ' + expiredCls}>
                           {r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'}
