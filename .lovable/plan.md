@@ -1,52 +1,47 @@
-## Problem
+## Option B: Structured formatting + short links
 
-In the driver binder flipbook, the three-dot menu shows the top three actions — **Email this page**, **Text this page**, **Show QR code** — greyed out on any page whose source doesn't have a public share token. That is:
+### 1. Database (one migration)
 
-- The **Cover Page** (page 1) — it's a synthetic page, not a document, so `shareToken` is `null`.
-- Any **driver upload** page — those pages are wired with `shareToken: null` in `OperatorInspectionBinder.tsx`, `OperatorBinderPanel.tsx`, and `InspectionBinderAdmin.tsx`.
+New table `public.document_short_links`:
+- `code text PRIMARY KEY` — 8-char lowercase hex
+- `share_token text NOT NULL UNIQUE` — points to the existing `/inspect/{token}` token
+- `created_at`, `created_by`
 
-That's why the items appear "broken/not bold" — `DropdownMenuItem` renders them disabled when `!current?.shareToken`.
+Access rules:
+- Anyone (including anon) can read the table so `/s/{code}` resolves without a login. The underlying inspect token remains the real security boundary and already expires.
+- No direct inserts — a security-definer RPC `get_or_create_short_link(_share_token)` mints codes and requires `auth.uid()` (drivers/staff only).
 
-## Fix
+### 2. Public redirect route
 
-Make the three actions functional on every page instead of hiding them behind a share token gate.
+New file `src/pages/ShortLinkRedirect.tsx` mounted at `/s/:code` in `src/App.tsx`:
+- Selects `share_token` for the code, then `Navigate` to `/inspect/{token}` (existing `InspectionSharePage`).
+- Renders "Not found" if the code is unknown.
 
-### 1. Cover Page → act on the whole binder
+Final short URL: `https://mysupertransport.lovable.app/s/ab12cd34`.
 
-On the cover, the top three items map to binder-wide equivalents (all documents that DO have a share token):
+### 3. Share formatter
 
-- **Email this page** → same body as "Email all docs" (list of `title: link` for every shareable page), subject `"{Driver} — Digital Inspection Binder"`.
-- **Text this page** → same list via `sms:?body=`.
-- **Show QR code** → QR encodes a `data:text/plain` payload with the driver name + all links, so a scan reveals the full binder list. (Fallback: if only one shareable doc exists, encode that doc's `/inspect/{token}` URL directly for a cleaner scan.)
+New file `src/lib/binderShareFormat.ts` exports `buildShareBodies({ items, driverName, unitNumber, channel, source })` returning `{ subject, body }`:
+- `channel: 'email' | 'sms'`
+- Email: subject `SuperTransport — {Driver} — {Doc}` (single) or `SuperTransport — Roadside Documents for {Driver} (Unit {###})` (multi). Body has greeting, numbered list (title on its own line, URL below), and a footer with US-Central timestamp + sender label.
+- SMS ≤3 items: bullet list, title above URL, blank line between.
+- SMS >3 items: single-line summary + one cover-share URL (already exists for the binder cover).
+- All URLs passed in are already resolved short links.
 
-### 2. Driver-upload pages → share the file directly
+### 4. Wire into `BinderFlipbook.tsx`
 
-Driver uploads live in the `driver-uploads` bucket and don't get a `/inspect/{token}` route, but they already expose a `fileUrl` (signed URL). Use that:
+- Add `resolveShortUrl(shareToken)` helper that calls the RPC and falls back to the full `/inspect/{token}` URL on error.
+- Convert `shareCurrentEmail`, `shareCurrentText`, `shareSelectedEmail`, `shareSelectedText`, `shareAllEmail` to async: resolve short URLs for every item (in parallel), pass results to `buildShareBodies`, then open `mailto:`/`sms:`.
+- Uploads (no share token, ephemeral signed URL) continue to use the full URL — no code minted for those.
+- QR data still uses the full inspect URL (QR size is not a concern and avoids a network call before showing the QR).
 
-- **Email this page** → `mailto:` with `"{title}: {fileUrl}"`.
-- **Text this page** → `sms:` with the same body.
-- **Show QR code** → QR encodes `fileUrl`.
+### 5. No changes to
+- Existing `/inspect/{token}` route, `inspection_documents` table, PEI/other share flows, or edge functions.
 
-Because signed URLs expire, add a short note in the QR modal ("Link expires in ~1 hour — rescan if needed") only when the page is an upload.
+### Verification
 
-### 3. Document pages (unchanged behavior, just visual polish)
-
-Docs with a `shareToken` keep the existing `/inspect/{token}` behavior. No functional change — they were already working, but they will now render as active (not greyed) alongside the other pages, matching the user's expectation that all three items are always live.
-
-## Files to change
-
-- `src/components/inspection/BinderFlipbook.tsx`
-  - Remove the `disabled={!current?.shareToken}` guards on the top three menu items.
-  - Update `shareCurrentEmail`, `shareCurrentText`, and the QR source to branch by page kind:
-    - `kind === 'cover'` → binder-wide list (reuses existing `shareAllEmail` body builder).
-    - `kind === 'upload'` (or any page without `shareToken` but with `fileUrl`) → use `fileUrl`.
-    - Otherwise → existing `/inspect/{token}` behavior.
-  - Update `qrSrc` to compute from the same branching logic.
-
-No changes to callers (`OperatorInspectionBinder.tsx`, `OperatorBinderPanel.tsx`, `InspectionBinderAdmin.tsx`) — page data already carries `kind`, `fileUrl`, and `shareToken`.
-
-## Verification
-
-- Open the binder on Cover Page → three top items are active; Email/Text opens composer with all doc links; QR renders a scannable payload.
-- Navigate to a document page → behavior identical to today (per-doc share link / QR).
-- Navigate to a driver upload → items are active; Email/Text/QR use the signed `fileUrl`.
+- Send single-doc email → subject "SuperTransport — Driver — CDL (Front)", body has one link on its own line with footer.
+- Send 3-doc SMS → bulleted, short `/s/...` URLs, no title/URL collisions.
+- Send all-docs (>3) SMS → falls back to a single cover URL.
+- Visit `/s/{code}` in a fresh browser → lands on the existing inspect viewer.
+- Bad code at `/s/xxxx` → "Link not found" state.
