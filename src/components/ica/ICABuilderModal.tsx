@@ -820,8 +820,8 @@ export default function ICABuilderModal({
                 </p>
               </div>
               {truckOwner && !truckOwner.user_id && (
-                <div className="flex items-start gap-2 p-3 rounded-lg border border-status-warning/40 bg-status-warning/10 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-status-warning shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 p-3 rounded-lg border border-warning/40 bg-warning/10 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                   <span className="text-foreground">
                     {truckOwner.name} has not been invited yet — send the truck-owner invite from the Truck Owner card on this driver's profile so they can sign.
                   </span>
