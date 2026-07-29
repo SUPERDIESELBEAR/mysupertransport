@@ -12,6 +12,7 @@ import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { pdfToImage } from '@/lib/pdfToImage';
 import { supabase } from '@/integrations/supabase/client';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
+import { buildShareBodies, resolveShortUrl, type ShareItem } from '@/lib/binderShareFormat';
 import logo from '@/assets/supertransport-logo.png';
 
 export interface FlipbookPage {
@@ -334,6 +335,65 @@ export default function BinderFlipbook({
 
   const buildLink = (token: string) => `${window.location.origin}/inspect/${token}`;
 
+  /** Resolve a page to a short URL when possible; fall back to the full URL. */
+  const shortenPage = async (p: FlipbookPage): Promise<string> => {
+    if (p.shareToken) {
+      const full = buildLink(p.shareToken);
+      return resolveShortUrl(supabase as any, window.location.origin, p.shareToken, full);
+    }
+    return p.fileUrl || '';
+  };
+
+  const openMailto = (subject: string, body: string) => {
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
+  const openSms = (body: string) => {
+    window.open(`sms:?body=${encodeURIComponent(body)}`);
+  };
+
+  /** Build items for the currently viewed page (single or cover-wide). */
+  const currentItems = async (): Promise<{ items: ShareItem[]; overflowUrl: string | null } | null> => {
+    if (!current) return null;
+    if (current.kind === 'cover') {
+      const docs = pages.filter(p => p.shareToken);
+      if (!docs.length) return null;
+      const urls = await Promise.all(docs.map(shortenPage));
+      return {
+        items: docs.map((d, i) => ({ title: d.title, url: urls[i] })),
+        overflowUrl: null,
+      };
+    }
+    if (current.shareToken) {
+      const url = await shortenPage(current);
+      return { items: [{ title: current.title, url }], overflowUrl: null };
+    }
+    if (current.fileUrl) {
+      return { items: [{ title: current.title, url: current.fileUrl }], overflowUrl: null };
+    }
+    return null;
+  };
+
+  /** Build items for the multi-select list, with a cover-share fallback URL for SMS overflow. */
+  const selectedItems = async (): Promise<{ items: ShareItem[]; overflowUrl: string | null } | null> => {
+    const docs = pages.filter(p => selected.has(p.id) && p.shareToken);
+    if (!docs.length) return null;
+    const urls = await Promise.all(docs.map(shortenPage));
+    return {
+      items: docs.map((d, i) => ({ title: d.title, url: urls[i] })),
+      overflowUrl: null,
+    };
+  };
+
+  const allItems = async (): Promise<{ items: ShareItem[]; overflowUrl: string | null } | null> => {
+    const docs = pages.filter(p => p.shareToken);
+    if (!docs.length) return null;
+    const urls = await Promise.all(docs.map(shortenPage));
+    return {
+      items: docs.map((d, i) => ({ title: d.title, url: urls[i] })),
+      overflowUrl: null,
+    };
+  };
+
   /**
    * Compute the share payload for the CURRENT page, branching by kind:
    *  - cover  → binder-wide list of all shareable pages
@@ -377,31 +437,28 @@ export default function BinderFlipbook({
     return null;
   }, [current, pages, driverName]);
 
-  const shareCurrentEmail = () => {
-    if (!currentShare) return;
-    window.open(`mailto:?subject=${encodeURIComponent(currentShare.subject)}&body=${encodeURIComponent(currentShare.body)}`);
+  const shareVia = async (
+    load: () => Promise<{ items: ShareItem[]; overflowUrl: string | null } | null>,
+    channel: 'email' | 'sms',
+  ) => {
+    const payload = await load();
+    if (!payload) return;
+    const { subject, body } = buildShareBodies({
+      items: payload.items,
+      driverName,
+      unitNumber,
+      channel,
+      overflowUrl: payload.overflowUrl,
+    });
+    if (channel === 'email') openMailto(subject, body);
+    else openSms(body);
   };
-  const shareCurrentText = () => {
-    if (!currentShare) return;
-    window.open(`sms:?body=${encodeURIComponent(`${currentShare.subject}\n\n${currentShare.body}`)}`);
-  };
-  const shareSelectedEmail = () => {
-    const docs = pages.filter(p => selected.has(p.id) && p.shareToken);
-    if (!docs.length) return;
-    const body = docs.map(d => `${d.title}: ${buildLink(d.shareToken!)}`).join('\n');
-    window.open(`mailto:?subject=${encodeURIComponent('Roadside Documents — SuperTransport')}&body=${encodeURIComponent(body)}`);
-  };
-  const shareSelectedText = () => {
-    const docs = pages.filter(p => selected.has(p.id) && p.shareToken);
-    if (!docs.length) return;
-    const body = docs.map(d => `${d.title}: ${buildLink(d.shareToken!)}`).join('\n');
-    window.open(`sms:?body=${encodeURIComponent(`Roadside Documents — SuperTransport\n\n${body}`)}`);
-  };
-  const shareAllEmail = () => {
-    const docs = pages.filter(p => p.shareToken);
-    const body = docs.map(d => `${d.title}: ${buildLink(d.shareToken!)}`).join('\n');
-    window.open(`mailto:?subject=${encodeURIComponent('Roadside Documents — SuperTransport')}&body=${encodeURIComponent(body)}`);
-  };
+
+  const shareCurrentEmail = () => { void shareVia(currentItems, 'email'); };
+  const shareCurrentText = () => { void shareVia(currentItems, 'sms'); };
+  const shareSelectedEmail = () => { void shareVia(selectedItems, 'email'); };
+  const shareSelectedText = () => { void shareVia(selectedItems, 'sms'); };
+  const shareAllEmail = () => { void shareVia(allItems, 'email'); };
 
   const expiryBadge = useMemo(() => {
     if (!current?.expiresAt) return null;
