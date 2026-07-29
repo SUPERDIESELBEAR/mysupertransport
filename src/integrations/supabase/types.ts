@@ -1055,6 +1055,30 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_staff_contact_suppressions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          staff_id?: string
+        }
+        Relationships: []
+      }
       driver_staff_contacts: {
         Row: {
           created_at: string
@@ -5384,6 +5408,16 @@ export type Database = {
           thread_id: string
           title: string
           unread_count: number
+        }[]
+      }
+      list_staff_auto_assigned_drivers: {
+        Args: { _staff: string }
+        Returns: {
+          driver_id: string
+          full_name: string
+          source: string
+          suppressed: boolean
+          unit_number: string
         }[]
       }
       log_ica_event: {

@@ -15,7 +15,7 @@ interface Contact {
   role: string | null;
   availability_mode: 'all_drivers' | 'specific_drivers' | 'none';
   availability_note: string | null;
-  source: 'all_drivers' | 'specific';
+  source: 'all_drivers' | 'specific' | 'assigned_onboarding' | 'assigned_dispatcher';
 }
 
 function roleLabel(role: string | null): string {
@@ -100,8 +100,15 @@ export default function DriverContactsPanel({ onStartChat }: Props) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold text-foreground truncate">{name}</p>
-                      {c.source === 'specific' && (
-                        <span title="Assigned to you" className="text-primary">
+                      {(c.source === 'specific' || c.source === 'assigned_onboarding' || c.source === 'assigned_dispatcher') && (
+                        <span
+                          title={
+                            c.source === 'assigned_dispatcher' ? 'Your dispatcher'
+                            : c.source === 'assigned_onboarding' ? 'Your onboarding coordinator'
+                            : 'Assigned to you'
+                          }
+                          className="text-primary"
+                        >
                           <ShieldCheck className="h-3.5 w-3.5" />
                         </span>
                       )}
