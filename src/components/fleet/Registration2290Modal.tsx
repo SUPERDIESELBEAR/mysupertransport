@@ -10,7 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import { Loader2, UploadCloud, FileText, X, RefreshCw, FilePlus2 } from 'lucide-react';
 
-type DocType = 'Registration' | 'Form 2290';
+/** Canonical DB name for the truck registration doc — shared with the inspection binder. */
+export const REGISTRATION_DOC_NAME = 'IRP Registration (cab card)' as const;
+export const REGISTRATION_DOC_LABEL = 'Registration (IRP Cab Card)';
+
+type DocType = typeof REGISTRATION_DOC_NAME | 'Form 2290';
+
+const docLabel = (t: DocType) => (t === REGISTRATION_DOC_NAME ? REGISTRATION_DOC_LABEL : t);
 type SaveMode = 'upload' | 'update';
 
 interface Props {
@@ -31,7 +37,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [docType, setDocType] = useState<DocType>('Registration');
+  const [docType, setDocType] = useState<DocType>(REGISTRATION_DOC_NAME);
   const [mode, setMode] = useState<SaveMode>('upload');
   const [effectiveDate, setEffectiveDate] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -41,7 +47,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
   const [loadingExisting, setLoadingExisting] = useState(false);
 
   const reset = () => {
-    setDocType('Registration');
+    setDocType(REGISTRATION_DOC_NAME);
     setMode('upload');
     setEffectiveDate('');
     setExpiresAt('');
@@ -112,7 +118,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
 
       if (file) {
         const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-        const slug = docType === 'Registration' ? 'registration' : 'form-2290';
+        const slug = docType === REGISTRATION_DOC_NAME ? 'registration' : 'form-2290';
         path = `driver/${driverUserId}/${slug}/${Date.now()}.${ext}`;
 
         const { error: uploadErr } = await supabase.storage
@@ -157,7 +163,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
         if (insErr) throw insErr;
       }
 
-      toast({ title: `${docType} saved`, description: `Expires ${expiresAt}` });
+      toast({ title: `${docLabel(docType)} saved`, description: `Expires ${expiresAt}` });
       reset();
       onSaved();
       onClose();
@@ -181,7 +187,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
               Document Type <span className="text-destructive">*</span>
             </Label>
             <div className="flex gap-2">
-              {(['Registration', 'Form 2290'] as const).map(t => (
+              {([REGISTRATION_DOC_NAME, 'Form 2290'] as const).map(t => (
                 <button
                   key={t}
                   type="button"
@@ -193,7 +199,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
                       : 'bg-background border-border text-muted-foreground hover:bg-muted/50')
                   }
                 >
-                  {t}
+                  {docLabel(t)}
                 </button>
               ))}
             </div>
@@ -245,7 +251,7 @@ export default function Registration2290Modal({ open, onClose, driverUserId, onS
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">
-                {docType === 'Registration' ? 'Effective Date' : 'Tax Period Start'}
+                {docType === REGISTRATION_DOC_NAME ? 'Effective Date' : 'Tax Period Start'}
                 <span className="text-muted-foreground font-normal"> (optional)</span>
               </Label>
               <DateInput
