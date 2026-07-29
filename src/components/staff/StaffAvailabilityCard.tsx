@@ -69,10 +69,9 @@ export default function StaffAvailabilityCard() {
           .eq('staff_id', user.id),
         supabase
           .from('operators')
-          .select('user_id, first_name, last_name, unit_number')
+          .select('user_id, unit_number, profiles:profiles!operators_user_id_fkey(first_name, last_name)')
           .eq('is_active', true)
-          .not('user_id', 'is', null)
-          .order('first_name', { ascending: true }),
+          .not('user_id', 'is', null),
         supabase.rpc('list_staff_auto_assigned_drivers', { _staff: user.id }),
       ]);
       if (settings) {
@@ -82,7 +81,15 @@ export default function StaffAvailabilityCard() {
       const ids = new Set<string>((contacts ?? []).map((r: any) => r.driver_id));
       setSelectedIds(new Set(ids));
       setInitialIds(new Set(ids));
-      setAllDrivers((drivers ?? []) as DriverRow[]);
+      const rows: DriverRow[] = (drivers ?? []).map((r: any) => ({
+        user_id: r.user_id,
+        unit_number: r.unit_number ?? null,
+        first_name: r.profiles?.first_name ?? null,
+        last_name: r.profiles?.last_name ?? null,
+      })).sort((a, b) =>
+        `${a.first_name ?? ''} ${a.last_name ?? ''}`.localeCompare(`${b.first_name ?? ''} ${b.last_name ?? ''}`)
+      );
+      setAllDrivers(rows);
       setAutoRows(((auto ?? []) as AutoRow[]));
       setLoading(false);
     })();
