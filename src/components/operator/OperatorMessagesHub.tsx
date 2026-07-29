@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Megaphone, ShieldCheck } from 'lucide-react';
+import { MessageSquare, Megaphone, ShieldCheck, Users } from 'lucide-react';
 import OperatorMessagesView from './OperatorMessagesView';
 import OperatorAnnouncementsView from './OperatorAnnouncementsView';
+import DriverContactsPanel from './DriverContactsPanel';
 
 interface Props {
   /** Deep-link to a specific broadcast id, opens the Announcements tab. */
@@ -16,9 +17,10 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
   const { user } = useAuth();
   const [announceUnread, setAnnounceUnread] = useState(0);
   const [needsAck, setNeedsAck] = useState(0);
-  const [tab, setTab] = useState<'announcements' | 'direct'>(
+  const [tab, setTab] = useState<'announcements' | 'direct' | 'contacts'>(
     initialBroadcastId ? 'announcements' : 'direct'
   );
+  const [pendingChatUserId, setPendingChatUserId] = useState<string | undefined>(undefined);
 
   // Load badge counts for announcements
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
 
   return (
     <div className="bg-white border border-border rounded-2xl overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 180px)', minHeight: '480px' }}>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'announcements' | 'direct')} className="flex flex-col flex-1 min-h-0">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'announcements' | 'direct' | 'contacts')} className="flex flex-col flex-1 min-h-0">
         <div className="border-b px-3 py-2 shrink-0">
           <TabsList>
             <TabsTrigger value="announcements" className="gap-2">
@@ -68,6 +70,9 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
             <TabsTrigger value="direct" className="gap-2">
               <MessageSquare className="h-4 w-4" /> Direct
             </TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-2">
+              <Users className="h-4 w-4" /> Contacts
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="announcements" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col">
@@ -75,7 +80,17 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
         </TabsContent>
         <TabsContent value="direct" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
           <div className="flex-1 min-h-0">
-            <OperatorMessagesView />
+            <OperatorMessagesView initialUserId={pendingChatUserId} />
+          </div>
+        </TabsContent>
+        <TabsContent value="contacts" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0">
+            <DriverContactsPanel
+              onStartChat={(staffId) => {
+                setPendingChatUserId(staffId);
+                setTab('direct');
+              }}
+            />
           </div>
         </TabsContent>
       </Tabs>

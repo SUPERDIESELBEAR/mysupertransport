@@ -6,6 +6,10 @@ import { format, isToday, isYesterday } from 'date-fns';
 import { MessageSquare, Search, User } from 'lucide-react';
 import { MessageThread } from '@/components/messaging/MessageThread';
 import type { ChatMessage } from '@/components/messaging/types';
+import StaffAvailabilityCard from './StaffAvailabilityCard';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Settings2 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +32,7 @@ interface Thread {
   lastMessage: string;
   lastAt: string;
   unreadCount: number;
+  oldestUnreadAt: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -107,7 +112,12 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
     const built: Thread[] = ops.map(op => {
       const opMsgs = grouped[op.user_id] ?? [];
       const latest = opMsgs[0];
-      const unread = opMsgs.filter(m => m.sender_id === op.user_id && !m.read_at).length;
+      const unreadInbound = opMsgs.filter(m => m.sender_id === op.user_id && !m.read_at);
+      const unread = unreadInbound.length;
+      // Oldest unanswered inbound = earliest sent_at among unread inbound
+      const oldestUnreadAt = unread
+        ? unreadInbound.reduce((min, m) => (min && min < m.sent_at ? min : m.sent_at), '' as string) || null
+        : null;
       const name = op.profiles
         ? `${op.profiles.first_name ?? ''} ${op.profiles.last_name ?? ''}`.trim() || 'Unknown'
         : 'Unknown';
@@ -119,11 +129,17 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
         lastMessage: previewBody(latest ?? null),
         lastAt: latest?.sent_at ?? '',
         unreadCount: unread,
+        oldestUnreadAt,
       };
     });
 
+    // Sort: unanswered threads first, oldest unanswered at top;
+    // then answered threads by most-recent activity.
     built.sort((a, b) => {
-      if (b.unreadCount !== a.unreadCount) return b.unreadCount - a.unreadCount;
+      if ((a.unreadCount > 0) !== (b.unreadCount > 0)) return a.unreadCount > 0 ? -1 : 1;
+      if (a.unreadCount > 0 && b.unreadCount > 0) {
+        return new Date(a.oldestUnreadAt!).getTime() - new Date(b.oldestUnreadAt!).getTime();
+      }
       if (!a.lastAt && !b.lastAt) return a.name.localeCompare(b.name);
       if (!a.lastAt) return 1;
       if (!b.lastAt) return -1;
@@ -203,10 +219,20 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
             <MessageSquare className="h-4 w-4 text-foreground" />
             <h2 className="font-semibold text-sm text-foreground">Messages</h2>
             {totalUnread > 0 && (
-              <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
                 {totalUnread}
               </span>
             )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" title="Availability">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <StaffAvailabilityCard />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
