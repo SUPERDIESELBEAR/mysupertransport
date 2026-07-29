@@ -591,6 +591,71 @@ export type Database = {
         }
         Relationships: []
       }
+      blank_log_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          created_at: string
+          id: string
+          operator_id: string
+          quarter_key: string
+          sheets_confirmed: boolean
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          created_at?: string
+          id?: string
+          operator_id: string
+          quarter_key: string
+          sheets_confirmed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string
+          created_at?: string
+          id?: string
+          operator_id?: string
+          quarter_key?: string
+          sheets_confirmed?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blank_log_acknowledgments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carrier_notification_settings: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       carrier_signature_settings: {
         Row: {
           id: string
@@ -1209,6 +1274,268 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eld_device_models: {
+        Row: {
+          created_at: string
+          device_make: string
+          device_model: string
+          fmcsa_registration_id: string | null
+          id: string
+          is_active: boolean
+          provider_name: string
+          support_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_make: string
+          device_model: string
+          fmcsa_registration_id?: string | null
+          id?: string
+          is_active?: boolean
+          provider_name: string
+          support_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_make?: string
+          device_model?: string
+          fmcsa_registration_id?: string | null
+          id?: string
+          is_active?: boolean
+          provider_name?: string
+          support_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      eld_devices: {
+        Row: {
+          created_at: string
+          eld_device_model_id: string | null
+          id: string
+          is_active: boolean
+          operator_id: string
+          serial_number: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          eld_device_model_id?: string | null
+          id?: string
+          is_active?: boolean
+          operator_id: string
+          serial_number?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          eld_device_model_id?: string | null
+          id?: string
+          is_active?: boolean
+          operator_id?: string
+          serial_number?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_devices_eld_device_model_id_fkey"
+            columns: ["eld_device_model_id"]
+            isOneToOne: false
+            referencedRelation: "eld_device_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_devices_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eld_malfunction_events: {
+        Row: {
+          backdate_reason: string | null
+          carrier_acknowledged_at: string | null
+          carrier_acknowledged_by: string | null
+          created_at: string
+          device_make: string | null
+          device_model: string | null
+          device_provider: string | null
+          device_serial: string | null
+          discovered_at: string
+          discovered_location: string
+          driver_notes: string | null
+          eld_device_id: string | null
+          eld_registration_id: string | null
+          escalations_suppressed_at: string | null
+          escalations_suppressed_by: string | null
+          escalations_suppressed_reason: string | null
+          escalations_suppressed_until: string | null
+          hinders_hos_recording: boolean
+          id: string
+          malfunction_code: string
+          malfunction_description: string
+          notice_generated_at: string | null
+          notice_last_send_error: string | null
+          notice_pdf_path: string | null
+          notice_send_attempts: number
+          notice_sent_at: string | null
+          notice_uploaded_at: string | null
+          operator_id: string
+          repair_deadline: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          backdate_reason?: string | null
+          carrier_acknowledged_at?: string | null
+          carrier_acknowledged_by?: string | null
+          created_at?: string
+          device_make?: string | null
+          device_model?: string | null
+          device_provider?: string | null
+          device_serial?: string | null
+          discovered_at: string
+          discovered_location: string
+          driver_notes?: string | null
+          eld_device_id?: string | null
+          eld_registration_id?: string | null
+          escalations_suppressed_at?: string | null
+          escalations_suppressed_by?: string | null
+          escalations_suppressed_reason?: string | null
+          escalations_suppressed_until?: string | null
+          hinders_hos_recording?: boolean
+          id?: string
+          malfunction_code: string
+          malfunction_description: string
+          notice_generated_at?: string | null
+          notice_last_send_error?: string | null
+          notice_pdf_path?: string | null
+          notice_send_attempts?: number
+          notice_sent_at?: string | null
+          notice_uploaded_at?: string | null
+          operator_id: string
+          repair_deadline: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          backdate_reason?: string | null
+          carrier_acknowledged_at?: string | null
+          carrier_acknowledged_by?: string | null
+          created_at?: string
+          device_make?: string | null
+          device_model?: string | null
+          device_provider?: string | null
+          device_serial?: string | null
+          discovered_at?: string
+          discovered_location?: string
+          driver_notes?: string | null
+          eld_device_id?: string | null
+          eld_registration_id?: string | null
+          escalations_suppressed_at?: string | null
+          escalations_suppressed_by?: string | null
+          escalations_suppressed_reason?: string | null
+          escalations_suppressed_until?: string | null
+          hinders_hos_recording?: boolean
+          id?: string
+          malfunction_code?: string
+          malfunction_description?: string
+          notice_generated_at?: string | null
+          notice_last_send_error?: string | null
+          notice_pdf_path?: string | null
+          notice_send_attempts?: number
+          notice_sent_at?: string | null
+          notice_uploaded_at?: string | null
+          operator_id?: string
+          repair_deadline?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_malfunction_events_carrier_acknowledged_by_fkey"
+            columns: ["carrier_acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_malfunction_events_eld_device_id_fkey"
+            columns: ["eld_device_id"]
+            isOneToOne: false
+            referencedRelation: "eld_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_malfunction_events_escalations_suppressed_by_fkey"
+            columns: ["escalations_suppressed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_malfunction_events_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eld_malfunction_notifications: {
+        Row: {
+          channel: string
+          created_at: string
+          day_number: number | null
+          event_id: string | null
+          id: string
+          notification_type: string
+          recipient_user_id: string
+          sent_on: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          day_number?: number | null
+          event_id?: string | null
+          id?: string
+          notification_type: string
+          recipient_user_id: string
+          sent_on?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          day_number?: number | null
+          event_id?: string | null
+          id?: string
+          notification_type?: string
+          recipient_user_id?: string
+          sent_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_malfunction_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "eld_malfunction_events"
             referencedColumns: ["id"]
           },
         ]
@@ -3384,6 +3711,7 @@ export type Database = {
           excluded_from_dispatch_at: string | null
           excluded_from_dispatch_by: string | null
           excluded_from_dispatch_reason: string | null
+          home_terminal_timezone: string
           id: string
           is_active: boolean
           is_demo: boolean
@@ -3414,6 +3742,7 @@ export type Database = {
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
           excluded_from_dispatch_reason?: string | null
+          home_terminal_timezone?: string
           id?: string
           is_active?: boolean
           is_demo?: boolean
@@ -3444,6 +3773,7 @@ export type Database = {
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
           excluded_from_dispatch_reason?: string | null
+          home_terminal_timezone?: string
           id?: string
           is_active?: boolean
           is_demo?: boolean
