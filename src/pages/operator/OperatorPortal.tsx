@@ -1169,6 +1169,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const icaActionDot = isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract);
   const icaComplete = isIcaComplete(effectiveOnboardingStatus, latestIcaContract);
+  const { activeEvent: eldActiveEvent } = useEldMalfunction(operatorId ?? null);
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
