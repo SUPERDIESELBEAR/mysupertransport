@@ -7,7 +7,7 @@ import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
@@ -121,6 +121,9 @@ export default function ICABuilderModal({
   const [contractId, setContractId] = useState<string | null>(null);
   const [draftResumed, setDraftResumed] = useState(false);
   const [draftLastSaved, setDraftLastSaved] = useState<string | null>(null);
+  // Linked truck owner (when the truck is owned by someone other than the driver).
+  // The ICA is signed by the owner, so every "who is this going to" string keys off this.
+  const [truckOwner, setTruckOwner] = useState<{ name: string; email: string | null; user_id: string | null } | null>(null);
 
   const carrierSigRef = useRef<SignatureCanvas>(null);
   const [carrierTypedName, setCarrierTypedName] = useState('');
@@ -175,7 +178,7 @@ export default function ICABuilderModal({
           .maybeSingle() as any,
         supabase
           .from('truck_owners')
-          .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip')
+          .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip, user_id')
           .eq('operator_id', operatorId)
           .maybeSingle(),
       ]);
@@ -183,6 +186,14 @@ export default function ICABuilderModal({
       const ob = (onboardingRow as any) ?? {};
       const to = (truckOwnerRow as any) ?? null;
       const toFullName = to ? `${to.legal_first_name ?? ''} ${to.legal_last_name ?? ''}`.trim() : '';
+
+      if (to) {
+        setTruckOwner({
+          name: toFullName || to.business_name || 'Truck owner',
+          email: to.email ?? null,
+          user_id: to.user_id ?? null,
+        });
+      }
 
       if (!existing) {
         // No ICA draft — pre-fill from onboarding_status truck fields and linked truck owner (if any)
