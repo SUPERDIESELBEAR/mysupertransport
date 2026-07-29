@@ -3,9 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { format, isToday, isYesterday } from 'date-fns';
-import { MessageSquare, Search, User } from 'lucide-react';
+import { MessageSquare, Search, User, Users, Plus } from 'lucide-react';
 import { MessageThread } from '@/components/messaging/MessageThread';
 import type { ChatMessage } from '@/components/messaging/types';
+import { NewGroupModal } from '@/components/messaging/NewGroupModal';
+import { Button } from '@/components/ui/button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,16 @@ interface Thread {
   lastMessage: string;
   lastAt: string;
   unreadCount: number;
+}
+
+interface GroupThreadRow {
+  thread_id: string;
+  title: string;
+  created_by: string | null;
+  last_message_at: string | null;
+  last_message: string | null;
+  participant_count: number;
+  unread_count: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,7 +79,11 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [groupThreads, setGroupThreads] = useState<GroupThreadRow[]>([]);
+  const [groupParticipants, setGroupParticipants] = useState<Record<string, Record<string, string>>>({});
   const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -75,6 +91,30 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   useEffect(() => {
     if (initialUserId) setSelectedUserId(initialUserId);
   }, [initialUserId]);
+
+  // ── Load my group threads ────────────────────────────────────────────────
+  const loadGroups = useCallback(async () => {
+    if (!user?.id) return;
+    const { data } = await supabase.rpc('list_my_group_threads');
+    const rows = (data ?? []) as GroupThreadRow[];
+    setGroupThreads(rows);
+    // Build a stripped participant-name map (driver privacy: only staff names visible; other drivers -> "Driver")
+    const map: Record<string, Record<string, string>> = {};
+    for (const g of rows) {
+      const { data: parts } = await supabase.rpc('get_thread_participants', { _thread_id: g.thread_id });
+      const inner: Record<string, string> = {};
+      for (const p of (parts ?? []) as { user_id: string; first_name: string | null; last_name: string | null; primary_role: string | null }[]) {
+        const isStaff = ['owner','management','onboarding_staff','dispatcher'].includes(p.primary_role ?? '');
+        if (isStaff || p.user_id === user.id) {
+          inner[p.user_id] = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Staff';
+        } else {
+          inner[p.user_id] = 'Driver';
+        }
+      }
+      map[g.thread_id] = inner;
+    }
+    setGroupParticipants(map);
+  }, [user?.id]);
 
   // ── Load staff who have existing threads with this operator ──────────────
   const loadStaff = useCallback(async () => {
@@ -174,6 +214,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => { loadStaff(); }, [loadStaff]);
+  useEffect(() => { void loadGroups(); }, [loadGroups]);
   useEffect(() => {
     if (staffList.length > 0) buildThreads(staffList);
     else if (!loadingThreads) setLoadingThreads(false);
@@ -204,9 +245,12 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const filteredThreads = threads.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase())
   );
+  const filteredGroups = groupThreads.filter(g => (g.title ?? '').toLowerCase().includes(search.toLowerCase()));
   const selectedThread = threads.find(t => t.staffUserId === selectedUserId);
-  const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0);
-  const noMessagesYet = !loadingThreads && staffList.length === 0;
+  const selectedGroup = groupThreads.find(g => g.thread_id === selectedGroupId);
+  const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0)
+    + groupThreads.reduce((s, g) => s + (g.unread_count ?? 0), 0);
+  const noMessagesYet = !loadingThreads && staffList.length === 0 && groupThreads.length === 0;
 
   const handleMessagesChanged = useCallback((msgs: ChatMessage[]) => {
     if (!selectedUserId) return;
@@ -237,16 +281,19 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
       ) : (
         <div className="flex flex-1 min-h-0">
           {/* ── Thread list sidebar ─────────────────────────────────────────── */}
-          <div className={`${selectedUserId ? 'hidden md:flex' : 'flex'} w-full md:w-64 shrink-0 flex-col border-r border-border bg-muted/20`}>
+          <div className={`${(selectedUserId || selectedGroupId) ? 'hidden md:flex' : 'flex'} w-full md:w-64 shrink-0 flex-col border-r border-border bg-muted/20`}>
             <div className="px-4 py-4 border-b border-border">
               <div className="flex items-center gap-2 mb-3">
                 <MessageSquare className="h-4 w-4 text-foreground" />
                 <h2 className="font-semibold text-sm text-foreground">Messages</h2>
                 {totalUnread > 0 && (
-                  <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
                     {totalUnread}
                   </span>
                 )}
+                <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" title="New group" onClick={() => setNewGroupOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -260,6 +307,38 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
             </div>
 
             <div className="flex-1 overflow-y-auto">
+              {filteredGroups.length > 0 && (
+                <>
+                  <div className="px-4 pt-3 pb-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Groups</div>
+                  {filteredGroups.map(g => (
+                    <button
+                      key={g.thread_id}
+                      onClick={() => { setSelectedUserId(null); setSelectedGroupId(g.thread_id); onThreadSelected?.(); }}
+                      className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 ${selectedGroupId === g.thread_id ? 'bg-primary/8 border-l-2 border-l-primary' : ''}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="relative shrink-0">
+                          <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                            <Users className="h-4 w-4 text-primary" />
+                          </div>
+                          {g.unread_count > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">{g.unread_count > 9 ? '9+' : g.unread_count}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className={`text-xs truncate ${g.unread_count > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>{g.title}</p>
+                          </div>
+                          <p className="text-[11px] truncate mt-0.5 text-muted-foreground">
+                            {g.last_message ?? 'No messages yet'}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                  <div className="px-4 pt-3 pb-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Direct</div>
+                </>
+              )}
               {loadingThreads ? (
                 <div className="flex justify-center py-10">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -273,7 +352,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                 filteredThreads.map(t => (
                   <button
                     key={t.staffUserId}
-                    onClick={() => { setSelectedUserId(t.staffUserId); onThreadSelected?.(); }}
+                    onClick={() => { setSelectedGroupId(null); setSelectedUserId(t.staffUserId); onThreadSelected?.(); }}
                     className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 ${
                       selectedUserId === t.staffUserId ? 'bg-primary/8 border-l-2 border-l-primary' : ''
                     }`}
@@ -316,8 +395,8 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
           </div>
 
           {/* ── Message thread panel ────────────────────────────────────────── */}
-          <div className={`${selectedUserId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
-            {!selectedUserId ? (
+          <div className={`${(selectedUserId || selectedGroupId) ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
+            {!selectedUserId && !selectedGroupId ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 gap-3">
                 <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
                   <MessageSquare className="h-6 w-6 text-muted-foreground/40" />
@@ -327,6 +406,19 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                   <p className="text-xs text-muted-foreground mt-1">Choose a conversation from the list</p>
                 </div>
               </div>
+            ) : selectedGroupId && selectedGroup ? (
+              <MessageThread
+                key={`group-${selectedGroupId}`}
+                myUserId={user?.id ?? null}
+                threadId={selectedGroupId}
+                isGroup
+                otherName={selectedGroup.title}
+                otherSubtitle={`${selectedGroup.participant_count} members`}
+                participantNames={groupParticipants[selectedGroupId]}
+                isStaff={false}
+                onBack={() => setSelectedGroupId(null)}
+                placeholder={`Message ${selectedGroup.title}…`}
+              />
             ) : (
               <MessageThread
                 key={selectedUserId}
@@ -343,6 +435,15 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
             )}
           </div>
         </div>
+      )}
+
+      {newGroupOpen && (
+        <NewGroupModal
+          open={newGroupOpen}
+          onOpenChange={setNewGroupOpen}
+          callerIsStaff={false}
+          onCreated={(tid) => { void loadGroups().then(() => { setSelectedUserId(null); setSelectedGroupId(tid); }); }}
+        />
       )}
     </div>
   );

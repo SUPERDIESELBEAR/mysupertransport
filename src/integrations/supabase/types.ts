@@ -2335,10 +2335,11 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          is_system: boolean
           pinned_at: string | null
           pinned_by: string | null
           read_at: string | null
-          recipient_id: string
+          recipient_id: string | null
           reply_to_id: string | null
           sender_id: string
           sent_at: string
@@ -2353,10 +2354,11 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_system?: boolean
           pinned_at?: string | null
           pinned_by?: string | null
           read_at?: string | null
-          recipient_id: string
+          recipient_id?: string | null
           reply_to_id?: string | null
           sender_id: string
           sent_at?: string
@@ -2371,10 +2373,11 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_system?: boolean
           pinned_at?: string | null
           pinned_by?: string | null
           read_at?: string | null
-          recipient_id?: string
+          recipient_id?: string | null
           reply_to_id?: string | null
           sender_id?: string
           sent_at?: string
@@ -5319,6 +5322,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_thread_participants: {
+        Args: { _thread_id: string }
+        Returns: {
+          avatar_url: string
+          first_name: string
+          last_name: string
+          primary_role: string
+          role_in_thread: string
+          user_id: string
+        }[]
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
@@ -5357,6 +5371,21 @@ export type Database = {
           staff_id: string
         }[]
       }
+      list_my_group_threads: {
+        Args: never
+        Returns: {
+          created_at: string
+          created_by: string
+          last_message: string
+          last_message_at: string
+          last_message_sender_id: string
+          my_role_in_thread: string
+          participant_count: number
+          thread_id: string
+          title: string
+          unread_count: number
+        }[]
+      }
       log_ica_event: {
         Args: {
           p_action: string
@@ -5385,6 +5414,7 @@ export type Database = {
         Returns: undefined
       }
       mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
+      mark_thread_read: { Args: { _thread_id: string }; Returns: undefined }
       match_staff_help_knowledge: {
         Args: {
           match_count?: number

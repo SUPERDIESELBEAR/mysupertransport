@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     // ─── Load message ─────────────────────────────────────────────────────
     const { data: msg, error: msgErr } = await supabaseAdmin
       .from('messages')
-      .select('id, sender_id, recipient_id, body, attachment_name, attachment_mime, sent_at, deleted_at')
+      .select('id, sender_id, recipient_id, thread_id, is_system, body, attachment_name, attachment_mime, sent_at, deleted_at')
       .eq('id', message_id)
       .maybeSingle();
 
@@ -63,6 +63,13 @@ Deno.serve(async (req) => {
 
     if (msg.deleted_at) {
       return new Response(JSON.stringify({ ok: true, skipped: 'deleted' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Never notify for system messages (join/leave/rename banners)
+    if (msg.is_system) {
+      return new Response(JSON.stringify({ ok: true, skipped: 'system' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -88,11 +95,42 @@ Deno.serve(async (req) => {
     }
     if (!preview) preview = 'Sent you a new message.';
 
+    // ─── Build list of recipient ids ──────────────────────────────────────
+    // DM: single recipient. Group: all thread participants except the sender.
+    let recipientIds: string[] = [];
+    let groupTitle: string | null = null;
+    if (msg.recipient_id) {
+      recipientIds = [msg.recipient_id];
+    } else if (msg.thread_id) {
+      const { data: parts } = await supabaseAdmin
+        .from('thread_participants')
+        .select('user_id')
+        .eq('thread_id', msg.thread_id);
+      recipientIds = (parts ?? [])
+        .map((p: { user_id: string }) => p.user_id)
+        .filter((uid: string) => uid !== msg.sender_id);
+      const { data: t } = await supabaseAdmin
+        .from('message_threads')
+        .select('title')
+        .eq('id', msg.thread_id)
+        .maybeSingle();
+      groupTitle = t?.title ?? null;
+    }
+
+    const results: Array<Record<string, unknown>> = [];
+    for (const recipientId of recipientIds) {
+      results.push(await notifyOne(recipientId));
+    }
+    return new Response(JSON.stringify({ ok: true, results }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+    async function notifyOne(recipientId: string): Promise<Record<string, unknown>> {
     // ─── Determine recipient portal link based on role ────────────────────
     const { data: roles } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', msg.recipient_id);
+      .eq('user_id', recipientId);
 
     const roleSet = new Set((roles ?? []).map((r: { role: string }) => r.role));
     let portalLink = '/operator?tab=messages';
@@ -100,20 +138,24 @@ Deno.serve(async (req) => {
     else if (roleSet.has('onboarding_staff')) portalLink = '/staff?view=messages';
     else if (roleSet.has('dispatcher')) portalLink = '/dispatch?view=messages';
 
+    const title = groupTitle
+      ? `${senderName} in ${groupTitle}`
+      : `New message from ${senderName}`;
+
     // ─── Always: insert in-app notification (push surface) ────────────────
     // Respect in_app_enabled preference for 'new_message' (default ON).
     const { data: inAppPref } = await supabaseAdmin
       .from('notification_preferences')
       .select('in_app_enabled')
-      .eq('user_id', msg.recipient_id)
+      .eq('user_id', recipientId)
       .eq('event_type', 'new_message')
       .maybeSingle();
     const inAppEnabled = inAppPref?.in_app_enabled ?? true;
 
     if (inAppEnabled) {
       await supabaseAdmin.from('notifications').insert({
-        user_id: msg.recipient_id,
-        title: `New message from ${senderName}`,
+        user_id: recipientId,
+        title,
         body: preview,
         type: 'new_message',
         channel: 'in_app',
@@ -125,15 +167,13 @@ Deno.serve(async (req) => {
     const { data: emailPref } = await supabaseAdmin
       .from('notification_preferences')
       .select('email_enabled')
-      .eq('user_id', msg.recipient_id)
+      .eq('user_id', recipientId)
       .eq('event_type', 'new_message')
       .maybeSingle();
     const emailEnabled = emailPref?.email_enabled ?? true;
 
     if (!emailEnabled) {
-      return new Response(JSON.stringify({ ok: true, in_app: inAppEnabled, email: 'opted_out' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return { recipient: recipientId, in_app: inAppEnabled, email: 'opted_out' };
     }
 
     // Presence: consider user online if they have a notification read or
@@ -144,13 +184,13 @@ Deno.serve(async (req) => {
       supabaseAdmin
         .from('notifications')
         .select('id')
-        .eq('user_id', msg.recipient_id)
+        .eq('user_id', recipientId)
         .gte('read_at', sinceIso)
         .limit(1),
       supabaseAdmin
         .from('messages')
         .select('id')
-        .eq('sender_id', msg.recipient_id)
+        .eq('sender_id', recipientId)
         .gte('sent_at', sinceIso)
         .limit(1),
     ]);
@@ -162,10 +202,8 @@ Deno.serve(async (req) => {
         .from('message_notification_throttle')
         .delete()
         .eq('sender_id', msg.sender_id)
-        .eq('recipient_id', msg.recipient_id);
-      return new Response(JSON.stringify({ ok: true, in_app: inAppEnabled, email: 'recipient_online' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+        .eq('recipient_id', recipientId);
+      return { recipient: recipientId, in_app: inAppEnabled, email: 'recipient_online' };
     }
 
     // Throttle check
@@ -173,7 +211,7 @@ Deno.serve(async (req) => {
       .from('message_notification_throttle')
       .select('last_notified_at, unread_count')
       .eq('sender_id', msg.sender_id)
-      .eq('recipient_id', msg.recipient_id)
+      .eq('recipient_id', recipientId)
       .maybeSingle();
 
     const now = Date.now();
@@ -183,30 +221,28 @@ Deno.serve(async (req) => {
         .from('message_notification_throttle')
         .update({ unread_count: (throttle.unread_count ?? 1) + 1 })
         .eq('sender_id', msg.sender_id)
-        .eq('recipient_id', msg.recipient_id);
-      return new Response(JSON.stringify({ ok: true, in_app: inAppEnabled, email: 'throttled' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+        .eq('recipient_id', recipientId);
+      return { recipient: recipientId, in_app: inAppEnabled, email: 'throttled' };
     }
 
     // ─── Send email ───────────────────────────────────────────────────────
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
-    const { data: { user: recipUser } } = await supabaseAdmin.auth.admin.getUserById(msg.recipient_id);
+    const { data: { user: recipUser } } = await supabaseAdmin.auth.admin.getUserById(recipientId);
     const recipientEmail = recipUser?.email;
     if (!recipientEmail) {
-      return new Response(JSON.stringify({ ok: true, email: 'no_address' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return { recipient: recipientId, email: 'no_address' };
     }
 
     const appUrl = new URL(buildAppUrl('/')).origin;
     const ctaUrl  = `${appUrl}${portalLink}`;
-    const subject = `New message from ${senderName}`;
-    const heading = `💬 ${senderName} sent you a message`;
+    const subject = groupTitle ? `New message in ${groupTitle}` : `New message from ${senderName}`;
+    const heading = groupTitle
+      ? `💬 ${senderName} messaged ${groupTitle}`
+      : `💬 ${senderName} sent you a message`;
     const bodyHtml = `
-      <p>You have a new direct message in SUPERTRANSPORT.</p>
+      <p>You have a new ${groupTitle ? 'group' : 'direct'} message in SUPERTRANSPORT.</p>
       <div style="background:#f9f5e9;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="margin:0 0 6px;font-weight:700;color:#0f1117;">${senderName}</p>
         <p style="margin:0;color:#444;white-space:pre-wrap;">${escapeHtml(preview)}</p>
@@ -226,14 +262,13 @@ Deno.serve(async (req) => {
       .from('message_notification_throttle')
       .upsert({
         sender_id: msg.sender_id,
-        recipient_id: msg.recipient_id,
+        recipient_id: recipientId,
         last_notified_at: new Date().toISOString(),
         unread_count: 1,
       });
 
-    return new Response(JSON.stringify({ ok: true, in_app: inAppEnabled, email: 'sent' }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return { recipient: recipientId, in_app: inAppEnabled, email: 'sent' };
+    }
 
   } catch (err) {
     console.error('[notify-new-message] error', err);
