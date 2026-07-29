@@ -1055,6 +1055,30 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_staff_contacts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          staff_id?: string
+        }
+        Relationships: []
+      }
       driver_uploads: {
         Row: {
           category: Database["public"]["Enums"]["driver_upload_category"]
@@ -2271,6 +2295,33 @@ export type Database = {
           id?: string
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      message_threads: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_group: boolean
+          last_message_at: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_group?: boolean
+          last_message_at?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_group?: boolean
+          last_message_at?: string | null
+          title?: string | null
         }
         Relationships: []
       }
@@ -4644,6 +4695,30 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_messaging_settings: {
+        Row: {
+          availability_mode: Database["public"]["Enums"]["staff_availability_mode"]
+          availability_note: string | null
+          staff_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          availability_mode?: Database["public"]["Enums"]["staff_availability_mode"]
+          availability_note?: string | null
+          staff_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          availability_mode?: Database["public"]["Enums"]["staff_availability_mode"]
+          availability_note?: string | null
+          staff_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -4667,6 +4742,41 @@ export type Database = {
           reason?: string
         }
         Relationships: []
+      }
+      thread_participants: {
+        Row: {
+          id: string
+          joined_at: string
+          last_read_at: string | null
+          role_in_thread: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          role_in_thread?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          role_in_thread?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_participants_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       truck_dot_inspections: {
         Row: {
@@ -4954,6 +5064,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      can_driver_message_staff: {
+        Args: { _driver: string; _staff: string }
+        Returns: boolean
+      }
       cancel_application_correction: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -5217,6 +5331,10 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_thread_participant: {
+        Args: { _thread: string; _user: string }
+        Returns: boolean
+      }
       is_truck_owner_for_operator: {
         Args: { _operator_id: string; _uid: string }
         Returns: boolean
@@ -5224,6 +5342,20 @@ export type Database = {
       is_valid_application_draft_token: {
         Args: { _token: string }
         Returns: boolean
+      }
+      list_driver_contacts: {
+        Args: { _driver: string }
+        Returns: {
+          availability_mode: Database["public"]["Enums"]["staff_availability_mode"]
+          availability_note: string
+          avatar_url: string
+          first_name: string
+          full_name: string
+          last_name: string
+          role: string
+          source: string
+          staff_id: string
+        }[]
       }
       log_ica_event: {
         Args: {
@@ -5550,6 +5682,7 @@ export type Database = {
       review_status: "pending" | "approved" | "denied" | "revisions_requested"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
+      staff_availability_mode: "all_drivers" | "specific_drivers" | "none"
       yes_no: "no" | "yes"
     }
     CompositeTypes: {
@@ -5792,6 +5925,7 @@ export const Constants = {
       review_status: ["pending", "approved", "denied", "revisions_requested"],
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
+      staff_availability_mode: ["all_drivers", "specific_drivers", "none"],
       yes_no: ["no", "yes"],
     },
   },
