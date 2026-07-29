@@ -69,6 +69,7 @@ export async function buildKnowledgeDocs(): Promise<{ docs: KnowledgeDoc[]; purg
     .from('faq')
     .select('id, question, answer, category, audience, tags')
     .in('audience', ['staff', 'owner_operator'])
+    .eq('is_published', true)
     .limit(1000);
   for (const f of (faqs ?? []) as any[]) {
     const answer = String(f.answer ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -85,8 +86,8 @@ export async function buildKnowledgeDocs(): Promise<{ docs: KnowledgeDoc[]; purg
   // 4. Release notes
   const { data: notes } = await supabase
     .from('release_notes')
-    .select('id, title, body, published_at')
-    .order('published_at', { ascending: false })
+    .select('id, title, body, created_at')
+    .order('created_at', { ascending: false })
     .limit(200);
   for (const n of (notes ?? []) as any[]) {
     const body = String(n.body ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -96,24 +97,25 @@ export async function buildKnowledgeDocs(): Promise<{ docs: KnowledgeDoc[]; purg
       source_id: n.id,
       title: `Release note: ${n.title}`,
       content: `${n.title}\n\n${body}`,
-      metadata: { published_at: n.published_at },
+      metadata: { created_at: n.created_at },
     });
   }
 
   // 5. Service resources (staff-visible how-to docs)
   const { data: resources } = await supabase
     .from('service_resources')
-    .select('id, title, description, category, content_html')
+    .select('id, title, description, body, resource_type, is_visible')
+    .eq('is_visible', true)
     .limit(500);
   for (const r of (resources ?? []) as any[]) {
-    const body = String(r.content_html ?? r.description ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const body = String(r.body ?? r.description ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     if (!body) continue;
     docs.push({
       source: 'service_resource',
       source_id: r.id,
       title: r.title,
       content: `${r.title}\n\n${body}`,
-      metadata: { category: r.category },
+      metadata: { resource_type: r.resource_type },
     });
   }
 
