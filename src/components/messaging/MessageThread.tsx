@@ -1,29 +1,21 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
-import { ArrowLeft, MessageSquare, Pin, Users, X } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Pin, X } from 'lucide-react';
 import { useMessageThread } from './useMessageThread';
 import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { PinnedMessagesSheet } from './PinnedMessagesSheet';
 import { ChatMessage } from './types';
-import { supabase } from '@/integrations/supabase/client';
 
 interface MessageThreadProps {
   myUserId: string | null;
-  /** Thread ID for an existing thread (1:1 or group). If provided, otherUserId is ignored. */
-  threadId?: string | null;
-  /** Legacy 1:1 target user — MessageThread will find/create the direct thread. */
-  otherUserId?: string | null;
-  /** Display name in the header (for 1:1 or fallback) */
+  otherUserId: string | null;
+  /** Display name for the other party in the header */
   otherName: string;
-  /** Subtitle (e.g. "Owner-Operator" or "3 participants") */
+  /** Subtitle (e.g. "Owner-Operator" or "Onboarding Coordinator") */
   otherSubtitle?: string;
   /** Avatar URL for the other party (optional) */
   otherAvatarUrl?: string | null;
-  /** Whether this is a group thread */
-  isGroup?: boolean;
-  /** Explicit group title; overrides otherName when present */
-  groupTitle?: string;
   /** Whether the current user is staff (controls pin permission) */
   isStaff: boolean;
   /** Mobile back button handler — when null, hides the back button */
@@ -41,16 +33,13 @@ interface MessageThreadProps {
 import { initials } from '@/lib/initials';
 
 export function MessageThread({
-  myUserId, threadId, otherName, otherSubtitle, otherAvatarUrl,
-  isGroup, groupTitle, isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
+  myUserId, otherUserId, otherName, otherSubtitle, otherAvatarUrl,
+  isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
 }: MessageThreadProps) {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [pinnedSheetOpen, setPinnedSheetOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const displayTitle = isGroup ? (groupTitle || otherName) : otherName;
-  const displaySubtitle = otherSubtitle ?? (isGroup ? 'Group' : '');
 
   const handleIncomingMessage = useCallback((msg: ChatMessage) => {
     onIncomingMessage?.(msg);
@@ -62,7 +51,7 @@ export function MessageThread({
     notifyTyping, notifyStoppedTyping,
   } = useMessageThread({
     myUserId,
-    threadId,
+    otherUserId,
     onIncomingMessage: handleIncomingMessage,
   });
 
@@ -75,7 +64,7 @@ export function MessageThread({
   }, [messages.length, otherTyping]);
 
   // Reset reply-target when switching threads
-  useEffect(() => { setReplyTo(null); }, [threadId]);
+  useEffect(() => { setReplyTo(null); }, [otherUserId]);
 
   const pinned = useMemo(
     () => messages
@@ -125,17 +114,15 @@ export function MessageThread({
         )}
         <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
           {otherAvatarUrl ? (
-            <img src={otherAvatarUrl} alt={displayTitle} className="h-full w-full object-cover" />
-          ) : isGroup ? (
-            <Users className="h-4 w-4 text-primary" />
+            <img src={otherAvatarUrl} alt={otherName} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-primary text-xs font-bold">{initials(displayTitle)}</span>
+            <span className="text-primary text-xs font-bold">{initials(otherName)}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-foreground truncate">{displayTitle}</p>
+          <p className="font-semibold text-sm text-foreground truncate">{otherName}</p>
           <p className="text-[11px] text-muted-foreground truncate">
-            {otherTyping ? <span className="text-primary italic">typing…</span> : displaySubtitle}
+            {otherTyping ? <span className="text-primary italic">typing…</span> : (otherSubtitle ?? '')}
           </p>
         </div>
       </div>
