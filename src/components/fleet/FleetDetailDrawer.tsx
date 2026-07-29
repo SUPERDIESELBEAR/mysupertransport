@@ -342,11 +342,13 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     filePath: string,
     fileName: string,
     maintenanceRecordId?: string,
+    opts?: { bucket?: string; fallbackUrl?: string | null },
   ) => {
+    const bucket = opts?.bucket ?? 'fleet-documents';
     try {
       // Maintenance receipts and DOT inspection certs attached to fleet records
       // all live in the 'fleet-documents' bucket (see MaintenanceRecordModal upload path).
-      const bucket = 'fleet-documents';
+      // Registration / Form 2290 files live in 'inspection-documents' (see Registration2290Modal).
       const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
       if (error) throw error;
       if (data?.signedUrl) {
@@ -355,9 +357,18 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         throw new Error('No signed URL returned');
       }
     } catch (err: any) {
+      // Fall back to a stored long-lived URL when signing the path fails.
+      if (opts?.fallbackUrl) {
+        setPreviewDoc({ url: opts.fallbackUrl, name: fileName });
+        return;
+      }
       const msg = String(err?.message ?? '').toLowerCase();
       const isMissing = msg.includes('not found') || msg.includes('object not found') || msg.includes('404');
       if (isMissing) {
+        if (bucket !== 'fleet-documents') {
+          toast({ title: 'File not found in storage.', variant: 'destructive' });
+          return;
+        }
         if (maintenanceRecordId) {
           setMissingInvoiceIds(prev => {
             const next = new Set(prev);
@@ -859,8 +870,20 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            {r.file_path && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(r.file_path!, r.name)}>
+                            {(r.file_path || r.file_url) && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={() =>
+                                  r.file_path
+                                    ? handlePreviewFile(r.file_path, r.name, undefined, {
+                                        bucket: 'inspection-documents',
+                                        fallbackUrl: r.file_url,
+                                      })
+                                    : setPreviewDoc({ url: r.file_url!, name: r.name })
+                                }
+                              >
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
                             )}

@@ -1,44 +1,27 @@
-## What's actually happening
+## What's wrong
 
-Vehicle Hub's "Registration and 2290" section and the driver's inspection binder already store documents in the **same** place (`inspection_documents`, per-driver). The problem is they point at **different rows**:
+The eye button in Vehicle Hub's "Registration and 2290" section calls the same preview helper used by maintenance invoices and DOT certificates, and that helper hardcodes the `fleet-documents` bucket (`FleetDetailDrawer.tsx:341-370`).
 
-| Document | Where it's used | Drivers with a record |
-|---|---|---|
-| `IRP Registration (cab card)` | Inspection binder only | 74 |
-| `Registration` | Vehicle Hub Registration/2290 modal + a binder row under Lease Agreement | 5 |
-| `Form 2290` | Both (already shared) | 35 |
+Registration and 2290 files are not in that bucket — they're uploaded to `inspection-documents` under `driver/<driver-id>/registration/...` (`Registration2290Modal.tsx:121-127`). So signing the path against `fleet-documents` returns "object not found", and the catch block shows the misleading maintenance-specific toast "No invoice uploaded for this record."
 
-So Robert Williams' IRP Registration lives under a name Vehicle Hub never reads, which is why unit 67 looks empty there. Form 2290 already syncs correctly — nothing to fix there.
-
-Of the 5 drivers with both rows, the dates disagree (e.g. `2026-09-03` vs `2027-06-30`), so the merge needs a tie-break rule: **most recent upload wins** (your choice).
+Nothing is wrong with Robert Williams' record — the file exists, it's just being looked for in the wrong place.
 
 ## The fix
 
-**1. Retire the "Registration" document type**
+**1. Make the preview helper bucket-aware**
 
-One-time data migration, per driver:
-- If the driver has only a `Registration` row → rename it to `IRP Registration (cab card)`.
-- If the driver has both → keep whichever has the newer `uploaded_at`, copy its file + expiry onto the IRP row, delete the extra `Registration` row.
-- Remove `Registration` from the binder's document order (`inspection_binder_order`) so the redundant row under Lease Agreement disappears.
-- Update `v_compliance_items` to drop the `Registration` doc key (IRP already covered).
+Add a bucket parameter to `handlePreviewFile`, defaulting to `fleet-documents` so maintenance and DOT rows behave exactly as today. The Registration/2290 row passes `inspection-documents`.
 
-**2. Point Vehicle Hub at the IRP record**
+**2. Fall back to the stored URL**
 
-`Registration2290Modal.tsx` currently reads/writes `name = 'Registration'`. Change its registration doc type to `IRP Registration (cab card)` (label stays user-friendly: "Registration / IRP Cab Card"). `FleetDetailDrawer.tsx` reads the same two names, so it picks up the change with a one-line constant update.
+Registration rows also carry a long-lived `file_url`. If signing fails for any reason, open that URL in the preview modal instead of erroring, so an old row with a mismatched path still displays.
 
-After this, a binder upload appears in Vehicle Hub and vice versa with no sync job — it's literally one record.
+**3. Correct the error copy**
 
-**3. Keep MO Plate Registry consistent**
-
-There's already a trigger (`sync_mo_plate_expiry_to_irp`) that pushes `mo_plates.expires_at` into the IRP cab card row. Since Vehicle Hub now edits that same row, add a guard so the plate trigger only overwrites the binder expiry when the plate's expiry is **newer** than the document's `uploaded_at`-backed value — consistent with "most recent wins" and prevents a stale plate date from stomping a freshly uploaded cab card.
-
-**4. Label cleanup**
-
-Rename the display label to **"Registration (IRP Cab Card)"** in the binder, Vehicle Hub, and the Fleet Compliance summary so staff see one consistent name in all three places.
+The "No invoice uploaded for this record." toast stays for maintenance records only. For registration/2290, show "File not found in storage." and skip the `missingInvoiceIds` bookkeeping, which is maintenance-specific.
 
 ## Technical notes
 
-- Files: `src/components/fleet/Registration2290Modal.tsx`, `src/components/fleet/FleetDetailDrawer.tsx`, `src/components/inspection/InspectionComplianceSummary.tsx`, `src/components/inspection/OperatorInspectionBinder.tsx`.
-- Migrations: data merge on `inspection_documents`, update `inspection_binder_order` per-driver JSON array, redefine `v_compliance_items`, patch `sync_mo_plate_expiry_to_irp()`.
-- `check-inspection-expiry` edge function already tracks `IRP Registration (cab card)` — no change needed, and the 5 merged drivers will start getting expiry reminders on the correct date.
-- No storage files are moved; only the row that references them changes.
+- Single file: `src/components/fleet/FleetDetailDrawer.tsx`.
+- No database or storage changes; no migration.
+- Verification: open a truck in Vehicle Hub, click the eye on both the Registration (IRP Cab Card) and Form 2290 rows, and confirm the in-app preview modal renders the document; re-check a maintenance invoice row to confirm no regression.
