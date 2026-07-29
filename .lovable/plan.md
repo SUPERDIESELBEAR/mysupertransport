@@ -1,64 +1,40 @@
-# Messaging Contacts — Revised Plan
+## Problem
 
-## Behavior summary
-- Every driver's Contacts automatically shows their **assigned onboarding lead** (`operators.assigned_onboarding_staff`) and **current dispatcher** (latest `active_dispatch.assigned_dispatcher`), even if those staff have never opened their availability settings.
-- The onboarding lead or dispatcher can **toggle themselves off for a specific driver** (e.g. after handoff). That suppression is per-driver; it does not affect other drivers.
-- If the dispatcher changes, the old dispatcher stops auto-populating for that driver, but **the existing message thread and all history stay intact.** Nothing is deleted; the driver can still see prior messages, and if the old dispatcher re-messages the driver the thread just resumes.
-- Contact rows in the driver's list display the **staff member's name** with their **role** ("Onboarding Coordinator", "Dispatcher", "Management", "Owner") **on the line below the name.**
+When a driver opens an image document (e.g. CDL Front) from **My Documents** or **Company Documents** in the binder, the image opens visibly zoomed-in instead of fitting the screen — the driver has to pan around and pinch out to see the whole document.
 
-## Data model change
-Add one table for per-driver suppressions (opt-outs). We keep `driver_staff_contacts` for explicit includes; suppressions are separate so the semantics stay clear.
+## Root cause
 
-```sql
-CREATE TABLE public.driver_staff_contact_suppressions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  driver_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  staff_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_by UUID,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (driver_id, staff_id)
-);
--- GRANTs + RLS: staff can insert/delete their own rows (staff_id = auth.uid());
--- driver can SELECT rows where driver_id = auth.uid(); owner/management full access.
+In `src/components/inspection/DocRow.tsx` (`FilePreviewModal`, image branch around lines 674–686), the image container is:
+
+```
+<div className="flex-1 relative overflow-auto">          {/* parent */}
+  <div className="w-full h-full flex items-center justify-center overflow-auto">
+    <img className="max-w-full max-h-full object-contain" ... />
+  </div>
+</div>
 ```
 
-No changes to `messages`, `message_threads`, or `thread_participants` — history is preserved automatically.
+Two issues cause the image to render at natural pixel size on iOS Safari:
 
-## RPC changes (one migration)
+1. The inner wrapper relies on `h-full` inside a `flex-1` parent. When that percentage height doesn't resolve (a common Safari quirk when the parent is a flex item), `max-h-full` becomes `none` and the `<img>` renders at its intrinsic size — often 3000+px tall for a phone photo — inside an `overflow-auto` container. The result looks "zoomed in."
+2. `overflow-auto` on the inner wrapper lets the image push its own container to grow, defeating `max-w-full` / `max-h-full` even when height does resolve.
 
-### `list_driver_contacts(_driver)`
-Return the union of:
-1. Staff with `availability_mode = 'all_drivers'` — `source = 'all_drivers'`
-2. Staff in `driver_staff_contacts` for this driver where mode = `specific_drivers` — `source = 'specific'`
-3. `operators.assigned_onboarding_staff` for this driver — `source = 'assigned_onboarding'`
-4. Dispatcher on the driver's most recent `active_dispatch` row — `source = 'assigned_dispatcher'`
+## Fix
 
-Then **exclude** any `(driver_id, staff_id)` present in `driver_staff_contact_suppressions`.
+Change only the image branch of `FilePreviewModal` so the wrapper is size-independent of flex/percentage math:
 
-Include the staff role in the returned row (already does) so the UI can render "Dispatcher" / "Onboarding Coordinator" / "Management" / "Owner" under the name.
+- Replace the `w-full h-full … overflow-auto` inner div with `absolute inset-0 flex items-center justify-center overflow-hidden`. `absolute inset-0` anchors to the already-`relative` parent regardless of flex height resolution.
+- Keep `<img className="max-w-full max-h-full object-contain">` so the image always fits within the viewport on first render.
+- Keep the existing `transform: scale(...)` for desktop zoom controls. Pinch-to-zoom on mobile continues to work natively.
 
-### `can_driver_message_staff(_driver, _staff)`
-Return TRUE when the staff member appears in the same union above (i.e. any of `all_drivers`, `specific_drivers` mapping, assigned onboarding, current dispatcher), AND is not suppressed. Governs whether the driver can start a new thread.
+No changes to the PDF branch, the header/toolbar, or any callers. No new props.
 
-## UI changes
+### File touched
 
-### `src/components/staff/StaffAvailabilityCard.tsx`
-- When mode = `specific_drivers`, show a searchable multi-select of active drivers to grant explicit access (writes `driver_staff_contacts`).
-- New section **"Auto-assigned drivers"** listing every driver the current staff member is auto-included for (assigned onboarding lead or current dispatcher). Each row has a toggle:
-  - ON (default): auto-included in that driver's Contacts.
-  - OFF: inserts a `driver_staff_contact_suppressions` row for `(driver_id, me)`. Toggling back removes the row.
-- Copy makes clear that turning off only hides you from that driver's Contacts list going forward — the existing message thread and history remain.
+- `src/components/inspection/DocRow.tsx` — image container in `FilePreviewModal` only (~3 lines).
 
-### `src/components/operator/DriverContactsPanel.tsx`
-- Render each contact as:
-  ```
-  Emma Mueller
-  Onboarding Coordinator
-  ```
-  (name on line 1, role label on line 2, matching the existing typography — role currently shown as a small muted line, keep that treatment).
-- Role label map: `owner` → "Owner", `management` → "Management", `dispatcher` → "Dispatcher", `onboarding_staff` → "Onboarding Coordinator", else "SUPERTRANSPORT Staff".
-- Drop the shield icon on `source = 'specific'`; no per-source badges needed since the role line already conveys context.
+## Verification
 
-## What is NOT changed
-- Group chats, notification fan-out, thread schema, and existing 1:1 threads are untouched.
-- No message data is ever deleted when a dispatcher or onboarding lead changes. Threads persist; only auto-population of the Contacts list is affected.
+- Open the driver app on a phone-sized preview, navigate to **My Documents** → **CDL (Front)** → **Open**. Image should render fully visible on load, letterboxed to fit.
+- Same for **Company Documents** images.
+- Pinch-zoom still enlarges as expected; desktop zoom buttons still work.
