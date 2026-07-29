@@ -959,6 +959,12 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PEIResponseViewer
+        open={!!viewRequest}
+        request={viewRequest}
+        onClose={() => setViewRequest(null)}
+      />
     </div>
   );
 }
