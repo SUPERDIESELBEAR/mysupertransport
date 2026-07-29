@@ -12,9 +12,15 @@ const ALLOWED_MIMES = new Set([
   'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'application/pdf',
 ]);
 
+export interface ThreadParticipant {
+  user_id: string;
+  role_in_thread: 'owner' | 'member';
+  joined_at: string;
+}
+
 interface UseMessageThreadOpts {
   myUserId: string | null;
-  otherUserId: string | null;
+  threadId: string | null;
   /** Called once after the initial message load completes */
   onMessagesLoaded?: (msgs: ChatMessage[]) => void;
   /** Called when a new incoming message arrives (for thread-list updates) */
@@ -22,31 +28,37 @@ interface UseMessageThreadOpts {
 }
 
 export function useMessageThread({
-  myUserId, otherUserId, onMessagesLoaded, onIncomingMessage,
+  myUserId, threadId, onMessagesLoaded, onIncomingMessage,
 }: UseMessageThreadOpts) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  const [participants, setParticipants] = useState<ThreadParticipant[]>([]);
   const [loading, setLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentAt = useRef(0);
 
-  // ── Load messages + reactions ─────────────────────────────────────────
+  // ── Load messages + reactions + participants ────────────────────────────
   const load = useCallback(async () => {
-    if (!myUserId || !otherUserId) return;
+    if (!myUserId || !threadId) return;
     setLoading(true);
 
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select(MESSAGE_SELECT)
-      .or(
-        `and(sender_id.eq.${myUserId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${myUserId})`
-      )
-      .order('sent_at', { ascending: true });
+    const [{ data: msgs }, { data: parts }] = await Promise.all([
+      supabase
+        .from('messages')
+        .select(MESSAGE_SELECT)
+        .eq('thread_id', threadId)
+        .order('sent_at', { ascending: true }),
+      supabase
+        .from('thread_participants')
+        .select('user_id, role_in_thread, joined_at')
+        .eq('thread_id', threadId),
+    ]);
 
     const list = (msgs ?? []) as ChatMessage[];
     setMessages(list);
+    setParticipants((parts ?? []) as ThreadParticipant[]);
 
     // Fetch reactions for these messages
     if (list.length > 0) {
@@ -64,33 +76,31 @@ export function useMessageThread({
     onMessagesLoaded?.(list);
 
     // Mark unread incoming as read
-    const unreadIds = list.filter(m => m.sender_id === otherUserId && !m.read_at).map(m => m.id);
+    const unreadIds = list.filter(m => m.sender_id !== myUserId && !m.read_at).map(m => m.id);
     if (unreadIds.length > 0) {
       await supabase
         .from('messages')
         .update({ read_at: new Date().toISOString() })
         .in('id', unreadIds);
     }
-  }, [myUserId, otherUserId, onMessagesLoaded]);
+  }, [myUserId, threadId, onMessagesLoaded]);
 
   useEffect(() => { void load(); }, [load]);
 
   // ── Realtime subscriptions ────────────────────────────────────────────
   useEffect(() => {
-    if (!myUserId || !otherUserId) return;
-
-    const sortKey = [myUserId, otherUserId].sort().join('-');
+    if (!myUserId || !threadId) return;
 
     const channel = supabase
-      .channel(`thread-${sortKey}`)
-      // Inbound INSERT
+      .channel(`thread-${threadId}`)
+      // Inbound INSERT (any message in this thread not from me)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'messages',
-        filter: `recipient_id=eq.${myUserId}`,
+        filter: `thread_id=eq.${threadId}`,
       }, async (payload) => {
         const msg = payload.new as ChatMessage;
-        if (msg.sender_id !== otherUserId) {
-          onIncomingMessage?.(msg);
+        if (msg.sender_id === myUserId) {
+          setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
           return;
         }
         setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
@@ -98,26 +108,10 @@ export function useMessageThread({
         await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('id', msg.id);
         onIncomingMessage?.(msg);
       })
-      // Outbound INSERT (sent by me, e.g. from another device) — keep in sync
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'messages',
-        filter: `sender_id=eq.${myUserId}`,
-      }, (payload) => {
-        const msg = payload.new as ChatMessage;
-        if (msg.recipient_id !== otherUserId) return;
-        setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
-      })
-      // Any UPDATE on messages I'm involved with (read receipts, edits, deletes, pins)
+      // Any UPDATE on messages in this thread (read receipts, edits, deletes, pins)
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'messages',
-        filter: `sender_id=eq.${myUserId}`,
-      }, (payload) => {
-        const updated = payload.new as ChatMessage;
-        setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'messages',
-        filter: `recipient_id=eq.${myUserId}`,
+        filter: `thread_id=eq.${threadId}`,
       }, (payload) => {
         const updated = payload.new as ChatMessage;
         setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
@@ -127,7 +121,6 @@ export function useMessageThread({
         event: 'INSERT', schema: 'public', table: 'message_reactions',
       }, (payload) => {
         const r = payload.new as MessageReaction;
-        // Only keep reactions for messages currently in the thread
         setReactions(prev => {
           if (prev.some(x => x.id === r.id)) return prev;
           return [...prev, r];
@@ -142,24 +135,23 @@ export function useMessageThread({
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
-  }, [myUserId, otherUserId, onIncomingMessage]);
+  }, [myUserId, threadId, onIncomingMessage]);
 
   // ── Typing presence (broadcast channel) ───────────────────────────────
   useEffect(() => {
-    if (!myUserId || !otherUserId) return;
-    const sortKey = [myUserId, otherUserId].sort().join('-');
-    const ch = supabase.channel(`typing-${sortKey}`, {
+    if (!myUserId || !threadId) return;
+    const ch = supabase.channel(`typing-${threadId}`, {
       config: { broadcast: { self: false } },
     });
     ch.on('broadcast', { event: 'typing' }, (payload) => {
       const fromId = (payload.payload as { user_id?: string })?.user_id;
-      if (fromId !== otherUserId) return;
+      if (fromId === myUserId) return;
       setOtherTyping(true);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3500);
     }).on('broadcast', { event: 'stopped_typing' }, (payload) => {
       const fromId = (payload.payload as { user_id?: string })?.user_id;
-      if (fromId !== otherUserId) return;
+      if (fromId === myUserId) return;
       setOtherTyping(false);
     }).subscribe();
     typingChannelRef.current = ch;
@@ -168,7 +160,7 @@ export function useMessageThread({
       void supabase.removeChannel(ch);
       typingChannelRef.current = null;
     };
-  }, [myUserId, otherUserId]);
+  }, [myUserId, threadId]);
 
   const notifyTyping = useCallback(() => {
     const now = Date.now();
@@ -190,7 +182,7 @@ export function useMessageThread({
     body: string,
     opts: { replyToId?: string | null; file?: File | null } = {},
   ): Promise<ChatMessage | null> => {
-    if (!myUserId || !otherUserId) return null;
+    if (!myUserId || !threadId) return null;
     const clean = sanitizeText(body.trim());
     if (!clean && !opts.file) return null;
 
@@ -242,11 +234,14 @@ export function useMessageThread({
       attachment_size_bytes = f.size;
     }
 
+    const recipient_id = participants.find(p => p.user_id !== myUserId)?.user_id ?? null;
+
     const { data: inserted, error } = await supabase
       .from('messages')
       .insert({
+        thread_id: threadId,
         sender_id: myUserId,
-        recipient_id: otherUserId,
+        recipient_id,
         body: clean,
         reply_to_id: opts.replyToId ?? null,
         attachment_url, attachment_name, attachment_mime, attachment_size_bytes,
@@ -263,13 +258,13 @@ export function useMessageThread({
     setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
     notifyStoppedTyping();
 
-    // Fire-and-forget: notify the recipient (in-app + throttled email if offline)
+    // Fire-and-forget: notify participants via edge function (handles 1:1 and group fan-out)
     supabase.functions
       .invoke('notify-new-message', { body: { message_id: msg.id } })
       .catch(e => console.warn('[notify-new-message] invoke error:', e));
 
     return msg;
-  }, [myUserId, otherUserId, notifyStoppedTyping]);
+  }, [myUserId, threadId, notifyStoppedTyping]);
 
   // ── Edit (within 5 min) ───────────────────────────────────────────────
   const editMessage = useCallback(async (msg: ChatMessage, newBody: string) => {

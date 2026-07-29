@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
-import { ArrowLeft, MessageSquare, Pin, X } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Pin, Users, X } from 'lucide-react';
 import { useMessageThread } from './useMessageThread';
 import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
@@ -9,13 +9,17 @@ import { ChatMessage } from './types';
 
 interface MessageThreadProps {
   myUserId: string | null;
-  otherUserId: string | null;
-  /** Display name for the other party in the header */
+  threadId: string | null;
+  /** Display name in the header (for 1:1) */
   otherName: string;
-  /** Subtitle (e.g. "Owner-Operator" or "Onboarding Coordinator") */
+  /** Subtitle (e.g. "Owner-Operator" or "3 participants") */
   otherSubtitle?: string;
   /** Avatar URL for the other party (optional) */
   otherAvatarUrl?: string | null;
+  /** Whether this is a group thread */
+  isGroup?: boolean;
+  /** Explicit group title; overrides otherName when present */
+  groupTitle?: string;
   /** Whether the current user is staff (controls pin permission) */
   isStaff: boolean;
   /** Mobile back button handler — when null, hides the back button */
@@ -33,13 +37,16 @@ interface MessageThreadProps {
 import { initials } from '@/lib/initials';
 
 export function MessageThread({
-  myUserId, otherUserId, otherName, otherSubtitle, otherAvatarUrl,
-  isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
+  myUserId, threadId, otherName, otherSubtitle, otherAvatarUrl,
+  isGroup, groupTitle, isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
 }: MessageThreadProps) {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [pinnedSheetOpen, setPinnedSheetOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const displayTitle = isGroup ? (groupTitle || otherName) : otherName;
+  const displaySubtitle = otherSubtitle ?? (isGroup ? 'Group' : '');
 
   const handleIncomingMessage = useCallback((msg: ChatMessage) => {
     onIncomingMessage?.(msg);
@@ -51,7 +58,7 @@ export function MessageThread({
     notifyTyping, notifyStoppedTyping,
   } = useMessageThread({
     myUserId,
-    otherUserId,
+    threadId,
     onIncomingMessage: handleIncomingMessage,
   });
 
