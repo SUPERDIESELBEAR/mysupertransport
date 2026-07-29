@@ -1493,6 +1493,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
       </header>
 
+      <ELDMalfunctionBanner
+        event={eldActiveEvent}
+        onOpen={() => navigateToView('eld-malfunction')}
+      />
+
       <div
         ref={contentScrollRef}
         className={
