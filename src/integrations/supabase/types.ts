@@ -859,6 +859,27 @@ export type Database = {
           },
         ]
       }
+      document_short_links: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          share_token: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          share_token: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          share_token?: string
+        }
+        Relationships: []
+      }
       document_version_history: {
         Row: {
           body: string | null
@@ -5275,6 +5296,10 @@ export type Database = {
           id: string
           name: string
         }[]
+      }
+      get_or_create_short_link: {
+        Args: { _share_token: string }
+        Returns: string
       }
       get_pei_queue: {
         Args: never
