@@ -121,15 +121,17 @@ export function MessageThread({
         )}
         <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
           {otherAvatarUrl ? (
-            <img src={otherAvatarUrl} alt={otherName} className="h-full w-full object-cover" />
+            <img src={otherAvatarUrl} alt={displayTitle} className="h-full w-full object-cover" />
+          ) : isGroup ? (
+            <Users className="h-4 w-4 text-primary" />
           ) : (
-            <span className="text-primary text-xs font-bold">{initials(otherName)}</span>
+            <span className="text-primary text-xs font-bold">{initials(displayTitle)}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-foreground truncate">{otherName}</p>
+          <p className="font-semibold text-sm text-foreground truncate">{displayTitle}</p>
           <p className="text-[11px] text-muted-foreground truncate">
-            {otherTyping ? <span className="text-primary italic">typing…</span> : (otherSubtitle ?? '')}
+            {otherTyping ? <span className="text-primary italic">typing…</span> : displaySubtitle}
           </p>
         </div>
       </div>
