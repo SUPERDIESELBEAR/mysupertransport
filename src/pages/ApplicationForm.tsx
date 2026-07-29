@@ -420,6 +420,7 @@ export default function ApplicationForm() {
           type: 'new_application',
           applicant_name: `${formData.first_name} ${formData.last_name}`.trim() || formData.email,
           applicant_email: formData.email,
+          application_id: rpcId,
         }),
       }).catch(() => {/* non-critical */});
 

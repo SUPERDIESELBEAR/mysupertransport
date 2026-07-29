@@ -1,12 +1,11 @@
-## Skip the intermediate PDF popup
+## Deep-link the "Review Application" email button to the specific applicant
 
-**Where it lives:** `src/components/inspection/DocRow.tsx` — the `FilePreviewModal` renders a "Tap below to open or share this PDF" card whenever the file is a PDF on mobile (the `showMobilePdfFallback` branch, lines ~719–753). Company Documents route through the same modal, so tapping Open shows this card before the PDF actually opens.
+The Applications page already supports `?view=applications&app=<id>` — the drawer opens automatically when that param is present (see `src/pages/management/ManagementPortal.tsx` lines 220–234). The email just isn't passing the applicant id.
 
-**Fix:** Remove the intermediate card so the first tap opens the PDF directly.
+**Changes:**
 
-1. In `DocRow.tsx`, when `showMobilePdfFallback` becomes true (mobile + PDF + blob ready), auto-invoke `window.open(resolvedUrl, '_blank', 'noopener,noreferrer')` via a `useEffect` and immediately call `onClose()` to dismiss the preview modal.
-2. Guard the effect with a `useRef` so it fires only once per opened document (prevents re-opening if state re-renders).
-3. Keep the fallback JSX as a graceful backup in case the popup is blocked, but it will normally never render because the modal closes as soon as the tab opens.
-4. Desktop PDF rendering (iframe) and image previews (fit-to-screen) are unchanged.
+1. `src/pages/ApplicationForm.tsx` — after insert, include the new application's `id` in the `new_application` notification payload as `application_id`.
+2. `src/components/management/StaffApplicationModal.tsx` — same: pass `application_id` in the `new_application` payload.
+3. `supabase/functions/send-notification/index.ts` — in the `new_application` case, read `payload.application_id` and build the CTA URL as `${appUrl}/management?view=applications&app=<id>` when present; fall back to `${appUrl}/management?view=applications` when missing (older callers).
 
-**Result:** Tapping Open on a Company Document PDF opens the PDF immediately in the device's native viewer with no intermediate "Open PDF / Share / Save" card.
+**Result:** Clicking "Review Application" in the email lands directly on the Applications list with that applicant's pending review drawer open on the right — matching the second screenshot.

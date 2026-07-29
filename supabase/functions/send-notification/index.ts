@@ -189,7 +189,9 @@ Deno.serve(async (req) => {
           `<p>A new driver application has been submitted and is ready for review.</p>
            <p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}</p>
            <p>Please log in to the Management Portal to review and take action.</p>`,
-          { label: 'Review Application', url: `${appUrl}/management` }
+          { label: 'Review Application', url: payload.application_id
+              ? `${appUrl}/management?view=applications&app=${encodeURIComponent(payload.application_id)}`
+              : `${appUrl}/management?view=applications` }
         );
 
         await Promise.all(mgmtEmails.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
