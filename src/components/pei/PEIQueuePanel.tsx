@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import {
   ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText,
   ChevronDown, ChevronRight, Beaker, Trash2, Briefcase, Search, Download, Archive,
-  ArchiveRestore, CalendarClock, Phone, CheckCircle2,
+  ArchiveRestore, CalendarClock, Phone, CheckCircle2, Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,8 +23,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchPEIQueue, restoreApplicant, bulkMarkCompleted, runBulk } from '@/lib/pei/api';
-import type { PEIQueueRow, PEIRequestStatus, PEIStaffNote } from '@/lib/pei/types';
+import { fetchPEIQueue, restoreApplicant, bulkMarkCompleted, runBulk, fetchPEIRequestById } from '@/lib/pei/api';
+import type { PEIQueueRow, PEIRequest, PEIRequestStatus, PEIStaffNote } from '@/lib/pei/types';
+import { printCombinedPEIHistory } from '@/lib/pei/combinedHistoryPrint';
+import { PEIResponseViewer } from './PEIResponseViewer';
 import { downloadPEICsv } from '@/lib/pei/exportCsv';
 import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
@@ -131,6 +133,40 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [bulkSendOpen, setBulkSendOpen] = useState(false);
   const [bulkCompleteOpen, setBulkCompleteOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [viewRequest, setViewRequest] = useState<PEIRequest | null>(null);
+  const [loadingRecordId, setLoadingRecordId] = useState<string | null>(null);
+  const [printingHistoryFor, setPrintingHistoryFor] = useState<string | null>(null);
+
+  async function openRecord(requestId: string) {
+    setLoadingRecordId(requestId);
+    try {
+      const req = await fetchPEIRequestById(requestId);
+      if (!req) {
+        toast.error('PEI record not found — it may have been deleted.');
+        return;
+      }
+      setViewRequest(req);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to load PEI record');
+    } finally {
+      setLoadingRecordId(null);
+    }
+  }
+
+  async function handlePrintHistory(applicationId: string, fullName: string) {
+    setPrintingHistoryFor(applicationId);
+    try {
+      const { recordCount } = await printCombinedPEIHistory(applicationId, fullName);
+      toast.success(`Preparing combined PEI history (${recordCount} record${recordCount === 1 ? '' : 's'})`);
+    } catch (e: any) {
+      const msg = e?.message === 'popup blocked'
+        ? 'Allow pop-ups for this site to print the full history.'
+        : e?.message ?? 'Failed to build combined history';
+      toast.error(msg);
+    } finally {
+      setPrintingHistoryFor(null);
+    }
+  }
 
   async function reload() {
     setLoading(true);
@@ -619,6 +655,29 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                   </div>
                                 </button>
                               </CollapsibleTrigger>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); onOpenApplication?.(group.applicationId); }}
+                                title="Open the full PEI panel for this applicant"
+                              >
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                                Open PEI panel
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={printingHistoryFor === group.applicationId}
+                                onClick={(e) => { e.stopPropagation(); handlePrintHistory(group.applicationId, group.fullName); }}
+                                title="View, download, or print all employer records stitched into one PDF"
+                              >
+                                {printingHistoryFor === group.applicationId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <Printer className="h-3 w-3 mr-1" />
+                                )}
+                                Print full history
+                              </Button>
                               {isManagement && (
                                 group.archivedAt ? (
                                   <>
@@ -732,8 +791,19 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                                   <FileWarning className="h-3 w-3 mr-1" />GFE
                                                 </Button>
                                               )}
-                                              <Button size="sm" variant="ghost" onClick={() => onOpenApplication?.(r.application_id)}>
-                                                <Eye className="h-3 w-3 mr-1" />Open
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={loadingRecordId === r.request_id}
+                                                onClick={() => openRecord(r.request_id)}
+                                                title="View this employer's PEI record"
+                                              >
+                                                {loadingRecordId === r.request_id ? (
+                                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                                ) : (
+                                                  <Eye className="h-3 w-3 mr-1" />
+                                                )}
+                                                View
                                               </Button>
                                               {canDelete(r) && (
                                                 <Button
@@ -889,6 +959,12 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PEIResponseViewer
+        open={!!viewRequest}
+        request={viewRequest}
+        onClose={() => setViewRequest(null)}
+      />
     </div>
   );
 }

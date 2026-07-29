@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2, Sparkles, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { US_STATES } from '@/components/application/types';
 import { toTitleCase } from '@/components/application/utils';
 import { autoBuildPEIRequests, deletePEIRequest, fetchPEIRequestsByApplication } from '@/lib/pei/api';
+import { printCombinedPEIHistory } from '@/lib/pei/combinedHistoryPrint';
 import type { PEIRequest } from '@/lib/pei/types';
 import { lookupEmployerEmail, type EmailCandidate } from '@/lib/pei/lookupEmail';
 import { PEIStatusBadge } from './StatusBadge';
@@ -54,6 +55,22 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [candidatesWebsite, setCandidatesWebsite] = useState<string | undefined>(undefined);
   const [addOpen, setAddOpen] = useState(false);
+  const [printingAll, setPrintingAll] = useState(false);
+
+  async function handlePrintAll() {
+    setPrintingAll(true);
+    try {
+      const { recordCount } = await printCombinedPEIHistory(applicationId);
+      toast.success(`Preparing combined PEI history (${recordCount} record${recordCount === 1 ? '' : 's'})`);
+    } catch (e: any) {
+      const msg = e?.message === 'popup blocked'
+        ? 'Allow pop-ups for this site to print the full history.'
+        : e?.message ?? 'Failed to build combined history';
+      toast.error(msg);
+    } finally {
+      setPrintingAll(false);
+    }
+  }
 
   async function handleDelete() {
     if (!deletingFor) return;
@@ -269,6 +286,16 @@ export function ApplicationPEITab({ applicationId }: Props) {
           </Button>
           <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
             <Plus className="h-3 w-3 mr-1" />Add Previous Employer
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePrintAll}
+            disabled={printingAll || loading || rows.length === 0}
+            title="View/download/print all employer records stitched into one PDF"
+          >
+            {printingAll ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Printer className="h-3 w-3 mr-1" />}
+            Print full history
           </Button>
           <Button size="sm" onClick={handleAutoBuild} disabled={building} title="Auto-build from employment history">
             {building ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
