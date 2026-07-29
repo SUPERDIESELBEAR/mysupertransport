@@ -142,6 +142,7 @@ export function DeactivationWizardContent({
   // Step 5: Fuel card
   const [fuelCards, setFuelCards] = useState<EquipmentItem[]>([]);
   const [deactivatingCards, setDeactivatingCards] = useState<Record<string, boolean>>({});
+  const [fuelCardError, setFuelCardError] = useState<string | null>(null);
 
   // Step 6: MO plate
   const [plateAssignments, setPlateAssignments] = useState<MoPlateAssignment[]>([]);
@@ -192,7 +193,11 @@ export function DeactivationWizardContent({
         supabase.from('ica_contracts').select('id, status, truck_year, truck_make, truck_model, truck_vin, lease_effective_date').eq('operator_id', operatorId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('carrier_signature_settings').select('typed_name, title, signature_url').maybeSingle(),
         supabase.from('onboard_assignment_sheets').select('id, unit_number, status, return_requested_at, return_completed_at, items:onboard_assignment_sheet_items(device_type, serial_snapshot)').eq('operator_id', operatorId).order('created_at', { ascending: false }),
-        supabase.from('equipment_items').select('id, device_type, serial_number, status, current_assignment_id, current_operator_name').or(`current_assignment_id.not.is.null,status.eq.assigned`).order('device_type', { ascending: true }),
+        supabase
+          .from('equipment_assignments')
+          .select('id, equipment_id, equipment_items!inner(id, device_type, serial_number, status)')
+          .eq('operator_id', operatorId)
+          .is('returned_at', null),
         supabase.from('mo_plate_assignments').select('id, plate_id, assigned_at, mo_plates!inner(plate_number)').eq('operator_id', operatorId).is('returned_at', null).order('assigned_at', { ascending: false }),
         supabase.from('lease_terminations').select('id').eq('operator_id', operatorId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
@@ -210,14 +215,26 @@ export function DeactivationWizardContent({
         return_completed_at: s.return_completed_at,
         items: s.items || [],
       })) || []);
-      setFuelCards((equipmentRes.data || []).filter((it: any) => it.device_type === 'fuel_card').map((it: any) => ({
-        id: it.id,
-        device_type: it.device_type,
-        serial_number: it.serial_number,
-        status: it.status,
-        current_assignment_id: it.current_assignment_id,
-        current_operator_name: it.current_operator_name,
-      })) as EquipmentItem[]);
+      if (equipmentRes.error) {
+        console.error('Failed to load equipment assignments for deactivation', equipmentRes.error);
+        setFuelCardError(equipmentRes.error.message);
+        setFuelCards([]);
+      } else {
+        setFuelCardError(null);
+        setFuelCards(
+          (equipmentRes.data || [])
+            .map((row: any) => ({ assignmentId: row.id, item: Array.isArray(row.equipment_items) ? row.equipment_items[0] : row.equipment_items }))
+            .filter(({ item }) => item?.device_type === 'fuel_card')
+            .map(({ assignmentId, item }) => ({
+              id: item.id,
+              device_type: item.device_type,
+              serial_number: item.serial_number,
+              status: item.status,
+              current_assignment_id: assignmentId,
+              current_operator_name: operatorName,
+            })) as EquipmentItem[]
+        );
+      }
       setPlateAssignments((platesRes.data || []) as MoPlateAssignment[]);
       if (terminationRes.data) {
         setExistingTerminationId((terminationRes.data as any).id);
@@ -284,7 +301,9 @@ export function DeactivationWizardContent({
       updateStepStatus('equipment_return', 'pending');
     }
 
-    if (!fuelCards.length) {
+    if (fuelCardError) {
+      updateStepStatus('fuel_card', 'pending');
+    } else if (!fuelCards.length) {
       updateStepStatus('fuel_card', 'skipped', 'No fuel cards assigned to this driver');
     } else if (fuelCards.every(c => c.status === 'deactivated')) {
       updateStepStatus('fuel_card', 'completed');
@@ -313,7 +332,7 @@ export function DeactivationWizardContent({
         updateStepStatus('ica_void', 'pending');
       }
     }
-  }, [loading, sheets, fuelCards, plateAssignments, ica, icaVoided, terminationCreated, existingTerminationId, receiptsUploaded, updateStepStatus]);
+  }, [loading, sheets, fuelCards, fuelCardError, plateAssignments, ica, icaVoided, terminationCreated, existingTerminationId, receiptsUploaded, updateStepStatus]);
 
   const addEmail = (input: string, list: string[], setList: (v: string[]) => void, setInput: (v: string) => void) => {
     const email = input.trim().toLowerCase();
@@ -964,7 +983,13 @@ export function DeactivationWizardContent({
       case 'fuel_card':
         return (
           <div className="space-y-4">
-            {fuelCards.length === 0 ? (
+            {fuelCardError ? (
+              <Alert variant="destructive">
+                <AlertDescription className="text-xs">
+                  Could not load this driver's fuel cards: {fuelCardError}. Refresh and try again — do not assume none are assigned.
+                </AlertDescription>
+              </Alert>
+            ) : fuelCards.length === 0 ? (
               <Alert className="border-muted-foreground/30 bg-muted/30">
                 <AlertDescription className="text-xs">No fuel cards are assigned to this driver.</AlertDescription>
               </Alert>
