@@ -69,7 +69,7 @@ export default function StaffAvailabilityCard() {
           .eq('staff_id', user.id),
         supabase
           .from('operators')
-          .select('user_id, unit_number, profiles:profiles!operators_user_id_fkey(first_name, last_name)')
+          .select('user_id, unit_number')
           .eq('is_active', true)
           .not('user_id', 'is', null),
         supabase.rpc('list_staff_auto_assigned_drivers', { _staff: user.id }),
@@ -81,11 +81,16 @@ export default function StaffAvailabilityCard() {
       const ids = new Set<string>((contacts ?? []).map((r: any) => r.driver_id));
       setSelectedIds(new Set(ids));
       setInitialIds(new Set(ids));
+      const driverIds = (drivers ?? []).map((r: any) => r.user_id).filter(Boolean) as string[];
+      const { data: profs } = driverIds.length
+        ? await supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', driverIds)
+        : { data: [] as any[] };
+      const profMap = new Map<string, any>((profs ?? []).map((p: any) => [p.user_id, p]));
       const rows: DriverRow[] = (drivers ?? []).map((r: any) => ({
         user_id: r.user_id,
         unit_number: r.unit_number ?? null,
-        first_name: r.profiles?.first_name ?? null,
-        last_name: r.profiles?.last_name ?? null,
+        first_name: profMap.get(r.user_id)?.first_name ?? null,
+        last_name: profMap.get(r.user_id)?.last_name ?? null,
       })).sort((a, b) =>
         `${a.first_name ?? ''} ${a.last_name ?? ''}`.localeCompare(`${b.first_name ?? ''} ${b.last_name ?? ''}`)
       );
