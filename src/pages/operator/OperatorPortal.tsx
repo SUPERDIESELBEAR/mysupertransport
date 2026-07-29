@@ -1,4 +1,6 @@
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useEldMalfunction } from '@/hooks/useEldMalfunction';
+import ELDMalfunctionBanner from '@/components/operator/eld/ELDMalfunctionBanner';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
