@@ -516,6 +516,17 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
 
+  // Auto-open mobile PDFs directly in the device's native viewer,
+  // skipping the intermediate "Open PDF / Share / Save" card.
+  const autoOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!showMobilePdfFallback) return;
+    if (autoOpenedRef.current === resolvedUrl) return;
+    autoOpenedRef.current = resolvedUrl;
+    window.open(resolvedUrl, '_blank', 'noopener,noreferrer');
+    onClose();
+  }, [showMobilePdfFallback, resolvedUrl, onClose]);
+
   const isImageFitMode = isImage && imageFitMode;
   const zoomLabel = isImageFitMode ? 'Fit' : `${zoom}%`;
   const imageStyle = isImageFitMode
