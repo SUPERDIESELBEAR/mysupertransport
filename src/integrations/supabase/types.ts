@@ -5533,6 +5533,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      resolve_short_link: { Args: { _code: string }; Returns: string }
       restore_applicant_pei: {
         Args: { _application_id: string }
         Returns: undefined
