@@ -17,7 +17,7 @@ import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import ComplianceHistoryModal from './ComplianceHistoryModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Registration' | 'Form 2290';
+type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Form 2290';
 
 type Status = 'expired' | 'critical' | 'warning' | 'valid' | 'missing';
 
@@ -66,17 +66,15 @@ const DOC_BADGE: Record<DocKey, string> = {
   'IFTA License':      'bg-orange-50 text-orange-700 border-orange-200',
   'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
   'Medical Certificate': 'bg-purple-50 text-purple-700 border-purple-200',
-  'Registration':      'bg-emerald-50 text-emerald-700 border-emerald-200',
   'Form 2290':         'bg-amber-50 text-amber-700 border-amber-200',
 };
 
 const DOC_DISPLAY: Record<DocKey, string> = {
-  'IRP Registration (cab card)': 'IRP (cab card)',
+  'IRP Registration (cab card)': 'Registration (IRP)',
   'Insurance':         'Insurance',
   'IFTA License':      'IFTA',
   'CDL':               'CDL',
   'Medical Certificate': 'Med Cert',
-  'Registration':      'Registration',
   'Form 2290':         '2290',
 };
 
@@ -192,7 +190,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     const docOrder: Record<DocKey, number> = {
-      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Registration': 5, 'Form 2290': 6,
+      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Form 2290': 5,
     };
 
     result.sort((a, b) => {
@@ -366,8 +364,6 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       ? 'Medical Certificate'
       : docKey === 'IRP Registration (cab card)'
       ? 'IRP Registration (cab card)'
-      : docKey === 'Registration'
-      ? 'Registration'
       : docKey === 'Form 2290'
       ? 'Form 2290'
       : docKey;
@@ -577,7 +573,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Registration', 'Form 2290'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Form 2290'];
 
   // ── CSV export ─────────────────────────────────────────────────────────
   const exportCsv = () => {
@@ -615,7 +611,6 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     cdl?: DocEntry;
     med?: DocEntry;
     irp?: DocEntry;
-    reg?: DocEntry;
     form2290?: DocEntry;
     worstStatus: Status;
     worstDays: number | null;
@@ -648,11 +643,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       if (e.docKey === 'CDL') g.cdl = e;
       else if (e.docKey === 'Medical Certificate') g.med = e;
       else if (e.docKey === 'IRP Registration (cab card)') g.irp = e;
-      else if (e.docKey === 'Registration') g.reg = e;
       else if (e.docKey === 'Form 2290') g.form2290 = e;
     });
     byDriver.forEach(g => {
-      const certs = [g.cdl, g.med, g.irp, g.reg, g.form2290].filter(Boolean) as DocEntry[];
+      const certs = [g.cdl, g.med, g.irp, g.form2290].filter(Boolean) as DocEntry[];
       let worst: Status = 'valid';
       let worstDays: number | null = null;
       certs.forEach(c => {
@@ -1362,7 +1356,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           {g.operatorName}
                         </p>
                         <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                          {[g.cdl, g.med, g.irp, g.reg, g.form2290].filter(Boolean).length} certifications
+                          {[g.cdl, g.med, g.irp, g.form2290].filter(Boolean).length} certifications
                         </p>
                       </div>
                       <span
@@ -1381,7 +1375,6 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       {g.cdl && <CertSubRow entry={g.cdl} />}
                       {g.med && <CertSubRow entry={g.med} />}
                       {g.irp && <CertSubRow entry={g.irp} />}
-                      {g.reg && <CertSubRow entry={g.reg} />}
                       {g.form2290 && <CertSubRow entry={g.form2290} />}
                     </div>
 
@@ -1492,8 +1485,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           </th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">CDL</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Med Cert</th>
-                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">IRP</th>
-                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration (IRP)</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">2290</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold text-right">Actions</th>
                         </tr>
@@ -1543,8 +1535,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                               </td>
                               <TableCertCell entry={g.cdl} label="CDL" />
                               <TableCertCell entry={g.med} label="Med Cert" />
-                              <TableCertCell entry={g.irp} label="IRP" />
-                              <TableCertCell entry={g.reg} label="Registration" />
+                              <TableCertCell entry={g.irp} label="Registration (IRP)" />
                               <TableCertCell entry={g.form2290} label="2290" />
                               <td className="px-3 py-2 whitespace-nowrap text-right align-top">
                                 <div className="inline-flex items-center gap-1">

@@ -1,29 +1,44 @@
-## Short answer for your assistant
+## What's actually happening
 
-Yes — the ICA will go to **David Mitchell**, not Kevin Foy. The wording on the final step is wrong, not the routing.
+Vehicle Hub's "Registration and 2290" section and the driver's inspection binder already store documents in the **same** place (`inspection_documents`, per-driver). The problem is they point at **different rows**:
 
-Verified in the code:
-- `send-notification` (milestone `ica_sent`) looks up the `truck_owners` row for the operator first. When one exists (David, linked on Kevin's profile), the signature email goes to the owner's address, not the driver's.
-- `OperatorICASign` resolves the signed-in user as either `driver` or `truck_owner`. A truck-owner signer gets "This ICA is ready for your signature", can correct their contact fields, and writes `contractor_signed_at`.
-- Kevin, as the driver on an owner-signed ICA, gets the read-and-acknowledge card (`DriverICAAcknowledgment`) — not the signature block.
+| Document | Where it's used | Drivers with a record |
+|---|---|---|
+| `IRP Registration (cab card)` | Inspection binder only | 74 |
+| `Registration` | Vehicle Hub Registration/2290 modal + a binder row under Lease Agreement | 5 |
+| `Form 2290` | Both (already shared) | 35 |
 
-One thing to confirm before sending: David must have an actual login (`truck_owners.user_id` populated via the Invite Truck Owner action on his card). If he has never been invited, the email lands but he has nowhere to sign.
+So Robert Williams' IRP Registration lives under a name Vehicle Hub never reads, which is why unit 67 looks empty there. Form 2290 already syncs correctly — nothing to fix there.
 
-## What to change
+Of the 5 drivers with both rows, the dates disagree (e.g. `2026-09-03` vs `2027-06-30`), so the merge needs a tie-break rule: **most recent upload wins** (your choice).
 
-Step 4 of the ICA builder is hardcoded to the driver's name and the word "operator". Make it reflect the real signer.
+## The fix
 
-### `src/components/ica/ICABuilderModal.tsx`
-1. Keep the `truck_owners` row already fetched in `loadDraft` in state (name, email, `user_id`) instead of discarding it after pre-fill. Also select `user_id`.
-2. Derive a `signer` value: the truck owner when a row exists, otherwise the operator.
-3. Step 4 rewrite:
-   - Heading: "Ready to send to truck owner" / "Ready to send to operator".
-   - Body: "**David Mitchell** (truck owner) will review the full agreement and sign digitally from their portal. **Kevin Foy** will be notified to read and acknowledge the executed ICA."
-   - Add a "Signature Required From" summary row showing the signer's name and email, alongside the existing Operator row so both parties are visible.
-   - If the owner row has no `user_id`, show an amber inline warning: "David Mitchell has not been invited yet — send the truck-owner invite so he can sign." with a pointer to the Truck Owner card.
-4. Update the footer send button label and the success toast to name the actual recipient ("ICA sent to David Mitchell").
-5. Step 3 carrier-signature disclaimer ("will be sent to the operator") gets the same signer-aware wording.
+**1. Retire the "Registration" document type**
 
-### Notes
-- No routing, database, or edge-function changes — delivery is already correct.
-- Copy-only change plus one extra selected column and a piece of local state.
+One-time data migration, per driver:
+- If the driver has only a `Registration` row → rename it to `IRP Registration (cab card)`.
+- If the driver has both → keep whichever has the newer `uploaded_at`, copy its file + expiry onto the IRP row, delete the extra `Registration` row.
+- Remove `Registration` from the binder's document order (`inspection_binder_order`) so the redundant row under Lease Agreement disappears.
+- Update `v_compliance_items` to drop the `Registration` doc key (IRP already covered).
+
+**2. Point Vehicle Hub at the IRP record**
+
+`Registration2290Modal.tsx` currently reads/writes `name = 'Registration'`. Change its registration doc type to `IRP Registration (cab card)` (label stays user-friendly: "Registration / IRP Cab Card"). `FleetDetailDrawer.tsx` reads the same two names, so it picks up the change with a one-line constant update.
+
+After this, a binder upload appears in Vehicle Hub and vice versa with no sync job — it's literally one record.
+
+**3. Keep MO Plate Registry consistent**
+
+There's already a trigger (`sync_mo_plate_expiry_to_irp`) that pushes `mo_plates.expires_at` into the IRP cab card row. Since Vehicle Hub now edits that same row, add a guard so the plate trigger only overwrites the binder expiry when the plate's expiry is **newer** than the document's `uploaded_at`-backed value — consistent with "most recent wins" and prevents a stale plate date from stomping a freshly uploaded cab card.
+
+**4. Label cleanup**
+
+Rename the display label to **"Registration (IRP Cab Card)"** in the binder, Vehicle Hub, and the Fleet Compliance summary so staff see one consistent name in all three places.
+
+## Technical notes
+
+- Files: `src/components/fleet/Registration2290Modal.tsx`, `src/components/fleet/FleetDetailDrawer.tsx`, `src/components/inspection/InspectionComplianceSummary.tsx`, `src/components/inspection/OperatorInspectionBinder.tsx`.
+- Migrations: data merge on `inspection_documents`, update `inspection_binder_order` per-driver JSON array, redefine `v_compliance_items`, patch `sync_mo_plate_expiry_to_irp()`.
+- `check-inspection-expiry` edge function already tracks `IRP Registration (cab card)` — no change needed, and the 5 merged drivers will start getting expiry reminders on the correct date.
+- No storage files are moved; only the row that references them changes.
