@@ -15,7 +15,8 @@ export type OperatorView =
   | 'my-docs'
   | 'my-truck'
   | 'forecast'
-  | 'onboard-systems';
+  | 'onboard-systems'
+  | 'eld-malfunction';
 
 export const OPERATOR_VIEWS: OperatorView[] = [
   'home',
@@ -35,6 +36,7 @@ export const OPERATOR_VIEWS: OperatorView[] = [
   'my-truck',
   'forecast',
   'onboard-systems',
+  'eld-malfunction',
 ];
 
 export const isOperatorView = (value: string | null): value is OperatorView =>
@@ -61,6 +63,7 @@ const VIEW_TO_ROUTE: Record<OperatorView, string> = {
   'my-truck': 'my-truck',
   forecast: 'forecast',
   'onboard-systems': 'onboard-systems',
+  'eld-malfunction': 'eld-malfunction',
 };
 
 const ROUTE_TO_VIEW: Record<string, OperatorView> = {
@@ -87,6 +90,8 @@ const ROUTE_TO_VIEW: Record<string, OperatorView> = {
   'my-truck': 'my-truck',
   forecast: 'forecast',
   'onboard-systems': 'onboard-systems',
+  'eld-malfunction': 'eld-malfunction',
+  eld: 'eld-malfunction',
 };
 
 const LEGACY_TAB_TO_VIEW: Record<string, OperatorView> = {
