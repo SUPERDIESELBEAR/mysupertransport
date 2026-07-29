@@ -7,7 +7,7 @@ import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
@@ -121,6 +121,9 @@ export default function ICABuilderModal({
   const [contractId, setContractId] = useState<string | null>(null);
   const [draftResumed, setDraftResumed] = useState(false);
   const [draftLastSaved, setDraftLastSaved] = useState<string | null>(null);
+  // Linked truck owner (when the truck is owned by someone other than the driver).
+  // The ICA is signed by the owner, so every "who is this going to" string keys off this.
+  const [truckOwner, setTruckOwner] = useState<{ name: string; email: string | null; user_id: string | null } | null>(null);
 
   const carrierSigRef = useRef<SignatureCanvas>(null);
   const [carrierTypedName, setCarrierTypedName] = useState('');
@@ -175,7 +178,7 @@ export default function ICABuilderModal({
           .maybeSingle() as any,
         supabase
           .from('truck_owners')
-          .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip')
+          .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip, user_id')
           .eq('operator_id', operatorId)
           .maybeSingle(),
       ]);
@@ -183,6 +186,14 @@ export default function ICABuilderModal({
       const ob = (onboardingRow as any) ?? {};
       const to = (truckOwnerRow as any) ?? null;
       const toFullName = to ? `${to.legal_first_name ?? ''} ${to.legal_last_name ?? ''}`.trim() : '';
+
+      if (to) {
+        setTruckOwner({
+          name: toFullName || to.business_name || 'Truck owner',
+          email: to.email ?? null,
+          user_id: to.user_id ?? null,
+        });
+      }
 
       if (!existing) {
         // No ICA draft — pre-fill from onboarding_status truck fields and linked truck owner (if any)
@@ -505,7 +516,12 @@ export default function ICABuilderModal({
         console.warn('Notification send failed:', notifErr);
       }
 
-      toast({ title: 'ICA sent to operator', description: `${operatorName} can now review and sign.` });
+      toast({
+        title: truckOwner ? `ICA sent to ${truckOwner.name}` : 'ICA sent to operator',
+        description: truckOwner
+          ? `${truckOwner.name} (truck owner) can now review and sign. ${operatorName} will be asked to acknowledge it.`
+          : `${operatorName} can now review and sign.`,
+      });
       onSent();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -777,7 +793,7 @@ export default function ICABuilderModal({
               )}
 
               <p className="text-xs text-muted-foreground bg-secondary/50 border border-border rounded-lg p-3">
-                By signing, you confirm this agreement is authorized on behalf of SUPERTRANSPORT, LLC and will be sent to the operator for their review and signature. Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                By signing, you confirm this agreement is authorized on behalf of SUPERTRANSPORT, LLC and will be sent to {truckOwner ? `${truckOwner.name} (truck owner)` : 'the operator'} for review and signature. Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
           )}
@@ -786,15 +802,44 @@ export default function ICABuilderModal({
             <div className="space-y-6">
               <div className="p-5 bg-gold/5 border border-gold/30 rounded-xl text-center space-y-2">
                 <Send className="h-8 w-8 text-gold mx-auto" />
-                <h3 className="font-semibold text-foreground">Ready to send to operator</h3>
+                <h3 className="font-semibold text-foreground">
+                  {truckOwner ? 'Ready to send to truck owner' : 'Ready to send to operator'}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  The ICA has been pre-filled and signed by you as Carrier. <strong>{operatorName}</strong> will be able to review the full agreement and sign digitally from their operator portal.
+                  The ICA has been pre-filled and signed by you as Carrier.{' '}
+                  {truckOwner ? (
+                    <>
+                      <strong>{truckOwner.name}</strong> (truck owner) will review the full agreement and sign digitally from their portal.{' '}
+                      <strong>{operatorName}</strong> will be notified to read and acknowledge the executed ICA.
+                    </>
+                  ) : (
+                    <>
+                      <strong>{operatorName}</strong> will be able to review the full agreement and sign digitally from their operator portal.
+                    </>
+                  )}
                 </p>
               </div>
+              {truckOwner && !truckOwner.user_id && (
+                <div className="flex items-start gap-2 p-3 rounded-lg border border-warning/40 bg-warning/10 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <span className="text-foreground">
+                    {truckOwner.name} has not been invited yet — send the truck-owner invite from the Truck Owner card on this driver's profile so they can sign.
+                  </span>
+                </div>
+              )}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Operator</span>
                   <span className="font-medium">{operatorName}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border gap-4">
+                  <span className="text-muted-foreground shrink-0">Signature Required From</span>
+                  <span className="font-medium text-right">
+                    {truckOwner ? truckOwner.name : operatorName}
+                    <span className="block text-xs text-muted-foreground font-normal">
+                      {(truckOwner ? truckOwner.email : operatorEmail) || '—'}
+                    </span>
+                  </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Truck</span>
@@ -857,7 +902,7 @@ export default function ICABuilderModal({
               >
                 <DemoLockIcon />
                 <Send className="h-4 w-4" />
-                {saving ? 'Sending…' : 'Send to Operator'}
+                {saving ? 'Sending…' : truckOwner ? 'Send to Truck Owner' : 'Send to Operator'}
               </Button>
             )}
           </div>
