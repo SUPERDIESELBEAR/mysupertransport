@@ -436,6 +436,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const [pdfImageSource, setPdfImageSource] = useState<string | null>(null);
   const [convertingPdf, setConvertingPdf] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [imageFitMode, setImageFitMode] = useState(true);
   // Hardware back / swipe-back closes the preview instead of navigating away
   useBackButton(true, onClose);
   // Local override URL so the preview refreshes after an edit save
@@ -480,6 +481,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
     setLoaded(false);
     setPdfImageSource(null);
     setShowEditor(false);
+    setImageFitMode(true);
   }, [activeUrl]);
 
   const handlePrint = useCallback((e: React.MouseEvent) => {
@@ -513,6 +515,34 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
+
+  const isImageFitMode = isImage && imageFitMode;
+  const zoomLabel = isImageFitMode ? 'Fit' : `${zoom}%`;
+  const imageStyle = isImageFitMode
+    ? { transition: 'transform 0.15s ease' }
+    : { transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' };
+
+  const handleZoomOut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isImageFitMode) return;
+    setZoomIdx(i => Math.max(0, i - 1));
+  };
+
+  const handleResetZoom = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoomIdx(DEFAULT_ZOOM_IDX);
+    setImageFitMode(isImage);
+  };
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isImageFitMode) {
+      setImageFitMode(false);
+      setZoomIdx(Math.min(ZOOM_STEPS.length - 1, DEFAULT_ZOOM_IDX + 1));
+      return;
+    }
+    setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1));
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black" onClick={onClose}>
@@ -557,23 +587,23 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           {!showMobilePdfFallback && !isMobile && (
             <>
               <button
-                onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.max(0, i - 1)); }}
-                disabled={!canZoomOut}
+                onClick={handleZoomOut}
+                disabled={isImageFitMode || !canZoomOut}
                 className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="Zoom out"
               >
                 <ZoomOut className="h-4 w-4" />
               </button>
               <button
-                onClick={e => { e.stopPropagation(); setZoomIdx(DEFAULT_ZOOM_IDX); }}
+                onClick={handleResetZoom}
                 className="h-8 px-2 rounded text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors min-w-[44px] text-center"
-                title="Reset zoom"
+                title={isImage ? "Fit to screen" : "Reset zoom"}
               >
-                {zoom}%
+                {zoomLabel}
               </button>
               <button
-                onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1)); }}
-                disabled={!canZoomIn}
+                onClick={handleZoomIn}
+                disabled={!isImageFitMode && !canZoomIn}
                 className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="Zoom in"
               >
@@ -679,7 +709,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                 src={resolvedUrl}
                 alt={name}
                 className="max-w-full max-h-full object-contain"
-                style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
+                style={imageStyle}
                 onLoad={handleLoad}
               />
             )}
@@ -1127,11 +1157,15 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
       </div>
 
       {shareOpen && doc && <ShareModal doc={doc} onClose={() => setShareOpen(false)} />}
-      {pdfOpen && doc && (
-        <PDFModal
-          doc={doc}
+      {pdfOpen && doc?.file_url && (
+        <FilePreviewModal
+          url={doc.file_url}
+          name={name}
           onClose={() => setPdfOpen(false)}
-          onEdit={canEdit && doc.file_url ? () => { setPdfOpen(false); setEditorOpen(true); } : undefined}
+          onEdit={canEdit ? () => { setPdfOpen(false); setEditorOpen(true); } : undefined}
+          bucketName={canEdit ? editBucketName : undefined}
+          filePath={canEdit ? (editFilePath || doc.file_path || undefined) : undefined}
+          onSaved={(newUrl) => onEditSave?.(newUrl)}
         />
       )}
       {editorOpen && doc?.file_url && (
