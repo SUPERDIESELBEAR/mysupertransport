@@ -7,6 +7,7 @@ import { fetchPEIResponse, fetchPEIAccidents, fetchPEIRequestEvents } from '@/li
 import { GFE_REASON_LABEL, type PEIRequest, type PEIResponse, type PEIAccident, type PEIRequestEvent } from '@/lib/pei/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { buildPrintHtml, openPrintWindow } from '@/lib/pei/printRecord';
 
 interface Props {
   open: boolean;
@@ -37,26 +38,7 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
         events,
         applicantName,
       });
-      const win = window.open('', '_blank', 'width=900,height=1000');
-      if (!win) throw new Error('popup blocked');
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-      // Wait for layout, then trigger print. Close on afterprint or fallback timer.
-      const trigger = () => {
-        try {
-          win.focus();
-          win.print();
-        } catch (e) {
-          console.error('Print window print() failed:', e);
-        }
-      };
-      win.onafterprint = () => win.close();
-      if (win.document.readyState === 'complete') {
-        setTimeout(trigger, 50);
-      } else {
-        win.addEventListener('load', () => setTimeout(trigger, 50));
-      }
+      openPrintWindow(html);
     } catch (err) {
       console.error('Print failed:', err);
       toast({
