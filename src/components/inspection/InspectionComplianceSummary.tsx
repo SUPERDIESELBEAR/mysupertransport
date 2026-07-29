@@ -190,7 +190,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     const docOrder: Record<DocKey, number> = {
-      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Registration': 5, 'Form 2290': 6,
+      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Form 2290': 5,
     };
 
     result.sort((a, b) => {
@@ -573,7 +573,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Registration', 'Form 2290'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Form 2290'];
 
   // ── CSV export ─────────────────────────────────────────────────────────
   const exportCsv = () => {
