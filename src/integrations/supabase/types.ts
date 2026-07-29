@@ -4490,6 +4490,51 @@ export type Database = {
           },
         ]
       }
+      staff_help_knowledge: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string
+          id: string
+          metadata: Json
+          route: string | null
+          section: string | null
+          source: string
+          source_id: string
+          title: string
+          token_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding: string
+          id?: string
+          metadata?: Json
+          route?: string | null
+          section?: string | null
+          source: string
+          source_id: string
+          title: string
+          token_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string
+          id?: string
+          metadata?: Json
+          route?: string | null
+          section?: string | null
+          source?: string
+          source_id?: string
+          title?: string
+          token_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_help_messages: {
         Row: {
           content: string
@@ -5208,6 +5253,23 @@ export type Database = {
         Returns: undefined
       }
       mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
+      match_staff_help_knowledge: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          route: string
+          section: string
+          similarity: number
+          source: string
+          source_id: string
+          title: string
+        }[]
+      }
       move_revisions_to_pending: {
         Args: { p_application_id: string }
         Returns: undefined
