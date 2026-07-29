@@ -25,6 +25,7 @@ import ApplicationStatus from "./pages/ApplicationStatus";
 import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
+import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SubmitSSN from "./pages/SubmitSSN";
 import InstallApp from "./pages/InstallApp";
 import PEIRespond from "./pages/PEIRespond";
@@ -134,6 +135,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
+      <Route path="/s/:code" element={<ShortLinkRedirect />} />
       <Route path="/pei/respond/:token" element={<PEIRespond />} />
       <Route path="/pei/release/:token" element={<PEIRelease />} />
       <Route path="/application/approve/:token" element={<ApplicationApprove />} />
