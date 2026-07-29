@@ -655,6 +655,29 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                   </div>
                                 </button>
                               </CollapsibleTrigger>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); onOpenApplication?.(group.applicationId); }}
+                                title="Open the full PEI panel for this applicant"
+                              >
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                                Open PEI panel
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={printingHistoryFor === group.applicationId}
+                                onClick={(e) => { e.stopPropagation(); handlePrintHistory(group.applicationId, group.fullName); }}
+                                title="View, download, or print all employer records stitched into one PDF"
+                              >
+                                {printingHistoryFor === group.applicationId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <Printer className="h-3 w-3 mr-1" />
+                                )}
+                                Print full history
+                              </Button>
                               {isManagement && (
                                 group.archivedAt ? (
                                   <>
