@@ -71,6 +71,11 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
 
+  // React to a new initialUserId arriving after mount (e.g. from Contacts tab)
+  useEffect(() => {
+    if (initialUserId) setSelectedUserId(initialUserId);
+  }, [initialUserId]);
+
   // ── Load staff who have existing threads with this operator ──────────────
   const loadStaff = useCallback(async () => {
     if (!user?.id) return;
