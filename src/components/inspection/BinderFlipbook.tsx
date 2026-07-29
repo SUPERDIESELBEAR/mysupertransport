@@ -418,7 +418,7 @@ export default function BinderFlipbook({
               <MoreVertical className="h-5 w-5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 z-[110]">
             {!selectMode ? (
               <>
                 <DropdownMenuItem onClick={shareCurrentEmail} disabled={!current?.shareToken}>
