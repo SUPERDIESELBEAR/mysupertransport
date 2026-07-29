@@ -263,7 +263,7 @@ export function DeactivationWizardContent({
     } finally {
       setLoading(false);
     }
-  }, [operatorId]);
+  }, [operatorId, operatorName]);
 
   useEffect(() => {
     setCurrentStep('reason');
