@@ -673,7 +673,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
         {/* Images: render directly from resolved URL (no blob needed, avoids CORS) */}
         {isImage ? (
-          <div className="w-full h-full flex items-center justify-center overflow-auto">
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
             {imageReady && (
               <img
                 src={resolvedUrl}
