@@ -14,6 +14,7 @@ import EditProfileModal from '@/components/EditProfileModal';
 import { BuildInfo } from '@/components/BuildInfo';
 import BirthdayAnniversaryPopup from '@/components/staff/BirthdayAnniversaryPopup';
 import AssignmentPopup from '@/components/staff/AssignmentPopup';
+import FloatingChatWindow from '@/components/messaging/FloatingChatWindow';
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -455,6 +456,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
     </div>
     <BirthdayAnniversaryPopup />
     <AssignmentPopup />
+    <FloatingChatWindow />
     </>
   );
 }
