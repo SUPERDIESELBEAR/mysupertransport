@@ -1,38 +1,37 @@
-## What the 3-dot menu is for
+## Goal
 
-The kebab (⋮) button in the top-right of the inspection binder overlay is an **Actions menu** (a Radix `DropdownMenu` in `src/components/inspection/BinderFlipbook.tsx`, around line 415). It's intended to expose sharing and bulk-selection tools that don't fit on the top bar.
+Fix the **driver app binder list-mode “Open” preview** so a tapped document/image starts in a true **Fit to screen** view. The full document/image should be visible immediately, and the driver can zoom in afterward for details.
 
-When it works, tapping it opens a dropdown with:
+## Current issue
 
-**Default mode**
-- Email this page (emails a share link for the current document)
-- Text this page (opens SMS with the share link)
-- Show QR code (renders a QR of the current page's share link)
-- — divider —
-- Email all docs (emails links for every document in the binder)
-- Select multiple (enters multi-select mode so the driver can pick specific pages)
-- — divider —
-- Switch to List View (same as the "List View" chip on the left)
+The list-mode Open button in `DocRow` opens the older `PDFModal` in `src/components/inspection/DocRow.tsx`.
 
-**Select-multiple mode** (after tapping "Select multiple")
-- Email selected (N)
-- Text selected (N)
-- Cancel selection
+That modal uses fixed zoom percentages (`100%`, minimum `50%`) and renders files through an iframe/blob flow. For large image scans like CDL photos, `100%` means intrinsic image size, not fit-to-screen. Even `50%` can still be larger than the phone viewport, which matches the screenshots.
 
-Share actions require a `shareToken` on the document; if a page has no token yet, its item is disabled but the menu still opens.
-
-## Why it appears broken
-
-The trigger button lives inside a `fixed inset-0 z-[100]` full-screen overlay. Radix's `DropdownMenuContent` renders in a portal at the document body, which by default sits below that overlay's stacking context, so the popup opens but is painted underneath the binder — looking like "nothing happens." (This is the same class of bug we've hit before with modals over fixed overlays.) There may also be a pointer-events / focus-trap interaction with the overlay swallowing the outside click.
+The newer `FilePreviewModal` already uses an image-specific rendering path with `object-contain`, but it still starts at `100%` scale, so for this task the default image zoom should become a real fit mode.
 
 ## Plan
 
-1. Confirm the root cause by reading the full `BinderFlipbook.tsx` (trigger, portal usage, overlay z-index) and the shared `DropdownMenuContent` wrapper in `src/components/ui/dropdown-menu.tsx` to see its default `z-` class.
-2. Fix the stacking so the menu is visible above the `z-[100]` binder overlay — either by passing a higher `z-` class to `DropdownMenuContent` (e.g. `z-[110]`) or by rendering it non-portalled inside the overlay. Prefer the z-index bump to avoid layout regressions elsewhere.
-3. Verify each menu action still wires to its handler (`shareCurrentEmail`, `shareCurrentText`, `setShowQR`, `shareAllEmail`, `setSelectMode`, `onClose`, and the selected-mode equivalents) — no logic changes expected, just make sure nothing regressed after the fix.
-4. Sanity-check on the mobile viewport used in the screenshot (iOS Safari, ~390px) that the menu opens on tap, closes on outside tap, and that "Show QR code" and "Select multiple" both work end-to-end.
+1. Update `FilePreviewModal` in `src/components/inspection/DocRow.tsx` to support a dedicated initial **Fit** zoom state for images.
+   - Add a fit/default zoom option before the existing numeric zoom values.
+   - In Fit mode, render images with `max-w-full max-h-full object-contain` and **no scale transform**, so the whole image is visible.
+   - When the user taps zoom-in, move from Fit to the first numeric zoom step.
+   - Keep numeric zoom behavior for manual zooming.
+
+2. Route list-mode binder `Open` actions through `FilePreviewModal` instead of the older `PDFModal`.
+   - This applies to both My Documents and Company Documents because both use `DocRow`.
+   - Preserve existing edit support by passing the existing bucket/path props and save callback.
+
+3. Keep `PDFModal` exported for any existing legacy consumers, but stop using it for the driver binder row Open action.
+
+4. Verify the behavior on mobile:
+   - Open a CDL/front image from list mode: full image is visible initially.
+   - Zoom-in still works for closer inspection.
+   - Open PDF flow remains functional.
+   - Edit/save still works for editable binder documents.
 
 ## Out of scope
 
-- No changes to what the menu does or which items appear.
-- No redesign of the binder top bar.
+- No changes to flipbook mode.
+- No changes to binder list row layout.
+- No database or storage changes.
