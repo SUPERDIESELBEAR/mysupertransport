@@ -71,7 +71,7 @@ export function MessageThread({
   }, [messages.length, otherTyping]);
 
   // Reset reply-target when switching threads
-  useEffect(() => { setReplyTo(null); }, [otherUserId]);
+  useEffect(() => { setReplyTo(null); }, [threadId]);
 
   const pinned = useMemo(
     () => messages
