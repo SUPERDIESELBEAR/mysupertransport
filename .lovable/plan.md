@@ -1,121 +1,88 @@
-# Stage 1 — ELD Malfunction Reporting & Paper Readiness (revised)
+## Stage 2 — Digital RODS Entry, Grid Rendering & Certification (revised)
 
-Manual record-keeping support used only when a driver's registered ELD has malfunctioned (49 CFR 395.34). No HOS math, no countdowns, no telematics.
+Builds on Stage 1 (`eld_malfunction_events`, `eld_devices`, `eld-notices` bucket, `useEldMalfunction`, `renderDutyStatusGrid`, `react-signature-canvas`).
 
-**Verified:** the project runs **PostgreSQL 17.6**, so `UNIQUE NULLS NOT DISTINCT` is supported. No `COALESCE(day_number, -1)` or generated-column workaround is needed.
+Hard rules carried through: no HOS math of any kind (only the 1440-minute arithmetic check on the face of the form), no ECM/GPS/telematics, no "ELD/e-log" wording for SUPERDRIVE itself, module unreachable unless an open malfunction with `hinders_hos_recording = true` exists, certified days immutable for everyone including management.
 
-**Wording rule (narrowed):** SUPERDRIVE must never describe *itself* or this feature as an ELD, e-log, or logging device. Referring to the driver's own malfunctioning ELD as an ELD is accurate and required. Driver nav item: **ELD Malfunction**. Management nav item: **ELD Malfunctions**.
+### 1. Database
 
-**Confirmed:** the Onboard Systems seed (`equipment_assignments` / `equipment_items`) is read **only at report time**. Values are copied into `eld_malfunction_events` as literal snapshot columns; nothing joins live equipment data at display time. A later reassignment or serial change cannot alter a past malfunction record.
+**`rods_days`** — §395.8 header fields, driver-entered RECAP fields, four derived status-minute totals, `is_reconstructed`, `source_document_path`, `status` (draft | certified | superseded), `supersedes_day_id`, certification columns, `pdf_path`, `locked`, plus:
 
-## 1. Database
+- `record_source text NOT NULL DEFAULT 'keyed'` — `keyed` | `eld_document`.
 
-New tables (uuid PK, created_at/updated_at, GRANTs + RLS on each):
+Uniqueness and amendment lifecycle:
 
-- **eld_device_models** — provider_name, device_make, device_model, fmcsa_registration_id, support_phone, is_active. **Seeded in this stage** with at least one row per hardware model in the fleet so Step 2 never dead-ends.
-- **eld_devices** — operator_id, truck_number, eld_device_model_id FK, serial_number (encrypted at rest), is_active. Seeded from Onboard Systems where available; overridable.
-- **eld_malfunction_events** — operator_id, eld_device_id, discovered_at, discovered_location, malfunction_code (P/E/T/L/R/S/O), malfunction_description, driver_notes, hinders_hos_recording, backdate_reason, repair_deadline, status, resolved_at, resolution_notes, carrier_acknowledged_at/_by, plus:
-  - frozen snapshot: device_provider, device_make, device_model, device_serial, eld_registration_id
-  - delivery: notice_pdf_path, `notice_generated_at`, `notice_uploaded_at`, `notice_sent_at`, `notice_send_attempts int not null default 0`, `notice_last_send_error text`
-  - suppression: `escalations_suppressed_at timestamptz`, `escalations_suppressed_by uuid REFERENCES public.profiles(id)`, `escalations_suppressed_reason text`, `escalations_suppressed_until date`
-- **eld_malfunction_notifications** — `event_id uuid NULL`, `notification_type` (`escalation_day` | `ack_overdue` | `digest` | `extension_prompt`), `day_number int NULL` storing the literal elapsed day (9, 10, 11 …) not a bucket, recipient_user_id, channel, `sent_on date`.
-- **carrier_notification_settings** — Management-editable list of carrier safety notification recipients. No hardcoded address in code. Seeded with `marc@mysupertransport.com` plus a backup.
-- **blank_log_acknowledgments** — operator_id, quarter_key, sheets_confirmed; unique (operator_id, quarter_key).
+- Partial unique index on `(operator_id, log_date) WHERE status = 'certified'` — one certified day may coexist with draft amendments for the same date.
+- Cloning an amendment leaves the original **certified**. The original flips to `superseded` in the **same transaction** that certifies the amendment (`certify_rods_day`, SECURITY DEFINER), never at clone time.
+- DELETE blocked by trigger on any locked row **and** on any draft where `supersedes_day_id IS NOT NULL`. Discarding goes through `discard_rods_amendment`.
+- A constraint trigger guarantees any date that has ever had a certified row always has exactly one non-superseded certified row.
 
-### De-duplication
+**`rods_events`** — segments with minute-range checks, duty status, required city/state, remarks, `is_short_period`.
 
-Per-event types keep the composite constraint:
-```sql
-UNIQUE NULLS NOT DISTINCT
-  (event_id, recipient_user_id, notification_type, day_number, channel, sent_on)
-```
-Digests are event-independent — one row per recipient per day with `event_id = NULL`, guarded by a partial index:
-```sql
-CREATE UNIQUE INDEX ON eld_malfunction_notifications (recipient_user_id, sent_on)
-  WHERE notification_type = 'digest';
-```
-**Verification:** two identical digest inserts on the same date — the second must be rejected; likewise two identical `escalation_day` rows for the same event/day/channel.
+**`rods_amendments`** — audit trail with `field_path`, `old_value`, `new_value`, `reason`; no client INSERT, written server-side only. `field_path` is never null.
 
-### RLS
+Access: driver full CRUD on their own unlocked days/events, read-only once locked; onboarding staff, dispatch and management read-only (no management write policy exists at all); GRANTs alongside every table.
 
-- Operators: SELECT own events; INSERT own events; **UPDATE limited to `driver_notes` only**. A BEFORE UPDATE trigger raises if a non-staff actor changes any other column — `discovered_at`, `discovered_location`, `malfunction_code`, `malfunction_description`, `hinders_hos_recording`, and all frozen snapshot columns are immutable once the event exists, because they are the basis of a federal notice. Enforced at the trigger/RLS level, not only in the UI. If a driver reports something incorrectly, Management resolves the event with a note and the driver files a new one.
-- Onboarding staff: read-all. Dispatchers: read-all + acknowledge. Management: full read, acknowledge/resolve/close/suppress, CRUD on devices, models, settings. No DELETE policy on events for anyone.
+New private bucket `rods-logs` for generated day PDFs, certification signatures and uploaded ELD-produced logs, foldered by operator id, driver-own-folder + staff read policies.
 
-## 2. Report wizard (driver)
+### 2. Uploaded ELD logs (`record_source = 'eld_document'`)
 
-1. **When & where** — datetime defaulting to now; backdating up to 48h requires a written reason; city + state; optional reverse-geocode to text only.
-2. **Which device** — prefilled from eld_devices as a "Confirm these details" state; if unlinked, driver picks from eld_device_models.
-3. **What happened** — code picker with plain-English labels, required description, HOS-recording radio. **No** → create event, notify carrier, show explainer. **Yes** → continue.
-4. **Review & sign** — full notice text; e-signature via the existing ICA component. On submit: insert event with frozen device values, repair_deadline = discovered_at + 8 days, generate PDF client-side, upload + request send, in-app notify every Management and Dispatcher user, route to dashboard.
+- Created with `status = 'certified'`, `locked = true` so the day occupies the partial unique index slot and no keyed day can be created for the same date. `is_reconstructed = false` — these were retrieved, not reconstructed.
+- SQL `COMMENT` on `record_source` and `status` stating explicitly that `status = 'certified'` is the storage state while the user-facing label is "On file (ELD log)" — the mismatch is intentional and must not be "fixed."
+- No signature capture, no 1440-minute validation, no PDF generation. `pdf_path` stays null; `source_document_path` **is** the record.
+- These days have no `rods_events`, so the four derived totals are zero — the totals row is **suppressed** for them rather than rendering 0:00 across all four statuses.
+- Code comment noting the Stage 3 dependency: roadside presentation renders `source_document_path` for these days rather than generated PDF bytes.
 
-## 3. Notice PDF — one shared module
+**Replace, don't amend.** For `eld_document` days, "Amend this log" is hidden and replaced by **"Replace document"**. Amendment stays available only for keyed days.
 
-`renderMalfunctionNotice` is a single **pdf-lib** module callable from both browser and Deno. Generated **client-side on submit** so an offline driver can still produce the notice; the same module runs server-side when Management acknowledges, to regenerate with the acknowledgment block filled. No separate edge-function-only generator.
+Atomicity: a SECURITY DEFINER `replace_rods_document(day_id, new_path, reason)` performs the whole thing in **one transaction** — supersedes the existing row and inserts the new `eld_document` row as certified. Never two client calls: the partial unique index and the constraint trigger both reject the intermediate state. In the same transaction it writes one `rods_amendments` row with `field_path = 'source_document_path'`, `old_value` and `new_value` set to the old and new storage paths, and the written reason in `reason`. The original row and its file are retained permanently — a superseded document is never deleted.
 
-Contents: SUPERTRANSPORT, LLC · USDOT 2309365 · MC 788425; driver name/ID/truck; discovery date/time with timezone; location; frozen provider/make/model/serial/registration ID; code and description; the 395.34(a)(1) statement; (a)(2)–(3) when hinders_hos_recording; signature image and submission timestamp; Carrier Acknowledgment block. US Letter portrait.
+### 3. Entry experience (driver, mobile-first)
 
-## 4. Delivery reconciliation — two distinct failure modes
+- `RodsDayEditor` — header pre-filled aggressively from the operator profile, `eld_devices` and the most recent day; driver confirms rather than types.
+- `DutyStatusTimeline` — stacked chronological segments; 15-minute-snapping picker with 1-minute precision, four large numbered status buttons, required city + 2-letter state, optional remarks. Segments chain 0 → 1440. Sub-15-minute segments auto-flag `is_short_period`.
+- **"Copy yesterday" guardrails:** disabled entirely inside the reconstruction wizard. Elsewhere it copies segment boundaries and duty statuses only, always clearing city, state, remarks, miles, from/to and shipping document. Always lands in `draft`.
+- `RodsGrid` — live SVG grid: four labeled status lines, 24 preprinted hour increments, Midnight/Noon, continuous lines with vertical connectors, per-status totals at right, minimum render width, pinch-zoom.
 
-**Client responsibility.** On submit and again on every app foreground until `notice_uploaded_at` is set: upload the PDF bytes and signature image to Storage, set `notice_uploaded_at`, then request the send.
+### 4. One grid geometry (deliberate Stage 1 refactor)
 
-**Server responsibility.** The hourly job retries email **only** where `notice_uploaded_at IS NOT NULL AND notice_sent_at IS NULL`. It must never attempt to email an event whose PDF is not in Storage. Each attempt increments `notice_send_attempts` and records `notice_last_send_error`. `notice_sent_at` is set only on confirmed delivery to at least one carrier recipient.
+`src/lib/eld/rodsGridGeometry.ts` becomes the single source of grid metrics for the on-screen SVG, the certified-day PDF, **and** Stage 1's `renderDutyStatusGrid`. After the refactor, regenerate the blank 8-day packet and diff it against a pre-refactor print to confirm zero visual change.
 
-**Driver-facing copy — three explicit states:**
-- not uploaded → "Notice saved on this device — will send when you have signal"
-- uploaded, not sent → "Notice received by SUPERDRIVE — delivering to carrier"
-- sent → "Notice delivered to carrier"
+### 5. Validation and certification (keyed days)
 
-Never show unqualified success while `notice_sent_at` is null.
+Visible pass/fail checklist gates Certify: full 24-hour coverage with no gaps or overlaps, totals summing to exactly 1440, city+state on every change, all required §395.8 header fields, typed legal name. RECAP inputs are plain numeric fields — never computed, never validated.
 
-**Management escalations:**
-- `notice_generated_at` older than 24h with `notice_uploaded_at` still null → in-app high priority: a driver has been out of contact with an unreported malfunction.
-- 3 failed send attempts → in-app high priority: the 8-day clock never started on the carrier side.
+Certifying captures signature + typed legal name, sets `status='certified'`, `locked=true`, generates and uploads the PDF client-side, then prompts "Save a copy to your phone."
 
-## 5. Driver dashboard & 8-day clock
+### 6. Amendments (keyed days)
 
-- Clock: "Day 3 of 8 — repair deadline Aug 4, 2026". Gold #C9A84C days 1–5, amber #E08A2E days 6–7, red #C0392B day 8, red + blocking notice day 9+.
-- Global non-dismissible red bar app-wide while any event is open.
-- Cards: malfunction summary, delivery state (three states above), open notice PDF, carrier acknowledgment status, print blank log sheets, "Report Repair Complete" (Management performs the resolve).
+"Amend this log" clones to a draft with `supersedes_day_id`, requires a written reason, writes one `rods_amendments` row per changed field server-side, and supersedes the original in the same transaction as the amendment's certification. Originals are never deleted; both versions appear in the archive. Amended PDFs print `AMENDED — original certified [timestamp]`.
 
-## 6. Escalations — hourly job, per-driver local time
+### 7. Reconstruction wizard
 
-Runs **hourly**, evaluating each driver's stored **home terminal timezone** for the 07:00–21:00 driver send window. No hardcoded Central. Management sends are not time-restricted.
+Eight reverse-chronological date cards with a **three-state chip taxonomy**: **Needed · In progress ·** one completed state whose label depends on `record_source` — "Certified" for keyed days, "On file (ELD log)" for uploads. "Already on file" is removed. Progress counting treats both completed variants as complete.
 
-| Elapsed day | Management + Dispatch | Driver |
-|---|---|---|
-| 3 | in-app + email — extension prompt | — |
-| 5, 6 | in-app only | none (banner covers it) |
-| 7 | in-app + email | in-app |
-| 8 | in-app + email, high priority | in-app + email |
-| 9, 10, 11 … | in-app + email, high priority, one per literal day until resolved or extension granted | blocking notice only |
+Per-day "I already have this day from my ELD" upload path files the document and creates an `eld_document` day. Newly keyed days set `is_reconstructed = true` and print `RECONSTRUCTED — 49 CFR 395.34(a)(2)`.
 
-**Day 3 copy:** instructs Management to file the extension request **directly with the FMCSA State Division Administrator**. No link to an in-app generator — that does not exist until Stage 4.
+### 8. PDF generation
 
-Also: `ack_overdue` if no Management/Dispatcher acknowledges within 24h of submission; a daily Management `digest` listing every open event with driver, truck, day N of 8, delivery state, and extension status.
+`src/lib/eld/renderRodsDay.ts` using `pdf-lib`, client-side, US Letter portrait, one day per page, print-scale grid from the shared geometry, all §395.8 elements, RECAP block, the 79 FR 39342 footer, RECONSTRUCTED/AMENDED annotations, short-period lines in remarks. Bytes written to `rods-logs`.
 
-### Suppression (expiring)
+### 9. Certification reminders
 
-Management's "Pause escalations" action requires a written reason and writes `escalations_suppressed_at/_by/_reason` plus `escalations_suppressed_until`, which is **required** and **capped at 7 days** from the suppression date. It stops day 9+ repeats only; the driver's blocking notice stays in place. `ack_overdue` can **never** be suppressed. Once `escalations_suppressed_until` passes, the hourly job resumes escalations automatically and notifies Management that the pause has lapsed. Re-suppressing requires a fresh written reason. The Management list displays the suppression badge, reason, and expiry prominently — a visible state, not a way to quietly hide an overdue repair.
+Never prompt for a period that has not ended.
 
-## 7. Paper readiness
+- **While reconstruction is incomplete** (any of the 8 required days is Needed or In progress): the 08:00 single-day reminder is suppressed and replaced by "Reconstruction incomplete — N of 8 days still needed."
+- **08:00 home-terminal local**, once all 8 are complete: certify the most recently completed day if uncertified.
+- **20:00 home-terminal local** (unchanged): same-day nudge to keep the log current — never mentions certifying.
 
-- Add **pdf-lib**; build `renderDutyStatusGrid` as a shared renderer taking an optional duty-status segment array — blank here, reused in Stage 2. Grid per 49 CFR 395.8(g): four labeled status lines, 24 one-hour increments, Midnight/Noon labels, total-hours column, REMARKS area, RECAP block. Pre-print static carrier data only; dates blank. Footer "Form rev. 2026.1". 8 pages, US Letter portrait.
-- Instruction sheet ("What To Do If Your ELD Fails") in the Document Hub.
-- Quarterly acknowledgment via the Document Hub read-and-acknowledge mechanism: "I confirm I have at least 8 days of blank log sheets in my truck."
+Both ride the existing hourly Stage 1 job and notification system.
 
-## 8. Navigation & Management views
+### Technical notes
 
-- Driver nav: **ELD Malfunction** with a warning-triangle icon. Pre-flight state shows Report button, Blank Log Sheets card, instruction sheet, paper-supply reminder, acknowledgment status. Active state swaps to the dashboard.
-- Management nav: **ELD Malfunctions** — list of events (driver, truck, day N of 8, status, notice delivery state, acknowledgment, suppression badge + reason + expiry, blank-log acknowledgment) with acknowledge / resolve / close / pause-escalations actions.
-- Management: **Device Data Quality** panel flagging any `eld_devices` row with a missing or malformed serial (empty, too short, placeholder text, non-conforming characters) — serials were hand-entered in Onboard Systems. Inline editable.
-- Management: carrier notification recipient editor.
+- Files: migration (tables, `certify_rods_day`, `discard_rods_amendment`, `replace_rods_document`, triggers, column comments); `rodsGridGeometry.ts`, `rodsValidation.ts`, `renderRodsDay.ts`; `useRodsDay.ts`; components `RodsModule`, `RodsDayList`, `RodsDayEditor`, `DutyStatusTimeline`, `RodsGrid`, `RodsCertifyPanel`, `RodsAmendModal`, `RodsReplaceDocumentModal`, `RodsReconstructionWizard`; entry wired into `ELDMalfunctionView` / `ELDMalfunctionDashboard` behind the open-event guard.
+- Inline hex per spec (`#000000`, `#1C1C1C`, `#FFFFFF`, `#F5F5F5`, `#C9A84C`, `#E08A2E`, `#C0392B`), 48px minimum tap targets.
 
-## Technical notes
+### Out of scope this stage
 
-- Reuses existing auth role helpers, RLS predicates, notification service, Document Hub storage/versioning/acknowledgment, ICA signature capture, in-app PDF viewer.
-- Malfunction screens use inline hardcoded hex values per spec §8.
-- New dependency: pdf-lib (jspdf stays for existing generators).
-
-## Not in this stage
-
-Digital duty-status entry, offline/PWA caching, roadside presentation mode, extension request generator, retention archive, any HOS calculation.
+Offline/IndexedDB/service worker, roadside presentation mode, management console and retention export, any server-side-only PDF path, and any hours-of-service calculation.

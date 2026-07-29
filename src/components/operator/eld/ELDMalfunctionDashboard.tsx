@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle2, FileText, Loader2, Printer, Wrench } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardList, FileText, Loader2, Printer, Wrench } from 'lucide-react';
 import {
   CLOCK_RED, MALFUNCTION_CODE_LABEL, NOTICE_DELIVERY_COPY, NOTICE_DELIVERY_TONE,
   REPAIR_WINDOW_DAYS, elapsedRepairDay, getNoticeDeliveryState, repairClockColor,
@@ -19,6 +20,9 @@ export default function ELDMalfunctionDashboard({
   onRefresh: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/owner') ? '/owner' : '/operator';
   const day = elapsedRepairDay(event.discovered_at);
   const clockColor = repairClockColor(day);
   const deliveryState = getNoticeDeliveryState(event);
@@ -119,6 +123,9 @@ export default function ELDMalfunctionDashboard({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
+        <Button onClick={() => navigate(`${basePath}/paper-logs`)}>
+          <ClipboardList className="mr-2 h-4 w-4" /> Open paper logs
+        </Button>
         <Button variant="outline" onClick={printBlankLogs} disabled={busy}>
           {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
           Print blank log sheets

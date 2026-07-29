@@ -1,5 +1,9 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
 import { CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT } from './constants';
+import {
+  GRID_W, GRID_X, MARGIN, PAGE_H, PAGE_W, ROW_H, STATUS_LINES,
+  hourLabel, hourWidth, isMajorHour, rowCenterOffset,
+} from './rodsGridGeometry';
 
 /**
  * Blank paper record-of-duty-status sheets, per 49 CFR 395.8(g).
@@ -16,15 +20,6 @@ export type DutyStatusSegment = {
 };
 
 export const FORM_REVISION = 'Form rev. 2026.1';
-
-const PAGE_W = 612;
-const PAGE_H = 792;
-const MARGIN = 36;
-const GRID_X = MARGIN + 96;
-const GRID_W = PAGE_W - MARGIN * 2 - 96 - 54; // leave a totals column
-const ROW_H = 26;
-
-const STATUS_LINES = ['1. Off duty', '2. Sleeper berth', '3. Driving', '4. On duty (not driving)'];
 
 function drawSheet(page: PDFPage, regular: PDFFont, bold: PDFFont, segments: DutyStatusSegment[]) {
   const ink = rgb(0.05, 0.05, 0.05);
@@ -65,17 +60,17 @@ function drawSheet(page: PDFPage, regular: PDFFont, bold: PDFFont, segments: Dut
   // Grid
   const gridTop = y;
   const gridBottom = gridTop - ROW_H * 4;
-  const hourW = GRID_W / 24;
+  const hourW = hourWidth();
 
   // Hour labels
   for (let h = 0; h <= 24; h += 1) {
     const x = GRID_X + hourW * h;
-    const label = h === 0 || h === 24 ? 'M' : h === 12 ? 'N' : String(h % 12 === 0 ? 12 : h % 12);
+    const label = hourLabel(h);
     page.drawText(label, { x: x - 2.5, y: gridTop + 6, size: 6, font: regular, color: muted });
     page.drawLine({
       start: { x, y: gridTop }, end: { x, y: gridBottom },
-      thickness: h % 6 === 0 ? 0.9 : 0.4,
-      color: h % 6 === 0 ? ink : muted,
+      thickness: isMajorHour(h) ? 0.9 : 0.4,
+      color: isMajorHour(h) ? ink : muted,
     });
     // quarter-hour ticks
     if (h < 24) {
@@ -101,7 +96,7 @@ function drawSheet(page: PDFPage, regular: PDFFont, bold: PDFFont, segments: Dut
 
   // Optional pre-filled duty lines (unused in Stage 1)
   for (const seg of segments) {
-    const ly = gridTop - ROW_H * (seg.line - 1) - ROW_H / 2;
+    const ly = gridTop - rowCenterOffset(seg.line);
     page.drawLine({
       start: { x: GRID_X + hourW * seg.startHour, y: ly },
       end: { x: GRID_X + hourW * seg.endHour, y: ly },

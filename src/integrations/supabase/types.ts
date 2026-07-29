@@ -4636,6 +4636,258 @@ export type Database = {
         }
         Relationships: []
       }
+      rods_amendments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          field_path: string
+          id: string
+          log_date: string
+          new_value: string | null
+          old_value: string | null
+          operator_id: string
+          original_day_id: string | null
+          reason: string
+          rods_day_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          field_path: string
+          id?: string
+          log_date: string
+          new_value?: string | null
+          old_value?: string | null
+          operator_id: string
+          original_day_id?: string | null
+          reason: string
+          rods_day_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          field_path?: string
+          id?: string
+          log_date?: string
+          new_value?: string | null
+          old_value?: string | null
+          operator_id?: string
+          original_day_id?: string | null
+          reason?: string
+          rods_day_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rods_amendments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rods_amendments_original_day_id_fkey"
+            columns: ["original_day_id"]
+            isOneToOne: false
+            referencedRelation: "rods_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rods_amendments_rods_day_id_fkey"
+            columns: ["rods_day_id"]
+            isOneToOne: false
+            referencedRelation: "rods_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rods_days: {
+        Row: {
+          amendment_reason: string | null
+          carrier_mc: string | null
+          carrier_name: string | null
+          carrier_usdot: string | null
+          certification_device_info: string | null
+          certification_legal_name: string | null
+          certification_signature_path: string | null
+          certified_at: string | null
+          certified_by: string | null
+          co_driver_name: string | null
+          created_at: string
+          from_location: string | null
+          home_terminal_address: string | null
+          id: string
+          is_reconstructed: boolean
+          locked: boolean
+          log_date: string
+          operator_id: string
+          pdf_path: string | null
+          recap_available_tomorrow: string | null
+          recap_last_7_days: string | null
+          recap_last_8_days: string | null
+          recap_on_duty_today: string | null
+          record_source: string
+          shipping_document_no: string | null
+          source_document_path: string | null
+          status: string
+          supersedes_day_id: string | null
+          to_location: string | null
+          total_driving_minutes: number
+          total_mileage_today: number | null
+          total_miles_driving_today: number | null
+          total_off_duty_minutes: number
+          total_on_duty_minutes: number
+          total_sleeper_minutes: number
+          trailer_numbers: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          amendment_reason?: string | null
+          carrier_mc?: string | null
+          carrier_name?: string | null
+          carrier_usdot?: string | null
+          certification_device_info?: string | null
+          certification_legal_name?: string | null
+          certification_signature_path?: string | null
+          certified_at?: string | null
+          certified_by?: string | null
+          co_driver_name?: string | null
+          created_at?: string
+          from_location?: string | null
+          home_terminal_address?: string | null
+          id?: string
+          is_reconstructed?: boolean
+          locked?: boolean
+          log_date: string
+          operator_id: string
+          pdf_path?: string | null
+          recap_available_tomorrow?: string | null
+          recap_last_7_days?: string | null
+          recap_last_8_days?: string | null
+          recap_on_duty_today?: string | null
+          record_source?: string
+          shipping_document_no?: string | null
+          source_document_path?: string | null
+          status?: string
+          supersedes_day_id?: string | null
+          to_location?: string | null
+          total_driving_minutes?: number
+          total_mileage_today?: number | null
+          total_miles_driving_today?: number | null
+          total_off_duty_minutes?: number
+          total_on_duty_minutes?: number
+          total_sleeper_minutes?: number
+          trailer_numbers?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amendment_reason?: string | null
+          carrier_mc?: string | null
+          carrier_name?: string | null
+          carrier_usdot?: string | null
+          certification_device_info?: string | null
+          certification_legal_name?: string | null
+          certification_signature_path?: string | null
+          certified_at?: string | null
+          certified_by?: string | null
+          co_driver_name?: string | null
+          created_at?: string
+          from_location?: string | null
+          home_terminal_address?: string | null
+          id?: string
+          is_reconstructed?: boolean
+          locked?: boolean
+          log_date?: string
+          operator_id?: string
+          pdf_path?: string | null
+          recap_available_tomorrow?: string | null
+          recap_last_7_days?: string | null
+          recap_last_8_days?: string | null
+          recap_on_duty_today?: string | null
+          record_source?: string
+          shipping_document_no?: string | null
+          source_document_path?: string | null
+          status?: string
+          supersedes_day_id?: string | null
+          to_location?: string | null
+          total_driving_minutes?: number
+          total_mileage_today?: number | null
+          total_miles_driving_today?: number | null
+          total_off_duty_minutes?: number
+          total_on_duty_minutes?: number
+          total_sleeper_minutes?: number
+          trailer_numbers?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rods_days_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rods_days_supersedes_day_id_fkey"
+            columns: ["supersedes_day_id"]
+            isOneToOne: false
+            referencedRelation: "rods_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rods_events: {
+        Row: {
+          city: string
+          created_at: string
+          duty_status: number
+          end_minute: number
+          id: string
+          is_short_period: boolean
+          remarks: string | null
+          rods_day_id: string
+          start_minute: number
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          duty_status: number
+          end_minute: number
+          id?: string
+          is_short_period?: boolean
+          remarks?: string | null
+          rods_day_id: string
+          start_minute: number
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          duty_status?: number
+          end_minute?: number
+          id?: string
+          is_short_period?: boolean
+          remarks?: string | null
+          rods_day_id?: string
+          start_minute?: number
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rods_events_rods_day_id_fkey"
+            columns: ["rods_day_id"]
+            isOneToOne: false
+            referencedRelation: "rods_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_help_requests: {
         Row: {
           created_at: string
@@ -5450,6 +5702,61 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      certify_rods_day: {
+        Args: {
+          _day_id: string
+          _device_info?: string
+          _legal_name: string
+          _pdf_path?: string
+          _signature_path: string
+        }
+        Returns: {
+          amendment_reason: string | null
+          carrier_mc: string | null
+          carrier_name: string | null
+          carrier_usdot: string | null
+          certification_device_info: string | null
+          certification_legal_name: string | null
+          certification_signature_path: string | null
+          certified_at: string | null
+          certified_by: string | null
+          co_driver_name: string | null
+          created_at: string
+          from_location: string | null
+          home_terminal_address: string | null
+          id: string
+          is_reconstructed: boolean
+          locked: boolean
+          log_date: string
+          operator_id: string
+          pdf_path: string | null
+          recap_available_tomorrow: string | null
+          recap_last_7_days: string | null
+          recap_last_8_days: string | null
+          recap_on_duty_today: string | null
+          record_source: string
+          shipping_document_no: string | null
+          source_document_path: string | null
+          status: string
+          supersedes_day_id: string | null
+          to_location: string | null
+          total_driving_minutes: number
+          total_mileage_today: number | null
+          total_miles_driving_today: number | null
+          total_off_duty_minutes: number
+          total_on_duty_minutes: number
+          total_sleeper_minutes: number
+          trailer_numbers: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rods_days"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       check_application_email_taken: {
         Args: { p_email: string }
         Returns: boolean
@@ -5469,6 +5776,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      discard_rods_amendment: { Args: { _day_id: string }; Returns: undefined }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -5723,6 +6031,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       is_thread_participant: {
         Args: { _thread: string; _user: string }
@@ -5850,6 +6159,10 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_rods_amendments: {
+        Args: { _changes: Json; _day_id: string; _reason: string }
+        Returns: number
+      }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }
         Returns: {
@@ -5862,6 +6175,55 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      replace_rods_document: {
+        Args: { _day_id: string; _new_path: string; _reason: string }
+        Returns: {
+          amendment_reason: string | null
+          carrier_mc: string | null
+          carrier_name: string | null
+          carrier_usdot: string | null
+          certification_device_info: string | null
+          certification_legal_name: string | null
+          certification_signature_path: string | null
+          certified_at: string | null
+          certified_by: string | null
+          co_driver_name: string | null
+          created_at: string
+          from_location: string | null
+          home_terminal_address: string | null
+          id: string
+          is_reconstructed: boolean
+          locked: boolean
+          log_date: string
+          operator_id: string
+          pdf_path: string | null
+          recap_available_tomorrow: string | null
+          recap_last_7_days: string | null
+          recap_last_8_days: string | null
+          recap_on_duty_today: string | null
+          record_source: string
+          shipping_document_no: string | null
+          source_document_path: string | null
+          status: string
+          supersedes_day_id: string | null
+          to_location: string | null
+          total_driving_minutes: number
+          total_mileage_today: number | null
+          total_miles_driving_today: number | null
+          total_off_duty_minutes: number
+          total_on_duty_minutes: number
+          total_sleeper_minutes: number
+          trailer_numbers: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rods_days"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       resolve_short_link: { Args: { _code: string }; Returns: string }
       restore_applicant_pei: {
