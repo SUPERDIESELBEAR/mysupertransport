@@ -4,10 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { LifeBuoy, Send, BookOpen, Loader2, ArrowRight, X, ExternalLink, Plus, Trash2, MessageSquare, Pin, PinOff, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { LifeBuoy, Send, BookOpen, Loader2, ArrowRight, X, ExternalLink, Plus, Trash2, MessageSquare, Pin, PinOff, PanelLeftClose, PanelLeft, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { searchHelp, getHelpEntryById, getSuggestionsForRole, type HelpEntry } from '@/lib/staffHelp';
+import { buildKnowledgeDocs } from '@/lib/staffHelp/buildKnowledgeDocs';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -45,6 +46,7 @@ export default function StaffHelpPortal() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -453,6 +455,45 @@ export default function StaffHelpPortal() {
               Ask any question about SUPERDRIVE. Chats are saved to your account — click a past chat on the left to continue it.
             </p>
           </div>
+          {(activeRole === 'owner' || activeRole === 'management') && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={rebuilding}
+              onClick={async () => {
+                if (rebuilding) return;
+                setRebuilding(true);
+                const t = toast.loading('Rebuilding knowledge base…');
+                try {
+                  const { docs, purgeSources } = await buildKnowledgeDocs();
+                  if (docs.length === 0) throw new Error('No content found to embed.');
+                  // Ship in slices to keep each request small.
+                  const SLICE = 40;
+                  let total = 0;
+                  for (let i = 0; i < docs.length; i += SLICE) {
+                    const slice = docs.slice(i, i + SLICE);
+                    const { data, error } = await supabase.functions.invoke('staff-help-ingest', {
+                      body: { docs: slice, purgeSources: i === 0 ? purgeSources : [] },
+                    });
+                    if (error) throw error;
+                    if ((data as any)?.error) throw new Error((data as any).error);
+                    total += ((data as any)?.inserted as number) ?? 0;
+                  }
+                  toast.success(`Indexed ${total} chunks from ${docs.length} documents.`, { id: t });
+                } catch (err: any) {
+                  console.error('rebuild kb failed', err);
+                  toast.error(err?.message ?? 'Rebuild failed.', { id: t });
+                } finally {
+                  setRebuilding(false);
+                }
+              }}
+              className="shrink-0 self-start"
+            >
+              {rebuilding ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Database className="h-4 w-4 mr-1.5" />}
+              {rebuilding ? 'Indexing…' : 'Rebuild KB'}
+            </Button>
+          )}
         </div>
 
       {/* Transcript */}

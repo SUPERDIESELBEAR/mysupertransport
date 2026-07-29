@@ -6,6 +6,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const EMBED_URL = 'https://ai.gateway.lovable.dev/v1/embeddings';
+const EMBED_MODEL = 'openai/text-embedding-3-small';
 const MODEL = 'google/gemini-3.6-flash';
 
 interface Msg { role: 'user' | 'assistant'; content: string }
@@ -114,6 +116,36 @@ Deno.serve(async (req) => {
         .map(h => ({ id: h.id, question: h.question, answer: h.answer, category: h.category }));
     }
 
+    // Vector retrieval from staff_help_knowledge (pgvector).
+    type KBHit = { id: string; source: string; source_id: string; title: string; route: string | null; section: string; content: string; similarity: number };
+    let kbHits: KBHit[] = [];
+    if (query.trim()) {
+      try {
+        const embRes = await fetch(EMBED_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: EMBED_MODEL, input: query.trim() }),
+        });
+        if (embRes.ok) {
+          const embData = await embRes.json();
+          const vec = embData?.data?.[0]?.embedding as number[] | undefined;
+          if (vec) {
+            const { data: matches, error: matchErr } = await admin.rpc('match_staff_help_knowledge', {
+              query_embedding: vec as unknown as string,
+              match_count: 8,
+              min_similarity: 0.3,
+            });
+            if (matchErr) console.warn('match_staff_help_knowledge', matchErr);
+            kbHits = ((matches as any[]) ?? []) as KBHit[];
+          }
+        } else {
+          console.warn('embed query failed', embRes.status, await embRes.text());
+        }
+      } catch (e) {
+        console.warn('embed error', e);
+      }
+    }
+
     const faqContext = sources.length
       ? sources.map((s, i) =>
           `[FAQ ${i + 1}] (id: ${s.id}) ${s.question}\n${s.answer}`,
@@ -125,6 +157,12 @@ Deno.serve(async (req) => {
           `[INDEX ${i + 1}] (id: ${e.id}) ${e.title} — ${e.breadcrumb}\nRoute: ${e.route}\nPage: ${e.page}\nSurface: ${e.surface}\n${e.steps ? 'Steps:\n' + e.steps.map((s, j) => `${j + 1}. ${s}`).join('\n') : 'No steps provided.'}`,
         ).join('\n\n---\n\n')
       : '(no help index entries matched this query)';
+
+    const kbContext = kbHits.length
+      ? kbHits.map((h, i) =>
+          `[KB ${i + 1}] (source: ${h.source}/${h.source_id}${h.route ? `, route: ${h.route}` : ''}, sim: ${h.similarity.toFixed(2)}) ${h.title}\n${h.content}`,
+        ).join('\n\n---\n\n')
+      : '(no knowledge base chunks matched this query)';
 
     const system = `You are the SUPERDRIVE Staff Help assistant. You answer staff questions about how to use the SUPERDRIVE management dashboard and driver-facing app.
 
@@ -156,6 +194,8 @@ ${indexContext}
 ### Relevant staff FAQ articles
 ${faqContext}`;
 
+    const augmentedSystem = system + `\n\n### Relevant knowledge base chunks (semantic search)\n${kbContext}`;
+
     const gwRes = await fetch(AI_GATEWAY, {
       method: 'POST',
       headers: {
@@ -164,7 +204,7 @@ ${faqContext}`;
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [{ role: 'system', content: system }, ...messages],
+        messages: [{ role: 'system', content: augmentedSystem }, ...messages],
       }),
     });
 
@@ -200,7 +240,13 @@ ${faqContext}`;
       category: e.breadcrumb,
       route: e.route,
     }));
-    const surfaced = [...indexSources, ...faqSources];
+    const kbSources = kbHits.slice(0, 5).map(h => ({
+      id: `kb:${h.id}`,
+      question: h.title,
+      category: `${h.source} · ${(h.similarity * 100).toFixed(0)}% match`,
+      route: h.route ?? undefined,
+    }));
+    const surfaced = [...indexSources, ...kbSources, ...faqSources];
 
     // Log the query for analytics (best-effort, do not fail the request).
     try {
@@ -208,9 +254,11 @@ ${faqContext}`;
         ? 'faq'
         : contextEntries.length > 0
           ? 'index'
-          : /don't have documentation/i.test(answer)
-            ? 'none'
-            : 'overview';
+          : kbHits.length > 0
+            ? 'kb'
+            : /don't have documentation/i.test(answer)
+              ? 'none'
+              : 'overview';
       await admin.from('staff_help_query_log').insert({
         user_id: userId,
         thread_id: body?.threadId ?? null,
