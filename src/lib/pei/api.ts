@@ -133,6 +133,16 @@ export async function fetchPEIRequestsByApplication(
   return (data ?? []) as PEIRequest[];
 }
 
+export async function fetchPEIRequestById(id: string): Promise<PEIRequest | null> {
+  const { data, error } = await supabase
+    .from('pei_requests')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PEIRequest | null) ?? null;
+}
+
 export async function fetchPEIResponse(requestId: string): Promise<PEIResponse | null> {
   const { data, error } = await supabase
     .from('pei_responses')
