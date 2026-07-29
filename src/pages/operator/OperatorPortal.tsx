@@ -1924,6 +1924,21 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── ICA SIGN VIEW ── */}
         {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />}
 
+        {/* ── ELD MALFUNCTION VIEW ── */}
+        {view === 'eld-malfunction' && (
+          operatorId ? (
+            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
+              <ELDMalfunctionView
+                operatorId={operatorId}
+                driverName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || displayName}
+                unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
+              />
+            </Suspense>
+          ) : (
+            <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
+          )
+        )}
+
         {/* ── ICA AMENDMENT SIGN VIEW ── */}
         {view === 'ica-amendment' && (() => {
           const amendmentId = new URLSearchParams(location.search).get('id') ?? '';
