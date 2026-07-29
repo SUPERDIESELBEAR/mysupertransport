@@ -94,8 +94,13 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
         submitted_by_staff: true,
       } as TablesInsert<'applications'>;
 
-      const { error } = await supabase.from('applications').insert(payload);
+      const { data: inserted, error } = await supabase
+        .from('applications')
+        .insert(payload)
+        .select('id')
+        .single();
       if (error) throw error;
+      const newApplicationId = inserted?.id ?? null;
 
       // Audit log
       const { data: { session: sess } } = await supabase.auth.getSession();
@@ -131,6 +136,7 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
           type: 'new_application',
           applicant_name: `${formData.first_name} ${formData.last_name}`.trim() || formData.email,
           applicant_email: formData.email,
+          application_id: newApplicationId,
         }),
       }).catch(() => {});
 
