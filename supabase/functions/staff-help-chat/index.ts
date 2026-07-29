@@ -240,7 +240,13 @@ ${faqContext}`;
       category: e.breadcrumb,
       route: e.route,
     }));
-    const surfaced = [...indexSources, ...faqSources];
+    const kbSources = kbHits.slice(0, 5).map(h => ({
+      id: `kb:${h.id}`,
+      question: h.title,
+      category: `${h.source} · ${(h.similarity * 100).toFixed(0)}% match`,
+      route: h.route ?? undefined,
+    }));
+    const surfaced = [...indexSources, ...kbSources, ...faqSources];
 
     // Log the query for analytics (best-effort, do not fail the request).
     try {
