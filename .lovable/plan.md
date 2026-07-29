@@ -1,40 +1,38 @@
-## Problem
+## What the 3-dot menu is for
 
-When a driver opens an image document (e.g. CDL Front) from **My Documents** or **Company Documents** in the binder, the image opens visibly zoomed-in instead of fitting the screen — the driver has to pan around and pinch out to see the whole document.
+The kebab (⋮) button in the top-right of the inspection binder overlay is an **Actions menu** (a Radix `DropdownMenu` in `src/components/inspection/BinderFlipbook.tsx`, around line 415). It's intended to expose sharing and bulk-selection tools that don't fit on the top bar.
 
-## Root cause
+When it works, tapping it opens a dropdown with:
 
-In `src/components/inspection/DocRow.tsx` (`FilePreviewModal`, image branch around lines 674–686), the image container is:
+**Default mode**
+- Email this page (emails a share link for the current document)
+- Text this page (opens SMS with the share link)
+- Show QR code (renders a QR of the current page's share link)
+- — divider —
+- Email all docs (emails links for every document in the binder)
+- Select multiple (enters multi-select mode so the driver can pick specific pages)
+- — divider —
+- Switch to List View (same as the "List View" chip on the left)
 
-```
-<div className="flex-1 relative overflow-auto">          {/* parent */}
-  <div className="w-full h-full flex items-center justify-center overflow-auto">
-    <img className="max-w-full max-h-full object-contain" ... />
-  </div>
-</div>
-```
+**Select-multiple mode** (after tapping "Select multiple")
+- Email selected (N)
+- Text selected (N)
+- Cancel selection
 
-Two issues cause the image to render at natural pixel size on iOS Safari:
+Share actions require a `shareToken` on the document; if a page has no token yet, its item is disabled but the menu still opens.
 
-1. The inner wrapper relies on `h-full` inside a `flex-1` parent. When that percentage height doesn't resolve (a common Safari quirk when the parent is a flex item), `max-h-full` becomes `none` and the `<img>` renders at its intrinsic size — often 3000+px tall for a phone photo — inside an `overflow-auto` container. The result looks "zoomed in."
-2. `overflow-auto` on the inner wrapper lets the image push its own container to grow, defeating `max-w-full` / `max-h-full` even when height does resolve.
+## Why it appears broken
 
-## Fix
+The trigger button lives inside a `fixed inset-0 z-[100]` full-screen overlay. Radix's `DropdownMenuContent` renders in a portal at the document body, which by default sits below that overlay's stacking context, so the popup opens but is painted underneath the binder — looking like "nothing happens." (This is the same class of bug we've hit before with modals over fixed overlays.) There may also be a pointer-events / focus-trap interaction with the overlay swallowing the outside click.
 
-Change only the image branch of `FilePreviewModal` so the wrapper is size-independent of flex/percentage math:
+## Plan
 
-- Replace the `w-full h-full … overflow-auto` inner div with `absolute inset-0 flex items-center justify-center overflow-hidden`. `absolute inset-0` anchors to the already-`relative` parent regardless of flex height resolution.
-- Keep `<img className="max-w-full max-h-full object-contain">` so the image always fits within the viewport on first render.
-- Keep the existing `transform: scale(...)` for desktop zoom controls. Pinch-to-zoom on mobile continues to work natively.
+1. Confirm the root cause by reading the full `BinderFlipbook.tsx` (trigger, portal usage, overlay z-index) and the shared `DropdownMenuContent` wrapper in `src/components/ui/dropdown-menu.tsx` to see its default `z-` class.
+2. Fix the stacking so the menu is visible above the `z-[100]` binder overlay — either by passing a higher `z-` class to `DropdownMenuContent` (e.g. `z-[110]`) or by rendering it non-portalled inside the overlay. Prefer the z-index bump to avoid layout regressions elsewhere.
+3. Verify each menu action still wires to its handler (`shareCurrentEmail`, `shareCurrentText`, `setShowQR`, `shareAllEmail`, `setSelectMode`, `onClose`, and the selected-mode equivalents) — no logic changes expected, just make sure nothing regressed after the fix.
+4. Sanity-check on the mobile viewport used in the screenshot (iOS Safari, ~390px) that the menu opens on tap, closes on outside tap, and that "Show QR code" and "Select multiple" both work end-to-end.
 
-No changes to the PDF branch, the header/toolbar, or any callers. No new props.
+## Out of scope
 
-### File touched
-
-- `src/components/inspection/DocRow.tsx` — image container in `FilePreviewModal` only (~3 lines).
-
-## Verification
-
-- Open the driver app on a phone-sized preview, navigate to **My Documents** → **CDL (Front)** → **Open**. Image should render fully visible on load, letterboxed to fit.
-- Same for **Company Documents** images.
-- Pinch-zoom still enlarges as expected; desktop zoom buttons still work.
+- No changes to what the menu does or which items appear.
+- No redesign of the binder top bar.
