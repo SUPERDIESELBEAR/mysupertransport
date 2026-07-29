@@ -108,9 +108,9 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
     return d;
   }, [discoveredDate]);
 
-  const step1Valid = !!discoveredAt && !!location.trim()
+  const step1Valid = !!discoveredAt
+    && !!location.trim()
     && backdatedHours <= MAX_BACKDATE_HOURS
-    && (backdatedHours <= 1 || backdateReason.trim().length > 0 || backdatedHours <= 24 ? true : false)
     && (backdatedHours <= 24 || backdateReason.trim().length > 0);
   const step2Valid = !!modelId;
   const step3Valid = !!code && description.trim().length > 0 && hinders !== '';
