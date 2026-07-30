@@ -13,7 +13,6 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
-import { renderRodsDay } from '@/lib/eld/renderRodsDay';
 import {
   RODS_BUCKET, formatLogDate, showsDerivedTotals,
   type RodsDay, type RodsEvent,
