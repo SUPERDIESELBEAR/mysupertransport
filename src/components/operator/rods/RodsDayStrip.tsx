@@ -58,7 +58,7 @@ export default function RodsDayStrip({
                     onClick={() => onDismissDivergence(d)}
                     className="mt-1 text-[11px] font-semibold text-primary underline"
                   >
-                    Management contacted me — dismiss
+                    Clear on this device
                   </button>
                 )}
               </div>

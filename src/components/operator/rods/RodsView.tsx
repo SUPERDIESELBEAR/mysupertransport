@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AlertTriangle, ClipboardList, Printer } from 'lucide-react';
 import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@/lib/eld/carrierIdentity';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
@@ -36,28 +46,32 @@ export default function RodsView({
   const [prevSegments, setPrevSegments] = useState<DraftSegment[] | null>(null);
   const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
   const [diverged, setDiverged] = useState<Set<string>>(new Set());
+  const [pendingDismissDate, setPendingDismissDate] = useState<string | null>(null);
 
   useEffect(() => {
     void openDivergenceDates().then(setDiverged);
   }, [loading]);
 
   /**
-   * Interim resolution path until the Management console lands: the driver may
-   * dismiss only after Management has made contact, and the dismissal is
-   * recorded as driver-sourced so it is never mistaken for a resolution.
+   * Interim resolution path until the Management console lands: a driver may
+   * clear the warning on this device only. The dismissal is recorded locally
+   * and does not resolve the server-side mismatch.
    */
-  async function dismissDivergence(logDate: string) {
+  async function confirmDismissDivergence() {
+    if (!pendingDismissDate) return;
+    const logDate = pendingDismissDate;
     await acknowledgeDivergence(logDate, {
       source: 'driver',
       actor: driverName,
-      reason: 'Driver dismissed after Management contact.',
+      reason: 'Driver cleared the divergence warning on this device only.',
     });
     void raiseSyncAlert({
       kind: 'certified_day_divergence',
       operator_id: operatorId,
       log_date: logDate,
-      detail: `Driver ${driverName} dismissed the divergence for ${logDate} after Management contact.`,
+      detail: `Driver ${driverName} cleared the divergence warning for ${logDate} on this device only.`,
     });
+    setPendingDismissDate(null);
     setDiverged(await openDivergenceDates());
   }
 
@@ -172,7 +186,7 @@ export default function RodsView({
         byDate={byDate}
         onSelect={setSelected}
         divergedDates={diverged}
-        onDismissDivergence={(d) => { void dismissDivergence(d); }}
+        onDismissDivergence={(d) => setPendingDismissDate(d)}
       />
 
       <Button variant="outline" onClick={printBlankLogs}>
@@ -183,6 +197,22 @@ export default function RodsView({
         SUPERDRIVE keeps these records the way a paper log book does. It does not track your location, does not
         calculate hours of service, and does not check any limit for you.
       </p>
+
+      <AlertDialog open={!!pendingDismissDate} onOpenChange={(open) => { if (!open) setPendingDismissDate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear this warning?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This only clears the warning on this device. Other devices will still show it, and this does not resolve
+              the mismatch — the office copy of this log still differs from the one on this phone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDismissDate(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void confirmDismissDivergence(); }}>Clear on this device</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
