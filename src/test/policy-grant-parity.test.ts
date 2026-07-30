@@ -125,7 +125,11 @@ function hasGrant(
   return set.has(cmd);
 }
 
-/** Tables created before the cutoff already carry their grants in the DB. */
+/**
+ * Tables created before the cutoff already carry their grants in the DB.
+ * Only `public` tables matter: `app_private` is deliberately grant-free and
+ * reachable only from SECURITY DEFINER functions and service_role.
+ */
 function tablesCreatedInScope(files: string[]): Set<string> {
   const created = new Set<string>();
   for (const file of files) {
@@ -134,7 +138,13 @@ function tablesCreatedInScope(files: string[]): Set<string> {
     );
     const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_."]+)/gi;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(sql)) !== null) created.add(bare(m[1]));
+    while ((m = re.exec(sql)) !== null) {
+      const name = bare(m[1]);
+      if (name.includes(".")) continue; // non-public schema
+      if (name.startsWith("_zz_")) continue; // throwaway audit probe
+      if (new RegExp(`DROP\\s+TABLE[^;]*${name}`, "i").test(sql)) continue;
+      created.add(name);
+    }
   }
   return created;
 }
