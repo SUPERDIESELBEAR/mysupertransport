@@ -58,6 +58,9 @@ export default function UploadEldLogModal({
           _day_id: existing.id,
           _new_path: path,
           _reason: reason.trim(),
+          // Idempotency token: a replayed replacement returns the existing
+          // replacement instead of filing a second one.
+          p_certification_token: crypto.randomUUID(),
         });
         if (error) throw new Error(error.message);
         toast.success('Document replaced. The original stays on file.');
