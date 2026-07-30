@@ -52,7 +52,7 @@ const { compareKeyedDay, acknowledgeDivergence, divergenceHeldDates } = await im
 
 const DATE = '2026-07-30';
 
-function day(id: string, over: Partial<RodsDay> = {}): RodsDay {
+function day(id: string): RodsDay {
   return {
     id, operator_id: 'op-1', log_date: DATE, record_source: 'keyed', status: 'certified',
     locked: true, is_reconstructed: false, supersedes_day_id: null, amendment_reason: null,
@@ -61,7 +61,7 @@ function day(id: string, over: Partial<RodsDay> = {}): RodsDay {
     updated_at: '2026-07-30T20:00:00.000Z', created_at: '2026-07-30T06:00:00.000Z',
     source_document_path: null, pdf_path: null, certification_legal_name: 'A Driver',
     certification_signature_path: null,
-  } as unknown as RodsDay as RodsDay & typeof over extends never ? never : RodsDay;
+  } as unknown as RodsDay;
 }
 
 function withOverrides(id: string, over: Partial<RodsDay>): RodsDay {
