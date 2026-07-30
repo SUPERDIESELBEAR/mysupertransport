@@ -24,6 +24,7 @@ import {
 } from './db';
 import { probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
+import { ensureDayCached } from './ensureDayCached';
 import { windowDatesInTimezone } from './roadsideManifest';
 
 export type HydrationPhase = 'idle' | 'running' | 'ready' | 'incomplete' | 'unavailable';
@@ -180,6 +181,9 @@ async function cacheSignature(day: RodsDay): Promise<string | null> {
 async function cacheKeyedDay(day: RodsDay, driverName: string) {
   const existing = await roadsideDb.rods_pdfs.get(day.log_date);
   if (existing && existing.cached_at > day.updated_at) return;
+  // Never overwrite a locally-certified day that has not synced yet: those
+  // bytes are the only copy, and the server row we just read is older.
+  if (existing && !existing.uploaded) return;
 
   const { data: events } = await supabase
     .from('rods_events')
@@ -189,33 +193,14 @@ async function cacheKeyedDay(day: RodsDay, driverName: string) {
 
   const rows = (events ?? []) as unknown as RodsEvent[];
   const signatureDataUrl = await cacheSignature(day).catch(() => null);
-  const cachedAt = new Date().toISOString();
-
-  // Both structured stores commit together. A kill between them would leave a
-  // day with header data and no segments, which renders as an empty grid
-  // instead of falling back to the PDF embed.
-  await roadsideDb.transaction('rw', roadsideDb.rods_days_cache, roadsideDb.rods_events_cache, async () => {
-    await roadsideDb.rods_days_cache.put({
-      log_date: day.log_date, operator_id: day.operator_id, day, cached_at: cachedAt,
-    });
-    await roadsideDb.rods_events_cache.put({
-      rods_day_id: day.id, log_date: day.log_date, events: rows, cached_at: cachedAt,
-    });
-  });
-
-  const blob = await renderRodsDay({
+  // Single writer — same renderer, same rows, same bytes the officer sees.
+  await ensureDayCached({
     day,
     events: rows,
     driverName,
     signatureDataUrl,
-  });
-  await roadsideDb.rods_pdfs.put({
-    log_date: day.log_date,
-    operator_id: day.operator_id,
-    bytes: await blob.arrayBuffer(),
-    mime: 'application/pdf',
+    signatureOrigin: 'downloaded_cache',
     uploaded: true,
-    cached_at: cachedAt,
   });
 }
 
