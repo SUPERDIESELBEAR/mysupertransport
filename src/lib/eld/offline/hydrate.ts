@@ -378,6 +378,25 @@ async function run(operatorId: string, driverName: string) {
     const certified = (rawDays ?? []) as unknown as RodsDay[];
     const byDate = new Map(certified.map((d) => [d.log_date, d]));
 
+    // Precedence case 2: this device holds a certified day it believes synced,
+    // and the server has NO certified row for that date at all. The
+    // certification was never applied or was rejected — that is the rejection
+    // path, not a cache divergence. Nothing local is touched.
+    for (const cached of await roadsideDb.rods_days_cache.toArray()) {
+      if (cached.operator_id !== operatorId) continue;
+      if (!dates.includes(cached.log_date)) continue;
+      if (cached.day.status !== 'certified') continue;
+      if (byDate.has(cached.log_date)) continue;
+      const pdf = await roadsideDb.rods_pdfs.get(cached.log_date);
+      if (!pdf?.uploaded) continue; // still queued — case 1, leave it alone
+      await raiseSyncAlert({
+        kind: 'certification_rejected',
+        operator_id: operatorId,
+        log_date: cached.log_date,
+        detail: `Device holds a synced certified log for ${cached.log_date} but the office has no certified record for that date.`,
+      });
+    }
+
     const docDays = certified.filter((d) => d.record_source === 'eld_document' && d.source_document_path);
     emit({ documentsTotal: docDays.length, totalDays: dates.length });
 
@@ -405,13 +424,14 @@ async function run(operatorId: string, driverName: string) {
 
     const pdfKeys = new Set((await roadsideDb.rods_pdfs.toArray()).map((p) => p.log_date));
     const docs = new Map((await roadsideDb.rods_documents.toArray()).map((d) => [d.log_date, d]));
+    const diverged = await openDivergenceDates();
 
     const manifestDays: ManifestDay[] = dates.map((log_date) => {
       const day = byDate.get(log_date);
       if (!day) {
         return {
           log_date, kind: 'keyed', label: 'Not certified', cached: false,
-          renderable: false, filename: null, showsTotals: false,
+          renderable: false, filename: null, showsTotals: false, diverged: false,
         };
       }
       if (day.record_source === 'eld_document') {
@@ -426,6 +446,7 @@ async function run(operatorId: string, driverName: string) {
           renderable: !!doc?.renderable,
           filename: doc?.filename ?? null,
           showsTotals: false,
+          diverged: diverged.has(log_date),
         };
       }
       return {
@@ -436,6 +457,7 @@ async function run(operatorId: string, driverName: string) {
         renderable: pdfKeys.has(log_date),
         filename: null,
         showsTotals: showsDerivedTotals(day),
+        diverged: diverged.has(log_date),
       };
     });
 
