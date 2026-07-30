@@ -71,6 +71,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
+    "dexie": "^4.0.11",
     "dompurify": "^3.4.11",
     "embla-carousel-react": "^8.6.0",
     "html-to-image": "^1.11.13",
@@ -122,6 +123,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
+    "vite-plugin-pwa": "^0.21.1",
     "vitest": "^3.2.4"
   }
 }
