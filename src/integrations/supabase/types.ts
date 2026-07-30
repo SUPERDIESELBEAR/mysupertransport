@@ -5202,6 +5202,7 @@ export type Database = {
       share_token_access_log: {
         Row: {
           accessed_at: string
+          hash_version: string | null
           id: string
           ip_hash: string | null
           outcome: string
@@ -5212,6 +5213,7 @@ export type Database = {
         }
         Insert: {
           accessed_at?: string
+          hash_version?: string | null
           id?: string
           ip_hash?: string | null
           outcome: string
@@ -5222,6 +5224,7 @@ export type Database = {
         }
         Update: {
           accessed_at?: string
+          hash_version?: string | null
           id?: string
           ip_hash?: string | null
           outcome?: string
