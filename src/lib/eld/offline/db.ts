@@ -9,7 +9,16 @@
 import Dexie, { type Table } from 'dexie';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
-/** Cached identity for the roadside header. Written on authenticated load. */
+/**
+ * Cached identity for the roadside header, and the ONLY carrier source the
+ * record-creating paths are allowed to read. Written on authenticated load.
+ *
+ * The seven carrier_* fields mirror `carrier_profile` in full. They are written
+ * as a unit: a partial or failed carrier fetch must leave a previously good
+ * cache alone rather than half-overwrite it (see writeLocalMeta). Absent
+ * `carrier_cached_at`, treat the carrier identity as unknown and block record
+ * creation instead of substituting a bootstrap constant.
+ */
 export interface LocalMeta {
   key: 'identity';
   operator_id: string;
@@ -19,6 +28,13 @@ export interface LocalMeta {
   carrier_name: string;
   carrier_usdot: string;
   carrier_mc: string;
+  carrier_main_office_address: string;
+  carrier_home_terminal_address: string;
+  carrier_home_terminal_timezone: string;
+  carrier_fmcsa_division_state: string;
+  /** Set only after a complete carrier_profile fetch. Absent = unknown carrier. */
+  carrier_cached_at: string | null;
+  /** The operator's own terminal, which may differ from the carrier default. */
   home_terminal_address: string | null;
   home_terminal_timezone: string;
   updated_at: string;
@@ -172,6 +188,13 @@ class RoadsideDb extends Dexie {
     });
     // v2 — signature origin, and a log_date index on the events cache so it can
     // be pruned by day alongside rods_days_cache.
+    //
+    // Dexie upgrade invariant: every version here is ADDITIVE. Never drop a
+    // store, never delete rows, and never call clear() in an upgrade. These
+    // stores hold the only offline copy of signed federal records, and a
+    // driver who upgrades roadside with no connectivity has no way to
+    // re-hydrate. Schema drift is handled by marking the manifest stale, not
+    // by discarding bytes.
     this.version(2).stores({
       signature_images: 'key, uploaded, origin',
       rods_events_cache: 'rods_day_id, log_date',

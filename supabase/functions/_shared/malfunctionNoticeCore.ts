@@ -31,14 +31,19 @@ export interface MalfunctionNoticeData {
   repairDeadlineDisplay: string;
   submittedAtDisplay: string;
   signatureDataUrl?: string | null;
+  /**
+   * Carrier identity frozen on the event row at filing time. Required: the
+   * notice is a federal record and must show the identity in effect when it
+   * was filed, not whatever carrier_profile says at re-render time.
+   */
+  carrierLegalName: string;
+  carrierUsdot: string;
+  carrierMc: string | null;
+  carrierMainOfficeAddress: string | null;
   /** Filled in when management acknowledges; regenerated server-side. */
   acknowledgedByName?: string | null;
   acknowledgedAtDisplay?: string | null;
 }
-
-const CARRIER_LEGAL_NAME = 'SUPERTRANSPORT, LLC';
-const CARRIER_USDOT = '2309365';
-const CARRIER_MC = '788425';
 
 const PAGE_W = 612;
 const PAGE_H = 792;
@@ -93,8 +98,19 @@ export async function buildMalfunctionNotice(
   // Header
   text('ELD MALFUNCTION NOTICE', { size: 16, font: bold });
   y -= 20;
-  text(`${CARRIER_LEGAL_NAME}  ·  USDOT ${CARRIER_USDOT}  ·  MC ${CARRIER_MC}`, { size: 9, color: muted });
+  text(
+    [
+      data.carrierLegalName,
+      data.carrierUsdot ? `USDOT ${data.carrierUsdot}` : '',
+      data.carrierMc ? `MC ${data.carrierMc}` : '',
+    ].filter(Boolean).join('  ·  '),
+    { size: 9, color: muted },
+  );
   y -= 12;
+  if (data.carrierMainOfficeAddress) {
+    text(data.carrierMainOfficeAddress, { size: 9, color: muted });
+    y -= 12;
+  }
   text('Written notice of ELD malfunction under 49 CFR 395.34(a)(1)', { size: 9, color: muted });
   y -= 16;
   page.drawRectangle({ x: MARGIN, y, width: CONTENT_W, height: 2, color: gold });

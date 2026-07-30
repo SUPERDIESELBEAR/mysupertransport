@@ -57,14 +57,26 @@ export function statusTotals(events: RodsEvent[]) {
 }
 
 /**
- * Mirrors the header guard inside certify_rods_day. total_mileage_today is
- * deliberately absent: an unavailable odometer reading must never make a log
- * uncertifiable.
+ * Mirrors the 12-field header guard inside certify_rods_day EXACTLY. The server
+ * is the enforcement point; this list exists so the driver sees what is missing
+ * before tapping Certify instead of hitting an opaque database error. If the two
+ * drift, a driver gets a rejection with nothing highlighted — keep them in sync.
+ *
+ * total_mileage_today is deliberately absent: an unavailable odometer reading
+ * must never make a log uncertifiable.
+ *
+ * The four carrier/terminal fields are snapshotted at draft creation from the
+ * cached carrier, so in practice they are only ever missing on rows created
+ * before that snapshot existed.
  */
 const REQUIRED_HEADER: Array<[keyof RodsDay, string]> = [
   ['carrier_name', 'Carrier name'],
+  ['carrier_usdot', 'Carrier USDOT number'],
+  ['carrier_mc', 'Carrier MC number'],
+  ['main_office_address', 'Main office address'],
   ['truck_number', 'Truck / tractor number'],
   ['home_terminal_address', 'Home terminal address'],
+  ['home_terminal_timezone', 'Home terminal time standard'],
   ['from_location', 'From'],
   ['to_location', 'To'],
   ['co_driver_name', 'Co-driver name (enter "None" if you drove alone)'],

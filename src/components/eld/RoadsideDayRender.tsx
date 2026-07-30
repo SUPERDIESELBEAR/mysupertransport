@@ -12,10 +12,12 @@
  */
 import { useMemo } from 'react';
 import {
-  GRID_H, GRID_W, ROW_H, STATUS_LINES,
+  GRID_H, GRID_W, ROW_H, STATUS_LINES, STATUS_LABEL_LINES, LABEL_GUTTER_W,
   formatClock, formatMinutes, hourLabel, hourWidth, isMajorHour, minuteToX, rowCenterOffset,
 } from '@/lib/eld/rodsGridGeometry';
-import { rodsAnnotations, rodsHeaderFields, rodsRecapRows } from '@/lib/eld/rodsHeaderFields';
+import {
+  rodsAnnotations, rodsCertifiedAtLabel, rodsHeaderFields, rodsRecapRows,
+} from '@/lib/eld/rodsHeaderFields';
 import { statusTotals } from '@/lib/eld/rodsValidation';
 import { isCompleteEvent, type RodsDay, type RodsEvent } from '@/lib/eld/rodsTypes';
 
@@ -119,15 +121,16 @@ export default function RoadsideDayRender({
         <div className="mt-1 max-w-[280px] border-t pt-1 text-xs" style={{ borderColor: RULE }}>
           {day.certification_legal_name ?? driverName}
         </div>
-        {day.certified_at && (
+        {rodsCertifiedAtLabel(day) && (
           <p className="mt-1 text-[11px]" style={{ color: MUTED }}>
-            Certified {new Date(day.certified_at).toLocaleString()}
+            {rodsCertifiedAtLabel(day)}
           </p>
         )}
       </section>
 
-      <p className="text-[10px]" style={{ color: MUTED }}>
-        79 FR 39342 · Kept under 49 CFR 395.8 while the driver&rsquo;s ELD is malfunctioning (49 CFR 395.34).
+      <p className="text-[10px]" style={{ color: MUTED }} data-testid="roadside-citation">
+        Record of duty status kept under 49 CFR 395.8 while the driver&rsquo;s ELD is
+        malfunctioning, as permitted by 49 CFR 395.34.
       </p>
     </article>
   );
@@ -140,7 +143,9 @@ function NativeGrid({
   drawable: RodsEvent[];
   totalsByLine: number[];
 }) {
-  const labelW = 74;
+  // Shared with the PDF so the label column, grid origin and totals column all
+  // land in the same place on both surfaces.
+  const labelW = LABEL_GUTTER_W;
   const totalsW = 40;
   const topPad = 16;
   const width = labelW + GRID_W + totalsW;
@@ -177,15 +182,39 @@ function NativeGrid({
           />
           {i < 4 && (
             <>
-              <text x={0} y={topPad + rowCenterOffset((i + 1) as 1) + 2} fontSize={7} fill={INK}>
-                {STATUS_LINES[i]}
+              {/*
+                Long labels wrap rather than shrink — a smaller font at the
+                roadside is the wrong trade. Lines are stacked around the row
+                centre so the duty line still sits on rowCenterOffset, and
+                dominant-baseline replaces the old hand-tuned +2 nudge.
+              */}
+              <text
+                x={0}
+                y={topPad + rowCenterOffset((i + 1) as 1)}
+                fontSize={7}
+                fill={INK}
+                dominantBaseline="middle"
+                data-testid={`roadside-status-label-${i + 1}`}
+              >
+                {STATUS_LABEL_LINES[i].map((line, li) => (
+                  <tspan
+                    key={line}
+                    x={0}
+                    dy={li === 0
+                      ? `${-0.5 * (STATUS_LABEL_LINES[i].length - 1)}em`
+                      : '1em'}
+                  >
+                    {line}
+                  </tspan>
+                ))}
               </text>
               <text
                 x={labelW + GRID_W + 4}
-                y={topPad + rowCenterOffset((i + 1) as 1) + 2}
+                y={topPad + rowCenterOffset((i + 1) as 1)}
                 fontSize={7}
                 fontWeight="bold"
                 fill={INK}
+                dominantBaseline="middle"
                 data-testid={`roadside-total-${i + 1}`}
               >
                 {formatMinutes(totalsByLine[i])}

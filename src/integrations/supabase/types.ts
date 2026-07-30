@@ -656,6 +656,45 @@ export type Database = {
         }
         Relationships: []
       }
+      carrier_profile: {
+        Row: {
+          created_at: string
+          fmcsa_division_state: string
+          home_terminal_address: string
+          home_terminal_timezone: string
+          id: string
+          legal_name: string
+          main_office_address: string
+          mc_number: string
+          updated_at: string
+          usdot_number: string
+        }
+        Insert: {
+          created_at?: string
+          fmcsa_division_state?: string
+          home_terminal_address: string
+          home_terminal_timezone: string
+          id?: string
+          legal_name: string
+          main_office_address: string
+          mc_number: string
+          updated_at?: string
+          usdot_number: string
+        }
+        Update: {
+          created_at?: string
+          fmcsa_division_state?: string
+          home_terminal_address?: string
+          home_terminal_timezone?: string
+          id?: string
+          legal_name?: string
+          main_office_address?: string
+          mc_number?: string
+          updated_at?: string
+          usdot_number?: string
+        }
+        Relationships: []
+      }
       carrier_signature_settings: {
         Row: {
           id: string
@@ -1367,6 +1406,10 @@ export type Database = {
           backdate_reason: string | null
           carrier_acknowledged_at: string | null
           carrier_acknowledged_by: string | null
+          carrier_legal_name: string | null
+          carrier_main_office_address: string | null
+          carrier_mc: string | null
+          carrier_usdot: string | null
           created_at: string
           device_make: string | null
           device_model: string | null
@@ -1402,6 +1445,10 @@ export type Database = {
           backdate_reason?: string | null
           carrier_acknowledged_at?: string | null
           carrier_acknowledged_by?: string | null
+          carrier_legal_name?: string | null
+          carrier_main_office_address?: string | null
+          carrier_mc?: string | null
+          carrier_usdot?: string | null
           created_at?: string
           device_make?: string | null
           device_model?: string | null
@@ -1437,6 +1484,10 @@ export type Database = {
           backdate_reason?: string | null
           carrier_acknowledged_at?: string | null
           carrier_acknowledged_by?: string | null
+          carrier_legal_name?: string | null
+          carrier_main_office_address?: string | null
+          carrier_mc?: string | null
+          carrier_usdot?: string | null
           created_at?: string
           device_make?: string | null
           device_model?: string | null
@@ -4715,10 +4766,12 @@ export type Database = {
           created_at: string
           from_location: string | null
           home_terminal_address: string | null
+          home_terminal_timezone: string | null
           id: string
           is_reconstructed: boolean
           locked: boolean
           log_date: string
+          main_office_address: string | null
           operator_id: string
           pdf_path: string | null
           period_start_time: string
@@ -4756,10 +4809,12 @@ export type Database = {
           created_at?: string
           from_location?: string | null
           home_terminal_address?: string | null
+          home_terminal_timezone?: string | null
           id?: string
           is_reconstructed?: boolean
           locked?: boolean
           log_date: string
+          main_office_address?: string | null
           operator_id: string
           pdf_path?: string | null
           period_start_time?: string
@@ -4797,10 +4852,12 @@ export type Database = {
           created_at?: string
           from_location?: string | null
           home_terminal_address?: string | null
+          home_terminal_timezone?: string | null
           id?: string
           is_reconstructed?: boolean
           locked?: boolean
           log_date?: string
+          main_office_address?: string | null
           operator_id?: string
           pdf_path?: string | null
           period_start_time?: string
@@ -5727,10 +5784,12 @@ export type Database = {
           created_at: string
           from_location: string | null
           home_terminal_address: string | null
+          home_terminal_timezone: string | null
           id: string
           is_reconstructed: boolean
           locked: boolean
           log_date: string
+          main_office_address: string | null
           operator_id: string
           pdf_path: string | null
           period_start_time: string
@@ -6196,10 +6255,12 @@ export type Database = {
           created_at: string
           from_location: string | null
           home_terminal_address: string | null
+          home_terminal_timezone: string | null
           id: string
           is_reconstructed: boolean
           locked: boolean
           log_date: string
+          main_office_address: string | null
           operator_id: string
           pdf_path: string | null
           period_start_time: string

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, Upload } from 'lucide-react';
-import { CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT } from '@/lib/eld/constants';
+import { requireCachedCarrier, rodsDayCarrierSnapshot } from '@/lib/eld/carrierIdentity';
 import { RODS_BUCKET, formatLogDate, type RodsDay } from '@/lib/eld/rodsTypes';
 
 /**
@@ -62,6 +62,9 @@ export default function UploadEldLogModal({
         if (error) throw new Error(error.message);
         toast.success('Document replaced. The original stays on file.');
       } else {
+        // Snapshot from the device cache; blocks when the carrier was never
+        // cached rather than filing a record with a guessed identity.
+        const carrier = await requireCachedCarrier();
         // status 'certified' + locked so the day occupies the unique slot and no
         // keyed day can be created for the same date. The "On file (ELD log)"
         // wording is display-only — do not "fix" this into status 'on_file'.
@@ -73,9 +76,7 @@ export default function UploadEldLogModal({
           locked: true,
           is_reconstructed: false, // retrieved, not reconstructed
           source_document_path: path,
-          carrier_name: CARRIER_LEGAL_NAME,
-          carrier_usdot: CARRIER_USDOT,
-          carrier_mc: CARRIER_MC,
+          ...rodsDayCarrierSnapshot(carrier),
           certified_at: new Date().toISOString(),
         } as never);
         if (error) throw new Error(error.message);

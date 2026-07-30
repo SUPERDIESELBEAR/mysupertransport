@@ -9,7 +9,9 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import RoadsideDayRender from '@/components/eld/RoadsideDayRender';
-import { rodsAnnotations, rodsHeaderFields, rodsRecapRows } from '@/lib/eld/rodsHeaderFields';
+import {
+  carrierTimeZoneLabel, rodsAnnotations, rodsHeaderFields, rodsRecapRows,
+} from '@/lib/eld/rodsHeaderFields';
 import { minuteToX, rowCenterOffset, formatMinutes, GRID_W, ROW_H } from '@/lib/eld/rodsGridGeometry';
 import { statusTotals } from '@/lib/eld/rodsValidation';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
@@ -30,6 +32,9 @@ const day: RodsDay = {
   carrier_usdot: '1234567',
   carrier_mc: 'MC-7654',
   home_terminal_address: '100 Terminal Way, Kansas City, MO',
+  main_office_address: '605 Madison St, Pleasant Hill, MO 64080',
+  home_terminal_timezone: 'America/Chicago',
+  period_start_time: '00:00:00',
   truck_number: '4412',
   trailer_numbers: 'T-900',
   co_driver_name: 'None',
@@ -83,7 +88,14 @@ describe('native roadside render / PDF parity', () => {
   it('emits every §395.8 header field, in the printed order', () => {
     renderNative();
     const fields = rodsHeaderFields(day, DRIVER);
-    expect(fields).toHaveLength(10);
+    expect(fields).toHaveLength(13);
+    // The three fields added for §395.8 completeness must actually carry the
+    // snapshotted values, not just exist as empty labels.
+    expect(fields.find((f) => f.label === 'Main office address')?.value)
+      .toBe('605 Madison St, Pleasant Hill, MO 64080');
+    expect(fields.find((f) => f.label === 'Total mileage today')?.value).toBe('430');
+    expect(fields.find((f) => f.label === '24-hour period begins')?.value)
+      .toBe('12:00 AM — Central Daylight Time');
 
     const rendered = Array.from(
       screen.getByTestId('roadside-header-fields').querySelectorAll('dt'),
@@ -95,6 +107,19 @@ describe('native roadside render / PDF parity', () => {
     expect(rendered).toEqual(
       fields.map((f) => ({ label: f.label, value: f.value || '—' })),
     );
+  });
+
+  it('names the home terminal time standard, and never throws on a bad zone', () => {
+    // Resolved at noon local: a July date in Chicago is daylight time.
+    expect(carrierTimeZoneLabel('America/Chicago', '2026-07-14')).toBe('Central Daylight Time');
+    // …and the same zone in January is standard time.
+    expect(carrierTimeZoneLabel('America/Chicago', '2026-01-14')).toBe('Central Standard Time');
+    // A blank zone yields a blank label rather than an exception.
+    expect(carrierTimeZoneLabel(null, '2026-07-14')).toBe('');
+    expect(carrierTimeZoneLabel(undefined, '2026-07-14')).toBe('');
+    // An unknown zone falls back to the raw stored value. A roadside screen
+    // showing 'Not/AZone' is recoverable; a blank screen is not.
+    expect(carrierTimeZoneLabel('Not/AZone', '2026-07-14')).toBe('Not/AZone');
   });
 
   it('shows the same RECONSTRUCTED / AMENDED annotations the PDF draws', () => {

@@ -23,7 +23,16 @@ export interface RodsDay {
   carrier_name: string | null;
   carrier_usdot: string | null;
   carrier_mc: string | null;
+  /** Frozen at draft creation from the cached carrier record. */
+  main_office_address: string | null;
   home_terminal_address: string | null;
+  /**
+   * The home terminal's time standard, frozen per day. §395.8 requires it on
+   * the face of the record, and freezing it means a historical log shows the
+   * zone that was in effect on that date even if the driver later moves
+   * terminals. Never read a live operator row to fill this in.
+   */
+  home_terminal_timezone: string | null;
   truck_number: string | null;
   trailer_numbers: string | null;
   co_driver_name: string | null;
@@ -32,6 +41,8 @@ export interface RodsDay {
   to_location: string | null;
   total_miles_driving_today: number | null;
   total_mileage_today: number | null;
+  /** Start of the driver's 24-hour period, e.g. '00:00:00'. */
+  period_start_time: string | null;
 
   recap_on_duty_today: string | null;
   recap_last_7_days: string | null;
