@@ -58,7 +58,7 @@ export default function RoadsidePacket() {
     return () => { void sentinel?.release?.().catch(() => undefined); };
   }, []);
 
-  const days = manifest?.days ?? [];
+  const days = useMemo(() => manifest?.days ?? [], [manifest]);
   const active = days[index];
 
   const order = useMemo(
