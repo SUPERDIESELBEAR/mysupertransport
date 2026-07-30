@@ -29,6 +29,20 @@ const listeners = new Set<Listener>();
 let running = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
+let lastPassEndedAt = 0;
+
+/**
+ * Triggers coalesce rather than accumulate.
+ *
+ * `focus` and `visibilitychange` fire together on most mobile returns, and a
+ * phone regaining signal and foreground at the same instant can raise three
+ * events in one tick. A pass requested within this window of a completed pass
+ * is skipped: the queue is not latency-sensitive and each pass wakes the radio.
+ */
+const COALESCE_MS = 5_000;
+
+/** Backstop only — `online` and `visibilitychange` cover the moments that matter. */
+const INTERVAL_MS = 60_000;
 
 export function subscribeSyncCounts(fn: Listener): () => void {
   listeners.add(fn);
@@ -83,9 +97,13 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
   }
 }
 
-/** Drain every due entry once. Safe to call concurrently — it self-serialises. */
-export async function drainQueue(): Promise<void> {
+/**
+ * Drain every due entry once. Safe to call concurrently — it self-serialises,
+ * and back-to-back triggers inside COALESCE_MS collapse into one pass.
+ */
+export async function drainQueue(options?: { force?: boolean }): Promise<void> {
   if (running) return;
+  if (!options?.force && Date.now() - lastPassEndedAt < COALESCE_MS) return;
   running = true;
   try {
     // Re-read between entries: a succeeded upload unblocks its dependent
@@ -101,6 +119,7 @@ export async function drainQueue(): Promise<void> {
     await purgeSucceeded();
   } finally {
     running = false;
+    lastPassEndedAt = Date.now();
     await notify();
   }
 }
@@ -112,13 +131,13 @@ function schedule(ms: number): void {
 
 async function tick(): Promise<void> {
   await drainQueue();
-  schedule(30_000);
+  schedule(INTERVAL_MS);
 }
 
 /**
- * Start the runner. Drains on load, on reconnect, on tab focus, and every 30s
- * while the tab is open. Idempotent — mounting twice does not double-drain,
- * because drainQueue self-serialises.
+ * Start the runner. Drains on load, on reconnect, on tab focus/visibility, and
+ * every 60s while the tab is open as a backstop. Idempotent — mounting twice
+ * does not double-drain, because drainQueue self-serialises and coalesces.
  */
 export function startSyncRunner(): void {
   if (started || typeof window === 'undefined') return;
@@ -128,5 +147,5 @@ export function startSyncRunner(): void {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void drainQueue();
   });
-  void tick();
+  void drainQueue({ force: true }).then(() => schedule(INTERVAL_MS));
 }
