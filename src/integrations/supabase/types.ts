@@ -5199,6 +5199,69 @@ export type Database = {
         }
         Relationships: []
       }
+      share_token_access_log: {
+        Row: {
+          accessed_at: string
+          id: string
+          ip_hash: string | null
+          outcome: string
+          resource_id: string | null
+          scope: string | null
+          token: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          accessed_at?: string
+          id?: string
+          ip_hash?: string | null
+          outcome: string
+          resource_id?: string | null
+          scope?: string | null
+          token?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          accessed_at?: string
+          id?: string
+          ip_hash?: string | null
+          outcome?: string
+          resource_id?: string | null
+          scope?: string | null
+          token?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      share_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          resource_id: string
+          revoked_at: string | null
+          scope: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          resource_id: string
+          revoked_at?: string | null
+          scope: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          resource_id?: string
+          revoked_at?: string | null
+          scope?: string
+          token?: string
+        }
+        Relationships: []
+      }
       staff_event_acknowledgments: {
         Row: {
           acknowledged_at: string
@@ -6361,11 +6424,21 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resolve_share_token: {
+        Args: { p_token: string }
+        Returns: {
+          expires_at: string
+          file_url: string
+          id: string
+          name: string
+        }[]
+      }
       resolve_short_link: { Args: { _code: string }; Returns: string }
       restore_applicant_pei: {
         Args: { _application_id: string }
         Returns: undefined
       }
+      revoke_share_token: { Args: { p_token: string }; Returns: boolean }
       save_application_draft: {
         Args: { p_payload: Json; p_token: string }
         Returns: {
