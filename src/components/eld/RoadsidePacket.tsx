@@ -84,9 +84,9 @@ export default function RoadsidePacket() {
     <Shell>
       {/* Header — wraps rather than scrolls horizontally in landscape */}
       <header className="shrink-0" style={{ background: CHARCOAL }}>
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-4 py-3 short:py-1.5">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: GOLD }}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] short:hidden" style={{ color: GOLD }}>
               Record of duty status
             </p>
             <p className="truncate text-base font-bold text-white">{meta?.driver_name ?? 'Driver'}</p>
@@ -104,21 +104,35 @@ export default function RoadsidePacket() {
         <div style={{ height: 2, background: GOLD }} />
       </header>
 
-      {/* Cover facts */}
-      <div className="shrink-0 border-b px-4 py-2" style={{ borderColor: '#DCDCDC', background: '#FFFDF6' }}>
-        {manifest.event ? (
-          <p className="text-xs" style={{ color: INK }}>
-            <strong>ELD malfunction reported {new Date(manifest.event.discovered_at).toLocaleDateString()}</strong>
-            {manifest.event.device_label ? ` · ${manifest.event.device_label}` : ''} · code {manifest.event.malfunction_code}.
-            {' '}Paper records kept under 49 CFR 395.8 while the ELD is malfunctioning (49 CFR 395.34); 79 FR 39342.
-          </p>
-        ) : (
-          <p className="text-xs" style={{ color: '#6B6B6B' }}>
-            Records kept under 49 CFR 395.8. 79 FR 39342.
-          </p>
-        )}
+      {/* Cover facts. On a short viewport (landscape phone) the citation and the
+          order list collapse behind a summary so the log itself keeps the space. */}
+      <details
+        open={!isShort}
+        className="group shrink-0 border-b px-4 py-2 short:py-1"
+        style={{ borderColor: '#DCDCDC', background: '#FFFDF6' }}
+      >
+        <summary className="cursor-pointer list-none text-xs font-bold marker:hidden" style={{ color: INK }}>
+          {manifest.event
+            ? `ELD malfunction reported ${new Date(manifest.event.discovered_at).toLocaleDateString()}`
+            : 'Paper records of duty status'}
+          <span className="ml-2 font-normal underline" style={{ color: '#6B6B6B' }}>
+            <span className="group-open:hidden">Show details</span>
+            <span className="hidden group-open:inline">Hide details</span>
+          </span>
+        </summary>
+        <p className="mt-1 text-xs" style={{ color: INK }}>
+          {manifest.event ? (
+            <>
+              {manifest.event.device_label ? `${manifest.event.device_label} · ` : ''}
+              code {manifest.event.malfunction_code}. Paper records kept under 49 CFR 395.8 while the ELD is
+              malfunctioning (49 CFR 395.34); 79 FR 39342.
+            </>
+          ) : (
+            <>Records kept under 49 CFR 395.8. 79 FR 39342.</>
+          )}
+        </p>
         <p className="mt-1 text-[11px]" style={{ color: '#6B6B6B' }}>Order: {order}</p>
-      </div>
+      </details>
 
       {/* Day strip — the only horizontally scrolling element, by design */}
       <nav className="shrink-0 overflow-x-auto border-b px-2 py-2" style={{ borderColor: '#DCDCDC' }}>
