@@ -12,6 +12,7 @@ import {
 } from './rodsGridGeometry';
 import { FORM_REVISION } from './renderDutyStatusGrid';
 import { statusTotals } from './rodsValidation';
+import { rodsAnnotations, rodsHeaderFields, rodsRecapRows } from './rodsHeaderFields';
 import { formatLogDate, isCompleteEvent, type RodsDay, type RodsEvent } from './rodsTypes';
 import { formatClock } from './rodsGridGeometry';
 
@@ -44,35 +45,15 @@ function drawDay(
   page.drawRectangle({ x: MARGIN, y, width: PAGE_W - MARGIN * 2, height: 1.5, color: gold });
   y -= 16;
 
-  const annotations: string[] = [];
-  if (day.is_reconstructed) annotations.push('RECONSTRUCTED — 49 CFR 395.34(a)(2)');
-  if (day.supersedes_day_id) {
-    annotations.push(
-      originalCertifiedAt
-        ? `AMENDED — original certified ${new Date(originalCertifiedAt).toLocaleString()}`
-        : 'AMENDED',
-    );
-  }
+  const annotations = rodsAnnotations(day, originalCertifiedAt);
   for (const note of annotations) {
     page.drawText(note, { x: MARGIN, y: y - 8, size: 8, font: bold, color: red });
     y -= 14;
   }
   y -= 8;
 
-  const fields: Array<[string, string, number]> = [
-    ['Date (mo/day/yr)', new Date(`${day.log_date}T12:00:00`).toLocaleDateString('en-US'), 150],
-    ['Truck / tractor no.', day.truck_number ?? '', 150],
-    ['Trailer no.', day.trailer_numbers ?? '', 120],
-    ['Total miles driving today', day.total_miles_driving_today?.toString() ?? '', 150],
-    ['Driver name (print)', driverName, 200],
-    ['Co-driver name', day.co_driver_name ?? '', 150],
-    ['Home terminal address', day.home_terminal_address ?? '', 240],
-    ['From', day.from_location ?? '', 180],
-    ['To', day.to_location ?? '', 180],
-    ['Shipping document no.', day.shipping_document_no ?? '', 180],
-  ];
   let fx = MARGIN;
-  for (const [label, value, w] of fields) {
+  for (const { label, value, width: w } of rodsHeaderFields(day, driverName)) {
     if (fx + w > PAGE_W - MARGIN) { fx = MARGIN; y -= 30; }
     page.drawText(label, { x: fx, y, size: 7, font: regular, color: muted });
     page.drawText(value.slice(0, 44), { x: fx, y: y - 10, size: 8, font: regular, color: ink });
@@ -172,13 +153,7 @@ function drawDay(
   // ---- RECAP ----
   page.drawRectangle({ x: MARGIN, y: y - 92, width: PAGE_W - MARGIN * 2, height: 92, borderColor: muted, borderWidth: 0.6 });
   page.drawText('RECAP — hours worked (entered by the driver)', { x: MARGIN + 8, y: y - 14, size: 8, font: bold, color: ink });
-  const recap: Array<[string, string]> = [
-    ['A. Total hours on duty today (lines 3 + 4)', day.recap_on_duty_today ?? ''],
-    ['B. Total hours on duty last 7 days including today', day.recap_last_7_days ?? ''],
-    ['C. Total hours available tomorrow (70 hr / 8 day)', day.recap_available_tomorrow ?? ''],
-    ['D. Total hours on duty last 8 days including today', day.recap_last_8_days ?? ''],
-  ];
-  recap.forEach(([label, value], i) => {
+  rodsRecapRows(day).forEach(({ label, value }, i) => {
     const ry = y - 32 - i * 15;
     page.drawText(label, { x: MARGIN + 8, y: ry, size: 7, font: regular, color: ink });
     page.drawText(value, { x: PAGE_W - MARGIN - 86, y: ry, size: 7, font: bold, color: ink });
