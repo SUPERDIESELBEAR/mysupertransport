@@ -7,6 +7,8 @@ import { AlertTriangle, BookOpen, Loader2, Printer } from 'lucide-react';
 import { CLOCK_RED, currentQuarterKey } from '@/lib/eld/constants';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
+import { useRoadsideHydration } from '@/hooks/useRoadsideHydration';
+import CachePacketChip from '@/components/eld/CachePacketChip';
 import ELDMalfunctionWizard from './ELDMalfunctionWizard';
 import ELDMalfunctionDashboard from './ELDMalfunctionDashboard';
 
@@ -20,6 +22,8 @@ export default function ELDMalfunctionView({
   unitNumber: string | null;
 }) {
   const { activeEvent, loading, refresh } = useEldMalfunction(operatorId);
+  // Keeps local_meta and the offline packet current on every authenticated load.
+  useRoadsideHydration(operatorId, driverName);
   const [reporting, setReporting] = useState(false);
   const [ackChecked, setAckChecked] = useState(false);
   const [ackSaving, setAckSaving] = useState(false);
@@ -91,7 +95,19 @@ export default function ELDMalfunctionView({
       </div>
 
       {activeEvent ? (
-        <ELDMalfunctionDashboard event={activeEvent} onRefresh={refresh} />
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <CachePacketChip />
+            <a
+              href="/roadside"
+              className="rounded px-3 py-1.5 text-[11px] font-bold"
+              style={{ background: '#C9A84C', color: '#0D0D0D' }}
+            >
+              Show to officer
+            </a>
+          </div>
+          <ELDMalfunctionDashboard event={activeEvent} onRefresh={refresh} />
+        </>
       ) : (
         <>
           <div className="rounded-lg border border-border p-4 space-y-3">
