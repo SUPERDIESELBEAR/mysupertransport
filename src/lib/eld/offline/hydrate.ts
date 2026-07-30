@@ -226,8 +226,11 @@ async function flagDivergence(
   });
 }
 
-/** See the PRECEDENCE block on ensureDayCached — this is where it is enforced. */
-async function cacheKeyedDay(day: RodsDay, driverName: string) {
+/**
+ * See the PRECEDENCE block on ensureDayCached — this is where it is enforced.
+ * Exported for the precedence tests; not part of the module's public surface.
+ */
+export async function cacheKeyedDay(day: RodsDay, driverName: string) {
   const existing = await roadsideDb.rods_pdfs.get(day.log_date);
   // Case 1: certified here, not yet synced. Local wins absolutely.
   if (existing && !existing.uploaded) return;
