@@ -1,44 +1,64 @@
-## §8 — Share-token scope refactor (standalone)
+## Correction to the §8 report (standing)
 
-Verified before writing this plan:
-- `inspection_documents`: **693 rows, 693 non-null `public_share_token`** (zero nulls). The backfill must produce exactly 693 `share_tokens` rows.
-- `get_inspection_doc_by_token(p_token uuid)` is a `SECURITY DEFINER` SQL function selecting `id, name, file_url, expires_at ... WHERE public_share_token = p_token`. That `expires_at` is the **document's** expiry (e.g. insurance), not a token expiry — token expiry is a new, separate concept and must not be conflated.
-- Exactly one client resolution call site: `src/pages/InspectionSharePage.tsx`. `/s/:code` (`resolve_short_link`) resolves a code to the same token and then redirects to `/inspect/:token`.
-- **Both sticker/link formats are in use.** `InspectionBinderAdmin.tsx:915` and `DocRow.tsx:142,1001` build QR/copy links as `/inspect/{token}` directly; `BinderFlipbook.tsx` (via `resolveShortUrl` → `get_or_create_short_link`) emits `/s/{code}` for email/SMS/QR shares, falling back to the full `/inspect` URL. So printed artifacts in trucks can carry either form and **both need the revocation/expiry check**.
-- Token strings are otherwise only *read for link building* — no other resolution query exists.
-- `share_tokens` / `share_token_access_log` do not exist yet.
+Verification 3b (`/s/:code` for revoked and expired tokens) **was not executed**. No short link ever existed, none was hand-inserted, none removed. The short-link revocation path is unverified and is re-tested for real below, after the `search_path` fix makes `get_or_create_short_link` capable of succeeding at all.
 
-### Migration (one migration; the backfill is the critical part)
+---
 
-1. `share_tokens`: `token uuid pk`, `scope text` (`'inspection_document'` initially), `resource_id uuid`, `expires_at timestamptz null`, `revoked_at timestamptz null`, `created_by`, `created_at`. Unique on `(scope, resource_id)` for the legacy 1:1 mapping.
-2. `share_token_access_log`: `id`, `token`, `scope`, `resource_id`, `accessed_at`, `outcome` (`ok` / `revoked` / `expired` / `not_found`), `ip_hash`, `user_agent`.
-3. **Anon-safe posture on both tables — belt and braces:**
-   - No `anon` grant at all.
-   - `ENABLE ROW LEVEL SECURITY` on **both** tables, so a future well-meaning `GRANT SELECT ... TO anon` cannot expose 693 live tokens in one statement.
-   - **No anon policy of any kind.** Policies only for management/owner reads (`share_token_access_log`) and staff management of tokens; `GRANT ALL ... TO service_role`.
-   - The definer functions bypass RLS by design, so the public `/inspect` path keeps working with zero anon reachability to either table.
-4. **Backfill, fail-loud**: one row per `inspection_documents` row with non-null `public_share_token`, reusing the *same* uuid, `expires_at = NULL`, `revoked_at = NULL`. Immediately after, a `DO` block asserts `count(share_tokens where scope='inspection_document') = count(inspection_documents where public_share_token is not null)` and `RAISE EXCEPTION` on mismatch, so a partial backfill aborts the migration rather than silently taking a sticker out of service.
-5. `resolve_share_token(p_token uuid)` — the single resolution path. Definer; checks `revoked_at is null and (expires_at is null or expires_at > now())`, joins the resource, and writes **one `share_token_access_log` row on every call**, including miss / revoked / expired.
-6. `get_inspection_doc_by_token` kept for one release as a **thin delegate** that calls `resolve_share_token` — so its access is logged identically and a stale cached bundle cannot bypass the log. Body carries a comment naming the release it is dropped in (`DROP in the release following the one that ships §8 — see §8 notes`). It no longer references `public_share_token`.
-7. `public_share_token` becomes legacy read-only: `BEFORE UPDATE` trigger rejecting changes to it, plus a deprecation comment. Column not dropped this release (link builders still read it).
-8. `revoke_share_token(p_token)` — management/owner only, stamps `revoked_at`.
+## Order of operations
 
-### Application changes
-- `InspectionSharePage.tsx` calls `resolve_share_token`; not-found / revoked / expired all render the existing "Document Not Found" state — no distinction leaked to the officer.
-- `ShortLinkRedirect` keeps resolving the code to a token and redirecting; it renders **no document data of its own**, so the revocation decision stays solely in `resolve_share_token`. The plan explicitly re-checks that there is no cached-document shortcut on this path.
-- No change to link building or short links — token values are unchanged, so printed QR stickers keep working byte-for-byte.
+**Baseline runs first and is reported before Migration 1 executes.**
 
-### Verifications, run and reported first
-Against the live database and the running preview, immediately after the migration, before any other Pass B work:
-1. A pre-existing (backfilled, not newly minted) token loads through `/inspect/:token` and renders the same document id/name/file as before.
-2. `select expires_at from share_tokens where token = <that token>` → `NULL`.
-3. Revoke it → `/inspect/:token` returns the not-found state.
-3b. **Same revoked token via `/s/:code`** → the redirect completes but the destination lands on the not-found state; confirm no document renders from a cached row before `resolve_share_token` runs. Repeat both 3 and 3b for an **expired** token (`expires_at` in the past). Then un-revoke to restore service.
-4. One resolution path: `pg_get_functiondef(get_inspection_doc_by_token)` shows pure delegation with no `public_share_token` reference, and a repo-wide search shows no remaining direct `public_share_token` query.
-5. `select outcome, count(*) from share_token_access_log` — one row per access above, including the revoked and expired fetches on **both** URL forms, and one written through the delegator when called directly.
-6. Backfilled count vs. pre-migration non-null count (expected **693 = 693**), plus a check that RLS is enabled and zero anon policies exist on both new tables.
+### Baseline — every anonymous entry point, signed out, pre-migration
+Public application form (submit + resume-token link), FAQ (owner-operator), `/inspect/:token`, `/s/:code`, PEI respond, PEI FCRA release, passenger-auth signing, unsubscribe, preview login (`/p?c=`), splash/login. `/s/:code` is expected to record as already broken — that is the point of the baseline.
 
-### Technical notes
-- Newly minted tokens keep today's behavior: `expires_at = NULL` unless explicitly set — no silent expiry policy introduced here.
-- Access-log writes happen inside the definer function, so anon needs no table privileges.
-- No changes to `document_short_links`; `/s/:code` continues to funnel into the same single path.
+---
+
+## Migration 1 — tables and default privileges only
+
+1. `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES, SEQUENCES FROM anon`.
+2. `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon`, then re-grant only `INSERT ON applications` and `SELECT ON faq`.
+3. Header comment stating the standing rule: definer functions use `SET search_path = public, extensions`; extension calls are always schema-qualified.
+
+## Migration 2 — search_path fix
+
+4. `get_or_create_short_link`: repin `SET search_path = public, extensions` and schema-qualify `extensions.gen_random_bytes(...)`.
+5. Same repin applied preventively to other definer functions that could grow an extension call.
+
+## Migration 3 — salted, fail-open ip_hash
+
+6. Add `hash_version smallint` and `ip_hash_status text` to `share_token_access_log`.
+7. Salt in Vault, read inside an exception block in `resolve_share_token`. If the read fails: log with `ip_hash = NULL`, `ip_hash_status = 'salt_unavailable'`, and resolve the document normally. Vault availability must never 404 an officer-facing share.
+8. Successful hashes write `hash_version = 1`.
+9. The 10 legacy rows are nulled with `hash_version = 0`, `ip_hash_status = 'legacy_unsalted'`. **Migration comment records the general rule: retain and re-label, not delete.** A weak hash still proves two accesses shared an address and still confirms a known IP — on a compliance access log that is evidence. Nulling is acceptable only because all 10 rows are our own test traffic; where rows represent real officer access, retention wins.
+
+## Separate pass (after Migration 1 verifies) — function grant audit, no blanket revoke
+
+10. Enumerate every `public` function `anon` can EXECUTE, with `prosecdef` and whether the body performs an auth check.
+11. Classify: intentionally public / should be authenticated-only / unclear.
+12. **Report the full list before revoking anything.** Revoke only the second category, by name.
+
+---
+
+## Verification
+
+1. `relacl` scan: no `anon=` on any table except `applications` (INSERT) and `faq` (SELECT).
+2. Create a throwaway table → confirm no anon grant → drop it.
+3. Re-test the full anonymous entry-point list and diff against the baseline. Any regression blocks the next migration.
+4. Execute `get_or_create_short_link` — first successful call in its life — confirm a `document_short_links` row lands.
+5. **Re-run 3b for real**: revoke the token, hit `/s/:code`, confirm "Document Not Found"; repeat for an expired token; confirm both wrote access-log rows. Then un-revoke and delete the test short link.
+6. **RODS functions — scripted, service role, two scratch days, zero side effects.**
+
+   The RODS module is gated behind an open malfunction with `hinders_hos_recording = true`. That row is inserted **directly as service role, bypassing the wizard**: the notice-generation path is never called, so no notice PDF, no email to `carrier_profile` recipients, no in-app notifications to Management/Dispatcher. Deleting rows afterward does not unsend an email. Before running, confirm the hourly escalation job (days 3/5/6/7/8) cannot pick up a row that exists for under a minute, or schedule outside its window — report which.
+
+   - **Day A — `record_source = 'keyed'`.** This is the day that exercises the guard, because a `certify_rods_day` call is what the twelve-field header check and the tiling check live behind. Insert `rods_events` tiling 00:00–24:00 with duty status, city and state on every segment, populate all twelve guarded header fields, then:
+     - **Negative case first:** remove one segment to leave a gap and call `certify_rods_day` with the certification token. Confirm it **raises** rather than accepting. A guard that has never rejected anything is as unproven as one that has never accepted anything, and the parity fixtures assume the server rejects exactly what the client rejects.
+     - Restore the segment and call `certify_rods_day` again. Confirm it succeeds and the row lands `certified` / locked.
+   - **Day B — `record_source = 'eld_document'`.** Call `create_eld_document_day` and confirm it lands **certified and locked with `pdf_path` null**. It never passes through `certify_rods_day` — it is created certified — so it proves the upload path only, not the guard.
+   - Delete both days, their events, the malfunction row, and any notification rows in the same script. A certified day has no DELETE policy by design and would otherwise become an undeletable artifact in the federal retention archive.
+   - Report `count(*)` = **0** for `rods_days`, `rods_events`, `eld_malfunction_events`, **and `eld_malfunction_notifications`**, plus confirmation that **no email was queued or sent** (`email_send_log` / `email_send_state`, run window).
+7. Two fresh `/inspect` hits produce `ip_hash` differing from unsalted SHA-256 of the same IP, `hash_version = 1`. Then simulate a Vault read failure: document still resolves, row written `NULL` / `'salt_unavailable'`.
+8. Call `revoke_share_token` as a plain authenticated operator → expect `not authorized`, token still live.
+
+### Standing guard
+9. README section documenting the definer/`search_path` rule.
+10. A vitest scanning `pg_get_functiondef` for every `SECURITY DEFINER` function in `public`, failing on an unqualified call to a known extension function (`gen_random_bytes`, `digest`, `hmac`, `crypt`, `gen_salt`, `uuid_generate_v4`, `pgp_*`) or a `search_path` omitting `extensions`.
