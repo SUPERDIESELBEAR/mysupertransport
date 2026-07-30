@@ -5,19 +5,22 @@
  * lines up exactly with the blank paper packet and the on-screen grid.
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
-import { CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT } from './constants';
 import {
-  GRID_W, GRID_X, MARGIN, PAGE_H, PAGE_W, ROW_H, STATUS_LINES,
+  GRID_W, GRID_X, MARGIN, PAGE_H, PAGE_W, ROW_H, STATUS_LINES, STATUS_LABEL_LINES,
   formatMinutes, hourLabel, hourWidth, isMajorHour, minuteToX, rowCenterOffset,
 } from './rodsGridGeometry';
 import { FORM_REVISION } from './renderDutyStatusGrid';
 import { statusTotals } from './rodsValidation';
-import { rodsAnnotations, rodsHeaderFields, rodsRecapRows } from './rodsHeaderFields';
+import {
+  rodsAnnotations, rodsCertifiedAtLabel, rodsHeaderFields, rodsRecapRows,
+} from './rodsHeaderFields';
 import { formatLogDate, isCompleteEvent, type RodsDay, type RodsEvent } from './rodsTypes';
 import { formatClock } from './rodsGridGeometry';
 
+/** Identical wording to the native roadside render — see RoadsideDayRender. */
 const FOOTER_CITATION =
-  '79 FR 39342  ·  Kept under 49 CFR 395.8 while the driver\u2019s ELD is malfunctioning (49 CFR 395.34).';
+  'Record of duty status kept under 49 CFR 395.8 while the driver\u2019s ELD is '
+  + 'malfunctioning, as permitted by 49 CFR 395.34.';
 
 function drawDay(
   page: PDFPage,
@@ -38,9 +41,17 @@ function drawDay(
   page.drawText("DRIVER'S DAILY LOG", { x: MARGIN, y: y - 12, size: 14, font: bold, color: ink });
   page.drawText(formatLogDate(day.log_date), { x: MARGIN + 172, y: y - 12, size: 10, font: bold, color: ink });
   y -= 26;
-  page.drawText(`${CARRIER_LEGAL_NAME}  ·  USDOT ${CARRIER_USDOT}  ·  MC ${CARRIER_MC}`, {
-    x: MARGIN, y: y - 10, size: 9, font: regular, color: muted,
-  });
+  // Carrier identity comes off the day row — the snapshot frozen when the log
+  // was created — never from a constant. A log reprinted after the carrier
+  // profile changes must still show the identity in effect on that date.
+  page.drawText(
+    [
+      day.carrier_name ?? '',
+      day.carrier_usdot ? `USDOT ${day.carrier_usdot}` : '',
+      day.carrier_mc ? `MC ${day.carrier_mc}` : '',
+    ].filter(Boolean).join('  ·  '),
+    { x: MARGIN, y: y - 10, size: 9, font: regular, color: muted },
+  );
   y -= 24;
   page.drawRectangle({ x: MARGIN, y, width: PAGE_W - MARGIN * 2, height: 1.5, color: gold });
   y -= 16;
@@ -88,7 +99,21 @@ function drawDay(
   for (let i = 0; i <= 4; i += 1) {
     const ly = gridTop - ROW_H * i;
     page.drawLine({ start: { x: GRID_X, y: ly }, end: { x: GRID_X + GRID_W + 54, y: ly }, thickness: 0.6, color: ink });
-    if (i < 4) page.drawText(STATUS_LINES[i], { x: MARGIN, y: ly - ROW_H / 2 - 3, size: 8, font: regular, color: ink });
+    if (i < 4) {
+      // Wrapped, not shrunk — stacked around the row centre so the duty line
+      // still sits on rowCenterOffset. Same lines the native render draws.
+      const labelLines = STATUS_LABEL_LINES[i];
+      const centre = ly - ROW_H / 2;
+      labelLines.forEach((line, li) => {
+        page.drawText(line, {
+          x: MARGIN,
+          y: centre - 3 + (labelLines.length - 1) * 4.5 - li * 9,
+          size: 8,
+          font: regular,
+          color: ink,
+        });
+      });
+    }
   }
   page.drawLine({ start: { x: GRID_X + GRID_W, y: gridTop }, end: { x: GRID_X + GRID_W, y: gridBottom }, thickness: 0.9, color: ink });
   page.drawText('Total hours', { x: GRID_X + GRID_W + 4, y: gridTop + 6, size: 6, font: regular, color: muted });
@@ -175,8 +200,9 @@ function drawDay(
   }
   page.drawLine({ start: { x: MARGIN, y: y - 48 }, end: { x: MARGIN + 220, y: y - 48 }, thickness: 0.6, color: muted });
   page.drawText(day.certification_legal_name ?? driverName, { x: MARGIN, y: y - 58, size: 8, font: regular, color: ink });
-  if (day.certified_at) {
-    page.drawText(`Certified ${new Date(day.certified_at).toLocaleString()}`, {
+  const certifiedLabel = rodsCertifiedAtLabel(day);
+  if (certifiedLabel) {
+    page.drawText(certifiedLabel, {
       x: MARGIN + 240, y: y - 58, size: 7, font: regular, color: muted,
     });
   }

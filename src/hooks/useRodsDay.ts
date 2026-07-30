@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT } from '@/lib/eld/constants';
+import {
+  CARRIER_CACHE_MISSING_MESSAGE, requireCachedCarrier, rodsDayCarrierSnapshot,
+} from '@/lib/eld/carrierIdentity';
 import { isShortPeriod } from '@/lib/eld/rodsValidation';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
@@ -70,6 +72,17 @@ export function useRodsDay(params: {
     let target = list.find((d) => d.status === 'draft') ?? list[0] ?? null;
 
     if (!target && autoCreate) {
+      // Carrier identity is snapshotted from the device cache, never read live
+      // and never taken from a constant. If it was never cached we stop: an
+      // uncertifiable log with a guessed carrier is worse than no log yet.
+      let carrier;
+      try {
+        carrier = await requireCachedCarrier();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : CARRIER_CACHE_MISSING_MESSAGE);
+        setLoading(false);
+        return;
+      }
       const { data: created, error } = await supabase
         .from('rods_days')
         .insert({
@@ -78,9 +91,7 @@ export function useRodsDay(params: {
           record_source: 'keyed',
           status: 'draft',
           is_reconstructed: !!isReconstruction,
-          carrier_name: CARRIER_LEGAL_NAME,
-          carrier_usdot: CARRIER_USDOT,
-          carrier_mc: CARRIER_MC,
+          ...rodsDayCarrierSnapshot(carrier),
           ...defaults,
         })
         .select('*')

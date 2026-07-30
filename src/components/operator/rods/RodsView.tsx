@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ClipboardList, Printer } from 'lucide-react';
-import { CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT } from '@/lib/eld/constants';
+import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@/lib/eld/carrierIdentity';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
 import { useRodsDays } from '@/hooks/useRodsDays';
@@ -32,14 +32,20 @@ export default function RodsView({
   const [selected, setSelected] = useState<string | null>(null);
   const [reconstructing, setReconstructing] = useState(false);
   const [prevSegments, setPrevSegments] = useState<DraftSegment[] | null>(null);
+  const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
+
+  // Carrier identity for new drafts comes from the device cache written at the
+  // last authenticated load — never a live read, never a constant.
+  useEffect(() => {
+    void readCachedCarrier().then(setCarrier);
+  }, []);
 
   const defaults = useMemo<Partial<RodsDay>>(() => ({
-    carrier_name: CARRIER_LEGAL_NAME,
-    carrier_usdot: CARRIER_USDOT,
-    carrier_mc: CARRIER_MC,
+    ...(carrier ? rodsDayCarrierSnapshot(carrier) : {}),
     truck_number: unitNumber ?? null,
-    home_terminal_address: homeTerminalAddress ?? null,
-  }), [unitNumber, homeTerminalAddress]);
+    // An operator-specific terminal wins over the carrier default when set.
+    home_terminal_address: homeTerminalAddress ?? carrier?.home_terminal_address ?? null,
+  }), [unitNumber, homeTerminalAddress, carrier]);
 
   // Segments from the day before the one being edited, for "Copy yesterday".
   useEffect(() => {

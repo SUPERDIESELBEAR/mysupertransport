@@ -6,9 +6,34 @@
  * (49 CFR 395.34).
  */
 
-export const CARRIER_LEGAL_NAME = 'SUPERTRANSPORT, LLC';
-export const CARRIER_USDOT = '2309365';
-export const CARRIER_MC = '788425';
+/**
+ * BOOTSTRAP ONLY — the carrier record of record is the `carrier_profile` table,
+ * cached into Dexie `local_meta` on every authenticated load.
+ *
+ * These literals exist for exactly one situation: a surface that must still
+ * produce something useful before the very first successful hydration. Today
+ * that is the blank 8-day paper packet, which pre-prints the office and
+ * terminal addresses and is worse than useless with those lines empty.
+ *
+ * They must NEVER be written onto a certified record, a draft day, or a
+ * malfunction event. Those paths read the cached carrier and block when it is
+ * absent — see src/lib/eld/carrierIdentity.ts. A stale address on a blank form
+ * carries no compliance weight; a stale one frozen onto a signed federal record
+ * does.
+ */
+export const BOOTSTRAP_CARRIER = {
+  legal_name: 'SUPERTRANSPORT, LLC',
+  usdot_number: '2309365',
+  mc_number: '788425',
+  main_office_address: '605 Madison St, Pleasant Hill, MO 64080',
+  home_terminal_address: '605 Madison St, Pleasant Hill, MO 64080',
+  home_terminal_timezone: 'America/Chicago',
+  fmcsa_division_state: 'MO',
+} as const;
+
+export const CARRIER_LEGAL_NAME = BOOTSTRAP_CARRIER.legal_name;
+export const CARRIER_USDOT = BOOTSTRAP_CARRIER.usdot_number;
+export const CARRIER_MC = BOOTSTRAP_CARRIER.mc_number;
 
 export const MALFUNCTION_CODES = [
   { code: 'P', label: 'Power compliance', hint: 'The device lost power or did not turn on with the engine.' },

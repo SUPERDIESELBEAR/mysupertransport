@@ -12,14 +12,16 @@
  * regenerated on the device, so hydration remains the only path to them.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT } from '@/lib/eld/constants';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
 import { renderRodsDay } from '@/lib/eld/renderRodsDay';
 import {
   RODS_BUCKET, formatLogDate, showsDerivedTotals,
   type RodsDay, type RodsEvent,
 } from '@/lib/eld/rodsTypes';
-import { roadsideDb, requestPersistentStorage, type ManifestDay, type RoadsideManifest } from './db';
+import {
+  roadsideDb, requestPersistentStorage, readLocalMeta,
+  type LocalMeta, type ManifestDay, type RoadsideManifest,
+} from './db';
 import { probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { windowDatesInTimezone } from './roadsideManifest';
@@ -58,11 +60,21 @@ function filenameOf(path: string): string {
 }
 
 /**
- * Writes operator display identity and the home terminal timezone on every
- * successful authenticated load, so /roadside can render with no session.
- * Pass B adds sync as an additional trigger; it does not replace this one.
+ * Writes operator display identity, the home terminal timezone and the full
+ * carrier record on every successful authenticated load, so /roadside can
+ * render with no session and so record-creating paths have a carrier to
+ * snapshot. Pass B adds sync as an additional trigger; it does not replace
+ * this one.
+ *
+ * UPDATE SAFETY: a cached carrier is only ever replaced by a complete,
+ * successful carrier_profile fetch. A failed or partial fetch leaves the
+ * existing cache exactly as it was — degrading a good offline carrier record
+ * into a half-written one would corrupt every log created afterwards, which is
+ * strictly worse than serving yesterday's copy.
  */
-async function writeLocalMeta(operatorId: string, driverName: string) {
+async function writeLocalMeta(operatorId: string, driverName: string): Promise<LocalMeta> {
+  const existing = await readLocalMeta();
+
   const { data: op } = await supabase
     .from('operators')
     .select('id, user_id, unit_number, home_terminal_timezone')
@@ -78,17 +90,53 @@ async function writeLocalMeta(operatorId: string, driverName: string) {
     .limit(1)
     .maybeSingle();
 
-  const meta = {
-    key: 'identity' as const,
+  const { data: profile, error: profileError } = await supabase
+    .from('carrier_profile')
+    // Must stay a single string literal — the generated types parse it.
+    .select('legal_name, usdot_number, mc_number, main_office_address, home_terminal_address, home_terminal_timezone, fmcsa_division_state')
+    .maybeSingle();
+
+  // Complete means: fetch succeeded AND every field certify_rods_day guards on
+  // is present. Anything less is treated as a failed fetch.
+  const fetchedCarrier = !profileError && profile
+    && profile.legal_name && profile.usdot_number && profile.mc_number
+    && profile.main_office_address && profile.home_terminal_address
+    && profile.home_terminal_timezone
+    ? {
+      carrier_name: profile.legal_name,
+      carrier_usdot: profile.usdot_number,
+      carrier_mc: profile.mc_number ?? '',
+      carrier_main_office_address: profile.main_office_address,
+      carrier_home_terminal_address: profile.home_terminal_address,
+      carrier_home_terminal_timezone: profile.home_terminal_timezone,
+      carrier_fmcsa_division_state: profile.fmcsa_division_state ?? '',
+      carrier_cached_at: new Date().toISOString(),
+    }
+    : null;
+
+  const carrier = fetchedCarrier ?? {
+    // Preserve whatever was already cached; never substitute a constant here.
+    carrier_name: existing?.carrier_name ?? '',
+    carrier_usdot: existing?.carrier_usdot ?? '',
+    carrier_mc: existing?.carrier_mc ?? '',
+    carrier_main_office_address: existing?.carrier_main_office_address ?? '',
+    carrier_home_terminal_address: existing?.carrier_home_terminal_address ?? '',
+    carrier_home_terminal_timezone: existing?.carrier_home_terminal_timezone ?? '',
+    carrier_fmcsa_division_state: existing?.carrier_fmcsa_division_state ?? '',
+    carrier_cached_at: existing?.carrier_cached_at ?? null,
+  };
+
+  const meta: LocalMeta = {
+    key: 'identity',
     operator_id: operatorId,
     driver_name: driverName,
     driver_user_id: op?.user_id ?? null,
     truck_number: op?.unit_number ?? null,
-    carrier_name: CARRIER_LEGAL_NAME,
-    carrier_usdot: CARRIER_USDOT,
-    carrier_mc: CARRIER_MC,
-    home_terminal_address: lastDay?.home_terminal_address ?? null,
-    home_terminal_timezone: op?.home_terminal_timezone || 'America/Chicago',
+    ...carrier,
+    home_terminal_address:
+      lastDay?.home_terminal_address ?? carrier.carrier_home_terminal_address ?? null,
+    home_terminal_timezone:
+      op?.home_terminal_timezone || carrier.carrier_home_terminal_timezone || 'America/Chicago',
     updated_at: new Date().toISOString(),
   };
   await roadsideDb.local_meta.put(meta);

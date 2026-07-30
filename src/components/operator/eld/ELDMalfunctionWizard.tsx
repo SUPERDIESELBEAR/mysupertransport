@@ -10,9 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { AlertTriangle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import {
-  CARRIER_LEGAL_NAME, CARRIER_MC, CARRIER_USDOT, CLOCK_RED,
+  CLOCK_RED,
   MALFUNCTION_CODES, MALFUNCTION_CODE_LABEL, MAX_BACKDATE_HOURS, REPAIR_WINDOW_DAYS,
 } from '@/lib/eld/constants';
+import {
+  CARRIER_CACHE_MISSING_MESSAGE, malfunctionCarrierSnapshot, readCachedCarrier,
+  requireCachedCarrier, type CachedCarrier,
+} from '@/lib/eld/carrierIdentity';
+import { carrierTimeZoneLabel } from '@/lib/eld/rodsHeaderFields';
 import { renderMalfunctionNoticeBlob } from '@/lib/eld/renderMalfunctionNotice';
 import { blobToBase64, flushPendingNotices, savePendingNotice } from '@/lib/eld/pendingNotice';
 
@@ -65,6 +70,11 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
   const sigRef = useRef<SignatureCanvas | null>(null);
   const sigHostRef = useRef<HTMLDivElement | null>(null);
   const [sigWidth, setSigWidth] = useState(280);
+  const [cachedCarrier, setCachedCarrier] = useState<CachedCarrier | null>(null);
+
+  // Read once, from the device cache only. Shown on the review step so the
+  // driver signs against the identity that will be frozen onto the record.
+  useEffect(() => { void readCachedCarrier().then(setCachedCarrier); }, []);
 
   useEffect(() => {
     void (async () => {
@@ -130,6 +140,10 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
       }
 
       const nowIso = new Date().toISOString();
+      // Carrier identity is snapshotted from the device cache. A malfunction is
+      // reported precisely when things are going wrong, often with no signal,
+      // so a live carrier read here would fail exactly when it matters.
+      const carrier = await requireCachedCarrier();
       const { data: inserted, error } = await supabase
         .from('eld_malfunction_events')
         .insert({
@@ -147,6 +161,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
           device_model: selectedModel?.device_model ?? null,
           device_serial: serial.trim() || null,
           eld_registration_id: selectedModel?.fmcsa_registration_id ?? null,
+          ...malfunctionCarrierSnapshot(carrier),
           notice_generated_at: nowIso,
         })
         .select('id')
@@ -159,7 +174,10 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
         driverName,
         driverId: operatorId,
         truckNumber: truckNumber || null,
-        discoveredAtDisplay: discoveredDate.toLocaleString('en-US', { timeZoneName: 'short' }),
+        discoveredAtDisplay: `${discoveredDate.toLocaleString('en-US')} — ${carrierTimeZoneLabel(
+          carrier.home_terminal_timezone,
+          discoveredDate.toISOString().slice(0, 10),
+        )}`,
         discoveredLocation: location.trim(),
         deviceProvider: selectedModel?.provider_name ?? null,
         deviceMake: selectedModel?.device_make ?? null,
@@ -171,7 +189,14 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
         malfunctionDescription: description.trim(),
         hindersHosRecording: hinders === 'yes',
         repairDeadlineDisplay: repairDeadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        submittedAtDisplay: new Date().toLocaleString('en-US', { timeZoneName: 'short' }),
+        submittedAtDisplay: `${new Date().toLocaleString('en-US')} — ${carrierTimeZoneLabel(
+          carrier.home_terminal_timezone,
+          nowIso.slice(0, 10),
+        )}`,
+        carrierLegalName: carrier.legal_name,
+        carrierUsdot: carrier.usdot_number,
+        carrierMc: carrier.mc_number,
+        carrierMainOfficeAddress: carrier.main_office_address,
         signatureDataUrl,
       });
 
@@ -318,8 +343,10 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
       {step === 4 && (
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-2">
-            <div className="font-semibold text-foreground">{CARRIER_LEGAL_NAME}</div>
-            <div className="text-xs text-muted-foreground">USDOT {CARRIER_USDOT} · MC {CARRIER_MC}</div>
+            <div className="font-semibold text-foreground">{cachedCarrier?.legal_name ?? '—'}</div>
+            <div className="text-xs text-muted-foreground">
+              USDOT {cachedCarrier?.usdot_number ?? '—'} · MC {cachedCarrier?.mc_number ?? '—'}
+            </div>
             <dl className="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 pt-2 text-xs">
               <dt className="text-muted-foreground">Driver</dt><dd>{driverName}</dd>
               <dt className="text-muted-foreground">Truck</dt><dd>{truckNumber || '—'}</dd>
@@ -331,10 +358,16 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
               <dt className="text-muted-foreground">Repair deadline</dt><dd>{repairDeadline.toLocaleDateString()}</dd>
             </dl>
             <p className="pt-2 text-xs text-muted-foreground">
-              I am giving {CARRIER_LEGAL_NAME} written notice of this ELD malfunction within 24 hours of discovering it,
-              as required by 49 CFR 395.34(a)(1).
+              I am giving {cachedCarrier?.legal_name ?? 'my motor carrier'} written notice of this ELD malfunction
+              within 24 hours of discovering it, as required by 49 CFR 395.34(a)(1).
             </p>
           </div>
+
+          {!cachedCarrier && (
+            <p className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+              {CARRIER_CACHE_MISSING_MESSAGE}
+            </p>
+          )}
 
           <div className="space-y-2">
             <Label>Sign below</Label>
@@ -352,7 +385,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
 
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => setStep(3)} disabled={saving}>Back</Button>
-            <Button className="flex-1" onClick={() => submit(true)} disabled={saving}>
+            <Button className="flex-1" onClick={() => submit(true)} disabled={saving || !cachedCarrier}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit notice'}
             </Button>
           </div>
