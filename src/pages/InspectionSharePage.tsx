@@ -20,7 +20,10 @@ export default function InspectionSharePage() {
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
     (async () => {
-      const { data, error } = await supabase.rpc('get_inspection_doc_by_token', {
+      // §8: single resolution path. Revoked / expired / unknown all come back
+      // empty and render the same "Document Not Found" state — no distinction
+      // is leaked to the officer. Every call writes a share_token_access_log row.
+      const { data, error } = await supabase.rpc('resolve_share_token', {
         p_token: token,
       });
       if (error || !data || (Array.isArray(data) && data.length === 0)) {
