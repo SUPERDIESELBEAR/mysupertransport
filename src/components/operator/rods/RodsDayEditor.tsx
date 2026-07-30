@@ -244,7 +244,18 @@ export default function RodsDayEditor({
         </div>
       ) : (
         <>
-          <RodsGrid segments={segments} activeLocalId={activeLocalId} />
+          <RodsGrid
+            segments={segments}
+            activeLocalId={activeLocalId}
+            showGaps={validation.incompleteIds.length === 0 && segments.length > 0}
+          />
+
+          {validation.gaps.length > 0 && (
+            <p className="rounded-lg bg-destructive/10 p-2 text-center text-xs text-destructive">
+              {validation.gaps.length === 1 ? 'One stretch of the day has no entry.' : `${validation.gaps.length} stretches of the day have no entry.`}
+              {' '}Add an entry for each — SUPERDRIVE will not fill them in.
+            </p>
+          )}
 
           {showsDerivedTotals(day) && (
             <div className="grid grid-cols-4 gap-2 text-center">
