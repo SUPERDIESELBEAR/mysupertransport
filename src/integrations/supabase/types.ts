@@ -4721,6 +4721,7 @@ export type Database = {
           log_date: string
           operator_id: string
           pdf_path: string | null
+          period_start_time: string
           recap_available_tomorrow: string | null
           recap_last_7_days: string | null
           recap_last_8_days: string | null
@@ -4761,6 +4762,7 @@ export type Database = {
           log_date: string
           operator_id: string
           pdf_path?: string | null
+          period_start_time?: string
           recap_available_tomorrow?: string | null
           recap_last_7_days?: string | null
           recap_last_8_days?: string | null
@@ -4801,6 +4803,7 @@ export type Database = {
           log_date?: string
           operator_id?: string
           pdf_path?: string | null
+          period_start_time?: string
           recap_available_tomorrow?: string | null
           recap_last_7_days?: string | null
           recap_last_8_days?: string | null
@@ -4840,42 +4843,42 @@ export type Database = {
       }
       rods_events: {
         Row: {
-          city: string
+          city: string | null
           created_at: string
-          duty_status: number
-          end_minute: number
+          duty_status: number | null
+          end_minute: number | null
           id: string
-          is_short_period: boolean
+          is_short_period: boolean | null
           remarks: string | null
           rods_day_id: string
           start_minute: number
-          state: string
+          state: string | null
           updated_at: string
         }
         Insert: {
-          city: string
+          city?: string | null
           created_at?: string
-          duty_status: number
-          end_minute: number
+          duty_status?: number | null
+          end_minute?: number | null
           id?: string
-          is_short_period?: boolean
+          is_short_period?: boolean | null
           remarks?: string | null
           rods_day_id: string
           start_minute: number
-          state: string
+          state?: string | null
           updated_at?: string
         }
         Update: {
-          city?: string
+          city?: string | null
           created_at?: string
-          duty_status?: number
-          end_minute?: number
+          duty_status?: number | null
+          end_minute?: number | null
           id?: string
-          is_short_period?: boolean
+          is_short_period?: boolean | null
           remarks?: string | null
           rods_day_id?: string
           start_minute?: number
-          state?: string
+          state?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5730,6 +5733,7 @@ export type Database = {
           log_date: string
           operator_id: string
           pdf_path: string | null
+          period_start_time: string
           recap_available_tomorrow: string | null
           recap_last_7_days: string | null
           recap_last_8_days: string | null
@@ -6198,6 +6202,7 @@ export type Database = {
           log_date: string
           operator_id: string
           pdf_path: string | null
+          period_start_time: string
           recap_available_tomorrow: string | null
           recap_last_7_days: string | null
           recap_last_8_days: string | null
