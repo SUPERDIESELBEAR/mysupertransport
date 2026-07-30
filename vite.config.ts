@@ -47,6 +47,47 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     versionManifestPlugin(),
+    VitePWA({
+      registerType: "autoUpdate",
+      // The guarded wrapper in src/lib/pwa/registerServiceWorker.ts is the
+      // only registrar; the plugin must not inject its own.
+      injectRegister: null,
+      devOptions: { enabled: false },
+      filename: "sw.js",
+      manifest: false,
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // A cold launch from the installed home-screen shortcut issues a real
+        // navigation request. Without this fallback /roadside 404s offline.
+        navigateFallback: "/index.html",
+        navigateFallbackAllowlist: [/^\/roadside\/?$/, /^\/$/, /^\/dashboard/, /^\/operator/, /^\/owner/],
+        navigateFallbackDenylist: [
+          /^\/management\//, /^\/staff\//, /^\/dispatch\//,
+          /^\/~oauth/, /^\/api\//,
+        ],
+        runtimeCaching: [
+          {
+            // HTML navigations are never cache-first.
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: { cacheName: "sd-pages", networkTimeoutSeconds: 3 },
+          },
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && /\.(?:js|css|woff2|png|svg|ico)$/.test(url.pathname),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "sd-assets",
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
+      },
+    }),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   define: {
