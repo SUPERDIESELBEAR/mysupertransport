@@ -12,7 +12,7 @@ import {
 } from './rodsGridGeometry';
 import { FORM_REVISION } from './renderDutyStatusGrid';
 import { statusTotals } from './rodsValidation';
-import { formatLogDate, type RodsDay, type RodsEvent } from './rodsTypes';
+import { formatLogDate, isCompleteEvent, type RodsDay, type RodsEvent } from './rodsTypes';
 import { formatClock } from './rodsGridGeometry';
 
 const FOOTER_CITATION =
@@ -112,19 +112,24 @@ function drawDay(
   page.drawLine({ start: { x: GRID_X + GRID_W, y: gridTop }, end: { x: GRID_X + GRID_W, y: gridBottom }, thickness: 0.9, color: ink });
   page.drawText('Total hours', { x: GRID_X + GRID_W + 4, y: gridTop + 6, size: 6, font: regular, color: muted });
 
-  // duty lines with vertical connectors
-  const sorted = [...events].sort((a, b) => a.start_minute - b.start_minute);
+  // Only finished entries are drawable. A certified log cannot contain an
+  // unfinished one — the server guard rejects it — but the renderer is also
+  // used on drafts, and half an entry must not become a line on the grid.
+  const sorted = [...events]
+    .filter(isCompleteEvent)
+    .sort((a, b) => a.start_minute - b.start_minute);
   let prev: RodsEvent | null = null;
   for (const e of sorted) {
-    const ly = gridTop - rowCenterOffset(e.duty_status);
+    const ly = gridTop - rowCenterOffset(e.duty_status as 1 | 2 | 3 | 4);
     page.drawLine({
       start: { x: GRID_X + minuteToX(e.start_minute), y: ly },
-      end: { x: GRID_X + minuteToX(e.end_minute), y: ly },
+      end: { x: GRID_X + minuteToX(e.end_minute as number), y: ly },
       thickness: 1.6,
       color: ink,
     });
-    if (prev) {
-      const py = gridTop - rowCenterOffset(prev.duty_status);
+    // Only connect statuses that actually meet — no bridging across a gap.
+    if (prev && prev.end_minute === e.start_minute) {
+      const py = gridTop - rowCenterOffset(prev.duty_status as 1 | 2 | 3 | 4);
       page.drawLine({
         start: { x: GRID_X + minuteToX(e.start_minute), y: py },
         end: { x: GRID_X + minuteToX(e.start_minute), y: ly },
@@ -151,11 +156,11 @@ function drawDay(
   });
   y -= 12;
   const lines: string[] = sorted.map(
-    (e) => `${formatClock(e.start_minute)} — ${STATUS_LINES[e.duty_status - 1].slice(3)} — ${e.city}, ${e.state}${e.remarks ? ` — ${e.remarks}` : ''}`,
+    (e) => `${formatClock(e.start_minute)} — ${STATUS_LINES[(e.duty_status as number) - 1].slice(3)} — ${e.city ?? ''}, ${e.state ?? ''}${e.remarks ? ` — ${e.remarks}` : ''}`,
   );
   for (const e of sorted.filter((s) => s.is_short_period)) {
     lines.push(
-      `Short period: ${formatClock(e.start_minute)}–${formatClock(e.end_minute)} (${e.end_minute - e.start_minute} min) at ${e.city}, ${e.state}`,
+      `Short period: ${formatClock(e.start_minute)}–${formatClock(e.end_minute as number)} (${(e.end_minute as number) - e.start_minute} min) at ${e.city ?? ''}, ${e.state ?? ''}`,
     );
   }
   for (const line of lines.slice(0, 12)) {
