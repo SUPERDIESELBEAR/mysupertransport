@@ -8,6 +8,7 @@
  *      any age — it is the only copy.
  */
 import { roadsideDb, type RoadsideManifest } from './db';
+import { divergenceHeldDates } from './divergence';
 
 export const PRUNE_AFTER_DAYS = 14;
 
@@ -22,6 +23,9 @@ export async function pruneRoadsideCache(
   now: Date = new Date(),
 ): Promise<void> {
   const keep = new Set(manifest.days.map((d) => d.log_date));
+  // A flagged day keeps both copies until the divergence is resolved — or for
+  // 30 days, whichever comes first (see divergenceHeldDates).
+  for (const d of await divergenceHeldDates(now)) keep.add(d);
   const cutoffIso = pruneCutoffIso(now);
   const stale = (logDate: string, cachedAt: string) => !keep.has(logDate) && cachedAt <= cutoffIso;
 
