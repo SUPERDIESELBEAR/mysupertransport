@@ -114,9 +114,14 @@ describe("database security conventions", () => {
 
   it("never grants a table privilege to anon", () => {
     const offenders: string[] = [];
-    // `GRANT INSERT ON public.applications TO anon` is the one sanctioned
-    // exception (the public job-application form).
-    const ALLOWED = /GRANT\s+INSERT\s+ON\s+public\.applications\s+TO\s+anon/i;
+    // The only sanctioned anon table privileges:
+    //  - INSERT ON applications (the public job-application form)
+    //  - SELECT ON faq         (published owner-operator FAQs, row-filtered
+    //                           by a TO public policy)
+    const ALLOWED = [
+      /GRANT\s+INSERT\s+ON\s+public\.applications\s+TO\s+anon/i,
+      /GRANT\s+SELECT\s+ON\s+public\.faq\s+TO\s+anon/i,
+    ];
 
     for (const file of files) {
       const sql = stripComments(
@@ -125,7 +130,7 @@ describe("database security conventions", () => {
       const grants = sql.match(/GRANT[\s\S]*?TO\s+[^;]*\banon\b[^;]*;/gi) ?? [];
       for (const g of grants) {
         if (/GRANT\s+(USAGE|EXECUTE)\b/i.test(g)) continue;
-        if (ALLOWED.test(g)) continue;
+        if (ALLOWED.some((re) => re.test(g))) continue;
         offenders.push(`${file}: ${g.replace(/\s+/g, " ").trim()}`);
       }
     }
