@@ -18,6 +18,18 @@ export default function RoadsidePacket() {
   const [manifest, setManifest] = useState<RoadsideManifest | null>(null);
   const [index, setIndex] = useState(0);
   const [exiting, setExiting] = useState(false);
+  // Landscape phone. Drives the collapsed cover-facts default so the log keeps
+  // the vertical space; the officer can still expand the citation.
+  const [isShort, setIsShort] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-height: 560px)').matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-height: 560px)');
+    const onChange = (e: MediaQueryListEvent) => setIsShort(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   useEffect(() => {
     void (async () => {
