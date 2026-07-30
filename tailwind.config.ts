@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      // Landscape phones and other short viewports (roadside presentation mode).
+      screens: {
+        short: { raw: "(max-height: 560px)" },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
