@@ -107,6 +107,26 @@ function GuardTrace({ route, branch, children }: { route: string; branch: string
   return <>{children}</>;
 }
 
+/**
+ * Starts the ELD sync runner (and, through it, the pending-notice drain) once
+ * a session exists. Mounted below the auth guard, never in main.tsx: the
+ * runner imports the Supabase client, and /roadside boots through its own
+ * module graph that must stay Supabase-free. The import is dynamic so the
+ * queue never enters the entry chunk.
+ */
+function SyncRunnerMount() {
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/eld/offline/queue/runner").then(({ startSyncRunner }) => {
+      if (!cancelled) startSyncRunner();
+    }).catch((err) => {
+      console.error("[eld-sync] runner failed to start", err);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  return null;
+}
+
 function AppRoutes() {
   const { user, loading, roles, rolesLoaded, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
 
@@ -127,6 +147,7 @@ function AppRoutes() {
 
   return (
     <Suspense fallback={<PortalFallback />}>
+    {user ? <SyncRunnerMount /> : null}
     <Routes>
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
