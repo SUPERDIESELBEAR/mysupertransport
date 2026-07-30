@@ -7,6 +7,7 @@
  * real import graph from the /roadside entry and fails if it can reach it.
  */
 import Dexie, { type Table } from 'dexie';
+import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 /** Cached identity for the roadside header. Written on authenticated load. */
 export interface LocalMeta {
@@ -65,10 +66,24 @@ export interface NoticePdfEntry {
   cached_at: string;
 }
 
+/**
+ * Where a cached signature image came from. This decides whether it can ever
+ * be pruned.
+ *
+ * 'local_pending_upload' — produced on this device and not yet uploaded. It is
+ *   the only copy of part of a signed record, so it is never pruned at any age.
+ * 'downloaded_cache'     — a copy of a signature that already lives on the
+ *   server. Prunes on the same rules as rods_pdfs; otherwise the store grows
+ *   without bound.
+ */
+export type SignatureOrigin = 'local_pending_upload' | 'downloaded_cache';
+
 export interface SignatureImageEntry {
   key: string;
   data_url: string;
   uploaded: boolean;
+  /** Required at every write site. Never defaulted — the two cases prune differently. */
+  origin: SignatureOrigin;
   cached_at: string;
 }
 
@@ -107,12 +122,15 @@ export interface RoadsideManifest {
 export interface RodsDayCacheEntry {
   log_date: string;
   operator_id: string;
-  day: unknown;
+  day: RodsDay;
+  cached_at: string;
 }
 
 export interface RodsEventCacheEntry {
   rods_day_id: string;
-  events: unknown[];
+  log_date: string;
+  events: RodsEvent[];
+  cached_at: string;
 }
 
 /** Declared in Pass A, exercised in Pass B. */
@@ -151,6 +169,18 @@ class RoadsideDb extends Dexie {
       rods_days_cache: 'log_date, operator_id',
       rods_events_cache: 'rods_day_id',
       pending_mutations: '++id, idempotency_key, next_attempt_at, depends_on',
+    });
+    // v2 — signature origin, and a log_date index on the events cache so it can
+    // be pruned by day alongside rods_days_cache.
+    this.version(2).stores({
+      signature_images: 'key, uploaded, origin',
+      rods_events_cache: 'rods_day_id, log_date',
+    }).upgrade(async (tx) => {
+      // Pre-v2 rows were all written by the (unshipped) local signing path.
+      // Treat them as local so nothing signed is ever pruned by the upgrade.
+      await tx.table('signature_images').toCollection().modify((row: SignatureImageEntry) => {
+        row.origin = row.origin ?? 'local_pending_upload';
+      });
     });
   }
 }

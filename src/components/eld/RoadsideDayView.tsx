@@ -1,17 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
-import { roadsideDb, type ManifestDay } from '@/lib/eld/offline/db';
+import { roadsideDb, readLocalMeta, type ManifestDay } from '@/lib/eld/offline/db';
 import { formatRoadsideDateLong } from '@/lib/eld/offline/roadsideManifest';
+import { signatureKeyForDay } from '@/lib/eld/offline/prune';
+import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
+import RoadsideDayRender from './RoadsideDayRender';
 
 type Payload =
+  | {
+      kind: 'native';
+      day: RodsDay;
+      events: RodsEvent[];
+      driverName: string;
+      signatureDataUrl: string | null;
+    }
   | { kind: 'pdf'; url: string }
   | { kind: 'image'; url: string }
   | { kind: 'file'; filename: string; url: string }
   | { kind: 'missing' };
 
 /**
- * One day of the packet. An undecodable file (HEIC on Chrome) is never shown
- * as a broken image — it becomes a named card with an Open action that hands
- * off to the OS viewer.
+ * One day of the packet.
+ *
+ * A certified keyed day is drawn natively from the structured cache — no PDF
+ * viewer is involved at all. Only an uploaded ELD document, whose bytes exist
+ * solely as a file, is embedded; that embed always carries a visible "Open
+ * file" action so a blank frame is recoverable without the app detecting it.
  */
 export default function RoadsideDayView({ day }: { day: ManifestDay }) {
   const [payload, setPayload] = useState<Payload>({ kind: 'missing' });
@@ -24,6 +37,35 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
       if (!day.cached) { setPayload({ kind: 'missing' }); return; }
 
       if (day.kind === 'keyed') {
+        // Structured render requires BOTH rows. A header with no segments
+        // would draw an empty grid, which reads as "no duty recorded".
+        const [dayRow, meta] = await Promise.all([
+          roadsideDb.rods_days_cache.get(day.log_date),
+          readLocalMeta(),
+        ]);
+        const eventRow = dayRow
+          ? await roadsideDb.rods_events_cache.get(dayRow.day.id)
+          : undefined;
+        if (cancelled) return;
+
+        if (dayRow && eventRow) {
+          const sig = await roadsideDb.signature_images
+            .get(signatureKeyForDay(dayRow.operator_id, day.log_date))
+            .catch(() => undefined);
+          if (cancelled) return;
+          setPayload({
+            kind: 'native',
+            day: dayRow.day,
+            events: eventRow.events,
+            driverName: meta?.driver_name ?? dayRow.day.certification_legal_name ?? 'Driver',
+            signatureDataUrl: sig?.data_url ?? null,
+          });
+          return;
+        }
+
+        // Device hydrated before the structured cache existed. Fall back to the
+        // PDF silently — the officer screen never explains cache formats.
+        logNativeFallback(day.log_date);
         const entry = await roadsideDb.rods_pdfs.get(day.log_date);
         if (!entry || cancelled) return;
         const url = URL.createObjectURL(new Blob([entry.bytes], { type: 'application/pdf' }));
@@ -61,15 +103,33 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
       </header>
 
       <div className="min-h-0 flex-1 px-4 pb-4">
+        {payload.kind === 'native' && (
+          <RoadsideDayRender
+            day={payload.day}
+            events={payload.events}
+            driverName={payload.driverName}
+            signatureDataUrl={payload.signatureDataUrl}
+          />
+        )}
+
         {payload.kind === 'pdf' && (
-          <object data={payload.url} type="application/pdf" className="h-full min-h-[45vh] w-full rounded border" style={{ borderColor: '#DCDCDC' }}>
-            <FileCard
-              filename={day.filename ?? 'Daily log'}
-              date={heading}
-              recordType={day.label}
-              url={payload.url}
-            />
-          </object>
+          <div className="flex h-full min-h-[45vh] flex-col gap-2">
+            {/* Always offered, not only when the embed is detected to fail. */}
+            <OpenFileAction url={payload.url} />
+            <object
+              data={payload.url}
+              type="application/pdf"
+              className="min-h-[40vh] w-full flex-1 rounded border"
+              style={{ borderColor: '#DCDCDC' }}
+            >
+              <FileCard
+                filename={day.filename ?? 'Daily log'}
+                date={heading}
+                recordType={day.label}
+                url={payload.url}
+              />
+            </object>
+          </div>
         )}
 
         {payload.kind === 'image' && (
@@ -114,3 +174,38 @@ function FileCard({ filename, date, recordType, url }: {
     </div>
   );
 }
+
+/**
+ * Shown above every embed at all times. If the frame comes up blank the driver
+ * can still hand the officer the file, without the app having to notice.
+ */
+function OpenFileAction({ url }: { url: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener"
+      className="shrink-0 self-start rounded px-4 py-2 text-sm font-bold"
+      style={{ background: '#C9A84C', color: '#0D0D0D' }}
+    >
+      Open file
+    </a>
+  );
+}
+
+/**
+ * Recorded for the driver-side dashboard only. The officer screen never shows
+ * a cache-format explanation.
+ */
+function logNativeFallback(logDate: string) {
+  try {
+    const key = 'roadside_native_fallback';
+    const prev = JSON.parse(localStorage.getItem(key) ?? '[]') as string[];
+    if (!prev.includes(logDate)) {
+      localStorage.setItem(key, JSON.stringify([...prev, logDate].slice(-16)));
+    }
+  } catch {
+    /* diagnostics only — never block the render */
+  }
+}
+

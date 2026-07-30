@@ -21,6 +21,7 @@ import {
 } from '@/lib/eld/rodsTypes';
 import { roadsideDb, requestPersistentStorage, type ManifestDay, type RoadsideManifest } from './db';
 import { probeRenderability } from './renderability';
+import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { windowDatesInTimezone } from './roadsideManifest';
 
 export type HydrationPhase = 'idle' | 'running' | 'ready' | 'incomplete' | 'unavailable';
@@ -94,6 +95,40 @@ async function writeLocalMeta(operatorId: string, driverName: string) {
   return meta;
 }
 
+/**
+ * The certification signature, cached as a data URL so both the PDF and the
+ * native roadside render show the same mark. Tagged 'downloaded_cache': this
+ * is a copy of a server record and prunes normally.
+ */
+async function cacheSignature(day: RodsDay): Promise<string | null> {
+  const path = day.certification_signature_path;
+  if (!path) return null;
+  const key = signatureKeyForDay(day.operator_id, day.log_date);
+  const existing = await roadsideDb.signature_images.get(key);
+  if (existing) return existing.data_url;
+
+  const { data: signed } = await supabase.storage.from(RODS_BUCKET).createSignedUrl(path, 600);
+  if (!signed?.signedUrl) return null;
+  const res = await fetch(signed.signedUrl);
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  const dataUrl = await new Promise<string | null>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+  if (!dataUrl) return null;
+  await roadsideDb.signature_images.put({
+    key,
+    data_url: dataUrl,
+    uploaded: true,
+    origin: 'downloaded_cache',
+    cached_at: new Date().toISOString(),
+  });
+  return dataUrl;
+}
+
 async function cacheKeyedDay(day: RodsDay, driverName: string) {
   const existing = await roadsideDb.rods_pdfs.get(day.log_date);
   if (existing && existing.cached_at > day.updated_at) return;
@@ -104,10 +139,27 @@ async function cacheKeyedDay(day: RodsDay, driverName: string) {
     .eq('rods_day_id', day.id)
     .order('start_minute');
 
+  const rows = (events ?? []) as unknown as RodsEvent[];
+  const signatureDataUrl = await cacheSignature(day).catch(() => null);
+  const cachedAt = new Date().toISOString();
+
+  // Both structured stores commit together. A kill between them would leave a
+  // day with header data and no segments, which renders as an empty grid
+  // instead of falling back to the PDF embed.
+  await roadsideDb.transaction('rw', roadsideDb.rods_days_cache, roadsideDb.rods_events_cache, async () => {
+    await roadsideDb.rods_days_cache.put({
+      log_date: day.log_date, operator_id: day.operator_id, day, cached_at: cachedAt,
+    });
+    await roadsideDb.rods_events_cache.put({
+      rods_day_id: day.id, log_date: day.log_date, events: rows, cached_at: cachedAt,
+    });
+  });
+
   const blob = await renderRodsDay({
     day,
-    events: (events ?? []) as unknown as RodsEvent[],
+    events: rows,
     driverName,
+    signatureDataUrl,
   });
   await roadsideDb.rods_pdfs.put({
     log_date: day.log_date,
@@ -115,7 +167,7 @@ async function cacheKeyedDay(day: RodsDay, driverName: string) {
     bytes: await blob.arrayBuffer(),
     mime: 'application/pdf',
     uploaded: true,
-    cached_at: new Date().toISOString(),
+    cached_at: cachedAt,
   });
 }
 
@@ -165,28 +217,6 @@ async function cacheNotice(eventId: string, noticePath: string | null) {
     cached_at: new Date().toISOString(),
   });
   return true;
-}
-
-/**
- * Never prune a file the current manifest references, and never prune a
- * local-only artifact that has not been uploaded yet, at any age.
- */
-async function prune(manifest: RoadsideManifest) {
-  const keep = new Set(manifest.days.map((d) => d.log_date));
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 14);
-  const cutoffIso = cutoff.toISOString();
-
-  const pdfs = await roadsideDb.rods_pdfs.toArray();
-  for (const p of pdfs) {
-    if (keep.has(p.log_date) || !p.uploaded || p.cached_at > cutoffIso) continue;
-    await roadsideDb.rods_pdfs.delete(p.log_date);
-  }
-  const docs = await roadsideDb.rods_documents.toArray();
-  for (const d of docs) {
-    if (keep.has(d.log_date) || d.cached_at > cutoffIso) continue;
-    await roadsideDb.rods_documents.delete(d.log_date);
-  }
 }
 
 let inFlight: Promise<void> | null = null;
@@ -296,7 +326,7 @@ async function run(operatorId: string, driverName: string) {
       built_at: new Date().toISOString(),
     };
     await roadsideDb.roadside_manifest.put(manifest);
-    await prune(manifest);
+    await pruneRoadsideCache(manifest);
 
     const cachedDays = manifestDays.filter((d) => d.cached).length;
     const expected = manifestDays.filter((d) => d.label !== 'Not certified').length;
