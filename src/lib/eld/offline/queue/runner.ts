@@ -18,6 +18,7 @@ import { SERVER_ATTEMPT_LIMIT } from './types';
 import { classifyError, isDuplicateDateRejection } from './classify';
 import { HANDLERS } from './handlers';
 import { raiseSyncAlert } from './alerts';
+import { drainPendingNotices } from './noticeDrain';
 import {
   dueEntries, markInFlight, markRetry, markSucceeded, markTerminal, purgeSucceeded, syncCounts,
   type SyncCounts,
@@ -106,6 +107,11 @@ export async function drainQueue(options?: { force?: boolean }): Promise<void> {
   if (!options?.force && Date.now() - lastPassEndedAt < COALESCE_MS) return;
   running = true;
   try {
+    // Migrate any localStorage-era notice into the queue before draining, so a
+    // notice saved by the legacy path is delivered by this same pass.
+    await drainPendingNotices().catch((err) => {
+      console.error('[eld-sync] notice drain failed', err);
+    });
     // Re-read between entries: a succeeded upload unblocks its dependent
     // certification within the same drain.
     for (;;) {

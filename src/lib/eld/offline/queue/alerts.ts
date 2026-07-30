@@ -9,7 +9,8 @@ export type SyncAlertKind =
   | 'certification_rejected'
   | 'sync_failed'
   | 'certified_day_divergence'
-  | 'notice_drain_corrupt';
+  | 'notice_drain_corrupt'
+  | 'notice_orphaned';
 
 export interface SyncAlertInput {
   kind: SyncAlertKind;
