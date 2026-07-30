@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AlertTriangle, ClipboardList, Printer } from 'lucide-react';
 import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@/lib/eld/carrierIdentity';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
@@ -36,28 +46,32 @@ export default function RodsView({
   const [prevSegments, setPrevSegments] = useState<DraftSegment[] | null>(null);
   const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
   const [diverged, setDiverged] = useState<Set<string>>(new Set());
+  const [pendingDismissDate, setPendingDismissDate] = useState<string | null>(null);
 
   useEffect(() => {
     void openDivergenceDates().then(setDiverged);
   }, [loading]);
 
   /**
-   * Interim resolution path until the Management console lands: the driver may
-   * dismiss only after Management has made contact, and the dismissal is
-   * recorded as driver-sourced so it is never mistaken for a resolution.
+   * Interim resolution path until the Management console lands: a driver may
+   * clear the warning on this device only. The dismissal is recorded locally
+   * and does not resolve the server-side mismatch.
    */
-  async function dismissDivergence(logDate: string) {
+  async function confirmDismissDivergence() {
+    if (!pendingDismissDate) return;
+    const logDate = pendingDismissDate;
     await acknowledgeDivergence(logDate, {
       source: 'driver',
       actor: driverName,
-      reason: 'Driver dismissed after Management contact.',
+      reason: 'Driver cleared the divergence warning on this device only.',
     });
     void raiseSyncAlert({
       kind: 'certified_day_divergence',
       operator_id: operatorId,
       log_date: logDate,
-      detail: `Driver ${driverName} dismissed the divergence for ${logDate} after Management contact.`,
+      detail: `Driver ${driverName} cleared the divergence warning for ${logDate} on this device only.`,
     });
+    setPendingDismissDate(null);
     setDiverged(await openDivergenceDates());
   }
 

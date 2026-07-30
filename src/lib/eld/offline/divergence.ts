@@ -132,9 +132,9 @@ export async function divergenceHeldDates(now: Date = new Date()): Promise<Set<s
 }
 
 /**
- * Resolve a divergence. Management resolution is the real path; a driver
- * dismissal is allowed only after Management has made contact and is recorded
- * distinctly so the two are never confused.
+ * Resolve a divergence locally. This is intentionally device-local until Stage 4
+ * introduces a server-side divergence resolution table and a sync-queue kind for
+ * acknowledgement propagation. Do not treat this as the final, cross-device flow.
  */
 export async function acknowledgeDivergence(
   logDate: string,
