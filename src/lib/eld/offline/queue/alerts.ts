@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type SyncAlertKind =
   | 'certification_rejected'
   | 'sync_failed'
+  | 'certified_day_divergence'
   | 'notice_drain_corrupt';
 
 export interface SyncAlertInput {
