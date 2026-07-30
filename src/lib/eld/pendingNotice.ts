@@ -104,7 +104,15 @@ async function deliverOne(notice: PendingNotice): Promise<boolean> {
   return true;
 }
 
-/** Retry every stored notice. Safe to call repeatedly (on app foreground). */
+/**
+ * LEGACY (one release). Notices are now migrated onto the sync queue by
+ * `drainPendingNotices` in offline/queue/noticeDrain.ts, which runs on every
+ * app start and every runner trigger. This direct-delivery path is retained
+ * only so a build rolled back mid-release still delivers; remove it next
+ * release. The read helpers above stay — the drain reads the same keys.
+ *
+ * Retry every stored notice. Safe to call repeatedly (on app foreground).
+ */
 export async function flushPendingNotices(): Promise<number> {
   const pending = listPendingNotices();
   if (!pending.length) return 0;
