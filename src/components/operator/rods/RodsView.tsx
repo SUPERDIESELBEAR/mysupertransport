@@ -186,7 +186,7 @@ export default function RodsView({
         byDate={byDate}
         onSelect={setSelected}
         divergedDates={diverged}
-        onDismissDivergence={(d) => { void dismissDivergence(d); }}
+        onDismissDivergence={(d) => setPendingDismissDate(d)}
       />
 
       <Button variant="outline" onClick={printBlankLogs}>
@@ -197,6 +197,22 @@ export default function RodsView({
         SUPERDRIVE keeps these records the way a paper log book does. It does not track your location, does not
         calculate hours of service, and does not check any limit for you.
       </p>
+
+      <AlertDialog open={!!pendingDismissDate} onOpenChange={(open) => { if (!open) setPendingDismissDate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear this warning?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This only clears the warning on this device. Other devices will still show it, and this does not resolve
+              the mismatch — the office copy of this log still differs from the one on this phone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDismissDate(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void confirmDismissDivergence(); }}>Clear on this device</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
