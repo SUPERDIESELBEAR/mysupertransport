@@ -162,6 +162,62 @@ export interface PendingMutation {
   created_at: string;
 }
 
+/**
+ * Pass B sync queue.
+ *
+ * This supersedes `pending_mutations`, which is left in place untouched: its
+ * primary key is an auto-increment `++id` and Pass B needs a client-generated
+ * uuid (the id IS the idempotency key). Dexie upgrades here are additive only,
+ * so redefining that key is not allowed — a new store is. `pending_mutations`
+ * is never written again and is removed in a later version, after telemetry
+ * shows it empty. No bytes are discarded.
+ */
+export type SyncKind =
+  | 'upload_rods_pdf'
+  | 'upload_signature'
+  | 'certify_rods_day'
+  | 'create_eld_document_day'
+  | 'replace_rods_document'
+  | 'upload_notice_pdf'
+  | 'upload_notice_signature'
+  | 'send_notice'
+  | 'upload_merged_packet'
+  | 'send_officer_email';
+
+export type SyncStatus = 'pending' | 'in_flight' | 'succeeded' | 'failed' | 'rejected';
+export type SyncErrorClass = 'network' | 'server' | 'rejected';
+
+export interface SyncQueueEntry {
+  /** Client-generated uuid. Also the idempotency key — never regenerated. */
+  id: string;
+  kind: SyncKind;
+  /**
+   * Byte-store KEYS only, never bytes. Enforced by assertSmallPayload: an entry
+   * carrying megabytes would be rewritten on every attempt and every backoff.
+   */
+  payload: Record<string, unknown>;
+  depends_on: string[];
+  attempts: number;
+  next_attempt_at: string;
+  status: SyncStatus;
+  last_error: string | null;
+  last_error_class: SyncErrorClass | null;
+  client_timestamp: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A merged officer packet, assembled on-device and queued for upload/send. */
+export interface MergedPacketEntry {
+  id: string;
+  event_id: string;
+  bytes: ArrayBuffer;
+  mime: string;
+  size: number;
+  included_dates: string[];
+  created_at: string;
+}
+
 class RoadsideDb extends Dexie {
   local_meta!: Table<LocalMeta, string>;
   rods_pdfs!: Table<RodsPdfEntry, string>;
@@ -172,6 +228,8 @@ class RoadsideDb extends Dexie {
   rods_days_cache!: Table<RodsDayCacheEntry, string>;
   rods_events_cache!: Table<RodsEventCacheEntry, string>;
   pending_mutations!: Table<PendingMutation, number>;
+  sync_queue!: Table<SyncQueueEntry, string>;
+  merged_packets!: Table<MergedPacketEntry, string>;
 
   constructor() {
     super('superdrive_roadside');
@@ -204,6 +262,12 @@ class RoadsideDb extends Dexie {
       await tx.table('signature_images').toCollection().modify((row: SignatureImageEntry) => {
         row.origin = row.origin ?? 'local_pending_upload';
       });
+    });
+    // v3 — additive: the Pass B sync queue and the merged officer packets it
+    // uploads. Nothing is dropped, nothing is migrated, nothing is cleared.
+    this.version(3).stores({
+      sync_queue: 'id, status, next_attempt_at, kind, created_at',
+      merged_packets: 'id, event_id, created_at',
     });
   }
 }
