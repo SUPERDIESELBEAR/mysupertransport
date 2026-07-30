@@ -36,6 +36,16 @@ export const STATUS_SHORT = ['Off duty', 'Sleeper', 'Driving', 'On duty'] as con
 
 export type DutyStatusLine = 1 | 2 | 3 | 4;
 
+/**
+ * The one place a duty-status number becomes words. Three surfaces used to
+ * spell these out independently; a driver reading "On duty" in the app and
+ * "4. On duty (not driving)" on the print must be reading the same thing.
+ */
+export function dutyStatusLabel(line: DutyStatusLine | null | undefined): string {
+  if (!line) return 'No duty status';
+  return STATUS_SHORT[line - 1];
+}
+
 export const MINUTES_PER_DAY = 1440;
 
 /** Hour tick label: M at midnight, N at noon, 1–11 otherwise. */

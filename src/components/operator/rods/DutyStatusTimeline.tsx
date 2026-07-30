@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { MINUTES_PER_DAY, STATUS_SHORT, formatClock } from '@/lib/eld/rodsGridGeometry';
 import { SHORT_PERIOD_MINUTES } from '@/lib/eld/rodsValidation';
 import { newLocalId, type DraftSegment } from '@/hooks/useRodsDay';
@@ -12,21 +12,28 @@ function snap(minutes: number) {
   return Math.max(0, Math.min(MINUTES_PER_DAY, Math.round(minutes / SNAP) * SNAP));
 }
 
-function toTimeInput(minute: number) {
+function toTimeInput(minute: number | null) {
+  if (minute === null) return '';
   const m = Math.min(minute, MINUTES_PER_DAY - 1);
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
-function fromTimeInput(value: string) {
+function fromTimeInput(value: string): number | null {
+  if (!value) return null;
   const [h, m] = value.split(':').map((n) => parseInt(n, 10));
-  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
   return snap(h * 60 + m);
 }
 
 /**
- * Chronological segment list. Each segment starts where the previous ended, so
- * the driver never has to reason about gaps — they add the next change of duty
- * status and the timeline extends to midnight.
+ * Chronological segment list.
+ *
+ * A new segment's start is chained to the previous segment's end — that is data
+ * entry, and the driver sees and can change it. Nothing else is inferred: an
+ * end time the driver has not entered stays empty, and a gap left behind by an
+ * edit is reported as a validation failure rather than quietly closed. Filling
+ * a gap would put a duty status and a location on a federal record that the
+ * driver never stated.
  */
 export default function DutyStatusTimeline({
   segments,
@@ -42,37 +49,38 @@ export default function DutyStatusTimeline({
   onFocusSegment?: (localId: string | null) => void;
 }) {
   const sorted = [...segments].sort((a, b) => a.start_minute - b.start_minute);
+  const last = sorted[sorted.length - 1];
+  // The next entry starts where the last one ended, so we need that end first.
+  const canAdd = !last || last.end_minute !== null;
+  const dayFinished = !!last && last.end_minute === MINUTES_PER_DAY;
 
-  function normalize(list: DraftSegment[]): DraftSegment[] {
-    const next = [...list].sort((a, b) => a.start_minute - b.start_minute);
-    for (let i = 0; i < next.length; i += 1) {
-      const end = i === next.length - 1 ? MINUTES_PER_DAY : next[i + 1].start_minute;
-      next[i] = { ...next[i], end_minute: Math.max(next[i].start_minute, end) };
-    }
-    return next;
+  function sortOnly(list: DraftSegment[]): DraftSegment[] {
+    return [...list].sort((a, b) => a.start_minute - b.start_minute);
   }
 
   function addSegment() {
-    const last = sorted[sorted.length - 1];
-    const start = last ? snap(Math.min(last.start_minute + 60, MINUTES_PER_DAY - SNAP)) : 0;
-    onChange(normalize([
+    if (!canAdd || dayFinished) return;
+    onChange(sortOnly([
       ...sorted,
       {
         localId: newLocalId(),
-        start_minute: last ? start : 0,
-        end_minute: MINUTES_PER_DAY,
-        duty_status: last ? ((last.duty_status === 1 ? 4 : 1) as 1 | 4) : 1,
+        start_minute: last ? (last.end_minute as number) : 0,
+        // Nothing is guessed: the driver states the end time and the status.
+        end_minute: null,
+        duty_status: null,
         city: '', state: '', remarks: '',
       },
     ]));
   }
 
   function patch(localId: string, p: Partial<DraftSegment>) {
-    onChange(normalize(sorted.map((s) => (s.localId === localId ? { ...s, ...p } : s))));
+    // Only the edited segment changes. Neighbours are never shifted to absorb
+    // a gap the edit opened — the gap is shown and the driver resolves it.
+    onChange(sortOnly(sorted.map((s) => (s.localId === localId ? { ...s, ...p } : s))));
   }
 
   function remove(localId: string) {
-    onChange(normalize(sorted.filter((s) => s.localId !== localId)));
+    onChange(sortOnly(sorted.filter((s) => s.localId !== localId)));
   }
 
   return (
@@ -84,20 +92,32 @@ export default function DutyStatusTimeline({
       )}
 
       {sorted.map((s, idx) => {
-        const duration = s.end_minute - s.start_minute;
-        const short = duration > 0 && duration < SHORT_PERIOD_MINUTES;
+        const duration = s.end_minute === null ? null : s.end_minute - s.start_minute;
+        const short = duration !== null && duration > 0 && duration < SHORT_PERIOD_MINUTES;
+        const backwards = duration !== null && duration <= 0;
+        const prev = sorted[idx - 1];
+        const gapBefore = prev?.end_minute != null && prev.end_minute < s.start_minute;
         return (
           <div
             key={s.localId}
             className={`rounded-lg border p-3 space-y-3 ${activeLocalId === s.localId ? 'border-primary' : 'border-border'}`}
             onFocus={() => onFocusSegment?.(s.localId)}
           >
+            {gapBefore && (
+              <p className="flex items-start gap-1.5 rounded-md bg-destructive/10 p-2 text-[11px] text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Nothing recorded between {formatClock(prev.end_minute as number)} and {formatClock(s.start_minute)}.
+                Add an entry for that time — it will not be filled in for you.
+              </p>
+            )}
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-semibold text-foreground">
-                {formatClock(s.start_minute)} — {formatClock(s.end_minute)}
-                <span className="ml-2 font-normal text-muted-foreground">
-                  {Math.floor(duration / 60)}h {duration % 60}m
-                </span>
+                {formatClock(s.start_minute)} — {s.end_minute === null ? '—' : formatClock(s.end_minute)}
+                {duration !== null && duration > 0 && (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    {Math.floor(duration / 60)}h {duration % 60}m
+                  </span>
+                )}
               </div>
               {!disabled && (
                 <Button variant="ghost" size="sm" onClick={() => remove(s.localId)} aria-label="Remove entry">
@@ -113,13 +133,40 @@ export default function DutyStatusTimeline({
                   type="time" step={900} disabled={disabled || idx === 0}
                   className="text-base"
                   value={toTimeInput(s.start_minute)}
-                  onChange={(e) => patch(s.localId, { start_minute: fromTimeInput(e.target.value) })}
+                  onChange={(e) => patch(s.localId, { start_minute: fromTimeInput(e.target.value) ?? 0 })}
                 />
                 {idx === 0 && <p className="text-[10px] text-muted-foreground">The day always starts at midnight.</p>}
               </div>
               <div className="space-y-1">
+                <Label className="text-xs">Ends at</Label>
+                <Input
+                  type="time" step={900} disabled={disabled || s.end_minute === MINUTES_PER_DAY}
+                  className="text-base"
+                  value={s.end_minute === MINUTES_PER_DAY ? '' : toTimeInput(s.end_minute)}
+                  placeholder={s.end_minute === MINUTES_PER_DAY ? 'Midnight' : undefined}
+                  onChange={(e) => patch(s.localId, { end_minute: fromTimeInput(e.target.value) })}
+                />
+                {!disabled && (
+                  <button
+                    type="button"
+                    className="text-[10px] text-muted-foreground underline"
+                    onClick={() => patch(s.localId, {
+                      end_minute: s.end_minute === MINUTES_PER_DAY ? null : MINUTES_PER_DAY,
+                    })}
+                  >
+                    {s.end_minute === MINUTES_PER_DAY ? 'Ends at midnight — change' : 'Runs to midnight'}
+                  </button>
+                )}
+                {backwards && (
+                  <p className="text-[10px] text-destructive">The end time must be after the start time.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <div className="space-y-1">
                 <Label className="text-xs">Duty status</Label>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-4 gap-1">
                   {STATUS_SHORT.map((label, i) => (
                     <button
                       key={label}
@@ -136,6 +183,9 @@ export default function DutyStatusTimeline({
                     </button>
                   ))}
                 </div>
+                {s.duty_status === null && (
+                  <p className="text-[10px] text-muted-foreground">Choose the duty status for this period.</p>
+                )}
               </div>
             </div>
 
@@ -176,9 +226,21 @@ export default function DutyStatusTimeline({
       })}
 
       {!disabled && (
-        <Button variant="outline" className="w-full" onClick={addSegment}>
-          <Plus className="mr-2 h-4 w-4" /> Add change of duty status
-        </Button>
+        <div className="space-y-1">
+          <Button variant="outline" className="w-full" onClick={addSegment} disabled={!canAdd || dayFinished}>
+            <Plus className="mr-2 h-4 w-4" /> Add change of duty status
+          </Button>
+          {!canAdd && (
+            <p className="text-center text-[10px] text-muted-foreground">
+              Enter the end time of the last entry first — the next one starts there.
+            </p>
+          )}
+          {dayFinished && (
+            <p className="text-center text-[10px] text-muted-foreground">
+              The last entry runs to midnight, so the day is closed out.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

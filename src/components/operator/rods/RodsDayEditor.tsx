@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Copy, FileText, Loader2, Lock, PencilLine, Save, Upload } from 'lucide-react';
 import { formatMinutes, MINUTES_PER_DAY, STATUS_SHORT } from '@/lib/eld/rodsGridGeometry';
 import { renderRodsDay } from '@/lib/eld/renderRodsDay';
-import { validateRodsDay } from '@/lib/eld/rodsValidation';
+import { isShortPeriod, validateRodsDay } from '@/lib/eld/rodsValidation';
 import {
   RODS_BUCKET, formatLogDate, rodsChip, showsDerivedTotals, type RodsDay,
 } from '@/lib/eld/rodsTypes';
@@ -48,7 +48,18 @@ export default function RodsDayEditor({
   const [busy, setBusy] = useState(false);
 
   const validation = useMemo(
-    () => (day ? validateRodsDay(day, segments.map((s) => ({ ...s, id: s.localId, rods_day_id: day.id, is_short_period: false })) as never, legalName) : null),
+    () => (day
+      ? validateRodsDay(
+        day,
+        segments.map((s) => ({
+          ...s,
+          id: s.localId,
+          rods_day_id: day.id,
+          is_short_period: isShortPeriod(s.start_minute, s.end_minute),
+        })) as never,
+        legalName,
+      )
+      : null),
     [day, segments, legalName],
   );
 
@@ -124,7 +135,7 @@ export default function RodsDayEditor({
           start_minute: s.start_minute, end_minute: s.end_minute,
           duty_status: s.duty_status, city: s.city, state: s.state,
           remarks: s.remarks || null,
-          is_short_period: s.end_minute - s.start_minute < 15,
+          is_short_period: isShortPeriod(s.start_minute, s.end_minute),
         })),
         driverName,
         originalCertifiedAt,
@@ -244,7 +255,18 @@ export default function RodsDayEditor({
         </div>
       ) : (
         <>
-          <RodsGrid segments={segments} activeLocalId={activeLocalId} />
+          <RodsGrid
+            segments={segments}
+            activeLocalId={activeLocalId}
+            showGaps={validation.incompleteIds.length === 0 && segments.length > 0}
+          />
+
+          {validation.gaps.length > 0 && (
+            <p className="rounded-lg bg-destructive/10 p-2 text-center text-xs text-destructive">
+              {validation.gaps.length === 1 ? 'One stretch of the day has no entry.' : `${validation.gaps.length} stretches of the day have no entry.`}
+              {' '}Add an entry for each — SUPERDRIVE will not fill them in.
+            </p>
+          )}
 
           {showsDerivedTotals(day) && (
             <div className="grid grid-cols-4 gap-2 text-center">

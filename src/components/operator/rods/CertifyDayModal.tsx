@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, Clock, Loader2, X } from 'lucide-react';
 import { formatLogDate, type RodsDay } from '@/lib/eld/rodsTypes';
 import type { RodsValidation } from '@/lib/eld/rodsValidation';
 
@@ -44,16 +44,28 @@ export default function CertifyDayModal({
           <ul className="space-y-1.5 rounded-lg border border-border p-3 text-xs">
             {validation.checks.map((c) => (
               <li key={c.id} className="flex items-start gap-2">
-                {c.ok
-                  ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                  : <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />}
-                <span className={c.ok ? 'text-muted-foreground' : 'text-foreground'}>
+                {c.state === 'pass' && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                {c.state === 'fail' && <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />}
+                {c.state === 'pending' && <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                <span className={c.state === 'pass' ? 'text-muted-foreground' : 'text-foreground'}>
                   {c.label}
-                  {!c.ok && c.detail && <span className="block text-[11px] text-muted-foreground">{c.detail}</span>}
+                  {c.state === 'pending' && (
+                    <span className="block text-[11px] text-muted-foreground">
+                      Checked once every entry is finished.
+                    </span>
+                  )}
+                  {c.state === 'fail' && c.detail && (
+                    <span className="block text-[11px] text-muted-foreground">{c.detail}</span>
+                  )}
                 </span>
               </li>
             ))}
           </ul>
+
+          <p className="rounded-lg border border-border p-3 text-[11px] text-muted-foreground">
+            SUPERDRIVE will not fill in a gap for you. Any stretch of the day with no entry has to be entered by you —
+            a duty status and location this app guessed would be a false entry on a federal record.
+          </p>
 
           <p className="rounded-lg bg-muted/40 p-3 text-xs text-foreground">
             I certify that my data entries and my record of duty status for this 24-hour period are true and correct.

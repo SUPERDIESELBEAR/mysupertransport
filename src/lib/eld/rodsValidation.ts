@@ -7,14 +7,28 @@
  * no violation detection. RECAP entries are whatever the driver typed and are
  * never computed or validated.
  */
-import { MINUTES_PER_DAY, formatClock, formatMinutes } from './rodsGridGeometry';
-import type { RodsDay, RodsEvent } from './rodsTypes';
+import { MINUTES_PER_DAY, dutyStatusLabel, formatClock, formatMinutes } from './rodsGridGeometry';
+import { isCompleteEvent, type RodsDay, type RodsEvent } from './rodsTypes';
+
+/**
+ * Three states, not a boolean.
+ *
+ * 'pending' means "cannot be judged yet" — the coverage checks are meaningless
+ * while a segment is still missing its end time, and showing them as failures
+ * would tell the driver to fix something that isn't wrong yet.
+ */
+export type ValidationState = 'pass' | 'fail' | 'pending';
 
 export interface ValidationCheck {
   id: string;
   label: string;
-  ok: boolean;
+  state: ValidationState;
   detail?: string;
+}
+
+export interface GapRange {
+  start_minute: number;
+  end_minute: number;
 }
 
 export interface RodsValidation {
@@ -22,11 +36,17 @@ export interface RodsValidation {
   canCertify: boolean;
   totalMinutes: number;
   totals: { off: number; sleeper: number; driving: number; onDuty: number };
+  /** Uncovered stretches of the day. Only computed once every segment is complete. */
+  gaps: GapRange[];
+  /** Local ids / ids of segments that are still missing a field. */
+  incompleteIds: string[];
 }
 
+/** Totals ignore incomplete segments — a segment with no end time has no duration. */
 export function statusTotals(events: RodsEvent[]) {
   const totals = { off: 0, sleeper: 0, driving: 0, onDuty: 0 };
   for (const e of events) {
+    if (e.end_minute === null || e.duty_status === null) continue;
     const mins = Math.max(0, e.end_minute - e.start_minute);
     if (e.duty_status === 1) totals.off += mins;
     else if (e.duty_status === 2) totals.sleeper += mins;
@@ -36,12 +56,50 @@ export function statusTotals(events: RodsEvent[]) {
   return totals;
 }
 
+/**
+ * Mirrors the header guard inside certify_rods_day. total_mileage_today is
+ * deliberately absent: an unavailable odometer reading must never make a log
+ * uncertifiable.
+ */
 const REQUIRED_HEADER: Array<[keyof RodsDay, string]> = [
+  ['carrier_name', 'Carrier name'],
   ['truck_number', 'Truck / tractor number'],
   ['home_terminal_address', 'Home terminal address'],
   ['from_location', 'From'],
   ['to_location', 'To'],
+  ['co_driver_name', 'Co-driver name (enter "None" if you drove alone)'],
+  ['shipping_document_no', 'Shipping document no. (or shipper and commodity)'],
+  ['total_miles_driving_today', 'Total miles driving today'],
 ];
+
+/**
+ * Uncovered stretches of the 24-hour period, given complete segments.
+ *
+ * These are surfaced, never filled. Closing a gap on the driver's behalf would
+ * put a duty status and a location on the record that the driver never entered.
+ */
+export function findGaps(events: Array<{ start_minute: number; end_minute: number | null }>): GapRange[] {
+  const sorted = [...events]
+    .filter((e): e is { start_minute: number; end_minute: number } => e.end_minute !== null)
+    .sort((a, b) => a.start_minute - b.start_minute);
+  const gaps: GapRange[] = [];
+  let cursor = 0;
+  for (const e of sorted) {
+    if (e.start_minute > cursor) gaps.push({ start_minute: cursor, end_minute: e.start_minute });
+    cursor = Math.max(cursor, e.end_minute);
+  }
+  if (cursor < MINUTES_PER_DAY) gaps.push({ start_minute: cursor, end_minute: MINUTES_PER_DAY });
+  return gaps;
+}
+
+function describeIncomplete(e: RodsEvent): string {
+  const missing: string[] = [];
+  if (e.end_minute === null) missing.push('an end time');
+  if (e.duty_status === null) missing.push('a duty status');
+  if (!e.city?.trim()) missing.push('a city');
+  if (!e.state?.trim()) missing.push('a state');
+  return `The ${formatClock(e.start_minute)} entry needs ${missing.join(', ')}.`;
+}
 
 export function validateRodsDay(
   day: RodsDay,
@@ -54,54 +112,63 @@ export function validateRodsDay(
 
   const checks: ValidationCheck[] = [];
 
+  const incomplete = sorted.filter((e) => !isCompleteEvent(e));
+  const allComplete = sorted.length > 0 && incomplete.length === 0;
+
   checks.push({
     id: 'has_segments',
     label: 'At least one duty-status entry',
-    ok: sorted.length > 0,
+    state: sorted.length > 0 ? 'pass' : 'fail',
   });
 
-  // Gaps and overlaps
-  let gap: string | undefined;
+  checks.push({
+    id: 'all_segments_complete',
+    label: 'Every entry has an end time, duty status, city and state',
+    state: sorted.length === 0 ? 'pending' : (allComplete ? 'pass' : 'fail'),
+    detail: incomplete.length
+      ? incomplete.slice(0, 4).map(describeIncomplete).join(' ')
+        + (incomplete.length > 4 ? ` (+${incomplete.length - 4} more)` : '')
+      : undefined,
+  });
+
+  // Overlaps are always meaningful: two entries claiming the same minute is
+  // wrong whether or not the rest of the day is finished.
   let overlap: string | undefined;
   let cursor = 0;
   for (const e of sorted) {
-    if (e.start_minute > cursor && !gap) {
-      gap = `Nothing recorded between ${formatClock(cursor)} and ${formatClock(e.start_minute)}`;
-    }
+    if (e.end_minute === null) continue;
     if (e.start_minute < cursor && !overlap) {
-      overlap = `Two entries overlap at ${formatClock(e.start_minute)}`;
+      overlap = `Two entries overlap at ${formatClock(e.start_minute)}.`;
     }
     cursor = Math.max(cursor, e.end_minute);
   }
-  if (sorted.length > 0 && cursor < MINUTES_PER_DAY && !gap) {
-    gap = `Nothing recorded after ${formatClock(cursor)}`;
-  }
-
-  checks.push({
-    id: 'no_gaps',
-    label: 'The whole 24 hours is accounted for',
-    ok: sorted.length > 0 && !gap,
-    detail: gap,
-  });
   checks.push({
     id: 'no_overlaps',
     label: 'No two entries overlap',
-    ok: !overlap,
+    state: overlap ? 'fail' : 'pass',
     detail: overlap,
+  });
+
+  // Coverage is unjudgeable while a segment is unfinished — 'pending', not
+  // 'fail'. Gaps are reported, never closed automatically.
+  const gaps = allComplete ? findGaps(sorted) : [];
+  checks.push({
+    id: 'no_gaps',
+    label: 'The whole 24 hours is accounted for',
+    state: !allComplete ? 'pending' : (gaps.length === 0 ? 'pass' : 'fail'),
+    detail: gaps.length
+      ? gaps.slice(0, 3)
+        .map((g) => `Nothing recorded between ${formatClock(g.start_minute)} and ${formatClock(g.end_minute)}.`)
+        .join(' ')
+      : undefined,
   });
   checks.push({
     id: 'sums_to_1440',
     label: 'Entries add up to exactly 24:00',
-    ok: totalMinutes === MINUTES_PER_DAY,
-    detail: `Currently ${formatMinutes(totalMinutes)} of 24:00`,
-  });
-
-  const missingPlace = sorted.find((e) => !e.city?.trim() || !e.state?.trim());
-  checks.push({
-    id: 'place_on_every_change',
-    label: 'City and state on every change of duty status',
-    ok: !missingPlace,
-    detail: missingPlace ? `Missing on the entry starting ${formatClock(missingPlace.start_minute)}` : undefined,
+    state: !allComplete ? 'pending' : (totalMinutes === MINUTES_PER_DAY ? 'pass' : 'fail'),
+    detail: allComplete && totalMinutes !== MINUTES_PER_DAY
+      ? `Currently ${formatMinutes(totalMinutes)} of 24:00.`
+      : undefined,
   });
 
   const missingHeader = REQUIRED_HEADER.filter(([k]) => {
@@ -111,27 +178,34 @@ export function validateRodsDay(
   checks.push({
     id: 'header_complete',
     label: 'Required log header fields filled in',
-    ok: missingHeader.length === 0,
+    state: missingHeader.length === 0 ? 'pass' : 'fail',
     detail: missingHeader.length ? `Missing: ${missingHeader.join(', ')}` : undefined,
   });
 
   checks.push({
     id: 'legal_name',
     label: 'Typed legal name',
-    ok: legalName.trim().length >= 3,
+    state: legalName.trim().length >= 3 ? 'pass' : 'fail',
   });
 
   return {
     checks,
-    canCertify: checks.every((c) => c.ok),
+    // 'pending' blocks certification exactly like 'fail' does. It only changes
+    // what the driver is told, never what they are allowed to sign.
+    canCertify: checks.every((c) => c.state === 'pass'),
     totalMinutes,
     totals,
+    gaps,
+    incompleteIds: incomplete.map((e) => e.id),
   };
 }
 
 /** Segments shorter than 15 minutes are noted separately in REMARKS. */
 export const SHORT_PERIOD_MINUTES = 15;
 
-export function isShortPeriod(startMinute: number, endMinute: number): boolean {
+export function isShortPeriod(startMinute: number, endMinute: number | null): boolean | null {
+  if (endMinute === null) return null;
   return endMinute - startMinute < SHORT_PERIOD_MINUTES;
 }
+
+export { dutyStatusLabel };

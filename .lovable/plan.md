@@ -1,88 +1,109 @@
-## Stage 2 — Digital RODS Entry, Grid Rendering & Certification (revised)
+## Problem
 
-Builds on Stage 1 (`eld_malfunction_events`, `eld_devices`, `eld-notices` bucket, `useEldMalfunction`, `renderDutyStatusGrid`, `react-signature-canvas`).
+The duty-status timeline auto-fills gaps. A `normalize()` pass runs on every add, edit, and delete, rewriting each segment's end time to meet the next segment's start (last segment forced to midnight). A driver who opens a gap — by moving a start time later, or deleting a middle entry — has the preceding segment silently stretched across it, carrying that segment's duty status, city, and state.
 
-Hard rules carried through: no HOS math of any kind (only the 1440-minute arithmetic check on the face of the form), no ECM/GPS/telematics, no "ELD/e-log" wording for SUPERDRIVE itself, module unreachable unless an open malfunction with `hinders_hos_recording = true` exists, certified days immutable for everyone including management.
+That is the app inferring duty status and assuming a location on a record the driver then certifies under 49 CFR 395.8(a)(2). Gaps must be rejected, not filled.
 
-### 1. Database
+Because gaps are structurally impossible today, the `no_gaps` and `sums_to_1440` checks can never fail from the editor. They are dead checks that start doing real work once this changes.
 
-**`rods_days`** — §395.8 header fields, driver-entered RECAP fields, four derived status-minute totals, `is_reconstructed`, `source_document_path`, `status` (draft | certified | superseded), `supersedes_day_id`, certification columns, `pdf_path`, `locked`, plus:
+Verified before planning: `rods_days` contains zero rows, so nothing was ever certified under `normalize()` — no contaminated immutable data. Postgres is 17.6, so Stage 1's `NULLS NOT DISTINCT` digest de-duplication is in force. Confirmed on `rods_events`: `duty_status`, `city`, `state`, `end_minute` are all `NOT NULL`, and `is_short_period` is `NOT NULL DEFAULT false`.
 
-- `record_source text NOT NULL DEFAULT 'keyed'` — `keyed` | `eld_document`.
+## 1. Migration
 
-Uniqueness and amendment lifecycle:
+**Make in-progress segments storable.** Drop `NOT NULL` on `duty_status`, `city`, `state`, and `end_minute`. A gap-fill segment and an unfinished trailing segment both need to save, and drafts must save. `CHECK (duty_status BETWEEN 1 AND 4)` and `CHECK (end_minute > start_minute)` stay unchanged: NULL evaluates to unknown and passes. Completeness moves from a storage constraint to a certification gate.
 
-- Partial unique index on `(operator_id, log_date) WHERE status = 'certified'` — one certified day may coexist with draft amendments for the same date.
-- Cloning an amendment leaves the original **certified**. The original flips to `superseded` in the **same transaction** that certifies the amendment (`certify_rods_day`, SECURITY DEFINER), never at clone time.
-- DELETE blocked by trigger on any locked row **and** on any draft where `supersedes_day_id IS NOT NULL`. Discarding goes through `discard_rods_amendment`.
-- A constraint trigger guarantees any date that has ever had a certified row always has exactly one non-superseded certified row.
+**`is_short_period`** is computed from duration, undefined while `end_minute` is null. Drop its `NOT NULL` and default. It is written only when both times are present, recomputed on every save, and set back to null if the driver clears the end time — never a stale `false` surviving the driver filling in the end.
 
-**`rods_events`** — segments with minute-range checks, duty status, required city/state, remarks, `is_short_period`.
+**`rods_days.period_start_time`** — does not exist today; midnight is an unrecorded assumption baked into code. Add it:
 
-**`rods_amendments`** — audit trail with `field_path`, `old_value`, `new_value`, `reason`; no client INSERT, written server-side only. `field_path` is never null.
+```sql
+ALTER TABLE public.rods_days
+  ADD COLUMN period_start_time time NOT NULL DEFAULT '00:00',
+  ADD CONSTRAINT rods_days_period_start_midnight CHECK (period_start_time = '00:00');
+```
 
-Access: driver full CRUD on their own unlocked days/events, read-only once locked; onboarding staff, dispatch and management read-only (no management write policy exists at all); GRANTs alongside every table.
+With a `COMMENT` noting that a carrier-designated non-midnight 24-hour period under §395.8 would require offsetting both grid geometry and the 1440-coverage math, and that the constraint makes that assumption explicit rather than untested.
 
-New private bucket `rods-logs` for generated day PDFs, certification signatures and uploaded ELD-produced logs, foldered by operator id, driver-own-folder + staff read policies.
+## 2. Server-side certification guard
 
-### 2. Uploaded ELD logs (`record_source = 'eld_document'`)
+`canCertify` is client-side and is currently the only thing stopping an incomplete day from being certified. With four columns now nullable, a bug or a direct API call could write a certified day with holes — and certified days are immutable, so there is no repair path.
 
-- Created with `status = 'certified'`, `locked = true` so the day occupies the partial unique index slot and no keyed day can be created for the same date. `is_reconstructed = false` — these were retrieved, not reconstructed.
-- SQL `COMMENT` on `record_source` and `status` stating explicitly that `status = 'certified'` is the storage state while the user-facing label is "On file (ELD log)" — the mismatch is intentional and must not be "fixed."
-- No signature capture, no 1440-minute validation, no PDF generation. `pdf_path` stays null; `source_document_path` **is** the record.
-- These days have no `rods_events`, so the four derived totals are zero — the totals row is **suppressed** for them rather than rendering 0:00 across all four statuses.
-- Code comment noting the Stage 3 dependency: roadside presentation renders `source_document_path` for these days rather than generated PDF bytes.
+Enforcement goes inside `certify_rods_day` (SECURITY DEFINER), before it sets `status = 'certified'` / `locked = true`. Skipped entirely when `record_source = 'eld_document'` — those days have no keyed segments by design.
 
-**Replace, don't amend.** For `eld_document` days, "Amend this log" is hidden and replaced by **"Replace document"**. Amendment stays available only for keyed days.
+**Segment guard** — raise unless, for the day's `rods_events`:
+- No row has a null `end_minute`, `duty_status`, `city`, or `state`.
+- Segments tile exactly 00:00–24:00: ordered by `start_minute`, the first starts at 0, each subsequent start equals the previous end, and the last ends at 1440.
+- No overlaps (implied by tiling; asserted explicitly so the error names the condition).
 
-Atomicity: a SECURITY DEFINER `replace_rods_document(day_id, new_path, reason)` performs the whole thing in **one transaction** — supersedes the existing row and inserts the new `eld_document` row as certified. Never two client calls: the partial unique index and the constraint trigger both reject the intermediate state. In the same transaction it writes one `rods_amendments` row with `field_path = 'source_document_path'`, `old_value` and `new_value` set to the old and new storage paths, and the written reason in `reason`. The original row and its file are retained permanently — a superseded document is never deleted.
+**Header guard** — raise unless the `rods_days` row has non-null, non-empty (after `btrim`) values for: `total_miles_driving`, `tractor_number` (or `license_plates`), `carrier_name`, `main_office_address`, `home_terminal_address`, `from_location`, `to_location`, `co_driver_name` (the literal string `None` is a valid answer), `certified_legal_name`, and at least one of `shipping_doc_number` or `shipper_and_commodity`.
 
-### 3. Entry experience (driver, mobile-first)
+**`total_mileage` is deliberately not in the hard guard.** §395.8 explicitly requires total miles driving today; whether "total mileage today" is independently mandated is less clear, and it appears on commercial forms partly by convention. It stays a required field in the client checklist so drivers fill it in, but an unavailable odometer reading must never make a log uncertifiable — a driver who can't certify is a driver who can't be dispatched, which is worse than one blank optional field. `total_miles_driving` stays in the hard guard.
 
-- `RodsDayEditor` — header pre-filled aggressively from the operator profile, `eld_devices` and the most recent day; driver confirms rather than types.
-- `DutyStatusTimeline` — stacked chronological segments; 15-minute-snapping picker with 1-minute precision, four large numbered status buttons, required city + 2-letter state, optional remarks. Segments chain 0 → 1440. Sub-15-minute segments auto-flag `is_short_period`.
-- **"Copy yesterday" guardrails:** disabled entirely inside the reconstruction wizard. Elsewhere it copies segment boundaries and duty statuses only, always clearing city, state, remarks, miles, from/to and shipping document. Always lands in `draft`.
-- `RodsGrid` — live SVG grid: four labeled status lines, 24 preprinted hour increments, Midnight/Noon, continuous lines with vertical connectors, per-status totals at right, minimum render width, pinch-zoom.
+**RECAP fields are excluded** — driver-entered, never validated. Actual column names are confirmed against the live `rods_days` schema during implementation; any spec-name mismatch is resolved in favour of the existing column, not by adding a duplicate.
 
-### 4. One grid geometry (deliberate Stage 1 refactor)
+Error messages are specific (`RAISE EXCEPTION 'Cannot certify: % minutes unaccounted for', ...`; `'Cannot certify: missing required log header fields: %'`) so a client-side bug surfaces legibly rather than as a constraint dump. The client checklist stays as the UX; this is the enforcement.
 
-`src/lib/eld/rodsGridGeometry.ts` becomes the single source of grid metrics for the on-screen SVG, the certified-day PDF, **and** Stage 1's `renderDutyStatusGrid`. After the refactor, regenerate the blank 8-day packet and diff it against a pre-refactor print to confirm zero visual change.
+## 3. End time becomes driver-entered
 
-### 5. Validation and certification (keyed days)
+Delete `normalize()` from `DutyStatusTimeline.tsx`. Sorting by start time stays; the retroactive end-time rewrite goes. Each segment gets its own "Ends at" input beside "Starts at".
 
-Visible pass/fail checklist gates Certify: full 24-hour coverage with no gaps or overlaps, totals summing to exactly 1440, city+state on every change, all required §395.8 header fields, typed legal name. RECAP inputs are plain numeric fields — never computed, never validated.
+**Preserved — data entry at the moment of entry, not inference:**
+- "Add change of duty status" defaults the new segment's `start_minute` to the previous segment's `end_minute`.
+- On a completely empty day, the first segment created defaults to `start_minute = 0`.
 
-Certifying captures signature + typed legal name, sets `status='certified'`, `locked=true`, generates and uploads the PDF client-side, then prompts "Save a copy to your phone."
+**Removed:**
+- No mutation ever rewrites a *different* segment's times. Editing segment 3 touches only segment 3.
+- Deleting a segment leaves a hole; no neighbour is extended.
+- **The first-segment pin never re-applies.** It is a creation-time default on an empty day, keyed off the day having no segments — not off array index. Deleting the opening segment produces a reported leading gap, never a silent backward extension of the next segment.
+- **New segments get a null end time** — not midnight, which would chain the next segment's start to 1440 and be invalid. The last segment alone gets a one-tap **"Ends at midnight"** convenience action.
 
-### 6. Amendments (keyed days)
+**Midnight on end times.** Keeps `<input type="time">`; a 96- or 1440-option select would wreck the under-three-minutes-per-day entry target on a phone. Because `end_minute > start_minute` and `start_minute >= 0`, an `end_minute` of 0 is impossible in every case, so the end field resolves `12:00 AM` to **1440** unconditionally. Helper text under the field: *"12:00 AM means midnight at the end of this day."* Start fields resolve `12:00 AM` to minute 0 as before.
 
-"Amend this log" clones to a draft with `supersedes_day_id`, requires a written reason, writes one `rods_amendments` row per changed field server-side, and supersedes the original in the same transaction as the amendment's certification. Originals are never deleted; both versions appear in the archive. Amended PDFs print `AMENDED — original certified [timestamp]`.
+**Inverted times.** When `end_minute <= start_minute`, the card shows an inline plain-language error and the day cannot certify. The value is held in local state, not written, so the database CHECK never surfaces as a raw error.
 
-### 7. Reconstruction wizard
+## 4. Validation — three explicit states, no truthiness
 
-Eight reverse-chronological date cards with a **three-state chip taxonomy**: **Needed · In progress ·** one completed state whose label depends on `record_source` — "Certified" for keyed days, "On file (ELD log)" for uploads. "Already on file" is removed. Progress counting treats both completed variants as complete.
+The app cannot know whether a segment starting at 08:00 will end at 09:00 or at 24:00. Any gap adjacent to an incomplete segment is **unknowable**, not merely unreported — neither truncating coverage at its start nor excluding it from the scan avoids inventing a gap that may not exist.
 
-Per-day "I already have this day from my ELD" upload path files the document and creates an `eld_document` day. Newly keyed days set `is_reconstructed = true` and print `RECONSTRUCTED — 49 CFR 395.34(a)(2)`.
+**Typing.** `ValidationCheck.ok: boolean` becomes `state: ValidationState` where `type ValidationState = 'pass' | 'fail' | 'pending'`. Not `boolean | 'pending'` — a string union with booleans is exactly what invites truthiness bugs, since `'pending'` is truthy. Renaming the field from `ok` forces every consumer to be revisited at compile time rather than silently passing.
 
-### 8. PDF generation
+**Consumer audit.** Grep the codebase for `.ok` on validation checks and convert every site to an explicit comparison — `=== 'pass'`, `=== 'fail'`, `=== 'pending'`. Known consumers: `CertifyDayModal` (checklist rows and the submit gate), `RodsDayEditor` (banner), `RodsDayStrip` / day-list status chip, `useRodsDay`, and anything filtering `checks`. `canCertify` becomes `checks.every(c => c.state === 'pass')`, so `pending` blocks certification exactly as `fail` does.
 
-`src/lib/eld/renderRodsDay.ts` using `pdf-lib`, client-side, US Letter portrait, one day per page, print-scale grid from the shared geometry, all §395.8 elements, RECAP block, the 79 FR 39342 footer, RECONSTRUCTED/AMENDED annotations, short-period lines in remarks. Bytes written to `rods-logs`.
+**Checks:**
+- **`no_gaps`** — `'pending'` while any segment lacks an end time or a duty status, rendered neutrally as *"Checked once all entries are complete."* No gap list, no gap markers. Once every segment has a start, an end, and a status, the scan runs over all segments and reports **every** gap: structured `gaps: Array<{ start_minute, end_minute, position: 'leading' | 'interior' | 'trailing' }>`, rendered as `Nothing recorded 09:15–11:00, 16:30–24:00`.
+- **`sums_to_1440`** — also `'pending'` while segments are incomplete; the total is unknowable for the same reason.
+- **`no_overlaps`** — **never pending.** An overlap between two complete segments is real regardless of what else is incomplete. Lists every overlap.
+- **`all_segments_complete`** (new) — fails when any segment lacks a duty status, end time, city, or state, and **names the specific missing field per segment**: *"08:00 entry needs a duty status"*, *"13:00 entry needs a city and state"*, *"16:00 entry needs an end time."* It returns structured `incomplete: Array<{ start_minute, missing: Array<'end_time' | 'duty_status' | 'place'> }>` so the UI derives copy rather than restating it.
+- **`no_inverted_segments`** (new) — end ≤ start.
+- `place_on_every_change` stays; it speaks to changes of duty status, `all_segments_complete` speaks to incomplete entries.
+- `total_mileage` remains a client-checklist requirement (`header_complete`) even though the server guard omits it.
 
-### 9. Certification reminders
+**Verification cases:**
+- `00:00–08:00`, `08:00–null`, `14:00–24:00` → one incomplete entry, `no_gaps` pending, **no gaps reported**.
+- Driver sets the middle end to `13:00` → no incomplete entries, `no_gaps` fails with exactly one interior gap `13:00–14:00`.
+- On a complete day with one gap, tapping "Add entry for this period" → the new segment has start and end set and a null status, so the banner reads *"1 entry needs a duty status"* — not "end time."
 
-Never prompt for a period that has not ended.
+## 5. Where problems are visible
 
-- **While reconstruction is incomplete** (any of the 8 required days is Needed or In progress): the 08:00 single-day reminder is suppressed and replaced by "Reconstruction incomplete — N of 8 days still needed."
-- **08:00 home-terminal local**, once all 8 are complete: certify the most recently completed day if uncertified.
-- **20:00 home-terminal local** (unchanged): same-day nudge to keep the log current — never mentions certifying.
+**Grid** (`RodsGrid.tsx`): hatched red gap bands render **only when the gap scan has run**. While `no_gaps` is pending, no bands are drawn — an absent band must never be read as coverage. Segments with a null end or null status draw nothing. Also fix a related artifact — the vertical status-change connector currently draws at the next segment's start regardless of where the previous one ended. Draw it only when `prev.end_minute === s.start_minute`. Strict `===` performs no coercion, so a null previous end yields `false`; `null === 0` is `false` and no connector can appear at midnight. The plan pins `===`; `==` is never used here, and the comparison never dereferences, so nothing throws.
 
-Both ride the existing hourly Stage 1 job and notification system.
+**Timeline** (`DutyStatusTimeline.tsx`): an incomplete segment shows an inline prompt naming its own missing field — "Add an end time", "Pick a duty status", "Add the city and state" — derived from that segment's `missing` array, never hardcoded. Once all segments are complete, gaps between cards get an inline marker showing the unaccounted span and an "Add entry for this period" button creating a segment with exactly that gap's start and end, null duty status, blank city/state. Leading and trailing gaps get the same marker at the top and bottom of the list.
 
-### Technical notes
+**Editor banner** (`RodsDayEditor.tsx`): while any segment is incomplete, the banner counts incomplete entries and names the fields, derived from the same structured data — *"2 entries need an end time"*, *"1 entry needs a duty status"*, or *"3 entries are incomplete"* when the missing fields differ. It switches to the unaccounted-hours figure only once every segment is complete.
 
-- Files: migration (tables, `certify_rods_day`, `discard_rods_amendment`, `replace_rods_document`, triggers, column comments); `rodsGridGeometry.ts`, `rodsValidation.ts`, `renderRodsDay.ts`; `useRodsDay.ts`; components `RodsModule`, `RodsDayList`, `RodsDayEditor`, `DutyStatusTimeline`, `RodsGrid`, `RodsCertifyPanel`, `RodsAmendModal`, `RodsReplaceDocumentModal`, `RodsReconstructionWizard`; entry wired into `ELDMalfunctionView` / `ELDMalfunctionDashboard` behind the open-event guard.
-- Inline hex per spec (`#000000`, `#1C1C1C`, `#FFFFFF`, `#F5F5F5`, `#C9A84C`, `#E08A2E`, `#C0392B`), 48px minimum tap targets.
+**Certify modal**: renders `validation.checks` with three visual treatments — pass, fail, and a muted dash for pending.
 
-### Out of scope this stage
+## 6. One duty-status label mapping
 
-Offline/IndexedDB/service worker, roadside presentation mode, management console and retention export, any server-side-only PDF path, and any hours-of-service calculation.
+`duty_status` stays integer 1–4 — it matches the numbering on the federal form directly. To keep labels from drifting, add a single exported `dutyStatusLabel(status: 1|2|3|4)` helper alongside `STATUS_LINES` / `STATUS_SHORT` in `rodsGridGeometry.ts`. `renderRodsDay.ts` currently derives its remarks label by slicing `STATUS_LINES[e.duty_status - 1].slice(3)`; that gets replaced with the helper, and Stage 3's cached roadside output must consume the same helper rather than hardcoding its own labels.
+
+## 7. Persistence
+
+`saveSegments` in `useRodsDay.ts` writes segments as-is, so a draft with gaps and incomplete segments now saves — correct, since drafts must be resumable mid-entry. `DraftSegment` widens `duty_status` to `1|2|3|4|null` and `end_minute` to `number|null`; `city`/`state` map empty strings to null on write. `is_short_period` is computed at save time only when both minutes are present, otherwise written as null. Certification is the gate, and it is now closed on both sides.
+
+## Notes
+
+- No hours-of-service math is added. Gap detection is arithmetic on the face of the form.
+- Days with `record_source = 'eld_document'` are unaffected — no keyed segments, they bypass the 1440 check, and both new server guards skip them.
+- No existing rows to migrate or clean up (`rods_days` is empty).
+- Downstream readers of `rods_events` — `statusTotals`, `renderRodsDay.ts`, `RodsGrid` — get null-tolerant handling so an in-progress draft renders without crashing.
