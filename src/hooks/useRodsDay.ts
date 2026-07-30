@@ -9,8 +9,9 @@ export interface DraftSegment {
   id?: string;
   localId: string;
   start_minute: number;
-  end_minute: number;
-  duty_status: 1 | 2 | 3 | 4;
+  /** Null until the driver enters it. Never inferred from the next segment. */
+  end_minute: number | null;
+  duty_status: 1 | 2 | 3 | 4 | null;
   city: string;
   state: string;
   remarks: string;
@@ -131,8 +132,8 @@ export function useRodsDay(params: {
         start_minute: s.start_minute,
         end_minute: s.end_minute,
         duty_status: s.duty_status,
-        city: s.city.trim(),
-        state: s.state.trim().toUpperCase(),
+        city: s.city.trim() || null,
+        state: s.state.trim().toUpperCase() || null,
         remarks: s.remarks.trim() || null,
         is_short_period: isShortPeriod(s.start_minute, s.end_minute),
       }));
