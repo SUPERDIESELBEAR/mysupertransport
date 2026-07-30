@@ -65,6 +65,14 @@ export interface RodsDocumentEntry {
   mime: string;
   size: number;
   /**
+   * The rods_days row this file belongs to. Needed so hydration can tell a
+   * legitimate replacement (replace_rods_document supersedes the old row) from
+   * a genuine divergence. Optional: rows cached before v4 predate the field.
+   */
+  day_id?: string;
+  /** Server-set certification time of `day_id`, for the same-id comparison. */
+  certified_at?: string | null;
+  /**
    * Whether the browser could actually decode this as an image. Probed at
    * hydration, never inferred from the MIME type: Chrome cannot decode HEIC
    * even though the MIME type says image/heic.
@@ -114,6 +122,12 @@ export interface ManifestDay {
   renderable: boolean;
   filename: string | null;
   showsTotals: boolean;
+  /**
+   * An open, unresolved mismatch between this device's certified copy and the
+   * office copy. The local copy keeps rendering — it is the driver's signed
+   * record — but the day is flagged for review.
+   */
+  diverged?: boolean;
 }
 
 export interface RoadsideManifest {
@@ -139,6 +153,12 @@ export interface RodsDayCacheEntry {
   log_date: string;
   operator_id: string;
   day: RodsDay;
+  /**
+   * When the driver actually signed on this device. Distinct from
+   * `day.certified_at`, which the server stamps when the queued certification
+   * replays — possibly days later. Never compared against the server.
+   */
+  local_certified_at?: string | null;
   cached_at: string;
 }
 
@@ -218,6 +238,34 @@ export interface MergedPacketEntry {
   created_at: string;
 }
 
+export type DivergenceAckSource = 'management' | 'driver';
+
+/**
+ * A certified day whose local copy does not match the office copy. Certified
+ * days are immutable at both ends, so this should never happen in normal
+ * operation — when it does, both copies are kept until someone understands
+ * why. Nothing here is ever silently overwritten.
+ */
+export interface RodsDivergenceEntry {
+  log_date: string;
+  operator_id: string;
+  local_day: RodsDay;
+  local_events: RodsEvent[];
+  local_row_id: string;
+  server_row_id: string;
+  /** Only the cheap comparison fields, both sides, for the console record. */
+  local_values: Record<string, unknown>;
+  server_values: Record<string, unknown>;
+  differing_fields: string[];
+  detected_at: string;
+  /** 0 = open, 1 = resolved. Numeric because Dexie cannot index a boolean. */
+  acknowledged: 0 | 1;
+  acknowledged_source: DivergenceAckSource | null;
+  acknowledged_by: string | null;
+  acknowledged_reason: string | null;
+  acknowledged_at: string | null;
+}
+
 class RoadsideDb extends Dexie {
   local_meta!: Table<LocalMeta, string>;
   rods_pdfs!: Table<RodsPdfEntry, string>;
@@ -230,6 +278,7 @@ class RoadsideDb extends Dexie {
   pending_mutations!: Table<PendingMutation, number>;
   sync_queue!: Table<SyncQueueEntry, string>;
   merged_packets!: Table<MergedPacketEntry, string>;
+  rods_divergences!: Table<RodsDivergenceEntry, string>;
 
   constructor() {
     super('superdrive_roadside');
@@ -268,6 +317,12 @@ class RoadsideDb extends Dexie {
     this.version(3).stores({
       sync_queue: 'id, status, next_attempt_at, kind, created_at',
       merged_packets: 'id, event_id, created_at',
+    });
+    // v4 — additive: divergence records. No store is dropped and no existing
+    // row is touched; the two new optional fields on rods_documents and
+    // rods_days_cache are simply absent on pre-v4 rows and read as undefined.
+    this.version(4).stores({
+      rods_divergences: 'log_date, operator_id, detected_at, acknowledged',
     });
   }
 }

@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { RODS_BUCKET } from '@/lib/eld/rodsTypes';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
+import type { RodsDay } from '@/lib/eld/rodsTypes';
 import { roadsideDb, type SyncKind } from '../db';
 
 type Payload = Record<string, unknown>;
@@ -43,6 +44,29 @@ function dataUrlToBlob(dataUrl: string): Blob {
 
 export type SyncHandler = (payload: Payload) => Promise<void>;
 
+/**
+ * Write the row the RPC returned back into the day cache.
+ *
+ * certified_at is server-set at replay time, which for an offline
+ * certification is hours or days after the driver signed. Without this
+ * write-back the cache would hold the signing time and every offline
+ * certification would flag as a divergence on the next hydration. The real
+ * signing time is preserved separately in local_certified_at.
+ */
+async function cacheReturnedDay(data: unknown): Promise<void> {
+  const day = data as RodsDay | null;
+  if (!day?.id || !day.log_date) return;
+  const existing = await roadsideDb.rods_days_cache.get(day.log_date);
+  await roadsideDb.rods_days_cache.put({
+    log_date: day.log_date,
+    operator_id: day.operator_id,
+    day,
+    local_certified_at:
+      existing?.local_certified_at ?? existing?.day?.certified_at ?? null,
+    cached_at: new Date().toISOString(),
+  });
+}
+
 export const HANDLERS: Record<SyncKind, SyncHandler> = {
   /** Upload the locally rendered day PDF, then mark the cached copy uploaded. */
   async upload_rods_pdf(payload) {
@@ -72,7 +96,7 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
    * as a no-op server-side, so this is safe to retry without inspecting state.
    */
   async certify_rods_day(payload) {
-    const { error } = await supabase.rpc('certify_rods_day', {
+    const { data, error } = await supabase.rpc('certify_rods_day', {
       _day_id: str(payload, 'day_id'),
       _legal_name: str(payload, 'legal_name'),
       _signature_path: str(payload, 'signature_path'),
@@ -81,6 +105,7 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
       p_certification_token: str(payload, 'token'),
     });
     if (error) throw new Error(error.message);
+    await cacheReturnedDay(Array.isArray(data) ? data[0] : data);
   },
 
   async create_eld_document_day(payload) {
@@ -88,7 +113,7 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     if (!carrier || typeof carrier !== 'object') {
       throw new Error('Sync payload is missing the carrier snapshot.');
     }
-    const { error } = await supabase.rpc('create_eld_document_day', {
+    const { data, error } = await supabase.rpc('create_eld_document_day', {
       p_operator_id: str(payload, 'operator_id'),
       p_log_date: str(payload, 'log_date'),
       p_source_document_path: str(payload, 'source_document_path'),
@@ -96,16 +121,18 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
       p_certification_token: str(payload, 'token'),
     });
     if (error) throw new Error(error.message);
+    await cacheReturnedDay(Array.isArray(data) ? data[0] : data);
   },
 
   async replace_rods_document(payload) {
-    const { error } = await supabase.rpc('replace_rods_document', {
+    const { data, error } = await supabase.rpc('replace_rods_document', {
       _day_id: str(payload, 'day_id'),
       _new_path: str(payload, 'new_path'),
       _reason: str(payload, 'reason'),
       p_certification_token: str(payload, 'token'),
     });
     if (error) throw new Error(error.message);
+    await cacheReturnedDay(Array.isArray(data) ? data[0] : data);
   },
 
   /**

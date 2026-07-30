@@ -24,6 +24,10 @@ import {
 import { probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
+import {
+  compareDocumentDay, compareKeyedDay, openDivergenceDates, recordDivergence,
+} from './divergence';
+import { raiseSyncAlert } from './queue/alerts';
 import { windowDatesInTimezone } from './roadsideManifest';
 
 export type HydrationPhase = 'idle' | 'running' | 'ready' | 'incomplete' | 'unavailable';
@@ -177,12 +181,61 @@ async function cacheSignature(day: RodsDay): Promise<string | null> {
   return dataUrl;
 }
 
-async function cacheKeyedDay(day: RodsDay, driverName: string) {
+/**
+ * Precedence case 3 support: is the cached row itself superseded server-side?
+ * Only ever asked when the ids already differ, so this costs nothing in the
+ * normal path. A failed read is treated as "unknown", which falls through to
+ * the divergence branch rather than replacing a record on a guess.
+ */
+async function cachedRowIsSuperseded(cachedRowId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('rods_days')
+    .select('status')
+    .eq('id', cachedRowId)
+    .maybeSingle();
+  return data?.status === 'superseded';
+}
+
+/** True when the server's row legitimately replaces the cached one (case 3). */
+async function isLegitimateReplacement(serverDay: RodsDay, cachedRowId: string): Promise<boolean> {
+  if (serverDay.supersedes_day_id === cachedRowId) return true;
+  return cachedRowIsSuperseded(cachedRowId).catch(() => false);
+}
+
+async function flagDivergence(
+  logDate: string, operatorId: string, localDay: RodsDay, localEvents: RodsEvent[],
+  serverRowId: string, comparison: ReturnType<typeof compareKeyedDay>,
+) {
+  console.error('[eld-cache] certified day diverges from the office copy', {
+    log_date: logDate,
+    differing: comparison.differing,
+    local: comparison.local,
+    server: comparison.server,
+    local_row_id: localDay.id,
+    server_row_id: serverRowId,
+  });
+  const isNew = await recordDivergence({
+    logDate, operatorId, localDay, localEvents, serverRowId, comparison,
+  });
+  if (!isNew) return;
+  await raiseSyncAlert({
+    kind: 'certified_day_divergence',
+    operator_id: operatorId,
+    log_date: logDate,
+    detail: `Local row ${localDay.id} differs from server row ${serverRowId} on: ${comparison.differing.join(', ') || 'row identity'}.`,
+  });
+}
+
+/**
+ * See the PRECEDENCE block on ensureDayCached — this is where it is enforced.
+ * Exported for the precedence tests; not part of the module's public surface.
+ */
+export async function cacheKeyedDay(day: RodsDay, driverName: string) {
   const existing = await roadsideDb.rods_pdfs.get(day.log_date);
-  if (existing && existing.cached_at > day.updated_at) return;
-  // Never overwrite a locally-certified day that has not synced yet: those
-  // bytes are the only copy, and the server row we just read is older.
+  // Case 1: certified here, not yet synced. Local wins absolutely.
   if (existing && !existing.uploaded) return;
+
+  const cached = await roadsideDb.rods_days_cache.get(day.log_date);
 
   const { data: events } = await supabase
     .from('rods_events')
@@ -191,6 +244,29 @@ async function cacheKeyedDay(day: RodsDay, driverName: string) {
     .order('start_minute');
 
   const rows = (events ?? []) as unknown as RodsEvent[];
+
+  if (cached && cached.day.id !== day.id) {
+    // Cases 3 and 4: a different certified row now owns this date.
+    if (!(await isLegitimateReplacement(day, cached.day.id))) {
+      const cachedEvents = (await roadsideDb.rods_events_cache.get(cached.day.id))?.events ?? [];
+      await flagDivergence(
+        day.log_date, day.operator_id, cached.day, cachedEvents, day.id,
+        compareKeyedDay(cached.day, cachedEvents, day, rows),
+      );
+      return;
+    }
+    // Legitimate amendment — fall through and replace, bytes included.
+  } else if (cached && existing) {
+    // Case 5: same row. Identical is the only acceptable outcome.
+    const cachedEvents = (await roadsideDb.rods_events_cache.get(day.id))?.events ?? [];
+    const comparison = compareKeyedDay(cached.day, cachedEvents, day, rows);
+    if (comparison.differing.length > 0) {
+      await flagDivergence(day.log_date, day.operator_id, cached.day, cachedEvents, day.id, comparison);
+      return;
+    }
+    if (existing.cached_at > day.updated_at) return; // already fresh
+  }
+
   const signatureDataUrl = await cacheSignature(day).catch(() => null);
   // Single writer — same renderer, same rows, same bytes the officer sees.
   await ensureDayCached({
@@ -208,7 +284,31 @@ async function cacheDocumentDay(day: RodsDay) {
   if (!path) return;
 
   const existing = await roadsideDb.rods_documents.get(day.log_date);
-  if (existing && existing.source_path === path && existing.size > 0) return;
+  if (existing?.day_id && existing.day_id !== day.id) {
+    // replace_rods_document supersedes exactly like an amendment does.
+    if (!(await isLegitimateReplacement(day, existing.day_id))) {
+      const cached = await roadsideDb.rods_days_cache.get(day.log_date);
+      await flagDivergence(
+        day.log_date, day.operator_id, cached?.day ?? day, [], day.id,
+        compareDocumentDay(
+          { certified_at: existing.certified_at, source_document_path: existing.source_path },
+          day,
+        ),
+      );
+      return;
+    }
+  } else if (existing?.day_id) {
+    const comparison = compareDocumentDay(
+      { certified_at: existing.certified_at, source_document_path: existing.source_path },
+      day,
+    );
+    if (comparison.differing.length > 0 && existing.certified_at !== undefined) {
+      const cached = await roadsideDb.rods_days_cache.get(day.log_date);
+      await flagDivergence(day.log_date, day.operator_id, cached?.day ?? day, [], day.id, comparison);
+      return;
+    }
+  }
+  if (existing && existing.source_path === path && existing.size > 0 && existing.day_id === day.id) return;
 
   const { data: signed } = await supabase.storage.from(RODS_BUCKET).createSignedUrl(path, 600);
   if (!signed?.signedUrl) return;
@@ -228,6 +328,8 @@ async function cacheDocumentDay(day: RodsDay) {
     bytes,
     mime,
     size: bytes.byteLength,
+    day_id: day.id,
+    certified_at: day.certified_at,
     renderable: probe.renderable,
     display_bytes: probe.display_bytes,
     display_mime: probe.display_mime,
@@ -279,6 +381,25 @@ async function run(operatorId: string, driverName: string) {
     const certified = (rawDays ?? []) as unknown as RodsDay[];
     const byDate = new Map(certified.map((d) => [d.log_date, d]));
 
+    // Precedence case 2: this device holds a certified day it believes synced,
+    // and the server has NO certified row for that date at all. The
+    // certification was never applied or was rejected — that is the rejection
+    // path, not a cache divergence. Nothing local is touched.
+    for (const cached of await roadsideDb.rods_days_cache.toArray()) {
+      if (cached.operator_id !== operatorId) continue;
+      if (!dates.includes(cached.log_date)) continue;
+      if (cached.day.status !== 'certified') continue;
+      if (byDate.has(cached.log_date)) continue;
+      const pdf = await roadsideDb.rods_pdfs.get(cached.log_date);
+      if (!pdf?.uploaded) continue; // still queued — case 1, leave it alone
+      await raiseSyncAlert({
+        kind: 'certification_rejected',
+        operator_id: operatorId,
+        log_date: cached.log_date,
+        detail: `Device holds a synced certified log for ${cached.log_date} but the office has no certified record for that date.`,
+      });
+    }
+
     const docDays = certified.filter((d) => d.record_source === 'eld_document' && d.source_document_path);
     emit({ documentsTotal: docDays.length, totalDays: dates.length });
 
@@ -306,13 +427,14 @@ async function run(operatorId: string, driverName: string) {
 
     const pdfKeys = new Set((await roadsideDb.rods_pdfs.toArray()).map((p) => p.log_date));
     const docs = new Map((await roadsideDb.rods_documents.toArray()).map((d) => [d.log_date, d]));
+    const diverged = await openDivergenceDates();
 
     const manifestDays: ManifestDay[] = dates.map((log_date) => {
       const day = byDate.get(log_date);
       if (!day) {
         return {
           log_date, kind: 'keyed', label: 'Not certified', cached: false,
-          renderable: false, filename: null, showsTotals: false,
+          renderable: false, filename: null, showsTotals: false, diverged: false,
         };
       }
       if (day.record_source === 'eld_document') {
@@ -327,6 +449,7 @@ async function run(operatorId: string, driverName: string) {
           renderable: !!doc?.renderable,
           filename: doc?.filename ?? null,
           showsTotals: false,
+          diverged: diverged.has(log_date),
         };
       }
       return {
@@ -337,6 +460,7 @@ async function run(operatorId: string, driverName: string) {
         renderable: pdfKeys.has(log_date),
         filename: null,
         showsTotals: showsDerivedTotals(day),
+        diverged: diverged.has(log_date),
       };
     });
 
