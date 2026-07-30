@@ -4760,6 +4760,7 @@ export type Database = {
           certification_device_info: string | null
           certification_legal_name: string | null
           certification_signature_path: string | null
+          certification_token: string | null
           certified_at: string | null
           certified_by: string | null
           co_driver_name: string | null
@@ -4803,6 +4804,7 @@ export type Database = {
           certification_device_info?: string | null
           certification_legal_name?: string | null
           certification_signature_path?: string | null
+          certification_token?: string | null
           certified_at?: string | null
           certified_by?: string | null
           co_driver_name?: string | null
@@ -4846,6 +4848,7 @@ export type Database = {
           certification_device_info?: string | null
           certification_legal_name?: string | null
           certification_signature_path?: string | null
+          certification_token?: string | null
           certified_at?: string | null
           certified_by?: string | null
           co_driver_name?: string | null
@@ -5765,10 +5768,11 @@ export type Database = {
       certify_rods_day: {
         Args: {
           _day_id: string
-          _device_info?: string
+          _device_info: string
           _legal_name: string
-          _pdf_path?: string
+          _pdf_path: string
           _signature_path: string
+          p_certification_token: string
         }
         Returns: {
           amendment_reason: string | null
@@ -5778,6 +5782,7 @@ export type Database = {
           certification_device_info: string | null
           certification_legal_name: string | null
           certification_signature_path: string | null
+          certification_token: string | null
           certified_at: string | null
           certified_by: string | null
           co_driver_name: string | null
@@ -5834,6 +5839,65 @@ export type Database = {
           application_id: string
           draft_token: string
         }[]
+      }
+      create_eld_document_day: {
+        Args: {
+          p_carrier: Json
+          p_certification_token: string
+          p_log_date: string
+          p_operator_id: string
+          p_source_document_path: string
+        }
+        Returns: {
+          amendment_reason: string | null
+          carrier_mc: string | null
+          carrier_name: string | null
+          carrier_usdot: string | null
+          certification_device_info: string | null
+          certification_legal_name: string | null
+          certification_signature_path: string | null
+          certification_token: string | null
+          certified_at: string | null
+          certified_by: string | null
+          co_driver_name: string | null
+          created_at: string
+          from_location: string | null
+          home_terminal_address: string | null
+          home_terminal_timezone: string | null
+          id: string
+          is_reconstructed: boolean
+          locked: boolean
+          log_date: string
+          main_office_address: string | null
+          operator_id: string
+          pdf_path: string | null
+          period_start_time: string
+          recap_available_tomorrow: string | null
+          recap_last_7_days: string | null
+          recap_last_8_days: string | null
+          recap_on_duty_today: string | null
+          record_source: string
+          shipping_document_no: string | null
+          source_document_path: string | null
+          status: string
+          supersedes_day_id: string | null
+          to_location: string | null
+          total_driving_minutes: number
+          total_mileage_today: number | null
+          total_miles_driving_today: number | null
+          total_off_duty_minutes: number
+          total_on_duty_minutes: number
+          total_sleeper_minutes: number
+          trailer_numbers: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rods_days"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -6240,7 +6304,12 @@ export type Database = {
         Returns: undefined
       }
       replace_rods_document: {
-        Args: { _day_id: string; _new_path: string; _reason: string }
+        Args: {
+          _day_id: string
+          _new_path: string
+          _reason: string
+          p_certification_token: string
+        }
         Returns: {
           amendment_reason: string | null
           carrier_mc: string | null
@@ -6249,6 +6318,7 @@ export type Database = {
           certification_device_info: string | null
           certification_legal_name: string | null
           certification_signature_path: string | null
+          certification_token: string | null
           certified_at: string | null
           certified_by: string | null
           co_driver_name: string | null

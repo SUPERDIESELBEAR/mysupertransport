@@ -1,113 +1,119 @@
-# RODS record fidelity — carrier profile, offline-safe identity, §395.8 fields, grid layout
+# Stage 3, Pass B — Write Path
 
-## Verified state
+## Verified current state (read this turn)
 
-- `constants.ts` holds the correct carrier values. `1234567` / `MC-7654` exist only in `rodsRenderParity.test.tsx`. `rods_days` and `eld_malfunction_events` are both empty — no audit, no backfill.
-- `carrier_name/usdot/mc` are snapshotted at draft creation but **rendered from constants** (`renderRodsDay.ts:41`, and via `hydrate.ts:87-89`). That is the live bug.
-- `main_office_address` does not exist on `rods_days`. `total_mileage_today` and `period_start_time` exist and render nowhere.
-- **`rods_days.home_terminal_timezone` does not exist.** The only such column is on `operators`. It is created here as a frozen snapshot column.
-- Dexie v2 is already safe: the upgrade only stamps `origin`, clears nothing, redefines no primary key.
-- `notice_pdfs` has a real write path (`cacheNotice`, `hydrate.ts:206`, called at line 273). Two narrow gaps remain, fixed below.
+- `pending_mutations` exists in Dexie v1 with an **auto-increment `++id`** primary key. Pass B needs a client-generated uuid id, and the additive-only Dexie rule forbids redefining a primary key — so Pass B adds a **new store `sync_queue`** (v3) and leaves `pending_mutations` untouched and unused until a later version can remove it. No bytes discarded.
+- `certify_rods_day(_day_id, _legal_name, _signature_path, _pdf_path, _device_info)` — SECURITY DEFINER, tiling + 12-field §395.8 header guard, `total_mileage_today` deliberately excluded. No token parameter.
+- `rods_days` has `main_office_address`, `home_terminal_timezone`, `period_start_time`; **no `certification_token`**. Partial unique index `rods_days_one_certified_per_date` exists.
+- `replace_rods_document` exists. **`create_eld_document_day` does not** — eld_document days are created by a direct insert in `UploadEldLogModal`.
+- Binder share tokens are **not a reusable primitive**: `inspection_documents.public_share_token uuid` per row, resolved by `get_inspection_doc_by_token`, with **no expiry, no revocation, no access log**.
+- Stage 1 notice retry is `pendingNotice.ts` on **localStorage base64**, driven from `useEldMalfunction`, the wizard and the dashboard.
+- `CertifyDayModal` is presentational; the certify call lives in `RodsView`/`useRodsDay`.
 
-## 1. `carrier_profile` table
+## 1. Sync queue
 
-Single row: `legal_name`, `usdot_number`, `mc_number` (bare digits), `main_office_address`, `home_terminal_address`, `home_terminal_timezone text NOT NULL`, `fmcsa_division_state` default `'MO'`, `updated_at`. `CREATE UNIQUE INDEX carrier_profile_singleton ON public.carrier_profile ((true))`, GRANTs, RLS read for `authenticated`, management CRUD via `has_role`, `updated_at` trigger.
+`src/lib/eld/offline/queue/` — `types.ts`, `store.ts` (Dexie only), `runner.ts` (the only Supabase importer), `handlers/*`.
 
-Seed: SUPERTRANSPORT, LLC / 2309365 / 788425 / 605 Madison St, Pleasant Hill, MO 64080 (both office and terminal) / America/Chicago / MO.
+Dexie **v3, additive**: `sync_queue: 'id, status, next_attempt_at, kind, created_at'` plus `merged_packets`. Entry carries `id` (uuid, also the idempotency key), `kind`, `payload`, `depends_on` (uuid[]), `attempts`, `next_attempt_at`, `status`, `last_error`, `last_error_class`, `client_timestamp`. `payload` holds byte-store keys only — runtime assert plus a test rejecting any payload over 2 KB.
 
-Office and terminal stay **two columns** holding the same value — §395.8 requires both fields and a second terminal would need them separate. A migration comment says so, so nobody "cleans it up."
+- Eligibility: `pending`, due, and every prerequisite `succeeded`.
+- RPC handlers run serially in `client_timestamp` order; byte uploads through a concurrency-3 pool. Triggers: `online`, `visibilitychange`, 60s interval. No Background Sync.
+- Backoff 5s/15s/45s/2m/5m/15m, then 15m.
+- `classifyError(err)` → `network` (fetch reject, timeout, 5xx, 429) retried forever; `server` (other 4xx) 8 attempts then `failed`; `rejected` (named server exceptions) never retried. **`classifyError` never parses constraint names** — the server hands back distinct named errors and the runner routes on those.
+- Deterministic upload paths + upsert. `succeeded` purges at 7 days; `rejected`/`failed` persist.
+- `SyncStatusChip` on the driver ELD/RODS surface, never blocking.
 
-**`constants.ts` bootstrap block grows to all seven fields**, not three, commented explicitly: bootstrap-only, used solely before the first successful hydration, **never** for a certified record. The blank 8-day packet pre-prints office and terminal addresses, and sheets that print with blank addresses are worse than slightly stale ones.
+## 2. `ensureDayCached(rods_day_id)`
 
-## 2. Offline identity — cached only
+New `src/lib/eld/offline/ensureDayCached.ts`, absorbing Pass A's generate-on-read from `hydrate.ts`. Keyed days: `rods_days_cache` + `rods_events_cache` in **one Dexie transaction**, then `rods_pdfs` (rendered via `renderRodsDay` when absent), then the signature image. ELD-document days: `rods_documents` bytes with the Pass A renderability probe and JPEG re-encode. Callers: certification, hydration, manifest rebuild.
 
-`local_meta` caches all seven carrier fields, written by `writeLocalMeta` on every authenticated load.
+## 3. Offline certification
 
-| Path | Source |
-|---|---|
-| Draft day creation (`useRodsDay`, `RodsView`) | `local_meta` |
-| `UploadEldLogModal` | `local_meta` |
-| Malfunction event creation (`ELDMalfunctionWizard`) | `local_meta` |
-| `renderDutyStatusGrid` (blank packet) | `local_meta`, seven-field constants fallback |
-| `useCarrierProfile` (live read) | **Management's edit screen only** |
+Flow in `RodsView`/`useRodsDay`: full client validation → signature + typed name → `renderRodsDay` from the day row's frozen carrier fields → **structured cache write in one transaction with `status = 'certified'`** → `rods_pdfs` + `signature_images` (`origin: 'local_pending_upload'`) → record `local_certified_at`, `certified_legal_name`, `certified_device_info`, `certification_token` → enqueue `upload_rods_pdf` + `upload_signature`, then `certify_rods_day` depending on both → rebuild manifest → "Save a copy to your phone."
 
-A test asserts no creation module imports `useCarrierProfile`, and that it stays out of the `/roadside` graph.
+Driver label "Certified — signed on this device, syncing"; **officer-facing label is always plain "Certified"**.
 
-**Write-safety for `writeLocalMeta`.** It runs on every authenticated load, and a flaky connection under a valid session can return an error or a partial row. It writes **only on a complete successful fetch of all seven fields**; on any error or partial result it leaves the existing `local_meta` untouched and logs. Otherwise a network blip nulls cached identity and a driver who worked offline yesterday hits the cold-start block today.
+### Migration — tokened, disambiguated certification
 
-**Test:** seed a good `local_meta`, simulate a failed `carrier_profile` fetch on the next authenticated load, assert the cached record is byte-for-byte unchanged.
+- `rods_days.certification_token uuid` with unique index `rods_days_certification_token_key`.
+- `certify_rods_day` gains **`p_certification_token uuid` as a required parameter — no default**. The **online path passes it too**, so there is exactly one certification code path and online retries are idempotent for free.
+- Token handling **before** validation:
+  - Token already present on **this** `_day_id` → return that row as a no-op, even if the day would now fail an unrelated check.
+  - Token already present on a **different** day → `RAISE EXCEPTION` with a distinct named message (`rods_token_day_mismatch`). This is a client bug; returning another day's row would be a wrong federal record.
+- Race handling via `GET STACKED DIAGNOSTICS ... CONSTRAINT_NAME` so **no raw 23505 ever reaches the client**:
+  - `rods_days_certification_token_key` → a concurrent replay of the same certification. Re-read and return the existing row. Success, no alarm.
+  - `rods_days_one_certified_per_date` → genuine duplicate-date conflict. `RAISE EXCEPTION` with a distinct named message the runner routes to the duplicate path in §4.
+- Tests: concurrent replay of one token → one success, zero rejections. Two tokens on the same date → exactly one duplicate rejection. Token presented against a foreign day → mismatch exception, no row returned.
 
-**Cold-start block.** With no cached carrier record, malfunction reporting, draft creation, and log upload are blocked with: "Connect to the internet once to set up offline logging." An honest block beats a record frozen with null carrier identity that the server guard will later reject.
+Same required-token pattern for the new `create_eld_document_day` and for `replace_rods_document`.
 
-## 3. Snapshot columns
+Amend and Replace are hidden offline. Cold start with no cached carrier reuses `CARRIER_CACHE_MISSING_MESSAGE`.
 
-- `rods_days.main_office_address text`
-- `rods_days.home_terminal_timezone text` — new, frozen per day, seeded at draft creation from `local_meta.home_terminal_timezone`, falling back to the operator's value where set. Never a live query.
-- `eld_malfunction_events`: `carrier_legal_name`, `carrier_usdot`, `carrier_mc`, `carrier_main_office_address` — frozen at creation, covered by the existing immutability trigger.
+## 4. Rejection
 
-**`certify_rods_day` guard extended from 8 to 12 required header fields**: adds `main_office_address`, `carrier_usdot`, `carrier_mc`, and `home_terminal_timezone`. §395.8 requires the home terminal's time standard on the face of the record, and a certified log is not correctable afterward — a null zone must not be certifiable. Deliberate `total_mileage_today` and RECAP exclusions stay.
+Entry → `rejected`, never auto-discarded; bytes permanently exempt in `prune.ts`; `rods_days_cache` row flagged `sync_rejected` with the server message verbatim; high-priority notice to the driver and to all Management. The day **stays in the roadside packet labelled "Certified"**, with no officer-facing indicator.
 
-## 4. Client checklist parity with the server guard
+The duplicate-date path retains both records and both byte sets, notifies Management, and auto-resolves nothing. Replays and token races never reach this path.
 
-`header_complete` in `rodsValidation.ts` checks the **same 12** fields. A client that passes where the server rejects puts a validly signed PDF in the rejection path for nothing.
+## 5. Parity fixtures
 
-Pass B §5's parity table gains four fixtures — missing `main_office_address`, `carrier_usdot`, `carrier_mc`, `home_terminal_timezone` — each expecting client **and** server to reject. Recorded rule: the parity table grows whenever the guard grows.
+`src/lib/eld/__tests__/rodsValidationParity.test.ts` — all 17 fixtures run against `rodsValidation.ts` and against the real `certify_rods_day` (integration variant; the SQL guard is the authority). Fixture 17 is encoded as **expected divergence** with the rationale in a comment: forcing `total_mileage_today` into the server guard makes a driver uncertifiable, and therefore undispatchable, over an odometer reading. Standing note: the table grows whenever the guard grows.
 
-## 5. Read/write map for renderers
+## 6. HEIC at upload
 
-`renderRodsDay` and `RoadsideDayRender` read **the day row only** — no constant, no profile read, no operator read.
+`UploadEldLogModal` attempts a canvas JPEG re-encode on selection and stores both — the original stays the record — flagging decode failure. The Pass A decode probe stays; existing Storage objects are still HEIC.
 
-**`rodsHeaderFields(day, driverName)` — the third `{ timeZone }` argument is removed.** The zone is read from `day.home_terminal_timezone` inside the function, so it is structurally impossible to source elsewhere, and a historical log shows the terminal's zone as of that date. `renderMalfunctionNotice` reads the event's frozen carrier columns. Stage 4's `fmcsa_division_state` comes via `local_meta`.
+## 7. Notice-queue migration — drain safely, delete later
 
-The packet header renders from `local_meta` and stays stable as the officer swipes; each day's fields come from that day's row.
+`pendingNotice.ts`'s **read path stays this release.** A driver may be holding an unsent 395.34(a)(1) notice right now, and deleting the module alongside a one-shot drain orphans it if the drain half-completes.
 
-## 6. §395.8 fields and timezone naming
+**Deterministic ids.** Each queue entry id is derived from the localStorage entry — a v5 uuid over `(malfunction_event_id, kind)`, or an equivalent stable hash — so re-enqueueing the same entry collides with the existing row instead of creating a second one. Before enqueueing, look up that id in `sync_queue` **in any status** and skip if present. A removal that fails, or an app killed between confirm and remove, therefore costs nothing on the next start.
 
-`rodsHeaderFields` gains, in printed order: main office address, total mileage today, and `24-hour period begins {period_start_time} — {tz}`. The certification timestamp gains the same suffix.
+**Send is conditional, never assumed.** The old `pendingNotice.ts` retried both upload and send, so an entry can survive a *successful* send. Before enqueueing `send_notice`, read the malfunction event's sent/uploaded timestamps (`notice_sent_at` / `notice_uploaded_at`, exact column names confirmed against `eld_malfunction_events` at implementation):
 
-`carrierTimeZoneLabel(ianaZone, logDate)` uses `Intl.DateTimeFormat(..., { timeZoneName: 'long' })` and prints the **full name** — `Central Daylight Time` / `Central Standard Time`. Never `longGeneric`, never a reconstructed parenthetical, never the IANA id. Resolved at **noon local** on the log date: at 00:00 a spring-forward day still reports standard time while most of the day is daylight.
+- Sent timestamp already set → enqueue only `upload_notice_pdf`, and only if the upload timestamp is null. No send.
+- Both already set → nothing to enqueue; remove the localStorage key.
+- **Event row unreadable because the device is offline → defer the entire entry.** Leave it in localStorage, retry next start. Never send on the assumption it hasn't been sent — a duplicate notice with an earlier timestamp muddies the carrier's record of when the 8-day clock started.
 
-**It must never throw.** `Intl.DateTimeFormat` raises `RangeError` on a null or invalid `timeZone`, and `RoadsideDayRender` is the one component where an uncaught exception yields a blank screen in front of an officer, offline, with no recovery. The resolution is wrapped in try/catch and returns the raw stored value on failure; the component renders whatever is present. The §3 guard makes this rare; it must not make it fatal.
+**Order, strictly:** read entry → resolve send/upload state → enqueue (deterministic id, skip if present) → **read back the `sync_queue` row and confirm it persisted** → only then remove the localStorage key.
 
-Fixtures: winter date, summer date, **DST transition date** (asserting the daylight name), **null zone**, and **`'Not/AZone'`** — the last two asserting the component renders without throwing. The suite runs against an explicit required-field list declared in the test, so a dropped field fails loudly.
+- Runs on **every app start** until the prefix is empty, not once.
+- An entry that fails to parse or base64-decode is **left in place**, logged, and raised to Management. Nothing is ever discarded silently.
+- `pendingNotice.ts` is deleted in a later release, after telemetry shows zero remaining entries.
+- Tests: (a) seed one valid and one corrupt entry, run the drain, assert the valid one enqueues and its key is removed and the corrupt one survives with an alert; (b) run the drain **twice without clearing localStorage between runs** and assert exactly one queue entry and one send; (c) seed an entry whose event already has a sent timestamp and assert no `send_notice` is enqueued; (d) run the drain offline and assert the entry is deferred, not sent.
 
-**Comment in `rodsValidation.ts`:** on the two transition days the real period is 23 or 25 hours, but the §395.8 grid is 24 boxes and the 1440-minute check is correct *against the form*. Do not make it DST-aware — that breaks certification twice a year and is hours-of-service reasoning we do not perform.
+## 8. Scoped share tokens — one resolver
 
-## 7. Offline cache invariants
+New `share_tokens` (`id`, `token`, `resource_type` `binder | eld_malfunction`, `resource_id`, `expires_at` nullable, `revoked_at`, `created_by`, `created_at`) and `share_token_access_log`, both staff/service-role only, resolved by a single SECURITY DEFINER `resolve_share_token(p_token)` that branches on `resource_type` and logs every access.
 
-**Dexie upgrades are additive only.** A comment block in `db.ts` states it: an upgrade may add stores, add indexes, and stamp fields; it may never `.clear()` a store or redefine a primary key, because that rebuilds and drops the only copy of a roadside packet for a driver out of coverage.
+**The old resolver is retired, not run alongside.** If `get_inspection_doc_by_token` stays live while `share_tokens` gains revocation, a revoked token still resolves and the UI reports a revocation that did not revoke.
 
-**Test (`dexieUpgrade.test.ts`):** open at version 1 via a bare Dexie handle, seed every byte store (a `local_pending_upload` signature, an `uploaded = false` rods PDF, an `eld_document`, a notice PDF), close, reopen through `roadsideDb`, assert every entry survives with `byteLength` intact and the signature keeps `origin: 'local_pending_upload'`.
+- Backfill every existing `public_share_token` into `share_tokens` with `expires_at = NULL`, preserving today's non-expiring behaviour for stickers already in trucks.
+- Then **drop `get_inspection_doc_by_token`, or rewrite it as a thin delegate to `resolve_share_token`**. Exactly one resolution path.
+- `/inspect/:token` routes through the new module only.
+- `inspection_documents.public_share_token` becomes **legacy read-only immediately**: column comment plus a trigger rejecting writes. All minting goes through `share_tokens`.
+- Test: revoke a backfilled binder token and assert `/inspect/:token` returns 404.
 
-**Manifest versioning marks stale, never deletes.** A `schema_version` mismatch sets `stale: true` and the packet **still renders from it**; hydration replaces it only on a successful rebuild. `RoadsidePacket` and `CachePacketChip` show "Log list may be out of date — reconnect to refresh."
+`eld_malfunction` scope: 4-hour default TTL; returns the notice plus certified RODS for `discovered_at`'s day and the prior 7, for that operator only, with the window computed **server-side**. eld_document days return `source_document_path`; keyed days return the Storage PDF. 404 on invalid/expired/revoked, `noindex`, read-only. Drivers revoke from roadside, Management revokes anything; revocation never deletes the row or its log. Re-mint rather than extend; each mint logged.
 
-No Dexie bump is required by this work; any future one obeys this section and ships with the test.
+### Where the limits live, and how each one fails
 
-## 8. Officer context and the notice
+The two limiters live in different places and **fail in opposite directions on purpose**. Each gets a comment above it stating its fail mode and the reasoning, so the asymmetry is legible to the next reader rather than looking like an oversight.
 
-Hydration selects the frozen `device_provider`, `device_serial`, `discovered_location` into the manifest event. A new `MalfunctionSummaryCard` tops the packet: discovered date/time with tz label, location, provider/make/model/serial, code + description, Day N of 8, and **Open notice** reading `notice_pdfs`.
+**Per-IP — edge function, fails OPEN.** A SECURITY DEFINER function has no reliable view of client IP, so per-IP limiting sits in the edge function in front of the RPC. The backend has no standard rate-limiting primitive, so this is an ad-hoc counter with its own failure modes (storage unavailable, cold-start error). When the counter cannot be read or written: **allow the request** and log the failure loudly to Management's alerting. A legitimate roadside share 404ing because a counter was down is worse than an unthrottled window on a token that expires in 4 hours, and `share_token_access_log` still captures abuse for after-the-fact review.
 
-Two `cacheNotice` gaps close first: cache the notice for the most recent event whether `open` or recently resolved, and re-fetch when `notice_pdf_path` differs from the cached entry's recorded path (the entry gains `source_path`) instead of short-circuiting on existence. The button renders only when `has_notice` is true.
+**Per-token — inside `resolve_share_token`, fails CLOSED.** Counted off `share_token_access_log`, which the RPC already writes. If that log is unwritable the whole resolution fails — which is correct: at that point nothing is being logged, and an unlogged compliance-document fetch is not something to serve.
 
-## 9. Manifest — root cause before fallback
+## 9. Officer email — client-side merge
 
-Instrument `buildRoadsideManifest`, diff a fresh build against the cached one for the affected driver, and **report** whether the single tile is a stale cache or a builder bug before writing the fallback. The derived-window fallback still ships as defense, records `manifest_fallback_used` with its reason, and surfaces the same visible notice. Never silent.
+`src/lib/eld/mergeOfficerPacket.ts` assembles from cache: cover page, notice, then 8 days newest-first with the order stated on the cover. The cover carries carrier identity **from `local_meta`**, driver and truck, the manual-RODS heading and 79 FR 39342 sub-line, the malfunction summary, every date with its record type, **every uncertified or unavailable date disclosed**, and any separately attached file. Keyed days embed the existing `rods_pdfs` bytes — the native render is never rasterised. Past ~15 MB, embedded images downsample progressively; final size logged; days are never dropped.
 
-## 10. Copy
+The edge function is sender only. The merged packet uploads to `rods-logs` under the event with recipient, timestamp, size and included dates. Offline: merge and cache immediately, queue `upload_merged_packet` → `send_officer_email`, and tell the driver it sends on reconnect **and that PRINT works now**.
 
-- Heading → `MANUAL RECORD OF DUTY STATUS — ELD MALFUNCTION`
-- Sub-line → "Prepared under 49 CFR 395.34(a)(2)–(3). Electronically signed records of duty status per FMCSA regulatory guidance 79 FR 39342 (July 10, 2014), Question 28 to 49 CFR 395.8."
-- Banner → "Manual records of duty status"
-- Shared strings so PDF and native cannot drift.
+## Guardrails
 
-## 11. Grid, baseline, label gutter
+`/roadside` keeps zero Supabase and zero pdf-lib in its import graph — the queue's Supabase surface is confined to `runner.ts`, and the existing import-graph and bundle tests are the backstop. No HOS calculation, no second geometry/header/label source, no live `carrier_profile` read in any creation path or renderer, no ELD/e-log self-description.
 
-- `hourLabel` → `MID` / `NOON`, inherited by all three renderers.
-- Strip a leading `MC`/`MC-` at render as belt-and-braces; store bare.
-- **Baseline:** SVG text uses `dy="0.35em"` (not `dominant-baseline`, for WebKit) and drops the `+2` fudge. `renderRodsDay` gets `y = center - fontSize * 0.35` so both land on `rowCenterOffset`. Screenshot both after.
-- `rodsGridGeometry.ts` gains `LABEL_GUTTER_W` and `STATUS_LABEL_LINES` (`['1. OFF DUTY']`, `['2. SLEEPER','BERTH']`, `['3. DRIVING']`, `['4. ON DUTY','(NOT DRIVING)']`). Both renderers derive the label column from it, centering multi-line labels on the row so the duty line stays on `rowCenterOffset`. `GRID_X = MARGIN + LABEL_GUTTER_W`; `LABEL_W` retires. No font shrink.
-- Parity test asserts against the longest label: measured width ≤ `LABEL_GUTTER_W`, no label box crosses the grid x-origin, same for the PDF column. A signed fixture asserts the signature `img` renders.
+## Delivery order
 
-## Technical notes
-
-Two migrations' worth in one delivery: `carrier_profile` create + seed; snapshot columns (including `rods_days.home_terminal_timezone`) + guard replacement. Existing import-graph and bundle tests remain the backstop keeping Supabase out of `/roadside`.
+Migrations (tokened certification with constraint disambiguation → `create_eld_document_day` → share tokens + backfill + old-resolver retirement) → queue store and runner → `ensureDayCached` → offline certification → rejection path → notice drain → parity fixtures → HEIC → share-token scope → officer merge → acceptance sweep.
