@@ -6,6 +6,8 @@ import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
 import { useRodsDays } from '@/hooks/useRodsDays';
+import { acknowledgeDivergence, openDivergenceDates } from '@/lib/eld/offline/divergence';
+import { raiseSyncAlert } from '@/lib/eld/offline/queue/alerts';
 import type { DraftSegment } from '@/hooks/useRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RodsDayStrip from './RodsDayStrip';
@@ -33,6 +35,31 @@ export default function RodsView({
   const [reconstructing, setReconstructing] = useState(false);
   const [prevSegments, setPrevSegments] = useState<DraftSegment[] | null>(null);
   const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
+  const [diverged, setDiverged] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    void openDivergenceDates().then(setDiverged);
+  }, [loading]);
+
+  /**
+   * Interim resolution path until the Management console lands: the driver may
+   * dismiss only after Management has made contact, and the dismissal is
+   * recorded as driver-sourced so it is never mistaken for a resolution.
+   */
+  async function dismissDivergence(logDate: string) {
+    await acknowledgeDivergence(logDate, {
+      source: 'driver',
+      actor: driverName,
+      reason: 'Driver dismissed after Management contact.',
+    });
+    void raiseSyncAlert({
+      kind: 'certified_day_divergence',
+      operator_id: operatorId,
+      log_date: logDate,
+      detail: `Driver ${driverName} dismissed the divergence for ${logDate} after Management contact.`,
+    });
+    setDiverged(await openDivergenceDates());
+  }
 
   // Carrier identity for new drafts comes from the device cache written at the
   // last authenticated load — never a live read, never a constant.
@@ -140,7 +167,13 @@ export default function RodsView({
         </div>
       )}
 
-      <RodsDayStrip dates={dates} byDate={byDate} onSelect={setSelected} />
+      <RodsDayStrip
+        dates={dates}
+        byDate={byDate}
+        onSelect={setSelected}
+        divergedDates={diverged}
+        onDismissDivergence={(d) => { void dismissDivergence(d); }}
+      />
 
       <Button variant="outline" onClick={printBlankLogs}>
         <Printer className="mr-2 h-4 w-4" /> Print 8 blank sheets
