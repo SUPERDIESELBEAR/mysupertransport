@@ -58,12 +58,23 @@ export interface RodsEvent {
   id: string;
   rods_day_id: string;
   start_minute: number;
-  end_minute: number;
-  duty_status: 1 | 2 | 3 | 4;
-  city: string;
-  state: string;
+  /** Null while the driver has not entered an end time yet. */
+  end_minute: number | null;
+  duty_status: 1 | 2 | 3 | 4 | null;
+  city: string | null;
+  state: string | null;
   remarks: string | null;
-  is_short_period: boolean;
+  is_short_period: boolean | null;
+}
+
+/** A segment is only usable on a certified record once every field is entered. */
+export function isCompleteEvent(
+  e: Pick<RodsEvent, 'end_minute' | 'duty_status' | 'city' | 'state'>,
+): boolean {
+  return (
+    e.end_minute !== null && e.duty_status !== null
+    && !!e.city?.trim() && !!e.state?.trim()
+  );
 }
 
 export const RODS_BUCKET = 'rods-logs';
