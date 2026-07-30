@@ -152,6 +152,10 @@ export default function RodsDayEditor({
         _signature_path: sigPath,
         _pdf_path: pdfPath,
         _device_info: navigator.userAgent.slice(0, 240),
+        // Every certification carries a token, online path included, so a
+        // retry can never double-apply. The server returns the existing row
+        // as a no-op when the same token replays.
+        p_certification_token: crypto.randomUUID(),
       });
       if (error) throw new Error(error.message);
 
