@@ -35,19 +35,49 @@ Exceptions (these are **not** in `extensions`, do not qualify them):
 | `<=>`, `<->`, `vector`, `halfvec` | `public` (pgvector installed there) |
 | `similarity()`, `show_trgm()` | `public` (pg_trgm installed there) |
 
-## 3. `anon` gets no table privileges
+## 3. `anon` gets almost no table privileges
 
-`anon` holds exactly one table privilege in `public`: `INSERT ON applications`
-(the public job-application form). Every other signed-out flow — `/inspect`,
-`/s/:code`, `/pei/respond`, `/pei/release`, `/passenger-auth`,
-`/application/approve`, `/apply`, `/preview-login` — goes through a
-`SECURITY DEFINER` RPC or an edge function.
+`anon` holds exactly two table privileges in `public`:
+
+| Privilege | Why |
+| --- | --- |
+| `INSERT ON applications` | the public job-application form |
+| `SELECT ON faq` | published owner-operator FAQs, row-filtered by policy |
+
+Every other signed-out flow — `/inspect`, `/s/:code`, `/pei/respond`,
+`/pei/release`, `/passenger-auth`, `/application/approve`, `/apply`,
+`/preview-login` — goes through a `SECURITY DEFINER` RPC or an edge function.
 
 Do **not** add `GRANT ... TO anon` to a new table. If a signed-out page needs
 data, add a definer RPC that returns exactly the columns that page renders.
 
 Default privileges for role `postgres` in `public` no longer grant `anon`
 anything, so new tables start closed.
+
+## 3a. `TO public` means `anon` **and** `authenticated`
+
+A policy written without a `TO` clause defaults to `TO public`, which
+`pg_policy.polroles` stores as `{0}`. PUBLIC is every role — signed-out
+visitors and every logged-in user alike.
+
+Two consequences, both learned the hard way on 2026-07-30:
+
+1. **"No policy names `anon`" is not evidence that an `anon` grant is inert.**
+   The `faq` SELECT policy was `TO public`; that grant was the live anon read
+   path the whole time. Resolve `polroles` before reasoning about reachability —
+   `{0}` renders as `public`, not as an empty set.
+2. **Auditing an access change must cover `authenticated`, not just `anon`.**
+   A `TO public` policy with no `authenticated` grant is the same defect with a
+   much bigger blast radius: every logged-in user hits it, not just visitors.
+
+Also note that `information_schema.role_table_grants` only shows grants
+involving roles the *current* role is a member of, so it silently returns zero
+rows for `anon`/`authenticated` and will fabricate a false regression. Audit
+privileges with `aclexplode(pg_class.relacl)` instead.
+
+`src/test/policy-grant-parity.test.ts` enforces this statically: a new policy
+admitting `public`/`anon`/`authenticated` must ship with a matching `GRANT` for
+that role and command in the same migration set.
 
 ## 4. Secrets belong in `app_private`
 
