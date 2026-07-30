@@ -9,7 +9,9 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import RoadsideDayRender from '@/components/eld/RoadsideDayRender';
-import { rodsAnnotations, rodsHeaderFields, rodsRecapRows } from '@/lib/eld/rodsHeaderFields';
+import {
+  carrierTimeZoneLabel, rodsAnnotations, rodsHeaderFields, rodsRecapRows,
+} from '@/lib/eld/rodsHeaderFields';
 import { minuteToX, rowCenterOffset, formatMinutes, GRID_W, ROW_H } from '@/lib/eld/rodsGridGeometry';
 import { statusTotals } from '@/lib/eld/rodsValidation';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
