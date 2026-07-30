@@ -135,9 +135,9 @@ async function tick(): Promise<void> {
 }
 
 /**
- * Start the runner. Drains on load, on reconnect, on tab focus, and every 30s
- * while the tab is open. Idempotent — mounting twice does not double-drain,
- * because drainQueue self-serialises.
+ * Start the runner. Drains on load, on reconnect, on tab focus/visibility, and
+ * every 60s while the tab is open as a backstop. Idempotent — mounting twice
+ * does not double-drain, because drainQueue self-serialises and coalesces.
  */
 export function startSyncRunner(): void {
   if (started || typeof window === 'undefined') return;
