@@ -25,3 +25,30 @@ consecutive days across the fleet. Every fallback hit logs the stable tag
 `resetClassifyStringFallbackCount` exports. Keep `extractSqlState`,
 `REJECTION_SQLSTATES`, and `isDuplicateDateRejection` (the latter is a UI
 question, not a retry question -- re-point it at SQLSTATE `P0031` at that time).
+
+## `purge_rods_day(uuid, text)` — the two-argument overload
+
+**Where:** database function `public.purge_rods_day(_day_id uuid, _reason text)`
+
+**What:** the old two-argument signature. Its body is now nothing but an
+unconditional `RAISE EXCEPTION ... ERRCODE = '42501'` carrying the same message
+as the three-argument form's storage-owner gate. It cannot purge anything.
+
+**Why it still exists:** edge functions deploy separately from migrations.
+`purge_rods_day` is the only way to remove a certified record of duty status, so
+dropping the signature in the same migration that added the three-argument form
+would leave a window — between the migration applying and `purge-rods-day`
+going live — in which the deployed function calls a signature that no longer
+exists and nothing can be purged, including a failed test run. Keeping the
+overload as a loud refusal closes the deliberateness gap immediately without
+creating an unpurgeable window.
+
+**Removal trigger:** `purge-rods-day` is deployed and confirmed calling the
+three-argument form (a successful purge with `storage_owner` present in the
+`rods_day_purged` audit metadata).
+
+**How to remove:**
+
+```sql
+DROP FUNCTION public.purge_rods_day(uuid, text);
+```
