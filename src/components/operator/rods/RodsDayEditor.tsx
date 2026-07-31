@@ -11,7 +11,9 @@ import { isShortPeriod, validateRodsDay } from '@/lib/eld/rodsValidation';
 import {
   RODS_BUCKET, formatLogDate, rodsChip, showsDerivedTotals, type RodsDay,
 } from '@/lib/eld/rodsTypes';
-import { isHandledFlushError, newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
+import {
+  isHandledFlushError, LOCAL_CERTIFIED_MESSAGE, newLocalId, useRodsDay, type DraftSegment,
+} from '@/hooks/useRodsDay';
 import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
 import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
 import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
@@ -22,10 +24,6 @@ import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
 import CertifyMismatchDialog from './CertifyMismatchDialog';
 import UploadEldLogModal from './UploadEldLogModal';
-
-const OFFLINE_SAVE_MESSAGE =
-  'You are offline, so these edits have not reached the office copy yet. '
-  + 'They are still here — save again once you have a signal.';
 
 export default function RodsDayEditor({
   operatorId,
