@@ -1,76 +1,62 @@
-## Citation check, run before re-planning
+## Where the offline preflight requirement gets recorded
 
-Fetched the current eCFR text of 49 CFR 395.8.
+Not in a source comment. Three places, only one of which depends on someone reading it:
 
-- **395.8(e)(1)** is quoted correctly: *"No driver or motor carrier may make a false report in connection with a duty status."* (e)(2)/(e)(3) are ELD tampering prohibitions, irrelevant here.
-- **It does not support the inference.** It prohibits a false report. It says nothing about correcting a record, annotating a correction, or preserving what changed.
-- **395.8(f)(7)** is the on-point provision for re-certification: the driver's signature certifies all entries are true and correct. That is why an amendment must be re-signed. It still does not require a change record.
+1. **`docs/eld-offline-certification.md`** — new doc, following the `deferred-removals.md` pattern already in the repo (obligation + trigger, not a date). It holds the acceptance criteria for wiring offline certification, with the preflight as a numbered criterion:
 
-The written reason and per-field change record stand on **carrier policy alone**, no federal cite attached.
+   > **AC-3.** Before enqueuing `certify_rods_day`, the offline path calls `assertPersistedMatches(onScreen, cached)` against `rods_days_cache` / `rods_events_cache` and refuses to enqueue on mismatch, surfacing the same three-way dialog as the online path. Offline is where writes are likeliest to be lost, so the guard matters more there, not less. A change that enqueues a certification without this assertion does not satisfy Stage 3.
 
-## What I found
+   Alongside the rest of the offline-certification acceptance set (byte-caching of PDF and signature, `depends_on`, local certified marking, and the attempt token carried in the payload rather than regenerated).
 
-**Item 1 — the window is real, and wider than described.** `certify_rods_day` locks the row and returns; `RodsDayEditor.certify()` then calls `record_rods_amendments` as a second round trip. The offline path is worse: `HANDLERS.certify_rods_day` (`src/lib/eld/offline/queue/handlers.ts:98`) calls the RPC and nothing else — **every** amendment certified from the queue files zero change rows.
+2. **`mem://features/eld/offline-certification-preflight`** — so the requirement survives into sessions that never open the doc, and is listed in the index.
 
-**Item 2 — three internal 395.30 cites plus one driver-facing claim:** `amendmentDiff.ts:4`, `RodsDayEditor.tsx:194`, `CertifyDayModal.tsx:22`, and `CertifyDayModal.tsx:102` ("Federal rules require a written reason on every correction.").
+3. **A runtime tripwire, so it cannot be quietly skipped.** `enqueueCertifyDay` takes a required `preflight: PreflightResult` argument — the value returned by `assertPersistedMatches`, not a boolean — and throws if it is anything but a clean match. A future implementer wiring the offline path cannot compile a call that omits it. This is the part that does not rely on being read; the doc and the memory explain *why* it is there.
 
-**Label sources — there are already two.** `amendmentDiff.ts` carries its own `AMENDABLE_HEADER_FIELDS` map, and `rodsHeaderFields.ts` carries the labels the driver and auditor actually see on the form. They disagree today: the form says *"Truck / tractor no."*, *"Total miles driving today"*, *"Trailer no."*; the diff map says *"Truck / tractor number"*, *"Trailer numbers"*. So the change record is already drifting from the form even where it isn't emitting bare column names.
+The header comment in `certifyPreflight.ts` stays, but as an explanation pointing at AC-3 rather than as the requirement itself.
 
 ## Plan
 
-### 1. Certify and file the change record in one transaction
+### 1. One token per certification attempt, held in a ref
 
-New migration replacing `certify_rods_day` with `p_changes jsonb DEFAULT '[]'::jsonb` appended last.
+- `certifyAttemptToken = useRef<string | null>(null)` in `RodsDayEditor`; `certify()` uses `certifyAttemptToken.current ??= crypto.randomUUID()`.
+- Every retry of the same attempt reuses it, so line 37's token lookup matches and line 41 returns the certified row, rather than today's **P0014, "Only a draft log can be certified."** (confirmed by reading the deployed function body).
+- Cleared only when an attempt resolves leaving the row a draft — validation refusals P0015–P0018, preflight mismatch, offline stop. Not cleared on an unresolved failure (timeout, transport error); that is the case it exists for. Also cleared on `day.id` change so a token cannot cross logs (P0013).
+- **No new column.** The editor refetches on mount (`useEffect(… load …, [operatorId, logDate])`) and gates the action bar on `{!locked && !isDocument && …<Button>Certify</Button>}` (line 425), rendering "Open certified log" instead when locked — so a post-reload double-tap cannot occur and a ref fully covers the in-session retry. `pending_certification_token` would have been unnecessary schema surface on a table of federal records, and `AMENDMENT_RESET_FIELDS` needs no change.
 
-- Immediately before the certifying `UPDATE`, when `v_day.supersedes_day_id IS NOT NULL`:
-  - refuse a missing written reason — **P0016**;
-  - refuse an empty `p_changes` — **P0017**, "an amendment that changed nothing cannot be certified";
-  - validate a non-empty `field_path` on every element, then `INSERT` the rows into `rods_amendments` in the same function body, stamping `operator_id`, `original_day_id`, `log_date`, `reason` from the row.
-- Refuse a non-empty `p_changes` on a row with no `supersedes_day_id` — **P0018**.
-- Replay stays correct without a guard: both early-return paths (token already present; `unique_violation` recovery) return before the insert block.
-- `record_rods_amendments` is dropped.
+### 2. Header flush: classified result, nothing dropped
 
-Register P0016–P0018 in the rule 6 table in `docs/database-security-conventions.md` and in `REJECTION_SQLSTATES` / `CONDITION_GROUPS` in `src/lib/eld/offline/queue/types.ts`.
+`flushPendingHeader()` returns `'saved' | 'nothing-pending' | 'offline'`. `pendingHeader.current` clears only after a confirmed write, so transport failure retains the accumulated patch. `'offline'` is classified from a fetch-level failure only — RLS-filtered writes still surface as `row_not_writable`. `certify()` stops on `'offline'`.
 
-### 2. Both callers compute the diff before certifying
+### 3. Flush on every exit
 
-- `RodsDayEditor.certify()`: compute `diffAmendment(...)` **before** the RPC, pass as `p_changes`; delete the post-certify block, the count guard, and the "certified but the change record failed" path. Keep the pre-certify `amendment_reason` write.
-- `handlers.ts` `certify_rods_day`: forward `payload.changes` (default `[]`); the enqueue site in `db.ts` serializes the computed diff into the payload — strings only, so `assertSmallPayload` is satisfied.
+`visibilitychange` → hidden, `pagehide`, and unmount all call `flushPendingHeader()`. No `beforeunload`. The two that cannot await fire without awaiting, safe now that a non-completing flush retains the patch. Segments (undebounced) get a dirty-flag navigate-away warning, not a silent autosave.
 
-### 3. One label source
+### 4. Preflight guard
 
-`rodsHeaderFields.ts` becomes the single authority for header field labels.
+`src/lib/eld/certifyPreflight.ts` exports `assertPersistedMatches(onScreen, persisted)` → differing field labels via `RODS_HEADER_LABELS`, so a mismatch names "Total miles driving today", never a column. Covers every `AMENDABLE_HEADER_COLUMNS` value (derived from the label map, with the assertion test) plus each segment's `start_minute`, `end_minute`, `duty_status`, `city`, `state`, `remarks`, using the diff's null/empty normalisation. Source-agnostic signature; both forms documented, the offline form enforced per AC-3 above. `certify()` runs it after the flush and segment save, immediately before the RPC, and computes the diff from the **persisted** row and events.
 
-- Export a `RODS_HEADER_LABELS: Record<keyof RodsDay-ish, string>` from `rodsHeaderFields.ts`, and rebuild `rodsHeaderFields()` from it so the form and the change record cannot drift.
-- Delete `AMENDABLE_HEADER_FIELDS` from `amendmentDiff.ts`; the diff iterates the shared map instead. Columns the diff must cover that the printed header block does not show (carrier name/USDOT/MC, home terminal timezone, the four RECAP lines, `is_reconstructed`) are added to the shared map with the label used on the form, so there is still exactly one source.
-- Change record reads **"Total Miles Driving Today"**, **"To"**, **"Truck / tractor no."** — never a column name.
-- Update `amendmentDiff.test.ts` expectations to the form labels.
+### 5. Mismatch: surface both values, never auto-discard
 
-### 4. Citation fix
-
-- `amendmentDiff.ts`, `RodsDayEditor.tsx:194`, `CertifyDayModal.tsx:22`: record kept under 49 CFR 395.8 with the manual-log allowance at 395.34; written reason and per-field change record are **SUPERTRANSPORT carrier policy**. No 395.30 reference.
-- `CertifyDayModal.tsx:102`, driver-facing: *"SUPERTRANSPORT requires a written reason on every correction. It is filed with the original log and with a line-by-line record of what changed."*
-- Lineage — why the policy exists, that 395.30(c)(2) is the ELD analogue and deliberately not the authority, and that 395.8(e)(1) prohibits false reports but does not require a change record — goes into `docs/database-security-conventions.md`.
-
-### 5. Standing rule 8 in `docs/database-security-conventions.md`
-
-> **Verify through the app's entry point, not the function.** A function proven by direct RPC is not a proven code path. Four defects in this audit share one signature — correct or near-correct code that had never been reached:
->
-> - `get_or_create_short_link` — never once succeeded; every binder email/SMS share had been silently falling back to a long URL.
-> - `discard_rods_amendment` — raised the message telling the caller to call itself; discarding an amendment could never work.
-> - `certify_rods_day` — created, guarded, extended twice, never executed until it was deliberately run.
-> - `record_rods_amendments` — worked correctly, called by nothing.
->
-> Every one would have passed a direct round-trip proof. "The function is correct" and "the feature works" are different claims and need different evidence. Where a claim is about behavior the app performs, drive the app's real caller. Same distinction that made the driver-session no-op proof worth insisting on over a privileged-path provocation.
+Dialog lists each differing field with both values — *"Truck / tractor no. — on screen: 88, saved: 77"* — offering **Try saving again**, **Use the saved version** (explicit discard), **Cancel** (log stays uncertified, screen untouched). Field list logged for the Management alert either way.
 
 ### 6. Verification
 
-- Unit: empty-diff case and relabelled expectations in `amendmentDiff.test.ts`; new codes in `rowNotWritable.test.ts`.
-- Path-level, per rule 8: Playwright on a demo driver through the real UI — edit a certified log, certify the amendment, assert `rods_amendments` rows appeared with **no** direct RPC from the harness. **Report every `field_path` verbatim as stored**, alongside the label the form shows for the same field, and confirm they match. Then certify an amendment that changed nothing and assert P0017 surfaces in the UI. Then drive the offline queue handler with a serialized payload and confirm rows land from that path too.
-- Purge all seeded rows via `purge_rods_day` and report counts.
+- Unit: `certifyPreflight.test.ts` — clean match, header mismatch, segment mismatch, null-vs-empty-string not a false positive, offline form against Dexie entries. `flushPendingHeader` retains the patch on transport failure. `AMENDABLE_HEADER_COLUMNS` equals the derived key set of `RODS_HEADER_LABELS` minus `log_date`.
+- Playwright through the real driver UI (rule 8):
+  - (a) edit a header field and certify inside the 700 ms window — row and change record agree;
+  - (b) offline — offline message, nothing certified;
+  - (c) edit, fire `visibilitychange`/hidden, assert persisted with no save tap;
+  - (d) **lost write** — `page.route` fulfils the header `PATCH` 200 with an empty array without applying it; assert the preflight refuses, the dialog names the field with both values, on-screen state survives Cancel, `rods_amendments` gained nothing;
+  - (e) opposite direction — patch the row out from under the editor; same refusal, same no-overwrite;
+  - (f) **double-tap idempotency, with the precondition proven**:
+    - the route handler does `const response = await route.fetch()` so the request genuinely reaches the server, then aborts without fulfilling — the server applies it, the client never learns;
+    - **before the second tap**, query the row directly and assert `status = 'certified'`, `locked = true`, and `certification_token` non-null. Without this the case cannot tell idempotent replay from ordinary first-time success, and would pass vacuously;
+    - after the second tap, assert the returned row's `id` equals the day under edit (not merely that a certified row came back — that is exactly what an amendment-token bug would produce), and that `certification_token` on the row equals the attempt token, proving the *first* call stored it;
+    - assert success in the UI rather than P0014.
+- Purge seeded rows via `purge_rods_day` and report counts.
 
-## Technical notes
+## Standing finding — Pass B offline certification is scaffolding
 
-- A defaulted parameter changes the signature; PostgREST resolves by supplied argument names, so migration and both callers ship together.
-- `rodsHeaderFields.ts` must stay dependency-neutral (it is on the /roadside boot path) — the label map is a plain record, no new imports.
-- The deferred continuity trigger (P0042) fires at COMMIT and is unaffected: amendment rows are written in the same transaction as the supersede, before that check runs.
+- Seven of ten `SyncKind`s have no live caller; the only `enqueue()` sites are the three in `noticeDrain.ts`.
+- `ensureDayCached`'s LOCAL-WINS certification branch, the `certification_rejected` path in `hydrate.ts`, and `row_not_writable` routing *within the queue* are unreachable. (Client-side `row_not_writable` detection on the direct path is live and exercised.)
+- Remaining to wire, now captured as acceptance criteria in `docs/eld-offline-certification.md`: enqueue instead of direct-call in `certify()`, the AC-3 offline preflight, the attempt token carried in the payload, and the Pass B §3.1 byte-caching — PDF into `rods_pdfs` (`uploaded: false`), signature into `signature_images` (`origin: 'local_pending_upload'`), both uploads enqueued and `depends_on` from the certify entry, day cache marked locally certified. Out of scope here.
