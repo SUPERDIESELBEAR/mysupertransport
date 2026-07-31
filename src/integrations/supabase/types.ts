@@ -6344,6 +6344,10 @@ export type Database = {
         Args: { _operator_id: string }
         Returns: boolean
       }
+      purge_rods_day: {
+        Args: { _day_id: string; _reason: string }
+        Returns: undefined
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
