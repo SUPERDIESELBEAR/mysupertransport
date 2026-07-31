@@ -1,62 +1,67 @@
-## Where the offline preflight requirement gets recorded
+## Confirmed first
 
-Not in a source comment. Three places, only one of which depends on someone reading it:
+There is **no** test asserting `enqueueCertifyDay` throws on a bad `PreflightResult`. The only references to it anywhere are its own module and `docs/eld-offline-certification.md`; `src/lib/eld/offline/__tests__/` has no `certifyDay.test.ts`. Today the tripwire is unreached code guarding unreached code — a fifth instance of the standing finding, not an exception to it. That test is part of this pass.
 
-1. **`docs/eld-offline-certification.md`** — new doc, following the `deferred-removals.md` pattern already in the repo (obligation + trigger, not a date). It holds the acceptance criteria for wiring offline certification, with the preflight as a numbered criterion:
+## 1. `certifyDay.test.ts` — the tripwire, exercised
 
-   > **AC-3.** Before enqueuing `certify_rods_day`, the offline path calls `assertPersistedMatches(onScreen, cached)` against `rods_days_cache` / `rods_events_cache` and refuses to enqueue on mismatch, surfacing the same three-way dialog as the online path. Offline is where writes are likeliest to be lost, so the guard matters more there, not less. A change that enqueues a certification without this assertion does not satisfy Stage 3.
+New `src/lib/eld/offline/__tests__/certifyDay.test.ts`, mocking `./store`'s `enqueue` so nothing touches Dexie. `enqueue` asserted **un-called** on every refusal — a throw that still queued would satisfy a looser test:
 
-   Alongside the rest of the offline-certification acceptance set (byte-caching of PDF and signature, `depends_on`, local certified marking, and the attempt token carried in the payload rather than regenerated).
+- missing token → throws
+- `preflight` for a different `day_id` → throws (the realistic misuse: a preflight from the previously open log)
+- `preflight` without `ok: true` → throws
+- clean preflight → `enqueue` called once, `kind: 'certify_rods_day'`, `id` defaulting to the token, `preflight_source` / `preflight_at` carried into the payload
+- same token twice → same entry id, so the enqueue is idempotent
 
-2. **`mem://features/eld/offline-certification-preflight`** — so the requirement survives into sessions that never open the doc, and is listed in the index.
+## 2. Playwright pass, real driver UI
 
-3. **A runtime tripwire, so it cannot be quietly skipped.** `enqueueCertifyDay` takes a required `preflight: PreflightResult` argument — the value returned by `assertPersistedMatches`, not a boolean — and throws if it is anything but a clean match. A future implementer wiring the offline path cannot compile a call that omits it. This is the part that does not rely on being read; the doc and the memory explain *why* it is there.
+`/tmp/browser/rods-certify/`, one script per case, session restored via `page.evaluate` before navigating to the RODS editor. Each case seeds its own day, purges via `purge_rods_day`, and reports counts.
 
-The header comment in `certifyPreflight.ts` stays, but as an explanation pointing at AC-3 rather than as the requirement itself.
+### (a) the original defect — with a timing assertion
 
-## Plan
+Type into a header field, tap Certify with no artificial wait, and **prove the race was reached**:
 
-### 1. One token per certification attempt, held in a ref
+- `performance.now()` captured in-page immediately after the final keystroke;
+- a `page.route` handler on the `certify_rods_day` RPC records the timestamp at which the request is issued;
+- assert `delta < 700ms`.
 
-- `certifyAttemptToken = useRef<string | null>(null)` in `RodsDayEditor`; `certify()` uses `certifyAttemptToken.current ??= crypto.randomUUID()`.
-- Every retry of the same attempt reuses it, so line 37's token lookup matches and line 41 returns the certified row, rather than today's **P0014, "Only a draft log can be certified."** (confirmed by reading the deployed function body).
-- Cleared only when an attempt resolves leaving the row a draft — validation refusals P0015–P0018, preflight mismatch, offline stop. Not cleared on an unresolved failure (timeout, transport error); that is the case it exists for. Also cleared on `day.id` change so a token cannot cross logs (P0013).
-- **No new column.** The editor refetches on mount (`useEffect(… load …, [operatorId, logDate])`) and gates the action bar on `{!locked && !isDocument && …<Button>Certify</Button>}` (line 425), rendering "Open certified log" instead when locked — so a post-reload double-tap cannot occur and a ref fully covers the in-session retry. `pending_certification_token` would have been unnecessary schema surface on a table of federal records, and `AMENDMENT_RESET_FIELDS` needs no change.
+If the delta is over 700 ms the case **fails as inconclusive** — reported distinctly from a pass and from a defect. It means the debounce fired naturally and the flush had nothing pending, so the race was never exercised.
 
-### 2. Header flush: classified result, nothing dropped
+If that proves consistently unachievable, drive it differently rather than loosening the bound: pre-focus the field and dispatch the keystroke and the Certify tap in a single `page.evaluate` so no round trip sits between them; failing that, hold the debounce open with a `page.clock` fake before the tap. The assertion stays at 700 ms either way.
 
-`flushPendingHeader()` returns `'saved' | 'nothing-pending' | 'offline'`. `pendingHeader.current` clears only after a confirmed write, so transport failure retains the accumulated patch. `'offline'` is classified from a fetch-level failure only — RLS-filtered writes still surface as `row_not_writable`. `certify()` stops on `'offline'`.
+Then assert the certified row and the `rods_amendments` record both carry the typed value.
 
-### 3. Flush on every exit
+### (b) offline — stated for what it proves
 
-`visibilitychange` → hidden, `pagehide`, and unmount all call `flushPendingHeader()`. No `beforeunload`. The two that cannot await fire without awaiting, safe now that a non-completing flush retains the patch. Segments (undebounced) get a dirty-flag navigate-away warning, not a silent autosave.
+`context.set_offline(True)`, certify. Asserts **that `certify()` stops on `'offline'` and the row stays `draft`** — the direct path refusing to certify without a reachable server. It proves nothing about the offline queue: nothing enqueues certifications today, so any "nothing was enqueued" observation is trivially true and will not be recorded as evidence the queued path works.
 
-### 4. Preflight guard
+### (c) backgrounding — Chromium only, and labelled so
 
-`src/lib/eld/certifyPreflight.ts` exports `assertPersistedMatches(onScreen, persisted)` → differing field labels via `RODS_HEADER_LABELS`, so a mismatch names "Total miles driving today", never a column. Covers every `AMENDABLE_HEADER_COLUMNS` value (derived from the label map, with the assertion test) plus each segment's `start_minute`, `end_minute`, `duty_status`, `city`, `state`, `remarks`, using the diff's null/empty normalisation. Source-agnostic signature; both forms documented, the offline form enforced per AC-3 above. `certify()` runs it after the flush and segment save, immediately before the RPC, and computes the diff from the **persisted** row and events.
+Edit a header field, dispatch `visibilitychange`/hidden and `pagehide` with no save tap and no unmount; assert the row holds the edit. Separately, edit a segment, navigate away, and confirm the dirty-flag warning appears rather than a silent write.
 
-### 5. Mismatch: surface both values, never auto-discard
+Reported as **verified on Chromium, unverified on iOS Safari**. A dispatched event in headless Chromium is a real event loop, real handlers, and a real fetch — materially better than jsdom — but still synthetic, and iOS Safari's `pagehide` semantics are precisely why `beforeunload` was excluded. Chromium cannot settle that.
 
-Dialog lists each differing field with both values — *"Truck / tractor no. — on screen: 88, saved: 77"* — offering **Try saving again**, **Use the saved version** (explicit discard), **Cancel** (log stays uncertified, screen untouched). Field list logged for the Management alert either way.
+Added to the hardware checklist in `docs/eld-offline-certification.md`, alongside the existing installed-cold-launch blockers:
 
-### 6. Verification
+> On a real iPhone, installed to the home screen: edit a header field and press Home **within the debounce window**, then reopen the app and confirm the edit persisted.
 
-- Unit: `certifyPreflight.test.ts` — clean match, header mismatch, segment mismatch, null-vs-empty-string not a false positive, offline form against Dexie entries. `flushPendingHeader` retains the patch on transport failure. `AMENDABLE_HEADER_COLUMNS` equals the derived key set of `RODS_HEADER_LABELS` minus `log_date`.
-- Playwright through the real driver UI (rule 8):
-  - (a) edit a header field and certify inside the 700 ms window — row and change record agree;
-  - (b) offline — offline message, nothing certified;
-  - (c) edit, fire `visibilitychange`/hidden, assert persisted with no save tap;
-  - (d) **lost write** — `page.route` fulfils the header `PATCH` 200 with an empty array without applying it; assert the preflight refuses, the dialog names the field with both values, on-screen state survives Cancel, `rods_amendments` gained nothing;
-  - (e) opposite direction — patch the row out from under the editor; same refusal, same no-overwrite;
-  - (f) **double-tap idempotency, with the precondition proven**:
-    - the route handler does `const response = await route.fetch()` so the request genuinely reaches the server, then aborts without fulfilling — the server applies it, the client never learns;
-    - **before the second tap**, query the row directly and assert `status = 'certified'`, `locked = true`, and `certification_token` non-null. Without this the case cannot tell idempotent replay from ordinary first-time success, and would pass vacuously;
-    - after the second tap, assert the returned row's `id` equals the day under edit (not merely that a certified row came back — that is exactly what an amendment-token bug would produce), and that `certification_token` on the row equals the attempt token, proving the *first* call stored it;
-    - assert success in the UI rather than P0014.
-- Purge seeded rows via `purge_rods_day` and report counts.
+### (d) lost write
 
-## Standing finding — Pass B offline certification is scaffolding
+`page.route` fulfils the header `PATCH` 200 with an empty body without applying it. Assert: preflight refuses; the dialog names the field with **both** values present in the DOM (element screenshot of the differences list); **Cancel** leaves the on-screen value intact and the log uncertified; `rods_amendments` gained no row.
 
-- Seven of ten `SyncKind`s have no live caller; the only `enqueue()` sites are the three in `noticeDrain.ts`.
-- `ensureDayCached`'s LOCAL-WINS certification branch, the `certification_rejected` path in `hydrate.ts`, and `row_not_writable` routing *within the queue* are unreachable. (Client-side `row_not_writable` detection on the direct path is live and exercised.)
-- Remaining to wire, now captured as acceptance criteria in `docs/eld-offline-certification.md`: enqueue instead of direct-call in `certify()`, the AC-3 offline preflight, the attempt token carried in the payload, and the Pass B §3.1 byte-caching — PDF into `rods_pdfs` (`uploaded: false`), signature into `signature_images` (`origin: 'local_pending_upload'`), both uploads enqueued and `depends_on` from the certify entry, day cache marked locally certified. Out of scope here.
+### (e) opposite direction
+
+Patch the row out from under the editor by direct write, then certify. Same refusal, and the on-screen value is not overwritten by the saved one.
+
+### (f) double-tap idempotency
+
+Route handler does `await route.fetch()` so the server applies the certify, then aborts — the client never learns. **Before the second tap**, query the row and assert `status='certified'`, `locked=true`, `certification_token` non-null; without this precondition the case passes vacuously. After the second tap: the returned row `id` equals the day under edit (not merely "a certified row" — that is what an amendment-token bug produces), `certification_token` equals the attempt token, and the UI shows success rather than P0014.
+
+## Reporting
+
+Per case: pass / fail / **inconclusive**, the assertion that carried it, screenshot path, console errors, and rows purged. Any real finding that surfaces — a column name where a label belongs, P0014 on the second tap — is fixed in this pass, not noted.
+
+## Technical notes
+
+- Viewport `1280x1800`, headless Chromium, session written with `page.evaluate` after navigating to localhost (never `add_init_script`).
+- Route handlers registered and removed per case, so none leak between cases.
+- No production-code changes are planned; any that prove necessary come from a failing case.
