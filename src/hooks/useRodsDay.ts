@@ -117,11 +117,42 @@ export function useRodsDay(params: {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Header edits made since the last flush, merged across fields. */
   const pendingHeader = useRef<Partial<RodsDay>>({});
+  /** Monotonic per-day, mirrored into the cache and the queue entry. */
+  const version = useRef(0);
+  /** Non-null once the driver has signed on this device. Blocks every edit. */
+  const localCertifiedAt = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!operatorId) return;
     setLoading(true);
-    const { data: rows } = await supabase
+
+    // CACHE FIRST. For an uncertified day the device is the source of truth:
+    // the driver's edits live here and the queue replays them later, so a
+    // server read that came back stale (or came back at all, after edits that
+    // have not drained) would show the driver an older version of their own
+    // log. A synced, server-confirmed cache entry is equally safe to use.
+    const cached = await roadsideDb.rods_days_cache.get(logDate).catch(() => undefined);
+    const cacheIsAuthoritative = !!cached
+      && cached.operator_id === operatorId
+      && (cached.unsynced || !!cached.local_certified_at);
+
+    let target: RodsDay | null = null;
+
+    if (cacheIsAuthoritative && cached) {
+      target = cached.day;
+      version.current = cached.version;
+      localCertifiedAt.current = cached.local_certified_at;
+      const cachedEvents = await roadsideDb.rods_events_cache.get(cached.day.id).catch(() => undefined);
+      setDay(target);
+      setSegments((cachedEvents?.events ?? []).map(toDraft));
+      setLoading(false);
+      return;
+    }
+
+    localCertifiedAt.current = null;
+    version.current = cached?.version ?? 0;
+
+    const { data: rows, error: readErr } = await supabase
       .from('rods_days')
       .select('*')
       .eq('operator_id', operatorId)
@@ -129,8 +160,17 @@ export function useRodsDay(params: {
       .neq('status', 'superseded')
       .order('created_at', { ascending: false });
 
+    if (readErr && cached) {
+      // Offline with a clean cached copy — show it rather than an empty screen.
+      setDay(cached.day);
+      const cachedEvents = await roadsideDb.rods_events_cache.get(cached.day.id).catch(() => undefined);
+      setSegments((cachedEvents?.events ?? []).map(toDraft));
+      setLoading(false);
+      return;
+    }
+
     const list = (rows ?? []) as unknown as RodsDay[];
-    let target = list.find((d) => d.status === 'draft') ?? list[0] ?? null;
+    target = list.find((d) => d.status === 'draft') ?? list[0] ?? null;
 
     if (!target && autoCreate) {
       // Carrier identity is snapshotted from the device cache, never read live
@@ -144,21 +184,44 @@ export function useRodsDay(params: {
         setLoading(false);
         return;
       }
-      const { data: created, error } = await supabase
-        .from('rods_days')
-        .insert({
-          operator_id: operatorId,
-          log_date: logDate,
-          record_source: 'keyed',
-          status: 'draft',
-          is_reconstructed: !!isReconstruction,
-          ...rodsDayCarrierSnapshot(carrier),
-          ...defaults,
-        })
-        .select('*')
-        .single();
-      if (error) { toast.error(error.message); setLoading(false); return; }
-      target = created as unknown as RodsDay;
+      // The id is minted HERE, not by the database. A driver in a dead zone
+      // starting the day's log is the whole point of the offline path, and a
+      // server-generated id would make creation the one step that needs a
+      // signal. The same UUID is used by every later write, so the row the
+      // queue eventually inserts is the row the driver has been editing.
+      const now = new Date().toISOString();
+      target = {
+        id: crypto.randomUUID(),
+        operator_id: operatorId,
+        log_date: logDate,
+        record_source: 'keyed',
+        status: 'draft',
+        locked: false,
+        is_reconstructed: !!isReconstruction,
+        created_at: now,
+        updated_at: now,
+        ...rodsDayCarrierSnapshot(carrier),
+        ...defaults,
+      } as unknown as RodsDay;
+      version.current += 1;
+      await putCachedDay({
+        day: target,
+        operator_id: operatorId,
+        log_date: logDate,
+        unsynced: true,
+        version: version.current,
+        local_certified_at: null,
+        sync_rejected: false,
+        sync_stalled: false,
+      });
+      await putCachedEvents({
+        rods_day_id: target.id, log_date: logDate, events: [], unsynced: true, version: version.current,
+      });
+      await enqueueCoalesced({
+        kind: 'save_draft_day',
+        coalesce_key: `save_draft_day:${logDate}`,
+        payload: { operator_id: operatorId, log_date: logDate, day_id: target.id, version: version.current },
+      });
     }
 
     setDay(target);
@@ -168,7 +231,26 @@ export function useRodsDay(params: {
         .select('*')
         .eq('rods_day_id', target.id)
         .order('start_minute');
-      setSegments(((evs ?? []) as unknown as RodsEvent[]).map(toDraft));
+      const rowsOut = (evs ?? []) as unknown as RodsEvent[];
+      setSegments(rowsOut.map(toDraft));
+      // Keep the cache aligned with what was just read, so the roadside packet
+      // and an offline reload agree with the editor.
+      if (!cacheIsAuthoritative) {
+        await putCachedDay({
+          day: target,
+          operator_id: operatorId,
+          log_date: logDate,
+          unsynced: false,
+          version: version.current,
+          local_certified_at: null,
+          sync_rejected: cached?.sync_rejected ?? false,
+          sync_stalled: cached?.sync_stalled ?? false,
+        }).catch(() => undefined);
+        await putCachedEvents({
+          rods_day_id: target.id, log_date: logDate, events: rowsOut,
+          unsynced: false, version: version.current,
+        }).catch(() => undefined);
+      }
     } else {
       setSegments([]);
     }
