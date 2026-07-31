@@ -1,44 +1,62 @@
-Ordering confirmed. Case (a) is a recorded defect in step 1, not a stop-and-fix; the guard stays in step 2 so (g)–(l) run first and can still change what step 2 needs to do.
+## Answer to the correction
 
-## Corrections folded in
+**You are right, and the same-id hydration replacement is unreachable — (e) gets repointed at the multi-tab path.**
 
-- **Case (a) is expected red in step 1.** It gets recorded as a *confirmed defect with a reproduction* in `docs/eld-certification-playwright-run.md` — not treated as a harness failure, and not a trigger to pull `assertDraftsEnqueued` forward. Every other case runs before any fix is written.
-- **(a) gains a second assertion.** After checking the certified server row, let the debounced enqueue fire against the now-locked day and confirm it does **not** produce a `row_not_writable` cancellation. That is the second half of the same defect and would otherwise go unobserved.
-- **(a) is re-run after step 2** to confirm closure — both halves.
+Two reads settle it (`src/lib/eld/offline/hydrate.ts`):
 
----
+1. `run()` fetches only `.eq('status', 'certified')` rows. Hydration never pulls an uncertified draft into the cache at all, so a draft cache entry cannot be replaced by a hydration pass under any circumstance. The premise of (e)-as-scoped is empty.
+2. Even for certified rows, `cacheKeyedDay` returns early on `cached?.local_certified_at || cached?.unsynced`, and when `cached.day.id !== day.id` it routes to `isLegitimateReplacement` → `flagDivergence`, not to a silent overwrite. The only same-id replacement it performs is case 5, which requires `compareKeyedDay` to find zero differing fields — an identical write. An identical write cannot produce a preflight mismatch.
 
-## 1. Playwright — first execution of the offline build
+So: hydration produces either no change, an identical write, or a divergence. It never produces the same-id, different-content cache replacement (e) needed.
 
-Harness under `/tmp/browser/eld/`: driver session via the staff QR handoff, `reset-demo-driver` for setup, `purge-rods-day` in a `finally`, ELD-tab hydration workaround deleted.
+**Multi-tab is same-id by construction.** `useRodsDay` loads cache-first for uncertified days, so a second tab opening the same date reads the same cached row and inherits the same `day.id` — no new id is minted. Tab B's `patchHeader` writes that id straight to Dexie (immediate write, per the approved change), and Tab A's screen still holds the pre-edit values against an unchanged id. That is exactly a `PreflightMismatchError`, and drivers do leave tabs open.
 
-- **(g)** direct route to Paper Logs, no ELD tab: `local_meta` populated, day creation allowed. Fixed first if it fails, since everything else depends on it.
-- **(a)** frozen page clock; type, then certify inside the window. Assert (i) the **certified server row carries the final keystroke**, and (ii) the late enqueue produces no `row_not_writable` cancellation. Expected red — recorded, not fixed here.
-- **(b)–(f)** re-run without the workaround; (d)/(e) preflight against the Dexie cache. **(f)** stays recorded as unverified from the browser.
-- **(h)** offline end-to-end: the five happens-before relations from `completed_at` (day→segments, day→certify, segments→certify, signature→certify, pdf→certify), uploads unordered against drafts explicitly not asserted; before reconnect `/roadside` shows the day Certified with the native `RoadsideDayRender` SVG drawn and the other seven days at their prior labels; after reconnect exactly one certified server row whose id equals the client-minted uuid.
-- **(i)** coalescing under `in_flight`: later value wins, neither payload lost.
-- **(j)** signed-but-unsynced read-only after reload, no draft enqueued. **(k)** render failure before the lock leaves an editable draft and an empty queue.
-- **(l)** queue-side replay, the reachable twin of (f): `route.fetch()` then a 504, poll to `certified`, release the retry, assert `replayed: true`, `deleteReplayOrphans` on attempt two's paths only, `pdf_path` / `certification_signature_path` unchanged.
-- **/roadside DOM assertion** in (h) and (j): no banner text, no sync-state string on the officer-facing screen.
+**Case (e) — stale tab (repointed)**
+Two tabs on the same uncertified date. Tab A opens the day and sits idle. Tab B edits one header field (trailer numbers) and its Dexie write lands. Tab A, screen untouched, attempts certification.
 
-Full findings reported before step 2 begins; both ELD docs rewritten with the results table and per-case evidence.
+Assertions, all required:
+- The thrown error is `PreflightMismatchError` specifically — asserted on the error type/name, not on "certification was refused". A `PreflightUnavailableError` here is a **failure** of the case, not a pass.
+- `CertifyMismatchDialog` opens and names both values for the changed field: Tab A's screen value and Tab B's cached value.
+- Cancel leaves Tab A's screen state byte-identical and nothing certified server-side.
+- The cached `day.id` equals the id Tab A is certifying — recorded explicitly, so a future id-minting regression turns this case red instead of silently converting it into an unavailable-path test.
 
-## 2. Header write, drafts guard, banner, authorized unlock
+The same type-specific assertion applies to every case that expects a refusal: (d) asserts `PreflightMismatchError`; any case expecting the no-readable-copy path asserts `PreflightUnavailableError`. No case accepts either.
 
-- `patchHeader` awaits `putCachedDay` on the keystroke and bumps `version`; only `enqueueCoalesced` stays behind the 700 ms timer. `flushPendingHeader` now means "push the pending enqueue now".
-- `commitCertification` requires **`assertDraftsEnqueued`**: for this `log_date`, either a non-terminal `save_draft_day` / `save_draft_segments` entry exists and is in `depends_on`, or there is genuinely nothing pending. Throws otherwise.
-- Migration: `rods_unlock_events` — `operator_id`, `rods_day_id uuid` (no FK, column comment explaining why, indexed), `log_date`, `unlocked_at`, `local_certified_at`, `cancelled_entry_ids jsonb`, `cancelled_states jsonb`, `reason`, `device_info`. Append-only RLS (driver inserts own, management reads, no update or delete), GRANTs in the same migration.
-- New `SyncKind: 'record_unlock'`: transport failure → retry indefinitely; server rejection → keep the entry, never drop or cancel it, raise a high-priority Management alert immediately. Exempt from the transitive cascade, `resolveBlocked`, the drop-on-rejected rule and budget exhaustion — exempt from discard, not from alerting.
-- Banner in the **day editor and Logs list only**, never `/roadside`, where a rejected day keeps its packet entry labeled Certified with no officer-facing indicator.
-- Unlock action: one Dexie transaction clearing `local_certified_at`, cancelling the work chain with `cancelled_by: 'authorized_unlock'`, clearing `sync_stalled` / `sync_rejected`, bumping `version`, enqueueing `record_unlock`. Signed PDF and signature bytes retained.
-- Management surface: unlock events on the driver's Logs view in the management portal.
-- **Re-run case (a)** at the end of step 2 and record closure.
+## What gets changed
 
-## 3. Three-state cold-start message
+### 1. Preflight compares screen against Dexie, unconditionally
 
-Carrier-missing gate: never hydrated + online (fetching now, hydration kicked); never hydrated + offline (connect once first); hydrated but carrier record incomplete (name the missing fields).
+`src/lib/eld/certifyPreflight.ts`
 
-## Technical notes
+- Delete the `online` parameter and the `navigator.onLine` branch from `readPersistedDay` / `assertPersistedMatches`; the Supabase import goes with it.
+- Persisted copy is always `rods_days_cache` + `rods_events_cache`. No cache entry, or one whose `day.id` differs from the day being certified, stays `PreflightUnavailableError`.
+- `PreflightSource` collapses to `'local_cache'`; `PreflightResult` and `PreflightMismatchError` follow. Module header rewritten: the server is downstream of Dexie and never a more current copy of a draft.
+- `RodsDayEditor.certify()` drops the `online` argument.
+- `certifyPreflight.test.ts` rewritten against the Dexie mock — header mismatch, segment mismatch, blank-vs-null equivalence, missing entry, and differing-`day.id`; the Supabase mock and the "refuses offline" case go.
 
-- Files: `src/hooks/useRodsDay.ts`, `src/lib/eld/offline/commitCertification.ts`, a new `assertDraftsEnqueued` guard, `src/components/operator/rods/RodsDayEditor.tsx`, a new banner component, `src/lib/eld/offline/queue/{types,handlers,store,runner,alerts}.ts`, `src/lib/eld/offline/db.ts`, one migration, tests under `src/lib/eld/offline/__tests__/`.
-- Harness lives outside the repo; only the two ELD docs change in-tree from step 1.
+### 2. `CertifyMismatchDialog` copy
+
+Title *"This log was changed somewhere else"*; body says the change reached this phone but the screen still shows the older version; the footnote says the saved version stored on this phone will load and the on-screen version will be discarded. No "office copy". Diff and the three buttons unchanged.
+
+### 3. Enqueue kicks a drain
+
+- New dependency-free `src/lib/eld/offline/queue/kick.ts`: `setDrainKick(fn)`, `requestDrain(scope)` with `scope: 'draft' | 'chain'`, and a buffered pending request flushed on registration.
+- `store.ts`: `enqueue` and `enqueueCoalesced` call `requestDrain()` after the transaction commits, scope derived from `kind`. No new imports beyond `kick.ts`, preserving the no-network rule and `/roadside`'s import graph.
+- `runner.ts`: `startSyncRunner` registers the kick. `requestPass(scope)` defers instead of dropping — if a pass is running, set `passRequested` and re-run from `drainQueue`'s `finally`; if inside the scope's window, schedule for its end. `DRAFT_COALESCE_MS = 30_000`, `CHAIN_COALESCE_MS = 5_000`, `INTERVAL_MS` remains the offline-recovery backstop. Rationale recorded in the doc: drafts are durable in Dexie on keystroke and the certify chain `depends_on` them, so ordering holds regardless of drain timing; the chain is where the driver is watching.
+- Unit tests for `kick.ts`, buffered-before-registration, and the enqueue-during-running race.
+
+### 4. Case (e) repointed to multi-tab, case (m) added
+
+- **(e)** as described above.
+- **(m) — another device already certified this date.** Seed a certified row server-side, drive a local certification, assert the queued `certify_rods_day` reaches a terminal state via P0022 / `row_not_writable` and that both the driver and Management are told. Distinct mechanism from (e); both kept.
+
+## Verification
+
+1. Unit suite (preflight rewrite, `kick.ts`, deferral race).
+2. Re-run **(a)** and **(g)**. (a) asserts the certified server row carries the final keystroke, `local_certified_at` is set promptly, and the debounced enqueue firing after the lock produces no `row_not_writable` cancellation.
+3. Then **(b)**, **(c)**, **(d)**, repointed **(e)**, **(f)**, **(h)**–**(l)**, **(m)**.
+4. `docs/eld-certification-playwright-run.md` and `docs/eld-offline-certification.md` updated with results, Defect B and its running-pass drop window, the (e) repoint plus the hydration finding that forced it, and the two-window coalesce tradeoff.
+
+## Not in this change
+
+Stalled/rejected banner with authorized unlock, and the three-state cold-start copy — next after this pass produces evidence.

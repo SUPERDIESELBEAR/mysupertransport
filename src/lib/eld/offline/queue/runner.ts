@@ -20,6 +20,7 @@ import { isRowNotWritable } from '@/lib/eld/rodsWrite';
 import { HANDLERS } from './handlers';
 import { raiseSyncAlert } from './alerts';
 import { drainPendingNotices } from './noticeDrain';
+import { setDrainKick, type DrainScope } from './kick';
 import {
   dueEntries, markInFlight, markRetry, markSucceeded, markTerminal, purgeSucceeded, syncCounts,
   type SyncCounts,
@@ -32,6 +33,7 @@ let running = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
 let lastPassEndedAt = 0;
+let passRequested: DrainScope | null = null;
 
 /**
  * Triggers coalesce rather than accumulate.
@@ -42,6 +44,48 @@ let lastPassEndedAt = 0;
  * is skipped: the queue is not latency-sensitive and each pass wakes the radio.
  */
 const COALESCE_MS = 5_000;
+
+/**
+ * Enqueue kicks coalesce on two windows, split by what the driver is watching.
+ *
+ * Draft writes are durable in Dexie on the keystroke and the certify chain
+ * `depends_on` them, so ordering holds however late they drain — 30s is two
+ * radio wakes a minute of sustained typing instead of twelve. The certify
+ * chain is where the driver is watching a spinner after signing, so it keeps
+ * the tight window.
+ */
+const DRAFT_COALESCE_MS = 30_000;
+const CHAIN_COALESCE_MS = COALESCE_MS;
+
+function windowFor(scope: DrainScope): number {
+  return scope === 'draft' ? DRAFT_COALESCE_MS : CHAIN_COALESCE_MS;
+}
+
+function mergeScope(a: DrainScope | null, b: DrainScope): DrainScope {
+  return a === 'chain' || b === 'chain' ? 'chain' : 'draft';
+}
+
+/**
+ * A kick from `enqueue`. Never dropped:
+ *   - a pass already running would swallow it (drainQueue returns early), so it
+ *     is recorded and re-run from the pass's `finally`;
+ *   - inside the scope's coalesce window it is scheduled for the end of it.
+ * Both paths matter — an entry committed after the running pass's last
+ * `dueEntries()` read has nothing else to trigger it before the 60s backstop.
+ */
+function requestPass(scope: DrainScope): void {
+  if (running) {
+    passRequested = mergeScope(passRequested, scope);
+    return;
+  }
+  const wait = windowFor(scope) - (Date.now() - lastPassEndedAt);
+  if (wait > 0) {
+    passRequested = mergeScope(passRequested, scope);
+    schedule(wait);
+    return;
+  }
+  void drainQueue({ force: true });
+}
 
 /** Backstop only — `online` and `visibilitychange` cover the moments that matter. */
 const INTERVAL_MS = 60_000;
@@ -144,6 +188,11 @@ export async function drainQueue(options?: { force?: boolean }): Promise<void> {
     running = false;
     lastPassEndedAt = Date.now();
     await notify();
+    if (passRequested) {
+      const scope = passRequested;
+      passRequested = null;
+      requestPass(scope);
+    }
   }
 }
 
@@ -153,7 +202,8 @@ function schedule(ms: number): void {
 }
 
 async function tick(): Promise<void> {
-  await drainQueue();
+  passRequested = null;
+  await drainQueue({ force: true });
   schedule(INTERVAL_MS);
 }
 
@@ -165,6 +215,7 @@ async function tick(): Promise<void> {
 export function startSyncRunner(): void {
   if (started || typeof window === 'undefined') return;
   started = true;
+  setDrainKick(requestPass);
   window.addEventListener('online', () => { void drainQueue(); });
   window.addEventListener('focus', () => { void drainQueue(); });
   document.addEventListener('visibilitychange', () => {
