@@ -237,6 +237,10 @@ export async function cacheKeyedDay(day: RodsDay, driverName: string) {
   if (existing && !existing.uploaded) return;
 
   const cached = await roadsideDb.rods_days_cache.get(day.log_date);
+  // Case 1, structured form. A day signed offline holds the local
+  // certification lock before its bytes exist, and a draft with unsynced edits
+  // is ahead of the server. Neither may be overwritten by a hydration pass.
+  if (cached?.local_certified_at || cached?.unsynced) return;
 
   const { data: events } = await supabase
     .from('rods_events')
