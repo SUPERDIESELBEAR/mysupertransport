@@ -123,6 +123,16 @@ export interface ManifestDay {
   filename: string | null;
   showsTotals: boolean;
   /**
+   * Bytes for this day exist on the device, so print / email-merge / download
+   * can serve it. Distinct from `renderable`, which is the in-app decode probe:
+   * a PDF the browser cannot preview still prints perfectly well.
+   *
+   * Added after manifests were already on devices, and a version mismatch marks
+   * a manifest stale without discarding it — so an older cached manifest has
+   * this undefined. Every consumer MUST read `printable ?? cached`.
+   */
+  printable?: boolean;
+  /**
    * An open, unresolved mismatch between this device's certified copy and the
    * office copy. The local copy keeps rendering — it is the driver's signed
    * record — but the day is flagged for review.
@@ -158,7 +168,18 @@ export interface RodsDayCacheEntry {
    * `day.certified_at`, which the server stamps when the queued certification
    * replays — possibly days later. Never compared against the server.
    */
-  local_certified_at?: string | null;
+  local_certified_at: string | null;
+  /**
+   * The device holds edits the server has not confirmed. Hydration must not
+   * overwrite an unsynced entry: local is ahead, not behind.
+   */
+  unsynced: boolean;
+  /** Monotonic per-day. A sync only clears `unsynced` for the version it sent. */
+  version: number;
+  /** A draft write was refused terminally. The day needs a resolution path. */
+  sync_rejected: boolean;
+  /** The chain for this day gave up or was cancelled. Same. */
+  sync_stalled: boolean;
   cached_at: string;
 }
 
@@ -166,6 +187,8 @@ export interface RodsEventCacheEntry {
   rods_day_id: string;
   log_date: string;
   events: RodsEvent[];
+  unsynced: boolean;
+  version: number;
   cached_at: string;
 }
 
@@ -196,6 +219,8 @@ export type SyncKind =
   | 'upload_rods_pdf'
   | 'upload_signature'
   | 'certify_rods_day'
+  | 'save_draft_day'
+  | 'save_draft_segments'
   | 'create_eld_document_day'
   | 'replace_rods_document'
   | 'upload_notice_pdf'
@@ -204,13 +229,21 @@ export type SyncKind =
   | 'upload_merged_packet'
   | 'send_officer_email';
 
-export type SyncStatus = 'pending' | 'in_flight' | 'succeeded' | 'failed' | 'rejected';
+/**
+ * `cancelled` is terminal and is NOT a failure of the entry itself: the chain
+ * it belonged to was abandoned (a predecessor rejected, or the driver unlocked
+ * the day). Distinguished from `failed` so the driver is told once, about the
+ * cause, rather than once per orphaned entry.
+ */
+export type SyncStatus =
+  | 'pending' | 'in_flight' | 'succeeded' | 'failed' | 'rejected' | 'cancelled';
 /**
  * `row_not_writable` is a write that RLS filtered: 0 rows, no error. It is
  * terminal like `rejected` — replaying cannot change the answer, and the
  * driver must be told the edit never landed.
  */
-export type SyncErrorClass = 'network' | 'server' | 'rejected' | 'row_not_writable';
+export type SyncErrorClass =
+  | 'network' | 'server' | 'rejected' | 'row_not_writable' | 'cancelled';
 
 export interface SyncQueueEntry {
   /** Client-generated uuid. Also the idempotency key — never regenerated. */
@@ -230,6 +263,10 @@ export interface SyncQueueEntry {
   client_timestamp: string;
   created_at: string;
   updated_at: string;
+  /** Why this entry was cancelled, when status is `cancelled`. */
+  cancelled_by?: string | null;
+  /** Set by the runner when an entry reaches `succeeded`. Drives case (h). */
+  completed_at?: string | null;
 }
 
 /** A merged officer packet, assembled on-device and queued for upload/send. */
