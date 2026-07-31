@@ -6296,10 +6296,12 @@ export type Database = {
         Args: { _operator_id: string }
         Returns: boolean
       }
-      purge_rods_day: {
-        Args: { _day_id: string; _reason: string }
-        Returns: Json
-      }
+      purge_rods_day:
+        | { Args: { _day_id: string; _reason: string }; Returns: Json }
+        | {
+            Args: { _day_id: string; _reason: string; _storage_owner: string }
+            Returns: Json
+          }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -6308,10 +6310,20 @@ export type Database = {
           read_ct: number
         }[]
       }
-      record_rods_purge_storage_result: {
-        Args: { _audit_id: string; _failed?: Json; _removed: string[] }
-        Returns: undefined
-      }
+      record_rods_purge_storage_result:
+        | {
+            Args: { _audit_id: string; _failed?: Json; _removed: string[] }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _audit_id: string
+              _failed?: Json
+              _late?: boolean
+              _removed: string[]
+            }
+            Returns: undefined
+          }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }
         Returns: {
