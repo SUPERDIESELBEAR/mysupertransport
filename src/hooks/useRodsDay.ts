@@ -22,6 +22,40 @@ export interface DraftSegment {
   remarks: string;
 }
 
+/**
+ * Outcome of pushing the debounced header edits to the row.
+ *
+ * `offline` is separated from failure on purpose: the edits are still held in
+ * `pendingHeader` and will go out on the next flush, but certification must not
+ * proceed, because the row it would lock does not yet carry them.
+ */
+export type HeaderFlushResult = 'saved' | 'nothing-pending' | 'offline';
+
+/**
+ * A flush that failed for a reason the driver has already been told about
+ * (a filtered write, a server error). Thrown so callers stop, not so they
+ * report it a second time.
+ */
+export class HeaderFlushHandledError extends Error {
+  readonly handled = true;
+
+  constructor() {
+    super('Header edits could not be saved.');
+    this.name = 'HeaderFlushHandledError';
+  }
+}
+
+export function isHandledFlushError(err: unknown): boolean {
+  return !!err && typeof err === 'object' && (err as { handled?: boolean }).handled === true;
+}
+
+/** A transport failure, not a rejection: the write never reached the server. */
+function isOfflineError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return /failed to fetch|networkerror|network request failed|load failed/i.test(msg);
+}
+
 function toDraft(e: RodsEvent): DraftSegment {
   return {
     id: e.id,
