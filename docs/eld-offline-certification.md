@@ -51,3 +51,52 @@ Header fields autosave on a shared 700 ms debounce. `flushPendingHeader` runs on
 unmount, on `visibilitychange` to hidden and on `pagehide`, because an iOS PWA
 can be frozen without another frame. Edits stay in `pendingHeader` until a write
 is confirmed — an offline flush returns `'offline'` and keeps them.
+## Verification status
+
+Cases (a)–(f) run through the real driver PWA under Chromium. Every case purges
+what it seeded in a `finally` block, with amendment children discovered and
+purged before the originals they supersede, so a failed run cannot leave
+synthetic duty-status records on an operator.
+
+Case (c) — the exit flush — is **verified on Chromium, unverified on iOS
+Safari**. Chromium fires `visibilitychange` and `pagehide` reliably under
+automation; iOS Safari can freeze or kill a home-screen PWA on paths that fire
+neither, and no headless browser reproduces that. It has to be checked on
+hardware.
+
+### iOS Safari hardware checklist (case c)
+
+Run on a real iPhone, app installed to the home screen, not in a browser tab:
+
+1. Open a draft log, edit a header field, and within 700 ms of the last
+   keystroke press the home gesture to background the app.
+2. Wait 60 seconds, then force-quit the app from the app switcher.
+3. Reopen from the home screen icon. **Confirm the edit persisted.**
+4. Repeat with the screen locked by the side button instead of backgrounded.
+5. Repeat with the device in airplane mode: the edit must persist locally and
+   sync when connectivity returns.
+
+Record the iOS version and device model with the result. If any step loses the
+edit, the debounce is too long for that exit path and the write must move to a
+keystroke-synchronous local commit rather than relying on a flush hook.
+
+## Certification replays
+
+`certify_rods_day` returns `replayed: true` when the same certification token
+arrives again — a retry after a timeout, or a queued offline entry that already
+landed. The original certification and its signature stand; the retry changes
+nothing.
+
+Because upload paths are timestamped per attempt (`signature-<ms>.png`,
+`log-<ms>.pdf`), a retry uploads new objects the row never references. The
+client deletes **only the paths it uploaded on that attempt**, captured before
+the RPC call, and asserts that a path being deleted is not `pdf_path` or
+`certification_signature_path` on the returned row. Deleting a row-owned path
+would destroy the signature on a certified record under 49 CFR 395.8(k)(1).
+
+Purging a day deletes only that row's three explicit paths. It never sweeps by
+`<operator_id>/<log_date>/` prefix: an amendment and its original share a
+log_date, so a prefix sweep would take the surviving record's artifacts with it.
+Unreferenced objects are handled separately by `sweep-rods-orphans`, which is a
+reachability check against `rods_days`, not a prefix match, and defaults to a
+dry run.

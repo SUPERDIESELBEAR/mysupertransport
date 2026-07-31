@@ -1,67 +1,83 @@
-## Confirmed first
+## 1. Purge, with the order settled
 
-There is **no** test asserting `enqueueCertifyDay` throws on a bad `PreflightResult`. The only references to it anywhere are its own module and `docs/eld-offline-certification.md`; `src/lib/eld/offline/__tests__/` has no `certifyDay.test.ts`. Today the tripwire is unreached code guarding unreached code — a fifth instance of the standing finding, not an exception to it. That test is part of this pass.
+### Findings
 
-## 1. `certifyDay.test.ts` — the tripwire, exercised
+`rods_days_certified_continuity` is `AFTER UPDATE ON public.rods_days ... DEFERRABLE INITIALLY DEFERRED`. **DELETE is not in its trigger events**, and its body guards `OLD.status = 'certified' AND NEW.status <> 'certified'` — a transition with no DELETE analogue. A purge never reaches it, so `rods.purge` short-circuiting the `BEFORE DELETE` lock trigger is the only gate to clear.
 
-New `src/lib/eld/offline/__tests__/certifyDay.test.ts`, mocking `./store`'s `enqueue` so nothing touches Dexie. `enqueue` asserted **un-called** on every refusal — a throw that still queued would satisfy a looser test:
+Ordering is constrained by two FKs, neither deferrable, neither carrying `ON DELETE`:
 
-- missing token → throws
-- `preflight` for a different `day_id` → throws (the realistic misuse: a preflight from the previously open log)
-- `preflight` without `ok: true` → throws
-- clean preflight → `enqueue` called once, `kind: 'certify_rods_day'`, `id` defaulting to the token, `preflight_source` / `preflight_at` carried into the payload
-- same token twice → same entry id, so the enqueue is idempotent
+```text
+rods_days_supersedes_day_id_fkey      483d81c9 -> f651870e
+rods_amendments_original_day_id_fkey  2 rows on rods_day_id=483d81c9 -> f651870e
+```
 
-## 2. Playwright pass, real driver UI
+**Order: the certified amendment `483d81c9` first, then the superseded original `f651870e`.** Purging the amendment also removes its two `rods_amendments` rows (matched on `rods_day_id`), clearing the `original_day_id` references in the same statement.
 
-`/tmp/browser/rods-certify/`, one script per case, session restored via `page.evaluate` before navigating to the RODS editor. Each case seeds its own day, purges via `purge_rods_day`, and reports counts.
+### Execution
 
-### (a) the original defect — with a timing assertion
+Single transaction. Reason string, verbatim on every call:
 
-Type into a header field, tap Certify with no artificial wait, and **prove the race was reached**:
+`Playwright certification-preflight verification run, 2026-07-31 - seeded synthetic RODS data, not a driver record.`
 
-- `performance.now()` captured in-page immediately after the final keystroke;
-- a `page.route` handler on the `certify_rods_day` RPC records the timestamp at which the request is issued;
-- assert `delta < 700ms`.
+```text
+483d81c9  2026-07-28  certified   (amendment — first)
+f651870e  2026-07-28  superseded  (original — second)
+db6602bb  2026-07-29  certified
+d8f8ebaa  2026-07-29  draft
+a41c75a6  2026-07-27  draft
+a734816b  2026-07-26  draft
+e467a31a  2026-07-25  draft
+e6c6e6cd  2026-07-24  draft
+bdcde985  2026-07-23  draft
+```
 
-If the delta is over 700 ms the case **fails as inconclusive** — reported distinctly from a pass and from a defect. It means the debounce fired naturally and the flush had nothing pending, so the race was never exercised.
+Starting counts: 9 `rods_days`, 27 `rods_events`, 2 `rods_amendments`, 1 `eld_malfunction_event`, all on operator `ee993ec0`. The malfunction event is deleted separately in the same transaction.
 
-If that proves consistently unachievable, drive it differently rather than loosening the bound: pre-focus the field and dispatch the keystroke and the Certify tap in a single `page.evaluate` so no round trip sits between them; failing that, hold the debounce open with a `page.clock` fake before the tap. The assertion stays at 700 ms either way.
+Verification: all four tables at 0 for that operator; exactly 9 new `rods_day_purged` audit rows carrying the reason. Any raise is reported as a finding about `purge_rods_day`, not worked around — Stage 4's demo reset walks the same path.
 
-Then assert the certified row and the `rods_amendments` record both carry the typed value.
+### Harness
 
-### (b) offline — stated for what it proves
+`common.py` gets a `seeded_day(...)` context manager whose `finally` purges unconditionally — pass, fail, INCONCLUSIVE, unhandled exception. It discovers amendment children (`supersedes_day_id = day_id`) and purges them before the parent, asserts per-case counts back to 0, and reports surviving ids loudly on failure rather than swallowing.
 
-`context.set_offline(True)`, certify. Asserts **that `certify()` stops on `'offline'` and the row stays `draft`** — the direct path refusing to certify without a reachable server. It proves nothing about the offline queue: nothing enqueues certifications today, so any "nothing was enqueued" observation is trivially true and will not be recorded as evidence the queued path works.
+## 2. Storage cleanup inside `purge_rods_day` — explicit paths only
 
-### (c) backgrounding — Chromium only, and labelled so
+**No prefix sweeping.** An amendment and its original share a `log_date`, and the paths confirm it: `RodsDayEditor` writes `${operator_id}/${log_date}/signature-${stamp}.png`. Purging the `2026-07-28` amendment under a `.../2026-07-28/` prefix would delete `f651870e`'s signature and PDF while that row still exists as a retained record under §395.8(k)(1). It is invisible in this cleanup because both rows are going, and permanently wrong in the function and in Stage 4's demo reset.
 
-Edit a header field, dispatch `visibilitychange`/hidden and `pagehide` with no save tap and no unmount; assert the row holds the edit. Separately, edit a segment, navigate away, and confirm the dirty-flag warning appears rather than a silent write.
+After the audit insert, before the row deletes, delete from `storage.objects` **only** the three paths the row itself owns:
 
-Reported as **verified on Chromium, unverified on iOS Safari**. A dispatched event in headless Chromium is a real event loop, real handlers, and a real fetch — materially better than jsdom — but still synthetic, and iOS Safari's `pagehide` semantics are precisely why `beforeunload` was excluded. Chromium cannot settle that.
+- `pdf_path`
+- `signature_path`
+- `source_document_path`
 
-Added to the hardware checklist in `docs/eld-offline-certification.md`, alongside the existing installed-cold-launch blockers:
+Each is skipped when null. Removed and failed paths are recorded in the audit metadata as `storage_removed` / `storage_failed`. A storage failure is caught into that metadata and never aborts the row purge — the row purge is the compliance-relevant part — but stays visible in the audit trail.
 
-> On a real iPhone, installed to the home screen: edit a header field and press Home **within the debounce window**, then reopen the app and confirm the edit persisted.
+Orphan sweeping is explicitly **not** attached to this. If wanted later it is its own scheduled job doing a reachability check — objects in `rods` referenced by no `rods_days` row across all three path columns — never a prefix match.
 
-### (d) lost write
+## 3. `certify_rods_day` replay flag
 
-`page.route` fulfils the header `PATCH` 200 with an empty body without applying it. Assert: preflight refuses; the dialog names the field with **both** values present in the DOM (element screenshot of the differences list); **Cancel** leaves the on-screen value intact and the log uncertified; `rods_amendments` gained no row.
+`replayed boolean` is added as an additive column on the returned row, not an envelope.
 
-### (e) opposite direction
+**Server:** returns `replayed = true` when the token matched an existing certification and the call was a no-op.
 
-Patch the row out from under the editor by direct write, then certify. Same refusal, and the on-screen value is not overwritten by the saved one.
+**`cacheReturnedDay` (`handlers.ts`):** destructure `replayed` off before the `rods_days_cache.put`. It is a property of the call, not of the day, and must not become a phantom field on the local copy of a federal record. It would not trip `compareKeyedDay` (which fingerprints `certified_at`, the four totals, and segment count), but it does not belong in Dexie.
 
-### (f) double-tap idempotency
+**`HANDLERS.certify_rods_day`:** updated in the same change to read the flag and skip the write-back cost on a replay, so the unreached handler is not left parsing a shape it does not know about. Fixtures updated alongside.
 
-Route handler does `await route.fetch()` so the server applies the certify, then aborts — the client never learns. **Before the second tap**, query the row and assert `status='certified'`, `locked=true`, `certification_token` non-null; without this precondition the case passes vacuously. After the second tap: the returned row `id` equals the day under edit (not merely "a certified row" — that is what an amendment-token bug produces), `certification_token` equals the attempt token, and the UI shows success rather than P0014.
+**`RodsDayEditor.certify`:** line 240 currently does `const { error } = await supabase.rpc(...)` and discards the row. Capture `data` so the flag and the guard below have something to read.
 
-## Reporting
+- `replayed = false`: unchanged, "Log certified."
+- `replayed = true`: *"This log was already certified from your earlier attempt — that certification and the signature you gave then are what is on file."*
 
-Per case: pass / fail / **inconclusive**, the assertion that carried it, screenshot path, console errors, and rows purged. Any real finding that surfaces — a column name where a label belongs, P0014 on the second tap — is fixed in this pass, not noted.
+**Orphan delete, on replay only.** `stamp` is `Date.now()` computed inside each attempt (lines 173, 215), so paths are timestamped, not deterministic: a retry writes to fresh paths and the row keeps the first attempt's. Confirmed — the orphan is real and the row's paths must not be touched.
+
+- Delete only `sigPath` and `pdfPath` as captured in **this** invocation's local variables, before the RPC call.
+- Guard before each delete: assert the path is not equal to `signature_path` / `pdf_path` on the returned row. If it matches, skip the delete and log — that would mean the scheme went deterministic and the "orphan" is the live record's only copy.
+- Best-effort and wrapped, so a storage failure cannot turn a successful replay into an error the driver sees.
+
+Also add a line to the certify modal noting a retry completes the earlier attempt rather than replacing it, so re-signing reads as unnecessary rather than as something that was recorded.
 
 ## Technical notes
 
-- Viewport `1280x1800`, headless Chromium, session written with `page.evaluate` after navigating to localhost (never `add_init_script`).
-- Route handlers registered and removed per case, so none leak between cases.
-- No production-code changes are planned; any that prove necessary come from a failing case.
+- The signature canvas does **not** clear on ordinary retry — `{certifyOpen && <CertifyDayModal/>}` stays mounted because a failed `certify()` leaves `certifyOpen` true. The clearing seen in the harness was a harness artifact. It does clear on the mismatch path and on Cancel, which are abandonments and correct.
+- Case (f) rework and the iOS Safari hardware checklist entry in `docs/eld-offline-certification.md` carry forward unchanged: fulfil `504` after `await route.fetch()`, poll `status='certified'` on a 10 s / 250 ms budget, and report INCONCLUSIVE rather than tapping a second time if it has not committed.
+- `purge_rods_day` remains service-role only; the cleanup and the harness `finally` both run in an admin context.

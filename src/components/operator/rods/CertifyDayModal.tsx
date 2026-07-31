@@ -127,6 +127,11 @@ export default function CertifyDayModal({
             the original on file and records what changed and why.
           </p>
 
+          <p className="text-[11px] text-muted-foreground">
+            If a certification times out and you try again, the retry finishes the attempt you already made — it does not
+            replace it or record a second certification.
+          </p>
+
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={busy}>
               Cancel
