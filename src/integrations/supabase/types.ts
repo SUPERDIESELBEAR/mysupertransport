@@ -6310,20 +6310,15 @@ export type Database = {
           read_ct: number
         }[]
       }
-      record_rods_purge_storage_result:
-        | {
-            Args: { _audit_id: string; _failed?: Json; _removed: string[] }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _audit_id: string
-              _failed?: Json
-              _late?: boolean
-              _removed: string[]
-            }
-            Returns: undefined
-          }
+      record_rods_purge_storage_result: {
+        Args: {
+          _audit_id: string
+          _failed?: Json
+          _late?: boolean
+          _removed: string[]
+        }
+        Returns: undefined
+      }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }
         Returns: {
