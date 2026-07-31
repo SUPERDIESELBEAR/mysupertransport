@@ -173,27 +173,11 @@ export default function RodsDayEditor({
 
   async function amend() {
     setBusy(true);
-    const { data, error } = await supabase.from('rods_days').insert({
-      operator_id: operatorId,
-      log_date: logDate,
-      record_source: 'keyed',
-      status: 'draft',
-      supersedes_day_id: day!.id,
-      is_reconstructed: day!.is_reconstructed,
-      carrier_name: day!.carrier_name, carrier_usdot: day!.carrier_usdot, carrier_mc: day!.carrier_mc,
-      home_terminal_address: day!.home_terminal_address,
-      // main_office_address and home_terminal_timezone are two of the twelve
-      // header fields certify_rods_day requires. Omitting them here made every
-      // amendment uncertifiable the moment the driver signed it.
-      main_office_address: day!.main_office_address,
-      home_terminal_timezone: day!.home_terminal_timezone,
-      period_start_time: day!.period_start_time,
-      truck_number: day!.truck_number, trailer_numbers: day!.trailer_numbers,
-      co_driver_name: day!.co_driver_name, shipping_document_no: day!.shipping_document_no,
-      from_location: day!.from_location, to_location: day!.to_location,
-      total_miles_driving_today: day!.total_miles_driving_today,
-      total_mileage_today: day!.total_mileage_today,
-    } as never).select('id').single();
+    // Copy the whole row, reset only what must differ. See buildAmendmentDraft:
+    // enumerating what to copy is what made amendments lose newly added header
+    // columns and become uncertifiable.
+    const { data, error } = await supabase.from('rods_days')
+      .insert(buildAmendmentDraft(day!) as never).select('id').single();
     if (error || !data) { setBusy(false); toast.error(error?.message ?? 'Could not start the amendment.'); return; }
 
     // Clone the segments into the draft. The original stays certified until the
