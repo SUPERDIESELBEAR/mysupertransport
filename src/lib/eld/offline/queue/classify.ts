@@ -1,4 +1,28 @@
-import { REJECTION_MARKERS, type SyncErrorClass } from './types';
+import { REJECTION_MARKERS, isRejectionSqlState, type SyncErrorClass } from './types';
+
+/**
+ * Count of classifications that had to fall back to reading message text.
+ * The SQLSTATE path (class P0) is authoritative; a non-zero count here means
+ * entries queued by an older client build are still draining, or the server
+ * raised a refusal without a P0 code. The string fallback is removed once this
+ * reads zero for 30 consecutive days -- see docs/deferred-removals.md.
+ */
+let stringFallbackHits = 0;
+
+export function classifyStringFallbackCount(): number {
+  return stringFallbackHits;
+}
+
+/** Test seam. Production code never calls this. */
+export function resetClassifyStringFallbackCount(): void {
+  stringFallbackHits = 0;
+}
+
+function noteStringFallback(message: string): void {
+  stringFallbackHits += 1;
+  // Stable tag so the counter is greppable in captured console output.
+  console.warn('eld_sync_classify_string_fallback', { hits: stringFallbackHits, message });
+}
 
 /**
  * Classify a sync failure.
@@ -23,8 +47,15 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
   const message = err instanceof Error ? err.message : String(err ?? 'Unknown error');
   const lower = message.toLowerCase();
 
+  // Authoritative path: a class-P0 SQLSTATE from the database names the
+  // refusal exactly, with no text parsing.
+  if (isRejectionSqlState(extractSqlState(err))) return { klass: 'rejected', message };
+
   for (const marker of Object.values(REJECTION_MARKERS)) {
-    if (message.includes(marker)) return { klass: 'rejected', message };
+    if (message.includes(marker)) {
+      noteStringFallback(message);
+      return { klass: 'rejected', message };
+    }
   }
 
   // Guards that will fail identically on every replay: the record is locked,
@@ -34,6 +65,7 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
     || lower.includes('only the driver may')
     || lower.includes('has already been replaced')
   ) {
+    noteStringFallback(message);
     return { klass: 'rejected', message };
   }
 
@@ -65,6 +97,23 @@ function extractStatus(err: unknown): number | null {
     const v = rec[key];
     if (typeof v === 'number') return v;
     if (typeof v === 'string' && /^\d{3}$/.test(v)) return Number(v);
+  }
+  return null;
+}
+
+/**
+ * PostgrestError carries the SQLSTATE in `code`. Some transports nest the
+ * error one level down, and PostgREST 4xx bodies use the same field name.
+ */
+export function extractSqlState(err: unknown): string | null {
+  if (!err || typeof err !== 'object') return null;
+  const rec = err as Record<string, unknown>;
+  const direct = rec.code;
+  if (typeof direct === 'string' && /^[0-9A-Z]{5}$/.test(direct)) return direct;
+  const nested = rec.error;
+  if (nested && typeof nested === 'object') {
+    const inner = (nested as Record<string, unknown>).code;
+    if (typeof inner === 'string' && /^[0-9A-Z]{5}$/.test(inner)) return inner;
   }
   return null;
 }
