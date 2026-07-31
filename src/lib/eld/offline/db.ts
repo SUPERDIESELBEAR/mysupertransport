@@ -205,7 +205,12 @@ export type SyncKind =
   | 'send_officer_email';
 
 export type SyncStatus = 'pending' | 'in_flight' | 'succeeded' | 'failed' | 'rejected';
-export type SyncErrorClass = 'network' | 'server' | 'rejected';
+/**
+ * `row_not_writable` is a write that RLS filtered: 0 rows, no error. It is
+ * terminal like `rejected` — replaying cannot change the answer, and the
+ * driver must be told the edit never landed.
+ */
+export type SyncErrorClass = 'network' | 'server' | 'rejected' | 'row_not_writable';
 
 export interface SyncQueueEntry {
   /** Client-generated uuid. Also the idempotency key — never regenerated. */

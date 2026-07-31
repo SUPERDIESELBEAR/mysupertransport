@@ -13,6 +13,8 @@ import {
 } from '@/lib/eld/rodsTypes';
 import { newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
 import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
+import { diffAmendment } from '@/lib/eld/amendmentDiff';
+import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
@@ -45,6 +47,7 @@ export default function RodsDayEditor({
   const [activeLocalId, setActiveLocalId] = useState<string | null>(null);
   const [legalName, setLegalName] = useState(driverName);
   const [certifyOpen, setCertifyOpen] = useState(false);
+  const [amendmentReason, setAmendmentReason] = useState('');
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -94,19 +97,32 @@ export default function RodsDayEditor({
 
   async function save() {
     setBusy(true);
-    const ok = await saveSegments(segments);
-    const totals = validation!.totals;
-    if (ok) {
-      await supabase.from('rods_days').update({
+    try {
+      const ok = await saveSegments(segments);
+      const totals = validation!.totals;
+      if (!ok) return;
+      const res = await supabase.from('rods_days').update({
         total_off_duty_minutes: totals.off,
         total_sleeper_minutes: totals.sleeper,
         total_driving_minutes: totals.driving,
         total_on_duty_minutes: totals.onDuty,
-      }).eq('id', day!.id);
+      }).eq('id', day!.id).select('id');
+      assertRowsAffected(res, {
+        table: 'rods_days', operation: 'totals update', dayId: day!.id, logDate,
+      });
       toast.success('Saved.');
       onChanged();
+    } catch (err) {
+      if (isRowNotWritable(err)) {
+        await markDayStale(logDate);
+        toast.error(err.message);
+        await reload();
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Could not save this log.');
+      }
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function certify(signatureDataUrl: string) {
@@ -123,10 +139,25 @@ export default function RodsDayEditor({
       if (sigErr) throw new Error(sigErr.message);
 
       let originalCertifiedAt: string | null = null;
+      let originalDay: RodsDay | null = null;
+      let originalEvents: Array<Record<string, unknown>> = [];
       if (day!.supersedes_day_id) {
         const { data: orig } = await supabase
-          .from('rods_days').select('certified_at').eq('id', day!.supersedes_day_id).maybeSingle();
-        originalCertifiedAt = (orig as { certified_at: string | null } | null)?.certified_at ?? null;
+          .from('rods_days').select('*').eq('id', day!.supersedes_day_id).maybeSingle();
+        originalDay = (orig as RodsDay | null) ?? null;
+        originalCertifiedAt = originalDay?.certified_at ?? null;
+        const { data: origEvents } = await supabase
+          .from('rods_events').select('*').eq('rods_day_id', day!.supersedes_day_id);
+        originalEvents = (origEvents ?? []) as Array<Record<string, unknown>>;
+
+        // The reason has to land on the row before certification, because the
+        // row is locked the instant certify_rods_day returns.
+        const reasoned = await supabase.from('rods_days')
+          .update({ amendment_reason: amendmentReason.trim() })
+          .eq('id', day!.id).select('id');
+        assertRowsAffected(reasoned, {
+          table: 'rods_days', operation: 'amendment reason', dayId: day!.id, logDate,
+        });
       }
 
       const pdf = await renderRodsDay({
@@ -160,6 +191,35 @@ export default function RodsDayEditor({
       });
       if (error) throw new Error(error.message);
 
+      // 49 CFR 395.30(c)(2): a correction is only complete when the record says
+      // what changed. Written after certification so a failed certify never
+      // leaves change rows behind, and guarded by a count so a retried
+      // certification cannot double-file them.
+      if (originalDay) {
+        const { count } = await supabase
+          .from('rods_amendments').select('id', { count: 'exact', head: true })
+          .eq('rods_day_id', day!.id);
+        if (!count) {
+          const changes = diffAmendment(
+            { day: originalDay, events: originalEvents as never },
+            {
+              day: { ...day!, amendment_reason: amendmentReason.trim() },
+              events: segments.map((s) => ({
+                start_minute: s.start_minute, end_minute: s.end_minute,
+                duty_status: s.duty_status, city: s.city, state: s.state,
+                remarks: s.remarks || null,
+              })) as never,
+            },
+          );
+          const { error: amendErr } = await supabase.rpc('record_rods_amendments', {
+            _day_id: day!.id, _reason: amendmentReason.trim(), _changes: changes as never,
+          });
+          // The log is already certified and on file; a failure here loses the
+          // annotation, so it must be loud rather than swallowed.
+          if (amendErr) throw new Error(`Log certified, but the change record failed to save: ${amendErr.message}`);
+        }
+      }
+
       toast.success('Log certified.');
       setCertifyOpen(false);
       onChanged();
@@ -185,11 +245,22 @@ export default function RodsDayEditor({
     const { data: evs } = await supabase.from('rods_events').select('*').eq('rods_day_id', day!.id);
     const rows = (evs ?? []) as Array<Record<string, unknown>>;
     if (rows.length) {
-      await supabase.from('rods_events').insert(rows.map((r) => ({
+      const cloned = await supabase.from('rods_events').insert(rows.map((r) => ({
         rods_day_id: (data as { id: string }).id,
         start_minute: r.start_minute, end_minute: r.end_minute, duty_status: r.duty_status,
         city: r.city, state: r.state, remarks: r.remarks, is_short_period: r.is_short_period,
-      })) as never);
+      })) as never).select('id');
+      try {
+        assertRowsAffected(cloned, {
+          table: 'rods_events', operation: 'amendment segment clone',
+          dayId: (data as { id: string }).id, logDate,
+        });
+      } catch (err) {
+        setBusy(false);
+        toast.error(err instanceof Error ? err.message : 'Could not copy the entries.');
+        await reload();
+        return;
+      }
     }
     setBusy(false);
     toast.success('Amendment started. The original log stays certified until you certify this one.');
@@ -393,6 +464,8 @@ export default function RodsDayEditor({
           validation={validation}
           legalName={legalName}
           onLegalNameChange={setLegalName}
+          amendmentReason={amendmentReason}
+          onAmendmentReasonChange={setAmendmentReason}
           onConfirm={certify}
           busy={busy}
         />

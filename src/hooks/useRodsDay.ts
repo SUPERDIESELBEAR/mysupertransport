@@ -5,6 +5,9 @@ import {
   CARRIER_CACHE_MISSING_MESSAGE, requireCachedCarrier, rodsDayCarrierSnapshot,
 } from '@/lib/eld/carrierIdentity';
 import { isShortPeriod } from '@/lib/eld/rodsValidation';
+import {
+  assertDeleteApplied, assertRowsAffected, isRowNotWritable, markDayStale,
+} from '@/lib/eld/rodsWrite';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 export interface DraftSegment {
@@ -123,37 +126,77 @@ export function useRodsDay(params: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day?.id]);
 
+  /**
+   * A filtered write means the server row is certified and what is on screen
+   * is a phantom. Tell the driver, invalidate the offline cache, and re-pull.
+   */
+  const handleWriteFailure = useCallback(async (err: unknown) => {
+    if (isRowNotWritable(err)) {
+      await markDayStale(logDate);
+      toast.error(err.message);
+      await load();
+      return;
+    }
+    toast.error(err instanceof Error ? err.message : 'Could not save this log.');
+  }, [logDate, load]);
+
   const flushHeader = useCallback(async (patch: Partial<RodsDay>) => {
     if (!day || day.locked) return;
     setSaving(true);
-    const { error } = await supabase.from('rods_days').update(patch as never).eq('id', day.id);
-    setSaving(false);
-    if (error) toast.error(error.message);
-  }, [day]);
+    try {
+      // .select('id') is not cosmetic: without the returned representation a
+      // write filtered by RLS is indistinguishable from one that committed.
+      const res = await supabase.from('rods_days')
+        .update(patch as never).eq('id', day.id).select('id');
+      assertRowsAffected(res, {
+        table: 'rods_days', operation: 'header update', dayId: day.id, logDate: day.log_date,
+      });
+    } catch (err) {
+      await handleWriteFailure(err);
+    } finally {
+      setSaving(false);
+    }
+  }, [day, handleWriteFailure]);
 
   /** Replaces the day's segments wholesale — simplest correct write for a small set. */
   const saveSegments = useCallback(async (next: DraftSegment[]) => {
     if (!day) return false;
     setSaving(true);
-    const { error: delErr } = await supabase.from('rods_events').delete().eq('rods_day_id', day.id);
-    if (delErr) { setSaving(false); toast.error(delErr.message); return false; }
-    if (next.length) {
-      const payload = next.map((s) => ({
-        rods_day_id: day.id,
-        start_minute: s.start_minute,
-        end_minute: s.end_minute,
-        duty_status: s.duty_status,
-        city: s.city.trim() || null,
-        state: s.state.trim().toUpperCase() || null,
-        remarks: s.remarks.trim() || null,
-        is_short_period: isShortPeriod(s.start_minute, s.end_minute),
-      }));
-      const { error } = await supabase.from('rods_events').insert(payload as never);
-      if (error) { setSaving(false); toast.error(error.message); return false; }
+    try {
+      const { error: delErr } = await supabase.from('rods_events')
+        .delete().eq('rods_day_id', day.id).select('id');
+      if (delErr) throw new Error(delErr.message);
+      // A delete removing nothing is ambiguous — the day may have had no
+      // segments. Anything still standing means RLS filtered the delete.
+      const { count, error: countErr } = await supabase.from('rods_events')
+        .select('id', { count: 'exact', head: true }).eq('rods_day_id', day.id);
+      if (countErr) throw new Error(countErr.message);
+      assertDeleteApplied(count ?? 0, { dayId: day.id, logDate: day.log_date });
+
+      if (next.length) {
+        const payload = next.map((s) => ({
+          rods_day_id: day.id,
+          start_minute: s.start_minute,
+          end_minute: s.end_minute,
+          duty_status: s.duty_status,
+          city: s.city.trim() || null,
+          state: s.state.trim().toUpperCase() || null,
+          remarks: s.remarks.trim() || null,
+          is_short_period: isShortPeriod(s.start_minute, s.end_minute),
+        }));
+        const res = await supabase.from('rods_events').insert(payload as never).select('id');
+        assertRowsAffected(res, {
+          table: 'rods_events', operation: 'segment insert', dayId: day.id, logDate: day.log_date,
+        });
+      }
+      return true;
+    } catch (err) {
+      await handleWriteFailure(err);
+      return false;
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    return true;
-  }, [day]);
+  }, [day, handleWriteFailure]);
 
   return {
     day, setDay, segments, setSegments,

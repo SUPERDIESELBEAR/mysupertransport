@@ -16,6 +16,7 @@
 import { type SyncQueueEntry } from '../db';
 import { SERVER_ATTEMPT_LIMIT } from './types';
 import { classifyError, isDuplicateDateRejection } from './classify';
+import { isRowNotWritable } from '@/lib/eld/rodsWrite';
 import { HANDLERS } from './handlers';
 import { raiseSyncAlert } from './alerts';
 import { drainPendingNotices } from './noticeDrain';
@@ -69,6 +70,22 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     await markSucceeded(entry.id);
   } catch (err) {
     const { klass, message } = classifyError(err);
+
+    // RLS filtered the write: 0 rows, no error. Terminal, never retried, and
+    // alerted separately — Management must see "the driver's edits were
+    // dropped", not a generic sync failure. Bytes stay on the device.
+    if (klass === 'row_not_writable') {
+      await markTerminal(entry.id, 'rejected', klass, message);
+      await raiseSyncAlert({
+        kind: 'log_not_writable',
+        operator_id: (entry.payload.operator_id as string) ?? null,
+        log_date: (entry.payload.log_date as string) ?? null,
+        detail: isRowNotWritable(err)
+          ? `"${entry.kind}" was filtered by row-level security. ${err.detail}`
+          : `"${entry.kind}" affected 0 rows and was not applied.`,
+      });
+      return;
+    }
 
     if (klass === 'rejected') {
       await markTerminal(entry.id, 'rejected', klass, message);
