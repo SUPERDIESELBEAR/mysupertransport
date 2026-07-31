@@ -181,6 +181,12 @@ export default function RodsDayEditor({
       is_reconstructed: day!.is_reconstructed,
       carrier_name: day!.carrier_name, carrier_usdot: day!.carrier_usdot, carrier_mc: day!.carrier_mc,
       home_terminal_address: day!.home_terminal_address,
+      // main_office_address and home_terminal_timezone are two of the twelve
+      // header fields certify_rods_day requires. Omitting them here made every
+      // amendment uncertifiable the moment the driver signed it.
+      main_office_address: day!.main_office_address,
+      home_terminal_timezone: day!.home_terminal_timezone,
+      period_start_time: day!.period_start_time,
       truck_number: day!.truck_number, trailer_numbers: day!.trailer_numbers,
       co_driver_name: day!.co_driver_name, shipping_document_no: day!.shipping_document_no,
       from_location: day!.from_location, to_location: day!.to_location,

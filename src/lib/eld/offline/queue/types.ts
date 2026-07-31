@@ -44,3 +44,35 @@ export const REJECTION_MARKERS = {
   tokenDayMismatch: 'rods_token_day_mismatch',
   tokenRequired: 'rods_certification_token_required',
 } as const;
+
+/**
+ * SQLSTATEs the database raises for a refusal that will be identical on every
+ * replay. Class P0 is the only class Postgres reserves for user-defined
+ * conditions, so every code here is a legal SQLSTATE and reaches the client
+ * intact in PostgrestError.code.
+ *
+ * This is the primary classification signal. The message-text checks in
+ * classifyError are a time-boxed fallback for entries queued by an older
+ * client build; see docs/deferred-removals.md.
+ */
+export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
+  P0002: 'certified log deleted',
+  P0010: 'certification token required',
+  P0011: 'log not found',
+  P0012: 'not the log owner',
+  P0013: 'certification token belongs to another log',
+  P0014: 'log is not a draft',
+  P0015: 'typed legal name required',
+  P0020: 'incomplete duty-status entries',
+  P0021: 'gap in the 24-hour period',
+  P0022: 'overlapping duty-status entries',
+  P0023: 'unaccounted minutes in the 24-hour period',
+  P0030: 'missing required header fields',
+  P0031: 'a certified log already exists for this date',
+  P0040: 'certified log modified',
+  P0041: 'locked log deleted',
+} as const;
+
+export function isRejectionSqlState(code: string | null): boolean {
+  return code !== null && Object.prototype.hasOwnProperty.call(REJECTION_SQLSTATES, code);
+}
