@@ -143,9 +143,9 @@ export default function RodsDayEditor({
   async function certify(signatureDataUrl: string) {
     setBusy(true);
     try {
-      // Header edits still inside the debounce window have to reach the row
+      // Header edits still inside the debounce window have to be committed
       // before anything else: the change record below is computed from what is
-      // on screen, and the row locks the instant certify_rods_day returns.
+      // on screen, and the day locks the instant this commits.
       if ((await flushPendingHeader()) === 'locked') { toast.error(LOCAL_CERTIFIED_MESSAGE); return; }
       const saved = await saveSegments(segments);
       if (!saved) return;
@@ -168,11 +168,6 @@ export default function RodsDayEditor({
 
       const stamp = Date.now();
       const sigPath = `${operatorId}/${logDate}/signature-${stamp}.png`;
-      const sigBlob = await (await fetch(signatureDataUrl)).blob();
-      const { error: sigErr } = await supabase.storage
-        .from(RODS_BUCKET).upload(sigPath, sigBlob, { upsert: true, contentType: 'image/png' });
-      if (sigErr) throw new Error(sigErr.message);
-
       let originalCertifiedAt: string | null = null;
       let originalDay: RodsDay | null = null;
       let originalEvents: Array<Record<string, unknown>> = [];
@@ -180,38 +175,39 @@ export default function RodsDayEditor({
         const { data: orig } = await supabase
           .from('rods_days').select('*').eq('id', day!.supersedes_day_id).maybeSingle();
         originalDay = (orig as RodsDay | null) ?? null;
+        if (!originalDay) {
+          throw new Error(
+            'The original log this correction replaces could not be read. '
+            + 'Corrections need a connection so the record of what changed is accurate.',
+          );
+        }
         originalCertifiedAt = originalDay?.certified_at ?? null;
         const { data: origEvents } = await supabase
           .from('rods_events').select('*').eq('rods_day_id', day!.supersedes_day_id);
         originalEvents = (origEvents ?? []) as Array<Record<string, unknown>>;
 
-        // The reason has to land on the row before certification, because the
-        // row is locked the instant certify_rods_day returns.
-        const reasoned = await supabase.from('rods_days')
-          .update({ amendment_reason: amendmentReason.trim() })
-          .eq('id', day!.id).select('id');
-        assertRowsAffected(reasoned, {
-          table: 'rods_days', operation: 'amendment reason', dayId: day!.id, logDate,
-        });
+        // The reason rides with the draft through the same single writer, so
+        // it is part of the row the queue replays before the certification.
+        patchHeader({ amendment_reason: amendmentReason.trim() });
+        await flushPendingHeader();
       }
+
+      const signedEvents = segments.map((s) => ({
+        id: s.localId, rods_day_id: day!.id,
+        start_minute: s.start_minute, end_minute: s.end_minute,
+        duty_status: s.duty_status, city: s.city, state: s.state,
+        remarks: s.remarks || null,
+        is_short_period: isShortPeriod(s.start_minute, s.end_minute),
+      }));
 
       const pdf = await renderRodsDay({
         day: { ...day!, certification_legal_name: legalName, certified_at: new Date().toISOString() },
-        events: segments.map((s) => ({
-          id: s.localId, rods_day_id: day!.id,
-          start_minute: s.start_minute, end_minute: s.end_minute,
-          duty_status: s.duty_status, city: s.city, state: s.state,
-          remarks: s.remarks || null,
-          is_short_period: isShortPeriod(s.start_minute, s.end_minute),
-        })),
+        events: signedEvents,
         driverName,
         originalCertifiedAt,
         signatureDataUrl,
       });
       const pdfPath = `${operatorId}/${logDate}/log-${stamp}.pdf`;
-      const { error: pdfErr } = await supabase.storage
-        .from(RODS_BUCKET).upload(pdfPath, pdf, { upsert: true, contentType: 'application/pdf' });
-      if (pdfErr) throw new Error(pdfErr.message);
 
       // Carrier policy: a correction carries a field-level record of what
       // changed. Computed BEFORE the RPC and passed into it, so the change
@@ -233,34 +229,29 @@ export default function RodsDayEditor({
           )
         : [];
 
-      const { data: certified, error } = await supabase.rpc('certify_rods_day', {
-        _day_id: day!.id,
-        _legal_name: legalName.trim(),
-        _signature_path: sigPath,
-        _pdf_path: pdfPath,
-        _device_info: navigator.userAgent.slice(0, 240),
-        // Every certification carries a token, online path included, so a
-        // retry can never double-apply. The server returns the existing row
-        // as a no-op when the same token replays.
-        p_certification_token: (certifyToken.current ??= crypto.randomUUID()),
-        p_changes: changes as never,
+      // One transaction: bytes, local lock, queue chain, roadside manifest.
+      // Nothing here needs a signal — the queue carries it to the office when
+      // there is one, and the officer-facing packet is true immediately.
+      await commitCertification({
+        operatorId,
+        logDate,
+        day: day!,
+        events: signedEvents as never,
+        legalName,
+        signatureDataUrl,
+        pdfBytes: await pdf.arrayBuffer(),
+        signaturePath: sigPath,
+        pdfPath,
+        deviceInfo: navigator.userAgent.slice(0, 240),
+        // One token per signing attempt, so a replay is a server-side no-op.
+        token: (certifyToken.current ??= crypto.randomUUID()),
+        changes,
       });
-      if (error) throw new Error(error.message);
-
-      const row = (Array.isArray(certified) ? certified[0] : certified) as
-        | (Record<string, unknown> & { replayed?: boolean })
-        | null;
-
-      if (row?.replayed === true) {
-        toast.success(
-          'This log was already certified from your earlier attempt — that certification and the signature you gave then are what is on file.',
-        );
-        // sigPath/pdfPath are THIS attempt's uploads, captured above. The row
-        // carries the first attempt's paths and must not be touched.
-        await deleteReplayOrphans(row, [sigPath, pdfPath]);
-      } else {
-        toast.success('Log certified.');
-      }
+      toast.success(
+        navigator.onLine
+          ? 'Log certified.'
+          : 'Log signed and locked on this device. It will reach the office when you have a signal.',
+      );
       certifyToken.current = null;
       setCertifyOpen(false);
       onChanged();
