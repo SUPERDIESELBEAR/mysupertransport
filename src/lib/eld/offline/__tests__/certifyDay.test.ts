@@ -37,7 +37,7 @@ function payload(over: Partial<CertifyDayPayload> = {}): CertifyDayPayload {
 function preflight(over: Partial<PreflightResult> = {}): PreflightResult {
   return {
     ok: true,
-    source: 'offline_cache',
+    source: 'local_cache',
     day_id: DAY_ID,
     log_date: '2026-03-04',
     checked_at: '2026-03-04T18:00:00.000Z',
