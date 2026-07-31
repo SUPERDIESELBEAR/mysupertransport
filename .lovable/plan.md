@@ -1,42 +1,39 @@
-## Answer: (c) — there is a live reader the audit missed, and it is an integrity check
+## Item 1 — Fail-open predicate class
 
-Full reader census for `total_off_duty_minutes`, `total_sleeper_minutes`, `total_driving_minutes`, `total_on_duty_minutes`:
+**Confirmed by reads this turn:**
+- Definer functions in `public` whose body contains `IF NOT (`: `approve_application_correction`, `certify_rods_day`, `handle_operator_deactivated`, `notify_driver_equipment_sheet_ready`, `notify_operators_on_fleet_share`, `revoke_share_token`.
+- Definers reading `current_setting`: `enforce_eld_signature_lock`, `enforce_go_live_ack_gate`, the three `onboarding_status` guards, `enforce_rods_day_lock`, `enforce_rods_event_lock`, `purge_rods_day`, `resolve_share_token`, and three DOT/binder sync triggers.
+- Intersection: `certify_rods_day`, `revoke_share_token`.
 
-**Database** — none. No view or materialized view references them; no `SECURITY DEFINER` or other function references them; the only SQL occurrence is the `CREATE TABLE` in `20260729234627_…sql` (`integer NOT NULL DEFAULT 0`). No column comments exist today.
+**Work:**
+1. Dump every definer body in `public` and read each guard predicate. Classify: safe positive-refuse / NULL-vulnerable negated-permit (fix) / non-authorization branch (leave). `certify_rods_day`, `create_eld_document_day`, `replace_rods_document`, `discard_rods_amendment`, `resolve_share_token`, `revoke_share_token`, the malfunction-notice functions, and the short-link functions are each reported individually, including when clean.
+2. One migration rewriting each vulnerable predicate to the standing form: every operand wrapped in `coalesce(...)`, written as a positive refuse (`IF coalesce(a,'') <> 'x' AND coalesce(b,'') <> 'y' THEN RAISE`), never `IF NOT (...)`. Legitimate callers unaffected; only the NULL path flips permit → refuse.
+3. Add the standing rule to `docs/database-security-conventions.md` beside the `current_user` entry: the `NOT (a OR b) → NULL → IF never fires` explanation, the "positive refuse, coalesce every operand" rule, and a good/bad snippet pair.
+4. **Heuristic test** — new `src/test/definer-fail-open.test.ts`. Scans **all** negation shapes, not just `IF NOT (`:
+   - `IF NOT (...)` and `IF NOT <ident>`
+   - `AND NOT (...)` / `OR NOT (...)`
+   - `IS DISTINCT FROM` / `IS NOT DISTINCT FROM` inversions
+   - `<>` / `!=` inside a negated conditional
+   Flag whenever an authorization identifier — `current_setting`, `jwt`, `auth.uid`, `session_user`, `current_user`, `has_role` — appears inside such a predicate without a `coalesce` wrapping it. False positives are expected and accepted; a checked-in allowlist with a one-line justification per entry is the handling mechanism, so every accepted hit stays visible.
 
-**Writers (client)** — `RodsDayEditor.save()` (lines 99–104) only. `certify()` does not write them, which is the bug already in the plan.
+**Exposure window on `purge_rods_day` — three sources, not one.** `audit_log` alone is insufficient: `purge_rods_day` writes its audit row before deleting, so a purge that failed after the write, or a deletion by any other route, leaves no entry. I will check all of:
+- whether `audit_log` holds any `rods_day_purged` entries at all (expected: lifecycle-test rows only);
+- whether `certify_rods_day` has ever been invoked in production — a row certified and later removed leaves no trace in `rods_days`;
+- the function's migration timestamp against the first-ever `rods_days` insert.
 
-**Readers (client)** — exactly one live consumer, and it is not the one I named last round:
+`rods_days`, `rods_events`, `rods_amendments` currently read 0 rows — a point-in-time observation, not the window. If all three sources come back empty the finding is reported as **"no evidence of any reachable row during the window,"** not "no exposure."
 
-- `src/lib/eld/offline/divergence.ts`, `TOTAL_FIELDS` (lines 21–26), consumed by `compareKeyedDay()` (line 49). The four totals plus `certified_at` and segment count form the fingerprint that compares the device's cached copy of a certified day against the server's copy. A mismatch is recorded as a divergence, surfaced to the driver, and pins bytes against pruning for 30 days. Covered by `divergence.test.ts`, which asserts a one-minute drift in `total_driving_minutes` is detected.
-- `rodsTypes.ts` declares them on the `RodsDay` type; `rodsRenderParity.test.tsx` sets them to 0 in a fixture. Neither reads a value.
+## Item 2 — One seeded, committed, purged run
 
-**Correction to my previous report:** I said the editor's on-screen totals strip reads the stored columns. It does not — `RodsDayEditor` line 283 renders `validation.totals`, recomputed from the in-memory segments. So the stored columns have *no* display consumer anywhere: not the PDF, not the roadside SVG, not the editor.
+A single script under `/tmp/browser/seeded-run/`: seed → provoke → certify/amend → purge, using a real `supabase-js` client over PostgREST for every claimed result.
 
-**What this means.** Your read is right that the printed federal log was never wrong — every rendered surface derives totals from `rods_events`. But these are not an orphan cache either. They are the integrity fingerprint of a certified day in the offline divergence check, the one mechanism that catches a day certified twice through different paths or a partial write. That makes stale values worse than merely untidy: a day whose stored totals were frozen by the missing `certify()` write carries a fingerprint that does not describe its own segments, so the check is comparing two copies of a stale number and would agree while the actual records differ. Recompute-on-certify is what makes the fingerprint authoritative — so it is load-bearing, not hygiene, though for the integrity path rather than the compliance-output path I originally claimed. I'll label it that way in the migration.
+1. **Seed** — sign in as an existing demo driver (real session), create one scratch `eld_malfunction_events` row plus the `rods_days`/`rods_events` rows each probe needs.
+2. **Provoke** P0002, P0012, P0020, P0021, P0022, P0030, P0031, P0040, P0041 from the client, recording literal `error.code`, `error.message`, `error.details` per probe. Report a per-code table of observed values. A code that does not arrive verbatim stops the scheme for that code.
+3. **Amend trail** — certify a day, amend it, certify the amendment; report the verbatim `field_path` rows written to `rods_amendments`, not a count.
+4. **Continuity trigger** — instrument the deferred trigger so its execution at COMMIT is directly observed (captured `RAISE NOTICE` / counter), never inferred from absence of an error. Report the captured evidence.
+5. **Purge — one arm only, stated plainly.** No service-role key is reachable from this environment, so `purge_rods_day` **cannot** be called as `service_role` over PostgREST here. The run will purge over a direct `postgres`/`supabase_admin` connection, which exercises the **`session_user` arm only**. The **`request.jwt.claims` arm — the one Stage 4's demo reset will actually use — remains untested**, and will be recorded as such. It will not be described as verified from both paths. After the purge, verify zero residue across `rods_days`, `rods_events`, `rods_amendments`, and storage paths.
 
-## Added to the plan
+**Fixtures:** parity fixtures in `src/lib/eld/offline/__tests__/classify.test.ts` are written only for codes observed in step 2. Unobserved codes stay out.
 
-Column comments in the same migration as the recompute, so the next reader doesn't file these as dead weight:
-
-```
-COMMENT ON COLUMN public.rods_days.total_driving_minutes IS
-  'Server-computed sum of driving minutes from rods_events, written authoritatively
-   by certify_rods_day. Not rendered anywhere: the PDF (renderRodsDay) and the
-   roadside SVG (RoadsideDayRender) both recompute from events. Sole consumer is
-   the offline divergence fingerprint (src/lib/eld/offline/divergence.ts,
-   compareKeyedDay), which compares the device''s cached copy of a certified day
-   against the server''s. Do not drop. Always 0 for record_source = ''eld_document''
-   days, which have no events.'
-```
-…and the equivalent for the other three.
-
-## Everything else unchanged and approved
-
-- `certify_rods_day`: sum the four totals during the existing continuity walk; `RAISE WARNING` tagged `eld_certify_totals_mismatch` (day id, operator id, both sets of four) when the incoming values differ; never raise; write server values authoritatively. The whole block stays inside the existing `record_source <> 'eld_document'` branch, so document days keep their four zeros untouched.
-- Client: fold the segment write and the totals write into one `persistDay()` used by both `save()` and `certify()`, which is what makes the mismatch warning a real signal.
-- Telemetry: move `stringFallbackHits` into `src/lib/eld/telemetry.ts` as a named-counter registry, re-export from `classify.ts`, register `eld_certify_totals_mismatch`, document the 30-day removal condition in `docs/deferred-removals.md`.
-- `buildAmendmentDraft.ts` with `AMENDMENT_RESET_FIELDS`; checked-in `rods_days` column snapshot test, output-shape assertions, reset-set-exists assertion.
-- `purge_rods_day` EXECUTE pinning migration, tested from both call paths.
-- Round-trip proof from a real `@supabase/supabase-js` client over PostgREST, reporting each `error.code` against `REJECTION_SQLSTATES`.
-- Step 4 reporting: per-field `rods_amendments` rows and evidence the deferred continuity trigger fired at COMMIT.
+## Order
+Predicate migration first, then the seeded run against the fixed gates.

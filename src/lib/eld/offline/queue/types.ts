@@ -54,6 +54,19 @@ export const REJECTION_MARKERS = {
  * This is the primary classification signal. The message-text checks in
  * classifyError are a time-boxed fallback for entries queued by an older
  * client build; see docs/deferred-removals.md.
+ *
+ * Observed over PostgREST from a real supabase-js client on 2026-07-31 with a
+ * signed-in driver and seeded rods_days rows: P0010, P0011, P0012, P0013,
+ * P0014, P0015, P0020, P0021, P0022, P0023, P0030, P0031 — each arrived
+ * verbatim in PostgrestError.code.
+ *
+ * P0002, P0040 and P0041 were NOT observed and cannot be, from a driver
+ * client: the rods_days UPDATE and DELETE policies both require
+ * `locked = false`, so RLS filters a certified row out before the lock trigger
+ * runs. The write returns 0 rows and no error. They stay in this table because
+ * a privileged path (service role, edge function) can still provoke them, but
+ * the sync client must treat "0 rows affected" — not one of these codes — as
+ * the signal that a locked row rejected a write.
  */
 export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0002: 'certified log deleted',
