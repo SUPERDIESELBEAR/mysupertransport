@@ -129,6 +129,10 @@ export default function RodsDayEditor({
   async function certify(signatureDataUrl: string) {
     setBusy(true);
     try {
+      // Header edits still inside the debounce window have to reach the row
+      // before anything else: the change record below is computed from what is
+      // on screen, and the row locks the instant certify_rods_day returns.
+      if (!(await flushPendingHeader())) return;
       const saved = await saveSegments(segments);
       if (!saved) return;
 
