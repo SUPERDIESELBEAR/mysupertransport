@@ -112,19 +112,19 @@ export default function RodsDayEditor({
   async function save() {
     setBusy(true);
     try {
-      if ((await flushPendingHeader()) === 'offline') { toast.error(OFFLINE_SAVE_MESSAGE); return; }
+      if ((await flushPendingHeader()) === 'locked') { toast.error(LOCAL_CERTIFIED_MESSAGE); return; }
       const ok = await saveSegments(segments);
-      const totals = validation!.totals;
       if (!ok) return;
-      const res = await supabase.from('rods_days').update({
+      const totals = validation!.totals;
+      // Totals go through the same single writer as every other header field.
+      // A direct row update here would be a second writer racing the queue.
+      patchHeader({
         total_off_duty_minutes: totals.off,
         total_sleeper_minutes: totals.sleeper,
         total_driving_minutes: totals.driving,
         total_on_duty_minutes: totals.onDuty,
-      }).eq('id', day!.id).select('id');
-      assertRowsAffected(res, {
-        table: 'rods_days', operation: 'totals update', dayId: day!.id, logDate,
       });
+      await flushPendingHeader();
       toast.success('Saved.');
       onChanged();
     } catch (err) {
@@ -148,10 +148,7 @@ export default function RodsDayEditor({
       // Header edits still inside the debounce window have to reach the row
       // before anything else: the change record below is computed from what is
       // on screen, and the row locks the instant certify_rods_day returns.
-      if ((await flushPendingHeader()) === 'offline') {
-        toast.error('You are offline. This log cannot be certified until your edits reach the office copy.');
-        return;
-      }
+      if ((await flushPendingHeader()) === 'locked') { toast.error(LOCAL_CERTIFIED_MESSAGE); return; }
       const saved = await saveSegments(segments);
       if (!saved) return;
 
