@@ -24,6 +24,7 @@ import {
 import { probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
+import { buildManifest, type ServerDayDescriptor } from './manifestBuild';
 import {
   compareDocumentDay, compareKeyedDay, openDivergenceDates, recordDivergence,
 } from './divergence';
@@ -276,6 +277,10 @@ export async function cacheKeyedDay(day: RodsDay, driverName: string) {
     signatureDataUrl,
     signatureOrigin: 'downloaded_cache',
     uploaded: true,
+    // Hydration writes the SERVER row. It is by definition not ahead of the
+    // server, and it never carries a local certification lock — a day that
+    // does hold one is protected before we ever get here (precedence case 1).
+    sync: { unsynced: false, version: cached?.version ?? 0, localCertifiedAt: null },
   });
 }
 
