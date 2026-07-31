@@ -1,83 +1,58 @@
-## 1. Purge, with the order settled
+## 1. Purge verification — confirmed, rows and all
 
-### Findings
+For operator `ee993ec0`: `rods_days` 0, `rods_events` 0, `rods_amendments` 0, `eld_malfunction_events` 0, and 9 `rods_day_purged` audit rows carrying the run's reason string. 0/0/0/0 and 9. The rows are gone, so `rods-logs` at 0 is a complete purge, not dangling paths on surviving certified rows.
 
-`rods_days_certified_continuity` is `AFTER UPDATE ON public.rods_days ... DEFERRABLE INITIALLY DEFERRED`. **DELETE is not in its trigger events**, and its body guards `OLD.status = 'certified' AND NEW.status <> 'certified'` — a transition with no DELETE analogue. A purge never reaches it, so `rods.purge` short-circuiting the `BEFORE DELETE` lock trigger is the only gate to clear.
+## 2. Authoritative purge path
 
-Ordering is constrained by two FKs, neither deferrable, neither carrying `ON DELETE`:
+- **`purge_rods_day` (SQL)** — deletes rows, returns `storage_paths`, removes nothing from storage (`storage.protect_delete()` blocks direct `storage.objects` deletes).
+- **`purge-rods-day` (edge function)** — calls the RPC, then deletes exactly the three row-owned paths through the Storage API and records the outcome. **This is the authoritative entry point.**
+- **Stage 4's demo reset calls neither.** `reset-demo-driver`'s `OPERATOR_SCOPED_TABLES` has no RODS tables, and a plain `.delete()` would be refused by the BEFORE DELETE lock trigger anyway. Demo RODS data survives every reset today.
+- **The harness `finally` calls nothing** — `/tmp/browser/rods-certify/` is wiped with the sandbox between turns, so the helper is rebuilt with the Playwright pass.
 
-```text
-rods_days_supersedes_day_id_fkey      483d81c9 -> f651870e
-rods_amendments_original_day_id_fkey  2 rows on rods_day_id=483d81c9 -> f651870e
+### a. Deliberateness as a required parameter — added first, dropped later
+
+`set_config(..., true)` is transaction-local and PostgREST gives each RPC its own transaction, so a two-call guc opt-in is gone before the purge runs; `is_local = false` would leak across pooled connections. So the gate is a parameter:
+
+```sql
+purge_rods_day(_day_id uuid, _reason text, _storage_owner text)  -- no default
 ```
 
-**Order: the certified amendment `483d81c9` first, then the superseded original `f651870e`.** Purging the amendment also removes its two `rods_amendments` rows (matched on `rods_day_id`), clearing the `original_day_id` references in the same statement.
+Raise `42501` when `_storage_owner` is null or blank: *"purge_rods_day requires a declared storage owner; invoke it through the purge-rods-day edge function, which removes the row's objects."* Transaction-safe by construction, nothing to leak, no `begin_rods_purge`.
 
-### Execution
+**Two migrations, not one.** Edge functions deploy separately from migrations, and `purge_rods_day` is the only way to remove a certified row — dropping the two-arg form in the same migration leaves a window where nothing can purge, including a failed harness run.
 
-Single transaction. Reason string, verbatim on every call:
+- **Migration 1 (this change):** create the three-arg form. Keep the two-arg form as an overload but replace its body with an unconditional `42501` raise carrying the same message. The deliberateness gap closes immediately; nothing becomes unpurgeable, because the edge function is updated to the three-arg call in the same change and the old signature still resolves (loudly) until it's gone.
+- **Migration 2 (follow-up):** `DROP FUNCTION public.purge_rods_day(uuid, text)` once the edge function is deployed and confirmed calling the three-arg form.
 
-`Playwright certification-preflight verification run, 2026-07-31 - seeded synthetic RODS data, not a driver record.`
+`docs/deferred-removals.md` gets an entry for the two-arg overload — same shape as the `classifyError` string fallback: what it is, why it still exists (deploy-ordering window), and the removal trigger (*edge function confirmed on the three-arg signature*), plus the one-line drop.
 
-```text
-483d81c9  2026-07-28  certified   (amendment — first)
-f651870e  2026-07-28  superseded  (original — second)
-db6602bb  2026-07-29  certified
-d8f8ebaa  2026-07-29  draft
-a41c75a6  2026-07-27  draft
-a734816b  2026-07-26  draft
-e467a31a  2026-07-25  draft
-e6c6e6cd  2026-07-24  draft
-bdcde985  2026-07-23  draft
+### b. Storage disposition, stamped and transitioned
+
+The purge writes `storage_disposition: 'pending_caller'` next to `storage_paths`, or `not_applicable` immediately when the row owned no paths. `record_rods_purge_storage_result` moves it to `completed`, or `completed_with_failures` when the failed list is non-empty. A caller that never reports back leaves `pending_caller` in the trail, so an incomplete purge never reads as a complete one.
+
+### c. Chain-safe ordering, in both callers
+
+`supersedes_day_id IS NOT NULL` is one-level thinking: with original ← A1 ← A2 it is true for both A1 and A2, and the wrong order hits `23503`. Replace it with a fixpoint loop that purges only rows nothing references:
+
+```sql
+WHERE operator_id = _op
+  AND id NOT IN (SELECT supersedes_day_id FROM rods_days
+                 WHERE supersedes_day_id IS NOT NULL AND operator_id = _op)
 ```
 
-Starting counts: 9 `rods_days`, 27 `rods_events`, 2 `rods_amendments`, 1 `eld_malfunction_event`, all on operator `ee993ec0`. The malfunction event is deleted separately in the same transaction.
+Purge that batch, re-query, repeat until no rows remain; bail loudly if an iteration returns rows but purges none (a cycle). Applied in **both** `reset-demo-driver` and the harness `finally` — the harness's "amendment children before parent" carries the same one-level assumption and is replaced by the same loop.
 
-Verification: all four tables at 0 for that operator; exactly 9 new `rods_day_purged` audit rows carrying the reason. Any raise is reported as a finding about `purge_rods_day`, not worked around — Stage 4's demo reset walks the same path.
+### d. Demo reset routes through the edge function
 
-### Harness
+`reset-demo-driver` gains a RODS step behind the existing `is_demo !== true` refusal: resolve the operator's day ids with the loop above and invoke `purge-rods-day` per batch with the reason `Demo driver reset — synthetic records of duty status, scenario <scenario>.` `eld_malfunction_events` is added to `OPERATOR_SCOPED_TABLES`.
 
-`common.py` gets a `seeded_day(...)` context manager whose `finally` purges unconditionally — pass, fail, INCONCLUSIVE, unhandled exception. It discovers amendment children (`supersedes_day_id = day_id`) and purges them before the parent, asserts per-case counts back to 0, and reports surviving ids loudly on failure rather than swallowing.
+## 3. A reader for `pending_caller`
 
-## 2. Storage cleanup inside `purge_rods_day` — explicit paths only
+`sweep-rods-orphans` gains a second, cheaper finding alongside the reachability scan: `audit_log` rows with `action = 'rods_day_purged'`, `metadata->>'storage_disposition' = 'pending_caller'`, and `created_at < now() - interval '1 hour'` (threshold overridable in the body), returned as `incompletePurges` — audit id, day id, log date, operator, reason, age, and the `storage_paths` array. These are *known*-orphaned paths named in the trail, not ones the scan has to infer, so the response also flags which are still present in the bucket. With `apply: true` they're deleted by the same explicit-path rule and the audit row is stamped `completed_late`.
 
-**No prefix sweeping.** An amendment and its original share a `log_date`, and the paths confirm it: `RodsDayEditor` writes `${operator_id}/${log_date}/signature-${stamp}.png`. Purging the `2026-07-28` amendment under a `.../2026-07-28/` prefix would delete `f651870e`'s signature and PDF while that row still exists as a retained record under §395.8(k)(1). It is invisible in this cleanup because both rows are going, and permanently wrong in the function and in Stage 4's demo reset.
-
-After the audit insert, before the row deletes, delete from `storage.objects` **only** the three paths the row itself owns:
-
-- `pdf_path`
-- `signature_path`
-- `source_document_path`
-
-Each is skipped when null. Removed and failed paths are recorded in the audit metadata as `storage_removed` / `storage_failed`. A storage failure is caught into that metadata and never aborts the row purge — the row purge is the compliance-relevant part — but stays visible in the audit trail.
-
-Orphan sweeping is explicitly **not** attached to this. If wanted later it is its own scheduled job doing a reachability check — objects in `rods` referenced by no `rods_days` row across all three path columns — never a prefix match.
-
-## 3. `certify_rods_day` replay flag
-
-`replayed boolean` is added as an additive column on the returned row, not an envelope.
-
-**Server:** returns `replayed = true` when the token matched an existing certification and the call was a no-op.
-
-**`cacheReturnedDay` (`handlers.ts`):** destructure `replayed` off before the `rods_days_cache.put`. It is a property of the call, not of the day, and must not become a phantom field on the local copy of a federal record. It would not trip `compareKeyedDay` (which fingerprints `certified_at`, the four totals, and segment count), but it does not belong in Dexie.
-
-**`HANDLERS.certify_rods_day`:** updated in the same change to read the flag and skip the write-back cost on a replay, so the unreached handler is not left parsing a shape it does not know about. Fixtures updated alongside.
-
-**`RodsDayEditor.certify`:** line 240 currently does `const { error } = await supabase.rpc(...)` and discards the row. Capture `data` so the flag and the guard below have something to read.
-
-- `replayed = false`: unchanged, "Log certified."
-- `replayed = true`: *"This log was already certified from your earlier attempt — that certification and the signature you gave then are what is on file."*
-
-**Orphan delete, on replay only.** `stamp` is `Date.now()` computed inside each attempt (lines 173, 215), so paths are timestamped, not deterministic: a retry writes to fresh paths and the row keeps the first attempt's. Confirmed — the orphan is real and the row's paths must not be touched.
-
-- Delete only `sigPath` and `pdfPath` as captured in **this** invocation's local variables, before the RPC call.
-- Guard before each delete: assert the path is not equal to `signature_path` / `pdf_path` on the returned row. If it matches, skip the delete and log — that would mean the scheme went deterministic and the "orphan" is the live record's only copy.
-- Best-effort and wrapped, so a storage failure cannot turn a successful replay into an error the driver sees.
-
-Also add a line to the certify modal noting a retry completes the earlier attempt rather than replacing it, so re-signing reads as unnecessary rather than as something that was recorded.
+Where it surfaces: the function is invocable-only today, so add a **Duty-status storage** card in the ELD admin area (`src/components/management/eld/`, beside `ELDMalfunctionsPanel`), owner/management only. It runs the sweep dry and shows `incompletePurges` as a warning row — *"N purges did not confirm object removal"* with day date, reason, and paths — above the inferred-orphan count, with a **Clean up** action for the apply run. An edge function that crashed between the RPC and the record call becomes visible there instead of sitting unnoticed.
 
 ## Technical notes
 
-- The signature canvas does **not** clear on ordinary retry — `{certifyOpen && <CertifyDayModal/>}` stays mounted because a failed `certify()` leaves `certifyOpen` true. The clearing seen in the harness was a harness artifact. It does clear on the mismatch path and on Cancel, which are abandonments and correct.
-- Case (f) rework and the iOS Safari hardware checklist entry in `docs/eld-offline-certification.md` carry forward unchanged: fulfil `504` after `await route.fetch()`, poll `status='certified'` on a 10 s / 250 ms budget, and report INCONCLUSIVE rather than tapping a second time if it has not committed.
-- `purge_rods_day` remains service-role only; the cleanup and the harness `finally` both run in an admin context.
+- Migration 1 is service-role only, `SET search_path = public`, guards written positively (`coalesce(btrim(_storage_owner), '') <> ''`) for the fail-open reason in `docs/database-security-conventions.md`; that doc gets a row for the new `42501` case.
+- `docs/eld-offline-certification.md` records the edge function as the only authoritative purge path, the chain-safe ordering rule, and the disposition states.
