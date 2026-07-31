@@ -508,6 +508,17 @@ export default function RodsDayEditor({
         />
       )}
 
+      {!!mismatch && (
+        <CertifyMismatchDialog
+          open
+          onOpenChange={(v) => { if (!v) setMismatch(null); }}
+          differences={mismatch}
+          busy={busy || saving}
+          onRetry={retrySave}
+          onUseSaved={useSavedVersion}
+        />
+      )}
+
       <UploadEldLogModal
         open={replaceOpen}
         onOpenChange={setReplaceOpen}
