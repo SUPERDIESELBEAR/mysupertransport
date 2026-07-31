@@ -90,3 +90,46 @@ Code that depends on a value from `app_private` must **fail open** when the
 value is missing — never block a user-facing read on a config lookup. See
 `resolve_share_token`, which logs a `NULL` fingerprint with
 `hash_version = 'v2_salt_unavailable'` and still serves the document.
+
+## 5. Authorization predicates: positive refuse, coalesce every operand
+
+Write the guard as *refuse unless clearly allowed*, never as *refuse if not
+permitted*:
+
+```sql
+-- WRONG. If v_claim_role is NULL the comparison is NULL, NOT NULL is NULL,
+-- and `IF NULL THEN` never fires. The guard permits everyone.
+IF NOT (v_claim_role = 'service_role' OR session_user IN ('postgres')) THEN
+  RAISE EXCEPTION 'not authorized';
+END IF;
+
+-- RIGHT. Every operand collapses to a definite boolean first.
+v_allowed := coalesce(v_claim_role = 'service_role', false)
+          OR coalesce(session_user IN ('postgres', 'supabase_admin'), false);
+IF NOT v_allowed THEN
+  RAISE EXCEPTION 'not authorized';
+END IF;
+
+-- Also RIGHT for a single call: require an explicit TRUE.
+IF coalesce(public.is_own_rods_operator(v_day.operator_id), false) IS NOT TRUE THEN
+  RAISE EXCEPTION 'not yours';
+END IF;
+```
+
+This is the same family as the `current_user`-inside-`SECURITY DEFINER` bug
+(rule 1) and the unqualified extension call (rule 2) — except this one fails
+**open**. `purge_rods_day` shipped with the wrong shape on 2026-07-31; a direct
+`psql` connection holding `EXECUTE` passed the check because `request.jwt.claims`
+is unset outside PostgREST.
+
+Notes:
+
+- `IS DISTINCT FROM` is NULL-safe and fails closed; the RODS lock triggers use
+  it deliberately (`current_setting('rods.privileged', true) IS DISTINCT FROM 'on'`).
+- Helpers that return `EXISTS (...)` (`has_role`, `is_staff`,
+  `is_own_rods_operator`) never return NULL, so negating them is safe today.
+  Wrap them anyway: the rule has to be mechanical to be checkable, and a helper
+  can be rewritten to return NULL later.
+- `src/test/definer-fail-open.test.ts` flags a negated guard in a definer body
+  that reads `current_setting`, `request.jwt`, `session_user`, or `current_user`
+  without `coalesce`. It is a heuristic for the shape, not a proof.
