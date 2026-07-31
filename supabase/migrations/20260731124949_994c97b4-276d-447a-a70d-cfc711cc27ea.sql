@@ -1,17 +1,73 @@
--- Step 5: distinct SQLSTATEs (class P0) for every certification refusal, and a
--- fix for the header-guard array append.
---
--- `v_missing := v_missing || 'literal'` is ambiguous: with an untyped literal
--- Postgres resolves the operator as array || array and tries to parse the
--- literal as an array, raising 22P02. Every missing-header message was
--- therefore unreachable -- the guard fired, but the driver saw a malformed
--- array literal error instead of the field list. Casting each literal to text
--- forces the array || element form.
+CREATE OR REPLACE FUNCTION public.enforce_rods_day_lock()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path TO 'public', 'extensions'
+AS $function$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF current_setting('rods.purge', true) = 'on' THEN
+      RETURN OLD;
+    END IF;
+
+    IF OLD.supersedes_day_id IS NOT NULL
+       AND OLD.certified_at IS NULL
+       AND OLD.status <> 'certified'
+       AND current_setting('rods.discard', true) IS DISTINCT FROM 'on' THEN
+      RAISE EXCEPTION 'Use discard_rods_amendment() to remove a correction draft.';
+    END IF;
+
+    IF OLD.certified_at IS NOT NULL OR OLD.status = 'certified' THEN
+      RAISE EXCEPTION 'This log is certified and is a federal record. It cannot be deleted.'
+        USING ERRCODE = 'P0002';
+    END IF;
+
+    IF OLD.locked THEN
+      RAISE EXCEPTION 'This log is locked and cannot be deleted.'
+        USING ERRCODE = 'P0041';
+    END IF;
+
+    RETURN OLD;
+  END IF;
+
+  IF OLD.locked AND current_setting('rods.privileged', true) IS DISTINCT FROM 'on' THEN
+    RAISE EXCEPTION 'This log is certified and is a federal record. It cannot be changed.'
+      USING ERRCODE = 'P0040';
+  END IF;
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.discard_rods_amendment(_day_id uuid)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path TO 'public', 'extensions'
+AS $function$
+DECLARE v_day public.rods_days;
+BEGIN
+  SELECT * INTO v_day FROM public.rods_days WHERE id = _day_id FOR UPDATE;
+  IF v_day.id IS NULL THEN RAISE EXCEPTION 'Log not found.'; END IF;
+  IF NOT public.is_own_rods_operator(v_day.operator_id) THEN
+    RAISE EXCEPTION 'Only the driver may discard their own correction.';
+  END IF;
+  IF v_day.status <> 'draft' OR v_day.supersedes_day_id IS NULL THEN
+    RAISE EXCEPTION 'Only an uncertified correction draft can be discarded.';
+  END IF;
+
+  PERFORM set_config('rods.discard', 'on', true);
+
+  DELETE FROM public.rods_events WHERE rods_day_id = _day_id;
+  DELETE FROM public.rods_days WHERE id = _day_id;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.certify_rods_day(_day_id uuid, _legal_name text, _signature_path text, _pdf_path text, _device_info text, p_certification_token uuid)
- RETURNS rods_days
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
+  RETURNS rods_days
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path TO 'public', 'extensions'
 AS $function$
 DECLARE
   v_day public.rods_days;
@@ -36,14 +92,11 @@ BEGIN
     RAISE EXCEPTION 'Only the driver may certify their own log.' USING ERRCODE = 'P0012';
   END IF;
 
-  -- Token check runs AFTER the row lock and BEFORE the status guard. A replay
-  -- that lost a race would otherwise see status = 'certified' and be reported
-  -- to the driver as a failure for a day that certified perfectly.
   SELECT * INTO v_existing FROM public.rods_days
    WHERE certification_token = p_certification_token;
   IF v_existing.id IS NOT NULL THEN
     IF v_existing.id = _day_id THEN
-      RETURN v_existing;  -- idempotent replay, success
+      RETURN v_existing;
     END IF;
     RAISE EXCEPTION 'rods_token_day_mismatch: This certification token belongs to a different log.'
       USING ERRCODE = 'P0013';
@@ -56,10 +109,7 @@ BEGIN
     RAISE EXCEPTION 'A typed legal name is required.' USING ERRCODE = 'P0015';
   END IF;
 
-  -- Keyed logs only. An uploaded ELD document has no keyed segments by design.
   IF v_day.record_source <> 'eld_document' THEN
-
-    -- 3a. Segment guard: no incomplete entries.
     SELECT count(*) INTO v_bad FROM public.rods_events
      WHERE rods_day_id = _day_id
        AND (end_minute IS NULL OR duty_status IS NULL
@@ -70,7 +120,6 @@ BEGIN
         USING ERRCODE = 'P0020';
     END IF;
 
-    -- 3b. Segment guard: entries must tile 00:00-24:00 with no gaps or overlaps.
     v_cursor := 0;
     FOR r IN
       SELECT start_minute, end_minute FROM public.rods_events
@@ -90,11 +139,6 @@ BEGIN
         1440 - v_cursor USING ERRCODE = 'P0023';
     END IF;
 
-    -- 3c. Header guard: 49 CFR 395.8 required fields (12).
-    -- total_mileage_today is deliberately excluded: only total miles driving
-    -- today is explicitly required, and an unavailable odometer reading must
-    -- never make a log uncertifiable. RECAP fields are never validated.
-    -- The client checklist in rodsValidation.ts checks the same twelve.
     IF coalesce(v_day.total_miles_driving_today, -1) < 0 THEN
       v_missing := v_missing || 'total miles driving today'::text;
     END IF;
@@ -140,10 +184,6 @@ BEGIN
      WHERE id = _day_id
     RETURNING * INTO v_day;
   EXCEPTION WHEN unique_violation THEN
-    -- Two unique indexes can raise 23505 here and they mean opposite things.
-    -- Disambiguate by constraint name so the client never sees a raw 23505 and
-    -- never has to parse constraint names to tell a harmless replay from a
-    -- genuine duplicate-date conflict.
     GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
     IF v_constraint = 'rods_days_certification_token_key' THEN
       SELECT * INTO v_existing FROM public.rods_days
@@ -152,7 +192,7 @@ BEGIN
         RAISE EXCEPTION 'rods_token_day_mismatch: This certification token belongs to a different log.'
           USING ERRCODE = 'P0013';
       END IF;
-      RETURN v_existing;  -- concurrent replay of the same certification
+      RETURN v_existing;
     ELSIF v_constraint = 'rods_days_one_certified_per_date' THEN
       RAISE EXCEPTION 'rods_duplicate_certified_date: A certified log already exists for this driver and date.'
         USING ERRCODE = 'P0031';
@@ -165,3 +205,12 @@ BEGIN
   RETURN v_day;
 END;
 $function$;
+
+COMMENT ON FUNCTION public.enforce_rods_day_lock() IS
+  'Transaction-local GUC guards (rods.purge, rods.discard, rods.privileged) protect certified/locked RODS rows. Re-keyed to compliance facts; see plan.md Step 2.';
+
+COMMENT ON FUNCTION public.discard_rods_amendment(uuid) IS
+  'Removes an uncertified RODS correction draft. Sets the transaction-local rods.discard GUC so enforce_rods_day_lock permits the delete.';
+
+COMMENT ON FUNCTION public.certify_rods_day(uuid, text, text, text, text, uuid) IS
+  'Certifies a RODS day, supersedes the original if amending, and validates 49 CFR 395.8 completeness. Raises class-P0 SQLSTATEs.';
