@@ -94,8 +94,16 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
   /**
    * Tokened certification. A replay of the same token returns the existing row
    * as a no-op server-side, so this is safe to retry without inspecting state.
+   *
+   * `changes` is the amendment change record, computed by the caller before
+   * enqueueing and filed by the RPC in the same transaction as the
+   * certification. It must ride in the payload: the queue may replay hours
+   * after the driver signed, on a device that no longer holds the original
+   * log, so the diff cannot be recomputed here.
    */
   async certify_rods_day(payload) {
+    const raw = payload.changes;
+    const changes = Array.isArray(raw) ? raw : [];
     const { data, error } = await supabase.rpc('certify_rods_day', {
       _day_id: str(payload, 'day_id'),
       _legal_name: str(payload, 'legal_name'),
@@ -103,6 +111,7 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
       _pdf_path: str(payload, 'pdf_path'),
       _device_info: str(payload, 'device_info'),
       p_certification_token: str(payload, 'token'),
+      p_changes: changes as never,
     });
     if (error) throw new Error(error.message);
     await cacheReturnedDay(Array.isArray(data) ? data[0] : data);

@@ -5839,6 +5839,7 @@ export type Database = {
           _pdf_path: string
           _signature_path: string
           p_certification_token: string
+          p_changes?: Json
         }
         Returns: {
           amendment_reason: string | null
@@ -6355,10 +6356,6 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
-      }
-      record_rods_amendments: {
-        Args: { _changes: Json; _day_id: string; _reason: string }
-        Returns: number
       }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }

@@ -1,14 +1,19 @@
 /**
  * Field-level change record for an amended log.
  *
- * 49 CFR 395.30(c)(2) requires that an edit to a certified record of duty
- * status keep the original AND carry an annotation of what changed. Keeping the
- * superseded row on file only satisfies the first half: without a per-field
- * row, an auditor has to eyeball two logs side by side to find the edit. This
- * module produces the second half, and `record_rods_amendments` persists it.
+ * These are manual records of duty status under 49 CFR 395.8, kept on the
+ * paper-log allowance at 395.34. Neither section requires a written reason or
+ * an annotation of what changed on a correction — 395.8(e)(1) prohibits a
+ * false report and 395.8(f)(7) makes the driver's signature certify the
+ * entries are true, and that is the whole of it.
+ *
+ * The reason and this per-field record are SUPERTRANSPORT carrier policy.
+ * Keeping the superseded row on file alone would leave an auditor to eyeball
+ * two logs side by side to find the edit. `certify_rods_day` persists these
+ * rows in the same transaction as the certification.
  */
-import { STATUS_SHORT } from './rodsGridGeometry';
-import { formatMinutes } from './rodsGridGeometry';
+import { STATUS_SHORT, formatMinutes } from './rodsGridGeometry';
+import { AMENDABLE_HEADER_COLUMNS, RODS_HEADER_LABELS } from './rodsHeaderFields';
 import type { RodsDay, RodsEvent } from './rodsTypes';
 
 export interface AmendmentChange {
@@ -21,35 +26,6 @@ type EventLike = Pick<
   RodsEvent,
   'start_minute' | 'end_minute' | 'duty_status' | 'city' | 'state' | 'remarks'
 >;
-
-/**
- * Header columns an amendment may legitimately change, with the label an
- * auditor reads. Certification, lock, totals and bookkeeping columns are
- * excluded: the server recomputes or owns them, so a diff of those describes
- * the act of certifying rather than the driver's correction.
- */
-export const AMENDABLE_HEADER_FIELDS: Record<string, string> = {
-  carrier_name: 'Carrier name',
-  carrier_usdot: 'Carrier USDOT number',
-  carrier_mc: 'Carrier MC number',
-  main_office_address: 'Main office address',
-  home_terminal_address: 'Home terminal address',
-  home_terminal_timezone: 'Home terminal time zone',
-  truck_number: 'Truck / tractor number',
-  trailer_numbers: 'Trailer numbers',
-  co_driver_name: 'Co-driver name',
-  shipping_document_no: 'Shipping document number',
-  from_location: 'From',
-  to_location: 'To',
-  total_miles_driving_today: 'Total miles driving today',
-  total_mileage_today: 'Total mileage today',
-  period_start_time: '24-hour period starting time',
-  recap_on_duty_today: 'Recap — on duty today',
-  recap_last_7_days: 'Recap — last 7 days',
-  recap_available_tomorrow: 'Recap — available tomorrow',
-  recap_last_8_days: 'Recap — last 8 days',
-  is_reconstructed: 'Reconstructed from memory',
-};
 
 function norm(v: unknown): string | null {
   if (v === null || v === undefined) return null;
@@ -89,7 +65,10 @@ export function diffAmendment(
 ): AmendmentChange[] {
   const changes: AmendmentChange[] = [];
 
-  for (const [column, label] of Object.entries(AMENDABLE_HEADER_FIELDS)) {
+  // Labels come from rodsHeaderFields — the same strings printed on the form —
+  // so a change row never names a database column.
+  for (const column of AMENDABLE_HEADER_COLUMNS) {
+    const label = RODS_HEADER_LABELS[column];
     const before = norm((original.day as unknown as Record<string, unknown>)[column]);
     const after = norm((amended.day as unknown as Record<string, unknown>)[column]);
     if (before !== after) changes.push({ field_path: label, old_value: before, new_value: after });

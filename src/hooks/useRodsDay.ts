@@ -59,6 +59,8 @@ export function useRodsDay(params: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Header edits made since the last flush, merged across fields. */
+  const pendingHeader = useRef<Partial<RodsDay>>({});
 
   const load = useCallback(async () => {
     if (!operatorId) return;
@@ -119,10 +121,18 @@ export function useRodsDay(params: {
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [operatorId, logDate]);
 
+  /**
+   * Edits are accumulated, not replaced. The debounce timer is shared across
+   * every header field, so scheduling the last patch alone silently dropped
+   * every field touched inside the debounce window — and the amendment change
+   * record, computed from on-screen state, then claimed changes that had never
+   * reached the row.
+   */
   const patchHeader = useCallback((patch: Partial<RodsDay>) => {
     setDay((prev) => (prev ? { ...prev, ...patch } : prev));
+    pendingHeader.current = { ...pendingHeader.current, ...patch };
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { void flushHeader(patch); }, 700);
+    saveTimer.current = setTimeout(() => { void flushPendingHeader(); }, 700);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day?.id]);
 
@@ -141,7 +151,7 @@ export function useRodsDay(params: {
   }, [logDate, load]);
 
   const flushHeader = useCallback(async (patch: Partial<RodsDay>) => {
-    if (!day || day.locked) return;
+    if (!day || day.locked) return false;
     setSaving(true);
     try {
       // .select('id') is not cosmetic: without the returned representation a
@@ -151,12 +161,28 @@ export function useRodsDay(params: {
       assertRowsAffected(res, {
         table: 'rods_days', operation: 'header update', dayId: day.id, logDate: day.log_date,
       });
+      return true;
     } catch (err) {
       await handleWriteFailure(err);
+      return false;
     } finally {
       setSaving(false);
     }
   }, [day, handleWriteFailure]);
+
+  /**
+   * Writes whatever header edits are still sitting in the debounce window.
+   * Certification must call this first: the change record is derived from what
+   * is on screen, so an unflushed edit would be recorded as changed while the
+   * row it describes kept its old value — and the row locks a moment later.
+   */
+  const flushPendingHeader = useCallback(async () => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    const patch = pendingHeader.current;
+    pendingHeader.current = {};
+    if (!Object.keys(patch).length) return true;
+    return flushHeader(patch);
+  }, [flushHeader]);
 
   /** Replaces the day's segments wholesale — simplest correct write for a small set. */
   const saveSegments = useCallback(async (next: DraftSegment[]) => {
@@ -202,6 +228,6 @@ export function useRodsDay(params: {
     day, setDay, segments, setSegments,
     loading, saving,
     reload: load,
-    patchHeader, saveSegments,
+    patchHeader, flushPendingHeader, saveSegments,
   };
 }

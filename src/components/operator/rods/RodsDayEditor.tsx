@@ -41,7 +41,7 @@ export default function RodsDayEditor({
   onChanged: () => void;
 }) {
   const {
-    day, segments, setSegments, loading, saving, reload, patchHeader, saveSegments,
+    day, segments, setSegments, loading, saving, reload, patchHeader, flushPendingHeader, saveSegments,
   } = useRodsDay({ operatorId, logDate, defaults, autoCreate: true, isReconstruction });
 
   const [activeLocalId, setActiveLocalId] = useState<string | null>(null);
@@ -98,6 +98,7 @@ export default function RodsDayEditor({
   async function save() {
     setBusy(true);
     try {
+      if (!(await flushPendingHeader())) return;
       const ok = await saveSegments(segments);
       const totals = validation!.totals;
       if (!ok) return;
@@ -128,6 +129,10 @@ export default function RodsDayEditor({
   async function certify(signatureDataUrl: string) {
     setBusy(true);
     try {
+      // Header edits still inside the debounce window have to reach the row
+      // before anything else: the change record below is computed from what is
+      // on screen, and the row locks the instant certify_rods_day returns.
+      if (!(await flushPendingHeader())) return;
       const saved = await saveSegments(segments);
       if (!saved) return;
 
@@ -178,6 +183,26 @@ export default function RodsDayEditor({
         .from(RODS_BUCKET).upload(pdfPath, pdf, { upsert: true, contentType: 'application/pdf' });
       if (pdfErr) throw new Error(pdfErr.message);
 
+      // Carrier policy: a correction carries a field-level record of what
+      // changed. Computed BEFORE the RPC and passed into it, so the change
+      // rows land in the same transaction as the certification. Filing them
+      // afterwards left a window — one the offline queue hit every time —
+      // where a log could be certified, locked and permanently without a
+      // change record.
+      const changes = originalDay
+        ? diffAmendment(
+            { day: originalDay, events: originalEvents as never },
+            {
+              day: { ...day!, amendment_reason: amendmentReason.trim() },
+              events: segments.map((s) => ({
+                start_minute: s.start_minute, end_minute: s.end_minute,
+                duty_status: s.duty_status, city: s.city, state: s.state,
+                remarks: s.remarks || null,
+              })) as never,
+            },
+          )
+        : [];
+
       const { error } = await supabase.rpc('certify_rods_day', {
         _day_id: day!.id,
         _legal_name: legalName.trim(),
@@ -188,37 +213,9 @@ export default function RodsDayEditor({
         // retry can never double-apply. The server returns the existing row
         // as a no-op when the same token replays.
         p_certification_token: crypto.randomUUID(),
+        p_changes: changes as never,
       });
       if (error) throw new Error(error.message);
-
-      // 49 CFR 395.30(c)(2): a correction is only complete when the record says
-      // what changed. Written after certification so a failed certify never
-      // leaves change rows behind, and guarded by a count so a retried
-      // certification cannot double-file them.
-      if (originalDay) {
-        const { count } = await supabase
-          .from('rods_amendments').select('id', { count: 'exact', head: true })
-          .eq('rods_day_id', day!.id);
-        if (!count) {
-          const changes = diffAmendment(
-            { day: originalDay, events: originalEvents as never },
-            {
-              day: { ...day!, amendment_reason: amendmentReason.trim() },
-              events: segments.map((s) => ({
-                start_minute: s.start_minute, end_minute: s.end_minute,
-                duty_status: s.duty_status, city: s.city, state: s.state,
-                remarks: s.remarks || null,
-              })) as never,
-            },
-          );
-          const { error: amendErr } = await supabase.rpc('record_rods_amendments', {
-            _day_id: day!.id, _reason: amendmentReason.trim(), _changes: changes as never,
-          });
-          // The log is already certified and on file; a failure here loses the
-          // annotation, so it must be loud rather than swallowed.
-          if (amendErr) throw new Error(`Log certified, but the change record failed to save: ${amendErr.message}`);
-        }
-      }
 
       toast.success('Log certified.');
       setCertifyOpen(false);
