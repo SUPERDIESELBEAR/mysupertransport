@@ -1,84 +1,72 @@
-## Context carried into this thread
+# Step 3 — Local-first drafts, then offline certification (rev 8)
 
-Seeded from the Open Items Register, `docs/database-security-conventions.md`, and `docs/eld-offline-certification.md`: the eight standing rules, shipped-vs-scaffolding split, the open list, and AC-1 through AC-5.
+## Corrections accepted
 
-Two items, strictly in order. Item 2 does not start until item 1 reports.
+### 1. `'upsert-day'` fallback writes the full window; out-of-window certifications don't touch the manifest
 
----
+Correct on both counts.
 
-## Item 1 — Finish the case (a) trace, then re-run (b)–(f)
+**No existing manifest.** A single-day manifest is concealment by omission — an officer sees one day and no indication seven others exist. Stage 3 §10.2 requires gaps shown honestly. The window needs no server data: `local_meta.home_terminal_timezone` (already read by this path) plus the current date, through the existing `windowDatesInTimezone()`. So the fallback enumerates all eight dates, fills in the day being certified from the cache, and marks the other seven `label: 'Not certified'`, `cached: false`, `renderable: false`, `printable: false` — the same shape hydration produces, with less filled in.
 
-### 1.1 Rebuild the harness
+If `local_meta` is missing entirely, the timezone is unknown, no honest window can be computed, and `'upsert-day'` writes no manifest at all rather than guessing with the device timezone. The certification still completes; the packet stays as it was. (In practice unreachable — `requireCachedCarrier()` gates day creation — but it is defined rather than left to chance.)
 
-`/tmp/browser/rods-certify/` is wiped between sessions. Rebuild `common.py` with: preview-session minting, sign-in as the demo driver, header/segment fill helpers, and `purge_seeded()` driving the `purge-rods-day` edge function (`dayIds`, `reason` ≥ 12 chars) with the fixpoint loop.
+**Out-of-window dates.** `'upsert-day'` no-ops on the manifest when `logDate` is not in `windowDatesInTimezone(tz)`. A three-week-old draft signed today still certifies, uploads its bytes and gets `local_certified_at`; it simply doesn't join a packet defined as current day plus prior seven. Hydration's `'full'` mode remains the only thing that sets window boundaries.
 
-**The ELD-tab visit is not part of the default setup.** Hydrating the cache before every case bakes the defect into the test rig and gives every case a cache a real driver going straight to Logs would not have. It stays available as an explicit opt-in helper, called only by cases that genuinely need a hydrated cache, and the report names which cases invoked it.
+Neither mode may downgrade an entry outside its authority: `'full'` owns the whole window and may downgrade; `'upsert-day'` only ever adds or updates one in-window date and writes every other entry back byte-identical.
 
-If any of (a)–(f) turns out to require the ELD-tab visit to pass, that is stated explicitly in the report: it means the case cannot currently be reached by a driver taking the direct route.
+### 2. Case (h) asserts happens-before, not a total order
 
-### 1.2 Case (g) — direct route to Paper Logs
+Correct — the total order is wrong about the queue's own design. Table writes run serially, byte uploads run in a concurrency-3 pool, and uploads carry no dependency on the draft entries, so `upload_signature` completing before `save_draft_day` is legitimate behaviour that the literal sequence would fail.
 
-New case, no ELD-tab visit: sign in, navigate straight to Paper Logs, and record exactly what the driver sees — screenshot, any blocking copy ("carrier details have not been downloaded"), whether a draft can be created at all, and the state of `rods_days_cache` / `rods_events_cache` at that moment. This is the real-world path and its output is evidence for 2c, not a setup step to work around.
+Case (h) asserts exactly what `depends_on` guarantees, from recorded completion timestamps:
 
-### 1.3 Case (a) — make the race actually happen
-
-The prior run is not evidence. The certify RPC went out 3.5s after the final keystroke, so the 700 ms debounce fired naturally; the persisted value proves the ordinary path, not the flush fix.
-
-- **Log header PATCH bodies.** Capture `request.post_data` for every `PATCH /rods_days`, so the report names which write carried the final value rather than inferring it from the end state.
-- **One clock.** Keystroke timestamp and certify-request timestamp come from the same source. A 0.02 ms gap between an in-page `performance.now()` and a network trace timestamp is a measurement artifact and will not be reported as an ordering.
-- **Certify tap inside 700 ms.** Either a single `page.evaluate` dispatching the final keystroke and the certify tap in one task, or `page.clock` to hold the debounce open. If neither lands the tap inside the window, the case is reported **INCONCLUSIVE**. The bound is not loosened.
-
-Pass condition: a header PATCH carrying the final value is issued between the last keystroke and the certify RPC, on one clock, with the tap inside 700 ms.
-
-### 1.4 Cases (b)–(f)
-
-Unverified, not still green — `certify()` changed underneath them (`replayed` flag, orphan delete, preflight tripwire). (f) has never passed.
-
-- (b) offline at certify — halts, toast, row stays draft
-- (c) backgrounding — `visibilitychange` and `pagehide` each flush; Chromium only, iOS Safari stays on the hardware checklist
-- (d) lost write — server mismatch opens `CertifyMismatchDialog`
-- (e) out-of-band edit — mismatch dialog; Cancel preserves on-screen state
-- (f) replay — deterministic 504 fulfillment, poll the row to `certified`, release the second tap; assert `replayed: true`, `pdf_path` and `certification_signature_path` unchanged from attempt one, the second attempt's uploads deleted, replay toast shown
-
-### 1.5 Cleanup, every case
-
-Purge in a `finally` through `purge-rods-day` with the fixpoint loop. After the run, confirm 0 rows in `rods_days`, `rods_events`, `rods_amendments`, `eld_malfunction_events` for the demo operator, and that every new `rods_day_purged` reads `completed` or `not_applicable`. A surviving `pending_caller` is reported as a finding.
-
-If (a)–(e) fail, report before fixing. If (f) fails, fix it.
+- `save_draft_day` before `save_draft_segments`
+- `save_draft_day` before `certify_rods_day`
+- `save_draft_segments` before `certify_rods_day`
+- `upload_signature` before `certify_rods_day`
+- `upload_rods_pdf` before `certify_rods_day`
+- uploads unordered relative to drafts — explicitly not asserted
 
 ---
 
-## Item 2 — Step 2 inventory (no code changes; output is a written gap list)
+## Build order
 
-### 2a. What fails offline
-Drafting, editing, caching, queueing, replay: what works, what silently no-ops, and where the seams sit between the offline store and `certify_rods_day`.
+**3.1 — Hydration in the shell.** `RoadsideHydrationMount` beside `SyncRunnerMount` under the same `{user ? … : null}` guard, dynamically importing `hydrate.ts`; role-gated; mount / `online` / `visibilitychange` with a `carrier_cached_at` freshness gate. Removed from `ELDMalfunctionView`.
 
-### 2b. What exists with no live caller
-For each: confirm genuinely unreached by tracing callers, note what wiring it implies, and flag it if step 3 will invoke it for the first time (Standing Rule 8 — driven through the real UI, not assumed correct). Unreached code needs wiring rather than building, and having never executed it may also simply be wrong.
+**3.2 — Local-first drafts.** Client `crypto.randomUUID()` day ids behind `requireCachedCarrier()`; every edit writes complete on-screen state to Dexie in one awaited transaction, bumps `version`, sets `unsynced`, enqueues a coalescing entry, kicks `void drainQueue()`. A rejected Dexie write throws the terminal *"This log could not be saved to the phone, so it cannot be certified yet."* Coalescing: `pending` → replace in place; `in_flight` / `failed` → enqueue behind with `depends_on`; `rejected` → do not enqueue, cancel the day's drafts and cascade.
 
-- Seven of ten `SyncKind` handlers
-- `ensureDayCached`'s LOCAL-WINS certification branch
-- `hydrate.ts`'s `certification_rejected` path
-- `row_not_writable` routing inside the queue
-- `enqueueCertifyDay`
+**3.3 — Dependency integrity.** Transitive cancellation cascade; `purgeSucceeded` retains succeeded entries still referenced by a non-terminal `depends_on`; `resolveBlocked` gives budget-exhausted and cancelled chains one terminal outcome and one alert.
 
-### 2c. AC-1 through AC-5 — satisfiable or not
+**3.4 — Cache-field integrity.** `putCachedDay` / `putCachedEvents` require `unsynced`, `version`, `local_certified_at`, `sync_rejected`, `sync_stalled`; raw `.put` banned via ESLint `no-restricted-syntax`.
 
-Per criterion: satisfiable with the current architecture, or dependent on something not yet present.
+**3.5 — Offline certify, lock last.** Preflight → render and cache signature (`origin: 'local_pending_upload'`), PDF, rows → one awaited Dexie transaction → `void drainQueue()`. The transaction opens `rw` on every store the nested manifest build touches — `rods_days_cache`, `rods_events_cache`, `rods_pdfs`, `rods_documents`, `signature_images`, `local_meta`, `divergences`, `roadside_manifest`, and the queue stores — since Dexie requires the nested scope to be a subset. Order inside: `local_certified_at` + version bump, **then** `buildManifest({ mode: 'upsert-day' })`, **then** the enqueues.
 
-AC-3 gets the depth. Its offline preflight compares against `rods_days_cache` / `rods_events_cache`, so it needs the local cache authoritative **and current at certify time**. The report answers:
+First production invocation of `enqueueCertifyDay`, both upload handlers, the certify handler and its `replayed` branch, `cacheReturnedDay`, `deleteReplayOrphans`, the certification SQLSTATEs, `depends_on` gating, the cascade, and both draft kinds.
 
-- What populates those two caches, from where, and at what moment.
-- Whether coverage extends to every certifiable day — including days outside the roadside window a driver may open offline.
-- Whether the cache is refreshed on draft edits, or only at hydration. If it reflects the day as of last sync, the preflight flags every legitimate offline edit as a mismatch, which makes AC-3 **unusable** rather than merely unimplemented. That distinction is the headline of 2c.
+**3.6 — The signed-but-unsynced window.** `locked = day.locked || !!cacheEntry.local_certified_at`; `patchHeader` and the segment save refuse in the write path.
 
-Evidence folded in: case (g)'s observed direct-route behaviour, plus the caller trace showing `hydrateRoadsideCache` reaches the app only through `useRoadsideHydration`, mounted only by `ELDMalfunctionView`. Likely a one-line fix — hoist the hydration call to a shared operator layout — but **not fixed before the inventory**; what it reveals about population timing is worth more right now than the fix.
+**3.7 — Cold-start message, three states.** Never hydrated + online → fetch-now; never hydrated + offline → connect once first; hydrated + incomplete carrier → name the missing fields.
 
----
+**3.8 — *(cut)*** the unreachable offline branch of `CertifyMismatchDialog`.
 
-## Technical notes
+**3.9 — `manifestBuild.ts`.** Two modes in the signature — `{ mode: 'full', dates, serverDays }` and `{ mode: 'upsert-day', logDate }` — no Supabase import (hydration passes its rows in), consumed by both callers. `pruneRoadsideCache` runs after `'full'` only. `printable` is set for keyed days (a `rods_pdfs` entry exists) and for `eld_document` days (`!!doc`, independent of `renderable`); every consumer reads `printable ?? cached`, including `RoadsidePacket.tsx:252` and the email-merge and download paths.
 
-- Harness lives under `/tmp/browser/rods-certify/`; screenshots under its `screenshots/`. Nothing written into the project checkout.
-- Chromium headless, viewport 1280×1800, no `full_page` screenshots.
-- Preview session restored via the injected managed session before navigating to any authenticated route.
-- Item 2 is read-only: file reads, caller traces, and read-only database queries. No migrations, no edits.
+**3.10 — Resolution paths.** Driver-initiated authorized unlock as primary, server directives as the assist; the unlock clears `local_certified_at`, cancels the whole terminal chain with `cancelled_by: 'authorized_unlock'`, clears `sync_stalled` / `sync_rejected`, and records the cancelled ids and their states in the audit entry — all in one transaction. Rejected keeps the lock, the bytes and the packet entry.
+
+**3.11 — Verification.**
+- `bun run build`, then `roadsideBundle.test.ts` with `dist/` present, plus the extended `roadsideImportGraph.test.ts`.
+- Unit: `'upsert-day'` leaves untouched entries byte-identical and never downgrades, including when the cache is emptier than the manifest; **`'upsert-day'` with no manifest writes all eight dates with seven "Not certified"**; **`'upsert-day'` no-ops for an out-of-window date while the certification still completes**; `'upsert-day'` with no `local_meta` writes nothing; `'full'` may downgrade; the certify transaction declares every nested store; `local_certified_at` is visible to the build (asserted by inspecting the cache row the stubbed build receives, so a reorder fails the test); `printable ?? cached` on a manifest lacking the field; `printable` for an `eld_document` day with an undecodable PDF; both prune exemptions, including that the offline signature is written with `origin: 'local_pending_upload'`; coalescing across all four states; transitive cascade; `purgeSucceeded` retention; version-aware clear; `putCachedDay` preserves all five required fields; unlock cancels the chain and records the ids.
+- Playwright (a)–(g) re-run without the ELD-tab workaround, purging in `finally`.
+- **(h)** offline end-to-end: the five happens-before relationships above from recorded completion timestamps, uploads deliberately unordered against drafts; one certified server row whose id matches the client uuid; and before reconnecting, /roadside shows the day Certified with the native `RoadsideDayRender` SVG drawn — grid and signature, no native fallback logged — **and the other seven days present with their prior labels.**
+- **(i)** coalescing under `in_flight`; later value wins, neither payload lost.
+- **(j)** signed-but-unsynced: certify offline, reload, read-only, no draft enqueued.
+- **(k)** render failure before the lock: day still an editable draft, no `local_certified_at`, empty queue.
+- iOS Safari hardware check for case (c) stays outstanding.
+
+## Confirmed, unchanged
+
+`prune.ts:32-35` skips `rods_pdfs` with `uploaded: false` at any age; `prune.ts:59-64` exempts `signature_images` with `origin === 'local_pending_upload'`. The signature exemption keys on `origin`, not `uploaded` — hence the explicit write-site assertion in 3.11. Neither manifest mode prunes.
+
+## Out of scope
+
+Deleting the unused kinds — `create_eld_document_day`, `replace_rods_document`, `upload_merged_packet`, `send_officer_email`. Separate cleanup.
