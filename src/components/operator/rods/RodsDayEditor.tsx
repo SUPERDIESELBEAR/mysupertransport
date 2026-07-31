@@ -271,6 +271,8 @@ export default function RodsDayEditor({
   async function amend() {
     setBusy(true);
     // Copy the whole row, reset only what must differ. See buildAmendmentDraft:
+    setBusy(true);
+    // Copy the whole row, reset only what must differ. See buildAmendmentDraft:
     // enumerating what to copy is what made amendments lose newly added header
     // columns and become uncertifiable.
     const { data, error } = await supabase.from('rods_days')
