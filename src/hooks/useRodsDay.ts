@@ -59,6 +59,8 @@ export function useRodsDay(params: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Header edits made since the last flush, merged across fields. */
+  const pendingHeader = useRef<Partial<RodsDay>>({});
 
   const load = useCallback(async () => {
     if (!operatorId) return;
