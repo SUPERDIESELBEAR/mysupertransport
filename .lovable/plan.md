@@ -1,59 +1,84 @@
-## Where this stands
+## Context carried into this thread
 
-The last several rounds hardened the purge path. That path exists to clean up after tests. The tests verify a fix to certification. Certification's offline capability — item 2 — is the actual deliverable and is still open. This plan spends as little as possible on item 1 and then moves.
+Seeded from the Open Items Register, `docs/database-security-conventions.md`, and `docs/eld-offline-certification.md`: the eight standing rules, shipped-vs-scaffolding split, the open list, and AC-1 through AC-5.
 
-Purge status going in: signature compatibility confirmed, zero `pending_caller` audit rows, no cleanup owed. The disposition transition (`pending_caller → completed`) has never actually run, because there is nothing left to purge. The harness run below is its first real exercise.
+Two items, strictly in order. Item 2 does not start until item 1 reports.
 
-## Step 1 — Six-case Playwright pass (closes item 1)
+---
 
-Sign into the preview as the demo driver and run cases (a)–(f) against the real driver UI.
+## Item 1 — Finish the case (a) trace, then re-run (b)–(f)
 
-Five of the six already passed on the previous run and are being re-run only because the certify path changed underneath them (`replayed` flag, orphan delete, preflight tripwire). Expect them to pass; investigate only if they don't.
+### 1.1 Rebuild the harness
 
-- **(a) debounce race** — two header fields keyed inside the 700ms window. Assert on captured timestamps: gap between final keystroke and the `certify_rods_day` request.
-- **(b) offline at certify** — halts, toast shown, row stays draft.
-- **(c) backgrounding** — `visibilitychange` and `pagehide` each flush. **Chromium only**; iOS Safari stays on the hardware checklist.
-- **(d) lost write** — server mismatch opens `CertifyMismatchDialog`.
-- **(e) out-of-band edit** — mismatch dialog, Cancel preserves on-screen state.
-- **(f) replay** — deterministic 504 fulfillment, poll the row to `certified`, then release the second tap. Assert: `replayed: true`, the row's `pdf_path` and `certification_signature_path` unchanged from attempt one, the second attempt's uploads deleted, replay toast shown.
+`/tmp/browser/rods-certify/` is wiped between sessions. Rebuild `common.py` with: preview-session minting, sign-in as the demo driver, header/segment fill helpers, and `purge_seeded()` driving the `purge-rods-day` edge function (`dayIds`, `reason` ≥ 12 chars) with the fixpoint loop.
 
-Every case purges in a `finally` block through the `purge-rods-day` edge function with the fixpoint loop. After the run: RODS tables back to 0 for the demo operator, and every new `rods_day_purged` row reads `completed` or `not_applicable`. A surviving `pending_caller` is a finding, not a cleanup chore.
+**The ELD-tab visit is not part of the default setup.** Hydrating the cache before every case bakes the defect into the test rig and gives every case a cache a real driver going straight to Logs would not have. It stays available as an explicit opt-in helper, called only by cases that genuinely need a hydrated cache, and the report names which cases invoked it.
 
-If (f) fails, fix it. If anything in (a)–(e) fails, report before fixing — that would mean the purge/replay work broke certification.
+If any of (a)–(f) turns out to require the ELD-tab visit to pass, that is stated explicitly in the report: it means the case cannot currently be reached by a driver taking the direct route.
 
-## Step 2 — Inventory: missing, dead, and the acceptance criteria
+### 1.2 Case (g) — direct route to Paper Logs
 
-No code changes. Output is a written inventory in three parts.
+New case, no ELD-tab visit: sign in, navigate straight to Paper Logs, and record exactly what the driver sees — screenshot, any blocking copy ("carrier details have not been downloaded"), whether a draft can be created at all, and the state of `rods_days_cache` / `rods_events_cache` at that moment. This is the real-world path and its output is evidence for 2c, not a setup step to work around.
+
+### 1.3 Case (a) — make the race actually happen
+
+The prior run is not evidence. The certify RPC went out 3.5s after the final keystroke, so the 700 ms debounce fired naturally; the persisted value proves the ordinary path, not the flush fix.
+
+- **Log header PATCH bodies.** Capture `request.post_data` for every `PATCH /rods_days`, so the report names which write carried the final value rather than inferring it from the end state.
+- **One clock.** Keystroke timestamp and certify-request timestamp come from the same source. A 0.02 ms gap between an in-page `performance.now()` and a network trace timestamp is a measurement artifact and will not be reported as an ordering.
+- **Certify tap inside 700 ms.** Either a single `page.evaluate` dispatching the final keystroke and the certify tap in one task, or `page.clock` to hold the debounce open. If neither lands the tap inside the window, the case is reported **INCONCLUSIVE**. The bound is not loosened.
+
+Pass condition: a header PATCH carrying the final value is issued between the last keystroke and the certify RPC, on one clock, with the tap inside 700 ms.
+
+### 1.4 Cases (b)–(f)
+
+Unverified, not still green — `certify()` changed underneath them (`replayed` flag, orphan delete, preflight tripwire). (f) has never passed.
+
+- (b) offline at certify — halts, toast, row stays draft
+- (c) backgrounding — `visibilitychange` and `pagehide` each flush; Chromium only, iOS Safari stays on the hardware checklist
+- (d) lost write — server mismatch opens `CertifyMismatchDialog`
+- (e) out-of-band edit — mismatch dialog; Cancel preserves on-screen state
+- (f) replay — deterministic 504 fulfillment, poll the row to `certified`, release the second tap; assert `replayed: true`, `pdf_path` and `certification_signature_path` unchanged from attempt one, the second attempt's uploads deleted, replay toast shown
+
+### 1.5 Cleanup, every case
+
+Purge in a `finally` through `purge-rods-day` with the fixpoint loop. After the run, confirm 0 rows in `rods_days`, `rods_events`, `rods_amendments`, `eld_malfunction_events` for the demo operator, and that every new `rods_day_purged` reads `completed` or `not_applicable`. A surviving `pending_caller` is reported as a finding.
+
+If (a)–(e) fail, report before fixing. If (f) fails, fix it.
+
+---
+
+## Item 2 — Step 2 inventory (no code changes; output is a written gap list)
 
 ### 2a. What fails offline
-
-Drafting, editing, caching, queueing, replay — what works, what silently no-ops, and where the seams are between the offline store and `certify_rods_day`.
+Drafting, editing, caching, queueing, replay: what works, what silently no-ops, and where the seams sit between the offline store and `certify_rods_day`.
 
 ### 2b. What exists with no live caller
+For each: confirm genuinely unreached by tracing callers, note what wiring it implies, and flag it if step 3 will invoke it for the first time (Standing Rule 8 — driven through the real UI, not assumed correct). Unreached code needs wiring rather than building, and having never executed it may also simply be wrong.
 
-The larger part of the problem, and a different kind of work: unreached code needs **wiring**, not building — and because it has never executed, it may also be wrong.
-
-Known members of this category:
-- seven of ten `SyncKind` handlers
+- Seven of ten `SyncKind` handlers
 - `ensureDayCached`'s LOCAL-WINS certification branch
 - `hydrate.ts`'s `certification_rejected` path
 - `row_not_writable` routing inside the queue
-- `enqueueCertifyDay` itself
+- `enqueueCertifyDay`
 
-For each: confirm it is genuinely unreached (not reached by a path I haven't traced), and note what wiring it up implies. **Standing Rule 8 applies at first invocation for all of it.** The inventory explicitly flags every item step 3 will reach for the first time, so those get driven through the real UI rather than assumed correct.
+### 2c. AC-1 through AC-5 — satisfiable or not
 
-### 2c. Acceptance criteria, satisfiable or not
+Per criterion: satisfiable with the current architecture, or dependent on something not yet present.
 
-`docs/eld-offline-certification.md` holds AC-1 through AC-5. For each, report: satisfiable with the current architecture, or dependent on something not yet present.
+AC-3 gets the depth. Its offline preflight compares against `rods_days_cache` / `rods_events_cache`, so it needs the local cache authoritative **and current at certify time**. The report answers:
 
-AC-3 gets particular attention. Its offline preflight compares against `rods_days_cache` / `rods_events_cache`, which requires the local cache to be **authoritative and current at certify time**. If the cache is not reliably populated for the day being certified, the preflight either can't run or compares against stale bytes — and that is a gap inside step 3's scope, not an implementation detail to sort out later. Report what actually populates those caches today and whether it covers the certify path.
+- What populates those two caches, from where, and at what moment.
+- Whether coverage extends to every certifiable day — including days outside the roadside window a driver may open offline.
+- Whether the cache is refreshed on draft edits, or only at hydration. If it reflects the day as of last sync, the preflight flags every legitimate offline edit as a mismatch, which makes AC-3 **unusable** rather than merely unimplemented. That distinction is the headline of 2c.
 
-## Step 3 — Build to the inventory
+Evidence folded in: case (g)'s observed direct-route behaviour, plus the caller trace showing `hydrateRoadsideCache` reaches the app only through `useRoadsideHydration`, mounted only by `ELDMalfunctionView`. Likely a one-line fix — hoist the hydration call to a shared operator layout — but **not fixed before the inventory**; what it reveals about population timing is worth more right now than the fix.
 
-Scoped once step 2 lands. Two tracks, kept distinct: build what's missing, wire what's dead. Every first-invocation item from 2b is driven through the driver UI as part of the work, not after it. I'll bring the concrete scope back rather than guess it now.
+---
 
 ## Technical notes
 
-- `purge-rods-day` is the only authoritative purge entry point. SQL `purge_rods_day` two-arg refuses with `42501`; three-arg requires `_storage_owner`.
-- `record_rods_purge_storage_result` has one signature (four args, `_late` defaulted). `purge-rods-day` omits `_late`; `sweep-rods-orphans` passes `true`.
-- Case (c)'s iOS Safari gap is not closable in the sandbox.
+- Harness lives under `/tmp/browser/rods-certify/`; screenshots under its `screenshots/`. Nothing written into the project checkout.
+- Chromium headless, viewport 1280×1800, no `full_page` screenshots.
+- Preview session restored via the injected managed session before navigating to any authenticated route.
+- Item 2 is read-only: file reads, caller traces, and read-only database queries. No migrations, no edits.
