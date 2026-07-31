@@ -14,6 +14,7 @@
 import { renderRodsDay } from '@/lib/eld/renderRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import { roadsideDb, type SignatureOrigin } from './db';
+import { putCachedDay, putCachedEvents } from './cache';
 import { signatureKeyForDay } from './prune';
 
 export interface EnsureDayCachedInput {
@@ -33,6 +34,18 @@ export interface EnsureDayCachedInput {
    * the sync queue has drained it.
    */
   uploaded: boolean;
+  /**
+   * Sync state for the structured rows this writes. REQUIRED, because the
+   * cache is authoritative for uncertified days: hydration passes
+   * `{ unsynced: false }` (the server row is the source), and the offline
+   * certify path passes `{ unsynced: true, localCertifiedAt }` so hydration
+   * can never overwrite a signed record that has not reached the office.
+   */
+  sync: {
+    unsynced: boolean;
+    version: number;
+    localCertifiedAt: string | null;
+  };
 }
 
 export interface EnsureDayCachedResult {
@@ -83,8 +96,11 @@ export interface EnsureDayCachedResult {
  * and is never compared.
  */
 export async function ensureDayCached(input: EnsureDayCachedInput): Promise<EnsureDayCachedResult> {
-  const { day, events, driverName, signatureDataUrl, signatureOrigin, uploaded } = input;
+  const { day, events, driverName, signatureDataUrl, signatureOrigin, uploaded, sync } = input;
   const cachedAt = new Date().toISOString();
+  // Rejected / stalled are chain state, not day state — carry them across a
+  // re-render rather than silently clearing a flag the driver is acting on.
+  const previous = await roadsideDb.rods_days_cache.get(day.log_date);
 
   let signatureKey: string | null = null;
   if (signatureDataUrl) {
@@ -107,11 +123,24 @@ export async function ensureDayCached(input: EnsureDayCachedInput): Promise<Ensu
     roadsideDb.rods_days_cache,
     roadsideDb.rods_events_cache,
     async () => {
-      await roadsideDb.rods_days_cache.put({
-        log_date: day.log_date, operator_id: day.operator_id, day, cached_at: cachedAt,
+      await putCachedDay({
+        log_date: day.log_date,
+        operator_id: day.operator_id,
+        day,
+        unsynced: sync.unsynced,
+        version: sync.version,
+        local_certified_at: sync.localCertifiedAt,
+        sync_rejected: previous?.sync_rejected ?? false,
+        sync_stalled: previous?.sync_stalled ?? false,
+        cached_at: cachedAt,
       });
-      await roadsideDb.rods_events_cache.put({
-        rods_day_id: day.id, log_date: day.log_date, events, cached_at: cachedAt,
+      await putCachedEvents({
+        rods_day_id: day.id,
+        log_date: day.log_date,
+        events,
+        unsynced: sync.unsynced,
+        version: sync.version,
+        cached_at: cachedAt,
       });
     },
   );

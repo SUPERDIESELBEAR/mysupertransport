@@ -9,8 +9,10 @@ import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { RODS_BUCKET } from '@/lib/eld/rodsTypes';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
 import { deleteReplayOrphans } from '@/lib/eld/rodsReplayOrphans';
+import { assertRowsAffected } from '@/lib/eld/rodsWrite';
 import type { RodsDay } from '@/lib/eld/rodsTypes';
 import { roadsideDb, type SyncKind } from '../db';
+import { markDaySynced, putCachedDay } from '../cache';
 
 type Payload = Record<string, unknown>;
 
@@ -65,17 +67,82 @@ async function cacheReturnedDay(data: unknown): Promise<void> {
   const day = rest as unknown as RodsDay | null;
   if (!day?.id || !day.log_date) return;
   const existing = await roadsideDb.rods_days_cache.get(day.log_date);
-  await roadsideDb.rods_days_cache.put({
+  await putCachedDay({
     log_date: day.log_date,
     operator_id: day.operator_id,
     day,
     local_certified_at:
       existing?.local_certified_at ?? existing?.day?.certified_at ?? null,
-    cached_at: new Date().toISOString(),
+    // The server has now confirmed this exact row, so the device is no longer
+    // ahead — but only for the version that was sent. A newer local edit keeps
+    // its own flag; see markDaySynced.
+    unsynced: false,
+    version: existing?.version ?? 0,
+    sync_rejected: false,
+    sync_stalled: existing?.sync_stalled ?? false,
   });
 }
 
 export const HANDLERS: Record<SyncKind, SyncHandler> = {
+  /**
+   * Replay one day's header from the cache to the server.
+   *
+   * The payload carries KEYS, never the row: the entry may replay days after
+   * the driver typed, and by then the cache — not the payload — is what the
+   * driver has been looking at. Reading it here is what makes coalescing safe
+   * and what makes the queue the single owner of draft writes.
+   */
+  async save_draft_day(payload) {
+    const logDate = str(payload, 'log_date');
+    const version = Number(payload.version ?? 0);
+    const cached = await roadsideDb.rods_days_cache.get(logDate);
+    if (!cached) throw new Error(`No cached day for ${logDate}. Nothing to save.`);
+    // The driver certified since this entry was queued; the certify entry
+    // carries the final state and the row is about to lock. Nothing to do.
+    if (cached.day.status === 'certified' && cached.day.locked) return;
+
+    const res = await supabase
+      .from('rods_days')
+      .upsert(cached.day as never, { onConflict: 'id' })
+      .select('id');
+    assertRowsAffected(res, {
+      table: 'rods_days', operation: 'offline draft save', dayId: cached.day.id, logDate,
+    });
+    await markDaySynced(logDate, version);
+  },
+
+  /**
+   * Replay one day's duty-status entries. Delete-then-insert, because the
+   * driver's segment list is a whole statement about the 24 hours: a partial
+   * merge can leave a gap or an overlap that certify_rods_day then refuses.
+   */
+  async save_draft_segments(payload) {
+    const logDate = str(payload, 'log_date');
+    const dayId = str(payload, 'day_id');
+    const version = Number(payload.version ?? 0);
+    const cached = await roadsideDb.rods_events_cache.get(dayId);
+    if (!cached) throw new Error(`No cached entries for ${logDate}. Nothing to save.`);
+
+    const { error: delErr } = await supabase.from('rods_events').delete().eq('rods_day_id', dayId);
+    if (delErr) throw new Error(delErr.message);
+    if (cached.events.length) {
+      const res = await supabase.from('rods_events').insert(cached.events.map((e) => ({
+        rods_day_id: dayId,
+        start_minute: e.start_minute,
+        end_minute: e.end_minute,
+        duty_status: e.duty_status,
+        city: e.city,
+        state: e.state,
+        remarks: e.remarks,
+        is_short_period: e.is_short_period,
+      })) as never).select('id');
+      assertRowsAffected(res, {
+        table: 'rods_events', operation: 'offline segment save', dayId, logDate,
+      });
+    }
+    await markDaySynced(logDate, version);
+  },
+
   /** Upload the locally rendered day PDF, then mark the cached copy uploaded. */
   async upload_rods_pdf(payload) {
     const logDate = str(payload, 'log_date');

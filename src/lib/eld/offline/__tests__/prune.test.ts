@@ -32,6 +32,11 @@ function dayRow(log_date: string, id: string) {
     operator_id: 'op-1',
     day: { id, log_date, operator_id: 'op-1' } as unknown as RodsDay,
     cached_at: OLD,
+    unsynced: false,
+    version: 0,
+    local_certified_at: null,
+    sync_rejected: false,
+    sync_stalled: false,
   };
 }
 
@@ -70,8 +75,8 @@ describe('pruneRoadsideCache', () => {
   it('removes both structured rows for an unreferenced stale day and keeps referenced ones', async () => {
     await roadsideDb.rods_days_cache.bulkPut([dayRow(STALE_DATE, 'stale-day'), dayRow(KEPT_DATE, 'kept-day')]);
     await roadsideDb.rods_events_cache.bulkPut([
-      { rods_day_id: 'stale-day', log_date: STALE_DATE, events: [] as RodsEvent[], cached_at: OLD },
-      { rods_day_id: 'kept-day', log_date: KEPT_DATE, events: [] as RodsEvent[], cached_at: OLD },
+      { rods_day_id: 'stale-day', log_date: STALE_DATE, events: [] as RodsEvent[], cached_at: OLD, unsynced: false, version: 0 },
+      { rods_day_id: 'kept-day', log_date: KEPT_DATE, events: [] as RodsEvent[], cached_at: OLD, unsynced: false, version: 0 },
     ]);
 
     await pruneRoadsideCache(manifest, NOW);
@@ -85,6 +90,7 @@ describe('pruneRoadsideCache', () => {
   it('removes an orphaned stale events row', async () => {
     await roadsideDb.rods_events_cache.put({
       rods_day_id: 'orphan', log_date: STALE_DATE, events: [] as RodsEvent[], cached_at: OLD,
+      unsynced: false, version: 0,
     });
     await pruneRoadsideCache(manifest, NOW);
     expect(await roadsideDb.rods_events_cache.get('orphan')).toBeUndefined();

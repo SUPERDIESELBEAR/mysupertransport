@@ -1,6 +1,7 @@
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
 import ELDMalfunctionBanner from '@/components/operator/eld/ELDMalfunctionBanner';
+import { useRoadsideHydration } from '@/hooks/useRoadsideHydration';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -765,6 +766,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   }, [user, fetchUnreadNotifCount, fireNotification]);
 
   const displayName = profile?.first_name ?? 'Operator';
+  // Hydration belongs to the authenticated shell, not to one tab. It used to
+  // run only inside the ELD malfunction view, so a driver who went straight to
+  // Paper Logs — or was stopped before ever opening that tab — had an empty
+  // roadside cache and no carrier snapshot, which blocks creating a log at all.
+  useRoadsideHydration(
+    operatorId,
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
+  );
   const effectiveOnboardingStatus = isIcaComplete(onboardingStatus, latestIcaContract)
     ? { ...onboardingStatus, ica_status: 'complete' }
     : onboardingStatus;

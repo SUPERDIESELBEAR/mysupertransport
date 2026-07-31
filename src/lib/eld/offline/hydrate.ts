@@ -24,6 +24,7 @@ import {
 import { probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
+import { buildManifest, type ServerDayDescriptor } from './manifestBuild';
 import {
   compareDocumentDay, compareKeyedDay, openDivergenceDates, recordDivergence,
 } from './divergence';
@@ -236,6 +237,10 @@ export async function cacheKeyedDay(day: RodsDay, driverName: string) {
   if (existing && !existing.uploaded) return;
 
   const cached = await roadsideDb.rods_days_cache.get(day.log_date);
+  // Case 1, structured form. A day signed offline holds the local
+  // certification lock before its bytes exist, and a draft with unsynced edits
+  // is ahead of the server. Neither may be overwritten by a hydration pass.
+  if (cached?.local_certified_at || cached?.unsynced) return;
 
   const { data: events } = await supabase
     .from('rods_events')
@@ -276,6 +281,10 @@ export async function cacheKeyedDay(day: RodsDay, driverName: string) {
     signatureDataUrl,
     signatureOrigin: 'downloaded_cache',
     uploaded: true,
+    // Hydration writes the SERVER row. It is by definition not ahead of the
+    // server, and it never carries a local certification lock — a day that
+    // does hold one is protected before we ever get here (precedence case 1).
+    sync: { unsynced: false, version: cached?.version ?? 0, localCertifiedAt: null },
   });
 }
 
@@ -425,51 +434,26 @@ async function run(operatorId: string, driverName: string) {
     const evt = events?.[0] ?? null;
     const hasNotice = evt ? await cacheNotice(evt.id, evt.notice_pdf_path).catch(() => false) : false;
 
-    const pdfKeys = new Set((await roadsideDb.rods_pdfs.toArray()).map((p) => p.log_date));
-    const docs = new Map((await roadsideDb.rods_documents.toArray()).map((d) => [d.log_date, d]));
     const diverged = await openDivergenceDates();
 
-    const manifestDays: ManifestDay[] = dates.map((log_date) => {
-      const day = byDate.get(log_date);
-      if (!day) {
-        return {
-          log_date, kind: 'keyed', label: 'Not certified', cached: false,
-          renderable: false, filename: null, showsTotals: false, diverged: false,
-        };
-      }
-      if (day.record_source === 'eld_document') {
-        const doc = docs.get(log_date);
-        return {
-          log_date,
-          kind: 'eld_document',
-          label: 'On file (ELD log)',
-          // Present and openable counts as cached even when the browser cannot
-          // decode it in-app — the named-card fallback still shows the file.
-          cached: !!doc,
-          renderable: !!doc?.renderable,
-          filename: doc?.filename ?? null,
-          showsTotals: false,
-          diverged: diverged.has(log_date),
-        };
-      }
-      return {
-        log_date,
-        kind: 'keyed',
-        label: 'Certified',
-        cached: pdfKeys.has(log_date),
-        renderable: pdfKeys.has(log_date),
-        filename: null,
-        showsTotals: showsDerivedTotals(day),
-        diverged: diverged.has(log_date),
-      };
-    });
+    // The device decides what it can show; the server only says what exists.
+    // Days certified on this device and not yet synced are added by the
+    // builder from the cache, so a packet is never a lap behind the driver.
+    const serverDays: ServerDayDescriptor[] = certified
+      .filter((d) => dates.includes(d.log_date))
+      .map((d) => ({
+        log_date: d.log_date,
+        kind: d.record_source === 'eld_document' ? 'eld_document' : 'keyed',
+        label: d.record_source === 'eld_document' ? 'On file (ELD log)' : 'Certified',
+        showsTotals: d.record_source === 'eld_document' ? false : showsDerivedTotals(d),
+      }));
 
-    const manifest: RoadsideManifest = {
-      key: 'current',
-      operator_id: operatorId,
-      days: manifestDays,
-      window_start: dates[dates.length - 1],
-      window_end: dates[0],
+    const manifest = await buildManifest({
+      mode: 'full',
+      operatorId,
+      dates,
+      serverDays,
+      diverged,
       event: evt ? {
         id: evt.id,
         discovered_at: evt.discovered_at,
@@ -479,8 +463,8 @@ async function run(operatorId: string, driverName: string) {
         device_label: [evt.device_make, evt.device_model].filter(Boolean).join(' ') || null,
         has_notice: hasNotice,
       } : null,
-      built_at: new Date().toISOString(),
-    };
+    });
+    const manifestDays = manifest.days;
     await roadsideDb.roadside_manifest.put(manifest);
     await pruneRoadsideCache(manifest);
 

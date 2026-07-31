@@ -19,6 +19,11 @@ export interface EnqueueInput {
   payload: Record<string, unknown>;
   depends_on?: string[];
   client_timestamp?: string;
+  /**
+   * Entries sharing a coalesce key describe the same thing (one day's header,
+   * one day's segments). See `enqueueCoalesced`.
+   */
+  coalesce_key?: string;
 }
 
 /**
@@ -39,6 +44,71 @@ export async function enqueue(input: EnqueueInput): Promise<SyncQueueEntry> {
       kind: input.kind,
       payload: input.payload,
       depends_on: input.depends_on ?? [],
+      coalesce_key: input.coalesce_key ?? null,
+      attempts: 0,
+      next_attempt_at: now,
+      status: 'pending',
+      last_error: null,
+      last_error_class: null,
+      client_timestamp: input.client_timestamp ?? now,
+      created_at: now,
+      updated_at: now,
+    };
+    await roadsideDb.sync_queue.put(entry);
+    return entry;
+  });
+}
+
+const TERMINAL: readonly SyncQueueEntry['status'][] = ['failed', 'rejected', 'cancelled'];
+
+export function isTerminal(status: SyncQueueEntry['status']): boolean {
+  return TERMINAL.includes(status);
+}
+
+/**
+ * Enqueue a draft write, collapsing redundant ones.
+ *
+ * A driver typing into the header produces one intent — "the header should end
+ * up like this" — not one per keystroke. Queueing each edit separately means a
+ * week offline drains as hundreds of round-trips that overwrite each other.
+ *
+ * Two cases, and the difference matters:
+ *   pending   — replace the payload in place. Same entry, same id, same
+ *               position in the drain order; nothing downstream is disturbed.
+ *   in_flight — the payload is already on the wire. A second entry is created
+ *               that DEPENDS on the one in flight, so the later state can never
+ *               be applied before the earlier one and then be overwritten by it.
+ */
+export async function enqueueCoalesced(
+  input: EnqueueInput & { coalesce_key: string },
+): Promise<SyncQueueEntry> {
+  assertSmallPayload(input.kind, input.payload);
+  const now = new Date().toISOString();
+
+  return roadsideDb.transaction('rw', roadsideDb.sync_queue, async () => {
+    const siblings = (await roadsideDb.sync_queue.toArray())
+      .filter((e) => e.coalesce_key === input.coalesce_key && !isTerminal(e.status))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+    const pending = siblings.find((e) => e.status === 'pending');
+    if (pending) {
+      const merged: SyncQueueEntry = {
+        ...pending,
+        payload: input.payload,
+        client_timestamp: input.client_timestamp ?? pending.client_timestamp,
+        updated_at: now,
+      };
+      await roadsideDb.sync_queue.put(merged);
+      return merged;
+    }
+
+    const inFlight = siblings.filter((e) => e.status === 'in_flight').map((e) => e.id);
+    const entry: SyncQueueEntry = {
+      id: input.id ?? newSyncId(),
+      kind: input.kind,
+      payload: input.payload,
+      depends_on: [...(input.depends_on ?? []), ...inFlight],
+      coalesce_key: input.coalesce_key,
       attempts: 0,
       next_attempt_at: now,
       status: 'pending',
@@ -72,8 +142,75 @@ export async function dueEntries(now = new Date()): Promise<SyncQueueEntry[]> {
   const iso = now.toISOString();
   return all
     .filter((e) => e.status === 'pending' && e.next_attempt_at <= iso)
-    .filter((e) => e.depends_on.every((dep) => byId.get(dep)?.status === 'succeeded'))
+    .filter((e) => e.depends_on.every((dep) => {
+      const prerequisite = byId.get(dep);
+      // A dependency that is GONE succeeded long enough ago to be purged —
+      // purgeSucceeded refuses to remove one anything still depends on, so an
+      // absent prerequisite can only be an old success. A terminal one is
+      // handled by resolveBlocked, which cancels this entry rather than
+      // leaving it to sit here forever.
+      if (!prerequisite) return true;
+      return prerequisite.status === 'succeeded';
+    }))
     .sort((a, b) => a.client_timestamp.localeCompare(b.client_timestamp));
+}
+
+/**
+ * Cancel every entry whose chain can never drain.
+ *
+ * Without this a certification whose PDF upload was rejected sits `pending`
+ * forever: its dependency will never succeed, so it is never due, so nothing
+ * ever reports it. The driver sees one permanent item on the sync chip and no
+ * explanation. Cancellation is transitive — a cancelled entry is itself a dead
+ * prerequisite — and runs to a fixed point.
+ *
+ * Returns the entries it cancelled so the caller can raise ONE alert per
+ * broken chain instead of one per orphan.
+ */
+export async function resolveBlocked(): Promise<SyncQueueEntry[]> {
+  const cancelled: SyncQueueEntry[] = [];
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop
+    const all = await roadsideDb.sync_queue.toArray();
+    const byId = new Map(all.map((e) => [e.id, e]));
+    const doomed = all.filter((e) => !isTerminal(e.status) && e.depends_on.some((dep) => {
+      const prerequisite = byId.get(dep);
+      return !!prerequisite && isTerminal(prerequisite.status);
+    }));
+    if (!doomed.length) return cancelled;
+    for (const entry of doomed) {
+      const cause = entry.depends_on
+        .map((dep) => byId.get(dep))
+        .find((dep) => dep && isTerminal(dep.status));
+      // eslint-disable-next-line no-await-in-loop
+      await roadsideDb.sync_queue.update(entry.id, {
+        status: 'cancelled',
+        last_error_class: 'cancelled',
+        last_error: `Cancelled because "${cause?.kind}" ended as ${cause?.status}: ${cause?.last_error ?? 'no detail'}`,
+        cancelled_by: cause?.id ?? null,
+        updated_at: new Date().toISOString(),
+      });
+      cancelled.push({ ...entry, status: 'cancelled', cancelled_by: cause?.id ?? null });
+    }
+  }
+}
+
+/**
+ * Cancel every non-terminal entry for one day. Used by the authorized unlock:
+ * the driver is being given the day back, so the chain that was trying to
+ * certify the old version must not later spring to life and re-lock it.
+ */
+export async function cancelChainForDay(logDate: string, reason: string): Promise<number> {
+  const all = await roadsideDb.sync_queue.toArray();
+  const mine = all.filter((e) => !isTerminal(e.status) && e.payload.log_date === logDate);
+  const now = new Date().toISOString();
+  for (const entry of mine) {
+    // eslint-disable-next-line no-await-in-loop
+    await roadsideDb.sync_queue.update(entry.id, {
+      status: 'cancelled', last_error_class: 'cancelled', last_error: reason, updated_at: now,
+    });
+  }
+  return mine.length;
 }
 
 export async function markInFlight(id: string): Promise<void> {
@@ -83,6 +220,7 @@ export async function markInFlight(id: string): Promise<void> {
 export async function markSucceeded(id: string): Promise<void> {
   await roadsideDb.sync_queue.update(id, {
     status: 'succeeded', last_error: null, last_error_class: null,
+    completed_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
 }
@@ -104,7 +242,7 @@ export async function markRetry(
 }
 
 export async function markTerminal(
-  id: string, status: 'failed' | 'rejected', errorClass: SyncErrorClass, message: string,
+  id: string, status: 'failed' | 'rejected' | 'cancelled', errorClass: SyncErrorClass, message: string,
 ): Promise<void> {
   const entry = await roadsideDb.sync_queue.get(id);
   await roadsideDb.sync_queue.update(id, {
@@ -123,9 +261,17 @@ export async function markTerminal(
  */
 export async function purgeSucceeded(now = Date.now()): Promise<number> {
   const cutoff = new Date(now - SUCCEEDED_TTL_MS).toISOString();
+  const all = await roadsideDb.sync_queue.toArray();
+  // An entry something non-terminal still depends on is NOT purgeable, however
+  // old it is: dueEntries reads an absent prerequisite as satisfied, so
+  // deleting it here would release a dependent early — exactly the ordering
+  // guarantee the dependency existed to provide.
+  const stillDependedOn = new Set(
+    all.filter((e) => !isTerminal(e.status)).flatMap((e) => e.depends_on),
+  );
   const stale = await roadsideDb.sync_queue
     .where('status').equals('succeeded')
-    .filter((e) => e.updated_at < cutoff)
+    .filter((e) => e.updated_at < cutoff && !stillDependedOn.has(e.id))
     .toArray();
   await roadsideDb.sync_queue.bulkDelete(stale.map((e) => e.id));
   return stale.length;
@@ -136,6 +282,7 @@ export interface SyncCounts {
   inFlight: number;
   failed: number;
   rejected: number;
+  cancelled: number;
 }
 
 export async function syncCounts(): Promise<SyncCounts> {
@@ -145,5 +292,6 @@ export async function syncCounts(): Promise<SyncCounts> {
     inFlight: all.filter((e) => e.status === 'in_flight').length,
     failed: all.filter((e) => e.status === 'failed').length,
     rejected: all.filter((e) => e.status === 'rejected').length,
+    cancelled: all.filter((e) => e.status === 'cancelled').length,
   };
 }

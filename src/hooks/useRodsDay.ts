@@ -8,6 +8,9 @@ import { isShortPeriod } from '@/lib/eld/rodsValidation';
 import {
   assertDeleteApplied, assertRowsAffected, isRowNotWritable, markDayStale,
 } from '@/lib/eld/rodsWrite';
+import { roadsideDb } from '@/lib/eld/offline/db';
+import { putCachedDay, putCachedEvents } from '@/lib/eld/offline/cache';
+import { enqueueCoalesced } from '@/lib/eld/offline/queue/store';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 export interface DraftSegment {
@@ -29,7 +32,15 @@ export interface DraftSegment {
  * `pendingHeader` and will go out on the next flush, but certification must not
  * proceed, because the row it would lock does not yet carry them.
  */
-export type HeaderFlushResult = 'saved' | 'nothing-pending' | 'offline';
+/**
+ * Outcome of pushing the debounced header edits.
+ *
+ * There is no longer an `offline` outcome. Draft writes are LOCAL-FIRST: the
+ * flush writes the Dexie cache and hands the server write to the sync queue,
+ * so it succeeds with or without a signal. Certification gates on the local
+ * copy, which is the copy the queue will replay.
+ */
+export type HeaderFlushResult = 'saved' | 'nothing-pending' | 'locked';
 
 /**
  * A flush that failed for a reason the driver has already been told about
@@ -49,12 +60,9 @@ export function isHandledFlushError(err: unknown): boolean {
   return !!err && typeof err === 'object' && (err as { handled?: boolean }).handled === true;
 }
 
-/** A transport failure, not a rejection: the write never reached the server. */
-function isOfflineError(err: unknown): boolean {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
-  const msg = err instanceof Error ? err.message : String(err ?? '');
-  return /failed to fetch|networkerror|network request failed|load failed/i.test(msg);
-}
+/** The day is locked on this device by a certification the office has not confirmed. */
+export const LOCAL_CERTIFIED_MESSAGE =
+  'You signed this log on this device. It is waiting to reach the office and cannot be edited.';
 
 function toDraft(e: RodsEvent): DraftSegment {
   return {
@@ -67,6 +75,20 @@ function toDraft(e: RodsEvent): DraftSegment {
     state: e.state ?? '',
     remarks: e.remarks ?? '',
   };
+}
+
+function toEventRow(dayId: string, s: DraftSegment): RodsEvent {
+  return {
+    id: s.id ?? s.localId,
+    rods_day_id: dayId,
+    start_minute: s.start_minute,
+    end_minute: s.end_minute,
+    duty_status: s.duty_status,
+    city: s.city.trim() || null,
+    state: s.state.trim().toUpperCase() || null,
+    remarks: s.remarks.trim() || null,
+    is_short_period: isShortPeriod(s.start_minute, s.end_minute),
+  } as unknown as RodsEvent;
 }
 
 let localCounter = 0;
@@ -95,11 +117,42 @@ export function useRodsDay(params: {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Header edits made since the last flush, merged across fields. */
   const pendingHeader = useRef<Partial<RodsDay>>({});
+  /** Monotonic per-day, mirrored into the cache and the queue entry. */
+  const version = useRef(0);
+  /** Non-null once the driver has signed on this device. Blocks every edit. */
+  const localCertifiedAt = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!operatorId) return;
     setLoading(true);
-    const { data: rows } = await supabase
+
+    // CACHE FIRST. For an uncertified day the device is the source of truth:
+    // the driver's edits live here and the queue replays them later, so a
+    // server read that came back stale (or came back at all, after edits that
+    // have not drained) would show the driver an older version of their own
+    // log. A synced, server-confirmed cache entry is equally safe to use.
+    const cached = await roadsideDb.rods_days_cache.get(logDate).catch(() => undefined);
+    const cacheIsAuthoritative = !!cached
+      && cached.operator_id === operatorId
+      && (cached.unsynced || !!cached.local_certified_at);
+
+    let target: RodsDay | null = null;
+
+    if (cacheIsAuthoritative && cached) {
+      target = cached.day;
+      version.current = cached.version;
+      localCertifiedAt.current = cached.local_certified_at;
+      const cachedEvents = await roadsideDb.rods_events_cache.get(cached.day.id).catch(() => undefined);
+      setDay(target);
+      setSegments((cachedEvents?.events ?? []).map(toDraft));
+      setLoading(false);
+      return;
+    }
+
+    localCertifiedAt.current = null;
+    version.current = cached?.version ?? 0;
+
+    const { data: rows, error: readErr } = await supabase
       .from('rods_days')
       .select('*')
       .eq('operator_id', operatorId)
@@ -107,8 +160,17 @@ export function useRodsDay(params: {
       .neq('status', 'superseded')
       .order('created_at', { ascending: false });
 
+    if (readErr && cached) {
+      // Offline with a clean cached copy — show it rather than an empty screen.
+      setDay(cached.day);
+      const cachedEvents = await roadsideDb.rods_events_cache.get(cached.day.id).catch(() => undefined);
+      setSegments((cachedEvents?.events ?? []).map(toDraft));
+      setLoading(false);
+      return;
+    }
+
     const list = (rows ?? []) as unknown as RodsDay[];
-    let target = list.find((d) => d.status === 'draft') ?? list[0] ?? null;
+    target = list.find((d) => d.status === 'draft') ?? list[0] ?? null;
 
     if (!target && autoCreate) {
       // Carrier identity is snapshotted from the device cache, never read live
@@ -122,21 +184,44 @@ export function useRodsDay(params: {
         setLoading(false);
         return;
       }
-      const { data: created, error } = await supabase
-        .from('rods_days')
-        .insert({
-          operator_id: operatorId,
-          log_date: logDate,
-          record_source: 'keyed',
-          status: 'draft',
-          is_reconstructed: !!isReconstruction,
-          ...rodsDayCarrierSnapshot(carrier),
-          ...defaults,
-        })
-        .select('*')
-        .single();
-      if (error) { toast.error(error.message); setLoading(false); return; }
-      target = created as unknown as RodsDay;
+      // The id is minted HERE, not by the database. A driver in a dead zone
+      // starting the day's log is the whole point of the offline path, and a
+      // server-generated id would make creation the one step that needs a
+      // signal. The same UUID is used by every later write, so the row the
+      // queue eventually inserts is the row the driver has been editing.
+      const now = new Date().toISOString();
+      target = {
+        id: crypto.randomUUID(),
+        operator_id: operatorId,
+        log_date: logDate,
+        record_source: 'keyed',
+        status: 'draft',
+        locked: false,
+        is_reconstructed: !!isReconstruction,
+        created_at: now,
+        updated_at: now,
+        ...rodsDayCarrierSnapshot(carrier),
+        ...defaults,
+      } as unknown as RodsDay;
+      version.current += 1;
+      await putCachedDay({
+        day: target,
+        operator_id: operatorId,
+        log_date: logDate,
+        unsynced: true,
+        version: version.current,
+        local_certified_at: null,
+        sync_rejected: false,
+        sync_stalled: false,
+      });
+      await putCachedEvents({
+        rods_day_id: target.id, log_date: logDate, events: [], unsynced: true, version: version.current,
+      });
+      await enqueueCoalesced({
+        kind: 'save_draft_day',
+        coalesce_key: `save_draft_day:${logDate}`,
+        payload: { operator_id: operatorId, log_date: logDate, day_id: target.id, version: version.current },
+      });
     }
 
     setDay(target);
@@ -146,7 +231,26 @@ export function useRodsDay(params: {
         .select('*')
         .eq('rods_day_id', target.id)
         .order('start_minute');
-      setSegments(((evs ?? []) as unknown as RodsEvent[]).map(toDraft));
+      const rowsOut = (evs ?? []) as unknown as RodsEvent[];
+      setSegments(rowsOut.map(toDraft));
+      // Keep the cache aligned with what was just read, so the roadside packet
+      // and an offline reload agree with the editor.
+      if (!cacheIsAuthoritative) {
+        await putCachedDay({
+          day: target,
+          operator_id: operatorId,
+          log_date: logDate,
+          unsynced: false,
+          version: version.current,
+          local_certified_at: null,
+          sync_rejected: cached?.sync_rejected ?? false,
+          sync_stalled: cached?.sync_stalled ?? false,
+        }).catch(() => undefined);
+        await putCachedEvents({
+          rods_day_id: target.id, log_date: logDate, events: rowsOut,
+          unsynced: false, version: version.current,
+        }).catch(() => undefined);
+      }
     } else {
       setSegments([]);
     }
@@ -186,27 +290,43 @@ export function useRodsDay(params: {
 
   const flushHeader = useCallback(async (patch: Partial<RodsDay>): Promise<HeaderFlushResult> => {
     if (!day || day.locked) return 'nothing-pending';
+    if (localCertifiedAt.current) return 'locked';
     setSaving(true);
     try {
-      // .select('id') is not cosmetic: without the returned representation a
-      // write filtered by RLS is indistinguishable from one that committed.
-      const res = await supabase.from('rods_days')
-        .update(patch as never).eq('id', day.id).select('id');
-      assertRowsAffected(res, {
-        table: 'rods_days', operation: 'header update', dayId: day.id, logDate: day.log_date,
+      // LOCAL FIRST, and the queue owns the network. Writing the row here as
+      // well would give a day two writers racing on the same columns, and the
+      // loser silently reverts the driver's edit. The cache is the draft; the
+      // queue replays it from the cache when there is a signal.
+      const merged = { ...day, ...patch } as RodsDay;
+      version.current += 1;
+      await putCachedDay({
+        day: merged,
+        operator_id: merged.operator_id,
+        log_date: merged.log_date,
+        unsynced: true,
+        version: version.current,
+        local_certified_at: null,
+        sync_rejected: false,
+        sync_stalled: false,
+      });
+      await enqueueCoalesced({
+        kind: 'save_draft_day',
+        coalesce_key: `save_draft_day:${merged.log_date}`,
+        payload: {
+          operator_id: merged.operator_id,
+          log_date: merged.log_date,
+          day_id: merged.id,
+          version: version.current,
+        },
       });
       // Cleared only now, and only for the keys this write actually carried.
-      // A field edited while the request was in flight stays pending.
+      // A field edited while the write was in flight stays pending.
       for (const [k, v] of Object.entries(patch)) {
         const current = (pendingHeader.current as Record<string, unknown>)[k];
         if (Object.is(current, v)) delete (pendingHeader.current as Record<string, unknown>)[k];
       }
       return 'saved';
     } catch (err) {
-      // Offline is not a failure: the edits stay in pendingHeader and the next
-      // flush sends them. Dropping them here is how a certified log ends up
-      // missing a field the driver typed.
-      if (isOfflineError(err)) return 'offline';
       await handleWriteFailure(err);
       throw new HeaderFlushHandledError();
     } finally {
@@ -248,34 +368,31 @@ export function useRodsDay(params: {
   /** Replaces the day's segments wholesale — simplest correct write for a small set. */
   const saveSegments = useCallback(async (next: DraftSegment[]) => {
     if (!day) return false;
+    if (localCertifiedAt.current) { toast.error(LOCAL_CERTIFIED_MESSAGE); return false; }
     setSaving(true);
     try {
-      const { error: delErr } = await supabase.from('rods_events')
-        .delete().eq('rods_day_id', day.id).select('id');
-      if (delErr) throw new Error(delErr.message);
-      // A delete removing nothing is ambiguous — the day may have had no
-      // segments. Anything still standing means RLS filtered the delete.
-      const { count, error: countErr } = await supabase.from('rods_events')
-        .select('id', { count: 'exact', head: true }).eq('rods_day_id', day.id);
-      if (countErr) throw new Error(countErr.message);
-      assertDeleteApplied(count ?? 0, { dayId: day.id, logDate: day.log_date });
-
-      if (next.length) {
-        const payload = next.map((s) => ({
-          rods_day_id: day.id,
-          start_minute: s.start_minute,
-          end_minute: s.end_minute,
-          duty_status: s.duty_status,
-          city: s.city.trim() || null,
-          state: s.state.trim().toUpperCase() || null,
-          remarks: s.remarks.trim() || null,
-          is_short_period: isShortPeriod(s.start_minute, s.end_minute),
-        }));
-        const res = await supabase.from('rods_events').insert(payload as never).select('id');
-        assertRowsAffected(res, {
-          table: 'rods_events', operation: 'segment insert', dayId: day.id, logDate: day.log_date,
-        });
-      }
+      // Same sovereignty rule as the header: segments land in the cache, and
+      // the queue does the delete-and-reinsert against the server from that
+      // cached set. Segment edits shared the header's debounce race shape, so
+      // they get the same single-writer treatment rather than a second fix.
+      version.current += 1;
+      await putCachedEvents({
+        rods_day_id: day.id,
+        log_date: day.log_date,
+        events: next.map((s) => toEventRow(day.id, s)),
+        unsynced: true,
+        version: version.current,
+      });
+      await enqueueCoalesced({
+        kind: 'save_draft_segments',
+        coalesce_key: `save_draft_segments:${day.log_date}`,
+        payload: {
+          operator_id: day.operator_id,
+          log_date: day.log_date,
+          day_id: day.id,
+          version: version.current,
+        },
+      });
       return true;
     } catch (err) {
       await handleWriteFailure(err);
@@ -288,6 +405,7 @@ export function useRodsDay(params: {
   return {
     day, setDay, segments, setSegments,
     loading, saving,
+    localCertifiedAt: localCertifiedAt.current,
     reload: load,
     patchHeader, flushPendingHeader, saveSegments,
   };

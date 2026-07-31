@@ -71,9 +71,11 @@ function withOverrides(id: string, over: Partial<RodsDay>): RodsDay {
 async function seedCache(cachedDay: RodsDay, uploaded: boolean) {
   await roadsideDb.rods_days_cache.put({
     log_date: DATE, operator_id: 'op-1', day: cachedDay, cached_at: '2026-07-30T20:00:01.000Z',
+    unsynced: false, version: 0, local_certified_at: null, sync_rejected: false, sync_stalled: false,
   });
   await roadsideDb.rods_events_cache.put({
     rods_day_id: cachedDay.id, log_date: DATE, events: [], cached_at: '2026-07-30T20:00:01.000Z',
+    unsynced: false, version: 0,
   });
   await roadsideDb.rods_pdfs.put({
     log_date: DATE, operator_id: 'op-1', bytes: new ArrayBuffer(4), mime: 'application/pdf',
