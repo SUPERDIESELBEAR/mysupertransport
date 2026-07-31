@@ -133,3 +133,21 @@ Notes:
 - `src/test/definer-fail-open.test.ts` flags a negated guard in a definer body
   that reads `current_setting`, `request.jwt`, `session_user`, or `current_user`
   without `coalesce`. It is a heuristic for the shape, not a proof.
+
+### 5a. Seeded round-trip proof, 2026-07-31
+
+Run from a real `@supabase/supabase-js` client holding a driver session minted
+through `create-preview-session` → `redeem-preview-session` → `verifyOtp`
+(demo driver `ee993ec0`), against seeded scratch `rods_days` rows, all purged
+afterwards via `purge_rods_day` (11 rows, `rods_days`/`rods_events`/
+`rods_amendments` back to 0, 11 `rods_day_purged` audit rows).
+
+Observed verbatim in `PostgrestError.code`: `P0010`, `P0011`, `P0012`, `P0013`,
+`P0014`, `P0015`, `P0020`, `P0021`, `P0022`, `P0023`, `P0030`, `P0031`, plus
+`42501` for `purge_rods_day` and `P0001` for the deferred continuity trigger.
+
+Not observed, and unreachable from a driver client: `P0002`, `P0040`, `P0041`.
+The `rods_days` UPDATE and DELETE policies both require `locked = false`, so
+RLS filters a certified row out before the lock trigger runs — the write
+returns **0 rows and no error**. Any client logic that waits for one of those
+three codes will wait forever; check the affected row count instead.
