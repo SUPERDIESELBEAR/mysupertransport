@@ -8,6 +8,9 @@ import { isShortPeriod } from '@/lib/eld/rodsValidation';
 import {
   assertDeleteApplied, assertRowsAffected, isRowNotWritable, markDayStale,
 } from '@/lib/eld/rodsWrite';
+import { roadsideDb } from '@/lib/eld/offline/db';
+import { putCachedDay, putCachedEvents } from '@/lib/eld/offline/cache';
+import { enqueueCoalesced } from '@/lib/eld/offline/queue/store';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 export interface DraftSegment {
@@ -29,7 +32,15 @@ export interface DraftSegment {
  * `pendingHeader` and will go out on the next flush, but certification must not
  * proceed, because the row it would lock does not yet carry them.
  */
-export type HeaderFlushResult = 'saved' | 'nothing-pending' | 'offline';
+/**
+ * Outcome of pushing the debounced header edits.
+ *
+ * There is no longer an `offline` outcome. Draft writes are LOCAL-FIRST: the
+ * flush writes the Dexie cache and hands the server write to the sync queue,
+ * so it succeeds with or without a signal. Certification gates on the local
+ * copy, which is the copy the queue will replay.
+ */
+export type HeaderFlushResult = 'saved' | 'nothing-pending' | 'locked';
 
 /**
  * A flush that failed for a reason the driver has already been told about
@@ -49,12 +60,9 @@ export function isHandledFlushError(err: unknown): boolean {
   return !!err && typeof err === 'object' && (err as { handled?: boolean }).handled === true;
 }
 
-/** A transport failure, not a rejection: the write never reached the server. */
-function isOfflineError(err: unknown): boolean {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
-  const msg = err instanceof Error ? err.message : String(err ?? '');
-  return /failed to fetch|networkerror|network request failed|load failed/i.test(msg);
-}
+/** The day is locked on this device by a certification the office has not confirmed. */
+export const LOCAL_CERTIFIED_MESSAGE =
+  'You signed this log on this device. It is waiting to reach the office and cannot be edited.';
 
 function toDraft(e: RodsEvent): DraftSegment {
   return {
@@ -67,6 +75,20 @@ function toDraft(e: RodsEvent): DraftSegment {
     state: e.state ?? '',
     remarks: e.remarks ?? '',
   };
+}
+
+function toEventRow(dayId: string, s: DraftSegment): RodsEvent {
+  return {
+    id: s.id ?? s.localId,
+    rods_day_id: dayId,
+    start_minute: s.start_minute,
+    end_minute: s.end_minute,
+    duty_status: s.duty_status,
+    city: s.city.trim() || null,
+    state: s.state.trim().toUpperCase() || null,
+    remarks: s.remarks.trim() || null,
+    is_short_period: isShortPeriod(s.start_minute, s.end_minute),
+  } as unknown as RodsEvent;
 }
 
 let localCounter = 0;
