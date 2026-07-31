@@ -100,3 +100,53 @@ log_date, so a prefix sweep would take the surviving record's artifacts with it.
 Unreferenced objects are handled separately by `sweep-rods-orphans`, which is a
 reachability check against `rods_days`, not a prefix match, and defaults to a
 dry run.
+
+## Purging a record of duty status
+
+**`purge-rods-day` (edge function) is the only authoritative purge path.** It
+calls `purge_rods_day`, then removes the row's objects through the Storage API.
+The SQL function cannot do the removal itself — `storage.protect_delete()`
+blocks direct deletes from `storage.objects` — so it takes a required
+`_storage_owner` argument and refuses (`42501`) without one. A bare RPC call
+therefore cannot strand a log's PDF and signature in the bucket.
+
+The two-argument overload still resolves but always refuses; see
+`docs/deferred-removals.md`.
+
+### Chain-safe ordering
+
+An amendment must be purged before the original it supersedes
+(`rods_days.supersedes_day_id` and `rods_amendments.original_day_id` both point
+at the original, neither deferrable). `supersedes_day_id IS NOT NULL` is
+one-level thinking: in a chain original ← A1 ← A2 it is true for both
+amendments and the wrong order hits `23503`. Callers purge only rows nothing
+references:
+
+```sql
+WHERE operator_id = _op
+  AND id NOT IN (SELECT supersedes_day_id FROM rods_days
+                 WHERE supersedes_day_id IS NOT NULL AND operator_id = _op)
+```
+
+then re-query and repeat, bailing loudly if a pass finds rows but no leaves (a
+cycle). `reset-demo-driver` and the Playwright harness's cleanup both use this
+loop.
+
+### Storage disposition
+
+Every `rods_day_purged` audit row carries `storage_disposition`:
+
+| Value | Meaning |
+| --- | --- |
+| `not_applicable` | the row owned no objects |
+| `pending_caller` | rows deleted, object removal not yet confirmed |
+| `completed` | every recorded path removed |
+| `completed_with_failures` | at least one path could not be removed |
+| `completed_late` | closed out afterwards by `sweep-rods-orphans` |
+
+A caller that dies between the RPC and `record_rods_purge_storage_result`
+leaves `pending_caller` behind, so an incomplete purge never reads as a
+complete one. `sweep-rods-orphans` reports those rows as `incompletePurges`
+(known orphans — the paths are recorded, not inferred) alongside its
+reachability scan, and the **Duty-status storage** card in the ELD admin area
+surfaces them.

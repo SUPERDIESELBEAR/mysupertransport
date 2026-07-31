@@ -53,6 +53,9 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const { data, error } = await supabase.rpc('purge_rods_day', {
       _day_id: dayId,
       _reason: reason,
+      // Required. The SQL function cannot remove objects itself, so the caller
+      // must name itself as the party that will.
+      _storage_owner: 'purge-rods-day edge function',
     })
     if (error) {
       results.push({ day_id: dayId, purged: false, error: error.message })
@@ -62,6 +65,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const payload = (data ?? {}) as {
       audit_id?: string
       storage_paths?: string[]
+      storage_disposition?: string
     }
     const paths = Array.isArray(payload.storage_paths) ? payload.storage_paths : []
     const removed: string[] = []

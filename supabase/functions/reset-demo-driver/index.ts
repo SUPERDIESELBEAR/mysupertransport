@@ -24,12 +24,60 @@ const OPERATOR_SCOPED_TABLES = [
   'dispatch_status_history',
   'contractor_pay_setup',
   'cert_reminders',
+  'eld_malfunction_events',
 ]
 
+// Records of duty status cannot be deleted directly -- a BEFORE DELETE lock
+// trigger refuses, and their storage objects have to go through the Storage
+// API. Route them through the purge-rods-day edge function, the only
+// authoritative purge path.
+//
+// Ordering matters: an amendment must be purged before the original it
+// supersedes. `supersedes_day_id IS NOT NULL` is one-level thinking -- in a
+// chain original <- A1 <- A2 it is true for both amendments and the wrong
+// order hits 23503. Purge only rows nothing references, then re-query.
+async function purgeOperatorRodsDays(
+  admin: any,
+  authHeader: string,
+  operatorId: string,
+  reason: string,
+) {
+  const purged: string[] = []
+  for (let pass = 0; pass < 50; pass++) {
+    const { data: rows, error } = await admin
+      .from('rods_days')
+      .select('id, supersedes_day_id')
+      .eq('operator_id', operatorId)
+    if (error) throw new Error(`Could not read duty-status logs: ${error.message}`)
+    const all = (rows ?? []) as Array<{ id: string; supersedes_day_id: string | null }>
+    if (all.length === 0) return purged
+
+    const superseded = new Set(all.map((r) => r.supersedes_day_id).filter(Boolean) as string[])
+    const leaves = all.filter((r) => !superseded.has(r.id)).map((r) => r.id)
+    if (leaves.length === 0) {
+      // Every row is referenced by another: a cycle. Bail loudly.
+      throw new Error(
+        `Refusing to purge: duty-status amendment chain for operator ${operatorId} has no unreferenced row (cycle).`,
+      )
+    }
+
+    const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/purge-rods-day`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+      body: JSON.stringify({ dayIds: leaves, reason }),
+    })
+    if (!res.ok) {
+      throw new Error(`purge-rods-day failed (${res.status}): ${await res.text()}`)
+    }
+    purged.push(...leaves)
+  }
+  throw new Error('Refusing to purge: duty-status chain did not resolve within 50 passes.')
+}
 Deno.serve(withErrorEnvelope(async (req) => {
   const auth = await requireStaff(req, { roles: ['management', 'owner'] })
   if (auth instanceof Response) return auth
   const { userId } = auth
+  const authHeader = req.headers.get('Authorization') ?? ''
 
   let body: any
   try { body = await req.json() } catch { return fail(400, 'Invalid JSON body') }
@@ -57,6 +105,19 @@ Deno.serve(withErrorEnvelope(async (req) => {
   for (const table of OPERATOR_SCOPED_TABLES) {
     const { error } = await admin.from(table as any).delete().eq('operator_id', operatorId)
     if (error) console.error(`reset-demo-driver: failed clearing ${table}`, error.message)
+  }
+
+  // 1b. Records of duty status, through the authoritative purge path.
+  let rodsPurged: string[] = []
+  try {
+    rodsPurged = await purgeOperatorRodsDays(
+      admin,
+      authHeader,
+      operatorId,
+      `Demo driver reset — synthetic records of duty status, scenario ${scenario}.`,
+    )
+  } catch (e) {
+    return fail(500, `Could not purge demo duty-status logs: ${(e as Error).message}`)
   }
 
   // 2. Reset onboarding status to the scenario snapshot.
@@ -103,5 +164,5 @@ Deno.serve(withErrorEnvelope(async (req) => {
       .insert({ operator_id: operatorId, dispatch_status: 'not_dispatched', updated_by: userId })
   }
 
-  return ok({ operatorId, scenario })
+  return ok({ operatorId, scenario, rodsDaysPurged: rodsPurged.length })
 }))
