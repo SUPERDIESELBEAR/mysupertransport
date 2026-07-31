@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { RODS_BUCKET } from '@/lib/eld/rodsTypes';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
+import { deleteReplayOrphans } from '@/lib/eld/rodsReplayOrphans';
 import type { RodsDay } from '@/lib/eld/rodsTypes';
 import { roadsideDb, type SyncKind } from '../db';
 
@@ -52,9 +53,16 @@ export type SyncHandler = (payload: Payload) => Promise<void>;
  * write-back the cache would hold the signing time and every offline
  * certification would flag as a divergence on the next hydration. The real
  * signing time is preserved separately in local_certified_at.
+ *
+ * `replayed` is stripped first. It is a property of the CALL, not of the day,
+ * and has no business sitting on the local copy of a federal record. It would
+ * not trip compareKeyedDay — that fingerprints certified_at, the four totals
+ * and segment count — but a phantom field on a §395.8 record is still wrong.
  */
 async function cacheReturnedDay(data: unknown): Promise<void> {
-  const day = data as RodsDay | null;
+  const { replayed: _replayed, ...rest } =
+    (data ?? {}) as Record<string, unknown> & { replayed?: boolean };
+  const day = rest as unknown as RodsDay | null;
   if (!day?.id || !day.log_date) return;
   const existing = await roadsideDb.rods_days_cache.get(day.log_date);
   await roadsideDb.rods_days_cache.put({
@@ -104,17 +112,35 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
   async certify_rods_day(payload) {
     const raw = payload.changes;
     const changes = Array.isArray(raw) ? raw : [];
+    const sentSignaturePath = str(payload, 'signature_path');
+    const sentPdfPath = str(payload, 'pdf_path');
     const { data, error } = await supabase.rpc('certify_rods_day', {
       _day_id: str(payload, 'day_id'),
       _legal_name: str(payload, 'legal_name'),
-      _signature_path: str(payload, 'signature_path'),
-      _pdf_path: str(payload, 'pdf_path'),
+      _signature_path: sentSignaturePath,
+      _pdf_path: sentPdfPath,
       _device_info: str(payload, 'device_info'),
       p_certification_token: str(payload, 'token'),
       p_changes: changes as never,
     });
     if (error) throw new Error(error.message);
-    await cacheReturnedDay(Array.isArray(data) ? data[0] : data);
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | (Record<string, unknown> & { replayed?: boolean; log_date?: string })
+      | null;
+    const replayed = row?.replayed === true;
+
+    if (replayed) {
+      // The office already has this certification from an earlier attempt.
+      // Cheap check first: if the cached copy is already the certified row
+      // there is nothing to write back.
+      const cached = row?.log_date
+        ? await roadsideDb.rods_days_cache.get(row.log_date)
+        : undefined;
+      if (!cached?.day?.certified_at) await cacheReturnedDay(row);
+      await deleteReplayOrphans(row, [sentSignaturePath, sentPdfPath]);
+      return;
+    }
+    await cacheReturnedDay(row);
   },
 
   async create_eld_document_day(payload) {

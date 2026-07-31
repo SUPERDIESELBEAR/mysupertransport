@@ -16,6 +16,7 @@ import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
 import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
 import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
 import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
+import { deleteReplayOrphans } from '@/lib/eld/rodsReplayOrphans';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
@@ -237,7 +238,7 @@ export default function RodsDayEditor({
           )
         : [];
 
-      const { error } = await supabase.rpc('certify_rods_day', {
+      const { data: certified, error } = await supabase.rpc('certify_rods_day', {
         _day_id: day!.id,
         _legal_name: legalName.trim(),
         _signature_path: sigPath,
@@ -251,7 +252,20 @@ export default function RodsDayEditor({
       });
       if (error) throw new Error(error.message);
 
-      toast.success('Log certified.');
+      const row = (Array.isArray(certified) ? certified[0] : certified) as
+        | (Record<string, unknown> & { replayed?: boolean })
+        | null;
+
+      if (row?.replayed === true) {
+        toast.success(
+          'This log was already certified from your earlier attempt — that certification and the signature you gave then are what is on file.',
+        );
+        // sigPath/pdfPath are THIS attempt's uploads, captured above. The row
+        // carries the first attempt's paths and must not be touched.
+        await deleteReplayOrphans(row, [sigPath, pdfPath]);
+      } else {
+        toast.success('Log certified.');
+      }
       certifyToken.current = null;
       setCertifyOpen(false);
       onChanged();

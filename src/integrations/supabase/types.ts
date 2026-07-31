@@ -5841,56 +5841,7 @@ export type Database = {
           p_certification_token: string
           p_changes?: Json
         }
-        Returns: {
-          amendment_reason: string | null
-          carrier_mc: string | null
-          carrier_name: string | null
-          carrier_usdot: string | null
-          certification_device_info: string | null
-          certification_legal_name: string | null
-          certification_signature_path: string | null
-          certification_token: string | null
-          certified_at: string | null
-          certified_by: string | null
-          co_driver_name: string | null
-          created_at: string
-          from_location: string | null
-          home_terminal_address: string | null
-          home_terminal_timezone: string | null
-          id: string
-          is_reconstructed: boolean
-          locked: boolean
-          log_date: string
-          main_office_address: string | null
-          operator_id: string
-          pdf_path: string | null
-          period_start_time: string
-          recap_available_tomorrow: string | null
-          recap_last_7_days: string | null
-          recap_last_8_days: string | null
-          recap_on_duty_today: string | null
-          record_source: string
-          shipping_document_no: string | null
-          source_document_path: string | null
-          status: string
-          supersedes_day_id: string | null
-          to_location: string | null
-          total_driving_minutes: number
-          total_mileage_today: number | null
-          total_miles_driving_today: number | null
-          total_off_duty_minutes: number
-          total_on_duty_minutes: number
-          total_sleeper_minutes: number
-          trailer_numbers: string | null
-          truck_number: string | null
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "rods_days"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Json
       }
       check_application_email_taken: {
         Args: { p_email: string }
@@ -6347,7 +6298,7 @@ export type Database = {
       }
       purge_rods_day: {
         Args: { _day_id: string; _reason: string }
-        Returns: undefined
+        Returns: Json
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -6356,6 +6307,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_rods_purge_storage_result: {
+        Args: { _audit_id: string; _failed?: Json; _removed: string[] }
+        Returns: undefined
       }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }
