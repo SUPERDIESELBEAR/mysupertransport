@@ -12,16 +12,19 @@
  * function that writes the amendment change record: if it can describe a
  * difference to an auditor, it can describe one to the driver.
  *
- * Online the persisted copy is the server row. Offline it is the Dexie cache
- * (see docs/eld-offline-certification.md, AC-3) — the bytes the queued
- * certification will actually replay against.
+ * The persisted copy is ALWAYS the Dexie cache — online and offline alike.
+ * Since the local-first write path landed, every draft write goes to Dexie
+ * first and the sync queue is its only route to the server, so the server is
+ * strictly downstream of this device and is never a more current copy of a
+ * draft. Reading it here would compare the screen against a row the queue has
+ * not drained yet and refuse a perfectly durable log (see
+ * docs/eld-offline-certification.md, AC-3).
  */
-import { supabase } from '@/integrations/supabase/client';
 import { diffAmendment, type AmendmentChange } from './amendmentDiff';
 import { roadsideDb } from './offline/db';
 import type { RodsDay, RodsEvent } from './rodsTypes';
 
-export type PreflightSource = 'server' | 'offline_cache';
+export type PreflightSource = 'local_cache';
 
 /** Proof that a specific day was verified against its persisted copy. */
 export interface PreflightResult {
@@ -77,32 +80,25 @@ export interface PersistedState {
   source: PreflightSource;
 }
 
-/** Read the row the certification will actually lock. */
-export async function readPersistedDay(dayId: string, logDate: string, online: boolean): Promise<PersistedState> {
-  if (online) {
-    const { data: dayRow, error } = await supabase
-      .from('rods_days').select('*').eq('id', dayId).maybeSingle();
-    if (error) throw new PreflightUnavailableError(error.message);
-    if (!dayRow) throw new PreflightUnavailableError('It is no longer on file.');
-    const { data: evs, error: evErr } = await supabase
-      .from('rods_events').select('*').eq('rods_day_id', dayId).order('start_minute');
-    if (evErr) throw new PreflightUnavailableError(evErr.message);
-    return {
-      day: dayRow as unknown as RodsDay,
-      events: (evs ?? []) as unknown as RodsEvent[],
-      source: 'server',
-    };
-  }
-
+/**
+ * Read the copy the certification will actually lock: this device's cache.
+ *
+ * A cache entry whose `day.id` differs from the day being certified is NOT a
+ * mismatch — it is a different row owning the date, which is a divergence and
+ * has its own path. Treated as unreadable here so the driver is never shown a
+ * field-by-field diff between two unrelated logs.
+ */
+export async function readPersistedDay(dayId: string, logDate: string): Promise<PersistedState> {
   const cached = await roadsideDb.rods_days_cache.get(logDate);
-  if (!cached || cached.day.id !== dayId) {
-    throw new PreflightUnavailableError('This device has no offline copy of it yet.');
+  if (!cached) throw new PreflightUnavailableError('This device has no saved copy of it yet.');
+  if (cached.day.id !== dayId) {
+    throw new PreflightUnavailableError('A different log now holds this date on this device.');
   }
   const cachedEvents = await roadsideDb.rods_events_cache.get(dayId);
   return {
     day: cached.day,
     events: cachedEvents?.events ?? [],
-    source: 'offline_cache',
+    source: 'local_cache',
   };
 }
 
@@ -115,10 +111,8 @@ export async function assertPersistedMatches(input: {
   dayId: string;
   logDate: string;
   onScreen: OnScreenState;
-  online?: boolean;
 }): Promise<PreflightResult> {
-  const online = input.online ?? (typeof navigator === 'undefined' ? true : navigator.onLine);
-  const persisted = await readPersistedDay(input.dayId, input.logDate, online);
+  const persisted = await readPersistedDay(input.dayId, input.logDate);
 
   const differences = diffAmendment(
     { day: persisted.day, events: persisted.events },
