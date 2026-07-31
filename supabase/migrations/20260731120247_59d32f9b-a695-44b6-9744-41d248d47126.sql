@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION public.certify_rods_day(_day_id uuid, _legal_name tex
  RETURNS rods_days
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path TO 'public', 'extensions'
 AS $function$
 DECLARE
   v_day public.rods_days;

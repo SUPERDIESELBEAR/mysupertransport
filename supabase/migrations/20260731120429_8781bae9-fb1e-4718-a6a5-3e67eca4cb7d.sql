@@ -2,7 +2,7 @@ CREATE OR REPLACE FUNCTION public.enforce_rods_day_lock()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
   IF TG_OP = 'DELETE' THEN

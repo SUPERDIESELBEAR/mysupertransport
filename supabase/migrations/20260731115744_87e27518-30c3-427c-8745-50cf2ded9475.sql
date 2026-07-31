@@ -18,7 +18,7 @@ CREATE OR REPLACE FUNCTION public.enforce_rods_day_lock()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'public', 'extensions'
 AS $function$
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -70,7 +70,7 @@ CREATE OR REPLACE FUNCTION public.discard_rods_amendment(_day_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'public', 'extensions'
 AS $function$
 DECLARE v_day public.rods_days;
 BEGIN
@@ -103,7 +103,7 @@ CREATE OR REPLACE FUNCTION public.purge_rods_day(_day_id uuid, _reason text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'extensions'
+SET search_path TO 'public', 'extensions', 'extensions'
 AS $function$
 DECLARE
   v_day public.rods_days;
