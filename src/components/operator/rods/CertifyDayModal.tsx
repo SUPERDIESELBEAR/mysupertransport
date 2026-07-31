@@ -19,7 +19,10 @@ export default function CertifyDayModal({
   validation: RodsValidation;
   legalName: string;
   onLegalNameChange: (v: string) => void;
-  /** Required when this log amends a certified one (49 CFR 395.30(c)(2)). */
+  /**
+   * Required when this log amends a certified one. Carrier policy, not a
+   * federal requirement — see src/lib/eld/amendmentDiff.ts.
+   */
   amendmentReason: string;
   onAmendmentReasonChange: (v: string) => void;
   onConfirm: (signatureDataUrl: string) => void | Promise<void>;
@@ -99,8 +102,8 @@ export default function CertifyDayModal({
                 placeholder="e.g. Entered the wrong truck number and missed a fuel stop in Tulsa, OK"
               />
               <p className="text-[11px] text-muted-foreground">
-                Federal rules require a written reason on every correction. It is filed with the
-                original log and with a line-by-line record of what changed.
+                SUPERTRANSPORT requires a written reason on every correction. It is filed with
+                the original log and with a line-by-line record of what changed.
               </p>
             </div>
           )}

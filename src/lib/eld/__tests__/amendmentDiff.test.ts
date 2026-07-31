@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diffAmendment } from '../amendmentDiff';
+import { RODS_HEADER_LABELS } from '../rodsHeaderFields';
 import type { RodsDay } from '../rodsTypes';
 
 const day = (over: Partial<RodsDay> = {}): RodsDay => ({
@@ -42,8 +43,33 @@ describe('diffAmendment', () => {
       { day: day(), events },
       { day: day({ truck_number: '82', total_miles_driving_today: 430 }), events },
     );
-    expect(changes).toContainEqual({ field_path: 'Truck / tractor number', old_value: '77', new_value: '82' });
+    expect(changes).toContainEqual({ field_path: 'Truck / tractor no.', old_value: '77', new_value: '82' });
     expect(changes).toContainEqual({ field_path: 'Total miles driving today', old_value: '412', new_value: '430' });
+  });
+
+  it('uses the same label strings the printed form uses — one source, no drift', () => {
+    const events = [seg(0, 1440, 1)];
+    const changes = diffAmendment(
+      { day: day(), events },
+      { day: day({ to_location: 'Wichita, KS', trailer_numbers: 'T-9' }), events },
+    );
+    expect(changes).toContainEqual({
+      field_path: RODS_HEADER_LABELS.to_location, old_value: 'Tulsa, OK', new_value: 'Wichita, KS',
+    });
+    expect(changes).toContainEqual({
+      field_path: RODS_HEADER_LABELS.trailer_numbers, old_value: 'T-1', new_value: 'T-9',
+    });
+    // Guard the property that matters: no change row ever names a column.
+    for (const c of changes) expect(c.field_path).not.toMatch(/^[a-z0-9_]+$/);
+  });
+
+  it('never emits a change row for the log date, which an amendment cannot move', () => {
+    const events = [seg(0, 1440, 1)];
+    const changes = diffAmendment(
+      { day: day(), events },
+      { day: day({ log_date: '2026-06-17' }), events },
+    );
+    expect(changes).toEqual([]);
   });
 
   it('treats blank and null as the same value, so whitespace is not an edit', () => {

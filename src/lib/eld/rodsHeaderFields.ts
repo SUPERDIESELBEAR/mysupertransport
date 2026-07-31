@@ -19,6 +19,55 @@ export interface RodsHeaderField {
 }
 
 /**
+ * The label an auditor and the driver actually read for each `rods_days`
+ * column — one source, used by the printed header block, the native roadside
+ * render, and the amendment change record.
+ *
+ * The change record used to carry its own copy of this map and had already
+ * drifted ("Trailer numbers" against the form's "Trailer no."). A change row
+ * that names a column instead of a field, or names it differently than the
+ * form does, makes an auditor reconcile two vocabularies. Add a column here
+ * and both the form and the change record pick it up.
+ *
+ * Includes columns the printed header block does not show (carrier identity,
+ * time zone, RECAP lines, the reconstructed flag) because an amendment may
+ * legitimately change them and the record has to name them the same way.
+ */
+export const RODS_HEADER_LABELS: Record<string, string> = {
+  log_date: 'Date (mo/day/yr)',
+  truck_number: 'Truck / tractor no.',
+  trailer_numbers: 'Trailer no.',
+  total_miles_driving_today: 'Total miles driving today',
+  total_mileage_today: 'Total mileage today',
+  co_driver_name: 'Co-driver name',
+  main_office_address: 'Main office address',
+  home_terminal_address: 'Home terminal address',
+  from_location: 'From',
+  to_location: 'To',
+  shipping_document_no: 'Shipping document no.',
+  period_start_time: '24-hour period begins',
+  home_terminal_timezone: 'Home terminal time zone',
+  carrier_name: 'Carrier name',
+  carrier_usdot: 'Carrier USDOT no.',
+  carrier_mc: 'Carrier MC no.',
+  recap_on_duty_today: 'Recap — total hours on duty today',
+  recap_last_7_days: 'Recap — total hours on duty last 7 days',
+  recap_available_tomorrow: 'Recap — total hours available tomorrow',
+  recap_last_8_days: 'Recap — total hours on duty last 8 days',
+  is_reconstructed: 'Reconstructed from memory',
+};
+
+/**
+ * The header columns an amendment may legitimately change, in the order a
+ * reader of the form meets them. Certification, lock, totals and bookkeeping
+ * columns are absent: the server owns them, so a diff of those would describe
+ * the act of certifying rather than the driver's correction. `log_date` is
+ * absent too — an amendment is bound to its original's date.
+ */
+export const AMENDABLE_HEADER_COLUMNS: readonly string[] = Object.keys(RODS_HEADER_LABELS)
+  .filter((c) => c !== 'log_date');
+
+/**
  * The full name of a time standard — "Central Daylight Time", never the IANA
  * identifier and never a reconstructed parenthetical. §395.8 wants the time
  * standard of the home terminal named on the record.
@@ -72,35 +121,35 @@ export function rodsHeaderFields(day: RodsDay, driverName: string): RodsHeaderFi
   const periodStart = formatPeriodStart(day.period_start_time);
   return [
     {
-      label: 'Date (mo/day/yr)',
+      label: RODS_HEADER_LABELS.log_date,
       // Anchored at noon so a 'YYYY-MM-DD' never slips a day across timezones.
       value: new Date(`${day.log_date}T12:00:00`).toLocaleDateString('en-US'),
       width: 150,
     },
-    { label: 'Truck / tractor no.', value: day.truck_number ?? '', width: 150 },
-    { label: 'Trailer no.', value: day.trailer_numbers ?? '', width: 120 },
+    { label: RODS_HEADER_LABELS.truck_number, value: day.truck_number ?? '', width: 150 },
+    { label: RODS_HEADER_LABELS.trailer_numbers, value: day.trailer_numbers ?? '', width: 120 },
     {
-      label: 'Total miles driving today',
+      label: RODS_HEADER_LABELS.total_miles_driving_today,
       value: day.total_miles_driving_today?.toString() ?? '',
       width: 150,
     },
     {
-      label: 'Total mileage today',
+      label: RODS_HEADER_LABELS.total_mileage_today,
       value: day.total_mileage_today?.toString() ?? '',
       width: 150,
     },
     { label: 'Driver name (print)', value: driverName, width: 200 },
-    { label: 'Co-driver name', value: day.co_driver_name ?? '', width: 150 },
-    { label: 'Main office address', value: day.main_office_address ?? '', width: 240 },
-    { label: 'Home terminal address', value: day.home_terminal_address ?? '', width: 240 },
+    { label: RODS_HEADER_LABELS.co_driver_name, value: day.co_driver_name ?? '', width: 150 },
+    { label: RODS_HEADER_LABELS.main_office_address, value: day.main_office_address ?? '', width: 240 },
+    { label: RODS_HEADER_LABELS.home_terminal_address, value: day.home_terminal_address ?? '', width: 240 },
     {
-      label: '24-hour period begins',
+      label: RODS_HEADER_LABELS.period_start_time,
       value: [periodStart, tz].filter(Boolean).join(' — '),
       width: 240,
     },
-    { label: 'From', value: day.from_location ?? '', width: 180 },
-    { label: 'To', value: day.to_location ?? '', width: 180 },
-    { label: 'Shipping document no.', value: day.shipping_document_no ?? '', width: 180 },
+    { label: RODS_HEADER_LABELS.from_location, value: day.from_location ?? '', width: 180 },
+    { label: RODS_HEADER_LABELS.to_location, value: day.to_location ?? '', width: 180 },
+    { label: RODS_HEADER_LABELS.shipping_document_no, value: day.shipping_document_no ?? '', width: 180 },
   ];
 }
 

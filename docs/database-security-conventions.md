@@ -175,6 +175,9 @@ condition is done with `CONDITION_GROUPS` in
 | `certify_rods_day` | token belongs to another log | `P0013` |
 | `certify_rods_day` | log is not a draft | `P0014` |
 | `certify_rods_day` | typed legal name required | `P0015` |
+| `certify_rods_day` | written reason required to certify a correction | `P0016` |
+| `certify_rods_day` | amendment carries no change record | `P0017` |
+| `certify_rods_day` | change record supplied for a log that supersedes nothing | `P0018` |
 | `certify_rods_day` | incomplete duty-status entries | `P0020` |
 | `certify_rods_day` | gap in the 24-hour period | `P0021` |
 | `certify_rods_day` | overlapping duty-status entries | `P0022` |
@@ -220,3 +223,48 @@ rows and passes the count to `assertDeleteApplied`.
 
 In the sync queue this classifies as `row_not_writable`: terminal, never
 retried, bytes retained, and alerted to Management as `log_not_writable`.
+
+### 8. Verify through the app's entry point, not the function
+
+A function proven by a direct RPC is not a proven code path. Four defects in
+this audit share one signature — correct or near-correct code that had simply
+never been reached:
+
+- `get_or_create_short_link` — never once succeeded; every binder email/SMS
+  share had been silently falling back to a long URL.
+- `discard_rods_amendment` — raised the message telling the caller to call
+  itself; discarding an amendment could never work.
+- `certify_rods_day` — created, guarded, extended twice, never executed until
+  it was deliberately run.
+- `record_rods_amendments` — worked correctly, called by nothing.
+
+Every one of them would have passed a direct round-trip proof. "The function is
+correct" and "the feature works" are different claims and need different
+evidence. Where a report claims behaviour the app performs, drive the app's
+real caller — the same distinction that made the driver-session 0-row proof in
+rule 7 worth insisting on rather than accepting a privileged-path provocation.
+
+### 9. RODS amendment records: carrier policy, not 49 CFR 395.30
+
+`certify_rods_day` refuses to certify a correction without a written reason
+(`P0016`) and a field-level change record (`P0017`), and files those rows in
+the same transaction as the certification.
+
+That requirement is **SUPERTRANSPORT carrier policy**. It has no federal cite,
+and earlier comments in `amendmentDiff.ts`, `RodsDayEditor.tsx` and
+`CertifyDayModal.tsx` were wrong to attach one:
+
+- **49 CFR 395.30(c)(2)** does require an ELD edit to keep the original and
+  carry an annotation. It is the ELD analogue of this feature and deliberately
+  **not** its authority: these are *manual* records of duty status under 395.8,
+  kept on the paper-log allowance at 395.34. Citing an ELD rule as the basis of
+  a non-ELD feature contradicts the premise the whole build rests on.
+- **395.8(e)(1)** prohibits a false report in connection with a duty status. It
+  says nothing about correcting a record, annotating a correction, or
+  preserving what changed — a driver who fixes a wrong truck number and leaves
+  no trail has not made a false report.
+- **395.8(f)(7)** is the on-point provision: the driver's signature certifies
+  the entries are true and correct. That is why an amendment must be re-signed.
+  It still does not require a change record.
+
+State the requirement as carrier policy. Do not re-attach a federal cite.
