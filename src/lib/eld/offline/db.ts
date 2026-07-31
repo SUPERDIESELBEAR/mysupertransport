@@ -267,6 +267,11 @@ export interface SyncQueueEntry {
   updated_at: string;
   /** Why this entry was cancelled, when status is `cancelled`. */
   cancelled_by?: string | null;
+  /**
+   * Entries with the same key describe the same thing — one day's header, one
+   * day's segments — so a pending one is replaced rather than accumulated.
+   */
+  coalesce_key?: string | null;
   /** Set by the runner when an entry reaches `succeeded`. Drives case (h). */
   completed_at?: string | null;
 }
