@@ -26,13 +26,14 @@ export default function CertifyMismatchDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Some of this log has not been saved</DialogTitle>
+          <DialogTitle>This log was changed somewhere else</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-foreground">
-            Certifying locks the log permanently, so SUPERDRIVE checked the saved copy first. It does not match what
-            you are looking at. Nothing has been certified and nothing has been changed.
+            Certifying locks the log permanently, so SUPERDRIVE checked the copy saved on this phone first. That copy
+            was changed — the change has already reached this phone, but the screen still shows the older version.
+            Nothing has been certified and nothing has been changed.
           </p>
 
           <div className="space-y-2 rounded-lg border border-border p-3">
@@ -64,8 +65,8 @@ export default function CertifyMismatchDialog({
             </Button>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            &ldquo;Use the saved version&rdquo; reloads this log from the office copy and discards the unsaved edits
-            listed above. Neither option certifies anything — you sign again once the two agree.
+            &ldquo;Use the saved version&rdquo; loads the version stored on this phone and discards what is on screen.
+            Neither option certifies anything — you sign again once the two agree.
           </p>
         </div>
       </DialogContent>
