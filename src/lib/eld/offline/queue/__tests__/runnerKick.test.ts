@@ -18,7 +18,7 @@ vi.mock('../store', () => ({
   purgeSucceeded: vi.fn(async () => 0),
   syncCounts: vi.fn(async () => ({ pending: 0, inFlight: 0, failed: 0, rejected: 0, cancelled: 0 })),
 }));
-vi.mock('../handlers', () => ({ HANDLERS: { save_draft_day: (...a: unknown[]) => handler(...a) } }));
+vi.mock('../handlers', () => ({ HANDLERS: { save_draft_day: () => handler() } }));
 vi.mock('../noticeDrain', () => ({ drainPendingNotices: vi.fn(async () => {}) }));
 vi.mock('../alerts', () => ({ raiseSyncAlert: vi.fn(async () => {}) }));
 
