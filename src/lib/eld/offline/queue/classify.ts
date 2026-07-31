@@ -1,4 +1,5 @@
 import { REJECTION_MARKERS, isRejectionSqlState, type SyncErrorClass } from './types';
+import { isRowNotWritable, ROW_NOT_WRITABLE_MESSAGE } from '@/lib/eld/rodsWrite';
 
 /**
  * Count of classifications that had to fall back to reading message text.
@@ -34,6 +35,9 @@ function noteStringFallback(message: string): void {
  *              of times, then parked as `failed` for a human.
  *   rejected — the server said no, by name, and will say no again. Never
  *              retried; routed to the rejection path.
+ *   row_not_writable — RLS filtered the write: 0 rows, no error. Terminal for
+ *              the same reason as `rejected`, but distinct because there is no
+ *              server error to quote and the driver-facing copy differs.
  *
  * This function must NEVER parse constraint names or SQLSTATEs to tell a
  * harmless replay from a real conflict. That disambiguation happens inside
@@ -44,6 +48,12 @@ function noteStringFallback(message: string): void {
  * certified perfectly.
  */
 export function classifyError(err: unknown): { klass: SyncErrorClass; message: string } {
+  // Checked first: a RowNotWritableError carries no status and no SQLSTATE, so
+  // every branch below would misread it.
+  if (isRowNotWritable(err)) {
+    return { klass: 'row_not_writable', message: ROW_NOT_WRITABLE_MESSAGE };
+  }
+
   const message = err instanceof Error ? err.message : String(err ?? 'Unknown error');
   const lower = message.toLowerCase();
 

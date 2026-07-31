@@ -3,13 +3,15 @@ import SignatureCanvas from 'react-signature-canvas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Check, Clock, Loader2, X } from 'lucide-react';
 import { formatLogDate, type RodsDay } from '@/lib/eld/rodsTypes';
 import type { RodsValidation } from '@/lib/eld/rodsValidation';
 
 export default function CertifyDayModal({
-  open, onOpenChange, day, validation, legalName, onLegalNameChange, onConfirm, busy,
+  open, onOpenChange, day, validation, legalName, onLegalNameChange,
+  amendmentReason, onAmendmentReasonChange, onConfirm, busy,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -17,12 +19,17 @@ export default function CertifyDayModal({
   validation: RodsValidation;
   legalName: string;
   onLegalNameChange: (v: string) => void;
+  /** Required when this log amends a certified one (49 CFR 395.30(c)(2)). */
+  amendmentReason: string;
+  onAmendmentReasonChange: (v: string) => void;
   onConfirm: (signatureDataUrl: string) => void | Promise<void>;
   busy?: boolean;
 }) {
   const sigRef = useRef<SignatureCanvas | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [sigWidth, setSigWidth] = useState(320);
+  const isAmendment = !!day.supersedes_day_id;
+  const reasonMissing = isAmendment && amendmentReason.trim().length < 4;
 
   useEffect(() => {
     if (!open) return;
@@ -81,6 +88,23 @@ export default function CertifyDayModal({
             />
           </div>
 
+          {isAmendment && (
+            <div className="space-y-1">
+              <Label className="text-xs">Why are you correcting this log?</Label>
+              <Textarea
+                className="text-base"
+                rows={3}
+                value={amendmentReason}
+                onChange={(e) => onAmendmentReasonChange(e.target.value)}
+                placeholder="e.g. Entered the wrong truck number and missed a fuel stop in Tulsa, OK"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Federal rules require a written reason on every correction. It is filed with the
+                original log and with a line-by-line record of what changed.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className="text-xs">Sign below</Label>
             <div ref={hostRef} className="rounded-lg border border-border bg-background">
@@ -106,7 +130,7 @@ export default function CertifyDayModal({
             </Button>
             <Button
               className="flex-1"
-              disabled={busy || !validation.canCertify}
+              disabled={busy || !validation.canCertify || reasonMissing}
               onClick={() => {
                 const sig = sigRef.current;
                 if (!sig || sig.isEmpty()) return;

@@ -60,7 +60,7 @@ export const REJECTION_MARKERS = {
  * P0014, P0015, P0020, P0021, P0022, P0023, P0030, P0031 — each arrived
  * verbatim in PostgrestError.code.
  *
- * P0002, P0040 and P0041 were NOT observed and cannot be, from a driver
+ * P0002, P0040, P0041 and P0044 were NOT observed and cannot be, from a driver
  * client: the rods_days UPDATE and DELETE policies both require
  * `locked = false`, so RLS filters a certified row out before the lock trigger
  * runs. The write returns 0 rows and no error. They stay in this table because
@@ -70,6 +70,7 @@ export const REJECTION_MARKERS = {
  */
 export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0002: 'certified log deleted',
+  // certify_rods_day — P0010..P0031 are exclusive to this function.
   P0010: 'certification token required',
   P0011: 'log not found',
   P0012: 'not the log owner',
@@ -82,10 +83,51 @@ export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0023: 'unaccounted minutes in the 24-hour period',
   P0030: 'missing required header fields',
   P0031: 'a certified log already exists for this date',
+  // rods_days / rods_events lock triggers.
   P0040: 'certified log modified',
   P0041: 'locked log deleted',
+  P0042: 'certified log superseded with no certified replacement in the same transaction',
+  P0043: 'correction draft deleted directly instead of through discard_rods_amendment()',
+  P0044: 'duty-status entries of a certified log changed',
+  // get_or_create_short_link.
+  P0050: 'invalid share token',
+  P0051: 'authentication required for a short link',
+  // discard_rods_amendment.
+  P0070: 'correction draft not found',
+  P0071: 'not the owner of the correction draft',
+  P0072: 'not an uncertified correction draft',
+  // create_eld_document_day.
+  P0080: 'certification token required to file an ELD document',
+  P0081: 'not the driver filing their own ELD document',
+  P0082: 'uploaded ELD document is missing',
+  P0083: 'ELD document token belongs to another log',
+  P0084: 'a certified log already exists for this date',
 } as const;
 
 export function isRejectionSqlState(code: string | null): boolean {
   return code !== null && Object.prototype.hasOwnProperty.call(REJECTION_SQLSTATES, code);
+}
+
+/**
+ * A code identifies ONE condition in ONE function, so the runner can route on
+ * the code alone. Consumers that want to group by condition regardless of
+ * which operation raised it use this mapping — never a shared wire value.
+ */
+export const CONDITION_GROUPS: Readonly<Record<string, readonly string[]>> = {
+  token_required: ['P0010', 'P0080'],
+  not_owner: ['P0012', 'P0071', 'P0081'],
+  token_day_mismatch: ['P0013', 'P0083'],
+  not_a_draft: ['P0014', 'P0072'],
+  log_not_found: ['P0011', 'P0070'],
+  duplicate_certified_date: ['P0031', 'P0084'],
+  locked_record: ['P0002', 'P0040', 'P0041', 'P0043', 'P0044'],
+  continuity: ['P0042'],
+} as const;
+
+export function conditionGroupFor(code: string | null): string | null {
+  if (!code) return null;
+  for (const [group, codes] of Object.entries(CONDITION_GROUPS)) {
+    if (codes.includes(code)) return group;
+  }
+  return null;
 }

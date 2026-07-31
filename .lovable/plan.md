@@ -1,39 +1,69 @@
-## Item 1 — Fail-open predicate class
+## Verified before planning
 
-**Confirmed by reads this turn:**
-- Definer functions in `public` whose body contains `IF NOT (`: `approve_application_correction`, `certify_rods_day`, `handle_operator_deactivated`, `notify_driver_equipment_sheet_ready`, `notify_operators_on_fleet_share`, `revoke_share_token`.
-- Definers reading `current_setting`: `enforce_eld_signature_lock`, `enforce_go_live_ack_gate`, the three `onboarding_status` guards, `enforce_rods_day_lock`, `enforce_rods_event_lock`, `purge_rods_day`, `resolve_share_token`, and three DOT/binder sync triggers.
-- Intersection: `certify_rods_day`, `revoke_share_token`.
+- **rods_events has the same RLS shadow — confirmed.** Its INSERT/UPDATE/DELETE policies all gate on `EXISTS (… rods_days d WHERE d.id = rods_day_id AND is_own_rods_operator(d.operator_id) AND d.locked = false)`. Once the parent day is locked, every segment write is filtered out before `enforce_rods_event_lock` runs: 0 rows, no error. Segment saves are the frequent path, so this is the wider hole.
+- **There are no `save_draft_day` / `save_draft_segments` queue kinds today.** `SyncKind` is: `upload_rods_pdf`, `upload_signature`, `certify_rods_day`, `create_eld_document_day`, `replace_rods_document`, `upload_notice_pdf`, `upload_notice_signature`, `send_notice`, `upload_merged_packet`, `send_officer_email`. Draft header and segment writes are **direct, unqueued** table writes in `src/hooks/useRodsDay.ts` (day update; events delete + insert) and `src/components/operator/rods/RodsDayEditor.tsx`. They discard the result and never look at row counts — so today a driver editing a day certified on another device gets a clean-looking save with nothing written.
+- **Bare-P0001 audit (dumped every RODS/notice/short-link definer body).** Coded correctly: `certify_rods_day` (P0010–P0031), `enforce_rods_day_lock` (P0002/P0040/P0041). Still bare P0001: `enforce_rods_certified_continuity`, `enforce_rods_event_lock`, the `discard_rods_amendment()` hint branch of `enforce_rods_day_lock`, all of `discard_rods_amendment` (3), all of `create_eld_document_day` (5), `get_or_create_short_link` (2), `purge_rods_day` role refusal, and the `enforce_eld_*` malfunction/suppression guards.
+- **P0013 / P0014 / P0015 / P0023 are already in `REJECTION_SQLSTATES`** (`src/lib/eld/offline/queue/types.ts`) with meanings; the conventions doc still carries the older, shorter table and must be brought up to date.
 
-**Work:**
-1. Dump every definer body in `public` and read each guard predicate. Classify: safe positive-refuse / NULL-vulnerable negated-permit (fix) / non-authorization branch (leave). `certify_rods_day`, `create_eld_document_day`, `replace_rods_document`, `discard_rods_amendment`, `resolve_share_token`, `revoke_share_token`, the malfunction-notice functions, and the short-link functions are each reported individually, including when clean.
-2. One migration rewriting each vulnerable predicate to the standing form: every operand wrapped in `coalesce(...)`, written as a positive refuse (`IF coalesce(a,'') <> 'x' AND coalesce(b,'') <> 'y' THEN RAISE`), never `IF NOT (...)`. Legitimate callers unaffected; only the NULL path flips permit → refuse.
-3. Add the standing rule to `docs/database-security-conventions.md` beside the `current_user` entry: the `NOT (a OR b) → NULL → IF never fires` explanation, the "positive refuse, coalesce every operand" rule, and a good/bad snippet pair.
-4. **Heuristic test** — new `src/test/definer-fail-open.test.ts`. Scans **all** negation shapes, not just `IF NOT (`:
-   - `IF NOT (...)` and `IF NOT <ident>`
-   - `AND NOT (...)` / `OR NOT (...)`
-   - `IS DISTINCT FROM` / `IS NOT DISTINCT FROM` inversions
-   - `<>` / `!=` inside a negated conditional
-   Flag whenever an authorization identifier — `current_setting`, `jwt`, `auth.uid`, `session_user`, `current_user`, `has_role` — appears inside such a predicate without a `coalesce` wrapping it. False positives are expected and accepted; a checked-in allowlist with a one-line justification per entry is the handling mechanism, so every accepted hit stays visible.
+---
 
-**Exposure window on `purge_rods_day` — three sources, not one.** `audit_log` alone is insufficient: `purge_rods_day` writes its audit row before deleting, so a purge that failed after the write, or a deletion by any other route, leaves no entry. I will check all of:
-- whether `audit_log` holds any `rods_day_purged` entries at all (expected: lifecycle-test rows only);
-- whether `certify_rods_day` has ever been invoked in production — a row certified and later removed leaves no trace in `rods_days`;
-- the function's migration timestamp against the first-ever `rods_days` insert.
+## 1. Zero rows affected becomes a distinct outcome
 
-`rods_days`, `rods_events`, `rods_amendments` currently read 0 rows — a point-in-time observation, not the window. If all three sources come back empty the finding is reported as **"no evidence of any reachable row during the window,"** not "no exposure."
+**New error class.** Add `row_not_writable` to `SyncErrorClass` in `src/lib/eld/offline/db.ts`, with a driver-facing message constant: *"This log was certified on another device and can no longer be edited."*
 
-## Item 2 — One seeded, committed, purged run
+**Detection at every rods write.** Every write to `rods_days` / `rods_events` requests its rows back (`.select('id')` on update/delete/insert) and asserts a non-empty result. A shared helper `assertRowsAffected(result, context)` in a new `src/lib/eld/rodsWrite.ts` throws a typed `RowNotWritableError` carrying table, day id and log date. Applied to:
+- `useRodsDay.ts` — the day `update`, the `rods_events` `delete`, and the `rods_events` `insert`.
+- `RodsDayEditor.tsx` — the header update and the amendment segment writes.
+- Any future queue handler that writes these tables directly (today's handlers go through RPCs, which raise properly).
 
-A single script under `/tmp/browser/seeded-run/`: seed → provoke → certify/amend → purge, using a real `supabase-js` client over PostgREST for every claimed result.
+**Classification.** `classifyError` returns `row_not_writable` for `RowNotWritableError` before any other branch. Never retried.
 
-1. **Seed** — sign in as an existing demo driver (real session), create one scratch `eld_malfunction_events` row plus the `rods_days`/`rods_events` rows each probe needs.
-2. **Provoke** P0002, P0012, P0020, P0021, P0022, P0030, P0031, P0040, P0041 from the client, recording literal `error.code`, `error.message`, `error.details` per probe. Report a per-code table of observed values. A code that does not arrive verbatim stops the scheme for that code.
-3. **Amend trail** — certify a day, amend it, certify the amendment; report the verbatim `field_path` rows written to `rods_amendments`, not a count.
-4. **Continuity trigger** — instrument the deferred trigger so its execution at COMMIT is directly observed (captured `RAISE NOTICE` / counter), never inferred from absence of an error. Report the captured evidence.
-5. **Purge — one arm only, stated plainly.** No service-role key is reachable from this environment, so `purge_rods_day` **cannot** be called as `service_role` over PostgREST here. The run will purge over a direct `postgres`/`supabase_admin` connection, which exercises the **`session_user` arm only**. The **`request.jwt.claims` arm — the one Stage 4's demo reset will actually use — remains untested**, and will be recorded as such. It will not be described as verified from both paths. After the purge, verify zero residue across `rods_days`, `rods_events`, `rods_amendments`, and storage paths.
+**Routing.** `runner.ts` treats `row_not_writable` like `rejected` for durability — `markTerminal(entry.id, 'rejected', 'row_not_writable', message)`, bytes retained, no purge — and raises a distinct `raiseSyncAlert({ kind: 'log_not_writable' })` so Management sees "driver's edits were silently dropped", not a generic sync failure.
 
-**Fixtures:** parity fixtures in `src/lib/eld/offline/__tests__/classify.test.ts` are written only for codes observed in step 2. Unobserved codes stay out.
+At the direct (online, unqueued) sites the thrown error surfaces as the same copy in a destructive toast, and marks the day stale so hydration re-pulls the certified server row instead of leaving phantom edits on screen.
 
-## Order
-Predicate migration first, then the seeded run against the fixed gates.
+**Test.** A stubbed Supabase client returning `{ data: [], error: null }` must produce: classified `row_not_writable`, entry terminal, alert raised, cached bytes still present.
+
+## 2. Give every named RAISE its own code — one code, one condition, one operation
+
+No code is shared across functions. Codes are free; ambiguity isn't.
+
+| Function | Condition | Code |
+|---|---|---|
+| `enforce_rods_certified_continuity` | certified log superseded without a certified replacement | **P0042** |
+| `enforce_rods_day_lock` | "use discard_rods_amendment()" hint branch | P0043 |
+| `enforce_rods_event_lock` | segments of a certified log changed | P0044 |
+| `discard_rods_amendment` | log not found | P0070 |
+| `discard_rods_amendment` | not the log owner | P0071 |
+| `discard_rods_amendment` | not an uncertified correction draft | P0072 |
+| `create_eld_document_day` | certification token required | P0080 |
+| `create_eld_document_day` | not the log owner | P0081 |
+| `create_eld_document_day` | uploaded document missing | P0082 |
+| `create_eld_document_day` | token belongs to another log | P0083 |
+| `create_eld_document_day` | certified log already exists for the date | P0084 |
+| `get_or_create_short_link` | invalid share token | P0050 |
+| `get_or_create_short_link` | authentication required | P0051 |
+| `enforce_eld_*` guards | validation-on-write conditions | P0060–P0064 |
+
+`P0010`–`P0031` stay exclusive to `certify_rods_day`. The `enforce_eld_*` codes are not sync-queue outcomes and do not enter `REJECTION_SQLSTATES`.
+
+`REJECTION_SQLSTATES` gains P0042, P0043, P0044, P0050, P0051, P0070–P0072, P0080–P0084. Grouping by *condition* (e.g. "duplicate certified date" across operations) is expressed as a separate `CONDITION_GROUPS` mapping in `types.ts`, never by overloading the wire value.
+
+`docs/database-security-conventions.md` gets the **full** table — including P0013, P0014, P0015 and P0023, observed but never documented — plus a standing rule: *a named condition in a definer function or trigger always carries an explicit `USING ERRCODE`, unique to that function; P0001 is reserved for genuinely unhandled exceptions.*
+
+## 3. Seeded run — prove the driver-facing no-op now fails loudly
+
+With a real signed-in driver session over PostgREST, against a **certified** day:
+
+- **(a) header update** — `update rods_days … .select('id')`. Record the literal response: row count and error. Expected `[]` / `null`. Confirm `assertRowsAffected` raises `RowNotWritableError`, the day is flagged, hydration re-pulls the server row, and the driver sees the copy instead of a clean save.
+- **(b) segment delete-and-insert** — `delete rods_events … .select('id')` then `insert … .select('id')`. Same recording and same three assertions.
+
+This is the failure the item exists to close; a privileged P0044 does not substitute for it.
+
+Additionally provoke and record verbatim: **P0042** (certify an amendment whose `log_date` mismatches, observing the deferred trigger at COMMIT), **P0043**, and **P0044** from a privileged path. Then purge the scratch rows and confirm zero residue.
+
+## Technical notes
+
+- No RLS policy changes. Loosening policies so the trigger could raise would widen driver write access to certified federal records; client-side 0-row detection is the correct fix.
+- `SyncErrorClass` widening touches `types.ts`, `db.ts`, `store.ts`, `runner.ts`, `alerts.ts`; persisted entries carry only the three old classes and are unaffected.
+- One migration; function bodies only, no table or policy changes.

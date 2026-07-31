@@ -144,10 +144,79 @@ afterwards via `purge_rods_day` (11 rows, `rods_days`/`rods_events`/
 
 Observed verbatim in `PostgrestError.code`: `P0010`, `P0011`, `P0012`, `P0013`,
 `P0014`, `P0015`, `P0020`, `P0021`, `P0022`, `P0023`, `P0030`, `P0031`, plus
-`42501` for `purge_rods_day` and `P0001` for the deferred continuity trigger.
+`42501` for `purge_rods_day`. The deferred continuity trigger arrived as
+`P0001` on that run and now carries `P0042` (see rule 6).
 
-Not observed, and unreachable from a driver client: `P0002`, `P0040`, `P0041`.
-The `rods_days` UPDATE and DELETE policies both require `locked = false`, so
-RLS filters a certified row out before the lock trigger runs — the write
-returns **0 rows and no error**. Any client logic that waits for one of those
-three codes will wait forever; check the affected row count instead.
+Not observed, and unreachable from a driver client: `P0002`, `P0040`, `P0041`,
+`P0044`. The `rods_days` UPDATE and DELETE policies both require
+`locked = false`, and every `rods_events` policy gates on the parent day's
+`locked = false`, so RLS filters a certified row out before the lock trigger
+runs — the write returns **0 rows and no error**. Any client logic that waits
+for one of those codes will wait forever; check the affected row count instead.
+
+### 6. One code, one condition, one function
+
+Every named condition raised from a `SECURITY DEFINER` function or a trigger
+carries an explicit `USING ERRCODE`. `P0001` is the bare-`RAISE` default and is
+reserved for genuinely unhandled exceptions — a named condition arriving as
+`P0001` is indistinguishable from a crash.
+
+A code identifies one condition in **one** function. Two functions never share
+a code even when the condition reads the same, because the client routes on the
+code alone and must be able to tell which operation refused. Grouping by
+condition is done with `CONDITION_GROUPS` in
+`src/lib/eld/offline/queue/types.ts`, never by overloading the wire value.
+
+| Function | Condition | Code |
+| --- | --- | --- |
+| `certify_rods_day` | certification token required | `P0010` |
+| `certify_rods_day` | log not found | `P0011` |
+| `certify_rods_day` | not the log owner | `P0012` |
+| `certify_rods_day` | token belongs to another log | `P0013` |
+| `certify_rods_day` | log is not a draft | `P0014` |
+| `certify_rods_day` | typed legal name required | `P0015` |
+| `certify_rods_day` | incomplete duty-status entries | `P0020` |
+| `certify_rods_day` | gap in the 24-hour period | `P0021` |
+| `certify_rods_day` | overlapping duty-status entries | `P0022` |
+| `certify_rods_day` | unaccounted minutes in the 24-hour period | `P0023` |
+| `certify_rods_day` | missing required header fields | `P0030` |
+| `certify_rods_day` | a certified log already exists for the date | `P0031` |
+| `enforce_rods_day_lock` | certified log deleted | `P0002` |
+| `enforce_rods_day_lock` | certified log modified | `P0040` |
+| `enforce_rods_day_lock` | locked log deleted | `P0041` |
+| `enforce_rods_day_lock` | correction draft deleted outside `discard_rods_amendment()` | `P0043` |
+| `enforce_rods_certified_continuity` | certified log superseded with no certified replacement in the same transaction | `P0042` |
+| `enforce_rods_event_lock` | duty-status entries of a certified log changed | `P0044` |
+| `get_or_create_short_link` | invalid share token | `P0050` |
+| `get_or_create_short_link` | authentication required | `P0051` |
+| `enforce_eld_event_driver_update` | locked malfunction record changed by a driver | `P0060` |
+| `enforce_eld_event_driver_update` | notice upload timestamp changed once set | `P0061` |
+| `enforce_eld_suppression_rules` | written reason required | `P0062` |
+| `enforce_eld_suppression_rules` | expiry date required | `P0063` |
+| `enforce_eld_suppression_rules` | pause exceeds 7 days | `P0064` |
+| `enforce_eld_suppression_rules` | expiry in the past | `P0065` |
+| `discard_rods_amendment` | correction draft not found | `P0070` |
+| `discard_rods_amendment` | not the owner | `P0071` |
+| `discard_rods_amendment` | not an uncertified correction draft | `P0072` |
+| `create_eld_document_day` | certification token required | `P0080` |
+| `create_eld_document_day` | not the driver filing their own log | `P0081` |
+| `create_eld_document_day` | uploaded document missing | `P0082` |
+| `create_eld_document_day` | token belongs to another log | `P0083` |
+| `create_eld_document_day` | a certified log already exists for the date | `P0084` |
+| `purge_rods_day` | caller is not the service role | `42501` |
+
+`P0060`–`P0065` are validation-on-write, not sync-queue outcomes, so they are
+deliberately absent from `REJECTION_SQLSTATES`.
+
+### 7. On `rods_days` and `rods_events`, 0 rows is the refusal
+
+For these two tables the driver-visible signal that a locked row refused a
+write is **"0 rows affected", not an error code**. Every client write therefore
+requests its rows back (`.select('id')`) and routes an empty result through
+`assertRowsAffected` in `src/lib/eld/rodsWrite.ts`, which throws
+`RowNotWritableError`. A delete is the one ambiguous case — removing nothing is
+legitimate when there was nothing there — so the caller re-counts the remaining
+rows and passes the count to `assertDeleteApplied`.
+
+In the sync queue this classifies as `row_not_writable`: terminal, never
+retried, bytes retained, and alerted to Management as `log_not_writable`.
