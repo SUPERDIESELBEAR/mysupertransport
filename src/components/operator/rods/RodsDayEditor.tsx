@@ -12,6 +12,7 @@ import {
   RODS_BUCKET, formatLogDate, rodsChip, showsDerivedTotals, type RodsDay,
 } from '@/lib/eld/rodsTypes';
 import { newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
+import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
