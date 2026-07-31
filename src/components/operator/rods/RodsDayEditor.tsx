@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,14 +11,20 @@ import { isShortPeriod, validateRodsDay } from '@/lib/eld/rodsValidation';
 import {
   RODS_BUCKET, formatLogDate, rodsChip, showsDerivedTotals, type RodsDay,
 } from '@/lib/eld/rodsTypes';
-import { newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
+import { isHandledFlushError, newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
 import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
-import { diffAmendment } from '@/lib/eld/amendmentDiff';
+import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
+import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
 import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
+import CertifyMismatchDialog from './CertifyMismatchDialog';
 import UploadEldLogModal from './UploadEldLogModal';
+
+const OFFLINE_SAVE_MESSAGE =
+  'You are offline, so these edits have not reached the office copy yet. '
+  + 'They are still here — save again once you have a signal.';
 
 export default function RodsDayEditor({
   operatorId,
