@@ -32,6 +32,11 @@ function dayRow(log_date: string, id: string) {
     operator_id: 'op-1',
     day: { id, log_date, operator_id: 'op-1' } as unknown as RodsDay,
     cached_at: OLD,
+    unsynced: false,
+    version: 0,
+    local_certified_at: null,
+    sync_rejected: false,
+    sync_stalled: false,
   };
 }
 
