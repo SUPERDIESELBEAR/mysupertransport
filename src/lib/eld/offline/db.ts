@@ -366,6 +366,28 @@ class RoadsideDb extends Dexie {
     this.version(4).stores({
       rods_divergences: 'log_date, operator_id, detected_at, acknowledged',
     });
+    // v5 — additive: local-first draft bookkeeping. No store is dropped and no
+    // bytes are discarded; existing rows are backfilled with the conservative
+    // defaults (synced, version 0, not locked, not stalled) so a device that
+    // upgrades offline keeps every record it already holds.
+    this.version(5).stores({
+      // `unsynced_flag` is a 0/1 mirror of `unsynced` — Dexie cannot index a
+      // boolean, and the stalled-log banner needs a keyed lookup, not a scan.
+      rods_days_cache: 'log_date, operator_id, unsynced_flag',
+    }).upgrade(async (tx) => {
+      await tx.table('rods_days_cache').toCollection().modify((row: RodsDayCacheEntry) => {
+        row.unsynced = row.unsynced ?? false;
+        row.unsynced_flag = row.unsynced ? 1 : 0;
+        row.version = row.version ?? 0;
+        row.local_certified_at = row.local_certified_at ?? null;
+        row.sync_rejected = row.sync_rejected ?? false;
+        row.sync_stalled = row.sync_stalled ?? false;
+      });
+      await tx.table('rods_events_cache').toCollection().modify((row: RodsEventCacheEntry) => {
+        row.unsynced = row.unsynced ?? false;
+        row.version = row.version ?? 0;
+      });
+    });
   }
 }
 
