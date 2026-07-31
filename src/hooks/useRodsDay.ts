@@ -184,8 +184,8 @@ export function useRodsDay(params: {
     toast.error(err instanceof Error ? err.message : 'Could not save this log.');
   }, [logDate, load]);
 
-  const flushHeader = useCallback(async (patch: Partial<RodsDay>) => {
-    if (!day || day.locked) return false;
+  const flushHeader = useCallback(async (patch: Partial<RodsDay>): Promise<HeaderFlushResult> => {
+    if (!day || day.locked) return 'nothing-pending';
     setSaving(true);
     try {
       // .select('id') is not cosmetic: without the returned representation a
@@ -195,10 +195,20 @@ export function useRodsDay(params: {
       assertRowsAffected(res, {
         table: 'rods_days', operation: 'header update', dayId: day.id, logDate: day.log_date,
       });
-      return true;
+      // Cleared only now, and only for the keys this write actually carried.
+      // A field edited while the request was in flight stays pending.
+      for (const [k, v] of Object.entries(patch)) {
+        const current = (pendingHeader.current as Record<string, unknown>)[k];
+        if (Object.is(current, v)) delete (pendingHeader.current as Record<string, unknown>)[k];
+      }
+      return 'saved';
     } catch (err) {
+      // Offline is not a failure: the edits stay in pendingHeader and the next
+      // flush sends them. Dropping them here is how a certified log ends up
+      // missing a field the driver typed.
+      if (isOfflineError(err)) return 'offline';
       await handleWriteFailure(err);
-      return false;
+      throw new HeaderFlushHandledError();
     } finally {
       setSaving(false);
     }
@@ -210,13 +220,30 @@ export function useRodsDay(params: {
    * is on screen, so an unflushed edit would be recorded as changed while the
    * row it describes kept its old value — and the row locks a moment later.
    */
-  const flushPendingHeader = useCallback(async () => {
+  const flushPendingHeader = useCallback(async (): Promise<HeaderFlushResult> => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    const patch = pendingHeader.current;
-    pendingHeader.current = {};
-    if (!Object.keys(patch).length) return true;
+    const patch = { ...pendingHeader.current };
+    if (!Object.keys(patch).length) return 'nothing-pending';
     return flushHeader(patch);
   }, [flushHeader]);
+
+  /**
+   * Every way out of the editor flushes: unmount, tab hidden, app backgrounded
+   * or closed. On iOS a PWA is frozen on `pagehide` without another frame, so
+   * a 700 ms debounce that has not fired yet is simply lost — the driver's last
+   * keystrokes vanish with no error anywhere.
+   */
+  useEffect(() => {
+    const flush = () => { void flushPendingHeader().catch(() => {}); };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [flushPendingHeader]);
 
   /** Replaces the day's segments wholesale — simplest correct write for a small set. */
   const saveSegments = useCallback(async (next: DraftSegment[]) => {
