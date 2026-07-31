@@ -268,9 +268,24 @@ export default function RodsDayEditor({
     }
   }
 
+  /**
+   * Mismatch resolution. Neither branch certifies anything and neither one
+   * silently picks a winner: the driver saves again, or takes the office copy
+   * and loses the listed edits knowingly.
+   */
+  async function retrySave() {
+    setMismatch(null);
+    await save();
+  }
+
+  async function useSavedVersion() {
+    setMismatch(null);
+    await markDayStale(logDate);
+    await reload();
+    toast.info('Reloaded the saved version of this log. Check it over before you certify.');
+  }
+
   async function amend() {
-    setBusy(true);
-    // Copy the whole row, reset only what must differ. See buildAmendmentDraft:
     setBusy(true);
     // Copy the whole row, reset only what must differ. See buildAmendmentDraft:
     // enumerating what to copy is what made amendments lose newly added header
