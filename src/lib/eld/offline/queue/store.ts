@@ -7,9 +7,21 @@ import {
   roadsideDb, type SyncQueueEntry, type SyncKind, type SyncErrorClass,
 } from '../db';
 import { assertSmallPayload, backoffFor, SUCCEEDED_TTL_MS } from './types';
+import { requestDrain, type DrainScope } from './kick';
 
 export function newSyncId(): string {
   return crypto.randomUUID();
+}
+
+/**
+ * Draft writes are already durable in Dexie and the certify chain depends_on
+ * them, so they can drain lazily. Everything else is something the driver is
+ * watching finish.
+ */
+const DRAFT_KINDS: readonly SyncKind[] = ['save_draft_day', 'save_draft_segments'];
+
+function scopeFor(kind: SyncKind): DrainScope {
+  return DRAFT_KINDS.includes(kind) ? 'draft' : 'chain';
 }
 
 export interface EnqueueInput {
@@ -36,10 +48,10 @@ export async function enqueue(input: EnqueueInput): Promise<SyncQueueEntry> {
   const id = input.id ?? newSyncId();
   const now = new Date().toISOString();
 
-  return roadsideDb.transaction('rw', roadsideDb.sync_queue, async () => {
+  const entry = await roadsideDb.transaction('rw', roadsideDb.sync_queue, async () => {
     const existing = await roadsideDb.sync_queue.get(id);
     if (existing) return existing;
-    const entry: SyncQueueEntry = {
+    const created: SyncQueueEntry = {
       id,
       kind: input.kind,
       payload: input.payload,
@@ -54,9 +66,12 @@ export async function enqueue(input: EnqueueInput): Promise<SyncQueueEntry> {
       created_at: now,
       updated_at: now,
     };
-    await roadsideDb.sync_queue.put(entry);
-    return entry;
+    await roadsideDb.sync_queue.put(created);
+    return created;
   });
+  // After the transaction commits, never inside it: the runner reads the queue.
+  requestDrain(scopeFor(input.kind));
+  return entry;
 }
 
 const TERMINAL: readonly SyncQueueEntry['status'][] = ['failed', 'rejected', 'cancelled'];
@@ -85,7 +100,7 @@ export async function enqueueCoalesced(
   assertSmallPayload(input.kind, input.payload);
   const now = new Date().toISOString();
 
-  return roadsideDb.transaction('rw', roadsideDb.sync_queue, async () => {
+  const entry = await roadsideDb.transaction('rw', roadsideDb.sync_queue, async () => {
     const siblings = (await roadsideDb.sync_queue.toArray())
       .filter((e) => e.coalesce_key === input.coalesce_key && !isTerminal(e.status))
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -103,7 +118,7 @@ export async function enqueueCoalesced(
     }
 
     const inFlight = siblings.filter((e) => e.status === 'in_flight').map((e) => e.id);
-    const entry: SyncQueueEntry = {
+    const created: SyncQueueEntry = {
       id: input.id ?? newSyncId(),
       kind: input.kind,
       payload: input.payload,
@@ -118,9 +133,11 @@ export async function enqueueCoalesced(
       created_at: now,
       updated_at: now,
     };
-    await roadsideDb.sync_queue.put(entry);
-    return entry;
+    await roadsideDb.sync_queue.put(created);
+    return created;
   });
+  requestDrain(scopeFor(input.kind));
+  return entry;
 }
 
 export async function getEntry(id: string): Promise<SyncQueueEntry | undefined> {
