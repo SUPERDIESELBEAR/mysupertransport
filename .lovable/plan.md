@@ -1,58 +1,59 @@
-## 1. Purge verification — confirmed, rows and all
+## Where this stands
 
-For operator `ee993ec0`: `rods_days` 0, `rods_events` 0, `rods_amendments` 0, `eld_malfunction_events` 0, and 9 `rods_day_purged` audit rows carrying the run's reason string. 0/0/0/0 and 9. The rows are gone, so `rods-logs` at 0 is a complete purge, not dangling paths on surviving certified rows.
+The last several rounds hardened the purge path. That path exists to clean up after tests. The tests verify a fix to certification. Certification's offline capability — item 2 — is the actual deliverable and is still open. This plan spends as little as possible on item 1 and then moves.
 
-## 2. Authoritative purge path
+Purge status going in: signature compatibility confirmed, zero `pending_caller` audit rows, no cleanup owed. The disposition transition (`pending_caller → completed`) has never actually run, because there is nothing left to purge. The harness run below is its first real exercise.
 
-- **`purge_rods_day` (SQL)** — deletes rows, returns `storage_paths`, removes nothing from storage (`storage.protect_delete()` blocks direct `storage.objects` deletes).
-- **`purge-rods-day` (edge function)** — calls the RPC, then deletes exactly the three row-owned paths through the Storage API and records the outcome. **This is the authoritative entry point.**
-- **Stage 4's demo reset calls neither.** `reset-demo-driver`'s `OPERATOR_SCOPED_TABLES` has no RODS tables, and a plain `.delete()` would be refused by the BEFORE DELETE lock trigger anyway. Demo RODS data survives every reset today.
-- **The harness `finally` calls nothing** — `/tmp/browser/rods-certify/` is wiped with the sandbox between turns, so the helper is rebuilt with the Playwright pass.
+## Step 1 — Six-case Playwright pass (closes item 1)
 
-### a. Deliberateness as a required parameter — added first, dropped later
+Sign into the preview as the demo driver and run cases (a)–(f) against the real driver UI.
 
-`set_config(..., true)` is transaction-local and PostgREST gives each RPC its own transaction, so a two-call guc opt-in is gone before the purge runs; `is_local = false` would leak across pooled connections. So the gate is a parameter:
+Five of the six already passed on the previous run and are being re-run only because the certify path changed underneath them (`replayed` flag, orphan delete, preflight tripwire). Expect them to pass; investigate only if they don't.
 
-```sql
-purge_rods_day(_day_id uuid, _reason text, _storage_owner text)  -- no default
-```
+- **(a) debounce race** — two header fields keyed inside the 700ms window. Assert on captured timestamps: gap between final keystroke and the `certify_rods_day` request.
+- **(b) offline at certify** — halts, toast shown, row stays draft.
+- **(c) backgrounding** — `visibilitychange` and `pagehide` each flush. **Chromium only**; iOS Safari stays on the hardware checklist.
+- **(d) lost write** — server mismatch opens `CertifyMismatchDialog`.
+- **(e) out-of-band edit** — mismatch dialog, Cancel preserves on-screen state.
+- **(f) replay** — deterministic 504 fulfillment, poll the row to `certified`, then release the second tap. Assert: `replayed: true`, the row's `pdf_path` and `certification_signature_path` unchanged from attempt one, the second attempt's uploads deleted, replay toast shown.
 
-Raise `42501` when `_storage_owner` is null or blank: *"purge_rods_day requires a declared storage owner; invoke it through the purge-rods-day edge function, which removes the row's objects."* Transaction-safe by construction, nothing to leak, no `begin_rods_purge`.
+Every case purges in a `finally` block through the `purge-rods-day` edge function with the fixpoint loop. After the run: RODS tables back to 0 for the demo operator, and every new `rods_day_purged` row reads `completed` or `not_applicable`. A surviving `pending_caller` is a finding, not a cleanup chore.
 
-**Two migrations, not one.** Edge functions deploy separately from migrations, and `purge_rods_day` is the only way to remove a certified row — dropping the two-arg form in the same migration leaves a window where nothing can purge, including a failed harness run.
+If (f) fails, fix it. If anything in (a)–(e) fails, report before fixing — that would mean the purge/replay work broke certification.
 
-- **Migration 1 (this change):** create the three-arg form. Keep the two-arg form as an overload but replace its body with an unconditional `42501` raise carrying the same message. The deliberateness gap closes immediately; nothing becomes unpurgeable, because the edge function is updated to the three-arg call in the same change and the old signature still resolves (loudly) until it's gone.
-- **Migration 2 (follow-up):** `DROP FUNCTION public.purge_rods_day(uuid, text)` once the edge function is deployed and confirmed calling the three-arg form.
+## Step 2 — Inventory: missing, dead, and the acceptance criteria
 
-`docs/deferred-removals.md` gets an entry for the two-arg overload — same shape as the `classifyError` string fallback: what it is, why it still exists (deploy-ordering window), and the removal trigger (*edge function confirmed on the three-arg signature*), plus the one-line drop.
+No code changes. Output is a written inventory in three parts.
 
-### b. Storage disposition, stamped and transitioned
+### 2a. What fails offline
 
-The purge writes `storage_disposition: 'pending_caller'` next to `storage_paths`, or `not_applicable` immediately when the row owned no paths. `record_rods_purge_storage_result` moves it to `completed`, or `completed_with_failures` when the failed list is non-empty. A caller that never reports back leaves `pending_caller` in the trail, so an incomplete purge never reads as a complete one.
+Drafting, editing, caching, queueing, replay — what works, what silently no-ops, and where the seams are between the offline store and `certify_rods_day`.
 
-### c. Chain-safe ordering, in both callers
+### 2b. What exists with no live caller
 
-`supersedes_day_id IS NOT NULL` is one-level thinking: with original ← A1 ← A2 it is true for both A1 and A2, and the wrong order hits `23503`. Replace it with a fixpoint loop that purges only rows nothing references:
+The larger part of the problem, and a different kind of work: unreached code needs **wiring**, not building — and because it has never executed, it may also be wrong.
 
-```sql
-WHERE operator_id = _op
-  AND id NOT IN (SELECT supersedes_day_id FROM rods_days
-                 WHERE supersedes_day_id IS NOT NULL AND operator_id = _op)
-```
+Known members of this category:
+- seven of ten `SyncKind` handlers
+- `ensureDayCached`'s LOCAL-WINS certification branch
+- `hydrate.ts`'s `certification_rejected` path
+- `row_not_writable` routing inside the queue
+- `enqueueCertifyDay` itself
 
-Purge that batch, re-query, repeat until no rows remain; bail loudly if an iteration returns rows but purges none (a cycle). Applied in **both** `reset-demo-driver` and the harness `finally` — the harness's "amendment children before parent" carries the same one-level assumption and is replaced by the same loop.
+For each: confirm it is genuinely unreached (not reached by a path I haven't traced), and note what wiring it up implies. **Standing Rule 8 applies at first invocation for all of it.** The inventory explicitly flags every item step 3 will reach for the first time, so those get driven through the real UI rather than assumed correct.
 
-### d. Demo reset routes through the edge function
+### 2c. Acceptance criteria, satisfiable or not
 
-`reset-demo-driver` gains a RODS step behind the existing `is_demo !== true` refusal: resolve the operator's day ids with the loop above and invoke `purge-rods-day` per batch with the reason `Demo driver reset — synthetic records of duty status, scenario <scenario>.` `eld_malfunction_events` is added to `OPERATOR_SCOPED_TABLES`.
+`docs/eld-offline-certification.md` holds AC-1 through AC-5. For each, report: satisfiable with the current architecture, or dependent on something not yet present.
 
-## 3. A reader for `pending_caller`
+AC-3 gets particular attention. Its offline preflight compares against `rods_days_cache` / `rods_events_cache`, which requires the local cache to be **authoritative and current at certify time**. If the cache is not reliably populated for the day being certified, the preflight either can't run or compares against stale bytes — and that is a gap inside step 3's scope, not an implementation detail to sort out later. Report what actually populates those caches today and whether it covers the certify path.
 
-`sweep-rods-orphans` gains a second, cheaper finding alongside the reachability scan: `audit_log` rows with `action = 'rods_day_purged'`, `metadata->>'storage_disposition' = 'pending_caller'`, and `created_at < now() - interval '1 hour'` (threshold overridable in the body), returned as `incompletePurges` — audit id, day id, log date, operator, reason, age, and the `storage_paths` array. These are *known*-orphaned paths named in the trail, not ones the scan has to infer, so the response also flags which are still present in the bucket. With `apply: true` they're deleted by the same explicit-path rule and the audit row is stamped `completed_late`.
+## Step 3 — Build to the inventory
 
-Where it surfaces: the function is invocable-only today, so add a **Duty-status storage** card in the ELD admin area (`src/components/management/eld/`, beside `ELDMalfunctionsPanel`), owner/management only. It runs the sweep dry and shows `incompletePurges` as a warning row — *"N purges did not confirm object removal"* with day date, reason, and paths — above the inferred-orphan count, with a **Clean up** action for the apply run. An edge function that crashed between the RPC and the record call becomes visible there instead of sitting unnoticed.
+Scoped once step 2 lands. Two tracks, kept distinct: build what's missing, wire what's dead. Every first-invocation item from 2b is driven through the driver UI as part of the work, not after it. I'll bring the concrete scope back rather than guess it now.
 
 ## Technical notes
 
-- Migration 1 is service-role only, `SET search_path = public`, guards written positively (`coalesce(btrim(_storage_owner), '') <> ''`) for the fail-open reason in `docs/database-security-conventions.md`; that doc gets a row for the new `42501` case.
-- `docs/eld-offline-certification.md` records the edge function as the only authoritative purge path, the chain-safe ordering rule, and the disposition states.
+- `purge-rods-day` is the only authoritative purge entry point. SQL `purge_rods_day` two-arg refuses with `42501`; three-arg requires `_storage_owner`.
+- `record_rods_purge_storage_result` has one signature (four args, `_late` defaulted). `purge-rods-day` omits `_late`; `sweep-rods-orphans` passes `true`.
+- Case (c)'s iOS Safari gap is not closable in the sandbox.
