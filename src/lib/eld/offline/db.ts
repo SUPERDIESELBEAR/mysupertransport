@@ -176,6 +176,8 @@ export interface RodsDayCacheEntry {
   unsynced: boolean;
   /** Monotonic per-day. A sync only clears `unsynced` for the version it sent. */
   version: number;
+  /** 0/1 mirror of `unsynced`, because Dexie cannot index a boolean. Written by putCachedDay only. */
+  unsynced_flag?: 0 | 1;
   /** A draft write was refused terminally. The day needs a resolution path. */
   sync_rejected: boolean;
   /** The chain for this day gave up or was cancelled. Same. */
