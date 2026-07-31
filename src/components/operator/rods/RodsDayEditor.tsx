@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,14 +11,20 @@ import { isShortPeriod, validateRodsDay } from '@/lib/eld/rodsValidation';
 import {
   RODS_BUCKET, formatLogDate, rodsChip, showsDerivedTotals, type RodsDay,
 } from '@/lib/eld/rodsTypes';
-import { newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
+import { isHandledFlushError, newLocalId, useRodsDay, type DraftSegment } from '@/hooks/useRodsDay';
 import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
-import { diffAmendment } from '@/lib/eld/amendmentDiff';
+import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
+import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
 import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
+import CertifyMismatchDialog from './CertifyMismatchDialog';
 import UploadEldLogModal from './UploadEldLogModal';
+
+const OFFLINE_SAVE_MESSAGE =
+  'You are offline, so these edits have not reached the office copy yet. '
+  + 'They are still here — save again once you have a signal.';
 
 export default function RodsDayEditor({
   operatorId,
@@ -50,6 +56,13 @@ export default function RodsDayEditor({
   const [amendmentReason, setAmendmentReason] = useState('');
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [mismatch, setMismatch] = useState<AmendmentChange[] | null>(null);
+  /**
+   * One token per certification attempt, held across retries. Regenerating it
+   * on a retry turns a timed-out-but-committed certification into a P0014 the
+   * driver cannot get past; the same token replays as a server-side no-op.
+   */
+  const certifyToken = useRef<string | null>(null);
 
   const validation = useMemo(
     () => (day
@@ -98,7 +111,7 @@ export default function RodsDayEditor({
   async function save() {
     setBusy(true);
     try {
-      if (!(await flushPendingHeader())) return;
+      if ((await flushPendingHeader()) === 'offline') { toast.error(OFFLINE_SAVE_MESSAGE); return; }
       const ok = await saveSegments(segments);
       const totals = validation!.totals;
       if (!ok) return;
@@ -114,7 +127,9 @@ export default function RodsDayEditor({
       toast.success('Saved.');
       onChanged();
     } catch (err) {
-      if (isRowNotWritable(err)) {
+      if (isHandledFlushError(err)) {
+        // The hook has already told the driver and re-pulled the row.
+      } else if (isRowNotWritable(err)) {
         await markDayStale(logDate);
         toast.error(err.message);
         await reload();
@@ -132,9 +147,28 @@ export default function RodsDayEditor({
       // Header edits still inside the debounce window have to reach the row
       // before anything else: the change record below is computed from what is
       // on screen, and the row locks the instant certify_rods_day returns.
-      if (!(await flushPendingHeader())) return;
+      if ((await flushPendingHeader()) === 'offline') {
+        toast.error('You are offline. This log cannot be certified until your edits reach the office copy.');
+        return;
+      }
       const saved = await saveSegments(segments);
       if (!saved) return;
+
+      // Structural guard. Everything past this point locks the row, so the last
+      // thing we do before signing is re-read what is actually persisted and
+      // prove it matches the screen. A dropped write is otherwise silent.
+      await assertPersistedMatches({
+        dayId: day!.id,
+        logDate,
+        onScreen: {
+          day: day!,
+          events: segments.map((s) => ({
+            start_minute: s.start_minute, end_minute: s.end_minute,
+            duty_status: s.duty_status, city: s.city, state: s.state,
+            remarks: s.remarks || null,
+          })) as never,
+        },
+      });
 
       const stamp = Date.now();
       const sigPath = `${operatorId}/${logDate}/signature-${stamp}.png`;
@@ -212,20 +246,43 @@ export default function RodsDayEditor({
         // Every certification carries a token, online path included, so a
         // retry can never double-apply. The server returns the existing row
         // as a no-op when the same token replays.
-        p_certification_token: crypto.randomUUID(),
+        p_certification_token: (certifyToken.current ??= crypto.randomUUID()),
         p_changes: changes as never,
       });
       if (error) throw new Error(error.message);
 
       toast.success('Log certified.');
+      certifyToken.current = null;
       setCertifyOpen(false);
       onChanged();
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not certify this log.');
+      if (isPreflightMismatch(err)) {
+        setCertifyOpen(false);
+        setMismatch(err.differences);
+      } else if (!isHandledFlushError(err)) {
+        toast.error(err instanceof Error ? err.message : 'Could not certify this log.');
+      }
     } finally {
       setBusy(false);
     }
+  }
+
+  /**
+   * Mismatch resolution. Neither branch certifies anything and neither one
+   * silently picks a winner: the driver saves again, or takes the office copy
+   * and loses the listed edits knowingly.
+   */
+  async function retrySave() {
+    setMismatch(null);
+    await save();
+  }
+
+  async function useSavedVersion() {
+    setMismatch(null);
+    await markDayStale(logDate);
+    await reload();
+    toast.info('Reloaded the saved version of this log. Check it over before you certify.');
   }
 
   async function amend() {
@@ -465,6 +522,17 @@ export default function RodsDayEditor({
           onAmendmentReasonChange={setAmendmentReason}
           onConfirm={certify}
           busy={busy}
+        />
+      )}
+
+      {!!mismatch && (
+        <CertifyMismatchDialog
+          open
+          onOpenChange={(v) => { if (!v) setMismatch(null); }}
+          differences={mismatch}
+          busy={busy || saving}
+          onRetry={retrySave}
+          onUseSaved={useSavedVersion}
         />
       )}
 
