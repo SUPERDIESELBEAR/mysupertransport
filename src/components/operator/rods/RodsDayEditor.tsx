@@ -18,7 +18,7 @@ import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
 import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
 import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
 import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
-import { deleteReplayOrphans } from '@/lib/eld/rodsReplayOrphans';
+import { commitCertification } from '@/lib/eld/offline/commitCertification';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';

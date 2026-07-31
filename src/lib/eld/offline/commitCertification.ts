@@ -15,15 +15,13 @@
  * Supabase is never imported here: this runs offline, and /roadside reads what
  * it writes.
  */
-import {
-  roadsideDb, type RodsDay, type RoadsideManifest,
-} from './db';
+import { roadsideDb, type RoadsideManifest } from './db';
 import { putCachedDay, putCachedEvents } from './cache';
 import { signatureKeyForDay } from './prune';
 import { buildManifest } from './manifestBuild';
 import { newSyncId, type EnqueueInput } from './queue/store';
 import { assertSmallPayload } from './queue/types';
-import type { RodsEvent } from '@/lib/eld/rodsTypes';
+import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 export interface CommitCertificationInput {
   operatorId: string;
