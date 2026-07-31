@@ -41,7 +41,7 @@ export default function RodsDayEditor({
   onChanged: () => void;
 }) {
   const {
-    day, segments, setSegments, loading, saving, reload, patchHeader, saveSegments,
+    day, segments, setSegments, loading, saving, reload, patchHeader, flushPendingHeader, saveSegments,
   } = useRodsDay({ operatorId, logDate, defaults, autoCreate: true, isReconstruction });
 
   const [activeLocalId, setActiveLocalId] = useState<string | null>(null);
@@ -98,6 +98,7 @@ export default function RodsDayEditor({
   async function save() {
     setBusy(true);
     try {
+      if (!(await flushPendingHeader())) return;
       const ok = await saveSegments(segments);
       const totals = validation!.totals;
       if (!ok) return;
