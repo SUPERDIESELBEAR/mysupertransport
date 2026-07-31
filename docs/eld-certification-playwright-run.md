@@ -1,118 +1,79 @@
-# RODS certification — Playwright pass (2026-07-31)
+# RODS certification — Playwright pass (post local-first refactor)
 
 Chromium headless, 1280×1800, real driver session minted through the staff QR
-handoff. Every case purges in a `finally` through the `purge-rods-day` edge
-function (the authoritative path).
+handoff (`create-preview-session`), demo operator Marcus Mueller. Every case
+resets through `reset-demo-driver` and purges in a `finally` through the
+`purge-rods-day` edge function (the authoritative path).
 
-## Cache hydration is opt-in, not setup
+Scripts: `/tmp/browser/eld/{common,case_g2,case_a,case_a_realclock,case_a_wait}.py`.
 
-`hydrateRoadsideCache` is mounted only by `ELDMalfunctionView`, so the carrier
-cache exists only after the driver has visited the ELD tab. The harness no
-longer does this by default — it is an explicit `hydrate_via_eld_tab(page, case)`
-call, and the cases that use it are named below.
+## (g) Direct route to Paper Logs — PASS (regression closed)
 
-| Case | Result | Needed the ELD-tab hydration? |
-|------|--------|-------------------------------|
-| (a) debounce race | **PASS** | **Yes** |
-| (b) offline at certify | **PASS** | **Yes** |
-| (c) backgrounding flush | **PASS** (Chromium) | **Yes** |
-| (d) lost write | **PASS** | **Yes** |
-| (e) out-of-band edit | **PASS** | **Yes** |
-| (f) replay after timeout | **INCONCLUSIVE** | **Yes** |
-| (g) direct route to Paper Logs | evidence captured | No — that is the point |
+Sign in → `/operator/paper-logs` directly, never visiting the ELD tab.
 
-**Every one of (a)–(f) required the workaround.** None of them can currently be
-reached by a driver who signs in and goes straight to Logs. The certification
-path as a whole is unreachable on the direct route.
+- Dexie after landing: `local_meta: 1`, `roadside_manifest: 1` — the shell-level
+  `useRoadsideHydration` in `OperatorPortal` populates the caches on every
+  operator route, so hydration is no longer opt-in.
+- Opening a day succeeds: the editor renders, no "carrier details have not been
+  downloaded" block, and `rods_days_cache` gains the client-minted day.
 
-## (g) Direct route — the real-world path
+The pre-refactor finding ("the certification path is unreachable on the direct
+route") no longer reproduces.
 
-Sign in → Logs, no ELD tab. Observed:
+## (a) Debounce race — the Dexie write is already immediate
 
-- Dexie `superdrive_roadside` exists, and **every store is empty**:
-  `local_meta: 0`, `rods_days_cache: 0`, `rods_events_cache: 0`,
-  `roadside_manifest: 0`, `sync_queue: 0`.
-- Paper Logs renders: the malfunction banner, "8 of 8 days still need a log",
-  the day strip, and "Print 8 blank sheets".
-- Opening any day shows: *"Carrier details have not been downloaded to this
-  device yet. Connect to the internet once and reopen this screen — the record
-  cannot be created without the carrier name, USDOT number and terminal
-  address required on the log."*
-- The caches are **still empty** after opening a day. Nothing on this route
-  populates them.
+With `context.clock.install()` freezing time so the 700 ms timer **cannot** fire,
+the final keystroke (`trailer_numbers = FINAL-KEYSTROKE-99`) was present in
+`rods_days_cache` immediately after typing. Only the enqueue is debounced; the
+cache write is synchronous. Correction 1 from the plan is already satisfied by
+the shipped code — no change needed there.
 
-The copy is also wrong about the cause: the driver *is* online. Reconnecting
-does nothing; only visiting the ELD tab does. Screenshots:
-`g_logs_direct.png`, `g_day_direct.png`.
+Under a real clock and a long enough wait, that same keystroke reached the
+server row intact (`trailer_numbers: "FINAL-KEYSTROKE-99"`). No lost write.
 
-## (a) Debounce race — now actually raced
+## Defect A (confirmed, blocking) — the preflight reads the server while the draft is still in the queue
 
-The earlier run was not evidence: the certify RPC went out 3.5 s after the last
-keystroke, so the 700 ms debounce had already fired on its own.
+**Certification is unreachable for an online driver who does not idle first.**
 
-This run freezes the page clock (`page.clock.pause_at`) so the debounce timer
-cannot fire, and instruments `window.fetch` in-page so every timestamp and
-ordering comes from **one clock** and a page-side sequence counter.
+`assertPersistedMatches` picks its persisted copy on `navigator.onLine`: online
+it reads `rods_days` / `rods_events` from the server
+(`src/lib/eld/certifyPreflight.ts:81-107`). After the local-first refactor the
+draft is written to Dexie and handed to the sync queue; the queue's backstop
+tick is 60 s (`INTERVAL_MS`, `queue/runner.ts:150-173`) and nothing in the
+certify path waits for it. So at certify time the server has no row yet and the
+guard throws `PreflightUnavailableError`.
 
-```
-#0 final_keystroke   +0ms(virtual)
-#1 rods_days_PATCH   +0ms(virtual)  body={"to_location":"Tulsa OK FINAL KEYSTROKE"}
-#2 certify_tap       +0ms(virtual)
-#4 certify_rpc       +0ms(virtual)
-row: certified|Tulsa OK FINAL KEYSTROKE
-```
+Reproduction (`case_a_realclock.py`, real clock, no fake timers):
 
-The write carrying the final value is issued after the keystroke and before the
-RPC, with the debounce provably unable to have fired. Attributable to
-`flushPendingHeader()`.
+1. Sign in → Logs → open today, fill one 00:00–24:00 Off-duty segment and the
+   required header fields.
+2. Certify immediately: type the legal name, sign, "Certify log".
+3. Toast: *"The saved copy of this log could not be read, so it cannot be
+   certified yet. It is no longer on file."*
+4. Server `rods_days` for the operator: `[]`. Dexie `local_certified_at: null`.
+   No `certify_day` entry was ever enqueued.
 
-## (b) Offline at certify
+Second reproduction (`case_a_wait.py`) isolates the cause to queue latency, not
+the debounce:
 
-`Certify log` disables the moment the tab goes offline, and the modal shows
-*"You're offline — changes will sync when reconnected."* Row stays `draft`.
+- Waiting 75 s before certifying lets the `save_draft_day` entry drain
+  (`status: "succeeded"`), and the server row then exists with the correct
+  header — but the certify path's own `saveSegments` enqueues a **new**
+  `save_draft_segments` entry that has not drained, so the preflight fails again
+  on the events comparison. `local_certified_at` stays `null`.
+- Both queue entries reach `status: "succeeded"` roughly 40–60 s after their
+  enqueue, confirming the runner works and the gap is purely the wait.
 
-## (c) Backgrounding
+Neither run produced a `row_not_writable` cancellation, so the debounced enqueue
+firing after a lock is not implicated.
 
-Clock frozen; `visibilitychange` → hidden and `pagehide` each produced a header
-PATCH carrying the value, and each value was persisted
-(`BOL-VIS-001`, `BOL-HIDE-002`). **Chromium only. iOS Safari stays UNVERIFIED
-on the hardware checklist** — `pagehide` is the only reliable exit event there
-and it must be confirmed on a real iPhone.
+**Consequence for the rest of the pass.** Cases (b)–(f) and (h)–(l) all drive a
+certification, so every one of them is gated on Defect A. The pass stops here
+until the persisted-copy source is fixed.
 
-## (d) Lost write
-
-A header PATCH was rewritten in flight so the server stored a different value
-than the screen. The preflight caught it: *"Certifying locks the log
-permanently, so SUPERDRIVE checked the saved copy first. It does not match what
-you are looking at."* Row stayed `draft`.
-
-## (e) Out-of-band edit
-
-Note: **staff cannot write `rods_days`** — a REST PATCH with a staff token
-affected 0 rows, which is correct. The realistic out-of-band writer is the same
-driver on a second device, so the case now runs two real sessions. Device two
-changed `Trailer number(s)`; device one's certify raised the mismatch dialog
-naming Trailer no., and Cancel left device one's unsaved `To` value intact.
-
-## (f) Replay — INCONCLUSIVE, and why
-
-The first RPC was really sent (`route.fetch` → server applied it, returned
-`replayed: false`), then a 504 was fulfilled to the client. The row was polled
-to `certified`.
-
-**The retry never happened.** After the 504 the editor had already reloaded and
-was showing "Open certified log / Amend this log" — there is no second
-`Certify log` to press. Net effect on the record is correct (1 certified row,
-paths unchanged, no orphaned storage objects), but the `replayed: true` branch,
-the replay toast, and the attempt-2 orphan delete are **not exercised by any
-path a driver can reach**. They remain unverified code.
-
-Follow-up needed: either the editor should surface an explicit retry after a
-transport failure, or the replay branch should be acknowledged as reachable
-only from the offline queue.
-
-## Cleanup
-
-After every case: `rods_days` 0, `rods_events` 0, `rods_amendments` 0,
-`eld_malfunction_events` 0 for the demo operator, `pending_caller` 0. All new
-`rods_day_purged` audit rows read `completed` or `not_applicable`.
+**Shape of the fix (not yet implemented).** The preflight must compare against
+the bytes the certification will actually replay. When the day is unsynced —
+`rods_days_cache.unsynced`, or a non-terminal `save_draft_*` entry exists for
+the date — the persisted copy is the Dexie cache, regardless of
+`navigator.onLine`. The server read stays correct only for a day with no pending
+queue work.
