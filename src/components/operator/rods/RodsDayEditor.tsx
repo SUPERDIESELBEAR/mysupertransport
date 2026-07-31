@@ -56,6 +56,13 @@ export default function RodsDayEditor({
   const [amendmentReason, setAmendmentReason] = useState('');
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [mismatch, setMismatch] = useState<AmendmentChange[] | null>(null);
+  /**
+   * One token per certification attempt, held across retries. Regenerating it
+   * on a retry turns a timed-out-but-committed certification into a P0014 the
+   * driver cannot get past; the same token replays as a server-side no-op.
+   */
+  const certifyToken = useRef<string | null>(null);
 
   const validation = useMemo(
     () => (day
@@ -104,7 +111,7 @@ export default function RodsDayEditor({
   async function save() {
     setBusy(true);
     try {
-      if (!(await flushPendingHeader())) return;
+      if ((await flushPendingHeader()) === 'offline') { toast.error(OFFLINE_SAVE_MESSAGE); return; }
       const ok = await saveSegments(segments);
       const totals = validation!.totals;
       if (!ok) return;
@@ -120,7 +127,9 @@ export default function RodsDayEditor({
       toast.success('Saved.');
       onChanged();
     } catch (err) {
-      if (isRowNotWritable(err)) {
+      if (isHandledFlushError(err)) {
+        // The hook has already told the driver and re-pulled the row.
+      } else if (isRowNotWritable(err)) {
         await markDayStale(logDate);
         toast.error(err.message);
         await reload();
@@ -138,9 +147,28 @@ export default function RodsDayEditor({
       // Header edits still inside the debounce window have to reach the row
       // before anything else: the change record below is computed from what is
       // on screen, and the row locks the instant certify_rods_day returns.
-      if (!(await flushPendingHeader())) return;
+      if ((await flushPendingHeader()) === 'offline') {
+        toast.error('You are offline. This log cannot be certified until your edits reach the office copy.');
+        return;
+      }
       const saved = await saveSegments(segments);
       if (!saved) return;
+
+      // Structural guard. Everything past this point locks the row, so the last
+      // thing we do before signing is re-read what is actually persisted and
+      // prove it matches the screen. A dropped write is otherwise silent.
+      await assertPersistedMatches({
+        dayId: day!.id,
+        logDate,
+        onScreen: {
+          day: day!,
+          events: segments.map((s) => ({
+            start_minute: s.start_minute, end_minute: s.end_minute,
+            duty_status: s.duty_status, city: s.city, state: s.state,
+            remarks: s.remarks || null,
+          })) as never,
+        },
+      });
 
       const stamp = Date.now();
       const sigPath = `${operatorId}/${logDate}/signature-${stamp}.png`;
@@ -218,17 +246,23 @@ export default function RodsDayEditor({
         // Every certification carries a token, online path included, so a
         // retry can never double-apply. The server returns the existing row
         // as a no-op when the same token replays.
-        p_certification_token: crypto.randomUUID(),
+        p_certification_token: (certifyToken.current ??= crypto.randomUUID()),
         p_changes: changes as never,
       });
       if (error) throw new Error(error.message);
 
       toast.success('Log certified.');
+      certifyToken.current = null;
       setCertifyOpen(false);
       onChanged();
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not certify this log.');
+      if (isPreflightMismatch(err)) {
+        setCertifyOpen(false);
+        setMismatch(err.differences);
+      } else if (!isHandledFlushError(err)) {
+        toast.error(err instanceof Error ? err.message : 'Could not certify this log.');
+      }
     } finally {
       setBusy(false);
     }
