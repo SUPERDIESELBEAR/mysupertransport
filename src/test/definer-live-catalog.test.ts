@@ -223,6 +223,20 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // seven-argument form is dropped (docs/deferred-removals.md).
 const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 66;
 
+/**
+ * The entries appearing more than once, by name. A bare count mismatch on a
+ * sixty-entry list is not something anyone wants to diff by eye.
+ */
+function duplicatesIn(list: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const entry of list) {
+    if (seen.has(entry)) dupes.add(entry);
+    seen.add(entry);
+  }
+  return [...dupes].sort();
+}
+
 describe("live SECURITY DEFINER catalog (pg_proc)", () => {
   it("the allowlist may only shrink", () => {
     expect(KNOWN_ANON_EXECUTABLE.length).toBeLessThanOrEqual(
