@@ -45,11 +45,12 @@ export interface CommitCertificationInput {
   legalName: string;
   signatureDataUrl: string;
   /**
-   * REQUIRED, and re-checked here by digest rather than re-run: the pixel pass
-   * happens once, at the caller, but this function is the lock-writer and must
-   * not take the invariant on trust. A missing signature is what makes a
-   * certified §395.8 record invalid, so it is refused where the record is
-   * committed, not where it is drawn.
+   * REQUIRED. The caller's result is evidence, not authority: this function
+   * binds it to the bytes by digest AND re-runs the validator itself before
+   * writing the lock. A missing signature is what makes a certified §395.8
+   * record invalid, so it is refused where the record is committed, not where
+   * it is drawn — and a caller that gets the check wrong cannot talk its way
+   * past it.
    */
   signatureValidation: SignatureValidation;
   pdfBytes: ArrayBuffer;

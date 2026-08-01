@@ -17,7 +17,18 @@ const { sha256Hex, SIGNATURE_INVALID_MESSAGE } = await import('@/lib/eld/signatu
 const { undeliverableAlertCount, resetUndeliverableAlertCount } = await import('../queue/alerts');
 
 const DATE = '2026-07-09';
-const SIG = `data:image/png;base64,${btoa('signature-bytes'.repeat(40))}`;
+/** Structurally a PNG and large enough to be a signature; jsdom cannot decode
+ *  it, so commitCertification's own re-run lands in structural mode and the
+ *  caller's pixel result stands. The real pixel pass is covered in the browser
+ *  by case (k2) of scripts/eld-queue-gate.py. */
+const SIG = (() => {
+  const bytes = new Uint8Array(1200);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  for (let i = 8; i < bytes.length; i += 1) bytes[i] = i % 251;
+  let bin = '';
+  bytes.forEach((b) => { bin += String.fromCharCode(b); });
+  return `data:image/png;base64,${btoa(bin)}`;
+})();
 
 function day(): RodsDay {
   return {
