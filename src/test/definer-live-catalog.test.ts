@@ -228,9 +228,15 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     expect(KNOWN_ANON_EXECUTABLE.length).toBeLessThanOrEqual(
       KNOWN_ANON_EXECUTABLE_MAX,
     );
-    expect(new Set(KNOWN_ANON_EXECUTABLE).size).toBe(
-      KNOWN_ANON_EXECUTABLE.length,
-    );
+    // Distinctness is what makes the MAX above mean anything. A duplicate
+    // grows `length` without growing the set the number is supposed to cap,
+    // so the ratchet reads one looser than it looks and the next person sizes
+    // the MAX to the inflated count. This happened: certify_rods_day's
+    // seven-argument form was listed twice (see the run doc).
+    expect(
+      duplicatesIn(KNOWN_ANON_EXECUTABLE),
+      "duplicate entries in KNOWN_ANON_EXECUTABLE",
+    ).toEqual([]);
   });
 
   it.runIf(HAS_DB)(
