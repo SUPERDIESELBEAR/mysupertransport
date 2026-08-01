@@ -612,3 +612,82 @@ not last-definition-wins, so the scan could never see the revoke — and a
 statement-spanning regex attributed to an unrelated table three statements
 earlier. The assertion now runs against the live catalog, where "what is
 granted right now" is one query rather than an inference over text.
+
+## 8. Trigger-revoke verification and residual warning accounting (2026-08-01)
+
+### 8.1 Live-write verification of the 53 trigger revokes
+
+The revoke reasoning (PostgreSQL checks EXECUTE at CREATE TRIGGER, not at fire
+time) is correct but silent on failure, so it was exercised through the running
+app as the signed-in owner, against real tables, with each change reverted.
+
+| Flow driven in the UI | Write | Definer trigger functions that fired | Result |
+| --- | --- | --- | --- |
+| Dispatch Board -> day cell -> "Not Dispatched" | INSERT `dispatch_daily_log` | `sync_active_dispatch_from_log` | `active_dispatch` moved home -> not_dispatched |
+| (same write, cascaded) | UPDATE `active_dispatch` | `log_dispatch_status_change`, `notify_on_truck_down` | `dispatch_status_history` 24 -> 26 rows |
+| Messages -> demo driver -> Send | INSERT `messages` | `bump_thread_last_message` | thread row bumped, `notifications` 60 -> 61, throttle row written |
+| (same write, cascaded) | INSERT `notifications` | `notifications_autofill_entity` | notification rendered with entity |
+| MO Plate Registry -> ABC123 -> expiry 06/30/2027 -> 07/31/2027 -> back | UPDATE `mo_plates` x2 | `sync_mo_plate_expiry_to_irp` | expiry changed and reverted, no error |
+
+6 definer trigger functions verified by firing. Coverage split of the 57
+definer trigger functions now in `public`:
+
+- **6 verified live** through the app, as above.
+- **57 attached** to an enabled trigger — asserted every run by the new
+  "every SECURITY DEFINER trigger function is attached to a live trigger" test.
+  This is the check that keeps the revoke safe: the CREATE-TRIGGER-time
+  privilege rule only holds while the trigger is still attached.
+- **51 not exercised individually.** They are covered by the attachment
+  assertion and by the shape of the argument, not by observation. No write
+  through the app raised a permission error.
+
+Three UPDATE-only message guards (`enforce_message_edit_rules`,
+`enforce_message_recipient_update_immutability`,
+`prevent_recipient_message_tampering`) did not fire — the flow only inserts.
+
+Residue left in the database from the exercise: one `dispatch_daily_log` row
+for 2026-08-01 matching the driver's real status, four extra
+`dispatch_status_history` audit rows, and one test message to the demo driver.
+`active_dispatch` and `mo_plates` were returned to their prior values.
+
+### 8.2 The 133 residual linter warnings, by category
+
+| Count | Category | Tracked by |
+| --- | --- | --- |
+| 63 | definer functions executable by `authenticated` (rule 0028) | `KNOWN_AUTHENTICATED_EXECUTABLE`, max 64 — **new** |
+| 59 | definer functions executable by `anon` (subset of the above) | `KNOWN_ANON_EXECUTABLE`, max 59 |
+| 4 | RLS enabled, no policy (rule 0008) | see 8.3 |
+| 3 | extension in `public` (`pg_net`, `pg_trgm`, `vector`) | register #7 — accepted |
+| 2 | public storage buckets listable (`avatars`, `service-logos`) | register #8 — accepted |
+| 1 | mutable search_path: `_app_correction_editable_columns` (SECURITY INVOKER) | register #9 — low, invoker |
+| 1 | leaked-password protection disabled | platform limitation, not fixable here |
+
+The counts overlap: rule 0028 fires once per function per role, so the 59 anon
+functions are also counted in the 63. Every warning now falls inside a
+shrink-only list with an asserted maximum, or inside the register. None are
+untracked.
+
+Note the blind spot this does *not* close: rule 0011 only checks that a pin
+*exists*, so the ~104 functions pinned to `public` alone are invisible to the
+linter. They are a separate defect class, tracked by the file-based guards.
+
+### 8.3 Policyless RLS tables with client grants — closed
+
+`application_resume_tokens`, `document_short_links` and
+`message_notification_throttle` each had RLS on, zero policies, and
+`authenticated=arwdDxtm`. Zero policies means every row is denied, so the
+grant read as harmless. It was not:
+
+- it is a live privilege waiting for the first policy anyone writes, and
+- it converts a permission error into a silent empty result. That is exactly
+  what `RevertRevisionModal` was hitting: its "unused resume links" count was
+  reading 0 for every application, and no error was ever surfaced.
+
+Fixed by revoking all `anon`/`authenticated` privileges on the three tables and
+replacing the modal's direct table read with
+`count_unused_resume_tokens(uuid)` — a definer RPC that role-checks the caller
+and returns only a count, never a token. `app_private.config`, the fourth
+policyless table, was already `service_role`-only and was left alone.
+
+Asserted from now on by the "no RLS table without policies holds client-role
+grants" test.

@@ -5915,6 +5915,10 @@ export type Database = {
           draft_token: string
         }[]
       }
+      count_unused_resume_tokens: {
+        Args: { _application_id: string }
+        Returns: number
+      }
       create_eld_document_day: {
         Args: {
           p_carrier: Json
