@@ -66,10 +66,13 @@ export function statusTotals(events: RodsEvent[]) {
  * must never make a log uncertifiable.
  *
  * This checklist is keyed-log only. An uploaded ELD document (record_source =
- * 'eld_document') is certified on the driver's own device and has no keyed
- * face — the server skips the segment and header guards for it entirely, so
- * running this against one reports failures the record does not have. The
- * asymmetry is intentional and is pinned by fixture 17 in
+ * 'eld_document') is certified on the driver's own device, is filed
+ * already-certified by create_eld_document_day, and has no keyed face — so
+ * running this against one reports failures the record does not have. Since
+ * 2026-08-01 certify_rods_day refuses anything that is not keyed (P0019) and
+ * record_source is immutable after insert (P0045); the segment and header
+ * guards are therefore unconditional for everything that reaches them.
+ * Pinned by fixtures 17–19 in
  * src/lib/eld/offline/__tests__/parityFixtures.test.ts.
  *
  * The four carrier/terminal fields are snapshotted at draft creation from the
