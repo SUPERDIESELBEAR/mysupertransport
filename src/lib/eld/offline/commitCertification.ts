@@ -108,6 +108,9 @@ export async function commitCertification(
   // Every store the transaction touches — including the ones buildManifest
   // reads — has to be declared. Dexie throws on a table the outer transaction
   // did not name, and that throw would land after the driver signed.
+  // Scoped to this call, not module state: an abort throws past the flush
+  // below, and a concurrent hydration cannot drain this value.
+  let emptySegments: EmptySegmentsDetected | null = null;
   const manifest = await roadsideDb.transaction(
     'rw',
     [
@@ -203,5 +206,6 @@ export async function commitCertification(
     },
   );
 
+  await flushEmptySegmentAlerts(emptySegments);
   return { localCertifiedAt, certifyEntryId, manifest };
 }
