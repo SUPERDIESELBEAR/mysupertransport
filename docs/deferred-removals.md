@@ -52,3 +52,50 @@ three-argument form (a successful purge with `storage_owner` present in the
 ```sql
 DROP FUNCTION public.purge_rods_day(uuid, text);
 ```
+
+## `certify_rods_day(uuid,text,text,text,text,uuid,jsonb)` — the seven-argument overload
+
+**Where:** database function
+`public.certify_rods_day(_day_id uuid, _legal_name text, _signature_path text,
+_pdf_path text, _device_info text, p_certification_token uuid, p_changes jsonb)`
+
+**What:** the pre-signature-validation signature. Its body now delegates to the
+eight-argument form with `p_signature_validation => NULL`, so the certification
+logic exists in exactly one place and the two cannot drift. A call through it
+certifies normally and records no validation — correct for a client that never
+computed one.
+
+**Why it still exists:** the client and the migration deploy separately, and
+certify entries are already sitting in drivers' sync queues, some offline for
+days. Dropping the old signature in the migration that adds the new one would
+mean every queued call landing between the migration and the new bundle hits a
+function that no longer exists. Worse than the `purge_rods_day` case: a missing
+signature classifies as `server`, so the entry burns its attempt budget rather
+than waiting for the client that would have fixed it. Sequence is: migration 1
+(new signature, old one kept) → client deploy → migration 2 (drop).
+
+**Interim guard:** both signatures are in `KNOWN_AUTHENTICATED_EXECUTABLE` in
+`src/test/definer-live-catalog.test.ts`, with `KNOWN_AUTHENTICATED_EXECUTABLE_MAX`
+at 66 instead of 65. The guard stays strict; the pair is declared, not tolerated.
+
+**Removal trigger:** no queued entry can still carry the old argument set. In
+practice: the new bundle is live, and every `rods_days` row with
+`certified_at` after the deploy timestamp carries a non-null
+`certification_signature_validation`, with none appearing for a full offline
+drain window (the outer bound of the queue's retry budget). Confirm with:
+
+```sql
+SELECT count(*) FILTER (WHERE certification_signature_validation IS NULL) AS unvalidated,
+       count(*) AS certified_since_deploy
+  FROM public.rods_days
+ WHERE certified_at > '<deploy timestamp>';
+```
+
+**How to remove:**
+
+```sql
+DROP FUNCTION public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb);
+```
+
+Then drop both the interim entry and the comment from the catalog guard and put
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` back to 65.
