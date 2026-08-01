@@ -89,7 +89,12 @@ export interface PutCachedEventsInput {
   local_certified_at: string | null;
 }
 
-export type EventCacheProvenance = 'hydration' | 'local_certification' | 'sync_flag_clear';
+export type EventCacheProvenance =
+  | 'hydration'
+  | 'local_certification'
+  | 'sync_flag_clear'
+  /** The day editor: draft creation, a post-read refresh, or a segment save. */
+  | 'editor';
 
 /**
  * Keys only, no prose. Returned to the caller rather than stored in module
