@@ -77,7 +77,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.cancel_application_correction(uuid)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
-  "public.create_eld_document_day(uuid,date,text,jsonb,uuid)",
   "public.discard_rods_amendment(uuid)",
   "public.email_queue_dispatch()",
   "public.get_application_by_draft_token(uuid)",
@@ -111,7 +110,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.operator_return_requested(uuid)",
   "public.reject_application_correction(text,text,jsonb)",
   "public.remove_user_role(uuid,app_role)",
-  "public.replace_rods_document(uuid,text,text,uuid)",
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
@@ -156,6 +154,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.cancel_application_correction(uuid)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
+  // create_eld_document_day / replace_rods_document used to be pinned here.
+  // The HEIC migration replaced both signatures and, in doing so, dropped the
+  // anon EXECUTE grant. Verified live 2026-08-01: anon has no EXECUTE on
+  // either new signature. Entries removed rather than re-signatured — this
+  // list is only ever allowed to shrink.
   "public.count_unused_resume_tokens(uuid)",
   // INTERIM PAIR. The eight-argument form is the live one; the seven-argument
   // form is kept only so certify entries already queued on drivers' phones --
@@ -165,7 +168,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // are in docs/deferred-removals.md.
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb)",
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb,jsonb)",
-  "public.create_eld_document_day(uuid,date,text,jsonb,uuid)",
+  // HEIC path: both gained p_display_document_path / p_display_conversion_failed.
+  // Definer because they enforce the record_source and source_document_path
+  // guards that a direct table write would bypass; a driver may only reach
+  // their own operator row through them.
+  "public.create_eld_document_day(uuid,date,text,jsonb,uuid,text,boolean)",
   "public.discard_rods_amendment(uuid)",
   "public.email_queue_dispatch()",
   "public.get_application_by_draft_token(uuid)",
@@ -202,7 +209,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.record_rods_unlock(uuid,uuid,date,timestamp with time zone,timestamp with time zone,jsonb,jsonb,text,text,uuid)",
   "public.reject_application_correction(text,text,jsonb)",
   "public.remove_user_role(uuid,app_role)",
-  "public.replace_rods_document(uuid,text,text,uuid)",
+  "public.replace_rods_document(uuid,text,text,uuid,text,boolean)",
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",

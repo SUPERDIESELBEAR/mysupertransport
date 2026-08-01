@@ -71,18 +71,28 @@ export default function InspectionSharePage() {
 
   return (
     <div className="min-h-dvh bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-black text-white px-4 py-3 flex items-center gap-3">
-        <img src={logo} alt="SuperTransport" className="h-7 object-contain" />
-        <div className="flex flex-col">
-          <span className="text-xs font-bold tracking-widest text-yellow-400 uppercase">SuperTransport</span>
-          <span className="text-[10px] text-gray-400 leading-none">Roadside Document Viewer</span>
+      {/* Header.
+          Deliberately NOT rendered on the throttled state. That state is the
+          one screen an unauthenticated caller can reach that CONFIRMS the token
+          is live; pairing that confirmation with the carrier name, the logo and
+          "Roadside Document Viewer" attributes a live link to a specific
+          carrier. `ok` needs the branding (an officer must know whose documents
+          these are) and "Document Not Found" confirms nothing, so both keep it.
+          Throttled gets neutral chrome and no attribution. */}
+      {!throttled && (
+        <div className="bg-black text-white px-4 py-3 flex items-center gap-3">
+          <img src={logo} alt="SuperTransport" className="h-7 object-contain" />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold tracking-widest text-yellow-400 uppercase">SuperTransport</span>
+            <span className="text-[10px] text-gray-400 leading-none">Roadside Document Viewer</span>
+          </div>
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-green-400" />
+            Secure Link
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-green-400" />
-          Secure Link
-        </div>
-      </div>
+      )}
+      {throttled && <div className="bg-gray-200 h-1" aria-hidden="true" />}
 
       <div className="flex-1 flex flex-col items-center justify-start p-4 pt-8">
         {loading && (

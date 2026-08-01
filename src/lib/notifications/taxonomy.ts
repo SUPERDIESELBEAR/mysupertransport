@@ -58,6 +58,16 @@ export const NOTIF_TAXONOMY: Record<string, NotifMeta> = {
   // Messages
   new_message:                { tier: 'action', category: 'messages',     label: 'New Message' },
 
+  // ELD / RODS.
+  // raise_eld_sync_alert inserts these with priority 'high', which resolveTier
+  // does not recognise ('action' | 'watch' | 'fyi' only), so before this entry
+  // existed a rejected certification landed in the bell as tier 'fyi' labelled
+  // "Notification" and never appeared on the Action tab. The row was written
+  // and nothing rendered it — the same failure shape as a missing edge
+  // function, one layer later. A driver's signed log that the server refused
+  // is the highest-urgency item Management can receive.
+  eld_sync_alert:             { tier: 'action', category: 'compliance',   label: 'ELD Sync Alert' },
+
   // System
   release_note:               { tier: 'watch',  category: 'system',       label: "What's New" },
 

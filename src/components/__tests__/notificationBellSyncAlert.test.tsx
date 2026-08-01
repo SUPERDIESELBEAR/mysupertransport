@@ -1,0 +1,76 @@
+/**
+ * Pass B §9, rejection criterion — asserted at the RENDERED bell.
+ *
+ * The rejection path writes a `notifications` row of type `eld_sync_alert`.
+ * A row whose type nothing renders is the missing-edge-function failure one
+ * layer later, so the row is necessary evidence and not sufficient evidence.
+ * This opens the bell, selects Action, and reads the text on screen.
+ *
+ * Regression it locks: raise_eld_sync_alert inserts priority 'high', which
+ * resolveTier does not recognise, so without a taxonomy entry the item resolved
+ * to tier 'fyi' and was absent from Action entirely.
+ */
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+
+const ROW = {
+  id: 'n1',
+  title: 'ELD sync: certification rejected — Unit 412 — 2026-03-04',
+  body: 'A certified log already exists for this date.',
+  link: '/dashboard?view=operator-detail&op=abc',
+  sent_at: new Date().toISOString(),
+  read_at: null,
+  type: 'eld_sync_alert',
+  entity_type: 'eld_sync_alert',
+  entity_id: 'alert-1',
+  priority: 'high',
+  snoozed_until: null,
+  assigned_to: null,
+  archived_at: null,
+};
+
+function query() {
+  const chain: Record<string, unknown> = {};
+  const self = () => chain;
+  for (const k of ['select', 'eq', 'is', 'or', 'order']) chain[k] = self;
+  chain.limit = async () => ({ data: [ROW], error: null });
+  return chain;
+}
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: () => query(),
+    channel: () => ({ on: function () { return this; }, subscribe: function () { return this; } }),
+    removeChannel: () => {},
+    rpc: async () => ({ data: null, error: null }),
+  },
+}));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ session: { user: { id: 'staff-1' } }, activeRole: 'management' }),
+}));
+vi.mock('react-router-dom', () => ({ useNavigate: () => () => {} }));
+
+import NotificationBell from '@/components/NotificationBell';
+
+describe('notification bell — ELD sync rejection', () => {
+  it('shows the sync alert on the Action tab, by its rendered text', async () => {
+    render(<NotificationBell />);
+
+    const bell = await screen.findByRole('button', { name: /notification/i });
+    await act(async () => { fireEvent.click(bell); });
+
+    // The Action tab must be the one carrying it. Asserting only "the text is
+    // somewhere in the dropdown" is not enough — the All tab shows everything,
+    // so that assertion passes even when the item is tier 'fyi'.
+    const actionTab = await screen.findByRole('button', { name: /^Action/ });
+    expect(actionTab.textContent).toMatch(/Action\s*\(1\)/);
+
+    await act(async () => { fireEvent.click(actionTab); });
+    await waitFor(() => {
+      expect(
+        screen.getByText(/ELD sync: certification rejected — Unit 412 — 2026-03-04/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Nothing needs your attention right now.')).toBeNull();
+  });
+});
