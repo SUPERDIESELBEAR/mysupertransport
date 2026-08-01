@@ -38,6 +38,12 @@ export interface LocalMeta {
   /** The operator's own terminal, which may differ from the carrier default. */
   home_terminal_address: string | null;
   home_terminal_timezone: string;
+  /**
+   * Demo (sandbox) driver. Cached so the roadside surface — which renders with
+   * no network — can watermark artifacts that have no record row of their own,
+   * such as the officer packet cover and placeholder pages.
+   */
+  is_demo?: boolean;
   updated_at: string;
 }
 
