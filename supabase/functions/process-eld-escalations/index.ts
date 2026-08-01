@@ -211,6 +211,46 @@ async function handler(req: Request): Promise<Response> {
 
   const admin = serviceClient();
 
+  // Run ledger: pg_cron's job_run_details does not carry the function's
+  // response body, and edge logs retain ~10 minutes. A quiet run (zero events,
+  // zero rows, zero emails) must still be legible from the database months
+  // later, and distinguishable from a job that never fired at all.
+  const startedAt = Date.now();
+  let runId: string | null = null;
+  if (!dryRun) {
+    const { data: runRow } = await admin
+      .from('eld_cron_runs')
+      .insert({
+        job_name: 'process-eld-escalations',
+        trigger_source: auth.isService ? 'cron' : 'manual',
+        is_override: isOverride,
+        effective_date: now.toISOString().slice(0, 10),
+        status: 'running',
+      })
+      .select('id')
+      .maybeSingle();
+    runId = runRow?.id ?? null;
+  }
+  const finishRun = async (
+    status: 'ok' | 'error',
+    payload: Record<string, unknown>,
+    errorText?: string,
+  ) => {
+    if (!runId) return;
+    await admin.from('eld_cron_runs').update({
+      status,
+      finished_at: new Date().toISOString(),
+      duration_ms: Date.now() - startedAt,
+      events_evaluated: Number(payload.events ?? 0),
+      ledger_rows_inserted: Number(payload.ledger_rows_inserted ?? 0),
+      emails_sent: Number(payload.emails_sent ?? 0),
+      error_text: errorText ?? null,
+      result: payload,
+    }).eq('id', runId);
+  };
+
+  try {
+
   const { data: carrier } = await admin
     .from('carrier_profile')
     .select('home_terminal_timezone')
@@ -231,7 +271,10 @@ async function handler(req: Request): Promise<Response> {
   if (body?.eventId) query = query.eq('id', body.eventId);
 
   const { data: events, error: eventsError } = await query;
-  if (eventsError) return fail(500, 'Could not load malfunction events', eventsError.message);
+  if (eventsError) {
+    await finishRun('error', { events: 0 }, eventsError.message);
+    return fail(500, 'Could not load malfunction events', eventsError.message);
+  }
 
   // operators has no FK to profiles (user_id points at auth.users), so the
   // driver's name is a second read rather than an embed.
@@ -351,7 +394,7 @@ async function handler(req: Request): Promise<Response> {
     });
   }
 
-  return ok({
+  const payload = {
     success: true,
     dryRun,
     isOverride,
@@ -361,7 +404,14 @@ async function handler(req: Request): Promise<Response> {
     ledger_rows_inserted: inserted,
     emails_sent: emailed,
     results,
-  });
+  };
+  await finishRun('ok', payload);
+  return ok(payload);
+
+  } catch (err) {
+    await finishRun('error', { events: 0 }, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
 }
 
 interface DeliverArgs {
