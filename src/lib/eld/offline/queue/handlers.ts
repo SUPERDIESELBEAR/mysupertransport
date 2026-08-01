@@ -10,6 +10,7 @@ import { RODS_BUCKET } from '@/lib/eld/rodsTypes';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
 import { deleteReplayOrphans } from '@/lib/eld/rodsReplayOrphans';
 import { assertRowsAffected } from '@/lib/eld/rodsWrite';
+import { announceIfSuppressed } from '@/lib/eld/demoSuppression';
 import type { RodsDay } from '@/lib/eld/rodsTypes';
 import { roadsideDb, type SyncKind } from '../db';
 import { markDaySynced, putCachedDay } from '../cache';
@@ -299,10 +300,11 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
    * a retry cannot restart the 8-day clock with a second timestamp.
    */
   async send_notice(payload) {
-    const { error } = await supabase.functions.invoke('send-eld-malfunction-notice', {
+    const { data, error } = await supabase.functions.invoke('send-eld-malfunction-notice', {
       body: { event_id: str(payload, 'event_id') },
     });
     if (error) throw new Error(error.message ?? 'Notice delivery failed.');
+    announceIfSuppressed(data, 'The ELD malfunction notice to the carrier was held back.');
   },
 
   async upload_merged_packet(payload) {
