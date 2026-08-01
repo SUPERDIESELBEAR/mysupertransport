@@ -207,7 +207,12 @@ export function validateRodsDay(
   checks.push({
     id: 'legal_name',
     label: 'Typed legal name',
-    state: legalName.trim().length >= 3 ? 'pass' : 'fail',
+    state: legalName.trim().length >= 3 && !isPlaceholderLegalName(legalName)
+      ? 'pass'
+      : 'fail',
+    detail: isPlaceholderLegalName(legalName)
+      ? `"${legalName.trim()}" is not a name. A record of duty status must be certified in the driver's own legal name.`
+      : undefined,
   });
 
   return {
