@@ -5014,6 +5014,8 @@ export type Database = {
           idempotency_key: string
           local_certified_at: string | null
           log_date: string
+          notification_error: string | null
+          notification_state: string
           operator_id: string
           reason: string
           rods_day_id: string | null
@@ -5028,6 +5030,8 @@ export type Database = {
           idempotency_key: string
           local_certified_at?: string | null
           log_date: string
+          notification_error?: string | null
+          notification_state?: string
           operator_id: string
           reason: string
           rods_day_id?: string | null
@@ -5042,6 +5046,8 @@ export type Database = {
           idempotency_key?: string
           local_certified_at?: string | null
           log_date?: string
+          notification_error?: string | null
+          notification_state?: string
           operator_id?: string
           reason?: string
           rods_day_id?: string | null
