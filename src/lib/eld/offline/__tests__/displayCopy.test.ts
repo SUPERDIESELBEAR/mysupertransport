@@ -22,6 +22,15 @@ const { convertForDisplay, canDecode, DISPLAY_MIME, PROBE_TIMEOUT_MS } = await i
 
 const DATE = '2026-07-02';
 
+// jsdom's Blob has no arrayBuffer(); browsers do. Without this the encode step
+// throws and every conversion reads as a failure, which would make the flagged
+// assertions below pass for the wrong reason.
+if (typeof Blob.prototype.arrayBuffer !== 'function') {
+  Blob.prototype.arrayBuffer = function arrayBuffer(this: Blob) {
+    return new Response(this).arrayBuffer();
+  };
+}
+
 /** A decode that succeeds, with a canvas that encodes to recognisable bytes. */
 function stubDecodable() {
   vi.stubGlobal('createImageBitmap', () => Promise.resolve({ width: 100, height: 50 }));
