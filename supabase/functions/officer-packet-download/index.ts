@@ -12,10 +12,13 @@
  *     complete logs have been fetched, and an unlogged, uncounted fetch of a
  *     compliance document is not something to serve.
  *
- *   per-IP, here → FAILS OPEN.
- *     A legitimate roadside fetch 404ing because an in-memory counter was
- *     reset or unavailable is worse than an unthrottled window on a token that
- *     dies in four hours.
+ *   per-IP, here → FAILS OPEN, and is close to decorative. Be honest about
+ *     it: the counter lives in this isolate's memory. Edge isolates are
+ *     short-lived, there are several of them, and a cold start resets the map,
+ *     so an attacker distributing requests or simply arriving after a recycle
+ *     is not limited at all. It is a cheap speed bump against a single
+ *     hammering client, NOT a control anyone should rely on. The real limit is
+ *     the per-token one in the database.
  *
  * SCOPE NOTE: only `officer_packet` resolves through this endpoint.
  * `inspection_document` (the printed QR stickers) still calls
@@ -28,7 +31,10 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Per-IP ceiling: requests allowed from one address in the window. */
+/**
+ * Per-IP speed bump: requests allowed from one address in the window, within
+ * a single isolate. Not a durable control — see the header note.
+ */
 const IP_LIMIT = 40;
 const IP_WINDOW_MS = 10 * 60 * 1000;
 
@@ -93,9 +99,20 @@ Deno.serve(async (req: Request) => {
   }
 
   const row = Array.isArray(data) ? data[0] : data;
+
+  // Throttled is answered as 429, separately from 404: the link is still
+  // valid and retrying later works, and an officer told "no longer valid"
+  // would not retry. Expired / revoked / unknown stay indistinguishable.
+  if (row?.outcome === 'throttled') {
+    return textResponse(
+      429,
+      'This link has been opened too many times in the past hour. It is still valid — wait a few minutes and try again.',
+    );
+  }
+
   if (!row?.storage_path) {
-    // Expired, revoked, throttled or unknown — all indistinguishable to the
-    // holder of a link by design.
+    // Expired, revoked or unknown — all indistinguishable to the holder of a
+    // link by design.
     return textResponse(404, 'This link is no longer valid. Ask the driver to send the packet again.');
   }
 
