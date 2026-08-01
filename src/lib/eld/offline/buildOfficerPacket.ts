@@ -140,6 +140,16 @@ function placeholderReason(day: ManifestDay): string {
   return 'Record unavailable on this device.';
 }
 
+/**
+ * pdf-lib type-checks its input by constructor identity, which fails for an
+ * ArrayBuffer that came back from IndexedDB in a different realm — it reports
+ * the type as NaN and refuses bytes that are perfectly good. Copy into a local
+ * Uint8Array before handing anything to pdf-lib.
+ */
+function toBytes(buf: ArrayBuffer): Uint8Array {
+  return new Uint8Array(buf.slice(0));
+}
+
 function embeddableImageMime(mime: string): boolean {
   return mime === 'image/jpeg' || mime === 'image/jpg' || mime === 'image/png';
 }
@@ -276,8 +286,8 @@ async function addImagePage(
   let embedded;
   try {
     embedded = image.mime === 'image/png'
-      ? await pdf.embedPng(image.bytes)
-      : await pdf.embedJpg(image.bytes);
+      ? await pdf.embedPng(toBytes(image.bytes))
+      : await pdf.embedJpg(toBytes(image.bytes));
   } catch {
     return false;
   }
@@ -348,7 +358,7 @@ async function assemble(
     let ok = false;
     if (source.pdf) {
       try {
-        const donor = await PDFDocument.load(source.pdf, { ignoreEncryption: true });
+        const donor = await PDFDocument.load(toBytes(source.pdf), { ignoreEncryption: true });
         const pages = await body.copyPages(donor, donor.getPageIndices());
         pages.forEach((p) => body.addPage(p));
         ok = pages.length > 0;
