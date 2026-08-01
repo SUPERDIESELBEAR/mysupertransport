@@ -1,93 +1,142 @@
-# Purge path-column guard, §7 throttling finding, officer email merge
+# Share-link throttling: stated numbers, one correction, and the near-miss record
 
-## Finding — Pass B §7 throttling was never shipped
+## 1. The numbers, and why
 
-Verified against the live database, not the migration files. `pg_get_functiondef('public.resolve_share_token')` contains no counting, no interval window, no rate check, and no raise — its only write is the `share_token_access_log` insert. No edge function fronts it: `InspectionSharePage.tsx` calls the RPC directly from the client, so there is nowhere a per-IP counter could run today.
+**Per link: 60 opens per rolling hour** (`_share_token_gate`, fails closed)
 
-Both halves of §7 are missing, and from the **shipped `inspection_document` scope**, not just the new branch:
+Measured against what actually happens:
 
-- Per-token in the RPC, fail-closed — absent.
-- Per-IP in the edge function, fail-open — absent, along with the edge function.
+```text
+Officer opens a binder link, reads it, opens the PDF again      2-4
+Driver re-scans after a failed read in bad signal               2-6
+Shop scans the same sticker across a morning inspection         5-10
+Worst realistic legitimate hour                                 ~20
+Shipped ceiling                                                 60
+Scripted pull of a leaked token                                 thousands
+```
 
-Recorded as shipped-behaviour, the same way the missing eld-sync-alert function was.
+Roughly 3x headroom over the worst honest hour, and still orders of magnitude
+below the traffic that makes a leaked token worth harvesting. Per link rather
+than per document: two officers holding two different tokens for the same
+driver never contend with each other.
 
-## Scope decision — the smaller change, stated plainly
+This is the real control on both paths.
 
-**Only `officer_packet` goes through the new endpoint.** `InspectionSharePage` keeps calling the resolver directly. Fronting both scopes would change how every QR sticker already printed and stuck in a truck resolves, and that is not a change to make as a side effect of adding an officer packet.
+**Per IP on the officer packet: 40 per 10 minutes — a coarse in-isolate guard,
+not a rate limit**
 
-So the finding closes by half:
+State it as what it is. The counter is an in-memory map inside one edge
+isolate. Isolates are short-lived and several run concurrently, so a caller
+looping the stream gets a fresh counter on every cold start and can spread
+requests across isolates at the same time. It stops an accidental retry storm
+from a single warm isolate — worth keeping, and free — but it does not
+throttle a determined caller by source address, and nobody reading the
+register should think it does.
 
-- **Closed for every scope:** per-token, fail-closed, in the RPC.
-- **Still open for `inspection_document`:** per-IP. Nothing throttles by source address on that path, and nothing will until it moves behind an endpoint.
+The actual protection on the officer-packet path is the **4-hour token expiry**
+and the **per-token gate behind it**, which is shared-state and does count.
 
-### Register item — inspection_document per-IP gap (open)
+Upgrade path, recorded rather than built now: a real per-IP limit needs shared
+state, and `share_token_access_log` already has it — it stores `ip_hash` and
+the per-token gate already counts rows in a window. A per-IP limit is the same
+query keyed on `ip_hash` instead of `token`. Notable wrinkle: `ip_hash` is NULL
+when the salt is unavailable (`v2_salt_unavailable`) or no IP header is present
+(`no_ip`), so that variant has to decide what a NULL fingerprint means before
+it can be trusted.
 
-Closing it requires an edge function fronting `resolve_share_token`, `InspectionSharePage` repointed at it, and — because 693 stickers are already printed — the raw RPC left executable during a transition or the sticker URLs redirected rather than replaced. That is a live-path change with a physical rollout, tracked separately and not bundled here.
+All of this goes into the function comments and the register entry, replacing
+the current "per-IP limiting: 40/10min" phrasing.
 
-### Binder-token behaviour does not change
+## 2. Correction: retries must not extend the lockout
 
-Confirmed on the live table: 693 `inspection_document` tokens, **all with `expires_at` NULL**, none revoked. Those tokens are non-expiring by design and every printed sticker depends on it.
+The window counts `outcome IN ('ok','throttled')`. Once a token trips, every
+refresh logs another `throttled` row inside the window and holds the count at
+the ceiling. An officer who refreshes twice a minute never gets back in — the
+hour restarts continuously. That is the exact failure the limit was supposed
+not to cause.
 
-**The throttle migration touches the function body only.** No `ALTER TABLE share_tokens`, no write to `expires_at`, no default added, no backfill. The resolver's expiry branch (`expires_at IS NOT NULL AND expires_at <= now()`) is untouched, so a NULL expiry still means never expires. A test asserts every `inspection_document` token still has a NULL expiry after the migration, and that a binder token resolves normally under the new code.
+Change the count to `outcome = 'ok'` only. Throttled attempts are still logged
+in full — the access log is the compliance record and loses nothing — they just
+stop feeding the counter. A tripped token then recovers on a fixed schedule as
+the successful opens age out, and a driver who waits is let back in whether or
+not they kept tapping.
 
-### The throttling itself
+## 3. Throttled must not read as "Document Not Found"
 
-1. **Per-token, in the RPC, fail-closed.** Count `share_token_access_log` rows for the token in a rolling window; over the ceiling the resolver logs a `throttled` outcome and returns no rows. If the count itself errors, it refuses — an unlogged compliance-document fetch is not something to serve.
-2. **Per-IP, in the new officer_packet endpoint, fail-open.** Counting on `ip_hash`; if the counter is unavailable the request proceeds, because a legitimate roadside share 404ing on a dead counter is worse than an unthrottled window on a 4-hour token.
+Today `resolve_share_token` returns nothing for throttled, revoked, expired and
+unknown alike, and the page shows one dead end. The advice differs: throttled
+means *wait a few minutes*; revoked means *the driver has to send a new link*.
+An officer given the wrong one of those wastes the inspection.
 
-Both failure paths are driven by tests, not just the happy path.
+Add a `throttled` signal to the resolver's return and a distinct screen:
 
-## Part 1 — Purge coverage check (verified)
+```text
+Too Many Opens
+This link has been opened many times in the last hour and is
+temporarily paused. Wait a few minutes and open it again — the
+link itself is still valid.
+```
 
-`rods_days` has four `_path` columns — `pdf_path`, `certification_signature_path`, `source_document_path`, `display_document_path` — and the live three-argument `purge_rods_day` collects all four. Nothing to repair, only the guard.
+Revoked / expired / unknown keep the existing single "Document Not Found"
+state. That distinction is not free: it confirms to whoever holds the URL that
+the token exists and is live. Taking it anyway, because the holder must already
+possess a 122-bit random UUID — guessing one is infeasible, so the confirmation
+tells a realistic attacker nothing they did not already know — while the
+roadside cost of an unrecoverable-looking dead end is high and immediate.
 
-## Part 2 — The drift test
+Same treatment in `officer-packet-download`: its 404 currently says "no longer
+valid" for a throttled packet too. Return 429 with the wait-and-retry wording,
+keep 404 for the permanent outcomes.
 
-New `src/test/purge-path-coverage.test.ts`, shaped like `definer-live-catalog.test.ts`: reads the real database through `psql`, loud banner and skip only when `PGHOST` is absent.
+## 4. Record the near-miss
 
-1. **Column snapshot** from `information_schema.columns` equals a literal set in the test — a new column fails here first, by name.
-2. **Function coverage:** parse `pg_get_functiondef`, extract every `v_day.<name>_path` appended to `v_paths`, assert equality with the column set minus a named `DELIBERATELY_EXCLUDED` list (empty today).
-3. **Return shape:** still returns `storage_paths`.
+Add to the run doc, under a Near Misses heading rather than buried in the
+throttling section:
 
-Parsed rather than executed — the function deletes the row it reports on.
+> **Verification probe rate-limited a live binder token.** Confirming the
+> per-token limit required 60 access rows against a real token, and the token
+> chosen was a production `inspection_document` token — a QR sticker physically
+> on a truck. For the remainder of that hour a real scan of that sticker would
+> have returned "Document Not Found". The probe rows were removed by migration
+> and the token was reconfirmed as resolving, but the recovery depended on
+> noticing, not on anything structural.
+>
+> **This is why `share-token-throttle.test.ts` is read-only.** The committed
+> test asserts on `pg_get_functiondef` bodies and grants rather than driving
+> the limit, because driving it against this database means spending a real
+> driver's quota on a real sticker. That constraint is not excess caution and
+> should not be "improved" into an end-to-end test unless it runs against a
+> throwaway token on a throwaway resource.
 
-## Part 3 — Officer email merge
+Register items added:
 
-### Builder — `src/lib/eld/offline/buildOfficerPacket.ts`
+- The throttle has no test exercising the counting path end to end; closing it
+  properly needs a seeded non-production token, not a relaxed read-only rule.
+- Officer-packet per-IP protection is an in-isolate guard only; a real one
+  needs `share_token_access_log` keyed on `ip_hash`.
+- `inspection_document` per-IP gap stays open (unchanged).
 
-Cover page (driver, carrier, USDOT/MC, truck, window, generation time, day order), then 8 days newest first: keyed + printable embeds cached `rods_pdfs` pages; `eld_document` + printable embeds the photo, preferring `display_bytes`; anything else gets a **named placeholder page** with the date and exact reason. Reuses `manifestBuild.ts`'s rules, built entirely from IndexedDB. Returns bytes, `included_dates`, and a per-day disposition list.
+## Technical detail
 
-### Ceiling and downsampling
+- `_share_token_gate`: count predicate to `outcome = 'ok'`; ceiling reasoning
+  as a comment on `c_limit`.
+- `resolve_share_token`: return the gate outcome so the client can tell
+  `throttled` from the rest. The `inspection_document` row shape is unchanged
+  for the `ok` path — the QR sticker flow must not change.
+- `resolve_officer_packet_token`: same, so the edge function can pick 429
+  versus 404.
+- `InspectionSharePage.tsx`: third render state for throttled.
+- `officer-packet-download/index.ts`: 429 for throttled; rewrite the per-IP
+  comment to describe a coarse in-isolate guard with the shared-state upgrade
+  path.
+- `share-token-throttle.test.ts`: assert the counter excludes `throttled`, that
+  the per-IP guard still fails open, and that `resolve_share_token` returns the
+  four existing columns for a live non-expiring token. Verify the 693
+  NULL-expiry tokens are untouched, as before.
+- Migration touches function bodies only — no change to `share_tokens` rows, no
+  change to expiry semantics.
 
-`sendResendDirect` rejects above 20 MB base64 (~15 MB raw); Resend's cap is ~40 MB base64. Target **12 MB raw**, measured. Over it, downsample **photo pages only** through `renderability.ts`'s canvas re-encode in four passes: q0.85→0.70, q0.55, max edge 2000 @0.70, max edge 1400 @0.70. No day dropped, no placeholder substituted for a page that has bytes, cover page states the reduction.
+## Not in scope
 
-### Link fallback — share token, reached only after pass 4
-
-Scope `officer_packet`, `resource_id` = the sync-queue entry id, so the existing `UNIQUE (scope, resource_id)` yields one token per send: a retry reuses it, a second officer gets a second. **Expiry 4 hours**, matching the roadside decision. The link resolves through the new edge function, which applies per-IP fail-open limiting, calls the resolver (logged, per-token throttled), and then **streams the object with the service role** — no signed Storage URL leaves the server. The roadside screen lists any live link with its expiry and a **Revoke now** button on the existing revoke RPC; the blocked attempt afterwards is logged.
-
-### Two sends, reported separately
-
-Officer first, its own Resend call. Carrier copy (`carrier_notification_settings`) second, separate and best-effort — not a CC, so a bad carrier address cannot fail the officer's copy. `officer_delivery` and `carrier_delivery` audited independently with their own provider errors. Status keys on the officer send; a carrier failure raises an office-side alert and never reads to the driver as "the packet didn't send." The queue retries officer failures, treats carrier-only failures as success.
-
-### Idempotency and path scheme
-
-`${operator_id}/officer-packets/${entry_id}.pdf` in `eld-notices`, mirroring `${operatorId}/${eventId}/notice.pdf`. No timestamp. `entry_id` is the `newSyncId()` uuid, persisted at enqueue and reused on retry, so a retry cannot double-send and a genuinely new send delivers. `event_id` rides in the payload only. The edge function records the entry id in `email_send_log` and returns the prior result if a `sent` row exists.
-
-### UI and offline
-
-Officer sheet in `RoadsidePacket.tsx` replacing today's placeholder alert: officer email required, name and agency optional, a pre-send list naming which days embed and which are placeholders. Offline, the send queues and Web Share or download is offered immediately.
-
-### Tests
-
-- Merge fixtures: keyed-only, photo-only, mixed, `display_conversion_failed`, empty event set, empty window — page count, order, named placeholder per non-embedded day.
-- `included_dates` never names an unembedded date.
-- Downsampling crosses under by pass 4; an incompressible fixture takes the link path.
-- Token: 4-hour expiry, retry reuses one, two sends mint two, revoke blocks and logs.
-- Throttle: per-token over-limit returns nothing and logs `throttled`; per-token counter failure refuses; per-IP counter failure still serves.
-- Binder tokens: all `inspection_document` expiries still NULL after the migration, and one resolves normally.
-- Idempotency: two enqueues, two paths; one entry retried three times, one path and one delivery.
-
-## Technical notes
-
-- Part 2 is database-backed and skips loudly without `PGHOST`.
-- One migration (resolver body: per-token throttle + `officer_packet` branch — no table change), two edge functions (`send-officer-packet`, the token-gated stream), no new table. `merged_packets` is Dexie; `eld-notices` exists.
+Closing the `inspection_document` per-IP gap still means moving every printed
+sticker's resolution behind an edge function.

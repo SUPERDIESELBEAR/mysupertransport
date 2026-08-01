@@ -11,10 +11,16 @@
  * per-IP limit means moving every already-printed sticker's resolution behind
  * an edge function. Only `officer_packet` goes through the new endpoint today.
  *
- * These assertions are deliberately read-only. Driving the throttle for real
- * needs 60 access rows against a live token, which rate-limits a sticker that
- * is physically in a truck — that was done once by hand during the build and
- * the probe rows were removed by migration afterwards.
+ * THESE ASSERTIONS ARE READ-ONLY, AND THAT IS A CONSTRAINT, NOT A GAP TO BE
+ * "IMPROVED" LATER. Driving the throttle for real means writing 60 access rows
+ * against a token that exists in production. Every inspection_document token
+ * is a QR sticker physically stuck in a truck; rate-limiting one means a real
+ * officer at a real roadside gets nothing. That happened once by hand during
+ * the build (see docs/eld-officer-packet-sharing.md, "Near-miss"), and the
+ * probe rows were deleted immediately. Do not add a test that writes to
+ * share_token_access_log, share_tokens or officer_packet_links against this
+ * database. Behavioural coverage of the counter belongs on a disposable
+ * instance, not here.
  */
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
@@ -46,6 +52,34 @@ describeLive('share token throttling', () => {
     // FAIL CLOSED: an unreadable counter must produce a refusal, not a serve.
     expect(gate).toMatch(/EXCEPTION WHEN others THEN\s+v_recent := c_limit \+ 1;/);
     expect(gate).toContain("v_outcome := 'throttled'");
+
+    // The ceiling is 60 served opens/hour. Worst legitimate hour measured
+    // against: ~10-20 opens for a QR sticker at a shop or scale house.
+    expect(gate).toMatch(/c_limit constant bigint := 60;/);
+  });
+
+  it('counts served opens only, so a refusal cannot extend the lockout', () => {
+    const gate = defOf('_share_token_gate');
+    // Counting 'throttled' too meant an attacker hammering a link kept it dark
+    // forever and the driver could never wait it out.
+    expect(gate).toMatch(/l\.outcome = 'ok'/);
+    expect(gate).not.toMatch(/l\.outcome IN \('ok', 'throttled'\)/);
+    // Throttled attempts are still recorded — the log is the abuse evidence.
+    expect(gate).toMatch(/INSERT INTO public\.share_token_access_log/);
+  });
+
+  it('surfaces throttled to the callers so they can say "try again"', () => {
+    for (const fn of ['resolve_share_token', 'resolve_officer_packet_token']) {
+      expect(defOf(fn), `${fn} must distinguish throttled`).toMatch(/'throttled'/);
+    }
+    // The ok-path shape for the QR sticker viewer is unchanged.
+    const cols = psql(`SELECT string_agg(a, ',' ORDER BY o) FROM (
+      SELECT unnest(p.proargnames) a, generate_subscripts(p.proargnames, 1) o
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname='resolve_share_token') s`).trim();
+    for (const c of ['id', 'name', 'file_url', 'expires_at', 'outcome']) {
+      expect(cols).toContain(c);
+    }
   });
 
   it('applies the gate to every scope, not just officer packets', () => {
@@ -88,10 +122,15 @@ describeLive('share token throttling', () => {
       WHERE n.nspname='public' AND p.proname='resolve_share_token'`).trim()).toBe('t');
   });
 
-  it('per-IP limiting lives in the officer endpoint and fails open', () => {
+  it('per-IP limiting lives in the officer endpoint, fails open, and is documented as weak', () => {
     const source = execFileSync('cat', ['supabase/functions/officer-packet-download/index.ts'], { encoding: 'utf8' });
     expect(source).toContain('IP_LIMIT');
     // The catch returns false: a broken counter must not deny a real officer.
     expect(source).toMatch(/catch\s*{\s*return false; \/\/ fail open/);
+    // In-isolate and therefore not a control. The comment must keep saying so.
+    expect(source).toMatch(/isolate/i);
+    // Throttled is a 429, not a 404 — a valid link must not read as dead.
+    expect(source).toContain('429');
+    expect(source).toContain("row?.outcome === 'throttled'");
   });
 });

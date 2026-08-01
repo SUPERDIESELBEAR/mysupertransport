@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertTriangle, FileText, Loader2, ShieldCheck, ExternalLink, Download } from 'lucide-react';
+import { AlertTriangle, Clock, FileText, Loader2, ShieldCheck, ExternalLink, Download } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 
 interface DocInfo {
@@ -16,6 +16,7 @@ export default function InspectionSharePage() {
   const [doc, setDoc] = useState<DocInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [throttled, setThrottled] = useState(false);
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -23,13 +24,22 @@ export default function InspectionSharePage() {
       // §8: single resolution path. Revoked / expired / unknown all come back
       // empty and render the same "Document Not Found" state — no distinction
       // is leaked to the officer. Every call writes a share_token_access_log row.
+      //
+      // §7: `throttled` is the one exception. It comes back as a row with a
+      // null id and outcome = 'throttled', because "this link has been opened
+      // too many times in the last hour, wait and retry" is actionable and
+      // "not found" sends the officer away for good. It discloses only that
+      // the link exists and is rate-limited — which whoever caused the
+      // throttle already knows.
       const { data, error } = await supabase.rpc('resolve_share_token', {
         p_token: token,
       });
-      if (error || !data || (Array.isArray(data) && data.length === 0)) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!error && row && (row as { outcome?: string }).outcome === 'throttled') {
+        setThrottled(true);
+      } else if (error || !data || (Array.isArray(data) && data.length === 0) || !row?.id) {
         setNotFound(true);
       } else {
-        const row = Array.isArray(data) ? data[0] : data;
         setDoc(row as DocInfo);
       }
       setLoading(false);
@@ -79,6 +89,20 @@ export default function InspectionSharePage() {
           <div className="flex flex-col items-center gap-3 py-16 text-gray-500">
             <Loader2 className="h-8 w-8 animate-spin" />
             <p className="text-sm">Loading document…</p>
+          </div>
+        )}
+
+        {!loading && throttled && (
+          <div className="max-w-sm w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 flex flex-col items-center gap-4 text-center">
+            <div className="h-16 w-16 rounded-full bg-yellow-50 flex items-center justify-center">
+              <Clock className="h-8 w-8 text-yellow-600" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">Too Many Opens</h2>
+            <p className="text-sm text-gray-500">
+              This link has been opened too many times in the past hour and is
+              temporarily rate-limited. It is still valid — wait a few minutes
+              and reload this page.
+            </p>
           </div>
         )}
 
