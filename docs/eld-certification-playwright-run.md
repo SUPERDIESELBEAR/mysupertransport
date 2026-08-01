@@ -77,3 +77,107 @@ the bytes the certification will actually replay. When the day is unsynced —
 the date — the persisted copy is the Dexie cache, regardless of
 `navigator.onLine`. The server read stays correct only for a day with no pending
 queue work.
+
+---
+
+# Run B — authorized unlock pass, 2026-08-01
+
+Driven against the live preview with a staff session for the Management side and
+a driver session for the device side. Unit label `HARNESS-1`.
+
+## What the run verified
+
+- A day flagged `sync_stalled` or `sync_rejected` shows the banner in the day
+  editor and in the Logs list, with the date, and **no** sync-state string
+  appears anywhere in the `/roadside` DOM.
+- `authorizedUnlockDay` clears `local_certified_at`, returns the day to draft,
+  bumps the version, cancels the whole chain for that date with
+  `cancelled_by: 'authorized_unlock'`, and preserves the document bytes.
+- The unlock alert files under the bell's **Action** tab for management and
+  owner, and `RodsUnlockEventsPanel` shows it on the driver's Logs view.
+
+## Setup — how the server's event set was made to differ from the device's
+
+This is the reproduction, not a scratch note: it is the mechanism for a real
+defect, certification validating against something other than what was signed.
+
+The two `HARNESS-1` days were seeded by **direct insert into `rods_days`** with
+`status = 'certified'`, `certified_at` set, and **no rows in `rods_events`** —
+totals all zero, `created_at = certified_at = updated_at`. That path bypasses
+`certify_rods_day`, which raises `P0023` when the keyed segments for a day do
+not tile 1440 minutes and so can never produce such a row itself. The device
+then hydrated those dates: `ensureDayCached` wrote a `rods_days_cache` header
+and a `rods_events_cache` row whose `events` array was `[]`.
+
+The divergence itself was therefore a test artifact. **The render exposure was
+not.** See the register entry below.
+
+## Defect registered — empty event set rendered as a blank certified log
+
+`RoadsideDayView` branched on both Dexie rows merely existing, and
+`buildManifestFromCache`'s `localDay` advertised the day as `cached` and
+`printable` whenever a PDF was present. An event row holding `[]` satisfied
+both, so a day the driver could not produce drew an empty 24-hour grid under a
+"Certified" header — the one roadside failure that is not recoverable, because
+an officer reads it as "no duty recorded" rather than "not available here".
+
+Writer implicated: hydration (`ensureDayCached`) is the only path that persists
+`events: []`. The reconcile in `authorizedUnlock` touches `rods_days_cache`
+only and is not implicated.
+
+**Fix.** An event row that is present and empty is treated as an unavailable
+day in both places:
+
+- `manifestBuild.localDay` returns `cached: false, renderable: false,
+  printable: false` for it, regardless of any PDF on the device — a
+  structurally empty certified log makes the PDF for that date equally
+  untrustworthy, so it is not offered for print, email-merge or download.
+- `RoadsideDayView` re-checks the cache itself, so a stale manifest cannot
+  re-open the path, and falls through to the existing "No certified record is
+  stored on this device" tile. It does **not** fall back to the PDF embed: on
+  iOS Safari that embed is the blank-frame path the native renderer exists to
+  avoid, which would swap a blank grid for a blank frame. Gaps are shown, not
+  concealed (Stage 3 §10.2).
+- Counted separately in `localStorage` under `roadside_empty_event_set`, so the
+  driver-side dashboard distinguishes it from `roadside_native_fallback`
+  ("hydrated before the structured cache existed", which still serves the PDF).
+
+Covered by `src/lib/eld/offline/__tests__/emptyEventSet.test.tsx`.
+
+## Cleanup
+
+Both harness rows — `55afece3-ef65-4aa0-a370-701b32e2da05` and
+`5f83bace-ac92-46ae-9b48-c9bc00ab052c` — were purged through the
+`purge-rods-day` edge function (never a direct delete; the lock trigger refuses
+one, which is why the function exists) with the reason:
+
+> Verification-run cleanup: authorized-unlock Playwright pass 2026-08-01,
+> harness-seeded certified logs 2026-07-02.
+
+`rods_days`, `rods_events` and `rods_unlock_events` are all empty afterwards,
+which closes the demo-mode clean-truncate window: a certified row left sitting
+there would be picked up by Stage 4's retention export regardless of the
+profile's demo flag.
+
+## Two related fixes shipped with this run
+
+**23514 classification.** A check-constraint violation from
+`record_rods_unlock`'s notification insert carried no `status` and no
+network-shaped text, so `classifyError` fell back to **`server`** — correct.
+What was wrong was the budget: `record_unlock` is cascade-exempt, and the
+exemption was being applied to `SERVER_ATTEMPT_LIMIT` as well, so a permanent
+error retried forever. The exemption is now **never-dropped, not
+never-terminal**: `network` is unbounded for every kind, `server` and
+`rejected` are bounded for every kind. `SERVER_ATTEMPT_LIMIT_EXEMPT` is gone.
+No `unlock_record_rejected` alert fired at the time because the kind did not
+exist; it and `alert_delivery_failed` now do, with `raise_sync_alert` the only
+kind that stays console-only (an alert about a failed alert recurses).
+
+**Audit row vs. notification.** The unlock audit insert and the notification
+fan-out shared one transaction, so the bad priority value destroyed the record
+of an unlock that actually happened. `record_rods_unlock` now writes the audit
+row first and attempts delivery in its own exception block, recording the
+outcome in `rods_unlock_events.notification_state` /
+`notification_error` and continuing. Same principle as storage failures not
+blocking `purge_rods_day`: the audit row is the compliance artifact, the
+notification is the delivery.
