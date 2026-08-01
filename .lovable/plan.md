@@ -1,83 +1,93 @@
-# HEIC upload path (Pass B §6) — revised
+# Purge path-column guard, §7 throttling finding, officer email merge
 
-## Correction: confirmed against the live definitions, not by analogy
+## Finding — Pass B §7 throttling was never shipped
 
-Read both functions from `pg_get_functiondef` rather than assuming the `record_source` pattern carries.
+Verified against the live database, not the migration files. `pg_get_functiondef('public.resolve_share_token')` contains no counting, no interval window, no rate check, and no raise — its only write is the `share_token_access_log` insert. No edge function fronts it: `InspectionSharePage.tsx` calls the RPC directly from the client, so there is nowhere a per-IP counter could run today.
 
-**`replace_rods_document` issues exactly one UPDATE against `rods_days`:**
+Both halves of §7 are missing, and from the **shipped `inspection_document` scope**, not just the new branch:
 
-```sql
-UPDATE public.rods_days SET status = 'superseded', updated_at = now() WHERE id = v_old.id;
-```
+- Per-token in the RPC, fail-closed — absent.
+- Per-IP in the edge function, fail-open — absent, along with the edge function.
 
-That is the only one — the replacement row is an `INSERT ... RETURNING`, and the third write is an `INSERT` into `rods_amendments`. The UPDATE touches `status` and `updated_at` and nothing else. Neither new column is in it.
+Recorded as shipped-behaviour, the same way the missing eld-sync-alert function was.
 
-**`enforce_rods_day_lock` on UPDATE** compares `NEW.record_source IS DISTINCT FROM OLD.record_source` before the lock test, with no `rods.privileged` escape, then applies the lock test *with* the privileged escape:
+## Scope decision — the smaller change, stated plainly
 
-```sql
-IF NEW.record_source IS DISTINCT FROM OLD.record_source THEN ... P0045
-IF OLD.locked AND current_setting('rods.privileged', true) IS DISTINCT FROM 'on' THEN ... P0040
-```
+**Only `officer_packet` goes through the new endpoint.** `InspectionSharePage` keeps calling the resolver directly. Fronting both scopes would change how every QR sticker already printed and stuck in a truck resolves, and that is not a change to make as a side effect of adding an officer packet.
 
-So the supersede UPDATE survives on two independent grounds: `record_source` is unchanged (`IS DISTINCT FROM` is false), and the locked-row test is waived by the `rods.privileged` guc the RPC sets immediately before. Adding `display_document_path` and `display_conversion_failed` as two more unexempted `IS DISTINCT FROM` checks in the same block is safe for exactly the same reason — the statement does not write them, so the comparison is false regardless of the guc. This holds because of what the UPDATE's SET list contains, not because `record_source` happens to be a literal in the INSERT; the analogy is not load-bearing.
+So the finding closes by half:
 
-One consequence worth stating: unexempted means unexempted. No future path may amend a filed day's display copy in place — a corrected display copy means a new row through `replace_rods_document`, which is the same rule the original already follows.
+- **Closed for every scope:** per-token, fail-closed, in the RPC.
+- **Still open for `inspection_document`:** per-IP. Nothing throttles by source address on that path, and nothing will until it moves behind an endpoint.
 
-## 1. `renderable` keeps meaning "this device can draw it"
+### Register item — inspection_document per-IP gap (open)
 
-The encode happens on the writing device; truncation, partial upload and transit corruption happen after it. So hydration probes what it is about to cache, display bytes included:
+Closing it requires an edge function fronting `resolve_share_token`, `InspectionSharePage` repointed at it, and — because 693 stickers are already printed — the raw RPC left executable during a transition or the sticker URLs redirected rather than replaced. That is a live-path change with a physical rollout, tracked separately and not bundled here.
 
-- display bytes decode → cache, `renderable = true` (no re-encode; already display format)
-- display bytes fail → discard, probe the **original**; if it decodes, cache it as display
-- both fail → `renderable = false`, named-card fallback
+### Binder-token behaviour does not change
 
-Microseconds on a valid JPEG. The merge inherits it: it only embeds bytes this device decoded, so pdf-lib never meets a truncated JPEG, and non-renderable days get the named page.
+Confirmed on the live table: 693 `inspection_document` tokens, **all with `expires_at` NULL**, none revoked. Those tokens are non-expiring by design and every printed sticker depends on it.
 
-## 2. The insert routes through `create_eld_document_day`
+**The throttle migration touches the function body only.** No `ALTER TABLE share_tokens`, no write to `expires_at`, no default added, no backfill. The resolver's expiry branch (`expires_at IS NOT NULL AND expires_at <= now()`) is untouched, so a NULL expiry still means never expires. A test asserts every `inspection_document` token still has a NULL expiry after the migration, and that a binder token resolves normally under the new code.
 
-Not left as a client insert. The RPC changes anyway to carry the new columns, and the alternative is a certified `eld_document` row with every field client-supplied — the shape the bypass work just closed. Routing also gains the token idempotency the modal's direct insert lacks.
+### The throttling itself
 
-Coherence guards — the planned trigger does **not** cover these, so it is extended:
+1. **Per-token, in the RPC, fail-closed.** Count `share_token_access_log` rows for the token in a rolling window; over the ceiling the resolver logs a `throttled` outcome and returns no rows. If the count itself errors, it refuses — an unlogged compliance-document fetch is not something to serve.
+2. **Per-IP, in the new officer_packet endpoint, fail-open.** Counting on `ip_hash`; if the counter is unavailable the request proceeds, because a legitimate roadside share 404ing on a dead counter is worse than an unthrottled window on a 4-hour token.
 
-| state | resolution |
-|---|---|
-| `display_document_path` on a non-`eld_document` row | rejected |
-| flag `true` **and** a display path set | contradictory — rejected |
-| flag `false`, no display path | **legal.** A PDF or non-image is never converted. The flag means *conversion was attempted and failed*, not *no display copy exists*. Documented on the column. |
-| display path pointing at no object | not assertable from Postgres. Handled at the read: a display object that won't fetch falls back to the original and probes it, same as a corrupt one. Still printable. |
+Both failure paths are driven by tests, not just the happy path.
 
-## The change
+## Part 1 — Purge coverage check (verified)
 
-**Conversion at upload.** `convertForDisplay(bytes, mime)` extracted from `renderability.ts` — one implementation, identical display bytes whichever path produced them (2s timeout, 2400px max edge, quality 0.85). `probeRenderability` calls it; so does the upload path.
+`rods_days` has four `_path` columns — `pdf_path`, `certification_signature_path`, `source_document_path`, `display_document_path` — and the live three-argument `purge_rods_day` collects all four. Nothing to repair, only the guard.
 
-`UploadEldLogModal.submit()`: original uploaded **first, always**; decodable image → JPEG to a sibling `…-display.jpg`; decode failure, timeout, or display-upload failure → original only, flag set; PDF/non-image → unchanged, no flag.
+## Part 2 — The drift test
 
-**Schema.** `display_document_path text` and `display_conversion_failed boolean not null default false` on `rods_days`, insert-only, threaded through `create_eld_document_day` and `replace_rods_document`, added to the unexempted immutability block, with the two coherence checks and new codes registered in `REJECTION_SQLSTATES`.
+New `src/test/purge-path-coverage.test.ts`, shaped like `definer-live-catalog.test.ts`: reads the real database through `psql`, loud banner and skip only when `PGHOST` is absent.
 
-**Manifest.**
+1. **Column snapshot** from `information_schema.columns` equals a literal set in the test — a new column fails here first, by name.
+2. **Function coverage:** parse `pg_get_functiondef`, extract every `v_day.<name>_path` appended to `v_paths`, assert equality with the column set minus a named `DELIBERATELY_EXCLUDED` list (empty today).
+3. **Return shape:** still returns `storage_paths`.
 
-| case | `cached` | `renderable` | `printable` |
-|---|---|---|---|
-| converted, display bytes decode here | true | true | true |
-| converted, display bytes corrupt, original decodes | true | true | true |
-| flagged or both undecodable, bytes present | true | **false** | **true** |
-| no bytes | false | false | false |
+Parsed rather than executed — the function deletes the row it reports on.
 
-`printable: !!doc` already gives the flagged row the right answer — bytes exist, so print, download and merge stay available and an officer can open the file. `renderable = false` routes the officer screen to the named card.
+## Part 3 — Officer email merge
 
-**Driver copy.** Flagged upload succeeds with a note: on file, but this phone produced a format the app can't display, so it shows as a file. Never a rejection.
+### Builder — `src/lib/eld/offline/buildOfficerPacket.ts`
 
-## Verification
+Cover page (driver, carrier, USDOT/MC, truck, window, generation time, day order), then 8 days newest first: keyed + printable embeds cached `rods_pdfs` pages; `eld_document` + printable embeds the photo, preferring `display_bytes`; anything else gets a **named placeholder page** with the date and exact reason. Reuses `manifestBuild.ts`'s rules, built entirely from IndexedDB. Returns bytes, `included_dates`, and a per-day disposition list.
 
-1. **Flagged path, real HEIC** — one object, display path null, flag true, day present and not unavailable, named card on the officer screen.
-2. **Converted path** — decodable photo; both objects land, the JPEG renders, day normal.
-3. **Corrupt display object** — truncate the stored JPEG, re-hydrate, confirm fallback to the original rather than a broken image.
+### Ceiling and downsampling
 
-Headless Chromium cannot decode HEIC — the premise of the work. Case 1 is faithful there; case 2 cannot be driven with a HEIC, so converted-path evidence is a decodable image plus unit tests over `convertForDisplay`. End-to-end HEIC→JPEG needs a real iPhone and is a manual check for the owner. Each result reported as what it is.
+`sendResendDirect` rejects above 20 MB base64 (~15 MB raw); Resend's cap is ~40 MB base64. Target **12 MB raw**, measured. Over it, downsample **photo pages only** through `renderability.ts`'s canvas re-encode in four passes: q0.85→0.70, q0.55, max edge 2000 @0.70, max edge 1400 @0.70. No day dropped, no placeholder substituted for a page that has bytes, cover page states the reduction.
 
-## Tests
-- `convertForDisplay`: decodable → JPEG; undecodable → null; timeout → null.
-- Upload: conversion failure and display-upload failure both still file the day with the original and the flag.
-- Hydration: valid display bytes renderable; corrupt display bytes fall back to the original; both bad → not renderable, still printable.
-- Manifest: the four rows above.
-- Trigger: two rejected coherence states, legal `false`/null accepted, and the supersede UPDATE still passing.
+### Link fallback — share token, reached only after pass 4
+
+Scope `officer_packet`, `resource_id` = the sync-queue entry id, so the existing `UNIQUE (scope, resource_id)` yields one token per send: a retry reuses it, a second officer gets a second. **Expiry 4 hours**, matching the roadside decision. The link resolves through the new edge function, which applies per-IP fail-open limiting, calls the resolver (logged, per-token throttled), and then **streams the object with the service role** — no signed Storage URL leaves the server. The roadside screen lists any live link with its expiry and a **Revoke now** button on the existing revoke RPC; the blocked attempt afterwards is logged.
+
+### Two sends, reported separately
+
+Officer first, its own Resend call. Carrier copy (`carrier_notification_settings`) second, separate and best-effort — not a CC, so a bad carrier address cannot fail the officer's copy. `officer_delivery` and `carrier_delivery` audited independently with their own provider errors. Status keys on the officer send; a carrier failure raises an office-side alert and never reads to the driver as "the packet didn't send." The queue retries officer failures, treats carrier-only failures as success.
+
+### Idempotency and path scheme
+
+`${operator_id}/officer-packets/${entry_id}.pdf` in `eld-notices`, mirroring `${operatorId}/${eventId}/notice.pdf`. No timestamp. `entry_id` is the `newSyncId()` uuid, persisted at enqueue and reused on retry, so a retry cannot double-send and a genuinely new send delivers. `event_id` rides in the payload only. The edge function records the entry id in `email_send_log` and returns the prior result if a `sent` row exists.
+
+### UI and offline
+
+Officer sheet in `RoadsidePacket.tsx` replacing today's placeholder alert: officer email required, name and agency optional, a pre-send list naming which days embed and which are placeholders. Offline, the send queues and Web Share or download is offered immediately.
+
+### Tests
+
+- Merge fixtures: keyed-only, photo-only, mixed, `display_conversion_failed`, empty event set, empty window — page count, order, named placeholder per non-embedded day.
+- `included_dates` never names an unembedded date.
+- Downsampling crosses under by pass 4; an incompressible fixture takes the link path.
+- Token: 4-hour expiry, retry reuses one, two sends mint two, revoke blocks and logs.
+- Throttle: per-token over-limit returns nothing and logs `throttled`; per-token counter failure refuses; per-IP counter failure still serves.
+- Binder tokens: all `inspection_document` expiries still NULL after the migration, and one resolves normally.
+- Idempotency: two enqueues, two paths; one entry retried three times, one path and one delivery.
+
+## Technical notes
+
+- Part 2 is database-backed and skips loudly without `PGHOST`.
+- One migration (resolver body: per-token throttle + `officer_packet` branch — no table change), two edge functions (`send-officer-packet`, the token-gated stream), no new table. `merged_packets` is Dexie; `eld-notices` exists.
