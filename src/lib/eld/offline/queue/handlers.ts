@@ -208,6 +208,10 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
       _device_info: str(payload, 'device_info'),
       p_certification_token: str(payload, 'token'),
       p_changes: changes as never,
+      // Recorded on the row so the office can tell a pixel-checked signature
+      // from one only structurally checked. Null for entries queued by a
+      // client that predates the check.
+      p_signature_validation: (payload.signature_validation ?? null) as never,
     });
     if (error) throw new Error(error.message);
     const row = (Array.isArray(data) ? data[0] : data) as
