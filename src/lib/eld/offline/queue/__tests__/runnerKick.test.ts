@@ -16,11 +16,15 @@ vi.mock('../store', () => ({
   markSucceeded: vi.fn(async () => {}),
   markTerminal: vi.fn(async () => {}),
   purgeSucceeded: vi.fn(async () => 0),
+  resolveBlocked: vi.fn(async () => []),
   syncCounts: vi.fn(async () => ({ pending: 0, inFlight: 0, failed: 0, rejected: 0, cancelled: 0 })),
 }));
 vi.mock('../handlers', () => ({ HANDLERS: { save_draft_day: () => handler() } }));
 vi.mock('../noticeDrain', () => ({ drainPendingNotices: vi.fn(async () => {}) }));
-vi.mock('../alerts', () => ({ raiseSyncAlert: vi.fn(async () => {}) }));
+vi.mock('../alerts', () => ({
+  raiseSyncAlert: vi.fn(async () => {}),
+  recordAlertDeliveryFailure: vi.fn(() => {}),
+}));
 
 import { drainQueue } from '../runner';
 import { requestDrain, setDrainKick, __resetDrainKick } from '../kick';
