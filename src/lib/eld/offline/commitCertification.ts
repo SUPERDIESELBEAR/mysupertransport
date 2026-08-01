@@ -21,7 +21,19 @@ import { signatureKeyForDay } from './prune';
 import { buildManifest } from './manifestBuild';
 import { newSyncId, type EnqueueInput } from './queue/store';
 import { assertSmallPayload } from './queue/types';
+import { raiseSyncAlert } from './queue/alerts';
+import {
+  sha256Hex, SIGNATURE_INVALID_MESSAGE, type SignatureValidation,
+} from '@/lib/eld/signatureIntegrity';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
+
+/**
+ * How old a validation result may be when it reaches this function. The
+ * caller validates immediately before rendering; anything beyond this means
+ * the result was carried across some other flow and no longer describes the
+ * bytes about to be committed.
+ */
+const VALIDATION_MAX_AGE_MS = 10 * 60 * 1000;
 
 export interface CommitCertificationInput {
   operatorId: string;
@@ -31,6 +43,14 @@ export interface CommitCertificationInput {
   events: RodsEvent[];
   legalName: string;
   signatureDataUrl: string;
+  /**
+   * REQUIRED, and re-checked here by digest rather than re-run: the pixel pass
+   * happens once, at the caller, but this function is the lock-writer and must
+   * not take the invariant on trust. A missing signature is what makes a
+   * certified §395.8 record invalid, so it is refused where the record is
+   * committed, not where it is drawn.
+   */
+  signatureValidation: SignatureValidation;
   pdfBytes: ArrayBuffer;
   signaturePath: string;
   pdfPath: string;
@@ -87,8 +107,26 @@ export async function commitCertification(
 ): Promise<CommitCertificationResult> {
   const {
     operatorId, logDate, day, events, legalName, signatureDataUrl, pdfBytes,
-    signaturePath, pdfPath, deviceInfo, token, changes,
+    signaturePath, pdfPath, deviceInfo, token, changes, signatureValidation,
   } = input;
+
+  // Refuse before anything is written. Cheap checks first, then the digest —
+  // no pixel work, so this costs a hash of a string we already hold.
+  if (!signatureValidation || signatureValidation.ok !== true) {
+    throw new Error(SIGNATURE_INVALID_MESSAGE);
+  }
+  if (signatureValidation.byte_length <= 0) {
+    throw new Error(SIGNATURE_INVALID_MESSAGE);
+  }
+  const checkedAt = Date.parse(signatureValidation.checked_at ?? '');
+  if (!Number.isFinite(checkedAt) || Math.abs(Date.now() - checkedAt) > VALIDATION_MAX_AGE_MS) {
+    throw new Error(SIGNATURE_INVALID_MESSAGE);
+  }
+  const actualDigest = await sha256Hex(signatureDataUrl);
+  if (actualDigest !== signatureValidation.digest) {
+    // The result describes different bytes than the ones being committed.
+    throw new Error(SIGNATURE_INVALID_MESSAGE);
+  }
 
   const localCertifiedAt = new Date().toISOString();
   const signatureKey = signatureKeyForDay(operatorId, logDate);
@@ -103,6 +141,7 @@ export async function commitCertification(
     certification_legal_name: legalName,
     certification_signature_path: signaturePath,
     pdf_path: pdfPath,
+    certification_signature_validation: signatureValidation,
   } as RodsDay;
 
   // Every store the transaction touches — including the ones buildManifest
@@ -196,6 +235,7 @@ export async function commitCertification(
             device_info: deviceInfo,
             token,
             changes,
+            signature_validation: signatureValidation,
           },
         }),
       ]);
