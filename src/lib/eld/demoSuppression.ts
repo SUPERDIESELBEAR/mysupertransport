@@ -16,6 +16,8 @@ export interface DemoSuppressionDetail {
   what: string;
   /** Who it would have gone to, already display-safe. */
   to?: string[];
+  subject?: string;
+  attachment?: string;
   note?: string;
 }
 
@@ -38,6 +40,11 @@ export function announceIfSuppressed(
 ): boolean {
   const res = data as SuppressedResponse | null;
   if (!res?.suppressed) return false;
-  announceDemoSuppression({ what, to: res.would_have_sent?.to });
+  announceDemoSuppression({
+    what,
+    to: res.would_have_sent?.to,
+    subject: res.would_have_sent?.subject,
+    attachment: res.would_have_sent?.attachment,
+  });
   return true;
 }
