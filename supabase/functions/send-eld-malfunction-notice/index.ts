@@ -137,14 +137,24 @@ async function resolveNotice(supabase: Supa, eventId: string): Promise<ResolvedN
   // operators has no FK to profiles (user_id points at auth.users), so the
   // driver's name is a second read rather than an embed.
   const operator = event.operators;
-  let driverName = 'Driver';
+  let profile: { first_name: string | null; last_name: string | null } | null = null;
   if (operator?.user_id) {
-    const { data: profile } = await supabase
+    const { data } = await supabase
       .from('profiles')
       .select('first_name, last_name')
       .eq('user_id', operator.user_id)
       .maybeSingle();
-    driverName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Driver';
+    profile = data;
+  }
+  const driverName = resolvedDriverName(profile?.first_name, profile?.last_name);
+  // 395.34(a)(1). This notice is the document that starts the 8-day clock and
+  // the driver's evidence the protocol was followed; it does not go out
+  // addressed to a placeholder.
+  if (!driverName) {
+    return fail(
+      422,
+      'This driver has no name on file, so the written malfunction notice cannot be generated. Add the driver\'s legal name to their profile and try again.',
+    );
   }
   const unitNumber: string | null = operator?.unit_number ?? null;
 
