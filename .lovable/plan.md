@@ -1,54 +1,45 @@
 ## Goal
 
-Drive the demo-driver flow end to end against the running preview, assert the watermark **by pixel** on every render class, then reset and leave every table and Storage prefix at zero for that operator in the same run.
+Two gates are currently proven only in isolation. Prove both on the live path, in one run, against a demo operator.
 
-## Two findings confirmed before the run
+## Part 1 — The `is_demo` three-state boundary, exercised for real
 
-- **`demo_reset_at` has no client reader.** `reset-demo-driver` writes it to `operators.demo_reset_at` and the column exists in the generated types, but no file under `src/` references it. The Dexie stores are never wiped by a reset today.
-- **Suppression is a toast, not a sheet.** The only listener is `DemoSuppressionToaster` (a `sonner` `toast.info`). A suppressed send shows a transient notice with no way to re-read what would have gone out.
+The previous run reset a clean operator (`rodsDaysPurged: 0`), so the 409 never fired. This time the certified day exists before the flag is touched.
 
-## The reset wipe — corrected
+Sequence, driven end to end:
 
-**Gated on `is_demo`, not on the timestamp.** The clear runs only when *both* hold: the operator's `is_demo === true` **and** the server's `demo_reset_at` is newer than the locally stored watermark. `is_demo` is already cached on `LocalMeta` and, importantly, is *sticky* there (`hydrate.ts` keeps the existing value when the operator fetch fails), so a failed read cannot un-demo a device into a wipe. The gate reads the freshly fetched operator row and the cached meta, and refuses to clear unless the server row itself says demo — a stray `demo_reset_at` on a real operator is a no-op, and a real driver's locally certified day with unsynced bytes is never reachable by this path.
+1. Pick the demo operator (`operators.is_demo = true`) and confirm the starting state by query: zero `rods_days`.
+2. **Certify a day** through the app's own path (Playwright, managed session, driver switched to the demo operator) — not a direct insert, so `certify_rods_day` and the `is_demo` stamping trigger both run. Assert by query: one `rods_days` row, `status = 'certified'`, `is_demo = true`.
+3. **Call `set-demo-flag`** with `isDemo: false`. Assert:
+   - HTTP **409**,
+   - the message carries the certified count (`1`, singular wording),
+   - and — the part that actually matters — `operators.is_demo` is still `true` afterwards. A 409 that nonetheless wrote the flag would be worse than no check.
+4. **Purge** via `reset-demo-driver`. Assert `rodsDaysPurged: 1` and zero `rods_days` for the operator.
+5. **Re-call `set-demo-flag`** with `isDemo: false`. Assert 200, and assert by query that `operators.is_demo`, `applications.is_demo` and `profiles.is_demo` all went false together — the flag is written in three places and only the operator row is returned in the response.
+6. **Restore** `is_demo = true` (with the original `demo_label` / `demo_scenario`) so the sandbox account is left exactly as found.
 
-**Mid-flight queue entries.** `in_flight` is a persisted status: `store.ts` marks the entry `in_flight` before the wire call and settles it to `succeeded`/`failed` when the call returns. So a clear during an active drain is genuinely reachable — a `certify_rods_day` write lands server-side and the device, having dropped `sync_queue`, forgets it ever queued it, then the runner's settle writes into a store that no longer holds the row. For a demo operator that is acceptable (the server rows are being purged anyway, and the whole point is to return to zero). For a real operator it must be unreachable, and the `is_demo` gate above is what makes it so. Belt and braces on top of the gate:
+That's the full three-state decision: blocked while watermarked logs exist, permitted once they don't.
 
-- The wipe waits for the drain to quiesce — no entries in `in_flight` — before clearing, with a bounded wait; if it does not quiesce it defers to the next hydrate rather than clearing under a live write.
-- The runner tolerates settling a vanished entry (missing row → no-op instead of resurrecting it).
+## Part 2 — `maybeWipeForDemoReset` firing on a real stamp
 
-Stores dropped: the day/PDF/document/signature caches, `roadside_manifest`, `local_meta` and `sync_queue`, scoped to that operator. Stores-only clear, respecting the existing "never `clear()` in an upgrade" rule in `db.ts`.
+The gate has never run against a moved `demo_reset_at`. Hydration reads `is_demo` and `demo_reset_at` off the freshly fetched `operators` row and calls the wipe before anything else is written, so the whole path is reachable from a page load.
 
-## Part 1 — Walkthrough (Playwright, headless Chromium, preview at localhost:8080)
+1. Load the app as the demo driver, let hydration settle, then **seed every Dexie store the wipe drops** — `rods_pdfs`, `rods_documents`, `notice_pdfs`, `signature_images`, `roadside_manifest`, `rods_days_cache`, `rods_events_cache`, `pending_mutations`, `sync_queue`, `merged_packets`, `rods_divergences` — with recognisable sentinel rows, plus a `local_meta` row whose `demo_reset_at` is deliberately **older** than the server stamp (that's what arms the gate). Count every store and record the pre-state.
+2. Reload. Hydration runs `maybeWipeForDemoReset` with the server's newer stamp.
+3. Assert post-state: every seeded store empty of sentinels, and `local_meta.demo_reset_at` now equal to the server stamp. Note that `local_meta` is re-written by hydration immediately after the wipe, so the assertion is on the stamp having advanced, not on the row being absent.
+4. **Assert idempotence** — reload once more and confirm the second load reports `already_applied` and does *not* wipe the freshly hydrated cache. A gate that fires on every load would silently destroy each new hydration.
+5. **Assert the negative on the live path too**: with the stamp unchanged, seed sentinels again, reload, and confirm they survive. Same code, same page load, refusing.
 
-Session restored from the injected managed session; operator switched to a demo driver. Sequence: report malfunction → certify a day → build officer packet → reset.
-
-Artifacts are rasterised and checked numerically, never read from source. PDFs → page bitmaps; roadside SVG → element screenshot at 430px width.
-
-**Watermark predicate (three parts, applied to every surface):**
-1. Count pixels within tolerance of the mark's red (`0.85, 0.12, 0.12` at 0.18 opacity) — a helper that runs and draws nothing fails here.
-2. Sample that red *inside the duty-status grid's bounding box* — catches "drew it under the grid" and "drew it only in the margins".
-3. Confirm red-pixel runs along the ~45° axis, not axis-aligned bands.
-
-**Surfaces:** certified-day PDF (`renderRodsDay`), roadside SVG at phone width, blank 8-day packet (`renderDutyStatusGrid`), malfunction notice (`malfunctionNoticeCore`), and **each officer-packet page class separately** — cover, placeholder, image page, and a merged page copied from a real uploaded PDF (the run uploads one as a day's source document; that page is stamped after `copyPages` and is the likeliest miss).
-
-**Outbound:** after the malfunction report and the packet send, assert zero new rows in `notifications` and `eld_sync_alerts`, zero `share_tokens` minted, and that the suppression sheet rendered — asserted on the DOM, not on the edge response.
-
-## Part 2 — Fix the two gaps
-
-- **Client-side reset** as scoped above, triggered from the hydrate path.
-- **Persistent suppression sheet** replacing the toast: lists what was suppressed, intended recipients, subject and attachment name; dismissible and re-openable. `DEMO_SUPPRESSED_EVENT` already carries `to` / `subject` / `attachment`.
-
-## Part 3 — Reset, in the same run
-
-`set-demo-flag` 409 is exercised while a certified demo day still exists, then the purge runs. Final assertions by query: `rods_days`, `rods_events`, `eld_malfunction_events`, `eld_sync_alerts`, `notifications`, `rods_unlock_events`, `share_tokens` all zero for that operator, Storage prefix empty, Dexie stores empty. The truncate window closes inside this run.
+Part 2 runs after Part 1's purge, so the stamp `reset-demo-driver` writes in step 4 is the one that arms it — a genuinely server-produced timestamp, not a hand-set value.
 
 ## Technical notes
 
-- Scripts and evidence under `/tmp/browser/demo-walkthrough/`.
-- Pixel checks in Python (PIL + a PDF rasteriser), independent of the app's rendering code.
-- A unit test covers the wipe gate directly: real operator + moved `demo_reset_at` → stores untouched; demo operator + in-flight entry → deferred, not cleared.
-- The live-catalog test runs at the end as a regression gate.
+- Playwright, headless Chromium, `http://localhost:8080`, managed session restored per the standard pattern. Scripts and evidence under `/tmp/browser/demo-boundary/`.
+- Dexie seeding and counting via `page.evaluate` against the app's own `roadsideDb`, so the store names and key shapes come from the real schema.
+- Edge functions called through the same authenticated path the UI uses, so `requireStaff` runs as it does in production.
+- Post-run state verified by database query, not by trusting edge responses.
+- Everything is left as found: operator back to `is_demo = true`, label and scenario restored, zero `rods_days`, Storage prefix empty.
 
 ## Written up in
 
-`docs/eld-demo-guardrails-walkthrough-2026-08-01.md` — per surface: what was observed, the pixel numbers, and where. Both findings and the mid-flight behaviour recorded under their own headings.
+`docs/eld-demo-boundary-2026-08-01.md` — the 409 body and certified count verbatim, the flag state at each of the three steps, and the Dexie store counts before and after each of the three reloads (armed, idempotent, unarmed).
