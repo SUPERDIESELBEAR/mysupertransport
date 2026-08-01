@@ -56,6 +56,19 @@ function serviceClient(): SupabaseClient {
 async function authorize(
   req: Request,
 ): Promise<{ authHeader: string; isService: boolean; actorId: string | null } | Response> {
+  // pg_cron cannot mint a JWT, so the scheduled run authenticates with a shared
+  // internal token. It is never accepted from a browser (no CORS exposure of
+  // this header) and grants exactly the same access as the service-role path.
+  const cronSecret = Deno.env.get('ELD_CRON_SECRET');
+  const presented = req.headers.get('x-eld-cron-secret');
+  if (cronSecret && presented && presented === cronSecret) {
+    return {
+      authHeader: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+      isService: true,
+      actorId: null,
+    };
+  }
+
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader.startsWith('Bearer ')) return fail(401, 'Unauthorized: missing bearer token');
   const token = authHeader.slice('Bearer '.length);
