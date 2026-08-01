@@ -281,32 +281,19 @@ describe("database security conventions", () => {
     expect(offenders, offenders.join("\n")).toEqual([]);
   });
 
-  it("never grants a table privilege to anon", () => {
-    // Grants are statements, not function definitions, so last-definition-wins
-    // does not apply: a GRANT in an old migration is still in force unless a
-    // later REVOKE undoes it. This one stays a whole-file scan by design.
-    const offenders: string[] = [];
-    // The only sanctioned anon table privileges:
-    //  - INSERT ON applications (the public job-application form)
-    //  - SELECT ON faq         (published owner-operator FAQs, row-filtered
-    //                           by a TO public policy)
-    const ALLOWED = [
-      /GRANT\s+INSERT\s+ON\s+public\.applications\s+TO\s+anon/i,
-      /GRANT\s+SELECT\s+ON\s+public\.faq\s+TO\s+anon/i,
-    ];
-
-    for (const file of migrationFiles()) {
-      const sql = stripComments(
-        readFileSync(path.join(MIGRATIONS_DIR, file), "utf8"),
-      );
-      const grants = sql.match(/GRANT[\s\S]*?TO\s+[^;]*\banon\b[^;]*;/gi) ?? [];
-      for (const g of grants) {
-        if (/GRANT\s+(USAGE|EXECUTE)\b/i.test(g)) continue;
-        if (ALLOWED.some((re) => re.test(g))) continue;
-        offenders.push(`${file}: ${g.replace(/\s+/g, " ").trim()}`);
-      }
-    }
-
-    expect(offenders, offenders.join("\n")).toEqual([]);
-  });
+  /*
+   * REMOVED: "never grants a table privilege to anon".
+   *
+   * It scanned migration text for GRANT ... TO anon, and it was wrong in both
+   * directions. GRANTs are not last-definition-wins, so a grant later undone
+   * by a REVOKE still read as an offence forever -- it flagged the
+   * document_short_links grant that had already been revoked. And the
+   * statement-spanning regex matched across `;` boundaries, reporting a
+   * storage.objects POLICY with `TO anon, authenticated` as though it were a
+   * table grant on an unrelated table three statements earlier.
+   *
+   * Table privileges are now asserted against the live catalog in
+   * definer-live-catalog.test.ts, where "what is actually granted right now"
+   * is a single query instead of an inference over text.
+   */
 });
