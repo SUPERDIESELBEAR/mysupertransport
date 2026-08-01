@@ -65,6 +65,13 @@ export function statusTotals(events: RodsEvent[]) {
  * total_mileage_today is deliberately absent: an unavailable odometer reading
  * must never make a log uncertifiable.
  *
+ * This checklist is keyed-log only. An uploaded ELD document (record_source =
+ * 'eld_document') is certified on the driver's own device and has no keyed
+ * face — the server skips the segment and header guards for it entirely, so
+ * running this against one reports failures the record does not have. The
+ * asymmetry is intentional and is pinned by fixture 17 in
+ * src/lib/eld/offline/__tests__/parityFixtures.test.ts.
+ *
  * The four carrier/terminal fields are snapshotted at draft creation from the
  * cached carrier, so in practice they are only ever missing on rows created
  * before that snapshot existed.
