@@ -235,7 +235,14 @@ export type SyncKind =
    * Office-facing. Reports a sync condition Management must act on. Exempt
    * from every cancellation path — see CASCADE_EXEMPT_KINDS.
    */
-  | 'raise_sync_alert';
+  | 'raise_sync_alert'
+  /**
+   * Office-facing. Files the audit record of an authorized unlock: the driver
+   * took a signed, locked, unsynced day back to draft with office permission.
+   * Exempt from every cancellation path — it reports the very act that
+   * cancelled the rest of the day's chain, so the chain cannot kill it.
+   */
+  | 'record_unlock';
 
 /**
  * `cancelled` is terminal and is NOT a failure of the entry itself: the chain

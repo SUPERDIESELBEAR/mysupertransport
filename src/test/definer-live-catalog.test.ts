@@ -193,6 +193,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.operator_awaiting_return(uuid)",
   "public.operator_return_requested(uuid)",
   "public.raise_eld_sync_alert(uuid,text,date,text)",
+  "public.record_rods_unlock(uuid,uuid,date,timestamp with time zone,timestamp with time zone,jsonb,jsonb,text,text,uuid)",
   "public.reject_application_correction(text,text,jsonb)",
   "public.remove_user_role(uuid,app_role)",
   "public.replace_rods_document(uuid,text,text,uuid)",
@@ -212,7 +213,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.update_pei_archive_category(uuid,text,text)",
 ];
 
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 64;
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 65;
 
 describe("live SECURITY DEFINER catalog (pg_proc)", () => {
   it("the allowlist may only shrink", () => {

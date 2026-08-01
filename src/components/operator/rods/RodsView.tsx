@@ -23,6 +23,8 @@ import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RodsDayStrip from './RodsDayStrip';
 import RodsDayEditor from './RodsDayEditor';
 import ReconstructionWizard from './ReconstructionWizard';
+import StalledLogBanner from './StalledLogBanner';
+import { stalledLockedDates } from '@/lib/eld/offline/cache';
 
 /**
  * Paper logs module. Only reachable while an ELD malfunction is open — outside
@@ -47,10 +49,21 @@ export default function RodsView({
   const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
   const [diverged, setDiverged] = useState<Set<string>>(new Set());
   const [pendingDismissDate, setPendingDismissDate] = useState<string | null>(null);
+  /** Days signed on this device whose sync chain went terminal. */
+  const [stalledDates, setStalledDates] = useState<string[]>([]);
 
   useEffect(() => {
     void openDivergenceDates().then(setDiverged);
   }, [loading]);
+
+  useEffect(() => {
+    void stalledLockedDates().then(setStalledDates);
+  }, [loading]);
+
+  const refreshStalled = async () => {
+    setStalledDates(await stalledLockedDates());
+    await refresh();
+  };
 
   /**
    * Interim resolution path until the Management console lands: a driver may
@@ -180,6 +193,17 @@ export default function RodsView({
           <Button size="sm" onClick={() => setReconstructing(true)}>Reconstruct my logs</Button>
         </div>
       )}
+
+      {stalledDates.map((date) => (
+        <StalledLogBanner
+          key={date}
+          operatorId={operatorId}
+          logDate={date}
+          compact
+          showDate
+          onUnlocked={() => { void refreshStalled(); }}
+        />
+      ))}
 
       <RodsDayStrip
         dates={dates}

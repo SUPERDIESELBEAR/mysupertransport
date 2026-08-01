@@ -323,4 +323,33 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     });
     if (error) throw new Error(error.message ?? 'Officer email failed.');
   },
+
+  /**
+   * File the audit record of an authorized unlock.
+   *
+   * The RPC resolves the caller's operator from auth.uid() and refuses a
+   * payload naming anybody else, dedupes on the client-generated
+   * `idempotency_key` so a retried entry returns the existing row instead of
+   * filing a second unlock, and notifies Management in the same transaction.
+   *
+   * Transport failure retries forever: this kind is cascade-exempt and never
+   * exhausts its attempt budget, because the office learning late that a
+   * signed log was reopened is recoverable and never learning it is not.
+   */
+  async record_unlock(payload) {
+    const { error } = await supabase.rpc('record_rods_unlock', {
+      p_operator_id: str(payload, 'operator_id'),
+      p_rods_day_id: optStr(payload, 'rods_day_id'),
+      p_log_date: str(payload, 'log_date'),
+      p_unlocked_at: str(payload, 'unlocked_at'),
+      p_local_certified_at: optStr(payload, 'local_certified_at'),
+      p_cancelled_entry_ids: (Array.isArray(payload.cancelled_entry_ids)
+        ? payload.cancelled_entry_ids : []) as never,
+      p_cancelled_states: (payload.cancelled_states ?? {}) as never,
+      p_reason: str(payload, 'reason'),
+      p_device_info: optStr(payload, 'device_info'),
+      p_idempotency_key: str(payload, 'idempotency_key'),
+    });
+    if (error) throw error;
+  },
 };
