@@ -22,9 +22,9 @@ const handler = vi.fn(async () => { throw new Error('boom'); });
 vi.mock('../store', () => ({
   dueEntries: (...a: unknown[]) => dueEntries(...a),
   markInFlight: vi.fn(async () => {}),
-  markRetry: markRetry,
+  markRetry: (...a: Parameters<typeof markRetry>) => markRetry(...a),
   markSucceeded: vi.fn(async () => {}),
-  markTerminal: markTerminal,
+  markTerminal: (...a: Parameters<typeof markTerminal>) => markTerminal(...a),
   purgeSucceeded: vi.fn(async () => 0),
   resolveBlocked: vi.fn(async () => []),
   syncCounts: vi.fn(async () => ({ pending: 0, inFlight: 0, failed: 0, rejected: 0, cancelled: 0 })),
@@ -38,10 +38,10 @@ vi.mock('../handlers', () => ({
 }));
 vi.mock('../noticeDrain', () => ({ drainPendingNotices: vi.fn(async () => {}) }));
 vi.mock('../alerts', () => ({
-  raiseSyncAlert: raiseSyncAlert,
-  recordAlertDeliveryFailure: recordAlertDeliveryFailure,
+  raiseSyncAlert: (...a: Parameters<typeof raiseSyncAlert>) => raiseSyncAlert(...a),
+  recordAlertDeliveryFailure: (...a: Parameters<typeof recordAlertDeliveryFailure>) => recordAlertDeliveryFailure(...a),
 }));
-vi.mock('../../cache', () => ({ markDayStalled: markDayStalled }));
+vi.mock('../../cache', () => ({ markDayStalled: (...a: Parameters<typeof markDayStalled>) => markDayStalled(...a) }));
 
 import { drainQueue } from '../runner';
 
