@@ -16,6 +16,34 @@ export function backoffFor(attempts: number): number {
 /** Attempts allowed for a `server`-class failure before the entry gives up. */
 export const SERVER_ATTEMPT_LIMIT = 8;
 
+/**
+ * Kinds that exist to TELL somebody something, and so must outlive the thing
+ * they are reporting on.
+ *
+ * Every other kind is part of a chain: if a predecessor dies the successor is
+ * pointless, so it is cancelled. These two invert that. `raise_sync_alert`
+ * reports a chain that died — cancelling it with the chain would destroy the
+ * only notice Management gets. `record_unlock` reports that a driver took a
+ * day back, which is precisely the event that cancels a chain.
+ *
+ * The exemption is applied at all five points a queue entry can be silently
+ * dropped or hidden:
+ *   1. resolveBlocked      — transitive cancellation from a dead prerequisite
+ *   2. cancelChainForDay   — the authorized unlock's own cascade
+ *   3. SERVER_ATTEMPT_LIMIT — budget exhaustion in the runner
+ *   4. purgeSucceeded      — dependency retention must not pin the purge
+ *   5. syncCounts          — the driver-facing chip counts the driver's work,
+ *                            not office bookkeeping
+ */
+export const CASCADE_EXEMPT_KINDS: ReadonlySet<string> = new Set([
+  'record_unlock',
+  'raise_sync_alert',
+]);
+
+export function isCascadeExempt(kind: string): boolean {
+  return CASCADE_EXEMPT_KINDS.has(kind);
+}
+
 /** Succeeded entries are purged after this long. Rejected/failed never are. */
 export const SUCCEEDED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
