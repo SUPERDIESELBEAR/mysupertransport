@@ -82,6 +82,12 @@ export interface RodsDocumentEntry {
   /** Display-only JPEG re-encode. The original above stays the record. */
   display_bytes: ArrayBuffer | null;
   display_mime: string | null;
+  /**
+   * The uploading device tried to convert this image for display and could
+   * not — the driver's phone produced a format the app cannot decode. Drives
+   * the officer-facing named-card copy. Absent on rows cached before Pass B §6.
+   */
+  display_conversion_failed?: boolean;
   cached_at: string;
 }
 

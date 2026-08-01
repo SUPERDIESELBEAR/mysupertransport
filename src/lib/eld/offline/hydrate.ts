@@ -21,7 +21,7 @@ import {
   roadsideDb, requestPersistentStorage, readLocalMeta,
   type LocalMeta, type ManifestDay, type RoadsideManifest,
 } from './db';
-import { probeRenderability } from './renderability';
+import { canDecode, DISPLAY_MIME, probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
 import { buildManifest, type ServerDayDescriptor } from './manifestBuild';
@@ -328,7 +328,37 @@ async function cacheDocumentDay(day: RodsDay) {
   const bytes = await blob.arrayBuffer();
   const mime = blob.type || 'application/octet-stream';
 
-  const probe = await probeRenderability(bytes, mime);
+  // Display copy first, when the uploading device made one. It is NOT trusted
+  // on provenance: the encode happened on another device, and truncation, a
+  // partial upload and transit corruption all happen after it. `renderable`
+  // means "this device can draw it" for every consumer, the officer packet and
+  // the pdf-lib merge included, so the bytes are decoded here before they are
+  // cached. On an intact JPEG that costs microseconds.
+  let displayBytes: ArrayBuffer | null = null;
+  let displayMime: string | null = null;
+  let renderable = false;
+
+  const displayPath = day.display_document_path;
+  if (displayPath) {
+    const fetched = await fetchStorageBytes(displayPath);
+    if (fetched && await canDecode(fetched, DISPLAY_MIME)) {
+      displayBytes = fetched;
+      displayMime = DISPLAY_MIME;
+      renderable = true;
+    }
+  }
+
+  // No display copy, or one that would not fetch or would not decode: fall
+  // back to probing the ORIGINAL, exactly as before Pass B §6. Anything already
+  // in Storage predates the conversion path, and a device whose codec cannot
+  // read the original still lands honestly on not-renderable.
+  if (!renderable) {
+    const probe = await probeRenderability(bytes, mime);
+    renderable = probe.renderable;
+    displayBytes = probe.display_bytes;
+    displayMime = probe.display_mime;
+  }
+
   await roadsideDb.rods_documents.put({
     log_date: day.log_date,
     operator_id: day.operator_id,
@@ -339,11 +369,25 @@ async function cacheDocumentDay(day: RodsDay) {
     size: bytes.byteLength,
     day_id: day.id,
     certified_at: day.certified_at,
-    renderable: probe.renderable,
-    display_bytes: probe.display_bytes,
-    display_mime: probe.display_mime,
+    renderable,
+    display_bytes: displayBytes,
+    display_mime: displayMime,
+    display_conversion_failed: day.display_conversion_failed ?? false,
     cached_at: new Date().toISOString(),
   });
+}
+
+/** Signed-URL fetch that resolves to null on every failure. */
+async function fetchStorageBytes(path: string): Promise<ArrayBuffer | null> {
+  try {
+    const { data: signed } = await supabase.storage.from(RODS_BUCKET).createSignedUrl(path, 600);
+    if (!signed?.signedUrl) return null;
+    const res = await fetch(signed.signedUrl);
+    if (!res.ok) return null;
+    return await res.arrayBuffer();
+  } catch {
+    return null;
+  }
 }
 
 async function cacheNotice(eventId: string, noticePath: string | null) {

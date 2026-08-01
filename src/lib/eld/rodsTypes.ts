@@ -55,6 +55,17 @@ export interface RodsDay {
   total_on_duty_minutes: number;
 
   source_document_path: string | null;
+  /**
+   * Display-only JPEG re-encode of the uploaded document, produced on the
+   * driver's device at upload. The original stays the record; this exists
+   * because pdf-lib cannot embed HEIC. Optional: rows filed before Pass B §6.
+   */
+  display_document_path?: string | null;
+  /**
+   * The uploading device ATTEMPTED a conversion and could not. Not the same as
+   * "no display copy" — a PDF is never converted and leaves this false.
+   */
+  display_conversion_failed?: boolean;
   pdf_path: string | null;
 
   certified_at: string | null;

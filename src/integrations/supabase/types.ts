@@ -4819,6 +4819,8 @@ export type Database = {
           certified_by: string | null
           co_driver_name: string | null
           created_at: string
+          display_conversion_failed: boolean
+          display_document_path: string | null
           from_location: string | null
           home_terminal_address: string | null
           home_terminal_timezone: string | null
@@ -4864,6 +4866,8 @@ export type Database = {
           certified_by?: string | null
           co_driver_name?: string | null
           created_at?: string
+          display_conversion_failed?: boolean
+          display_document_path?: string | null
           from_location?: string | null
           home_terminal_address?: string | null
           home_terminal_timezone?: string | null
@@ -4909,6 +4913,8 @@ export type Database = {
           certified_by?: string | null
           co_driver_name?: string | null
           created_at?: string
+          display_conversion_failed?: boolean
+          display_document_path?: string | null
           from_location?: string | null
           home_terminal_address?: string | null
           home_terminal_timezone?: string | null
@@ -5999,6 +6005,8 @@ export type Database = {
         Args: {
           p_carrier: Json
           p_certification_token: string
+          p_display_conversion_failed?: boolean
+          p_display_document_path?: string
           p_log_date: string
           p_operator_id: string
           p_source_document_path: string
@@ -6017,6 +6025,8 @@ export type Database = {
           certified_by: string | null
           co_driver_name: string | null
           created_at: string
+          display_conversion_failed: boolean
+          display_document_path: string | null
           from_location: string | null
           home_terminal_address: string | null
           home_terminal_timezone: string | null
@@ -6500,6 +6510,8 @@ export type Database = {
           _new_path: string
           _reason: string
           p_certification_token: string
+          p_display_conversion_failed?: boolean
+          p_display_document_path?: string
         }
         Returns: {
           amendment_reason: string | null
@@ -6515,6 +6527,8 @@ export type Database = {
           certified_by: string | null
           co_driver_name: string | null
           created_at: string
+          display_conversion_failed: boolean
+          display_document_path: string | null
           from_location: string | null
           home_terminal_address: string | null
           home_terminal_timezone: string | null
