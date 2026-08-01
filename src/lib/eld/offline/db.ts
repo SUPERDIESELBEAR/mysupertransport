@@ -400,6 +400,23 @@ class RoadsideDb extends Dexie {
         row.version = row.version ?? 0;
       });
     });
+    // v6 — backfill period_start_time on drafts minted before newLocalRodsDay
+    // existed. Those rows omit the field entirely, so the first preflight after
+    // a round-trip reports a difference against the server's '00:00:00'
+    // default in a field the driver never touched.
+    //
+    // modify() the ONE field, never put() the row. A whole-row write here would
+    // be built from whatever shape this build believes the entry has, and would
+    // silently drop `unsynced`, `local_certified_at` or any field a later
+    // version adds — on a device whose only copy of a signed federal record is
+    // this table.
+    this.version(6).stores({}).upgrade(async (tx) => {
+      await tx.table('rods_days_cache').toCollection().modify((row: RodsDayCacheEntry) => {
+        if (row.day && (row.day.period_start_time === undefined || row.day.period_start_time === null)) {
+          row.day.period_start_time = RODS_PERIOD_START_DEFAULT;
+        }
+      });
+    });
   }
 }
 
