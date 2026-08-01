@@ -4,7 +4,8 @@
  * Client-side only. The grid geometry comes from rodsGridGeometry so this page
  * lines up exactly with the blank paper packet and the on-screen grid.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { drawDemoWatermark } from '../../../supabase/functions/_shared/demoWatermark';
 import {
   GRID_W, GRID_X, MARGIN, PAGE_H, PAGE_W, ROW_H, STATUS_LINES, STATUS_LABEL_LINES,
   formatMinutes, hourLabel, hourWidth, isMajorHour, minuteToX, rowCenterOffset,
