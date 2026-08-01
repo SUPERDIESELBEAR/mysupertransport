@@ -206,6 +206,38 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     },
   );
 
+  it.runIf(HAS_DB)("anon holds only the two sanctioned table privileges", () => {
+    // Moved here from definer-search-path.test.ts, which tried to infer this
+    // by scanning migration text for GRANT ... TO anon. That inference cannot
+    // account for a later REVOKE and cannot see a grant made out of band --
+    // the same blind spot that let four definer functions sit anon-executable
+    // with every file on disk reading clean. Asking the catalog is exact.
+    const granted = psql(`
+      SELECT c.relname || ': ' || string_agg(DISTINCT p.priv, ',' ORDER BY p.priv)
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'),
+                         ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) p(priv)
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r', 'v', 'm', 'p', 'f')
+        AND has_table_privilege('anon', c.oid, p.priv)
+      GROUP BY 1
+      ORDER BY 1;
+    `);
+
+    // The only two anon table privileges this app needs:
+    //   applications INSERT -- the public job-application form
+    //   faq SELECT          -- published owner-operator FAQs, row-filtered by
+    //                          a TO public policy
+    // Anything else means a table was created without scoped GRANTs, or a
+    // blanket "GRANT ... ON ALL TABLES IN SCHEMA public TO anon" was run.
+    expect(
+      granted,
+      `Unexpected anon table privileges. Every row here is readable or ` +
+        `writable by an unauthenticated client:\n  ${granted.join("\n  ")}`,
+    ).toEqual(["applications: INSERT", "faq: SELECT"]);
+  });
+
   it.runIf(HAS_DB)("the mail queue RPCs are service-role only", () => {
     const MAIL_QUEUE = [
       "enqueue_email",
