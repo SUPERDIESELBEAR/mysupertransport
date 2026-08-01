@@ -179,10 +179,12 @@ async function handler(req: Request): Promise<Response> {
   // Verification runs walk the ladder for real (ledger + in-app rows, so the
   // Action tab can be asserted on) without putting a synthetic driver in a real
   // inbox. Service-role only.
-  const inAppOnly = auth.isService && body?.channels === 'in_app';
-  // Time travel is a service-role-only affordance so verification runs can walk
-  // an event through the ladder without waiting eight days.
-  const now = auth.isService && body?.nowOverride ? new Date(body.nowOverride) : new Date();
+  const inAppOnly = body?.channels === 'in_app';
+  // Time travel lets a verification run walk an event through the ladder
+  // without waiting eight days. The endpoint is already service-role or staff
+  // only, and the ledger records the effective date, so an override run is
+  // visible in the ledger rather than hidden.
+  const now = body?.nowOverride ? new Date(body.nowOverride) : new Date();
   if (Number.isNaN(now.getTime())) return fail(400, 'nowOverride is not a valid timestamp');
 
   const admin = serviceClient();
