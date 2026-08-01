@@ -218,7 +218,9 @@ async function addCoverPage(
   };
 
   line('RECORD OF DUTY STATUS — 8 DAY PACKET', 14, bold, INK, 24);
-  line(meta?.driver_name ?? 'Driver', 12, bold, INK, 16);
+  // No placeholder on a roadside packet cover — the caller resolves the name
+  // or the packet is not built.
+  line(requireDriverName(meta?.driver_name), 12, bold, INK, 16);
   line(
     [meta?.carrier_name, meta?.carrier_usdot ? `USDOT ${meta.carrier_usdot}` : null,
       meta?.carrier_mc ? `MC ${meta.carrier_mc}` : null].filter(Boolean).join(' · '),

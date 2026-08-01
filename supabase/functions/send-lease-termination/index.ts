@@ -2,6 +2,7 @@ import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/b
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
+import { resolvedDriverName, isPlaceholderName } from '../_shared/placeholder-name.ts';
 
 const HARDCODED_CC = ['marc@mysupertranport.com'];
 
@@ -111,7 +112,14 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const op = opRes.data as any;
     const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
 
-    const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || term.contractor_label || 'Driver';
+    // The termination letter names the contractor. The label on the record is
+    // an acceptable second source; a placeholder is not.
+    const labelName = (term.contractor_label ?? '').trim();
+    const driverName = resolvedDriverName(app?.first_name, app?.last_name)
+      ?? (labelName && !isPlaceholderName(labelName) ? labelName : null);
+    if (!driverName) {
+      return fail(422, 'This contractor has no name on file, so a lease termination letter cannot be generated. Add their legal name and try again.');
+    }
     const unit = (osRes.data as any)?.unit_number ?? op.unit_number ?? '—';
 
     const recipients: string[] = settingsRes.data?.recipient_emails ?? [];
