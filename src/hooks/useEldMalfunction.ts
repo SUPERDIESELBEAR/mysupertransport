@@ -16,6 +16,7 @@ export type EldMalfunctionEvent = {
   resolved_at: string | null;
   resolution_notes: string | null;
   carrier_acknowledged_at: string | null;
+  is_demo?: boolean;
   device_provider: string | null;
   device_make: string | null;
   device_model: string | null;
