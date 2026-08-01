@@ -15,7 +15,8 @@
  *
  * Must not import the Supabase client — see roadsideImportGraph.test.ts.
  */
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
+import { drawDemoWatermark } from '../../../../supabase/functions/_shared/demoWatermark';
 import {
   roadsideDb, readLocalMeta, readManifest,
   type LocalMeta, type ManifestDay, type RoadsideManifest,
@@ -343,6 +344,7 @@ async function assemble(
   manifest: RoadsideManifest,
   reducedPass: number | null,
   now: Date,
+  isDemo: boolean,
 ): Promise<{ bytes: Uint8Array; dispositions: DayDisposition[]; included: string[] }> {
   const pdf = await PDFDocument.create();
   const dispositions: DayDisposition[] = [];
@@ -391,6 +393,14 @@ async function assemble(
   await addCoverPage(pdf, meta, manifest, dispositions, reducedPass, now);
   const bodyPages = await pdf.copyPages(body, body.getPageIndices());
   bodyPages.forEach((p) => pdf.addPage(p));
+
+  // Stamped here, after every page exists, so the mark covers the cover page,
+  // the placeholders, the photographed pages, and the merged donor pages from a
+  // certified day's own PDF alike. Stamping earlier would miss the copies.
+  if (isDemo) {
+    const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+    pdf.getPages().forEach((p) => drawDemoWatermark(p, font, rgb, degrees));
+  }
 
   void rendered;
   return { bytes: await pdf.save(), dispositions, included };
