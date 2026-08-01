@@ -109,3 +109,41 @@ export async function getCachedDay(logDate: string): Promise<RodsDayCacheEntry |
 export function isLocallyCertified(entry: RodsDayCacheEntry | undefined | null): boolean {
   return !!entry?.local_certified_at;
 }
+
+/**
+ * Flag a cached day whose sync chain went terminal.
+ *
+ * `rejected` — the office refused the write; replaying cannot change that.
+ * `stalled`  — the chain gave up or was cancelled by a dead prerequisite.
+ *
+ * The flag is what the driver-facing banner reads, and a day carrying it while
+ * `local_certified_at` is set is the dead end the authorized unlock exists to
+ * open: signed on this device, locked, and not received by the office.
+ *
+ * No-op when the day is not cached — there is nothing on this device to flag,
+ * and inventing a row here would fabricate a federal record.
+ */
+export async function markDayStalled(
+  logDate: string, which: 'stalled' | 'rejected',
+): Promise<void> {
+  const existing = await roadsideDb.rods_days_cache.get(logDate);
+  if (!existing) return;
+  await putCachedDay({
+    ...existing,
+    sync_stalled: which === 'stalled' ? true : existing.sync_stalled,
+    sync_rejected: which === 'rejected' ? true : existing.sync_rejected,
+    cached_at: existing.cached_at,
+  });
+}
+
+/**
+ * Dates the driver signed on this device that went terminal — the dead end the
+ * banner and the authorized unlock exist for. Sorted newest first.
+ */
+export async function stalledLockedDates(): Promise<string[]> {
+  const all = await roadsideDb.rods_days_cache.toArray();
+  return all
+    .filter((e) => !!e.local_certified_at && (e.sync_stalled || e.sync_rejected))
+    .map((e) => e.log_date)
+    .sort((a, b) => b.localeCompare(a));
+}

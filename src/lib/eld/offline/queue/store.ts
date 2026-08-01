@@ -217,26 +217,64 @@ export async function resolveBlocked(): Promise<SyncQueueEntry[]> {
   }
 }
 
+/** What one entry was before the unlock cancelled it, for the audit record. */
+export interface CancelledEntrySnapshot {
+  id: string;
+  kind: SyncKind;
+  /** The status it held at the moment it was cancelled. */
+  status: string;
+  attempts: number;
+  last_error: string | null;
+  last_error_class: SyncErrorClass | null;
+}
+
 /**
- * Cancel every non-terminal entry for one day. Used by the authorized unlock:
+ * Cancel the chain for one day. Used by the authorized unlock:
  * the driver is being given the day back, so the chain that was trying to
  * certify the old version must not later spring to life and re-lock it.
+ *
+ * Entries are CANCELLED, never deleted, and `cancelled_by` names the act
+ * rather than a sibling entry — 'authorized_unlock' is not an entry id, and
+ * reading it as one is the point: nothing in this chain killed it, the driver
+ * and the office did. The returned snapshots are what the audit record files,
+ * so the office can see exactly what was in flight when the day was reopened.
+ * `sweepTerminal` includes entries that already died (rejected, cancelled by a
+ * sibling, exhausted). They cannot run again on their own, but the audit
+ * record has to name the WHOLE chain the office is being told about, and the
+ * unlock is what finally closed them out. Succeeded entries are never touched:
+ * they describe work the office actually received.
  */
-export async function cancelChainForDay(logDate: string, reason: string): Promise<number> {
+export async function cancelChainForDay(
+  logDate: string, reason: string, cancelledBy = 'authorized_unlock',
+  sweepTerminal = false,
+): Promise<CancelledEntrySnapshot[]> {
   const all = await roadsideDb.sync_queue.toArray();
-  const mine = all.filter((e) => !isTerminal(e.status)
+  const mine = all.filter((e) => (sweepTerminal ? e.status !== 'succeeded' : !isTerminal(e.status))
     && e.payload.log_date === logDate
     // The unlock record and the alerts about this day are the audit trail of
     // the very act that is cancelling everything else. They survive it.
     && !isCascadeExempt(e.kind));
   const now = new Date().toISOString();
+  const snapshots: CancelledEntrySnapshot[] = [];
   for (const entry of mine) {
+    snapshots.push({
+      id: entry.id,
+      kind: entry.kind,
+      status: entry.status,
+      attempts: entry.attempts,
+      last_error: entry.last_error,
+      last_error_class: entry.last_error_class,
+    });
     // eslint-disable-next-line no-await-in-loop
     await roadsideDb.sync_queue.update(entry.id, {
-      status: 'cancelled', last_error_class: 'cancelled', last_error: reason, updated_at: now,
+      status: 'cancelled',
+      last_error_class: 'cancelled',
+      last_error: reason,
+      cancelled_by: cancelledBy,
+      updated_at: now,
     });
   }
-  return mine.length;
+  return snapshots;
 }
 
 export async function markInFlight(id: string): Promise<void> {

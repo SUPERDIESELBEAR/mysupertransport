@@ -19,10 +19,12 @@ import { classifyError, isDuplicateDateRejection } from './classify';
 import { isRowNotWritable } from '@/lib/eld/rodsWrite';
 import { HANDLERS } from './handlers';
 import { raiseSyncAlert } from './alerts';
+import { markDayStalled } from '../cache';
 import { drainPendingNotices } from './noticeDrain';
 import { setDrainKick, type DrainScope } from './kick';
 import {
-  dueEntries, markInFlight, markRetry, markSucceeded, markTerminal, purgeSucceeded, syncCounts,
+  dueEntries, markInFlight, markRetry, markSucceeded, markTerminal, purgeSucceeded,
+  resolveBlocked, syncCounts,
   type SyncCounts,
 } from './store';
 
@@ -101,6 +103,20 @@ async function notify(): Promise<void> {
   listeners.forEach((fn) => fn(counts));
 }
 
+/**
+ * Mark the cached day behind a terminal entry, so the driver is told.
+ *
+ * Only chain kinds do this. An alert or an unlock record that dies is office
+ * bookkeeping about the day — flagging the day for it would tell the driver
+ * their log is stuck when the log is fine.
+ */
+async function flagDay(entry: SyncQueueEntry, which: 'stalled' | 'rejected'): Promise<void> {
+  if (isCascadeExempt(entry.kind)) return;
+  const logDate = entry.payload.log_date;
+  if (typeof logDate !== 'string' || !logDate) return;
+  await markDayStalled(logDate, which);
+}
+
 async function runEntry(entry: SyncQueueEntry): Promise<void> {
   const handler = HANDLERS[entry.kind];
   if (!handler) {
@@ -120,6 +136,7 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     // dropped", not a generic sync failure. Bytes stay on the device.
     if (klass === 'row_not_writable') {
       await markTerminal(entry.id, 'rejected', klass, message);
+      await flagDay(entry, 'rejected');
       await raiseSyncAlert({
         kind: 'log_not_writable',
         operator_id: (entry.payload.operator_id as string) ?? null,
@@ -133,6 +150,7 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
 
     if (klass === 'rejected') {
       await markTerminal(entry.id, 'rejected', klass, message);
+      await flagDay(entry, 'rejected');
       // An alert whose own delivery the server refuses cannot be reported by
       // raising another alert — that recurses. It is logged loudly instead and
       // the terminal entry stays in Dexie as the on-device record.
@@ -157,6 +175,7 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     if (klass === 'server' && entry.attempts + 1 >= SERVER_ATTEMPT_LIMIT
         && !isCascadeExempt(entry.kind)) {
       await markTerminal(entry.id, 'failed', klass, message);
+      await flagDay(entry, 'stalled');
       await raiseSyncAlert({
         kind: 'sync_failed',
         operator_id: (entry.payload.operator_id as string) ?? null,
@@ -193,6 +212,14 @@ export async function drainQueue(options?: { force?: boolean }): Promise<void> {
       await runEntry(due[0]);
       // eslint-disable-next-line no-await-in-loop
       await notify();
+    }
+    // A chain whose prerequisite died can never drain. Cancel it to a fixed
+    // point and flag each affected day stalled — otherwise the driver holds a
+    // signed, locked day with one permanent queue item and no explanation.
+    const cancelled = await resolveBlocked();
+    for (const entry of cancelled) {
+      // eslint-disable-next-line no-await-in-loop
+      await flagDay(entry, 'stalled');
     }
     await purgeSucceeded();
   } finally {

@@ -37,6 +37,7 @@ import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ELDMalfunctionsPanel from '@/components/management/eld/ELDMalfunctionsPanel';
 import RodsStorageHealthCard from '@/components/management/eld/RodsStorageHealthCard';
+import RodsUnlockEventsPanel from '@/components/management/eld/RodsUnlockEventsPanel';
 import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
 import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
@@ -1947,6 +1948,7 @@ export default function ManagementPortal() {
         {view === 'eld-malfunctions' && (
           <div className="space-y-6">
             <ELDMalfunctionsPanel />
+            <RodsUnlockEventsPanel />
             <RodsStorageHealthCard />
           </div>
         )}

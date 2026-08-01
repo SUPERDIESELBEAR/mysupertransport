@@ -5004,6 +5004,59 @@ export type Database = {
           },
         ]
       }
+      rods_unlock_events: {
+        Row: {
+          cancelled_entry_ids: Json
+          cancelled_states: Json
+          created_at: string
+          device_info: string | null
+          id: string
+          idempotency_key: string
+          local_certified_at: string | null
+          log_date: string
+          operator_id: string
+          reason: string
+          rods_day_id: string | null
+          unlocked_at: string
+        }
+        Insert: {
+          cancelled_entry_ids?: Json
+          cancelled_states?: Json
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          idempotency_key: string
+          local_certified_at?: string | null
+          log_date: string
+          operator_id: string
+          reason: string
+          rods_day_id?: string | null
+          unlocked_at?: string
+        }
+        Update: {
+          cancelled_entry_ids?: Json
+          cancelled_states?: Json
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          idempotency_key?: string
+          local_certified_at?: string | null
+          log_date?: string
+          operator_id?: string
+          reason?: string
+          rods_day_id?: string | null
+          unlocked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rods_unlock_events_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_help_requests: {
         Row: {
           created_at: string
@@ -6388,6 +6441,21 @@ export type Database = {
           _removed: string[]
         }
         Returns: undefined
+      }
+      record_rods_unlock: {
+        Args: {
+          p_cancelled_entry_ids: Json
+          p_cancelled_states: Json
+          p_device_info: string
+          p_idempotency_key: string
+          p_local_certified_at: string
+          p_log_date: string
+          p_operator_id: string
+          p_reason: string
+          p_rods_day_id: string
+          p_unlocked_at: string
+        }
+        Returns: string
       }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }
