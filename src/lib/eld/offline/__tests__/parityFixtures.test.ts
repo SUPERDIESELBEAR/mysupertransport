@@ -367,7 +367,7 @@ const FIXTURES: Fixture[] = [
   },
   {
     n: 17,
-    name: 'uploaded ELD document with no keyed segments or header',
+    name: 'certify_rods_day refuses a log that is not keyed',
     day: day({
       record_source: 'eld_document',
       source_document_path: `${OPERATOR}/${LOG_DATE}/eld-log.pdf`,
@@ -383,13 +383,38 @@ const FIXTURES: Fixture[] = [
     clientBlocks: [
       'has_segments', 'all_segments_complete', 'no_gaps', 'sums_to_1440', 'header_complete',
     ],
-    code: null,
+    code: 'P0019',
     note:
-      'INTENTIONAL ASYMMETRY. The server skips the segment and header block entirely for '
-      + 'record_source = eld_document, so the write is accepted; the keyed checklist fails almost '
-      + 'everything. This is not a drift to fix: an uploaded log was certified on the driver\'s own '
-      + 'ELD and has no keyed face to check. The screen never runs this checklist against one — '
-      + 'the guard is that no keyed certify path may ever set record_source to eld_document.',
+      'WAS THE BYPASS. Until 2026-08-01 the server skipped the whole segment and header block '
+      + 'for record_source = eld_document and ACCEPTED this write. Demonstrated live: a keyed '
+      + 'draft with a 60-minute gap was refused P0021, the driver flipped record_source over '
+      + 'PostgREST, and the same log then certified with the gap intact and every header field '
+      + 'null. It is now refused outright — uploaded documents are filed already-certified by '
+      + 'create_eld_document_day and never pass through here.',
+  },
+  {
+    n: 18,
+    name: 'record_source changed after the log was filed',
+    day: day(), events: fullDayEvents(), ctx: ctx(),
+    clientBlocks: [],
+    code: 'P0045',
+    modelled: false,
+    note:
+      'Layer B. Not a certify path: raised by the enforce_rods_day_lock trigger on a plain '
+      + 'PostgREST UPDATE of record_source, before the lock test and with no rods.privileged '
+      + 'exemption. Observed as the demo driver on an unlocked draft they own.',
+  },
+  {
+    n: 19,
+    name: 'ELD-document row filed with no source document',
+    day: day({ record_source: 'eld_document', source_document_path: null }),
+    events: fullDayEvents(), ctx: ctx(),
+    clientBlocks: [],
+    code: 'P0046',
+    modelled: false,
+    note:
+      'Layer C. Raised by enforce_rods_day_source_document on INSERT or UPDATE, so a row cannot '
+      + 'claim document provenance with no document behind it. Observed on a driver INSERT.',
   },
 ];
 
