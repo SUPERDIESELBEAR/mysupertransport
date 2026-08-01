@@ -6,7 +6,9 @@
 import {
   roadsideDb, type SyncQueueEntry, type SyncKind, type SyncErrorClass,
 } from '../db';
-import { assertSmallPayload, backoffFor, SUCCEEDED_TTL_MS } from './types';
+import {
+  assertSmallPayload, backoffFor, isCascadeExempt, SUCCEEDED_TTL_MS,
+} from './types';
 import { requestDrain, type DrainScope } from './kick';
 
 export function newSyncId(): string {
@@ -190,7 +192,10 @@ export async function resolveBlocked(): Promise<SyncQueueEntry[]> {
     // eslint-disable-next-line no-await-in-loop
     const all = await roadsideDb.sync_queue.toArray();
     const byId = new Map(all.map((e) => [e.id, e]));
-    const doomed = all.filter((e) => !isTerminal(e.status) && e.depends_on.some((dep) => {
+    const doomed = all.filter((e) => !isTerminal(e.status)
+      // Exempt kinds report ON the chain; they cannot be killed BY it.
+      && !isCascadeExempt(e.kind)
+      && e.depends_on.some((dep) => {
       const prerequisite = byId.get(dep);
       return !!prerequisite && isTerminal(prerequisite.status);
     }));
@@ -219,7 +224,11 @@ export async function resolveBlocked(): Promise<SyncQueueEntry[]> {
  */
 export async function cancelChainForDay(logDate: string, reason: string): Promise<number> {
   const all = await roadsideDb.sync_queue.toArray();
-  const mine = all.filter((e) => !isTerminal(e.status) && e.payload.log_date === logDate);
+  const mine = all.filter((e) => !isTerminal(e.status)
+    && e.payload.log_date === logDate
+    // The unlock record and the alerts about this day are the audit trail of
+    // the very act that is cancelling everything else. They survive it.
+    && !isCascadeExempt(e.kind));
   const now = new Date().toISOString();
   for (const entry of mine) {
     // eslint-disable-next-line no-await-in-loop
@@ -284,7 +293,9 @@ export async function purgeSucceeded(now = Date.now()): Promise<number> {
   // deleting it here would release a dependent early — exactly the ordering
   // guarantee the dependency existed to provide.
   const stillDependedOn = new Set(
-    all.filter((e) => !isTerminal(e.status)).flatMap((e) => e.depends_on),
+    all
+      .filter((e) => !isTerminal(e.status) && !isCascadeExempt(e.kind))
+      .flatMap((e) => e.depends_on),
   );
   const stale = await roadsideDb.sync_queue
     .where('status').equals('succeeded')
@@ -303,7 +314,10 @@ export interface SyncCounts {
 }
 
 export async function syncCounts(): Promise<SyncCounts> {
-  const all = await roadsideDb.sync_queue.toArray();
+  // The chip tells the DRIVER how much of his work is still in the air.
+  // Office bookkeeping is not his work and must never show as "1 change
+  // waiting" on a phone with nothing left to send.
+  const all = (await roadsideDb.sync_queue.toArray()).filter((e) => !isCascadeExempt(e.kind));
   return {
     pending: all.filter((e) => e.status === 'pending').length,
     inFlight: all.filter((e) => e.status === 'in_flight').length,
