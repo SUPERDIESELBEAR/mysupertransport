@@ -1,100 +1,63 @@
+## Part 1 — Audit of the three tables (finding, no code required)
 
-# Confirm the trigger revoke, and account for the 133
+Every reference in the repo, and who reads it:
 
-## Part 1 — Prove the triggers still fire
+| Table | Caller | Role | Status |
+|---|---|---|---|
+| `application_resume_tokens` | `src/components/management/RevertRevisionModal.tsx` | browser (authenticated) | The only client read. Was the silent-zero consumer; now on the `count_unused_resume_tokens` RPC. |
+| `application_resume_tokens` | `request-application-resume`, `request-application-revisions`, `resend-application-link`, `revert-application-revisions` edge functions | service_role | Unaffected — service_role grants intact. |
+| `document_short_links` | none directly | — | Reached only via the `get_or_create_short_link` / `resolve_short_link` definer RPCs (`binderShareFormat.ts`, `ShortLinkRedirect.tsx`). Correct shape already. |
+| `message_notification_throttle` | `notify-new-message` edge function (4 sites) | service_role | Unaffected. |
 
-The catalog says the triggers exist. It does not say they still do their work. The revoke touched 53 functions across 20+ tables, and if one is broken it fails at write time on a real row.
+Live check confirms `anon` and `authenticated` hold no SELECT/INSERT/UPDATE/DELETE on any of the three. `RevertRevisionModal` was the sole silently-empty surface. Nothing else to fix here.
 
-### 1.1 Exercise the write paths, and check the side effect — not the save
+## Part 2 — Bring `count_unused_resume_tokens` up to the standard
 
-The failure mode to catch is a write that *appears* to succeed while its logging, syncing, or notifying silently stops. So each check is a pair: perform the action through the UI, then assert the row the trigger was supposed to produce.
+Confirmed against `pg_proc` and migration `20260801012146_...sql`:
 
-Driven with Playwright against the local dev server, signed in as a **demo driver** and as **staff** (the demo sandbox exists precisely so this costs nothing real).
+- `prosecdef = true`, `anon` EXECUTE revoked, `authenticated` EXECUTE granted — correct.
+- `proconfig = {search_path=public, pg_temp}` — **wrong**, convention requires `public, extensions`. `definer-search-path.test.ts` is **red right now** on exactly this function. It will be fixed, not allowlisted.
+- Role check is `CASE WHEN EXISTS (...) THEN count ELSE 0 END` — a benign zero for unauthorized callers, i.e. the same silent-empty defect the audit above just chased, baked into the RPC written to replace one.
+- Already present in `KNOWN_AUTHENTICATED_EXECUTABLE` (64 entries, max 64) and absent from `KNOWN_ANON_EXECUTABLE` (59/59). Verified correct; no allowlist edit.
 
-| Action through the app | Trigger under test | Side effect asserted |
-| --- | --- | --- |
-| Driver sends a message | `bump_thread_last_message`, `enforce_message_edit_rules` | `message_threads.last_message_at` advanced |
-| Driver uploads a document | `notify_staff_on_docs_uploaded` | new `notifications` row |
-| Driver certifies a RODS day | `enforce_rods_day_lock`, `enforce_rods_certified_continuity`, `enforce_rods_event_lock` | day certified; a second edit attempt is still refused |
-| Staff changes onboarding stage | `notify_operator_on_status_change`, `copy_stage2_docs_to_vault`, `enforce_onboarding_status_self_update` | operator notification created |
-| Staff sets dispatch status | `log_dispatch_status_change`, `sync_active_dispatch_from_log` | new `dispatch_status_history` row; `active_dispatch` matches |
-| Staff edits an IRP expiry date | `sync_irp_expiry_to_mo_plate`, `log_inspection_expiry_change` | matching `mo_plates` row updated |
-| Applicant submits an application | `sync_application_expiry_to_binder`, `update_application_pei_status` | binder/PEI status reflects it |
-| Any notification created | `notifications_autofill_entity` | entity columns populated, not null |
+### Ordered steps
 
-The lock-enforcing triggers matter most: those *reject* writes. A broken one fails open and silently permits an edit to a certified log. Each is tested by attempting the write that should be refused and confirming it still is.
+**Step 1 — Negative control for the widened fail-open rule (before the fix).**
+Write the new rule in `definer-fail-open.test.ts` first and prove it fires on the *current* definition:
+- Rule: a SECURITY DEFINER body whose authorization predicate (references `user_roles`, `has_role`, `is_staff`, `auth.uid()`, or a session/claim source) sits in a `CASE`/`IF` whose non-matching branch yields a benign value (`0`, `false`, `NULL`, empty result) instead of raising.
+- Run the suite and record the failure naming `count_unused_resume_tokens(uuid)` — that output is the control, captured in the doc.
+- Also assert the rule against `purge_rods_day`'s fixed shape and the other 100+ resolved definers to confirm it produces no new false positives, exactly as the original heuristic was validated.
+- Only after the rule is red for the right reason does the migration land; re-run to show green.
 
-### 1.2 State the coverage gap as a gap
+**Step 2 — Confirm 42501 round-trips through PostgREST before committing to it.**
+The scheme depends on the SQLSTATE arriving verbatim in `error.code`; only class `P0` has been proven. `42501` is `insufficient_privilege`, a standard class PostgREST may map to an HTTP status and reshape.
+- Provoke it for real: a Playwright run signed in as a demo **driver** (non-staff, authenticated), calling `supabase.rpc('count_unused_resume_tokens', ...)`, logging the full error object — `code`, `message`, `details`, `hint`, and the HTTP status.
+- Record the verbatim reading in `docs/eld-mail-queue-acl-2026-08-01.md`.
+- If `code` arrives as `42501`: the modal keys off it.
+- If it is reshaped or dropped: switch the `RAISE EXCEPTION` to a `P0001` code with a stable message token (the class already proven to round-trip) and re-provoke to confirm. Either way the modal only distinguishes "not authorized" from a generic failure on evidence, never on assumption.
 
-Two different assertions, reported as two different numbers, never merged into one reassuring sentence:
+**Step 3 — Migration replacing the function.**
+`LANGUAGE plpgsql`, `STABLE`, `SECURITY DEFINER`, `SET search_path = public, extensions`; positive refuse, coalesce-safe, no `ELSE 0`:
 
-- **15 of 53 verified by side effect.** A real write produced the row the trigger owes.
-- **53 of 53 verified as attached and enabled** (`tgenabled = 'O'`). This catches detachment and disabling. It cannot see a body that runs and does nothing.
-- **The difference — ~38 functions — is untested.** That is the honest state, and the doc will say so in those words. The enabled-trigger check is a cheap tripwire, not coverage, and will not be written up as though it were.
-
-### 1.3 Make it permanent
-
-Add the enabled-trigger assertion to `definer-live-catalog.test.ts`, labelled in the test name as an attachment check so a future reader does not mistake it for behavioural coverage.
-
----
-
-## Part 2 — The 133, by category
-
-Every count below was re-derived in SQL. **The linter emits no object names** — 133 numbered warnings with identical descriptions — so the names are mine, from re-running each check against the catalog. Counts match per category, which is what makes the mapping trustworthy.
-
-| # | Category | Count | Status |
-| --- | --- | --- | --- |
-| 0028 | Anon can execute SECURITY DEFINER | **59** | **Tracked** — exactly `KNOWN_ANON_EXECUTABLE`, max 59 |
-| 0029 | Signed-in users can execute SECURITY DEFINER | **63** | **UNTRACKED** |
-| 0008 | RLS enabled, no policy | 4 | Untracked |
-| 0014 | Extension in public | 3 | Untracked (`pg_net`, `pg_trgm`, `vector`) |
-| 0025 | Public bucket allows listing | 2 | Untracked (`avatars`, `service-logos`) |
-| 0011 | Function search_path mutable | 1 | Untracked |
-| — | Leaked password protection disabled | 1 | Known platform limitation |
-
-### Two lists, two defect classes, neither a subset of the other
-
-This gets its own headed section at the top of §8, because it is the thing a future reader will assume wrongly:
-
-> Linter 0011 checks whether a `search_path` pin **exists**, not what it contains. All ~104 functions pinned to `public` alone are pinned, so the linter is silent on every one of them. The shrink-only pin list tracks a defect class the linter cannot see; the linter reports classes the pin list does not cover. Do not read a clean 0011 as evidence the pins are correct, and do not read the pin list as covering the linter's residue.
-
-The single 0011 hit confirms the separation: it is `_app_correction_editable_columns()`, which is `SECURITY INVOKER` and therefore not an escalation shape at all.
-
-### The real gap: 63 authenticated-executable definers
-
-Largest untracked block, and the same defect as the anon set one role over. Composition: the 59 anon functions (anon grants came paired with authenticated) plus 4 that are authenticated-only —
-
-```text
-acknowledge_eld_sync_alert(uuid)
-mark_operator_seen(boolean)
-raise_eld_sync_alert(uuid, text, date, text)
-update_pei_archive_category(uuid, text, text)
+```sql
+IF coalesce((SELECT true FROM public.user_roles ur
+             WHERE ur.user_id = auth.uid()
+               AND ur.role IN ('owner','management','onboarding_staff','dispatcher')
+             LIMIT 1), false) THEN
+  RETURN (SELECT count(*)::int FROM public.application_resume_tokens t
+          WHERE t.application_id = _application_id AND t.used_at IS NULL);
+END IF;
+RAISE EXCEPTION 'not_authorized' USING ERRCODE = <code chosen in Step 2>;
 ```
 
-`definer-live-catalog.test.ts` checks `authenticated` **only for trigger functions**. For callables it checks `anon` alone, so all 63 could change without a guard noticing — the same blind spot that let the two trigger grants through. Fix: add `KNOWN_AUTHENTICATED_EXECUTABLE` (63 entries) with its own asserted shrink-only max, mirroring the anon list. Signed-in ≠ authorized; several of these are staff-only operations reachable with any driver's token, and triaging that is register work, not this turn's.
+Re-assert `REVOKE ALL ... FROM PUBLIC, anon` and `GRANT EXECUTE ... TO authenticated` so the migration is self-describing.
 
-### The 4 RLS-no-policy tables: assert it, don't document it
+**Step 4 — `RevertRevisionModal.tsx`.**
+Surface the RPC error instead of falling back to 0: on failure show an explicit error state in the "unused resume links" line and keep Confirm disabled, rather than rendering a confident "0". Distinguish not-authorized from generic failure using the code confirmed in Step 2.
 
-`application_resume_tokens`, `document_short_links`, `message_notification_throttle` in `public`, plus `app_private.config`. RLS on with zero policies denies all non-owner access — but only while no client role holds a grant, and that is precisely the property that drifted out of band on the mail-queue functions after a migration had already set it correctly. A doc paragraph would record the same intention that already failed to hold.
+### Verification
 
-So this becomes a test in `definer-live-catalog.test.ts`, stated as a general rule rather than a list of four:
-
-> No table in any non-system schema with RLS enabled and zero policies may hold any privilege granted to `anon` or `authenticated`.
-
-Written that way it also covers the fifth such table nobody has created yet. `app_private.config` holds the `ip_hash` salt, so it is the one where a silent grant does the most damage — and under this rule it is covered by construction rather than by having been remembered.
-
-### The remaining 6
-
-- **3 extensions in public** — platform-installed; recorded as accepted, by name.
-- **2 public buckets** — `avatars` and `service-logos` are listable. Whether listing is acceptable for either is a judgment call I should not make silently; recorded as an open register item.
-- **1 leaked password protection** — already recorded as a Lovable platform limitation.
-
-### Deliverable
-
-Extend §8 of `docs/eld-mail-queue-acl-2026-08-01.md` with the two-lists distinction up front, the category table, the trigger-verification results with the 15/53/38 split stated plainly, and register entries by name for every untracked category. The tracking rule: **a warning is tracked only if a shrink-only list with an asserted max accounts for it — otherwise it goes in the register by name.**
-
----
-
-## Note on ordering
-
-Part 1 runs first. If a trigger is broken, that is a live defect and everything else waits.
+- `bunx vitest run src/test/definer-search-path.test.ts src/test/definer-fail-open.test.ts src/test/definer-live-catalog.test.ts` — all green, search_path failure gone, no allowlist entry added, max unchanged at 64.
+- Re-query `pg_proc` for `proconfig` and both `has_function_privilege` flags.
+- Exercise the modal as owner (non-zero count renders) and as a demo driver (loud refusal, not a zero).
+- Append to §8 of `docs/eld-mail-queue-acl-2026-08-01.md`: the replacement RPC shipped with the exact defect the section documents, the guard was blind to the `CASE` form, the recorded before/after output of the new rule, and the verbatim PostgREST error reading for the chosen SQLSTATE.

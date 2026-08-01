@@ -691,3 +691,78 @@ policyless table, was already `service_role`-only and was left alone.
 
 Asserted from now on by the "no RLS table without policies holds client-role
 grants" test.
+
+### 8.4 The replacement RPC shipped with the defect it replaced
+
+`count_unused_resume_tokens(uuid)` as first written (migration
+`20260801012146_...`) was:
+
+```sql
+SELECT CASE
+  WHEN EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ...)
+  THEN (SELECT count(*)::int FROM public.application_resume_tokens t WHERE ...)
+  ELSE 0
+END
+```
+
+`ELSE 0`. An unauthorized caller is handed a plausible count — the same
+"silent empty result" failure that made the original direct table read
+invisible for as long as it was broken, reproduced one layer down in the fix
+for it. It also pinned `search_path = public, pg_temp`, omitting `extensions`
+(§ rule 1), which `definer-search-path.test.ts` was red on.
+
+Neither `definer-fail-open.test.ts` nor the live-catalog guard could see the
+first defect: the fail-open heuristic only matched plpgsql `IF NOT ... THEN`
+conditions, and this was a `CASE` expression in a `LANGUAGE sql` body.
+
+**New rule** in `definer-fail-open.test.ts`: *no authorization check refuses by
+returning a benign value*. It walks every `CASE … END` expression in a definer
+body (skipping `END IF` / `END LOOP`), and flags any whose text references an
+authorization source (`user_roles`, `has_role(`, `is_staff(`, `auth.uid(`,
+`current_setting(`, `request.jwt`), contains no `RAISE`, and whose `ELSE`
+branch is `0` / `false` / `NULL` / `''` / `'{}'` — or has no `ELSE` at all,
+which yields NULL and is worse.
+
+**Negative control, recorded before the fix landed.** The rule was written and
+run against the *unfixed* migration set first. It produced exactly one
+offender across all resolved SECURITY DEFINER functions:
+
+```
+20260801012146_3081c1e1-14aa-4aaf-a8a0-55c0191bc3ce.sql:
+public.count_unused_resume_tokens(uuid) — authorization check yields 0 on the
+refusal path instead of raising.
+```
+
+One hit, no false positives on the other ~100 definers (`purge_rods_day` and
+the rest of the plpgsql `IF … RAISE` population are unaffected — the rule
+requires the absence of `RAISE` inside the CASE). After the fix: green. A rule
+added in the same diff as the fix that makes it untestable is not a rule; this
+one was demonstrated red-then-green.
+
+### 8.5 SQLSTATE 42501 round-trips through PostgREST — measured, not assumed
+
+The refusal is only useful if the UI can tell it apart from a generic failure.
+Only class `P0` had been round-tripped before, and `42501`
+(`insufficient_privilege`) is a *standard* class that PostgREST could plausibly
+map to a status and reshape. Provoked for real on 2026-08-01 with a genuine
+non-staff authenticated session (a preview session minted for demo driver
+Marcus Mueller, then `POST /rest/v1/rpc/count_unused_resume_tokens`):
+
+| Caller | HTTP | Body |
+| --- | --- | --- |
+| demo driver (authenticated, non-staff) | **403** | `{"code":"42501","details":null,"hint":null,"message":"not_authorized"}` |
+| owner (staff) | 200 | `0` |
+| anon (no session) | 401 | `{"code":"42501",...,"message":"permission denied for function count_unused_resume_tokens"}` |
+
+`error.code` arrives verbatim as `42501`. The `RAISE EXCEPTION` and the missing
+`anon` EXECUTE grant both surface under that one code with different messages,
+which is correct — both are "not authorized". `RevertRevisionModal` keys on
+`error.code === '42501'` for the permission wording and any other error for the
+generic wording; in neither case does it render a count. Confirm-undo stays
+disabled while the count is unknown.
+
+The final function is `LANGUAGE plpgsql`, `STABLE`, `SECURITY DEFINER`,
+`SET search_path = public, extensions`, with a coalesce-wrapped positive
+permit and a `RAISE EXCEPTION` after it. Its allowlist entry in
+`KNOWN_AUTHENTICATED_EXECUTABLE` and the max of 64 were already correct and
+were left untouched; it is absent from `KNOWN_ANON_EXECUTABLE` (59/59).

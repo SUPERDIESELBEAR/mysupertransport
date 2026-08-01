@@ -29,6 +29,7 @@ interface RevertRevisionModalProps {
 export function RevertRevisionModal({ open, onOpenChange, application, onSuccess, onReverted }: RevertRevisionModalProps) {
   const { roles } = useAuth();
   const [unusedTokens, setUnusedTokens] = useState<number | null>(null);
+  const [tokenError, setTokenError] = useState<'forbidden' | 'failed' | null>(null);
   const [sendCourtesyEmail, setSendCourtesyEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [defaultLabel, setDefaultLabel] = useState<{ role: string; on: boolean } | null>(null);
@@ -51,9 +52,15 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
   useEffect(() => {
     if (!open) return;
     setUnusedTokens(null);
+    setTokenError(null);
     (async () => {
       // application_resume_tokens holds no client-role grants (2026-08-01):
       // the raw tokens are resume links. This RPC returns only the count.
+      // It REFUSES rather than returning 0 for a non-staff caller, and
+      // PostgREST surfaces that SQLSTATE verbatim: error.code === '42501'
+      // (HTTP 403, message "not_authorized"). Verified against a real driver
+      // session on 2026-08-01. Never fall back to 0 -- a confident zero here
+      // is the exact defect this RPC was written to remove.
       const tokensP = supabase.rpc('count_unused_resume_tokens', {
         _application_id: application.id,
       });
@@ -62,8 +69,13 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
         .select('send_by_default')
         .eq('role', effectiveRole)
         .maybeSingle();
-      const [{ data: count }, { data: defRow }] = await Promise.all([tokensP, defaultP]);
-      setUnusedTokens(count ?? 0);
+      const [{ data: count, error: tokensErr }, { data: defRow }] = await Promise.all([tokensP, defaultP]);
+      if (tokensErr) {
+        console.error('count_unused_resume_tokens failed:', tokensErr);
+        setTokenError(tokensErr.code === '42501' ? 'forbidden' : 'failed');
+      } else {
+        setUnusedTokens(count ?? 0);
+      }
       const on = !!defRow?.send_by_default;
       setSendCourtesyEmail(on);
       setDefaultLabel({ role: roleLabel, on });
@@ -145,9 +157,19 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
           <div className="border border-border rounded-lg p-3 bg-secondary/30 space-y-1.5">
             <p className="text-xs font-semibold text-foreground mb-1">This will:</p>
             <p className="text-xs text-foreground">✓ Restore status to <span className="font-semibold capitalize">{restoredStatus}</span></p>
-            <p className="text-xs text-foreground">
-              ✓ Invalidate {unusedTokens === null ? '…' : unusedTokens} unused resume link{unusedTokens === 1 ? '' : 's'} in their inbox
-            </p>
+            {tokenError ? (
+              <p className="text-xs font-medium text-destructive">
+                ⚠ Couldn't read how many resume links are outstanding
+                {tokenError === 'forbidden'
+                  ? ' — your account isn\'t permitted to view them.'
+                  : ' — the lookup failed.'}{' '}
+                Reopen this dialog to retry.
+              </p>
+            ) : (
+              <p className="text-xs text-foreground">
+                ✓ Invalidate {unusedTokens === null ? '…' : unusedTokens} unused resume link{unusedTokens === 1 ? '' : 's'} in their inbox
+              </p>
+            )}
             <p className="text-xs text-foreground">
               ✓ Reset revision count from {application.revision_count ?? 0} → {Math.max(0, (application.revision_count ?? 1) - 1)}
             </p>
@@ -199,7 +221,7 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={submitting || unusedTokens === null}
+            disabled={submitting || tokenError !== null || unusedTokens === null}
             className="bg-status-progress hover:bg-status-progress/90 text-white"
           >
             {submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Reverting…</> : 'Confirm undo'}
