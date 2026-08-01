@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, Upload } from 'lucide-react';
-import { requireCachedCarrier } from '@/lib/eld/carrierIdentity';
+import { requireCachedCarrier, rodsDayCarrierSnapshot } from '@/lib/eld/carrierIdentity';
 import { convertForDisplay, DISPLAY_MIME } from '@/lib/eld/offline/renderability';
 import { RODS_BUCKET, formatLogDate, type RodsDay } from '@/lib/eld/rodsTypes';
 
@@ -103,14 +103,9 @@ export default function UploadEldLogModal({
           p_operator_id: operatorId,
           p_log_date: logDate,
           p_source_document_path: path,
-          p_carrier: {
-            carrier_name: carrier.carrier_name,
-            carrier_usdot: carrier.carrier_usdot,
-            carrier_mc: carrier.carrier_mc,
-            main_office_address: carrier.carrier_main_office_address,
-            home_terminal_address: carrier.carrier_home_terminal_address,
-            home_terminal_timezone: carrier.carrier_home_terminal_timezone,
-          },
+          // Same key set the RPC reads out of the jsonb, and the same snapshot
+          // helper every other record-creating path uses.
+          p_carrier: rodsDayCarrierSnapshot(carrier),
           p_certification_token: crypto.randomUUID(),
           p_display_document_path: display.path,
           p_display_conversion_failed: display.failed,
