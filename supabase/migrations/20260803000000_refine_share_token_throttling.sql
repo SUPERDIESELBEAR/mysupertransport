@@ -171,5 +171,41 @@ $$;
 REVOKE ALL ON FUNCTION public.resolve_share_token(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.resolve_share_token(uuid) TO anon, authenticated, service_role;
 
--- The officer resolver keeps its shape; the endpoint distinguishes throttled
--- by re-reading the gate outcome from the log, so add nothing here.
+-- Same treatment for the officer packet resolver, so the download endpoint can
+-- answer 429 instead of 404 when the link is merely rate-limited.
+DROP FUNCTION IF EXISTS public.resolve_officer_packet_token(uuid);
+
+CREATE FUNCTION public.resolve_officer_packet_token(p_token uuid)
+RETURNS TABLE(operator_id uuid, bucket text, storage_path text, expires_at timestamptz, outcome text)
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path TO 'public', 'extensions'
+AS $$
+DECLARE
+  v_gate record;
+BEGIN
+  SELECT g.outcome, g.scope, g.resource_id INTO v_gate
+  FROM public._share_token_gate(p_token) g;
+
+  IF v_gate.outcome = 'throttled' THEN
+    RETURN QUERY SELECT NULL::uuid, NULL::text, NULL::text, NULL::timestamptz, 'throttled'::text;
+    RETURN;
+  END IF;
+
+  IF v_gate.outcome IS DISTINCT FROM 'ok' OR v_gate.scope IS DISTINCT FROM 'officer_packet' THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+    SELECT l.operator_id, l.bucket, l.storage_path, t.expires_at, 'ok'::text
+    FROM public.officer_packet_links l
+    JOIN public.share_tokens t ON t.token = l.token
+    WHERE l.token = p_token
+    LIMIT 1;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.resolve_officer_packet_token(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.resolve_officer_packet_token(uuid) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_officer_packet_token(uuid) TO service_role;
