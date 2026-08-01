@@ -105,7 +105,9 @@ describe('roadside day view', () => {
     expect(screen.queryByTestId('roadside-native-day')).toBeNull();
     expect(screen.queryByTestId('roadside-native-grid')).toBeNull();
     expect(document.querySelector('object, iframe, embed')).toBeNull();
-    expect(JSON.parse(localStorage.getItem('roadside_empty_event_set') ?? '[]')).toContain(DATE);
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem('roadside_empty_event_set') ?? '[]')).toContain(DATE);
+    });
     expect(localStorage.getItem('roadside_native_fallback')).toBeNull();
   });
 });
