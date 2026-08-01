@@ -223,14 +223,34 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // seven-argument form is dropped (docs/deferred-removals.md).
 const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 66;
 
+/**
+ * The entries appearing more than once, by name. A bare count mismatch on a
+ * sixty-entry list is not something anyone wants to diff by eye.
+ */
+function duplicatesIn(list: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const entry of list) {
+    if (seen.has(entry)) dupes.add(entry);
+    seen.add(entry);
+  }
+  return [...dupes].sort();
+}
+
 describe("live SECURITY DEFINER catalog (pg_proc)", () => {
   it("the allowlist may only shrink", () => {
     expect(KNOWN_ANON_EXECUTABLE.length).toBeLessThanOrEqual(
       KNOWN_ANON_EXECUTABLE_MAX,
     );
-    expect(new Set(KNOWN_ANON_EXECUTABLE).size).toBe(
-      KNOWN_ANON_EXECUTABLE.length,
-    );
+    // Distinctness is what makes the MAX above mean anything. A duplicate
+    // grows `length` without growing the set the number is supposed to cap,
+    // so the ratchet reads one looser than it looks and the next person sizes
+    // the MAX to the inflated count. This happened: certify_rods_day's
+    // seven-argument form was listed twice (see the run doc).
+    expect(
+      duplicatesIn(KNOWN_ANON_EXECUTABLE),
+      "duplicate entries in KNOWN_ANON_EXECUTABLE",
+    ).toEqual([]);
   });
 
   it.runIf(HAS_DB)(
@@ -398,9 +418,14 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     expect(KNOWN_AUTHENTICATED_EXECUTABLE.length).toBeLessThanOrEqual(
       KNOWN_AUTHENTICATED_EXECUTABLE_MAX,
     );
-    expect(new Set(KNOWN_AUTHENTICATED_EXECUTABLE).size).toBe(
-      KNOWN_AUTHENTICATED_EXECUTABLE.length,
-    );
+    // Same reasoning as the anon list: the MAX only caps what it counts.
+    // This list is currently at 66 to carry the interim certify_rods_day
+    // pair deliberately, which is exactly the situation where a duplicate
+    // would be easiest to mistake for the sanctioned second entry.
+    expect(
+      duplicatesIn(KNOWN_AUTHENTICATED_EXECUTABLE),
+      "duplicate entries in KNOWN_AUTHENTICATED_EXECUTABLE",
+    ).toEqual([]);
   });
 
   it.runIf(HAS_DB)(

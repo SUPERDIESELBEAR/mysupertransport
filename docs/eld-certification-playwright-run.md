@@ -324,3 +324,55 @@ to `signature_images` from the canvas and read back as a PNG data URL. If a
 future path ever feeds it a signature from elsewhere, the silent drop becomes a
 certified log with no visible signature, and the check belongs at that path's
 edge — not by making the renderer throw.
+
+## (k2) Signature refused before the render — PASS
+
+The case (k) observation above described a safe renderer sitting behind an
+unguarded edge: feed it a signature that will not embed and it emits a clean
+PDF with the typed legal name over a blank line. Under a "Certified" header
+that is a §395.8 record that looks signed and is not. The check now exists at
+the edge the observation named.
+
+`validateSignatureImage` runs in real Chromium, which is the only place the
+pixel pass runs at all — jsdom has no canvas, so the unit tests can only reach
+the structural checks. Inputs were the five malformed signatures from (k), plus
+three exported from a real canvas: an untouched pad, a single tap, and a
+written name.
+
+- All five malformed inputs refused structurally, each with a distinct reason
+  (`not_a_png_data_url`, `too_small_to_be_a_signature`, `base64_undecodable`,
+  `empty`).
+- The untouched pad and the single tap refused in **pixel** mode. Both are
+  structurally perfect PNGs — nothing but a decode distinguishes them from a
+  signature.
+- The written name passed in pixel mode. The gate asserts the mode, not just
+  the verdict: a structural pass here would mean the decoder never ran and the
+  case proved nothing.
+- `commitCertification` refused blank bytes handed to it with a **hand-built
+  passing validation result whose digest matched those bytes**, and left no
+  signature row, no PDF row, no queue entry, and no lock.
+
+That last assertion is the one that found something. The commit edge had been
+binding the caller's result to the bytes by digest and trusting the verdict —
+but a digest match only proves the result is *about* those bytes, not that it
+is true. A caller that validated wrong could have certified a blank signature.
+The lock-writer now re-runs the validator itself and refuses on its own
+verdict; the caller's result is kept only as provenance, and only when it saw
+pixels and the local re-run could not (no decoder in that context).
+
+### Allowlist note
+
+`KNOWN_ANON_EXECUTABLE` in `src/test/definer-live-catalog.test.ts` held
+`certify_rods_day`'s seven-argument form twice. Because the "may only shrink"
+assertion compared `length` against `KNOWN_ANON_EXECUTABLE_MAX` rather than
+distinct membership, the list read one longer than the set it described, and
+the MAX had been sized to the inflated number — leaving the ratchet slack by
+one. Dropping to 58 removes the slack.
+
+Worth recording rather than just fixing: the mechanism is silent. A duplicate
+grows the length without growing what the list permits, and the next person to
+touch the number sizes it to the count they see. All three allowlists now
+assert distinctness beside their length check and report the duplicated
+entries by name — `KNOWN_ANON_EXECUTABLE` and `KNOWN_AUTHENTICATED_EXECUTABLE`
+here, and `LEGACY_PUBLIC_ONLY_PINS` in `definer-search-path.test.ts`, which
+already had the check. No entry and no MAX changed: 58, 66, and 104 stand.

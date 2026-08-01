@@ -55,6 +55,8 @@ DROP FUNCTION public.purge_rods_day(uuid, text);
 
 ## `certify_rods_day(uuid,text,text,text,text,uuid,jsonb)` — the seven-argument overload
 
+**Deploy timestamp:** ______ (fill on deploy)
+
 **Where:** database function
 `public.certify_rods_day(_day_id uuid, _legal_name text, _signature_path text,
 _pdf_path text, _device_info text, p_certification_token uuid, p_changes jsonb)`
@@ -79,10 +81,13 @@ than waiting for the client that would have fixed it. Sequence is: migration 1
 at 66 instead of 65. The guard stays strict; the pair is declared, not tolerated.
 
 **Removal trigger:** no queued entry can still carry the old argument set. In
-practice: the new bundle is live, and every `rods_days` row with
-`certified_at` after the deploy timestamp carries a non-null
+practice: the new bundle is live, and every `rods_days` row certified after the
+deploy timestamp recorded at the top of this entry carries a non-null
 `certification_signature_validation`, with none appearing for a full offline
-drain window (the outer bound of the queue's retry budget). Confirm with:
+drain window (the outer bound of the queue's retry budget). Fill that blank when
+the client bundle ships — the check below cannot be run without it, and a
+timestamp reconstructed from git history months later is a guess, not the
+moment the old argument set stopped being issued. Confirm with:
 
 ```sql
 SELECT count(*) FILTER (WHERE certification_signature_validation IS NULL) AS unvalidated,
