@@ -1,62 +1,122 @@
-## Answer to the correction
+# ELD certification: real alert delivery, the phantom diff, then the failure-path cases
 
-**You are right, and the same-id hydration replacement is unreachable — (e) gets repointed at the multi-tab path.**
+## 1. Alert delivery
 
-Two reads settle it (`src/lib/eld/offline/hydrate.ts`):
+`raiseSyncAlert` invokes an edge function named `eld-sync-alert` (`alerts.ts:30`) that does not exist — no directory, no `config.toml` entry. And `supabase.functions.invoke` **returns** `{ error }` rather than throwing on a 404, so the `catch` at line 31 never fires. Every alert below is discarded without a console line.
 
-1. `run()` fetches only `.eq('status', 'certified')` rows. Hydration never pulls an uncertified draft into the cache at all, so a draft cache entry cannot be replaced by a hydration pass under any circumstance. The premise of (e)-as-scoped is empty.
-2. Even for certified rows, `cacheKeyedDay` returns early on `cached?.local_certified_at || cached?.unsynced`, and when `cached.day.id !== day.id` it routes to `isLegitimateReplacement` → `flagDivergence`, not to a silent overwrite. The only same-id replacement it performs is case 5, which requires `compareKeyedDay` to find zero differing fields — an identical write. An identical write cannot produce a preflight mismatch.
+### Every call site and what it was supposed to tell Management
 
-So: hydration produces either no change, an identical write, or a divergence. It never produces the same-id, different-content cache replacement (e) needed.
+| Site | Kind | What Management should have learned |
+|---|---|---|
+| `runner.ts:123` | `log_not_writable` | RLS filtered the write: 0 rows, no error. The driver's edits were dropped; bytes stranded on his device. |
+| `runner.ts:136` | `certification_rejected` | The server refused a certification by name — includes the duplicate-date conflict, i.e. another device already certified this date. |
+| `runner.ts:149` | `sync_failed` | An entry gave up after `SERVER_ATTEMPT_LIMIT` attempts and is parked for a human. |
+| `hydrate.ts:222` | `certified_day_divergence` | Device and office disagree on a certified date — two versions of a signed federal record. |
+| `hydrate.ts:404` | `certification_rejected` | Device holds a synced certified log the office has no certified record of. |
+| `noticeDrain.ts:247` | `notice_orphaned` | A malfunction notice is past its deferral/age budget and cannot be placed. |
+| `noticeDrain.ts:271` | `notice_drain_corrupt` | Cached notice bytes are unreadable; deliberately not deleted. |
+| `RodsView.tsx:68` | `certified_day_divergence` | The driver dismissed the divergence warning on his device only; the divergence stands. |
 
-**Multi-tab is same-id by construction.** `useRodsDay` loads cache-first for uncertified days, so a second tab opening the same date reads the same cached row and inherits the same `day.id` — no new id is minted. Tab B's `patchHeader` writes that id straight to Dexie (immediate write, per the approved change), and Tab A's screen still holds the pre-edit values against an unchanged id. That is exactly a `PreflightMismatchError`, and drivers do leave tabs open.
+Plus two this work adds: the `record_unlock` server rejection, and the incomplete-purge outcome.
 
-**Case (e) — stale tab (repointed)**
-Two tabs on the same uncertified date. Tab A opens the day and sits idle. Tab B edits one header field (trailer numbers) and its Dexie write lands. Tab A, screen untouched, attempts certification.
+### A. Loud counter
 
-Assertions, all required:
-- The thrown error is `PreflightMismatchError` specifically — asserted on the error type/name, not on "certification was refused". A `PreflightUnavailableError` here is a **failure** of the case, not a pass.
-- `CertifyMismatchDialog` opens and names both values for the changed field: Tab A's screen value and Tab B's cached value.
-- Cancel leaves Tab A's screen state byte-identical and nothing certified server-side.
-- The cached `day.id` equals the id Tab A is certifying — recorded explicitly, so a future id-minting regression turns this case red instead of silently converting it into an unavailable-path test.
+Following `eld_sync_classify_string_fallback` (`classify.ts:22-26`): module counter, stable tag `eld_sync_alert_undelivered`, `console.error` with hits/kind/detail, `resetSyncAlertUndeliveredCount()` test seam. Checks the **returned** `error` as well as a thrown one. Every Playwright case asserts the counter is zero at the end.
 
-The same type-specific assertion applies to every case that expects a refusal: (d) asserts `PreflightMismatchError`; any case expecting the no-readable-copy path asserts `PreflightUnavailableError`. No case accepts either.
+### B. `eld_sync_alerts`, delivered through the queue
 
-## What gets changed
+Table in `public`: `kind`, `operator_id`, `log_date`, `detail`, `raised_at`, `last_seen_at`, `occurrences`, `acknowledged_at`, `acknowledged_by`. Written by a new queue kind `raise_sync_alert`, so an alert raised in a dead zone lands when signal returns.
 
-### 1. Preflight compares screen against Dexie, unconditionally
+The write goes through a `SECURITY DEFINER` RPC, not a direct insert — verified reason: the driver is an operator, not staff, and the only INSERT policy on `notifications` is `is_staff(auth.uid())`, so a driver cannot fan out to Management from the client. The RPC inserts the alert row **and** the notification rows in one transaction.
 
-`src/lib/eld/certifyPreflight.ts`
+**Ordering trap:** the `raise_sync_alert` handler must never call `raiseSyncAlert`. Its failures report through the loud counter only.
 
-- Delete the `online` parameter and the `navigator.onLine` branch from `readPersistedDay` / `assertPersistedMatches`; the Supabase import goes with it.
-- Persisted copy is always `rods_days_cache` + `rods_events_cache`. No cache entry, or one whose `day.id` differs from the day being certified, stays `PreflightUnavailableError`.
-- `PreflightSource` collapses to `'local_cache'`; `PreflightResult` and `PreflightMismatchError` follow. Module header rewritten: the server is downstream of Dexie and never a more current copy of a draft.
-- `RodsDayEditor.certify()` drops the `online` argument.
-- `certifyPreflight.test.ts` rewritten against the Dexie mock — header mismatch, segment mismatch, blank-vs-null equivalence, missing entry, and differing-`day.id`; the Supabase mock and the "refuses offline" case go.
+### C. Dedupe on the unresolved condition, not on the event
 
-### 2. `CertifyMismatchDialog` copy
+`(operator_id, log_date, kind)` bounds the queue, which is the right goal, but those columns do not identify an event: two `certification_rejected` alerts weeks apart collapse into one, a `certified_day_divergence` that is resolved and later recurs never reaches Management again, and `log_date` is null for `notice_orphaned` and `notice_drain_corrupt`, so those dedupe on `(operator_id, kind)` alone — one notice-corruption alert, ever.
 
-Title *"This log was changed somewhere else"*; body says the change reached this phone but the screen still shows the older version; the footnote says the saved version stored on this phone will load and the on-screen version will be discarded. No "office copy". Diff and the three buttons unchanged.
+So: suppress **only while an existing row with the same key has `acknowledged_at IS NULL`**. Once Management acknowledges, a recurrence raises a fresh alert and a fresh notification — a condition returning after it was handled is a stronger signal than the first occurrence, not a weaker one.
 
-### 3. Enqueue kicks a drain
+- Partial unique index on `(operator_id, coalesce(log_date, '1900-01-01'), kind) WHERE acknowledged_at IS NULL`, so the "one open alert per condition" rule is enforced by the database, not by a read-then-write race on a flaky connection.
+- On a suppressed raise the RPC bumps `last_seen_at = now()` and `occurrences = occurrences + 1` on the open row, so a repeating unresolved condition reads as repeating rather than as one stale entry. The bell item shows the occurrence count and the last-seen time.
+- The queue entry for a suppressed raise still succeeds — a bump is a successful delivery, not a failure.
 
-- New dependency-free `src/lib/eld/offline/queue/kick.ts`: `setDrainKick(fn)`, `requestDrain(scope)` with `scope: 'draft' | 'chain'`, and a buffered pending request flushed on registration.
-- `store.ts`: `enqueue` and `enqueueCoalesced` call `requestDrain()` after the transaction commits, scope derived from `kind`. No new imports beyond `kick.ts`, preserving the no-network rule and `/roadside`'s import graph.
-- `runner.ts`: `startSyncRunner` registers the kick. `requestPass(scope)` defers instead of dropping — if a pass is running, set `passRequested` and re-run from `drainQueue`'s `finally`; if inside the scope's window, schedule for its end. `DRAFT_COALESCE_MS = 30_000`, `CHAIN_COALESCE_MS = 5_000`, `INTERVAL_MS` remains the offline-recovery backstop. Rationale recorded in the doc: drafts are durable in Dexie on keystroke and the certify chain `depends_on` them, so ordering holds regardless of drain timing; the chain is where the driver is watching.
-- Unit tests for `kick.ts`, buffered-before-registration, and the enqueue-during-running race.
+### D. Hardening the fan-out RPC
 
-### 4. Case (e) repointed to multi-tab, case (m) added
+A new SECURITY DEFINER function inserting into `notifications` on behalf of a caller with no INSERT policy there, so all three recorded conventions apply:
 
-- **(e)** as described above.
-- **(m) — another device already certified this date.** Seed a certified row server-side, drive a local certification, assert the queued `certify_rods_day` reaches a terminal state via P0022 / `row_not_writable` and that both the driver and Management are told. Distinct mechanism from (e); both kept.
+- `SET search_path = public, extensions`, with any extension call schema-qualified (`docs/database-security-conventions.md`).
+- Caller check as a **positive refuse** with every operand `coalesce`d — never `IF NOT (...)`. `purge_rods_day`'s gate failed open on a NULL claim; here the failure mode is a driver fanning arbitrary notifications out to staff.
+- **Ownership verified server-side, not from the payload:** the function resolves the caller's operator via `auth.uid()` and refuses unless the `operator_id` argument matches.
 
-## Verification
+Confirmed both convention tests pick it up with no naming: `definer-search-path.test.ts:30-36` and `definer-fail-open.test.ts:29-35` enumerate every migration past their `CUTOFF` and regex out every `CREATE FUNCTION ... $$ ... $$` block.
 
-1. Unit suite (preflight rewrite, `kick.ts`, deferral race).
-2. Re-run **(a)** and **(g)**. (a) asserts the certified server row carries the final keystroke, `local_certified_at` is set promptly, and the debounced enqueue firing after the lock produces no `row_not_writable` cancellation.
-3. Then **(b)**, **(c)**, **(d)**, repointed **(e)**, **(f)**, **(h)**–**(l)**, **(m)**.
-4. `docs/eld-certification-playwright-run.md` and `docs/eld-offline-certification.md` updated with results, Defect B and its running-pass drop window, the (e) repoint plus the hydration finding that forced it, and the two-window coalesce tradeoff.
+### E. Cascade exemptions — `raise_sync_alert` alongside `record_unlock`
 
-## Not in this change
+Several alerts describe the chain that just failed, and `cancelChainForDay` today cancels every non-terminal entry for the day — including the alert reporting why. One exported `CASCADE_EXEMPT_KINDS = new Set(['record_unlock', 'raise_sync_alert'])` in `types.ts`, applied at all four points:
 
-Stalled/rejected banner with authorized unlock, and the three-state cold-start copy — next after this pass produces evidence.
+1. **Transitive cascade** — `resolveBlocked` (`store.ts:187-213`) skips exempt kinds when collecting `doomed`.
+2. **Dead-prerequisite rule** — an exempt entry is never cancelled for a terminal prerequisite.
+3. **Drop-on-rejected** — `cancelChainForDay` (`store.ts:220-234`) filters exempt kinds out of `mine`.
+4. **Budget exhaustion** — the `SERVER_ATTEMPT_LIMIT` path (`runner.ts:147`) does not park an exempt entry as `failed`.
+
+Transport failures retry indefinitely; a server rejection **keeps** the entry and reports through the loud counter — the only channel that cannot depend on itself.
+
+### F. `purgeSucceeded` retention and the driver's sync chip
+
+**Purge retention: confirmed already safe.** `purgeSucceeded` (`store.ts:279-295`) builds `stillDependedOn` from the `depends_on` arrays of non-terminal entries. Alert entries are enqueued with `depends_on: []` and nothing lists an alert as a prerequisite, so an alert neither retains nor is retained. A unit test pins it.
+
+**The reverse risk gets fixed.** `syncCounts` (`store.ts:305-314`) counts every entry by status, so a rejected alert — kept forever by design — would sit permanently in the driver's chip as "1 change waiting to sync," for something he cannot act on. `syncCounts` excludes `CASCADE_EXEMPT_KINDS`: office-facing records, not the driver's work. The chip reflects what the driver is waiting on.
+
+### G. The surface a human actually looks at
+
+The **`notifications` table**, read by `NotificationBell` (`src/components/NotificationBell.tsx`), mounted in `StaffLayout` and polled by `ManagementPortal.tsx:361` — the bell already in the management header with Action/All/Mentions tabs.
+
+What a Management user sees: a new **unread count on the bell** and an item in the **Action** tab, in the same triage row shape as every other actionable notification — titled by kind ("Certification rejected — Flint Alexander, 2026-07-28"), `detail` as the body, occurrence count and last-seen when it has repeated, deep-linking to that driver's Logs. It also appears in the Notification History two-pane list. Acknowledging writes `acknowledged_at`/`acknowledged_by` back to `eld_sync_alerts`, which is what re-arms the dedupe.
+
+### H. Until B-G exist, no flow is described as notifying Management
+
+Several comments already do — `runner.ts:119-120` among them. Corrected in the same change.
+
+## 2. The `period_start_time` phantom
+
+There are not two screen snapshots: `certify()` builds one `onScreen` object (`RodsDayEditor.tsx:156-167`) and the dialog renders `err.differences`, the array the comparison produced. What differs is the row's shape across its lifetime — the mint at `useRodsDay.ts:193-205` omits `period_start_time`, the column is `time NOT NULL DEFAULT '00:00:00'`, and every server round trip returns `"00:00:00"`. Of all `AMENDABLE_HEADER_COLUMNS` it is the only one with a server default the mint omits.
+
+- **One constant.** `export const RODS_PERIOD_START_DEFAULT = '00:00:00'` in `rodsTypes.ts`, imported by `newLocalRodsDay()` and `putCachedDay`'s defaulting. The migration cannot import it, so the column-guard test asserts the constant equals the column's actual default read from the schema — all three agree or the test fails.
+- **New mints:** `newLocalRodsDay()` seeds every server-defaulted column the diff can see, with a column-by-column test asserting a fresh mint diffs empty against a server-shaped row.
+- **Existing cached drafts: normalised on read.** Dexie v6 uses `Collection.modify({ period_start_time: RODS_PERIOD_START_DEFAULT })` on rows missing it — a field modify, never a whole-row put, which would erase `unsynced`, `version`, `local_certified_at`, `sync_rejected`, `sync_stalled`: the defect at `ensureDayCached.ts:110-115`, reintroduced by the migration meant to clean up after it. Upgrade test: a row with `unsynced: true` and a `local_certified_at` survives with both intact and every other field byte-identical.
+
+Case (e) gains: the diff lists **exactly one** row, `Trailer no.`, `Saved: TAB-B-EDIT` / `On screen: TR-55`.
+
+## 3. Case (b) — retired
+
+Every clause of a repointed (b) is already covered by (h) H1-H6 and (j). Retired with the clause-by-clause record in `docs/eld-certification-playwright-run.md`.
+
+## 4. Case (m) — reseeded with service role
+
+The anon REST `42501` is recorded as a small positive result: anon cannot write `rods_days`. Reseed via service role; the conflict is structural (`rods_days_one_certified_per_date`). Assert: terminal state carrying the violation, the chain resolves rather than retrying forever, the Dexie entry marked rejected with the local copy **not** discarded, the driver sees it in the day editor and Logs list, `raiseSyncAlert` asserted at the call site, the `eld_sync_alerts` row plus the management notification, a second raise before acknowledgement bumping `occurrences` rather than creating a row, the alert entry surviving the day's chain cancellation, and the driver's sync chip not counting it.
+
+## 5. Cases (i), (k), (l)
+
+**(i) coalescing under `in_flight`.** Stall the `rods_days` upsert, edit a header field mid-flight, release. Assert both entries drain, later value wins, nothing stranded `in_flight`, expired budget still terminal.
+
+**(k) render failure before the lock.** No network dependency in `renderRodsDay` (`StandardFonts`), so inject where a real corrupt signature would enter: override `HTMLCanvasElement.prototype.toDataURL` to return a malformed PNG so `embedPng` throws — before `commitCertification`.
+
+The orphan assertion stays as a regression guard. `commitCertification` writes the signature with `origin: 'local_pending_upload'` inside its own transaction (`commitCertification.ts:123-131`), and `pdfBytes` is an argument, so the render at `RodsDayEditor.tsx:203` completes before any bytes are cached. But `prune.ts:60` skips `local_pending_upload` unconditionally, so if a future change caches the signature before the render, an abandoned attempt leaves bytes nothing references and nothing removes. If it fails, the fix is a cleanup on the failure path, never a relaxation of the prune rule.
+
+Assertions: error toast, `local_certified_at` still null, zero queue entries, day still editable, no bytes in `rods_pdfs` or `signature_images`.
+
+**(l) queue-side replay.** Attempt one must genuinely commit: the route forwards with `route.fetch()`, waits for the real response, then returns `504`. Same token retries, RPC returns `replayed: true`. Assert `replayed: true`; exactly `signature-<t2>.png` and `log-<t2>.pdf` removed and nothing else; the row's `pdf_path` and `certification_signature_path` unchanged **and both still resolving to real, non-empty Storage objects** after cleanup; attempt two's keys gone; the "path is on the certified row" warning does not fire.
+
+## Order
+
+1. Loud counter (1A).
+2. `eld_sync_alerts` + condition-scoped dedupe + hardened fan-out RPC + queue kind + cascade exemptions + `syncCounts` exclusion + bell fan-out (1B-G); correct the overclaiming comments (1H).
+3. `RODS_PERIOD_START_DEFAULT`, `newLocalRodsDay`, column guard, Dexie v6 `modify` + upgrade test; re-run (e).
+4. Retire (b), write both run-doc entries.
+5. (m) reseeded.
+6. (i), (k), (l).
+
+## Files
+
+`src/lib/eld/offline/queue/alerts.ts`, `types.ts`, `store.ts`, `runner.ts`, `handlers.ts`, `src/lib/eld/rodsTypes.ts`, `src/hooks/useRodsDay.ts`, `src/lib/eld/offline/db.ts`, `src/components/NotificationBell.tsx`, five unit tests (column guard, v6 upgrade, cascade exemption, purge retention, dedupe re-arm), `docs/eld-certification-playwright-run.md`, and one migration for `eld_sync_alerts` + the fan-out RPC. Harness stays in `/tmp/browser/eld/`.
