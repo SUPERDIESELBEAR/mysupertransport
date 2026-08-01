@@ -469,7 +469,7 @@ describe('certify_rods_day — client/server parity fixtures', () => {
     expect(strays).toEqual([]);
   });
 
-  it('fixture numbers are 1..17 with no duplicates', () => {
+  it('fixture numbers are 1..19 with no duplicates', () => {
     expect(FIXTURES.map((f) => f.n)).toEqual(
       Array.from({ length: 19 }, (_, i) => i + 1),
     );
