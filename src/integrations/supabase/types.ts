@@ -1582,6 +1582,7 @@ export type Database = {
           day_number: number | null
           event_id: string | null
           id: string
+          is_override: boolean
           notification_type: string
           recipient_user_id: string
           sent_on: string
@@ -1592,6 +1593,7 @@ export type Database = {
           day_number?: number | null
           event_id?: string | null
           id?: string
+          is_override?: boolean
           notification_type: string
           recipient_user_id: string
           sent_on?: string
@@ -1602,6 +1604,7 @@ export type Database = {
           day_number?: number | null
           event_id?: string | null
           id?: string
+          is_override?: boolean
           notification_type?: string
           recipient_user_id?: string
           sent_on?: string
@@ -6152,6 +6155,20 @@ export type Database = {
         Returns: boolean
       }
       discard_rods_amendment: { Args: { _day_id: string }; Returns: undefined }
+      eld_cron_status: {
+        Args: never
+        Returns: {
+          active: boolean
+          end_time: string
+          jobid: number
+          jobname: string
+          return_message: string
+          runid: number
+          schedule: string
+          start_time: string
+          status: string
+        }[]
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
