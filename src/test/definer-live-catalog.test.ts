@@ -75,7 +75,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.assign_user_role(uuid,app_role)",
   "public.can_driver_message_staff(uuid,uuid)",
   "public.cancel_application_correction(uuid)",
-  "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
   "public.create_eld_document_day(uuid,date,text,jsonb,uuid)",
