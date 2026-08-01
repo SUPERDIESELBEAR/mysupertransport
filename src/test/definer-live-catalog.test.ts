@@ -132,7 +132,7 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
  * this number in the same diff -- a deliberate act, rather than a quiet append
  * while chasing a red test.
  */
-const KNOWN_ANON_EXECUTABLE_MAX = 59;
+const KNOWN_ANON_EXECUTABLE_MAX = 58;
 
 
 /**
