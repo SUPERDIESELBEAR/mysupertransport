@@ -4813,6 +4813,7 @@ export type Database = {
           certification_device_info: string | null
           certification_legal_name: string | null
           certification_signature_path: string | null
+          certification_signature_validation: Json | null
           certification_token: string | null
           certified_at: string | null
           certified_by: string | null
@@ -4857,6 +4858,7 @@ export type Database = {
           certification_device_info?: string | null
           certification_legal_name?: string | null
           certification_signature_path?: string | null
+          certification_signature_validation?: Json | null
           certification_token?: string | null
           certified_at?: string | null
           certified_by?: string | null
@@ -4901,6 +4903,7 @@ export type Database = {
           certification_device_info?: string | null
           certification_legal_name?: string | null
           certification_signature_path?: string | null
+          certification_signature_validation?: Json | null
           certification_token?: string | null
           certified_at?: string | null
           certified_by?: string | null
@@ -5947,18 +5950,32 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
-      certify_rods_day: {
-        Args: {
-          _day_id: string
-          _device_info: string
-          _legal_name: string
-          _pdf_path: string
-          _signature_path: string
-          p_certification_token: string
-          p_changes?: Json
-        }
-        Returns: Json
-      }
+      certify_rods_day:
+        | {
+            Args: {
+              _day_id: string
+              _device_info: string
+              _legal_name: string
+              _pdf_path: string
+              _signature_path: string
+              p_certification_token: string
+              p_changes?: Json
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _day_id: string
+              _device_info: string
+              _legal_name: string
+              _pdf_path: string
+              _signature_path: string
+              p_certification_token: string
+              p_changes: Json
+              p_signature_validation: Json
+            }
+            Returns: Json
+          }
       check_application_email_taken: {
         Args: { p_email: string }
         Returns: boolean
@@ -5994,6 +6011,7 @@ export type Database = {
           certification_device_info: string | null
           certification_legal_name: string | null
           certification_signature_path: string | null
+          certification_signature_validation: Json | null
           certification_token: string | null
           certified_at: string | null
           certified_by: string | null
@@ -6491,6 +6509,7 @@ export type Database = {
           certification_device_info: string | null
           certification_legal_name: string | null
           certification_signature_path: string | null
+          certification_signature_validation: Json | null
           certification_token: string | null
           certified_at: string | null
           certified_by: string | null
