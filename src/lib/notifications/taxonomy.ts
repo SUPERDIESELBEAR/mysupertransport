@@ -68,6 +68,15 @@ export const NOTIF_TAXONOMY: Record<string, NotifMeta> = {
   // is the highest-urgency item Management can receive.
   eld_sync_alert:             { tier: 'action', category: 'compliance',   label: 'ELD Sync Alert' },
 
+  // ELD malfunction escalation ladder (§2). Every type the escalation job can
+  // write is registered here BEFORE it can be written, because an unregistered
+  // type lands in `notifications` as tier 'fyi' labelled "Notification" and
+  // never reaches the Action tab — a row that exists and renders nowhere.
+  eld_escalation_day:         { tier: 'action', category: 'compliance',   label: 'ELD Repair Window' },
+  eld_ack_overdue:            { tier: 'action', category: 'compliance',   label: 'ELD Notice Unacknowledged' },
+  eld_extension_prompt:       { tier: 'action', category: 'compliance',   label: 'ELD Extension Window' },
+  eld_escalation_pause_lapsed:{ tier: 'watch',  category: 'compliance',   label: 'ELD Pause Ended' },
+
   // System
   release_note:               { tier: 'watch',  category: 'system',       label: "What's New" },
 
