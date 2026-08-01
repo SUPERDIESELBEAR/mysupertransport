@@ -26,7 +26,7 @@
  * They are absent for want of evidence, not because they do not matter.
  */
 import { describe, it, expect } from 'vitest';
-import { validateRodsDay } from '@/lib/eld/rodsValidation';
+import { validateRodsDay, PLACEHOLDER_LEGAL_NAMES } from '@/lib/eld/rodsValidation';
 import { newLocalRodsDay, type RodsDay, type RodsEvent } from '@/lib/eld/rodsTypes';
 import { REJECTION_SQLSTATES, isRejectionSqlState } from '../queue/types';
 
