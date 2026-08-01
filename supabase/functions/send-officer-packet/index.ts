@@ -216,7 +216,7 @@ async function handler(req: Request): Promise<Response> {
 
   const { data: operator } = await supabase
     .from('operators')
-    .select('id, unit_number, profiles(first_name, last_name)')
+    .select('id, unit_number, is_demo, profiles(first_name, last_name)')
     .eq('id', body.operator_id)
     .maybeSingle();
   // deno-lint-ignore no-explicit-any
@@ -226,6 +226,55 @@ async function handler(req: Request): Promise<Response> {
 
   const { data: carrier } = await supabase
     .from('carrier_profile').select('legal_name, usdot_number').limit(1).maybeSingle();
+
+  // Demo operator: nothing leaves the system. No officer email, no carrier
+  // copy, and no share token — a token is a real public URL against real
+  // infrastructure, and a training packet behind one is exactly the artifact
+  // this guardrail exists to prevent. The audit row is still written so staff
+  // can see the attempt, and the caller is told what would have gone out.
+  if ((operator as { is_demo?: boolean } | null)?.is_demo === true) {
+    const { data: carrierRecipients } = await supabase
+      .from('carrier_notification_settings').select('email').eq('is_active', true);
+    const carrierEmails = (carrierRecipients ?? [])
+      .map((r) => r.email as string).filter(Boolean);
+
+    await supabase.from('audit_log').insert({
+      actor_id: auth.actorId,
+      actor_name: driverName,
+      action: AUDIT_ACTION,
+      entity_type: 'rods_officer_packet',
+      entity_id: body.entry_id,
+      entity_label: `${body.window_start} → ${body.window_end}`,
+      metadata: {
+        operator_id: body.operator_id,
+        officer_email: officerEmail,
+        officer_name: body.officer_name ?? null,
+        officer_outcome: 'suppressed_demo',
+        carrier_outcome: 'suppressed_demo',
+        carrier_recipients: carrierEmails.length,
+        delivery: 'suppressed',
+        included_dates: body.included_dates,
+        dispositions: body.dispositions,
+        storage_path: body.storage_path,
+      },
+    });
+
+    return ok({
+      success: true,
+      suppressed: true,
+      suppressed_reason: 'demo_operator',
+      officer_outcome: 'suppressed_demo',
+      carrier_outcome: 'suppressed_demo',
+      delivery: 'suppressed',
+      share_token: null,
+      included_dates: body.included_dates,
+      would_have_sent: {
+        to: [officerEmail, ...carrierEmails],
+        subject: `Driver's daily logs — ${driverName}`,
+        attachment: 'Officer packet (PDF, DEMO watermarked)',
+      },
+    });
+  }
 
   const { data: file, error: downloadError } = await supabase.storage
     .from(PACKET_BUCKET).download(body.storage_path);
