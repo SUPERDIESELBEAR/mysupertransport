@@ -142,7 +142,64 @@ day in both places:
   driver-side dashboard distinguishes it from `roadside_native_fallback`
   ("hydrated before the structured cache existed", which still serves the PDF).
 
-Covered by `src/lib/eld/offline/__tests__/emptyEventSet.test.tsx`.
+### It alerts, not just counts
+
+`roadside_empty_event_set` stays as the driver-side counter, but it is no longer
+the only signal. The condition now raises a distinct sync alert,
+`certified_day_no_segments` (separate from `certified_day_divergence`, which is
+two copies that disagree; here there is one copy that cannot render).
+
+The argument for a counter is that the condition should be unreachable:
+`certify_rods_day` raises `P0023` for a keyed day whose segments do not tile
+1440 minutes, so the server should never hand one over. That is the argument
+*for* alerting. A counter on an impossible condition is a counter nobody reads,
+and the failure it hides is a driver holding out an "unavailable" tile for a log
+he signed. Two live paths still reach it: a direct insert against `rods_days`
+(how the harness produced it), and a server-side event delete against an already
+certified day.
+
+**Where the guard sits.** Not in `ensureDayCached` — that is only the hydration
+writer. Three callers reach the event cache, and a fourth surfaced when the new
+required fields broke the build:
+
+| writer | provenance |
+| --- | --- |
+| `ensureDayCached` (hydration) | `hydration` |
+| `commitCertification` | `local_certification` |
+| `markDaySynced`'s re-put | `sync_flag_clear` |
+| `useRodsDay` (draft create, post-read refresh, segment save) | `editor` |
+
+The chokepoint is `putCachedEvents`, and `provenance` and `day_status` are
+required parameters, never inferred: `unsynced` does not identify the caller,
+and the input carried no status at all. `local_certified_at` is required for the
+same reason — a locally certified day is still `draft` server-side until the
+queue drains, so the certification path's empty write is visible only through
+it.
+
+**Why detection is a return value.** `putCachedEvents` returns
+`{ record, emptySegments }` and stores nothing; each caller passes its own value
+to `flushEmptySegmentAlerts` after its own commit. A module-level pending list
+was rejected for two reasons worth keeping written down, because it is the
+simpler-looking shape someone will reach for again:
+
+1. A transaction that aborts *after* the put would leave the entry in the list,
+   and the next caller's flush would raise an alert for a write that never
+   landed.
+2. Hydration running while a certification commits would share the list, so one
+   flush drains the other's entries and attributes them to its own completion.
+
+Scoped to the call, an abort discards the value with the frame and no caller can
+drain another's.
+
+The flush is deliberately *after* the transaction, not inside it: `raiseSyncAlert`
+enqueues onto `sync_queue`, which the cache-table transactions do not declare, so
+an inline raise would throw inside the transaction and take the cache write with
+it. `raiseSyncAlert` never throws, so a dead alert path cannot cost the write
+either — it lands on the `alert_delivery_failed` counter instead.
+
+Covered by `src/lib/eld/offline/__tests__/emptyEventSet.test.tsx`, including the
+local-certification case a guard in `ensureDayCached` would have missed, the
+aborted-transaction case, and the interleaved-callers case.
 
 ## Cleanup
 
