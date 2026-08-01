@@ -14,13 +14,14 @@
  * ONLY codes observed verbatim in `PostgrestError.code` over PostgREST are
  * asserted here — the seeded driver-session run of 2026-07-31 recorded in
  * docs/database-security-conventions.md §5a: P0010–P0015, P0020–P0023, P0030,
- * P0031, plus 42501 for `purge_rods_day`. A code read out of a function body
+ * P0031, plus 42501 for `purge_rods_day`; and the 2026-08-01 run that closed
+ * the record_source bypass: P0019, P0045, P0046. A code read out of a function body
  * but never seen on the wire is not evidence; that assumption is what produced
  * P0022's wrong attribution earlier.
  *
- * P0016–P0018 (amendment change-record guards) are deliberately absent: they
- * are real conditions in the function, but they were not in the observed set,
- * so there is nothing here to assert them against.
+ * Conditions that are real and reachable but have no wire observation yet are
+ * listed in UNOBSERVED_REACHABLE below, with the provocation each one needs.
+ * They are absent for want of evidence, not because they do not matter.
  */
 import { describe, it, expect } from 'vitest';
 import { validateRodsDay } from '@/lib/eld/rodsValidation';
@@ -34,11 +35,36 @@ import { REJECTION_SQLSTATES, isRejectionSqlState } from '../queue/types';
  */
 const OBSERVED_CODES = [
   'P0010', 'P0011', 'P0012', 'P0013', 'P0014', 'P0015',
+  'P0019',
   'P0020', 'P0021', 'P0022', 'P0023',
   'P0030', 'P0031',
+  'P0045', 'P0046',
   '42501',
 ] as const;
 type ObservedCode = (typeof OBSERVED_CODES)[number];
+
+/**
+ * Reachable through the app, never yet seen on the wire. Each entry names the
+ * provocation that would close the gap. The next person to run a seeded driver
+ * session should provoke these, record the codes in
+ * docs/database-security-conventions.md §5a, then move them into
+ * OBSERVED_CODES with a fixture each.
+ *
+ * Excluded from the fixtures for want of an observation — NOT because they are
+ * unimportant. P0016–P0018 are the whole of the amendment change-record guard,
+ * and they are the only untested part of certify_rods_day.
+ */
+const UNOBSERVED_REACHABLE: Readonly<Record<string, string>> = {
+  P0016:
+    'Amend a certified day (creates a row with supersedes_day_id), clear '
+    + 'amendment_reason on the draft, then call certify_rods_day.',
+  P0017:
+    'Amend a certified day, keep amendment_reason, and call certify_rods_day '
+    + 'with p_changes = [] (or with one entry whose field_path is blank).',
+  P0018:
+    'Certify an ordinary keyed draft (supersedes_day_id null) while passing a '
+    + 'non-empty p_changes array.',
+};
 
 const OPERATOR = '11111111-1111-4111-8111-111111111111';
 const OTHER_OPERATOR = '22222222-2222-4222-8222-222222222222';
@@ -141,8 +167,9 @@ function ctx(overrides: Partial<CallContext> = {}): CallContext {
  * Guard order, per the 8-arg definition in
  * supabase/migrations/20260801155213_*.sql:
  *   token → row → owner → token/day binding → draft → legal name →
- *   [record_source <> 'eld_document' only: completeness → gap → overlap →
- *    1440 → header] → unique (operator_id, log_date) on certified rows.
+ *   amendment change record → record_source must be 'keyed' (P0019) →
+ *   completeness → gap → overlap → 1440 → header →
+ *   unique (operator_id, log_date) on certified rows.
  */
 function serverGuardOutcome(
   d: RodsDay,
@@ -156,9 +183,11 @@ function serverGuardOutcome(
   if (d.status !== 'draft') return 'P0014';
   if (c.legalName.trim() === '') return 'P0015';
 
-  // An uploaded ELD document has no keyed segments and no keyed header to
-  // check — the server skips the whole block. See fixture 17.
-  if (d.record_source !== 'eld_document') {
+  // Layer A of the record_source bypass fix: this function certifies keyed
+  // days and nothing else. The content block below is no longer conditional.
+  if (d.record_source !== 'keyed') return 'P0019';
+
+  {
     const incomplete = events.filter(
       (e) => e.end_minute === null || e.duty_status === null
         || (e.city ?? '').trim() === '' || (e.state ?? '').trim() === '',
