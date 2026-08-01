@@ -82,6 +82,7 @@ export interface RodsDay {
   updated_at: string;
 }
 
+
 export interface RodsEvent {
   id: string;
   rods_day_id: string;
