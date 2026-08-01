@@ -11,8 +11,7 @@
  * to tier 'fyi' and was absent from Action entirely.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 
 const ROW = {
   id: 'n1',
@@ -58,7 +57,7 @@ describe('notification bell — ELD sync rejection', () => {
     render(<NotificationBell />);
 
     const bell = await screen.findByRole('button', { name: /notification/i });
-    await userEvent.click(bell);
+    await act(async () => { fireEvent.click(bell); });
 
     // Lands on Action automatically because the item is unread and actionable.
     await waitFor(() => {
