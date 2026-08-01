@@ -1,122 +1,56 @@
-# ELD certification: real alert delivery, the phantom diff, then the failure-path cases
+## 0. Raise the log-retention question with the platform — before the migration
 
-## 1. Alert delivery
+This goes first, because a "yes" changes what the evidence file concludes.
 
-`raiseSyncAlert` invokes an edge function named `eld-sync-alert` (`alerts.ts:30`) that does not exist — no directory, no `config.toml` entry. And `supabase.functions.invoke` **returns** `{ error }` rather than throwing on a 404, so the `catch` at line 31 never fires. Every alert below is discarded without a console line.
+**The ask, precisely:** `log_statement = ddl` is on (from the configuration file), so the `GRANT` or `CREATE FUNCTION` that widened `anon` EXECUTE on the four pgmq wrappers **was written to the Postgres log**. The queryable `postgres_logs` window is roughly ten minutes. The question for Lovable/Supabase:
 
-### Every call site and what it was supposed to tell Management
+- Are raw Postgres log archives retained anywhere beyond the queryable window — cold storage, object-storage export, platform-side backups of the log stream?
+- Can a longer window be provided on request for a specific date range on this project?
+- If archives exist, the target is any `GRANT ... ON FUNCTION public.{enqueue_email, delete_email, read_email_batch, move_to_dlq}` or `CREATE OR REPLACE FUNCTION` on those four names, any time after `20260428151032_email_infra.sql` was applied.
 
-| Site | Kind | What Management should have learned |
-|---|---|---|
-| `runner.ts:123` | `log_not_writable` | RLS filtered the write: 0 rows, no error. The driver's edits were dropped; bytes stranded on his device. |
-| `runner.ts:136` | `certification_rejected` | The server refused a certification by name — includes the duplicate-date conflict, i.e. another device already certified this date. |
-| `runner.ts:149` | `sync_failed` | An entry gave up after `SERVER_ATTEMPT_LIMIT` attempts and is parked for a human. |
-| `hydrate.ts:222` | `certified_day_divergence` | Device and office disagree on a certified date — two versions of a signed federal record. |
-| `hydrate.ts:404` | `certification_rejected` | Device holds a synced certified log the office has no certified record of. |
-| `noticeDrain.ts:247` | `notice_orphaned` | A malfunction notice is past its deferral/age budget and cannot be placed. |
-| `noticeDrain.ts:271` | `notice_drain_corrupt` | Cached notice bytes are unreadable; deliberately not deleted. |
-| `RodsView.tsx:68` | `certified_day_divergence` | The driver dismissed the divergence warning on his device only; the divergence stands. |
+I will raise this through the available support/platform channel and, because I cannot guarantee a same-turn answer, the evidence file gets a dated **Outstanding** entry recording that the request was made, when, and what was asked. When the answer arrives it replaces that entry:
 
-Plus two this work adds: the `record_unlock` server rejection, and the incomplete-purge outcome.
+- **No archives** → "cannot be established" becomes final, and the file says so as a settled conclusion rather than an unfinished search.
+- **Archives exist** → the window can be dated precisely, and that is a materially different fact for anyone advising on disclosure. I will retrieve the range and amend the file.
 
-### A. Loud counter
+The migration does not wait on the answer — it overwrites `proacl`, not the logs, so the archive question stays answerable afterwards.
 
-Following `eld_sync_classify_string_fallback` (`classify.ts:22-26`): module counter, stable tag `eld_sync_alert_undelivered`, `console.error` with hits/kind/detail, `resetSyncAlertUndeliveredCount()` test seam. Checks the **returned** `error` as well as a thrown one. Every Playwright case asserts the counter is zero at the end.
+## 1. The evidence file: `docs/eld-mail-queue-acl-2026-08-01.md`
 
-### B. `eld_sync_alerts`, delivered through the queue
+Written before the migration. Contents as previously agreed — verbatim `pg_get_functiondef`, `proacl`, and `proconfig` for all four; the queue inventory (all eight tables at 0 rows) with the payload shape and the note that auth-queue bodies carry live magic-link, recovery, and invite URLs; the four dead ends on dating; the two unrecorded hand-named migration files (`20260421111515_realtime_equipment_assignments.sql`, `20260710210000_rename_stage9_payroll_procedures.sql`) with the finding that the 326/324 gap is benign bookkeeping, not missing history.
 
-Table in `public`: `kind`, `operator_id`, `log_date`, `detail`, `raised_at`, `last_seen_at`, `occurrences`, `acknowledged_at`, `acknowledged_by`. Written by a new queue kind `raise_sync_alert`, so an alert raised in a dead zone lands when signal returns.
+Plus a section that stands on its own, not filed under this incident:
 
-The write goes through a `SECURITY DEFINER` RPC, not a direct insert — verified reason: the driver is an operator, not staff, and the only INSERT policy on `notifications` is `is_staff(auth.uid())`, so a driver cannot fan out to Management from the client. The RPC inserts the alert row **and** the notification rows in one transaction.
+> ## Standing finding: privilege changes on this database are not investigable after the fact
+>
+> `log_statement = ddl` is enabled, so security-relevant DDL — `GRANT`, `REVOKE`, `CREATE`/`ALTER`/`DROP FUNCTION`, role changes — **is captured**. The queryable retention window for `postgres_logs` is approximately **ten minutes**; an explicit 90-day query returns 2,790 rows spanning about nine. `edge_logs` behaves the same way (44 rows, ~8 minutes).
+>
+> The failure is not capture. It is **retention**. Every privilege change on this database is logged and then discarded within roughly ten minutes, which means no such change can be attributed, dated, or reconstructed once that window passes.
+>
+> This is a standing condition affecting every future question of this kind, not a detail of the pgmq incident. It is the direct reason a real question — when did `anon` EXECUTE appear on four functions holding rendered auth emails — could not be answered. Extending or exporting Postgres log retention is the single highest-value control available here: it costs no write overhead, the data is already being produced, and it would have made this investigation a lookup rather than four dead ends.
+>
+> Ranked against the alternative: log retention first, `track_commit_timestamp` second. The latter requires a `postmaster`-context restart, dates only catalog-row modification, and did not survive the catalog-wide freeze that flattened `xmin` here. Take both if available; take retention regardless.
 
-**Ordering trap:** the `raise_sync_alert` handler must never call `raiseSyncAlert`. Its failures report through the loud counter only.
+## 2. The migration
 
-### C. Dedupe on the unresolved condition, not on the event
+Seven repins: `purge_rods_day(uuid, text)`, `purge_rods_day(uuid, text, text)`, `record_rods_purge_storage_result(uuid, text[], jsonb, boolean)` → `SET search_path = public, extensions`; `enqueue_email`, `delete_email`, `read_email_batch`, `move_to_dlq` → `SET search_path = public, pgmq, extensions`. Bodies byte-identical to current `pg_get_functiondef`.
 
-`(operator_id, log_date, kind)` bounds the queue, which is the right goal, but those columns do not identify an event: two `certification_rejected` alerts weeks apart collapse into one, a `certified_day_divergence` that is resolved and later recurs never reaches Management again, and `log_date` is null for `notice_orphaned` and `notice_drain_corrupt`, so those dedupe on `(operator_id, kind)` alone — one notice-corruption alert, ever.
+Grants on the four: `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated;` then `GRANT EXECUTE ... TO service_role;` — both roles named explicitly, since `REVOKE FROM PUBLIC` will not clear explicit entries.
 
-So: suppress **only while an existing row with the same key has `acknowledged_at IS NULL`**. Once Management acknowledges, a recurrence raises a fresh alert and a fresh notification — a condition returning after it was handled is a stronger signal than the first occurrence, not a weaker one.
+Header comment records: the prior revoke in `20260428151032_email_infra.sql` and the out-of-band re-widening with external provisioning as the cause; that `track_commit_timestamp` is off and why the date could not be established, with all four dead ends named so nobody repeats them; the retention gap as the underlying reason; a pointer to the evidence file; and the instruction that a third recurrence means checking whether email infrastructure was re-provisioned, with `definer-live-catalog.test.ts` as the standing guard because no file-based check can see this.
 
-- Partial unique index on `(operator_id, coalesce(log_date, '1900-01-01'), kind) WHERE acknowledged_at IS NULL`, so the "one open alert per condition" rule is enforced by the database, not by a read-then-write race on a flaky connection.
-- On a suppressed raise the RPC bumps `last_seen_at = now()` and `occurrences = occurrences + 1` on the open row, so a repeating unresolved condition reads as repeating rather than as one stale entry. The bell item shows the occurrence count and the last-seen time.
-- The queue entry for a suppressed raise still succeeds — a bump is a successful delivery, not a failure.
+Verification after apply: re-query `proacl` for the four and `proconfig` for all seven.
 
-### D. Hardening the fan-out RPC
+## 3. Then, as approved
 
-A new SECURITY DEFINER function inserting into `notifications` on behalf of a caller with no INSERT policy there, so all three recorded conventions apply:
-
-- `SET search_path = public, extensions`, with any extension call schema-qualified (`docs/database-security-conventions.md`).
-- Caller check as a **positive refuse** with every operand `coalesce`d — never `IF NOT (...)`. `purge_rods_day`'s gate failed open on a NULL claim; here the failure mode is a driver fanning arbitrary notifications out to staff.
-- **Ownership verified server-side, not from the payload:** the function resolves the caller's operator via `auth.uid()` and refuses unless the `operator_id` argument matches.
-
-Confirmed both convention tests pick it up with no naming: `definer-search-path.test.ts:30-36` and `definer-fail-open.test.ts:29-35` enumerate every migration past their `CUTOFF` and regex out every `CREATE FUNCTION ... $$ ... $$` block.
-
-### E. Cascade exemptions — `raise_sync_alert` alongside `record_unlock`
-
-Several alerts describe the chain that just failed, and `cancelChainForDay` today cancels every non-terminal entry for the day — including the alert reporting why. One exported `CASCADE_EXEMPT_KINDS = new Set(['record_unlock', 'raise_sync_alert'])` in `types.ts`, applied at all four points:
-
-1. **Transitive cascade** — `resolveBlocked` (`store.ts:187-213`) skips exempt kinds when collecting `doomed`.
-2. **Dead-prerequisite rule** — an exempt entry is never cancelled for a terminal prerequisite.
-3. **Drop-on-rejected** — `cancelChainForDay` (`store.ts:220-234`) filters exempt kinds out of `mine`.
-4. **Budget exhaustion** — the `SERVER_ATTEMPT_LIMIT` path (`runner.ts:147`) does not park an exempt entry as `failed`.
-
-Transport failures retry indefinitely; a server rejection **keeps** the entry and reports through the loud counter — the only channel that cannot depend on itself.
-
-### F. `purgeSucceeded` retention and the driver's sync chip
-
-**Purge retention: confirmed already safe.** `purgeSucceeded` (`store.ts:279-295`) builds `stillDependedOn` from the `depends_on` arrays of non-terminal entries. Alert entries are enqueued with `depends_on: []` and nothing lists an alert as a prerequisite, so an alert neither retains nor is retained. A unit test pins it.
-
-**The reverse risk gets fixed.** `syncCounts` (`store.ts:305-314`) counts every entry by status, so a rejected alert — kept forever by design — would sit permanently in the driver's chip as "1 change waiting to sync," for something he cannot act on. `syncCounts` excludes `CASCADE_EXEMPT_KINDS`: office-facing records, not the driver's work. The chip reflects what the driver is waiting on.
-
-### G. The surface a human actually looks at
-
-The **`notifications` table**, read by `NotificationBell` (`src/components/NotificationBell.tsx`), mounted in `StaffLayout` and polled by `ManagementPortal.tsx:361` — the bell already in the management header with Action/All/Mentions tabs.
-
-What a Management user sees: a new **unread count on the bell** and an item in the **Action** tab, in the same triage row shape as every other actionable notification — titled by kind ("Certification rejected — Flint Alexander, 2026-07-28"), `detail` as the body, occurrence count and last-seen when it has repeated, deep-linking to that driver's Logs. It also appears in the Notification History two-pane list. Acknowledging writes `acknowledged_at`/`acknowledged_by` back to `eld_sync_alerts`, which is what re-arms the dedupe.
-
-### H. Until B-G exist, no flow is described as notifying Management
-
-Several comments already do — `runner.ts:119-120` among them. Corrected in the same change.
-
-## 2. The `period_start_time` phantom
-
-There are not two screen snapshots: `certify()` builds one `onScreen` object (`RodsDayEditor.tsx:156-167`) and the dialog renders `err.differences`, the array the comparison produced. What differs is the row's shape across its lifetime — the mint at `useRodsDay.ts:193-205` omits `period_start_time`, the column is `time NOT NULL DEFAULT '00:00:00'`, and every server round trip returns `"00:00:00"`. Of all `AMENDABLE_HEADER_COLUMNS` it is the only one with a server default the mint omits.
-
-- **One constant.** `export const RODS_PERIOD_START_DEFAULT = '00:00:00'` in `rodsTypes.ts`, imported by `newLocalRodsDay()` and `putCachedDay`'s defaulting. The migration cannot import it, so the column-guard test asserts the constant equals the column's actual default read from the schema — all three agree or the test fails.
-- **New mints:** `newLocalRodsDay()` seeds every server-defaulted column the diff can see, with a column-by-column test asserting a fresh mint diffs empty against a server-shaped row.
-- **Existing cached drafts: normalised on read.** Dexie v6 uses `Collection.modify({ period_start_time: RODS_PERIOD_START_DEFAULT })` on rows missing it — a field modify, never a whole-row put, which would erase `unsynced`, `version`, `local_certified_at`, `sync_rejected`, `sync_stalled`: the defect at `ensureDayCached.ts:110-115`, reintroduced by the migration meant to clean up after it. Upgrade test: a row with `unsynced: true` and a `local_certified_at` survives with both intact and every other field byte-identical.
-
-Case (e) gains: the diff lists **exactly one** row, `Trailer no.`, `Saved: TAB-B-EDIT` / `On screen: TR-55`.
-
-## 3. Case (b) — retired
-
-Every clause of a repointed (b) is already covered by (h) H1-H6 and (j). Retired with the clause-by-clause record in `docs/eld-certification-playwright-run.md`.
-
-## 4. Case (m) — reseeded with service role
-
-The anon REST `42501` is recorded as a small positive result: anon cannot write `rods_days`. Reseed via service role; the conflict is structural (`rods_days_one_certified_per_date`). Assert: terminal state carrying the violation, the chain resolves rather than retrying forever, the Dexie entry marked rejected with the local copy **not** discarded, the driver sees it in the day editor and Logs list, `raiseSyncAlert` asserted at the call site, the `eld_sync_alerts` row plus the management notification, a second raise before acknowledgement bumping `occurrences` rather than creating a row, the alert entry surviving the day's chain cancellation, and the driver's sync chip not counting it.
-
-## 5. Cases (i), (k), (l)
-
-**(i) coalescing under `in_flight`.** Stall the `rods_days` upsert, edit a header field mid-flight, release. Assert both entries drain, later value wins, nothing stranded `in_flight`, expired budget still terminal.
-
-**(k) render failure before the lock.** No network dependency in `renderRodsDay` (`StandardFonts`), so inject where a real corrupt signature would enter: override `HTMLCanvasElement.prototype.toDataURL` to return a malformed PNG so `embedPng` throws — before `commitCertification`.
-
-The orphan assertion stays as a regression guard. `commitCertification` writes the signature with `origin: 'local_pending_upload'` inside its own transaction (`commitCertification.ts:123-131`), and `pdfBytes` is an argument, so the render at `RodsDayEditor.tsx:203` completes before any bytes are cached. But `prune.ts:60` skips `local_pending_upload` unconditionally, so if a future change caches the signature before the render, an abandoned attempt leaves bytes nothing references and nothing removes. If it fails, the fix is a cleanup on the failure path, never a relaxation of the prune rule.
-
-Assertions: error toast, `local_certified_at` still null, zero queue entries, day still editable, no bytes in `rods_pdfs` or `signature_images`.
-
-**(l) queue-side replay.** Attempt one must genuinely commit: the route forwards with `route.fetch()`, waits for the real response, then returns `504`. Same token retries, RPC returns `replayed: true`. Assert `replayed: true`; exactly `signature-<t2>.png` and `log-<t2>.pdf` removed and nothing else; the row's `pdf_path` and `certification_signature_path` unchanged **and both still resolving to real, non-empty Storage objects** after cleanup; attempt two's keys gone; the "path is on the certified row" warning does not fire.
+Shared resolver `src/test/helpers/migrationFunctions.ts` (signature-keyed, `DROP FUNCTION` handling, last-definition-wins); both file guards converted to it; `CUTOFF` constants removed; allowlist with the three assertions and migration-filename anchoring; `definer-live-catalog.test.ts` reading `pg_proc` with a loud skip when no DB is reachable, carrying the standing `anon` EXECUTE assertion — group 1 (~45 trigger functions) revoked, group 2 (~14 tokenized public endpoints) allowlisted, group 3 (~50) seeded into the dated shrink-only backlog untouched.
 
 ## Order
 
-1. Loud counter (1A).
-2. `eld_sync_alerts` + condition-scoped dedupe + hardened fan-out RPC + queue kind + cascade exemptions + `syncCounts` exclusion + bell fan-out (1B-G); correct the overclaiming comments (1H).
-3. `RODS_PERIOD_START_DEFAULT`, `newLocalRodsDay`, column guard, Dexie v6 `modify` + upgrade test; re-run (e).
-4. Retire (b), write both run-doc entries.
-5. (m) reseeded.
-6. (i), (k), (l).
-
-## Files
-
-`src/lib/eld/offline/queue/alerts.ts`, `types.ts`, `store.ts`, `runner.ts`, `handlers.ts`, `src/lib/eld/rodsTypes.ts`, `src/hooks/useRodsDay.ts`, `src/lib/eld/offline/db.ts`, `src/components/NotificationBell.tsx`, five unit tests (column guard, v6 upgrade, cascade exemption, purge retention, dedupe re-arm), `docs/eld-certification-playwright-run.md`, and one migration for `eld_sync_alerts` + the fan-out RPC. Harness stays in `/tmp/browser/eld/`.
+1. Raise the log-archive request with the platform; record it as Outstanding in the evidence file.
+2. Write `docs/eld-mail-queue-acl-2026-08-01.md`, including the standing retention finding.
+3. Migration: seven repins, four grant corrections, header comment.
+4. Re-query `proconfig` and `proacl`; confirm.
+5. Shared resolver; convert both guards; enforced allowlist; remove `CUTOFF`.
+6. Live-catalog test with the `anon` assertion; groups 1 and 2 resolved, group 3 seeded.
+7. Run the suite; report green/red, allowlist contents, `LEGACY_MAX`, and the platform's answer on log archives when it lands.

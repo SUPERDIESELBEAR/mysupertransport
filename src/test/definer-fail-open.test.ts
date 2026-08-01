@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import path from "node:path";
+import { resolvedDefiners } from "./helpers/migrationFunctions";
 
 /**
  * Guards rule 5 of docs/database-security-conventions.md: authorization
@@ -18,34 +17,29 @@ import path from "node:path";
  *
  * The heuristic is deliberately narrow (negated conditions mentioning a
  * session/claim source, minus coalesce) so it stays actionable.
+ *
+ * RESOLUTION: LAST DEFINITION WINS
+ * --------------------------------
+ * Shares the resolver in helpers/migrationFunctions.ts with
+ * definer-search-path.test.ts, and for a sharper reason than that one. This
+ * guard's failure mode is the worse of the two: a SUPERSEDED fail-open guard
+ * flagged red is noise that trains people to skip the output, and a LIVE
+ * fail-open guard then goes unread behind it. purge_rods_day is the exact
+ * case — the fail-open version is still sitting in its original migration
+ * file and would be reported forever under a cutoff scan, while the fixed
+ * definition is the one actually deployed.
+ *
+ * The CUTOFF constant is gone with it. A pre-cutoff function that was never
+ * re-authored is now checked on its merits instead of being skipped for
+ * being old.
+ *
+ * Same blind spot as its sibling: this reads files, not the database. See
+ * definer-live-catalog.test.ts for the authoritative check.
  */
-const CUTOFF = "20260731140000";
-
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 
 /** Sources whose value can be NULL at runtime and so poison a negation. */
 const NULLABLE_SOURCES =
   /current_setting\s*\(|request\.jwt|session_user|current_user/i;
-
-function migrationFiles(): string[] {
-  return readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .filter((f) => (f.match(/^\d+/)?.[0] ?? "0") >= CUTOFF)
-    .sort();
-}
-
-function stripComments(sql: string): string {
-  return sql.replace(/--[^\n]*/g, "");
-}
-
-function functionBlocks(sql: string): string[] {
-  const blocks: string[] = [];
-  const re =
-    /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION[\s\S]*?AS\s+(\$[a-zA-Z_]*\$)[\s\S]*?\1/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(sql)) !== null) blocks.push(m[0]);
-  return blocks;
-}
 
 /** Every `IF NOT ...` / `IF ... NOT (...)` condition up to its THEN. */
 function negatedConditions(block: string): string[] {
@@ -60,32 +54,27 @@ function negatedConditions(block: string): string[] {
 }
 
 describe("SECURITY DEFINER guards are not fail-open", () => {
-  const files = migrationFiles();
+  const definers = resolvedDefiners();
+
+  it("resolves functions from the migration set", () => {
+    expect(definers.length).toBeGreaterThan(0);
+  });
 
   it("no negated guard reads a nullable session source without coalesce", () => {
     const offenders: string[] = [];
 
-    for (const file of files) {
-      const sql = stripComments(
-        readFileSync(path.join(MIGRATIONS_DIR, file), "utf8"),
-      );
-      for (const block of functionBlocks(sql)) {
-        if (!/SECURITY\s+DEFINER/i.test(block)) continue;
-        const name =
-          block.match(/FUNCTION\s+([a-z0-9_.]+)\s*\(/i)?.[1] ?? "(unnamed)";
-
-        for (const cond of negatedConditions(block)) {
-          if (!NULLABLE_SOURCES.test(cond)) continue;
-          // `IS DISTINCT FROM` is NULL-safe, and coalesce() is the fix.
-          if (/\bIS\s+(?:NOT\s+)?DISTINCT\s+FROM\b/i.test(cond)) continue;
-          if (/\bcoalesce\s*\(/i.test(cond)) continue;
-          offenders.push(
-            `${file}: ${name} — negated guard on a nullable session source without coalesce: IF ${cond
-              .replace(/\s+/g, " ")
-              .trim()
-              .slice(0, 140)} THEN`,
-          );
-        }
+    for (const fn of definers) {
+      for (const cond of negatedConditions(fn.block)) {
+        if (!NULLABLE_SOURCES.test(cond)) continue;
+        // `IS DISTINCT FROM` is NULL-safe, and coalesce() is the fix.
+        if (/\bIS\s+(?:NOT\s+)?DISTINCT\s+FROM\b/i.test(cond)) continue;
+        if (/\bcoalesce\s*\(/i.test(cond)) continue;
+        offenders.push(
+          `${fn.file}: ${fn.signature} — negated guard on a nullable session source without coalesce: IF ${cond
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 140)} THEN`,
+        );
       }
     }
 
