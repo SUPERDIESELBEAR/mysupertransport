@@ -1317,6 +1317,63 @@ export type Database = {
           },
         ]
       }
+      eld_cron_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          effective_date: string | null
+          emails_sent: number
+          error_text: string | null
+          events_evaluated: number
+          finished_at: string | null
+          id: string
+          is_override: boolean
+          job_name: string
+          ledger_rows_inserted: number
+          notifications_inserted: number
+          result: Json | null
+          started_at: string
+          status: string
+          trigger_source: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          effective_date?: string | null
+          emails_sent?: number
+          error_text?: string | null
+          events_evaluated?: number
+          finished_at?: string | null
+          id?: string
+          is_override?: boolean
+          job_name?: string
+          ledger_rows_inserted?: number
+          notifications_inserted?: number
+          result?: Json | null
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          effective_date?: string | null
+          emails_sent?: number
+          error_text?: string | null
+          events_evaluated?: number
+          finished_at?: string | null
+          id?: string
+          is_override?: boolean
+          job_name?: string
+          ledger_rows_inserted?: number
+          notifications_inserted?: number
+          result?: Json | null
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Relationships: []
+      }
       eld_device_models: {
         Row: {
           created_at: string
