@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
+import { resolvedDriverName } from '../_shared/placeholder-name.ts';
 
 /**
  * Staff-only: emails a consolidated equipment return receipt PDF (generated
@@ -97,7 +98,12 @@ Deno.serve(withErrorEnvelope(async (req) => {
   const app: any = Array.isArray((op as any).applications) ? (op as any).applications[0] : (op as any).applications;
   const recipient = app?.email as string | undefined;
   if (!recipient) return fail(400, 'Operator has no email on file.');
-  const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || 'Driver';
+  // The receipt is the driver's proof the equipment was returned. It is issued
+  // in their name or not at all.
+  const driverName = resolvedDriverName(app?.first_name, app?.last_name);
+  if (!driverName) {
+    return fail(422, 'This driver has no name on file, so a return receipt cannot be issued. Add their legal name and try again.');
+  }
 
   const { data: prof } = await supabase
     .from('profiles').select('first_name, last_name').eq('user_id', caller.id).maybeSingle();
