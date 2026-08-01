@@ -20,6 +20,7 @@ import {
 } from '@/lib/eld/rodsHeaderFields';
 import { statusTotals } from '@/lib/eld/rodsValidation';
 import { isCompleteEvent, type RodsDay, type RodsEvent } from '@/lib/eld/rodsTypes';
+import DemoWatermarkOverlay from './DemoWatermarkOverlay';
 
 const INK = '#0D0D0D';
 const MUTED = '#6B6B6B';
