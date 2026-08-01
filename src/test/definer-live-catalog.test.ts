@@ -75,7 +75,14 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.assign_user_role(uuid,app_role)",
   "public.can_driver_message_staff(uuid,uuid)",
   "public.cancel_application_correction(uuid)",
+  // INTERIM PAIR. The eight-argument form is the live one; the seven-argument
+  // form is kept only so certify entries already queued on drivers' phones --
+  // some offline for days -- keep resolving across the deploy gap. Dropping it
+  // with the client deploy would fail those calls as `server`, burning their
+  // attempt budget instead of waiting. Removal trigger and the drop statement
+  // are in docs/deferred-removals.md.
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb)",
+  "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb,jsonb)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
   "public.create_eld_document_day(uuid,date,text,jsonb,uuid)",
@@ -213,7 +220,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.update_pei_archive_category(uuid,text,text)",
 ];
 
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 65;
+// 65 + the interim certify_rods_day overload. Goes back to 65 when the
+// seven-argument form is dropped (docs/deferred-removals.md).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 66;
 
 describe("live SECURITY DEFINER catalog (pg_proc)", () => {
   it("the allowlist may only shrink", () => {
