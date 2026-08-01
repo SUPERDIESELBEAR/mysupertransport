@@ -23,7 +23,8 @@ import { newSyncId, type EnqueueInput } from './queue/store';
 import { assertSmallPayload } from './queue/types';
 import { raiseSyncAlert } from './queue/alerts';
 import {
-  sha256Hex, SIGNATURE_INVALID_MESSAGE, type SignatureValidation,
+  sha256Hex, validateSignatureImage, SIGNATURE_INVALID_MESSAGE,
+  type SignatureValidation,
 } from '@/lib/eld/signatureIntegrity';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
@@ -157,7 +158,7 @@ export async function commitCertification(
     certification_legal_name: legalName,
     certification_signature_path: signaturePath,
     pdf_path: pdfPath,
-    certification_signature_validation: signatureValidation,
+    certification_signature_validation: effectiveValidation,
   } as RodsDay;
 
   // Every store the transaction touches — including the ones buildManifest
@@ -251,7 +252,7 @@ export async function commitCertification(
             device_info: deviceInfo,
             token,
             changes,
-            signature_validation: signatureValidation,
+            signature_validation: effectiveValidation,
           },
         }),
       ]);
@@ -263,7 +264,7 @@ export async function commitCertification(
   );
 
   await flushEmptySegmentAlerts(emptySegments);
-  if (signatureValidation.mode === 'structural') {
+  if (effectiveValidation.mode === 'structural') {
     // Post-commit, same discipline as the empty-segment flush: raising
     // enqueues onto sync_queue, outside the cache transaction above. The
     // server coalesces on the condition and counts recurrences, so this is one
@@ -273,9 +274,9 @@ export async function commitCertification(
       operator_id: operatorId,
       log_date: logDate,
       detail: JSON.stringify({
-        reason: signatureValidation.reason ?? null,
-        byte_length: signatureValidation.byte_length,
-        checked_at: signatureValidation.checked_at,
+        reason: effectiveValidation.reason ?? null,
+        byte_length: effectiveValidation.byte_length,
+        checked_at: effectiveValidation.checked_at,
       }),
     });
   }
