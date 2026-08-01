@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION public.enforce_record_is_demo()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_demo boolean;
@@ -46,7 +46,7 @@ CREATE OR REPLACE FUNCTION public.enforce_demo_clear_requires_purge()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_certified int;
@@ -76,7 +76,7 @@ CREATE OR REPLACE FUNCTION public.enforce_no_demo_share_tokens()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_demo boolean := false;
