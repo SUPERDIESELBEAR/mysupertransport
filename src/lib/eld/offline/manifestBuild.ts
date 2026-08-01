@@ -100,6 +100,30 @@ async function localDay(
   const events = cached ? await roadsideDb.rods_events_cache.get(cached.day.id) : undefined;
   const hasRows = !!cached && (events?.events.length ?? 0) > 0;
 
+  /**
+   * An event row that EXISTS and is EMPTY is not "not cached yet" — it is
+   * hydration having written an authoritative-looking empty set for a day the
+   * driver certified. The PDF for that date is no more trustworthy than the
+   * rows, so the day is neither renderable nor printable and is not offered
+   * for print, email-merge or download: the tile reads the same as any day
+   * whose bytes are unavailable. Distinct from NO event row, which is the
+   * legitimate pre-structured-cache case that still serves the PDF.
+   */
+  const emptyEventSet = !!cached && !!events && events.events.length === 0;
+  if (emptyEventSet) {
+    return {
+      log_date: logDate,
+      kind: 'keyed',
+      label: 'Certified',
+      cached: false,
+      renderable: false,
+      printable: false,
+      filename: null,
+      showsTotals: false,
+      diverged: diverged.has(logDate),
+    };
+  }
+
   return {
     log_date: logDate,
     kind: 'keyed',
