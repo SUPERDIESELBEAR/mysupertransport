@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, Upload } from 'lucide-react';
-import { requireCachedCarrier, rodsDayCarrierSnapshot } from '@/lib/eld/carrierIdentity';
+import { requireCachedCarrier } from '@/lib/eld/carrierIdentity';
+import { convertForDisplay, DISPLAY_MIME } from '@/lib/eld/offline/renderability';
 import { RODS_BUCKET, formatLogDate, type RodsDay } from '@/lib/eld/rodsTypes';
 
 /**
@@ -20,7 +21,23 @@ import { RODS_BUCKET, formatLogDate, type RodsDay } from '@/lib/eld/rodsTypes';
  *   - "Replace document", which goes through the atomic replace_rods_document
  *     RPC (the partial unique index rejects any intermediate state, so this can
  *     never be two client calls) and requires a written reason.
+ *
+ * HEIC (Pass B §6): pdf-lib cannot embed HEIC and HEIC is the iPhone camera
+ * default, so a photographed ELD screen would break the officer email merge.
+ * The device re-encodes to JPEG at upload — on the one device that definitely
+ * has the codec — and BOTH files are stored: the original is the record, the
+ * JPEG is for display and merging. A file this device cannot decode is stored
+ * anyway and flagged; a driver whose phone produced an unconvertible file
+ * still needs the log on file.
  */
+
+interface DisplayCopy {
+  /** Storage path of the JPEG, or null when there is none. */
+  path: string | null;
+  /** Conversion was ATTEMPTED and FAILED. A PDF leaves this false with a null path. */
+  failed: boolean;
+}
+
 export default function UploadEldLogModal({
   open, onOpenChange, operatorId, logDate, existing, onDone,
 }: {
@@ -47,11 +64,17 @@ export default function UploadEldLogModal({
     setBusy(true);
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf';
-      const path = `${operatorId}/${logDate}/eld-log-${Date.now()}.${ext}`;
+      const stamp = Date.now();
+      const path = `${operatorId}/${logDate}/eld-log-${stamp}.${ext}`;
+      const mime = file.type || 'application/pdf';
+      // The ORIGINAL goes first and always. It is the record; nothing about the
+      // display copy is allowed to cost us the upload.
       const { error: upErr } = await supabase.storage
         .from(RODS_BUCKET)
-        .upload(path, file, { upsert: true, contentType: file.type || 'application/pdf' });
+        .upload(path, file, { upsert: true, contentType: mime });
       if (upErr) throw new Error(upErr.message);
+
+      const display = await uploadDisplayCopy(file, mime, `${operatorId}/${logDate}/eld-log-${stamp}-display.jpg`);
 
       if (replacing && existing) {
         const { error } = await supabase.rpc('replace_rods_document', {
@@ -61,6 +84,8 @@ export default function UploadEldLogModal({
           // Idempotency token: a replayed replacement returns the existing
           // replacement instead of filing a second one.
           p_certification_token: crypto.randomUUID(),
+          p_display_document_path: display.path,
+          p_display_conversion_failed: display.failed,
         });
         if (error) throw new Error(error.message);
         toast.success('Document replaced. The original stays on file.');
@@ -68,22 +93,36 @@ export default function UploadEldLogModal({
         // Snapshot from the device cache; blocks when the carrier was never
         // cached rather than filing a record with a guessed identity.
         const carrier = await requireCachedCarrier();
-        // status 'certified' + locked so the day occupies the unique slot and no
-        // keyed day can be created for the same date. The "On file (ELD log)"
-        // wording is display-only — do not "fix" this into status 'on_file'.
-        const { error } = await supabase.from('rods_days').insert({
-          operator_id: operatorId,
-          log_date: logDate,
-          record_source: 'eld_document',
-          status: 'certified',
-          locked: true,
-          is_reconstructed: false, // retrieved, not reconstructed
-          source_document_path: path,
-          ...rodsDayCarrierSnapshot(carrier),
-          certified_at: new Date().toISOString(),
-        } as never);
+        // Filed through the RPC, never a client insert: it carries the
+        // own-operator check, the token idempotency and the non-blank path
+        // guard, and it sets status 'certified' + locked so the day occupies
+        // the unique slot and no keyed day can be created for the same date.
+        // The "On file (ELD log)" wording is display-only — do not "fix" this
+        // into status 'on_file'.
+        const { error } = await supabase.rpc('create_eld_document_day', {
+          p_operator_id: operatorId,
+          p_log_date: logDate,
+          p_source_document_path: path,
+          p_carrier: {
+            carrier_name: carrier.carrier_name,
+            carrier_usdot: carrier.carrier_usdot,
+            carrier_mc: carrier.carrier_mc,
+            main_office_address: carrier.carrier_main_office_address,
+            home_terminal_address: carrier.carrier_home_terminal_address,
+            home_terminal_timezone: carrier.carrier_home_terminal_timezone,
+          },
+          p_certification_token: crypto.randomUUID(),
+          p_display_document_path: display.path,
+          p_display_conversion_failed: display.failed,
+        });
         if (error) throw new Error(error.message);
         toast.success('ELD log filed for this day.');
+      }
+      if (display.failed) {
+        toast.warning(
+          'The log is on file. This phone produced a format the app cannot display, '
+          + 'so it will show as a file rather than an image.',
+        );
       }
       setFile(null);
       setReason('');
