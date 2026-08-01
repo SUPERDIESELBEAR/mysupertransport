@@ -229,7 +229,12 @@ export type SyncKind =
   | 'upload_notice_signature'
   | 'send_notice'
   | 'upload_merged_packet'
-  | 'send_officer_email';
+  | 'send_officer_email'
+  /**
+   * Office-facing. Reports a sync condition Management must act on. Exempt
+   * from every cancellation path — see CASCADE_EXEMPT_KINDS.
+   */
+  | 'raise_sync_alert';
 
 /**
  * `cancelled` is terminal and is NOT a failure of the entry itself: the chain
