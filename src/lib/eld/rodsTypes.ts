@@ -60,6 +60,12 @@ export interface RodsDay {
   certified_at: string | null;
   certification_legal_name: string | null;
   certification_signature_path: string | null;
+  /**
+   * How the signature image was checked before this log was committed.
+   * `null` on a log certified by a client build that predates the check.
+   * See `src/lib/eld/signatureIntegrity.ts`.
+   */
+  certification_signature_validation?: unknown;
 
   created_at: string;
   updated_at: string;

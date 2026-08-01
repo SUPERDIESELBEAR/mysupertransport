@@ -42,7 +42,16 @@ export type SyncAlertKind =
    * whose segments do not tile 1440 minutes — which is exactly why it alerts
    * rather than only incrementing a counter nobody reads.
    */
-  | 'certified_day_no_segments';
+  | 'certified_day_no_segments'
+  /**
+   * A log was certified on a device that could not decode the signature
+   * image, so only the structural check ran: shape, PNG header and a floor
+   * byte size. The signature is present and plausible, but nothing confirmed
+   * it contains ink. Not a refusal — refusing would lock a driver out of
+   * certifying on their own phone — but the office should know which devices
+   * are producing records on the weaker check.
+   */
+  | 'signature_validated_structurally_only';
 
 export interface SyncAlertInput {
   kind: SyncAlertKind;

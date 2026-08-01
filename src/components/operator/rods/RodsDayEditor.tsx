@@ -19,6 +19,9 @@ import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
 import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
 import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
 import { commitCertification } from '@/lib/eld/offline/commitCertification';
+import {
+  validateSignatureImage, SIGNATURE_INVALID_MESSAGE,
+} from '@/lib/eld/signatureIntegrity';
 import RodsGrid from './RodsGrid';
 import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
@@ -201,6 +204,22 @@ export default function RodsDayEditor({
         is_short_period: isShortPeriod(s.start_minute, s.end_minute),
       }));
 
+      // The signature is checked ONCE, here, before anything is rendered or
+      // written. renderRodsDay embeds whatever it is given and quietly draws a
+      // blank signature line for bytes it cannot use — a §395.8 record that
+      // looks certified and isn't. commitCertification re-checks this result
+      // by digest, so the pixel pass does not run twice.
+      const signatureValidation = await validateSignatureImage(signatureDataUrl);
+      if (!signatureValidation.ok) {
+        toast.error(SIGNATURE_INVALID_MESSAGE);
+        return;
+      }
+
+      // ORDERING, load-bearing: the render must precede the byte write in
+      // commitCertification. Playwright case (k) proved five malformed
+      // signatures left zero orphan rows in IndexedDB precisely because a
+      // render failure throws before the transaction opens. Moving the render
+      // after the write re-creates the orphaned-bytes defect it was guarding.
       const pdf = await renderRodsDay({
         day: { ...day!, certification_legal_name: legalName, certified_at: new Date().toISOString() },
         events: signedEvents,
@@ -240,6 +259,7 @@ export default function RodsDayEditor({
         events: signedEvents as never,
         legalName,
         signatureDataUrl,
+        signatureValidation,
         pdfBytes: await pdf.arrayBuffer(),
         signaturePath: sigPath,
         pdfPath,
