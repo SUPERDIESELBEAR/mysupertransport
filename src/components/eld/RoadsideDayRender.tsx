@@ -61,7 +61,8 @@ export default function RoadsideDayRender({
   const totalsByLine = [totals.off, totals.sleeper, totals.driving, totals.onDuty];
 
   return (
-    <article data-testid="roadside-native-day" className="space-y-4" style={{ color: INK }}>
+    <article data-testid="roadside-native-day" className="relative space-y-4" style={{ color: INK }}>
+      {day.is_demo && <DemoWatermarkOverlay />}
       {annotations.length > 0 && (
         <div className="space-y-1">
           {annotations.map((note) => (
