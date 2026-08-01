@@ -32,7 +32,7 @@ const SELECT = `id, operator_id, discovered_at, discovered_location, malfunction
   malfunction_description, driver_notes, hinders_hos_recording, repair_deadline, status,
   resolved_at, resolution_notes, carrier_acknowledged_at, device_provider, device_make,
   device_model, device_serial, eld_registration_id, notice_pdf_path, notice_generated_at,
-  notice_uploaded_at, notice_sent_at`;
+  notice_uploaded_at, notice_sent_at, is_demo`;
 
 export function useEldMalfunction(operatorId: string | null) {
   const [activeEvent, setActiveEvent] = useState<EldMalfunctionEvent | null>(null);
