@@ -14,7 +14,7 @@
  *              believes is certified is not.
  */
 import { type SyncQueueEntry } from '../db';
-import { SERVER_ATTEMPT_LIMIT } from './types';
+import { isCascadeExempt, SERVER_ATTEMPT_LIMIT } from './types';
 import { classifyError, isDuplicateDateRejection } from './classify';
 import { isRowNotWritable } from '@/lib/eld/rodsWrite';
 import { HANDLERS } from './handlers';
@@ -133,6 +133,13 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
 
     if (klass === 'rejected') {
       await markTerminal(entry.id, 'rejected', klass, message);
+      // An alert whose own delivery the server refuses cannot be reported by
+      // raising another alert — that recurses. It is logged loudly instead and
+      // the terminal entry stays in Dexie as the on-device record.
+      if (isCascadeExempt(entry.kind)) {
+        console.error(`[eld-sync] "${entry.kind}" was rejected by the server`, entry.payload, message);
+        return;
+      }
       await raiseSyncAlert({
         kind: 'certification_rejected',
         operator_id: (entry.payload.operator_id as string) ?? null,
@@ -144,7 +151,11 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
       return;
     }
 
-    if (klass === 'server' && entry.attempts + 1 >= SERVER_ATTEMPT_LIMIT) {
+    // Exempt kinds never exhaust their budget. Giving up on an alert after
+    // eight tries throws away the only notice Management gets, at the exact
+    // moment the backend is unhealthy enough to warrant one.
+    if (klass === 'server' && entry.attempts + 1 >= SERVER_ATTEMPT_LIMIT
+        && !isCascadeExempt(entry.kind)) {
       await markTerminal(entry.id, 'failed', klass, message);
       await raiseSyncAlert({
         kind: 'sync_failed',
