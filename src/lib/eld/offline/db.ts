@@ -7,6 +7,7 @@
  * real import graph from the /roadside entry and fails if it can reach it.
  */
 import Dexie, { type Table } from 'dexie';
+import { RODS_PERIOD_START_DEFAULT } from '@/lib/eld/rodsTypes';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 /**
@@ -229,7 +230,12 @@ export type SyncKind =
   | 'upload_notice_signature'
   | 'send_notice'
   | 'upload_merged_packet'
-  | 'send_officer_email';
+  | 'send_officer_email'
+  /**
+   * Office-facing. Reports a sync condition Management must act on. Exempt
+   * from every cancellation path — see CASCADE_EXEMPT_KINDS.
+   */
+  | 'raise_sync_alert';
 
 /**
  * `cancelled` is terminal and is NOT a failure of the entry itself: the chain
@@ -393,6 +399,23 @@ class RoadsideDb extends Dexie {
       await tx.table('rods_events_cache').toCollection().modify((row: RodsEventCacheEntry) => {
         row.unsynced = row.unsynced ?? false;
         row.version = row.version ?? 0;
+      });
+    });
+    // v6 — backfill period_start_time on drafts minted before newLocalRodsDay
+    // existed. Those rows omit the field entirely, so the first preflight after
+    // a round-trip reports a difference against the server's '00:00:00'
+    // default in a field the driver never touched.
+    //
+    // modify() the ONE field, never put() the row. A whole-row write here would
+    // be built from whatever shape this build believes the entry has, and would
+    // silently drop `unsynced`, `local_certified_at` or any field a later
+    // version adds — on a device whose only copy of a signed federal record is
+    // this table.
+    this.version(6).stores({}).upgrade(async (tx) => {
+      await tx.table('rods_days_cache').toCollection().modify((row: RodsDayCacheEntry) => {
+        if (row.day && (row.day.period_start_time === undefined || row.day.period_start_time === null)) {
+          row.day.period_start_time = RODS_PERIOD_START_DEFAULT;
+        }
       });
     });
   }

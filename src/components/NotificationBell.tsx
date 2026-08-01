@@ -135,6 +135,14 @@ export default function NotificationBell({
     await snooze(id, 'tomorrow');
   };
   const doArchive = async (id: string) => {
+    // Archiving an ELD sync alert is the gesture that says a human has dealt
+    // with it, so it is also what re-arms the alert server-side: the next
+    // recurrence of the same condition raises a fresh row instead of quietly
+    // bumping a count on one nobody is looking at any more.
+    const target = notifications.find(nn => nn.id === id);
+    if (target?.type === 'eld_sync_alert' && target.entity_id) {
+      await supabase.rpc('acknowledge_eld_sync_alert', { p_alert_id: target.entity_id });
+    }
     setNotifications(prev => prev.filter(nn => nn.id !== id));
     await archive(id);
   };
@@ -156,6 +164,7 @@ export default function NotificationBell({
     compliance_update:      { icon: ShieldCheck,      bg: 'bg-sky-100',    color: 'text-sky-600' },
     release_note:           { icon: Megaphone,        bg: 'bg-purple-100', color: 'text-purple-600' },
     pay_setup_submitted:    { icon: Banknote,         bg: 'bg-gold/15',    color: 'text-gold' },
+    eld_sync_alert:         { icon: AlertTriangle,    bg: 'bg-red-100',    color: 'text-red-500' },
   };
   const defaultIconConfig = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground' };
 

@@ -1591,6 +1591,59 @@ export type Database = {
           },
         ]
       }
+      eld_sync_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          detail: string
+          id: string
+          kind: string
+          last_seen_at: string
+          log_date: string | null
+          occurrences: number
+          operator_id: string
+          raised_at: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          detail?: string
+          id?: string
+          kind: string
+          last_seen_at?: string
+          log_date?: string | null
+          occurrences?: number
+          operator_id: string
+          raised_at?: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          detail?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          log_date?: string | null
+          occurrences?: number
+          operator_id?: string
+          raised_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_sync_alerts_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -5787,6 +5840,10 @@ export type Database = {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
       _audit_actor_name: { Args: { _actor: string }; Returns: string }
       _gen_correction_token: { Args: never; Returns: string }
+      acknowledge_eld_sync_alert: {
+        Args: { p_alert_id: string }
+        Returns: undefined
+      }
       add_pei_staff_note: {
         Args: { _note: string; _request_id: string }
         Returns: Json
@@ -6302,6 +6359,15 @@ export type Database = {
             Args: { _day_id: string; _reason: string; _storage_owner: string }
             Returns: Json
           }
+      raise_eld_sync_alert: {
+        Args: {
+          p_detail: string
+          p_kind: string
+          p_log_date: string
+          p_operator_id: string
+        }
+        Returns: string
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

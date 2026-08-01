@@ -11,6 +11,7 @@ import {
 import { roadsideDb } from '@/lib/eld/offline/db';
 import { putCachedDay, putCachedEvents } from '@/lib/eld/offline/cache';
 import { enqueueCoalesced } from '@/lib/eld/offline/queue/store';
+import { newLocalRodsDay } from '@/lib/eld/rodsTypes';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 export interface DraftSegment {
@@ -189,20 +190,15 @@ export function useRodsDay(params: {
       // server-generated id would make creation the one step that needs a
       // signal. The same UUID is used by every later write, so the row the
       // queue eventually inserts is the row the driver has been editing.
-      const now = new Date().toISOString();
-      target = {
-        id: crypto.randomUUID(),
+      target = newLocalRodsDay({
         operator_id: operatorId,
         log_date: logDate,
-        record_source: 'keyed',
-        status: 'draft',
-        locked: false,
         is_reconstructed: !!isReconstruction,
-        created_at: now,
-        updated_at: now,
-        ...rodsDayCarrierSnapshot(carrier),
-        ...defaults,
-      } as unknown as RodsDay;
+        overrides: {
+          ...rodsDayCarrierSnapshot(carrier),
+          ...defaults,
+        } as Partial<RodsDay>,
+      });
       version.current += 1;
       await putCachedDay({
         day: target,

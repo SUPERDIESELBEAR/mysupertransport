@@ -91,6 +91,90 @@ export function isCompleteEvent(
 export const RODS_BUCKET = 'rods-logs';
 
 /**
+ * Start of the 24-hour period when the driver has not set one.
+ *
+ * This value MUST equal the `period_start_time` default on `public.rods_days`
+ * ('00:00:00'). A client-minted draft that omits the field and a server row
+ * that defaulted it are the same log; if the two disagree, every certification
+ * preflight after a round-trip reports a difference in a field nobody touched.
+ * A phantom entry in that dialog is not cosmetic — the dialog exists so a
+ * driver can judge what changed, and "use the saved version" is a discard.
+ */
+export const RODS_PERIOD_START_DEFAULT = '00:00:00';
+
+export interface NewLocalRodsDayInput {
+  id?: string;
+  operator_id: string;
+  log_date: string;
+  is_reconstructed?: boolean;
+  /** Carrier snapshot and any caller overrides, applied last. */
+  overrides?: Partial<RodsDay>;
+}
+
+/**
+ * Mint a draft day on the device.
+ *
+ * Every column the database defaults is set explicitly here, to the same
+ * value. That is the whole point of the factory: a draft built ad hoc omits
+ * whatever the author forgot, and the omission only surfaces later as a
+ * spurious diff against the row the server filled in.
+ *
+ * The id is minted client-side so a driver in a dead zone can start the day's
+ * log; the same UUID is used by every later write.
+ */
+export function newLocalRodsDay(input: NewLocalRodsDayInput): RodsDay {
+  const now = new Date().toISOString();
+  return {
+    id: input.id ?? crypto.randomUUID(),
+    operator_id: input.operator_id,
+    log_date: input.log_date,
+    record_source: 'keyed',
+    status: 'draft',
+    locked: false,
+    is_reconstructed: !!input.is_reconstructed,
+    supersedes_day_id: null,
+    amendment_reason: null,
+
+    carrier_name: null,
+    carrier_usdot: null,
+    carrier_mc: null,
+    main_office_address: null,
+    home_terminal_address: null,
+    home_terminal_timezone: null,
+    truck_number: null,
+    trailer_numbers: null,
+    co_driver_name: null,
+    shipping_document_no: null,
+    from_location: null,
+    to_location: null,
+    total_miles_driving_today: null,
+    total_mileage_today: null,
+    period_start_time: RODS_PERIOD_START_DEFAULT,
+
+    recap_on_duty_today: null,
+    recap_last_7_days: null,
+    recap_available_tomorrow: null,
+    recap_last_8_days: null,
+
+    total_off_duty_minutes: 0,
+    total_sleeper_minutes: 0,
+    total_driving_minutes: 0,
+    total_on_duty_minutes: 0,
+
+    source_document_path: null,
+    pdf_path: null,
+
+    certified_at: null,
+    certification_legal_name: null,
+    certification_signature_path: null,
+
+    created_at: now,
+    updated_at: now,
+    ...(input.overrides ?? {}),
+  };
+}
+
+/**
  * Three states only. "Already on file" was removed — it was always the same
  * state as complete, just a different label.
  */

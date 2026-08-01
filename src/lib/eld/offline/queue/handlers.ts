@@ -85,6 +85,25 @@ async function cacheReturnedDay(data: unknown): Promise<void> {
 
 export const HANDLERS: Record<SyncKind, SyncHandler> = {
   /**
+   * Deliver an office-facing sync alert.
+   *
+   * The RPC resolves the caller's operator from auth.uid() and refuses a
+   * payload that names someone else, so a compromised client cannot raise
+   * alerts about other drivers. It also owns the dedupe: one OPEN alert per
+   * (operator, date, kind), with a recurrence bumping last_seen_at and the
+   * occurrence count rather than creating a duplicate.
+   */
+  async raise_sync_alert(payload) {
+    const { error } = await supabase.rpc('raise_eld_sync_alert', {
+      p_operator_id: str(payload, 'operator_id'),
+      p_kind: str(payload, 'alert_kind'),
+      p_log_date: optStr(payload, 'log_date'),
+      p_detail: optStr(payload, 'detail') ?? '',
+    });
+    if (error) throw error;
+  },
+
+  /**
    * Replay one day's header from the cache to the server.
    *
    * The payload carries KEYS, never the row: the entry may replay days after
