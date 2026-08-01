@@ -43,6 +43,9 @@ const StaffPortal = lazyWithRetry(() => import("./pages/staff/StaffPortal"));
 const ManagementPortal = lazyWithRetry(() => import("./pages/management/ManagementPortal"));
 const DispatchPortal = lazyWithRetry(() => import("./pages/dispatch/DispatchPortal"));
 const DeactivationPage = lazyWithRetry(() => import("./pages/management/DeactivationPage"));
+// Officer email merge. Split out because it pulls pdf-lib, and deliberately
+// outside /roadside's module graph for the same reason.
+const OfficerEmailSheet = lazyWithRetry(() => import("./components/eld/OfficerEmailSheet"));
 
 const queryClient = new QueryClient();
 
@@ -165,6 +168,13 @@ function AppRoutes() {
       <Route path="/qpassport/view" element={<QPassportView />} />
       <Route path="/passenger-auth/:token" element={<PassengerAuthSign />} />
       <Route path="/preview-login" element={<PreviewLogin />} />
+      <Route path="/eld/officer-email" element={
+        !user ? <LoginRedirect /> : (
+          <Suspense fallback={<PortalFallback />}>
+            <OfficerEmailSheet onClose={() => { window.location.href = '/roadside'; }} />
+          </Suspense>
+        )
+      } />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={

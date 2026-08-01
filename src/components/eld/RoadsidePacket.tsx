@@ -190,7 +190,9 @@ export default function RoadsidePacket() {
           </button>
           <button
             type="button"
-            onClick={() => alert('Emailing this packet to an officer is not available yet on this device.')}
+            // A full navigation, not an import: the merge needs pdf-lib and
+            // /roadside's graph must stay free of it so this screen boots fast.
+            onClick={() => { window.location.href = '/eld/officer-email'; }}
             className="flex-1 rounded border px-4 py-2 text-sm font-bold"
             style={{ borderColor: '#DCDCDC', color: INK, minWidth: 120 }}
           >

@@ -313,16 +313,27 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     await putBytes(ELD_NOTICE_BUCKET, path, packet.bytes, packet.mime || 'application/pdf');
   },
 
+  /**
+   * Officer delivery.
+   *
+   * `entry_id` is this queue entry's own client-generated uuid, and it is what
+   * the server dedupes on: a retry of this entry is a no-op, while a second
+   * officer on the same day is a different entry and goes out.
+   */
   async send_officer_email(payload) {
     const { error } = await supabase.functions.invoke('send-officer-packet', {
       body: {
-        event_id: optStr(payload, 'event_id'),
+        entry_id: str(payload, 'entry_id'),
         operator_id: str(payload, 'operator_id'),
-        packet_path: str(payload, 'packet_path'),
-        to_email: str(payload, 'to_email'),
+        storage_path: str(payload, 'packet_path'),
+        officer_email: str(payload, 'to_email'),
         officer_name: optStr(payload, 'officer_name'),
-        agency: optStr(payload, 'agency'),
+        window_start: str(payload, 'window_start'),
+        window_end: str(payload, 'window_end'),
         included_dates: Array.isArray(payload.included_dates) ? payload.included_dates : [],
+        dispositions: Array.isArray(payload.dispositions) ? payload.dispositions : [],
+        downsampled_pass: payload.downsampled_pass ?? null,
+        link_mode: payload.link_mode === true,
       },
     });
     if (error) throw new Error(error.message ?? 'Officer email failed.');

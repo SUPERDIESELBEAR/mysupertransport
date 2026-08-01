@@ -3040,6 +3040,45 @@ export type Database = {
         }
         Relationships: []
       }
+      officer_packet_links: {
+        Row: {
+          bucket: string
+          created_at: string
+          operator_id: string
+          storage_path: string
+          token: string
+        }
+        Insert: {
+          bucket?: string
+          created_at?: string
+          operator_id: string
+          storage_path: string
+          token: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          operator_id?: string
+          storage_path?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "officer_packet_links_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "officer_packet_links_token_fkey"
+            columns: ["token"]
+            isOneToOne: true
+            referencedRelation: "share_tokens"
+            referencedColumns: ["token"]
+          },
+        ]
+      }
       onboard_assignment_sheet_items: {
         Row: {
           created_at: string
@@ -5908,6 +5947,14 @@ export type Database = {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
       _audit_actor_name: { Args: { _actor: string }; Returns: string }
       _gen_correction_token: { Args: never; Returns: string }
+      _share_token_gate: {
+        Args: { p_token: string }
+        Returns: {
+          outcome: string
+          resource_id: string
+          scope: string
+        }[]
+      }
       acknowledge_eld_sync_alert: {
         Args: { p_alert_id: string }
         Returns: undefined
@@ -6566,6 +6613,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      resolve_officer_packet_token: {
+        Args: { p_token: string }
+        Returns: {
+          bucket: string
+          expires_at: string
+          operator_id: string
+          storage_path: string
+        }[]
       }
       resolve_share_token: {
         Args: { p_token: string }
