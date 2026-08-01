@@ -352,8 +352,12 @@ async function assemble(
         const pages = await body.copyPages(donor, donor.getPageIndices());
         pages.forEach((p) => body.addPage(p));
         ok = pages.length > 0;
-      } catch {
+      } catch (err) {
+        // Keep the real reason: "could not be read" with no cause is the kind
+        // of placeholder nobody can act on after the inspection.
         ok = false;
+        source.reason = `The stored record could not be read on this device (${
+          err instanceof Error ? err.message : String(err)}).`;
       }
     } else if (source.image) {
       ok = await addImagePage(body, source.day, source.image);
