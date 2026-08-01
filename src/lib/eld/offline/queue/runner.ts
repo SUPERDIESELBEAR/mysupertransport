@@ -9,6 +9,11 @@
  *              must still sync on day eight; giving up would silently drop a
  *              signed federal record.
  *   server   — retried SERVER_ATTEMPT_LIMIT times, then parked as `failed`.
+ *              This applies to EVERY kind, cascade-exempt ones included: an
+ *              unrecognised SQLSTATE from a completed round trip is a server
+ *              answer, not transport, and a permanent one (23514, say) never
+ *              becomes deliverable by retrying. Exempt only means never
+ *              silently dropped, not never terminal.
  *   rejected — never retried. Routed to the rejection path, which tells the
  *              driver and Management loudly, because the day the driver
  *              believes is certified is not.
@@ -18,7 +23,7 @@ import { isCascadeExempt, SERVER_ATTEMPT_LIMIT } from './types';
 import { classifyError, isDuplicateDateRejection } from './classify';
 import { isRowNotWritable } from '@/lib/eld/rodsWrite';
 import { HANDLERS } from './handlers';
-import { raiseSyncAlert } from './alerts';
+import { raiseSyncAlert, recordAlertDeliveryFailure } from './alerts';
 import { markDayStalled } from '../cache';
 import { drainPendingNotices } from './noticeDrain';
 import { setDrainKick, type DrainScope } from './kick';
@@ -117,6 +122,32 @@ async function flagDay(entry: SyncQueueEntry, which: 'stalled' | 'rejected'): Pr
   await markDayStalled(logDate, which);
 }
 
+/**
+ * Report a terminal entry to the office.
+ *
+ * `raise_sync_alert` is the one kind that cannot be reported this way — an
+ * alert about a failed alert recurses — so it is counted and logged instead.
+ * `record_unlock` gets its own kind: the driver's log is fine, what is missing
+ * is the audit row for a day they took back.
+ */
+async function reportTerminal(
+  entry: SyncQueueEntry,
+  fallbackKind: 'certification_rejected' | 'sync_failed',
+  detail: string,
+  message: string,
+): Promise<void> {
+  if (entry.kind === 'raise_sync_alert') {
+    recordAlertDeliveryFailure({ kind: entry.kind, payload: entry.payload }, message);
+    return;
+  }
+  await raiseSyncAlert({
+    kind: entry.kind === 'record_unlock' ? 'unlock_record_rejected' : fallbackKind,
+    operator_id: (entry.payload.operator_id as string) ?? null,
+    log_date: (entry.payload.log_date as string) ?? null,
+    detail,
+  });
+}
+
 async function runEntry(entry: SyncQueueEntry): Promise<void> {
   const handler = HANDLERS[entry.kind];
   if (!handler) {
@@ -151,37 +182,29 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     if (klass === 'rejected') {
       await markTerminal(entry.id, 'rejected', klass, message);
       await flagDay(entry, 'rejected');
-      // An alert whose own delivery the server refuses cannot be reported by
-      // raising another alert — that recurses. It is logged loudly instead and
-      // the terminal entry stays in Dexie as the on-device record.
-      if (isCascadeExempt(entry.kind)) {
-        console.error(`[eld-sync] "${entry.kind}" was rejected by the server`, entry.payload, message);
-        return;
-      }
-      await raiseSyncAlert({
-        kind: 'certification_rejected',
-        operator_id: (entry.payload.operator_id as string) ?? null,
-        log_date: (entry.payload.log_date as string) ?? null,
-        detail: isDuplicateDateRejection(message)
+      await reportTerminal(
+        entry,
+        'certification_rejected',
+        isDuplicateDateRejection(message)
           ? `A certified log already exists for this date. The offline "${entry.kind}" was not applied: ${message}`
           : `Server rejected "${entry.kind}": ${message}`,
-      });
+        message,
+      );
       return;
     }
 
-    // Exempt kinds never exhaust their budget. Giving up on an alert after
-    // eight tries throws away the only notice Management gets, at the exact
-    // moment the backend is unhealthy enough to warrant one.
-    if (klass === 'server' && entry.attempts + 1 >= SERVER_ATTEMPT_LIMIT
-        && !isCascadeExempt(entry.kind)) {
+    // The budget is by CLASS, not by kind. `network` is unbounded below — a
+    // dead zone is not a failure. A `server` answer is bounded for every kind,
+    // exempt ones included, or a permanent fault loops forever.
+    if (klass === 'server' && entry.attempts + 1 >= SERVER_ATTEMPT_LIMIT) {
       await markTerminal(entry.id, 'failed', klass, message);
       await flagDay(entry, 'stalled');
-      await raiseSyncAlert({
-        kind: 'sync_failed',
-        operator_id: (entry.payload.operator_id as string) ?? null,
-        log_date: (entry.payload.log_date as string) ?? null,
-        detail: `"${entry.kind}" gave up after ${SERVER_ATTEMPT_LIMIT} attempts: ${message}`,
-      });
+      await reportTerminal(
+        entry,
+        'sync_failed',
+        `"${entry.kind}" gave up after ${SERVER_ATTEMPT_LIMIT} attempts: ${message}`,
+        message,
+      );
       return;
     }
 
