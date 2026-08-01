@@ -38,6 +38,37 @@ interface DisplayCopy {
   failed: boolean;
 }
 
+const NO_DISPLAY_COPY: DisplayCopy = { path: null, failed: false };
+const CONVERSION_FAILED: DisplayCopy = { path: null, failed: true };
+
+/**
+ * Try to produce and store the display JPEG. Never throws: the original is
+ * already filed by the time this runs, and every failure below degrades to the
+ * flagged path rather than costing the driver their upload.
+ */
+async function uploadDisplayCopy(file: File, mime: string, path: string): Promise<DisplayCopy> {
+  // A PDF or a non-image was never a conversion candidate. Not a failure —
+  // `failed` means "attempted and could not", which is what the officer-facing
+  // copy and the server's coherence check both key on.
+  if (!mime.startsWith('image/')) return NO_DISPLAY_COPY;
+
+  let jpeg: ArrayBuffer | null = null;
+  try {
+    jpeg = await convertForDisplay(await file.arrayBuffer(), mime);
+  } catch {
+    jpeg = null;
+  }
+  if (!jpeg) return CONVERSION_FAILED;
+
+  const { error } = await supabase.storage
+    .from(RODS_BUCKET)
+    .upload(path, new Blob([jpeg], { type: DISPLAY_MIME }), { upsert: true, contentType: DISPLAY_MIME });
+  // The bytes converted but did not land. Flagged rather than recorded, so the
+  // row never points at an object that was never written.
+  if (error) return CONVERSION_FAILED;
+  return { path, failed: false };
+}
+
 export default function UploadEldLogModal({
   open, onOpenChange, operatorId, logDate, existing, onDone,
 }: {
