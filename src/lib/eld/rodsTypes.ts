@@ -78,9 +78,17 @@ export interface RodsDay {
    */
   certification_signature_validation?: unknown;
 
+  /**
+   * Stamped from `operators.is_demo` by a BEFORE INSERT trigger and immutable
+   * afterwards. Carried on the record rather than looked up because the
+   * roadside surface renders offline and cannot reach the backend.
+   */
+  is_demo?: boolean;
+
   created_at: string;
   updated_at: string;
 }
+
 
 export interface RodsEvent {
   id: string;

@@ -1426,6 +1426,7 @@ export type Database = {
           escalations_suppressed_until: string | null
           hinders_hos_recording: boolean
           id: string
+          is_demo: boolean
           malfunction_code: string
           malfunction_description: string
           notice_generated_at: string | null
@@ -1465,6 +1466,7 @@ export type Database = {
           escalations_suppressed_until?: string | null
           hinders_hos_recording?: boolean
           id?: string
+          is_demo?: boolean
           malfunction_code: string
           malfunction_description: string
           notice_generated_at?: string | null
@@ -1504,6 +1506,7 @@ export type Database = {
           escalations_suppressed_until?: string | null
           hinders_hos_recording?: boolean
           id?: string
+          is_demo?: boolean
           malfunction_code?: string
           malfunction_description?: string
           notice_generated_at?: string | null
@@ -1598,6 +1601,7 @@ export type Database = {
           created_at: string
           detail: string
           id: string
+          is_demo: boolean
           kind: string
           last_seen_at: string
           log_date: string | null
@@ -1612,6 +1616,7 @@ export type Database = {
           created_at?: string
           detail?: string
           id?: string
+          is_demo?: boolean
           kind: string
           last_seen_at?: string
           log_date?: string | null
@@ -1626,6 +1631,7 @@ export type Database = {
           created_at?: string
           detail?: string
           id?: string
+          is_demo?: boolean
           kind?: string
           last_seen_at?: string
           log_date?: string | null
@@ -3849,6 +3855,7 @@ export type Database = {
           deactivation_reason: string | null
           demo_label: string | null
           demo_owner_user_id: string | null
+          demo_reset_at: string | null
           demo_scenario: string | null
           excluded_from_dispatch: boolean
           excluded_from_dispatch_at: string | null
@@ -3880,6 +3887,7 @@ export type Database = {
           deactivation_reason?: string | null
           demo_label?: string | null
           demo_owner_user_id?: string | null
+          demo_reset_at?: string | null
           demo_scenario?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
@@ -3911,6 +3919,7 @@ export type Database = {
           deactivation_reason?: string | null
           demo_label?: string | null
           demo_owner_user_id?: string | null
+          demo_reset_at?: string | null
           demo_scenario?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
@@ -4864,6 +4873,7 @@ export type Database = {
           home_terminal_address: string | null
           home_terminal_timezone: string | null
           id: string
+          is_demo: boolean
           is_reconstructed: boolean
           locked: boolean
           log_date: string
@@ -4911,6 +4921,7 @@ export type Database = {
           home_terminal_address?: string | null
           home_terminal_timezone?: string | null
           id?: string
+          is_demo?: boolean
           is_reconstructed?: boolean
           locked?: boolean
           log_date: string
@@ -4958,6 +4969,7 @@ export type Database = {
           home_terminal_address?: string | null
           home_terminal_timezone?: string | null
           id?: string
+          is_demo?: boolean
           is_reconstructed?: boolean
           locked?: boolean
           log_date?: string
@@ -6078,6 +6090,7 @@ export type Database = {
           home_terminal_address: string | null
           home_terminal_timezone: string | null
           id: string
+          is_demo: boolean
           is_reconstructed: boolean
           locked: boolean
           log_date: string
@@ -6580,6 +6593,7 @@ export type Database = {
           home_terminal_address: string | null
           home_terminal_timezone: string | null
           id: string
+          is_demo: boolean
           is_reconstructed: boolean
           locked: boolean
           log_date: string

@@ -15,6 +15,7 @@ import { AlertTriangle, ClipboardList, Printer } from 'lucide-react';
 import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@/lib/eld/carrierIdentity';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
+import { useIsDemoOperator } from '@/hooks/useIsDemoOperator';
 import { useRodsDays } from '@/hooks/useRodsDays';
 import { acknowledgeDivergence, openDivergenceDates } from '@/lib/eld/offline/divergence';
 import { raiseSyncAlert } from '@/lib/eld/offline/queue/alerts';
@@ -42,6 +43,7 @@ export default function RodsView({
   homeTerminalAddress?: string | null;
 }) {
   const { activeEvent, loading: eventLoading } = useEldMalfunction(operatorId);
+  const isDemo = useIsDemoOperator(operatorId);
   const { dates, byDate, completeCount, reconstructionComplete, loading, refresh } = useRodsDays(operatorId);
   const [selected, setSelected] = useState<string | null>(null);
   const [reconstructing, setReconstructing] = useState(false);
@@ -119,7 +121,7 @@ export default function RodsView({
   }, [selected, byDate]);
 
   async function printBlankLogs() {
-    const blob = await renderDutyStatusGrid({ pages: 8 });
+    const blob = await renderDutyStatusGrid({ pages: 8, isDemo });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank', 'noopener');
     setTimeout(() => URL.revokeObjectURL(url), 60_000);

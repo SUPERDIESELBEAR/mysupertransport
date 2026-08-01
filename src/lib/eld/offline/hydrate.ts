@@ -82,7 +82,7 @@ async function writeLocalMeta(operatorId: string, driverName: string): Promise<L
 
   const { data: op } = await supabase
     .from('operators')
-    .select('id, user_id, unit_number, home_terminal_timezone')
+    .select('id, user_id, unit_number, home_terminal_timezone, is_demo')
     .eq('id', operatorId)
     .maybeSingle();
 
@@ -142,6 +142,8 @@ async function writeLocalMeta(operatorId: string, driverName: string): Promise<L
       lastDay?.home_terminal_address ?? carrier.carrier_home_terminal_address ?? null,
     home_terminal_timezone:
       op?.home_terminal_timezone || carrier.carrier_home_terminal_timezone || 'America/Chicago',
+    // Sticky: a failed operator fetch must not silently un-demo the device.
+    is_demo: op ? op.is_demo === true : existing?.is_demo === true,
     updated_at: new Date().toISOString(),
   };
   await roadsideDb.local_meta.put(meta);

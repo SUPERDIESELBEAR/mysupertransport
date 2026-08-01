@@ -4,6 +4,7 @@ import { formatRoadsideDateLong } from '@/lib/eld/offline/roadsideManifest';
 import { signatureKeyForDay } from '@/lib/eld/offline/prune';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RoadsideDayRender from './RoadsideDayRender';
+import DemoWatermarkOverlay from './DemoWatermarkOverlay';
 
 type Payload =
   | {
@@ -28,6 +29,16 @@ type Payload =
  */
 export default function RoadsideDayView({ day }: { day: ManifestDay }) {
   const [payload, setPayload] = useState<Payload>({ kind: 'missing' });
+  // Demo drivers get the wash on every roadside surface, not just the native
+  // render — a photographed paper log shown on a demo device is still a demo
+  // artifact in an officer's hand.
+  const [isDemo, setIsDemo] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readLocalMeta().then((m) => { if (!cancelled) setIsDemo(m?.is_demo === true); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let revoke: string | null = null;
@@ -116,7 +127,8 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
         </span>
       </header>
 
-      <div className="min-h-0 flex-1 px-4 pb-4">
+      <div className="relative min-h-0 flex-1 px-4 pb-4">
+        {isDemo && payload.kind !== 'native' && <DemoWatermarkOverlay />}
         {payload.kind === 'native' && (
           <RoadsideDayRender
             day={payload.day}

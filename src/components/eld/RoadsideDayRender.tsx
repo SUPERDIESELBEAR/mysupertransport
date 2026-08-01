@@ -20,6 +20,7 @@ import {
 } from '@/lib/eld/rodsHeaderFields';
 import { statusTotals } from '@/lib/eld/rodsValidation';
 import { isCompleteEvent, type RodsDay, type RodsEvent } from '@/lib/eld/rodsTypes';
+import DemoWatermarkOverlay from './DemoWatermarkOverlay';
 
 const INK = '#0D0D0D';
 const MUTED = '#6B6B6B';
@@ -61,7 +62,8 @@ export default function RoadsideDayRender({
   const totalsByLine = [totals.off, totals.sleeper, totals.driving, totals.onDuty];
 
   return (
-    <article data-testid="roadside-native-day" className="space-y-4" style={{ color: INK }}>
+    <article data-testid="roadside-native-day" className="relative space-y-4" style={{ color: INK }}>
+      {day.is_demo && <DemoWatermarkOverlay />}
       {annotations.length > 0 && (
         <div className="space-y-1">
           {annotations.map((note) => (

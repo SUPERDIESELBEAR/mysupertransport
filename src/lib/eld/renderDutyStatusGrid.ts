@@ -1,4 +1,5 @@
-import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
+import { drawDemoWatermark } from '../../../supabase/functions/_shared/demoWatermark';
 import { BOOTSTRAP_CARRIER } from './constants';
 import { readCachedCarrier, type CachedCarrier } from './carrierIdentity';
 import {
@@ -175,6 +176,8 @@ function drawSheet(
 export async function renderDutyStatusGrid(options: {
   pages?: number;
   segmentsByPage?: DutyStatusSegment[][];
+  /** True when the packet is printed for a demo operator. */
+  isDemo?: boolean;
 } = {}): Promise<Blob> {
   const pages = options.pages ?? 8;
   const carrier = (await readCachedCarrier()) ?? {
@@ -193,6 +196,7 @@ export async function renderDutyStatusGrid(options: {
   for (let i = 0; i < pages; i += 1) {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     drawSheet(page, regular, bold, options.segmentsByPage?.[i] ?? [], carrier);
+    if (options.isDemo) drawDemoWatermark(page, bold, rgb, degrees);
   }
 
   const bytes = await doc.save();

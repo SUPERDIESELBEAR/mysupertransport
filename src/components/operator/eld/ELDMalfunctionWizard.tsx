@@ -164,7 +164,9 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
           ...malfunctionCarrierSnapshot(carrier),
           notice_generated_at: nowIso,
         })
-        .select('id')
+        // is_demo is stamped by the insert trigger; read it back rather than
+        // looking the operator up, so the notice and the row can never disagree.
+        .select('id, is_demo')
         .single();
 
       if (error) throw error;
@@ -198,6 +200,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
         carrierMc: carrier.mc_number,
         carrierMainOfficeAddress: carrier.main_office_address,
         signatureDataUrl,
+        isDemo: (inserted as { is_demo?: boolean }).is_demo === true,
       });
 
       savePendingNotice({

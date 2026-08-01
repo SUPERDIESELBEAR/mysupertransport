@@ -48,7 +48,7 @@ export default function ELDMalfunctionDashboard({
   async function printBlankLogs() {
     setBusy(true);
     try {
-      const blob = await renderDutyStatusGrid({ pages: 8 });
+      const blob = await renderDutyStatusGrid({ pages: 8, isDemo: event.is_demo === true });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank', 'noopener');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
