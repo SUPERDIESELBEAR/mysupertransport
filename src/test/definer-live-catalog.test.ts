@@ -221,8 +221,8 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
       WHERE n.nspname = 'public'
         AND c.relkind IN ('r', 'v', 'm', 'p', 'f')
         AND has_table_privilege('anon', c.oid, p.priv)
-      GROUP BY 1
-      ORDER BY 1;
+      GROUP BY c.relname
+      ORDER BY c.relname;
     `);
 
     // The only two anon table privileges this app needs:
