@@ -189,6 +189,50 @@ change-record guards, and the only untested part of `certify_rods_day`. The
 provocation each one needs is recorded in `UNOBSERVED_REACHABLE` in
 `src/lib/eld/offline/__tests__/parityFixtures.test.ts`.
 
+### 5c. The placeholder legal name, provoked over the wire, 2026-08-01
+
+§395.8 requires the driver's name on the record. The header guard checked that
+`certification_legal_name` was non-empty, not that it was a name — and the
+codebase's own `|| 'Driver'` fallback produces exactly the value that clears
+that check. A log certified in the name "Driver" is a false entry that passes
+every guard, the same shape as the `record_source` bypass.
+
+`certify_rods_day` now refuses a known placeholder with its own code, `P0032`,
+with no `rods.privileged` exemption. Provoked from a real `@supabase/supabase-js`
+client holding a driver session, against a seeded keyed draft
+(`9f0c1a22…f1`), **before** the parity fixture was written:
+
+| Provocation | `PostgrestError.code` |
+| --- | --- |
+| `certification_legal_name = 'Driver'` | `P0032` |
+| `certification_legal_name = 'Unknown'` | `P0032` |
+| `certification_legal_name = '   '` | `P0015` |
+| `certification_legal_name = 'Marcus Mueller'` | none — `status = certified` |
+
+Verbatim envelope for the first case:
+
+```json
+{
+  "code": "P0032",
+  "details": null,
+  "hint": null,
+  "message": "rods_placeholder_legal_name: \"Driver\" is not a driver name. A record of duty status must be certified in the driver's own legal name."
+}
+```
+
+The whitespace case returning `P0015` is the evidence that the empty-name guard
+and the placeholder guard are distinct conditions in the correct order; neither
+shadows the other. Fixture 20 in
+`src/lib/eld/offline/__tests__/parityFixtures.test.ts` asserts this observation,
+and `P0032` is registered in `REJECTION_SQLSTATES` so the modal renders it as a
+rejection rather than an unknown 500.
+
+Scratch rows purged afterwards through the `purge-rods-day` edge function
+(`purged: true`; `rods_days` and `rods_events` for that operator back to 0). The
+two `storage_failed` entries on that purge are the seeded row's declared
+`pdf_path` and signature path, which the probe never uploaded — no bytes were
+stranded.
+
 ### 6. One code, one condition, one function
 
 Every named condition raised from a `SECURITY DEFINER` function or a trigger
@@ -220,6 +264,7 @@ condition is done with `CONDITION_GROUPS` in
 | `certify_rods_day` | unaccounted minutes in the 24-hour period | `P0023` |
 | `certify_rods_day` | missing required header fields | `P0030` |
 | `certify_rods_day` | a certified log already exists for the date | `P0031` |
+| `certify_rods_day` | legal name is a placeholder, not a name | `P0032` |
 | `enforce_rods_day_lock` | certified log deleted | `P0002` |
 | `enforce_rods_day_lock` | certified log modified | `P0040` |
 | `enforce_rods_day_lock` | locked log deleted | `P0041` |
