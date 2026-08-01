@@ -543,3 +543,72 @@ the migration on disk reads correct.
 **If you find `anon=X` on these functions a third time**, the cause is not a
 missing revoke in the migration. Check whether managed email infrastructure was
 re-provisioned, and whether a schema-wide `GRANT ... TO anon, authenticated` ran.
+
+---
+
+## 8. Function-level EXECUTE audit (open register #6)
+
+The four mail-queue functions were not a special case. They were the visible
+edge of a schema-wide default: a blanket `GRANT EXECUTE ON ALL FUNCTIONS IN
+SCHEMA public TO anon, authenticated`, applied at some point in the project's
+history, that makes **every** function in `public` callable by an
+unauthenticated PostgREST client unless something later revokes it.
+
+Live inventory, 2026-08-01, of `SECURITY DEFINER` functions in `public` with
+`anon` EXECUTE:
+
+| Group | Count | Disposition |
+| --- | --- | --- |
+| Trigger functions (`RETURNS trigger`) | 51 | **Revoked.** `20260801130000` |
+| Trigger functions granted to `authenticated` only | 2 | **Revoked.** `20260801140000` |
+| Callable functions | 59 | Inventoried; see below |
+
+### 8.1 The 53 trigger functions
+
+Not directly reachable — PostgREST does not expose `RETURNS trigger` as an RPC
+endpoint. They were revoked anyway, on two grounds: the grants are meaningless
+(PostgreSQL checks `EXECUTE` on a trigger function at `CREATE TRIGGER` time,
+not when it fires, so revoking cannot break an existing trigger), and 53 rows
+of noise in the inventory is 53 places a real finding can hide.
+
+The last two were found by `definer-live-catalog.test.ts` on its **first run**,
+after the migration that was supposed to close the group. The inventory query
+behind that migration filtered on `has_function_privilege('anon', ...)` alone;
+those two carried `authenticated` but not `anon` and fell outside it. This is
+the argument for a standing assertion over a one-off list, made concrete: a
+hand-built inventory misses a case, a query re-derived on every test run
+does not.
+
+### 8.2 The 59 callable functions — NOT closed
+
+These are recorded in `KNOWN_ANON_EXECUTABLE` in
+`src/test/definer-live-catalog.test.ts` and are **not** fixed. Roughly 14 are
+deliberate: token-gated endpoints an unauthenticated applicant must reach
+(`get_application_by_draft_token`, `submit_pei_response`, `resolve_short_link`,
+and similar). The remainder are unclassified. Each needs its body read before
+its grant is touched — bulk-revoking would break live public endpoints, and
+guessing which is which from the name is exactly the kind of shortcut that
+produced this register entry.
+
+The allowlist is asserted shrink-only against `KNOWN_ANON_EXECUTABLE_MAX`, so
+it cannot grow without a visible diff on the number. A new anon-executable
+definer function fails the guard on the next run whether it arrived through a
+migration or through an out-of-band grant.
+
+**This section stays open until that count reaches the deliberate set.**
+
+### 8.3 Table privileges
+
+Checked at the same time. `anon` holds exactly two table privileges —
+`INSERT ON applications` (the public job-application form) and `SELECT ON faq`
+(published FAQs, row-filtered by a `TO public` policy). Both are intended.
+
+The file-scanning test that used to assert this (`never grants a table
+privilege to anon` in `definer-search-path.test.ts`) was **removed**, not
+fixed. It reported two offences, and both were artefacts: a `GRANT` on
+`document_short_links` that a later migration had already revoked — grants are
+not last-definition-wins, so the scan could never see the revoke — and a
+`storage.objects` policy with `TO anon, authenticated` that its
+statement-spanning regex attributed to an unrelated table three statements
+earlier. The assertion now runs against the live catalog, where "what is
+granted right now" is one query rather than an inference over text.
