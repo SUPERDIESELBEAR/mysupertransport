@@ -180,6 +180,11 @@ async function handler(req: Request): Promise<Response> {
   // Action tab can be asserted on) without putting a synthetic driver in a real
   // inbox. Service-role only.
   const inAppOnly = body?.channels === 'in_app';
+  // A row produced by a time-travelled or channel-overridden run must never be
+  // able to pass as proof the office was notified on time. is_override is
+  // immutable after insert (BEFORE UPDATE trigger), and the console's
+  // timeliness column reads only is_override = false rows.
+  const isOverride = Boolean(body?.nowOverride) || inAppOnly;
   // Time travel lets a verification run walk an event through the ladder
   // without waiting eight days. The endpoint is already service-role or staff
   // only, and the ledger records the effective date, so an override run is
@@ -297,7 +302,7 @@ async function handler(req: Request): Promise<Response> {
         admin, dryRun, action, type, e, day, driverName, unitNumber, deadline,
         discoveredLocal: fmt(e.discovered_at), reportedLocal: fmt(e.created_at),
         extensionDeadline, link, recipients, sentOn, timeZone, now, inAppOnly,
-        authHeader: auth.authHeader,
+        authHeader: auth.authHeader, isOverride,
       });
       inserted += fired.inserted;
       emailed += fired.emailed;
@@ -308,9 +313,30 @@ async function handler(req: Request): Promise<Response> {
     }
   }
 
+  // An override run is tellable apart from a real run at a glance, without
+  // reading the ledger.
+  if (isOverride && !dryRun) {
+    await admin.from('audit_log').insert({
+      action: 'eld_escalation_override_run',
+      entity_type: 'eld_malfunction_event',
+      entity_id: body?.eventId ?? null,
+      actor_id: auth.actorId ?? null,
+      actor_name: auth.isService ? 'service_role (cron/verification)' : null,
+      details: {
+        now_override: body?.nowOverride ?? null,
+        channels: body?.channels ?? 'all',
+        event_filter: body?.eventId ?? null,
+        events_evaluated: events?.length ?? 0,
+        ledger_rows_inserted: inserted,
+        emails_sent: emailed,
+      },
+    });
+  }
+
   return ok({
     success: true,
     dryRun,
+    isOverride,
     evaluated_at: now.toISOString(),
     timezone: timeZone,
     events: events?.length ?? 0,
@@ -341,6 +367,7 @@ interface DeliverArgs {
   now: Date;
   inAppOnly: boolean;
   authHeader: string;
+  isOverride: boolean;
 }
 
 async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: number; recipients: string[] }> {
@@ -380,6 +407,7 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
         recipient_user_id: r.userId,
         channel: 'in_app',
         sent_on: a.sentOn,
+        is_override: a.isOverride,
       }, {
         onConflict: 'event_id,recipient_user_id,notification_type,day_number,channel,sent_on',
         ignoreDuplicates: true,
@@ -414,6 +442,7 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
           recipient_user_id: r.userId,
           channel: 'email',
           sent_on: a.sentOn,
+          is_override: a.isOverride,
         }, {
           onConflict: 'event_id,recipient_user_id,notification_type,day_number,channel,sent_on',
           ignoreDuplicates: true,
@@ -447,6 +476,7 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
         recipient_user_id: driverUserId,
         channel: 'in_app',
         sent_on: a.sentOn,
+        is_override: a.isOverride,
       }, {
         onConflict: 'event_id,recipient_user_id,notification_type,day_number,channel,sent_on',
         ignoreDuplicates: true,
