@@ -176,6 +176,95 @@ async (a) => {
 }
 """
 
+# --------------------------------------------------------------- case (k2)
+# (k) proved the RENDERER survives a bad signature. That leaves the worse
+# outcome it exposed: a clean PDF with a blank signature line, certified. The
+# validator has to refuse those bytes before the render, in a real browser —
+# jsdom has no canvas, so the pixel pass only ever runs for real here.
+CASE_K2 = """
+async (a) => {
+  const { validateSignatureImage, sha256Hex } =
+    await import('/src/lib/eld/signatureIntegrity.ts');
+  const { commitCertification } = await import('/src/lib/eld/offline/commitCertification.ts');
+  const { roadsideDb } = await import('/src/lib/eld/offline/db.ts');
+  const store = await import('/src/lib/eld/offline/queue/store.ts');
+
+  function canvasPng(draw) {
+    const c = document.createElement('canvas');
+    c.width = 600; c.height = 200;
+    const ctx = c.getContext('2d');
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.strokeStyle = '#0D0D0D';
+    draw(ctx);
+    return c.toDataURL('image/png');
+  }
+
+  // What a signature pad exports when the driver touches nothing.
+  const blank = canvasPng(() => {});
+  // A single tap: real ink, not a signature.
+  const speck = canvasPng((ctx) => { ctx.beginPath(); ctx.arc(300, 100, 2, 0, 7); ctx.stroke(); });
+  // A name written across the pad.
+  const signed = canvasPng((ctx) => {
+    ctx.beginPath();
+    for (let x = 40; x < 560; x += 4) {
+      ctx.lineTo(x, 100 + Math.sin(x / 9) * 34 + Math.sin(x / 2.3) * 9);
+    }
+    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(40, 150); ctx.lineTo(560, 150); ctx.stroke();
+  });
+
+  const cases = Object.assign({ blank, speck, signed }, a.signatures);
+  const validations = {};
+  for (const [label, sig] of Object.entries(cases)) {
+    let v = null, threw = null;
+    try { v = await validateSignatureImage(sig); }
+    catch (e) { threw = String(e && e.message ? e.message : e); }
+    validations[label] = { threw, ok: v ? v.ok : null, mode: v ? v.mode : null,
+                           reason: v ? v.reason ?? null : null,
+                           inkPixels: v ? v.ink_pixels ?? null : null };
+  }
+
+  // And the commit edge refuses the blank one even if a caller ignores the
+  // validator and hands it a hand-built passing result.
+  const day = {
+    id: a.dayId, operator_id: a.opId, log_date: a.logDate, record_source: 'keyed',
+    status: 'draft', locked: false, is_reconstructed: false,
+    supersedes_day_id: null, amendment_reason: null,
+    total_off_duty_minutes: 1440, total_sleeper_minutes: 0,
+    total_driving_minutes: 0, total_on_duty_minutes: 0,
+    source_document_path: null, pdf_path: null, certified_at: null,
+    certification_legal_name: null, certification_signature_path: null,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  };
+  const queuedBefore = (await store.allEntries()).map((e) => e.id);
+  const forged = {
+    ok: true, mode: 'pixel', ink_pixels: 4000, ink_fraction: 0.06, byte_length: 900,
+    digest: await sha256Hex(blank), checked_at: new Date().toISOString(),
+  };
+  let commitRefused = null;
+  try {
+    await commitCertification({
+      operatorId: a.opId, logDate: a.logDate, day, events: [],
+      legalName: 'Marcus Mueller', signatureDataUrl: blank,
+      pdfBytes: new ArrayBuffer(8), signaturePath: 'x.png', pdfPath: 'x.pdf',
+      deviceInfo: 'gate', token: 'gate-tok', changes: [],
+      signatureValidation: forged,
+    });
+  } catch (e) { commitRefused = String(e && e.message ? e.message : e); }
+
+  const after = await roadsideDb.rods_days_cache.get(a.logDate);
+  return {
+    validations,
+    commitRefused,
+    lockedAfter: !!after?.day?.locked,
+    localCertifiedAfter: after?.local_certified_at ?? null,
+    signatureRows: (await roadsideDb.signature_images.toArray()).length,
+    pdfRows: (await roadsideDb.rods_pdfs.toArray()).length,
+    queued: (await store.allEntries())
+      .filter((e) => !queuedBefore.includes(e.id)).map((e) => e.kind),
+  };
+}
+"""
+
 
 async def main():
     failures, notes = [], []
