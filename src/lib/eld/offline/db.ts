@@ -7,6 +7,7 @@
  * real import graph from the /roadside entry and fails if it can reach it.
  */
 import Dexie, { type Table } from 'dexie';
+import { RODS_PERIOD_START_DEFAULT } from '@/lib/eld/rodsTypes';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 /**
