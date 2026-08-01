@@ -19,7 +19,19 @@ export type SyncAlertKind =
   | 'log_not_writable'
   | 'certified_day_divergence'
   | 'notice_drain_corrupt'
-  | 'notice_orphaned';
+  | 'notice_orphaned'
+  /**
+   * A `record_unlock` the office refused, or that exhausted its server budget.
+   * Distinct from `sync_failed`: the driver's log is fine and is NOT flagged —
+   * what is missing is the audit row for a day the driver took back.
+   */
+  | 'unlock_record_rejected'
+  /**
+   * The alert delivery path itself died. Raised nowhere — an alert about a
+   * failed alert would recurse — but named so the console line and the
+   * undeliverable counter describe one condition instead of prose.
+   */
+  | 'alert_delivery_failed';
 
 export interface SyncAlertInput {
   kind: SyncAlertKind;
@@ -47,6 +59,20 @@ export function undeliverableAlertCount(): number {
 
 export function resetUndeliverableAlertCount(): void {
   undeliverable = 0;
+}
+
+/**
+ * The one condition that cannot be alerted about: `raise_sync_alert` itself
+ * went terminal. Counted and logged loudly under `alert_delivery_failed`;
+ * raising another alert here would recurse forever.
+ */
+export function recordAlertDeliveryFailure(detail: unknown, message: string): void {
+  undeliverable += 1;
+  console.error(
+    '[eld-sync] alert_delivery_failed — an alert could not be delivered and cannot itself be alerted on',
+    detail,
+    message,
+  );
 }
 
 /**

@@ -26,14 +26,21 @@ export const SERVER_ATTEMPT_LIMIT = 8;
  * only notice Management gets. `record_unlock` reports that a driver took a
  * day back, which is precisely the event that cancels a chain.
  *
- * The exemption is applied at all five points a queue entry can be silently
- * dropped or hidden:
- *   1. resolveBlocked      — transitive cancellation from a dead prerequisite
- *   2. cancelChainForDay   — the authorized unlock's own cascade
- *   3. SERVER_ATTEMPT_LIMIT — budget exhaustion in the runner
- *   4. purgeSucceeded      — dependency retention must not pin the purge
- *   5. syncCounts          — the driver-facing chip counts the driver's work,
- *                            not office bookkeeping
+ * The exemption is NEVER-DROPPED, not never-terminal. It is applied at the
+ * four points a queue entry can be silently discarded or hidden:
+ *   1. resolveBlocked    — transitive cancellation from a dead prerequisite
+ *   2. cancelChainForDay — the authorized unlock's own cascade
+ *   3. purgeSucceeded    — dependency retention must not pin the purge
+ *   4. syncCounts        — the driver-facing chip counts the driver's work,
+ *                          not office bookkeeping
+ *
+ * It is deliberately NOT applied to the attempt budget. The budget is split by
+ * error class in the runner instead: `network` is unbounded for every kind,
+ * because a dead zone is not a failure; `server` and `rejected` are bounded
+ * for every kind, including these two, because a permanent server-side fault
+ * (a check-constraint violation, say) never becomes deliverable by retrying.
+ * An exempt kind that exhausts its budget is marked terminal and kept in
+ * Dexie — never deleted, and never flagged against the driver's day.
  */
 export const CASCADE_EXEMPT_KINDS: ReadonlySet<string> = new Set([
   'record_unlock',
