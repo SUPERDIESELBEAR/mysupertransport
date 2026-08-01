@@ -27,6 +27,24 @@ import { formatRoadsideDate } from './roadsideManifest';
 export const PACKET_CEILING_BYTES = 12 * 1024 * 1024;
 
 /**
+ * A roadside packet carries the driver's name under 49 CFR 395.8. The previous
+ * `?? 'Driver'` produced a federal document addressed to a placeholder whenever
+ * local meta was missing a name — it failed silently and looked correct. It
+ * throws now: no packet is better than a packet in a false name.
+ */
+const PLACEHOLDER_NAMES = ['driver', 'unknown', 'operator', 'n/a', 'na', 'unnamed', 'test driver', 'test'];
+
+export function requireDriverName(name: string | null | undefined): string {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed || PLACEHOLDER_NAMES.includes(trimmed.toLowerCase())) {
+    throw new Error(
+      'This device has no driver name stored, so a roadside packet cannot be built. Open the app while online once to refresh your records.',
+    );
+  }
+  return trimmed;
+}
+
+/**
  * Why 12 MB and not 15.
  *
  * `sendResendDirect` refuses above MAX_TOTAL_ATTACHMENT_BYTES = 20 MB measured
@@ -218,7 +236,9 @@ async function addCoverPage(
   };
 
   line('RECORD OF DUTY STATUS — 8 DAY PACKET', 14, bold, INK, 24);
-  line(meta?.driver_name ?? 'Driver', 12, bold, INK, 16);
+  // No placeholder on a roadside packet cover — the caller resolves the name
+  // or the packet is not built.
+  line(requireDriverName(meta?.driver_name), 12, bold, INK, 16);
   line(
     [meta?.carrier_name, meta?.carrier_usdot ? `USDOT ${meta.carrier_usdot}` : null,
       meta?.carrier_mc ? `MC ${meta.carrier_mc}` : null].filter(Boolean).join(' · '),

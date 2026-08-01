@@ -207,7 +207,12 @@ export function validateRodsDay(
   checks.push({
     id: 'legal_name',
     label: 'Typed legal name',
-    state: legalName.trim().length >= 3 ? 'pass' : 'fail',
+    state: legalName.trim().length >= 3 && !isPlaceholderLegalName(legalName)
+      ? 'pass'
+      : 'fail',
+    detail: isPlaceholderLegalName(legalName)
+      ? `"${legalName.trim()}" is not a name. A record of duty status must be certified in the driver's own legal name.`
+      : undefined,
   });
 
   return {
@@ -220,6 +225,21 @@ export function validateRodsDay(
     gaps,
     incompleteIds: incomplete.map((e) => e.id),
   };
+}
+
+/**
+ * Names that are not names. 49 CFR 395.8 requires the driver's name on the
+ * record; the non-empty check alone would let the codebase's own `|| 'Driver'`
+ * fallback certify a false entry that passes every guard. The database refuses
+ * these too (SQLSTATE P0032) — this copy only keeps the driver from reaching a
+ * server rejection they can't act on.
+ */
+export const PLACEHOLDER_LEGAL_NAMES: readonly string[] = [
+  'driver', 'unknown', 'operator', 'n/a', 'na', 'unnamed', 'test driver', 'test',
+];
+
+export function isPlaceholderLegalName(name: string | null | undefined): boolean {
+  return PLACEHOLDER_LEGAL_NAMES.includes((name ?? '').trim().toLowerCase());
 }
 
 /** Segments shorter than 15 minutes are noted separately in REMARKS. */
