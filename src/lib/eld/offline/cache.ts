@@ -16,6 +16,7 @@
  */
 import { roadsideDb, type RodsDayCacheEntry, type RodsEventCacheEntry } from './db';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
+import { raiseSyncAlert } from './queue/alerts';
 
 export interface PutCachedDayInput {
   day: RodsDay;
@@ -64,6 +65,50 @@ export interface PutCachedEventsInput {
   unsynced: boolean;
   version: number;
   cached_at?: string;
+  /** Needed to attribute the empty-segment alert; the RPC refuses an
+   *  unattributable write. */
+  operator_id: string;
+  /**
+   * Which writer this is. REQUIRED and never inferred: `unsynced` does not
+   * identify the caller (markDaySynced re-puts hydration-sourced rows), and a
+   * new writer must state its provenance rather than default into silence.
+   */
+  provenance: EventCacheProvenance;
+  /**
+   * Server-side status of the day these segments belong to. REQUIRED for the
+   * same reason: the input carries no status of its own, so it cannot tell a
+   * certified day from a draft.
+   */
+  day_status: RodsDay['status'];
+  /**
+   * When the driver signed on this device. A local certification leaves
+   * `day_status` at 'draft' until the queue drains — the lock is
+   * `local_certified_at` — so a certified-with-no-segments write on that path
+   * is only visible through this field.
+   */
+  local_certified_at: string | null;
+}
+
+export type EventCacheProvenance = 'hydration' | 'local_certification' | 'sync_flag_clear';
+
+/**
+ * Keys only, no prose. Returned to the caller rather than stored in module
+ * state: a module-level list would survive an aborted transaction (raising an
+ * alert for a write that never landed) and would let concurrent callers —
+ * hydration running while a certification commits — drain each other's
+ * entries. Scoped to the call, an abort discards it with the frame.
+ */
+export interface EmptySegmentsDetected {
+  rods_day_id: string;
+  log_date: string;
+  operator_id: string;
+  provenance: EventCacheProvenance;
+}
+
+export interface PutCachedEventsResult {
+  record: RodsEventCacheEntry;
+  /** Non-null when a CERTIFIED day was written with an empty segment set. */
+  emptySegments: EmptySegmentsDetected | null;
 }
 
 export function cachedEventsRecord(input: PutCachedEventsInput): RodsEventCacheEntry {
@@ -77,11 +122,52 @@ export function cachedEventsRecord(input: PutCachedEventsInput): RodsEventCacheE
   };
 }
 
-/** Write one day's cached segments. Safe inside an open Dexie transaction. */
-export async function putCachedEvents(input: PutCachedEventsInput): Promise<RodsEventCacheEntry> {
+/**
+ * Write one day's cached segments. Safe inside an open Dexie transaction.
+ *
+ * Detects, but does NOT raise, the empty-certified-set condition: raising
+ * enqueues onto sync_queue, which is outside the cache-table transaction the
+ * callers hold, and Dexie would throw on the undeclared table — taking the
+ * cache write down with it. Pass the returned `emptySegments` to
+ * `flushEmptySegmentAlerts` after your transaction commits.
+ */
+export async function putCachedEvents(input: PutCachedEventsInput): Promise<PutCachedEventsResult> {
   const record = cachedEventsRecord(input);
   await roadsideDb.rods_events_cache.put(record);
-  return record;
+  const certified = input.day_status === 'certified' || input.local_certified_at !== null;
+  return {
+    record,
+    emptySegments: certified && input.events.length === 0
+      ? {
+          rods_day_id: input.rods_day_id,
+          log_date: input.log_date,
+          operator_id: input.operator_id,
+          provenance: input.provenance,
+        }
+      : null,
+  };
+}
+
+/**
+ * Raise what `putCachedEvents` detected, after the caller's transaction has
+ * committed. Tolerates null so no caller needs a branch. Never throws —
+ * `raiseSyncAlert` swallows and counts its own failures — so an alert cannot
+ * cost the write it describes.
+ */
+export async function flushEmptySegmentAlerts(
+  detected: EmptySegmentsDetected | null,
+): Promise<void> {
+  if (!detected) return;
+  await raiseSyncAlert({
+    kind: 'certified_day_no_segments',
+    operator_id: detected.operator_id,
+    log_date: detected.log_date,
+    detail: JSON.stringify({
+      rods_day_id: detected.rods_day_id,
+      log_date: detected.log_date,
+      provenance: detected.provenance,
+    }),
+  });
 }
 
 /**
@@ -96,7 +182,17 @@ export async function markDaySynced(logDate: string, syncedVersion: number): Pro
   await putCachedDay({ ...existing, unsynced: false, sync_rejected: false, cached_at: existing.cached_at });
   const events = await roadsideDb.rods_events_cache.get(existing.day.id);
   if (events && events.version === syncedVersion) {
-    await putCachedEvents({ ...events, unsynced: false, cached_at: events.cached_at });
+    const { emptySegments } = await putCachedEvents({
+      ...events,
+      unsynced: false,
+      cached_at: events.cached_at,
+      operator_id: existing.operator_id,
+      provenance: 'sync_flag_clear',
+      day_status: existing.day.status,
+      local_certified_at: existing.local_certified_at,
+    });
+    // No transaction here, so this is already post-commit.
+    await flushEmptySegmentAlerts(emptySegments);
   }
 }
 
