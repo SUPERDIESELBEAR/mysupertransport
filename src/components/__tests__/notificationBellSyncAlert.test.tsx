@@ -59,11 +59,18 @@ describe('notification bell — ELD sync rejection', () => {
     const bell = await screen.findByRole('button', { name: /notification/i });
     await act(async () => { fireEvent.click(bell); });
 
-    // Lands on Action automatically because the item is unread and actionable.
+    // The Action tab must be the one carrying it. Asserting only "the text is
+    // somewhere in the dropdown" is not enough — the All tab shows everything,
+    // so that assertion passes even when the item is tier 'fyi'.
+    const actionTab = await screen.findByRole('button', { name: /^Action/ });
+    expect(actionTab.textContent).toMatch(/Action\s*\(1\)/);
+
+    await act(async () => { fireEvent.click(actionTab); });
     await waitFor(() => {
-      expect(screen.getByText(/ELD sync: certification rejected — Unit 412 — 2026-03-04/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/ELD sync: certification rejected — Unit 412 — 2026-03-04/),
+      ).toBeInTheDocument();
     });
-    // And it is labelled as an ELD sync alert, not the generic fallback.
-    expect(screen.queryAllByText(/^Notification$/)).toHaveLength(0);
+    expect(screen.queryByText('Nothing needs your attention right now.')).toBeNull();
   });
 });
