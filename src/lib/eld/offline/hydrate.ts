@@ -29,6 +29,7 @@ import {
   compareDocumentDay, compareKeyedDay, openDivergenceDates, recordDivergence,
 } from './divergence';
 import { raiseSyncAlert } from './queue/alerts';
+import { maybeWipeForDemoReset } from './demoReset';
 import { windowDatesInTimezone } from './roadsideManifest';
 
 export type HydrationPhase = 'idle' | 'running' | 'ready' | 'incomplete' | 'unavailable';
@@ -82,9 +83,18 @@ async function writeLocalMeta(operatorId: string, driverName: string): Promise<L
 
   const { data: op } = await supabase
     .from('operators')
-    .select('id, user_id, unit_number, home_terminal_timezone, is_demo')
+    .select('id, user_id, unit_number, home_terminal_timezone, is_demo, demo_reset_at')
     .eq('id', operatorId)
     .maybeSingle();
+
+  // Honour a server-side demo reset BEFORE anything else is written, so the
+  // wipe cannot drop the identity row this load just refreshed. Gated on the
+  // freshly fetched `is_demo`, never on the cached value.
+  await maybeWipeForDemoReset({
+    operatorId,
+    isDemo: (op as { is_demo?: boolean } | null)?.is_demo,
+    demoResetAt: (op as { demo_reset_at?: string | null } | null)?.demo_reset_at ?? null,
+  });
 
   const { data: lastDay } = await supabase
     .from('rods_days')
@@ -144,6 +154,9 @@ async function writeLocalMeta(operatorId: string, driverName: string): Promise<L
       op?.home_terminal_timezone || carrier.carrier_home_terminal_timezone || 'America/Chicago',
     // Sticky: a failed operator fetch must not silently un-demo the device.
     is_demo: op ? op.is_demo === true : existing?.is_demo === true,
+    demo_reset_at:
+      (op as { demo_reset_at?: string | null } | null)?.demo_reset_at
+      ?? existing?.demo_reset_at ?? null,
     updated_at: new Date().toISOString(),
   };
   await roadsideDb.local_meta.put(meta);
