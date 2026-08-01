@@ -12,19 +12,19 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SERVER_ATTEMPT_LIMIT } from '../types';
 
 const dueEntries = vi.fn();
-const markTerminal = vi.fn(async () => {});
-const markRetry = vi.fn(async () => {});
-const raiseSyncAlert = vi.fn(async () => {});
-const recordAlertDeliveryFailure = vi.fn();
-const markDayStalled = vi.fn(async () => {});
+const markTerminal = vi.fn(async (_id: string, _status: string, _klass: string, _msg: string) => {});
+const markRetry = vi.fn(async (_id: string, _klass: string, _msg: string) => {});
+const raiseSyncAlert = vi.fn(async (_input: { kind: string }) => {});
+const recordAlertDeliveryFailure = vi.fn((_detail: unknown, _msg: string) => {});
+const markDayStalled = vi.fn(async (_date: string, _which: string) => {});
 const handler = vi.fn(async () => { throw new Error('boom'); });
 
 vi.mock('../store', () => ({
   dueEntries: (...a: unknown[]) => dueEntries(...a),
   markInFlight: vi.fn(async () => {}),
-  markRetry: (...a: unknown[]) => markRetry(...(a as [])),
+  markRetry: markRetry,
   markSucceeded: vi.fn(async () => {}),
-  markTerminal: (...a: unknown[]) => markTerminal(...(a as [])),
+  markTerminal: markTerminal,
   purgeSucceeded: vi.fn(async () => 0),
   resolveBlocked: vi.fn(async () => []),
   syncCounts: vi.fn(async () => ({ pending: 0, inFlight: 0, failed: 0, rejected: 0, cancelled: 0 })),
@@ -38,10 +38,10 @@ vi.mock('../handlers', () => ({
 }));
 vi.mock('../noticeDrain', () => ({ drainPendingNotices: vi.fn(async () => {}) }));
 vi.mock('../alerts', () => ({
-  raiseSyncAlert: (...a: unknown[]) => raiseSyncAlert(...(a as [])),
-  recordAlertDeliveryFailure: (...a: unknown[]) => recordAlertDeliveryFailure(...(a as [])),
+  raiseSyncAlert: raiseSyncAlert,
+  recordAlertDeliveryFailure: recordAlertDeliveryFailure,
 }));
-vi.mock('../../cache', () => ({ markDayStalled: (...a: unknown[]) => markDayStalled(...(a as [])) }));
+vi.mock('../../cache', () => ({ markDayStalled: markDayStalled }));
 
 import { drainQueue } from '../runner';
 
@@ -76,10 +76,10 @@ describe('server-class budget applies to cascade-exempt kinds', () => {
     await drainOne(entry('record_unlock', SERVER_ATTEMPT_LIMIT - 1), CHECK_VIOLATION);
 
     expect(markTerminal).toHaveBeenCalledTimes(1);
-    expect(markTerminal.mock.calls[0][1]).toBe('failed');
-    expect(markTerminal.mock.calls[0][2]).toBe('server');
+    expect(markTerminal.mock.calls[0]![1]).toBe('failed');
+    expect(markTerminal.mock.calls[0]![2]).toBe('server');
     expect(raiseSyncAlert).toHaveBeenCalledTimes(1);
-    expect(raiseSyncAlert.mock.calls[0][0].kind).toBe('unlock_record_rejected');
+    expect(raiseSyncAlert.mock.calls[0]![0].kind).toBe('unlock_record_rejected');
     // The driver's log is fine; only the audit row is missing.
     expect(markDayStalled).not.toHaveBeenCalled();
   });
@@ -89,7 +89,7 @@ describe('server-class budget applies to cascade-exempt kinds', () => {
 
     expect(markTerminal).not.toHaveBeenCalled();
     expect(markRetry).toHaveBeenCalledTimes(1);
-    expect(markRetry.mock.calls[0][1]).toBe('network');
+    expect(markRetry.mock.calls[0]![1]).toBe('network');
   });
 
   it('never alerts about a failed alert — counted and logged instead', async () => {
@@ -103,7 +103,7 @@ describe('server-class budget applies to cascade-exempt kinds', () => {
   it('still flags the day for a non-exempt chain kind', async () => {
     await drainOne(entry('certify_day', SERVER_ATTEMPT_LIMIT - 1), CHECK_VIOLATION);
 
-    expect(raiseSyncAlert.mock.calls[0][0].kind).toBe('sync_failed');
+    expect(raiseSyncAlert.mock.calls[0]![0].kind).toBe('sync_failed');
     expect(markDayStalled).toHaveBeenCalledWith('2026-07-02', 'stalled');
   });
 });
