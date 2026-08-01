@@ -338,7 +338,7 @@ async function cacheDocumentDay(day: RodsDay) {
   let displayMime: string | null = null;
   let renderable = false;
 
-  const displayPath = (day as { display_document_path?: string | null }).display_document_path;
+  const displayPath = day.display_document_path;
   if (displayPath) {
     const fetched = await fetchStorageBytes(displayPath);
     if (fetched && await canDecode(fetched, DISPLAY_MIME)) {
@@ -372,8 +372,7 @@ async function cacheDocumentDay(day: RodsDay) {
     renderable,
     display_bytes: displayBytes,
     display_mime: displayMime,
-    display_conversion_failed:
-      (day as { display_conversion_failed?: boolean | null }).display_conversion_failed ?? false,
+    display_conversion_failed: day.display_conversion_failed ?? false,
     cached_at: new Date().toISOString(),
   });
 }
