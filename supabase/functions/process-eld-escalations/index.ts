@@ -271,7 +271,27 @@ async function handler(req: Request): Promise<Response> {
       .toLocaleDateString('en-US', { timeZone, month: 'long', day: 'numeric', year: 'numeric' });
     const link = buildAppUrl(`/management?tab=eld-malfunctions&event=${e.id}`);
 
-    for (const action of actions) {
+    // The extension prompt is offered ONCE per event, not once per day: the
+    // per-day ledger key would otherwise repeat it every day the window is
+    // open. Dedupe on the event, across all dates.
+    let due = actions;
+    if (actions.some((a) => a.kind === 'extension_prompt')) {
+      const { data: priorPrompt } = await admin
+        .from('eld_malfunction_notifications')
+        .select('id')
+        .eq('event_id', e.id)
+        .eq('notification_type', 'extension_prompt')
+        .limit(1);
+      if (priorPrompt && priorPrompt.length > 0) {
+        due = actions.filter((a) => a.kind !== 'extension_prompt');
+      }
+    }
+    if (due.length === 0) {
+      results.push({ event_id: e.id, day, actions: [] });
+      continue;
+    }
+
+    for (const action of due) {
       const type = NOTIF_TYPE[action.kind];
       const fired = await deliver({
         admin, dryRun, action, type, e, day, driverName, unitNumber, deadline,
