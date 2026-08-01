@@ -11,6 +11,7 @@ import {
 import { roadsideDb } from '@/lib/eld/offline/db';
 import { putCachedDay, putCachedEvents } from '@/lib/eld/offline/cache';
 import { enqueueCoalesced } from '@/lib/eld/offline/queue/store';
+import { newLocalRodsDay } from '@/lib/eld/rodsTypes';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
 export interface DraftSegment {
