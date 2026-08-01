@@ -142,7 +142,7 @@ async function resolveNotice(supabase: Supa, eventId: string): Promise<ResolvedN
     const { data: profile } = await supabase
       .from('profiles')
       .select('first_name, last_name')
-      .eq('id', operator.user_id)
+      .eq('user_id', operator.user_id)
       .maybeSingle();
     driverName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Driver';
   }
