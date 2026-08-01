@@ -4,6 +4,7 @@ import { formatRoadsideDateLong } from '@/lib/eld/offline/roadsideManifest';
 import { signatureKeyForDay } from '@/lib/eld/offline/prune';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RoadsideDayRender from './RoadsideDayRender';
+import DemoWatermarkOverlay from './DemoWatermarkOverlay';
 
 type Payload =
   | {
