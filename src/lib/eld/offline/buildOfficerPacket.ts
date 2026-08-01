@@ -98,6 +98,25 @@ const GOLD = rgb(0.788, 0.659, 0.298);
 const INK = rgb(0.051, 0.051, 0.051);
 const GREY = rgb(0.42, 0.42, 0.42);
 
+/**
+ * The standard fonts encode WinAnsi only, and `drawText` THROWS on anything
+ * outside it — an arrow, a CJK character in a carrier name, a smart quote
+ * pasted into a truck number. That throw would abort the whole merge at the
+ * roadside. Every string that reaches the page goes through here first:
+ * a degraded glyph is always better than no packet.
+ */
+function wa(text: string): string {
+  return text
+    .replace(/[\u2192\u2794]/g, '->')
+    .replace(/[\u2018\u2019\u201B]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[\u00B7\u2022]/g, '-')
+    .replace(/\u2026/g, '...')
+    // Anything still outside Latin-1 printable becomes '?' rather than throwing.
+    .replace(/[^\u0020-\u007E\u00A0-\u00FF]/g, '?');
+}
+
 interface DaySource {
   day: ManifestDay;
   /** PDF bytes to merge, image bytes to draw, or null for a placeholder. */
@@ -183,7 +202,7 @@ async function addCoverPage(
 
   let y = height - MARGIN - 18;
   const line = (text: string, size = 10, f = font, color = INK, gap = 15) => {
-    page.drawText(text, { x: MARGIN, y, size, font: f, color });
+    page.drawText(wa(text), { x: MARGIN, y, size, font: f, color });
     y -= gap;
   };
 
@@ -236,13 +255,13 @@ async function addPlaceholderPage(
   const { height } = page.getSize();
   drawHeaderRule(page);
 
-  page.drawText(formatRoadsideDate(day.log_date), {
+  page.drawText(wa(formatRoadsideDate(day.log_date)), {
     x: MARGIN, y: height - MARGIN - 24, size: 16, font: bold, color: INK,
   });
   page.drawText('RECORD NOT INCLUDED', {
     x: MARGIN, y: height - MARGIN - 50, size: 12, font: bold, color: INK,
   });
-  page.drawText(reason, {
+  page.drawText(wa(reason), {
     x: MARGIN, y: height - MARGIN - 74, size: 10, font, color: GREY, maxWidth: A4[0] - MARGIN * 2, lineHeight: 14,
   });
   page.drawText(
@@ -266,7 +285,7 @@ async function addImagePage(
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const { width, height } = page.getSize();
   drawHeaderRule(page);
-  page.drawText(`${formatRoadsideDate(day.log_date)} — ELD log (photographed)`, {
+  page.drawText(wa(`${formatRoadsideDate(day.log_date)} — ELD log (photographed)`), {
     x: MARGIN, y: height - MARGIN - 8, size: 11, font: bold, color: INK,
   });
 
