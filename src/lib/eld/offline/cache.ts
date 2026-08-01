@@ -93,8 +93,15 @@ export type EventCacheProvenance =
   | 'hydration'
   | 'local_certification'
   | 'sync_flag_clear'
-  /** The day editor: draft creation, a post-read refresh, or a segment save. */
-  | 'editor';
+  /** The day editor, driver-authored: draft creation or a segment save. */
+  | 'editor'
+  /**
+   * The editor's post-read refresh, aligning the cache with rows just read
+   * from the server. Kept distinct from `editor` because it is not a driver
+   * edit: an empty set here means the SERVER handed over a certified day with
+   * no segments, which is a different fault from the editor producing one.
+   */
+  | 'server_read';
 
 /**
  * Keys only, no prose. Returned to the caller rather than stored in module

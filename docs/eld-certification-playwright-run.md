@@ -238,3 +238,89 @@ outcome in `rods_unlock_events.notification_state` /
 `notification_error` and continuing. Same principle as storage failures not
 blocking `purge_rods_day`: the audit row is the compliance artifact, the
 notification is the delivery.
+
+# Run C — read-failure correction + queue cases (l), (i), (k), 2026-08-01
+
+## Correction shipped first: the post-read refresh could fire the alert on a network fault
+
+`useRodsDay`'s refresh read `rods_events` and wrote the result straight into the
+event cache. A failed select yields `data: null` → `[]`, which is
+indistinguishable from a day that genuinely has no segments. On a certified day
+that write both clobbered a good cached set and raised
+`certified_day_no_segments` for what was only a dropped connection — the exact
+way an alert for an impossible condition becomes an alert nobody reads.
+
+Three changes:
+
+1. **Skip the write on read failure.** `evsErr` now returns early; the cache and
+   the screen keep what they had.
+2. **New provenance `server_read`.** The refresh is not a driver edit. An empty
+   set on that path means the SERVER handed over a certified day with no
+   segments — a different fault from the editor producing one, and the detail
+   payload now says which.
+3. **No invariants asserted as literals.** The refresh and segment-save sites
+   pass `localCertifiedAt.current` instead of a hardcoded `null`. Both are
+   draft writes by construction today; if a guard regresses, the alert fires
+   rather than being argued out of existence by a literal.
+
+Draft-create still passes `null` — it is the one site where the value is not an
+assumption: `localCertifiedAt.current` is reset immediately above it.
+
+## Harness: `scripts/eld-queue-gate.py`
+
+Real modules, real browser, real IndexedDB. Modules come in through the Vite dev
+server's module graph (`import('/src/...')`), so nothing is exported onto
+`window` and no test-only code ships. Every Supabase call is intercepted and
+fulfilled at the network layer: all three cases are about what the DEVICE does
+on a failure path, and none of them may mutate live compliance rows to find out.
+
+## (l) Queue-side replay after a 504 — PASS
+
+Certify enqueued with this attempt's paths `signature-2000.png` / `log-2000.pdf`.
+First drain gets a 504; second gets a `replayed: true` row carrying the FIRST
+attempt's `signature-1000.png` / `log-1000.pdf`.
+
+- 504 classified `server`, entry left `pending` with `attempts: 1` — retryable,
+  consistent with the retry-budget split from the previous pass.
+- Replay drain reached `succeeded`.
+- Storage `DELETE` carried exactly the two second-attempt paths.
+- Neither `pdf_path` nor `certification_signature_path` from the returned row
+  appeared in the delete — rule 2 of `deleteReplayOrphans` holds under a real
+  replay, not just by inspection.
+- The cache adopted the certified row's paths, so the device points at the
+  signature that actually stands.
+
+## (i) Coalescing while an entry is in flight — PASS
+
+Header edit issued against a `save_draft_day` already marked `in_flight`:
+
+- A second entry is created rather than the in-flight payload being rewritten.
+- It carries `depends_on: [<in-flight id>]`.
+- `dueEntries()` does not offer it while the first is on the wire.
+- It releases once the first succeeds, with its own (later) payload intact.
+
+The failure this rules out is the later state being applied first and then
+overwritten by the earlier one landing.
+
+## (k) Render failure before the lock — PASS, with one observation
+
+`renderRodsDay` driven with five bad signature inputs: non-data-URL, wrong MIME,
+truncated PNG, non-base64 body, empty string.
+
+- No input threw. Each produced an identical 4,498-byte PDF.
+- The cached day stayed `locked: false` with `local_certified_at: null`.
+- No `signature_images` or `rods_pdfs` rows were left behind.
+- No queue entries were created.
+
+So a render fault cannot orphan bytes or half-advance the lock, which is what
+the case was for.
+
+**Observation, not a defect here.** The renderer swallows a bad signature and
+emits a PDF with the typed legal name over a blank signature line. That is the
+right behaviour for `renderRodsDay` in isolation — a signature that will not
+embed must not take the document down. It is only safe because nothing on the
+certify path can reach it with an unvalidated data URL: the signature is written
+to `signature_images` from the canvas and read back as a PNG data URL. If a
+future path ever feeds it a signature from elsewhere, the silent drop becomes a
+certified log with no visible signature, and the check belongs at that path's
+edge — not by making the renderer throw.
