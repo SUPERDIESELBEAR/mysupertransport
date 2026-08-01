@@ -1601,6 +1601,7 @@ export type Database = {
           created_at: string
           detail: string
           id: string
+          is_demo: boolean
           kind: string
           last_seen_at: string
           log_date: string | null
@@ -1615,6 +1616,7 @@ export type Database = {
           created_at?: string
           detail?: string
           id?: string
+          is_demo?: boolean
           kind: string
           last_seen_at?: string
           log_date?: string | null
@@ -1629,6 +1631,7 @@ export type Database = {
           created_at?: string
           detail?: string
           id?: string
+          is_demo?: boolean
           kind?: string
           last_seen_at?: string
           log_date?: string | null
