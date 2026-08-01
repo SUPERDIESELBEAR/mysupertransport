@@ -119,7 +119,9 @@ export async function validateSignatureImage(
   }
 
   try {
-    const blob = new Blob([bytes], { type: 'image/png' });
+    const buf = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buf).set(bytes);
+    const blob = new Blob([buf], { type: 'image/png' });
     const bitmap = await createImageBitmap(blob);
     const canvas = document.createElement('canvas');
     canvas.width = bitmap.width;
