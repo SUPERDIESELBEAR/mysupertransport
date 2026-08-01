@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 import { ok, fail, withErrorEnvelope, sendResendDirect } from '../_shared/email/index.ts';
+import { resolvedDriverName } from '../_shared/placeholder-name.ts';
 
 const ELD_NOTICE_BUCKET = 'eld-notices';
 
