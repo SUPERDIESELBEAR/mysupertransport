@@ -418,9 +418,14 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     expect(KNOWN_AUTHENTICATED_EXECUTABLE.length).toBeLessThanOrEqual(
       KNOWN_AUTHENTICATED_EXECUTABLE_MAX,
     );
-    expect(new Set(KNOWN_AUTHENTICATED_EXECUTABLE).size).toBe(
-      KNOWN_AUTHENTICATED_EXECUTABLE.length,
-    );
+    // Same reasoning as the anon list: the MAX only caps what it counts.
+    // This list is currently at 66 to carry the interim certify_rods_day
+    // pair deliberately, which is exactly the situation where a duplicate
+    // would be easiest to mistake for the sanctioned second entry.
+    expect(
+      duplicatesIn(KNOWN_AUTHENTICATED_EXECUTABLE),
+      "duplicate entries in KNOWN_AUTHENTICATED_EXECUTABLE",
+    ).toEqual([]);
   });
 
   it.runIf(HAS_DB)(
