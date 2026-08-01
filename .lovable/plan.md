@@ -1,57 +1,65 @@
-# Correction accepted, plus what the manifest builder actually does
+## Verification of the two gaps (unchanged, confirmed against the code)
 
-Checked `buildManifestFromCache` before planning. It is half-right already:
+**`ensureDayCached` is on the hydration path but is not the only writer.** It has exactly one non-test caller, `hydrate.ts:277`, so the named exposure does route through it. But `rods_events_cache` is written from three places, all via `putCachedEvents` (`cache.ts:81`): `ensureDayCached.ts:137` (hydration), `commitCertification.ts:156` (local certification, which does **not** go through `ensureDayCached`), and `cache.ts:99` (the re-put inside `markDaySynced`). The guard belongs at `putCachedEvents`.
 
-- `manifestBuild.ts:101` — `hasRows = !!cached && (events?.events.length ?? 0) > 0`, so `renderable` is **already false** for an empty event set. Your read that it keys on "both rows present" is right in spirit but the length check is there.
-- The leak is the other two fields: `cached: hasRows || !!pdf` and `printable: !!pdf` (`:108-111`). With a stale-or-present PDF the day is still advertised as cached and printable.
-- And `RoadsideDayView` never consults `renderable` at all for keyed days — it branches on `day.cached`, then on both Dexie rows merely *existing* (`RoadsideDayView.tsx:39-64`). An event row holding `[]` satisfies that and goes native, drawing an empty grid under a Certified header. That is the blank-log path.
+**Provenance cannot be inferred.** `PutCachedEventsInput` carries only `rods_day_id`, `log_date`, `events`, `unsynced`, `version`, `cached_at`; `unsynced` does not stand in for the caller, since `markDaySynced` re-puts hydration-sourced rows. It also has no `status`, so it cannot tell a certified day from a draft. Both get passed in.
 
-So the guard belongs in both places, and the recovery is neither the grid nor the embed.
+## Plan
 
-# Plan
+### 1. New alert kind
 
-## 1. Split the retry exemption by class, not by kind
+`certified_day_no_segments` in `SyncAlertKind` (`src/lib/eld/offline/queue/alerts.ts`) — a certified day cached with an empty segment set. Distinct from `certified_day_divergence`: one copy, structurally unable to render.
 
-`queue/runner.ts` / `queue/types.ts`:
+### 2. Guard at `putCachedEvents`
 
-- `network` — exempt from `SERVER_ATTEMPT_LIMIT` for exempt kinds, as today. That is the dead-zone case.
-- `server` and `rejected` — the ordinary limit (8) applies to exempt kinds too, with an alert on exhaustion.
-- Terminal either way means `markTerminal`, never delete: the entry stays in Dexie, out of the driver-facing chip, and never flags the day.
-- No `SERVER_ATTEMPT_LIMIT_EXEMPT` constant. Rewrite the `CASCADE_EXEMPT_KINDS` comment: the exemption covers cascade cancellation, purge and counts — point 3 in that list is removed, because a budget is not a silent drop.
+Two new **required** fields on `PutCachedEventsInput`:
 
-## 2. Two new alert kinds
+- `provenance: 'hydration' | 'local_certification' | 'sync_flag_clear'`
+- `day_status: RodsDay['status']`
 
-Add `unlock_record_rejected` and `alert_delivery_failed` to `SyncAlertKind`. A terminal `record_unlock` raises `unlock_record_rejected` through the queue; `raise_sync_alert` going terminal stays console-only and counted, since it is the one kind that would recurse.
+Required, not optional — a new writer must state both rather than defaulting into silence. Call sites: `ensureDayCached` passes `'hydration'` and `day.status`; `commitCertification` passes `'local_certification'` and the status it just wrote; `markDaySynced` passes `'sync_flag_clear'` and `existing.day.status`, which it already has loaded.
 
-## 3. Audit row survives a failed notification
+Condition: `day_status === 'certified' && events.length === 0`.
 
-Migration replacing `public.record_rods_unlock`, unchanged in authorization, reason check, idempotency and the `rods_unlock_events` insert:
+### 3. The condition is a return value, not module state
 
-- Wrap the `notifications` fan-out in `BEGIN … EXCEPTION WHEN OTHERS THEN … END` so a bad value cannot roll back the audit row.
-- Add nullable `notification_state` (default `'delivered'`) and `notification_error` to `rods_unlock_events`; on failure write `'failed'` plus SQLSTATE and message, and `RAISE WARNING`.
-- Return the unlock id regardless, so the queue entry succeeds.
+`putCachedEvents` returns `{ record, emptySegments }`, where `emptySegments` is `null` or a keys-only descriptor (`rods_day_id`, `log_date`, `provenance`). It stores nothing. `flushEmptySegmentAlerts(detected)` takes that value as an argument and raises through `raiseSyncAlert`, tolerating `null` so callers need no branch.
 
-## 4. Empty event set is an unavailable day, not a fallback
+This is what makes it correct under the two failure modes:
 
-**Manifest** (`localDay`): compute the empty case explicitly — a keyed day with a cached header whose event row is present but `events.length === 0`. For that day set `renderable: false`, `printable: false`, `cached: false`, regardless of any PDF on the device. A structurally empty certified log makes the PDF for that date untrustworthy too; it is not offered for print, email-merge or download. Distinguish it in the comment from "no event row at all", which stays the legitimate PDF-embed case.
+- **Aborted transaction:** the value lives in the caller's local variable inside the transaction callback. If the transaction throws, the exception propagates and the flush line after it never runs — the value is discarded with the frame. Nothing survives to be raised for a write that did not happen.
+- **Concurrency:** hydration and a certification each hold their own value. Neither can drain the other's, and no completion can be misattributed.
 
-**View** (`RoadsideDayView`): for keyed days, require `day.renderable` before the native branch, and treat an event row with `events.length === 0` as not renderable independently of the manifest, so a stale manifest cannot re-open the path. Fall through to the existing `missing` state — the same honest tile any day without bytes shows, per Stage 3 §10.2 — never to the PDF embed, which on iOS Safari is the blank-frame path the native renderer exists to avoid.
+Raising still happens **after** the commit, because the caller's flush call sits after its `roadsideDb.transaction(...)`: `raiseSyncAlert` writes to `sync_queue`, which is outside the cache-table transaction scope, so enqueueing inline would throw inside the transaction and take the cache write with it. `ensureDayCached` and `commitCertification` capture the returned value inside their transaction and flush after; `markDaySynced` flushes at the end (no transaction there).
 
-Count it in `logNativeFallback` under a separate key so the driver-side dashboard distinguishes "hydrated before the structured cache existed" from "hydration wrote an empty certified log".
+Coalescing is already keyed `kind:operator:log_date`, so a repeatedly re-hydrated bad day yields one entry.
 
-## 5. Purge the leftover certified logs
+### 4. Unchanged behaviour
 
-Through `purge-rods-day` (staff session), both ids — `55afece3-ef65-4aa0-a370-701b32e2da05`, `5f83bace-ac92-46ae-9b48-c9bc00ab052c` — with the verbatim reason:
+- Not raised from `RoadsideDayView` or `manifestBuild` — the view runs with an officer present and stays read-only.
+- `roadside_empty_event_set` stays as the driver-side counter.
+- The manifest still marks the day not `cached`/`renderable`/`printable`; the view still shows the "No certified record is stored on this device" tile, never the PDF embed.
+- `raiseSyncAlert` never throws and the flush is post-commit, so a failed alert cannot cost the cache write. `alert_delivery_failed` covers a dead alert path.
 
-> "Verification-run cleanup: authorized-unlock Playwright pass 2026-08-01, harness-seeded certified logs 2026-07-02."
+### 5. Tests
 
-Re-query `rods_days` after and confirm it is empty, closing the demo-mode clean-truncate window.
+In `src/lib/eld/offline/__tests__/emptyEventSet.test.tsx`:
 
-## 6. Register entry and run doc
+- hydration writes certified + `events: []` → one `raise_sync_alert` entry, kind `certified_day_no_segments`, provenance `hydration`
+- **local certification** commits certified + `events: []` → alert with provenance `local_certification` (the case the earlier design would have missed)
+- certified + non-empty events → no alert
+- **draft** + `events: []` → no alert
+- **aborted transaction:** `putCachedEvents` runs with the empty certified set, then the transaction throws → no alert queued, no cached rows
+- **interleaved callers:** a certification's flush raises only its own descriptor while a hydration's value is still in flight
+- alert enqueue rejects → cached day and event rows intact, `undeliverableAlertCount()` is 1
 
-File the empty-event-set guard as a defect dated today: hydration (`ensureDayCached:137-144`) is the writer that can persist `events: []`; the reconcile in `authorizedUnlock` touches only `rods_days_cache` and is not implicated; `certify_rods_day` raises **P0023** for a zero-event keyed day, so the two rows I hit were harness direct inserts (`created_at = certified_at = updated_at`, totals 0) and the divergence itself was a test artifact — the render exposure is not. Record Run B's setup as the reproduction.
+### 6. Register update
+
+Run B section of `docs/eld-certification-playwright-run.md`: the condition now alerts rather than only counting; the reasoning (unreachable through `certify_rods_day`, which raises `P0023` for a keyed day that does not tile 1440 minutes, so any occurrence means something bypassed it); the two live paths that could produce it — a direct insert against `rods_days`, or a server-side event delete against a certified day; that the guard sits at `putCachedEvents` because three writers reach the event cache; and that the detection is call-scoped rather than module state, with the abort and concurrency reasons recorded so it is not "simplified" back later.
 
 ## Technical notes
 
-- Files: `queue/types.ts`, `queue/runner.ts`, `queue/alerts.ts`, `manifestBuild.ts`, `RoadsideDayView.tsx`, one migration, `docs/eld-certification-playwright-run.md`.
-- Tests: unlisted SQLSTATE classifies `server` (locks the fallback in); exempt kind with a `server` error goes terminal at attempt 8 and raises `unlock_record_rejected`, while `network` on the same kind does not; manifest test that an empty event row yields `cached/renderable/printable` all false even with a PDF present; view test that the same day renders the unavailable tile and no `<object>` embed.
+- `alerts.ts` is Dexie-only, so importing it into `cache.ts` keeps `/roadside` free of Supabase.
+- Changing `putCachedEvents` to return `{ record, emptySegments }` touches its three call sites; none currently use the returned record except `markDaySynced`'s spread, which is unaffected.
+- No migration. `raise_sync_alert` takes the kind as text.
+- Adding required fields to `PutCachedEventsInput` is a compile-time break for any other writer, which is the intent.
