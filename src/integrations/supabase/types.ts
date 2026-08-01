@@ -6620,6 +6620,7 @@ export type Database = {
           bucket: string
           expires_at: string
           operator_id: string
+          outcome: string
           storage_path: string
         }[]
       }
@@ -6630,6 +6631,7 @@ export type Database = {
           file_url: string
           id: string
           name: string
+          outcome: string
         }[]
       }
       resolve_short_link: { Args: { _code: string }; Returns: string }
