@@ -227,6 +227,21 @@ export function validateRodsDay(
   };
 }
 
+/**
+ * Names that are not names. 49 CFR 395.8 requires the driver's name on the
+ * record; the non-empty check alone would let the codebase's own `|| 'Driver'`
+ * fallback certify a false entry that passes every guard. The database refuses
+ * these too (SQLSTATE P0032) — this copy only keeps the driver from reaching a
+ * server rejection they can't act on.
+ */
+export const PLACEHOLDER_LEGAL_NAMES: readonly string[] = [
+  'driver', 'unknown', 'operator', 'n/a', 'na', 'unnamed', 'test driver', 'test',
+];
+
+export function isPlaceholderLegalName(name: string | null | undefined): boolean {
+  return PLACEHOLDER_LEGAL_NAMES.includes((name ?? '').trim().toLowerCase());
+}
+
 /** Segments shorter than 15 minutes are noted separately in REMARKS. */
 export const SHORT_PERIOD_MINUTES = 15;
 
