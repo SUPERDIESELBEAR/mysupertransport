@@ -21,6 +21,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 import { ok, fail, withErrorEnvelope, sendResendDirect } from '../_shared/email/index.ts';
+import { resolvedDriverName } from '../_shared/placeholder-name.ts';
 
 const PACKET_BUCKET = 'eld-notices';
 const LINK_TTL_HOURS = 4;
