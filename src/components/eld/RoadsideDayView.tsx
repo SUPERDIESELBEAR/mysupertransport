@@ -37,8 +37,9 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
       if (!day.cached) { setPayload({ kind: 'missing' }); return; }
 
       if (day.kind === 'keyed') {
-        // Structured render requires BOTH rows. A header with no segments
-        // would draw an empty grid, which reads as "no duty recorded".
+        // Structured render requires both rows AND at least one segment. A
+        // header with no segments would draw an empty grid, which reads as
+        // "no duty recorded" — the one failure an officer cannot recover from.
         const [dayRow, meta] = await Promise.all([
           roadsideDb.rods_days_cache.get(day.log_date),
           readLocalMeta(),
@@ -48,7 +49,7 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
           : undefined;
         if (cancelled) return;
 
-        if (dayRow && eventRow) {
+        if (dayRow && eventRow && eventRow.events.length > 0) {
           const sig = await roadsideDb.signature_images
             .get(signatureKeyForDay(dayRow.operator_id, day.log_date))
             .catch(() => undefined);
@@ -63,9 +64,22 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
           return;
         }
 
-        // Device hydrated before the structured cache existed. Fall back to the
-        // PDF silently — the officer screen never explains cache formats.
-        logNativeFallback(day.log_date);
+        // An event row that is PRESENT and EMPTY is not a missing cache — it is
+        // hydration having written an authoritative-looking empty set. The PDF
+        // for that date is no more trustworthy than the rows, and on iOS Safari
+        // the embed is the blank-frame path this native renderer exists to
+        // avoid. Show the honest "not available here" state instead: a day the
+        // driver cannot produce is recoverable, a blank certified log is not.
+        if (eventRow) {
+          logNativeFallback(day.log_date, 'empty_event_set');
+          setPayload({ kind: 'missing' });
+          return;
+        }
+
+        // No event row at all: device hydrated before the structured cache
+        // existed. Fall back to the PDF silently — the officer screen never
+        // explains cache formats.
+        logNativeFallback(day.log_date, 'no_event_row');
         const entry = await roadsideDb.rods_pdfs.get(day.log_date);
         if (!entry || cancelled) return;
         const url = URL.createObjectURL(new Blob([entry.bytes], { type: 'application/pdf' }));
@@ -197,9 +211,11 @@ function OpenFileAction({ url }: { url: string }) {
  * Recorded for the driver-side dashboard only. The officer screen never shows
  * a cache-format explanation.
  */
-function logNativeFallback(logDate: string) {
+function logNativeFallback(logDate: string, reason: 'no_event_row' | 'empty_event_set') {
   try {
-    const key = 'roadside_native_fallback';
+    const key = reason === 'empty_event_set'
+      ? 'roadside_empty_event_set'
+      : 'roadside_native_fallback';
     const prev = JSON.parse(localStorage.getItem(key) ?? '[]') as string[];
     if (!prev.includes(logDate)) {
       localStorage.setItem(key, JSON.stringify([...prev, logDate].slice(-16)));
