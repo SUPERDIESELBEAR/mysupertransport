@@ -323,7 +323,7 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
    * officer on the same day is a different entry and goes out.
    */
   async send_officer_email(payload) {
-    const { error } = await supabase.functions.invoke('send-officer-packet', {
+    const { data, error } = await supabase.functions.invoke('send-officer-packet', {
       body: {
         entry_id: str(payload, 'entry_id'),
         operator_id: str(payload, 'operator_id'),
@@ -339,6 +339,10 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
       },
     });
     if (error) throw new Error(error.message ?? 'Officer email failed.');
+    announceIfSuppressed(
+      data,
+      'The officer packet email and the carrier copy were held back.',
+    );
   },
 
   /**
