@@ -52,17 +52,17 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
     if (!open) return;
     setUnusedTokens(null);
     (async () => {
-      const tokensP = supabase
-        .from('application_resume_tokens')
-        .select('token', { count: 'exact', head: true })
-        .eq('application_id', application.id)
-        .is('used_at', null);
+      // application_resume_tokens holds no client-role grants (2026-08-01):
+      // the raw tokens are resume links. This RPC returns only the count.
+      const tokensP = supabase.rpc('count_unused_resume_tokens', {
+        _application_id: application.id,
+      });
       const defaultP = supabase
         .from('revert_courtesy_email_defaults')
         .select('send_by_default')
         .eq('role', effectiveRole)
         .maybeSingle();
-      const [{ count }, { data: defRow }] = await Promise.all([tokensP, defaultP]);
+      const [{ data: count }, { data: defRow }] = await Promise.all([tokensP, defaultP]);
       setUnusedTokens(count ?? 0);
       const on = !!defRow?.send_by_default;
       setSendCourtesyEmail(on);
