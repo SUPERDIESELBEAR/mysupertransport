@@ -31,7 +31,18 @@ export type SyncAlertKind =
    * failed alert would recurse — but named so the console line and the
    * undeliverable counter describe one condition instead of prose.
    */
-  | 'alert_delivery_failed';
+  | 'alert_delivery_failed'
+  /**
+   * A certified day was cached with ZERO segments. Distinct from
+   * `certified_day_divergence`, which is two copies that disagree: here there
+   * is one copy and it is structurally incapable of rendering, so the driver
+   * is shown an unavailable tile for a log he signed.
+   *
+   * Should be unreachable — `certify_rods_day` raises P0023 for a keyed day
+   * whose segments do not tile 1440 minutes — which is exactly why it alerts
+   * rather than only incrementing a counter nobody reads.
+   */
+  | 'certified_day_no_segments';
 
 export interface SyncAlertInput {
   kind: SyncAlertKind;
