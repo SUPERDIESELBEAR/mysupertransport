@@ -79,8 +79,6 @@ function filenameOf(path: string): string {
  * strictly worse than serving yesterday's copy.
  */
 async function writeLocalMeta(operatorId: string, driverName: string): Promise<LocalMeta> {
-  const existing = await readLocalMeta();
-
   const { data: op } = await supabase
     .from('operators')
     .select('id, user_id, unit_number, home_terminal_timezone, is_demo, demo_reset_at')
@@ -95,6 +93,10 @@ async function writeLocalMeta(operatorId: string, driverName: string): Promise<L
     isDemo: (op as { is_demo?: boolean } | null)?.is_demo,
     demoResetAt: (op as { demo_reset_at?: string | null } | null)?.demo_reset_at ?? null,
   });
+
+  // Read AFTER the wipe: a pre-wipe snapshot would carry the purged demo
+  // session's carrier and terminal values straight back into the new row.
+  const existing = await readLocalMeta();
 
   const { data: lastDay } = await supabase
     .from('rods_days')
