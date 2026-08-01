@@ -128,6 +128,22 @@ export async function commitCertification(
     throw new Error(SIGNATURE_INVALID_MESSAGE);
   }
 
+  // The passed-in result is a claim about the bytes; the digest proves only
+  // that the claim is ABOUT these bytes, not that it is true. This function
+  // writes the lock, so it decides for itself: re-run the validator here and
+  // refuse on its verdict. One decode of an image already in memory.
+  const ownCheck = await validateSignatureImage(signatureDataUrl);
+  if (!ownCheck.ok) {
+    throw new Error(SIGNATURE_INVALID_MESSAGE);
+  }
+  // Record whichever run actually saw pixels. A structural pass here only
+  // means THIS context lacks a decoder — it does not retract the caller's
+  // pixel evidence for the same, digest-matched bytes.
+  const effectiveValidation: SignatureValidation =
+    ownCheck.mode === 'pixel' || signatureValidation.mode !== 'pixel'
+      ? ownCheck
+      : signatureValidation;
+
   const localCertifiedAt = new Date().toISOString();
   const signatureKey = signatureKeyForDay(operatorId, logDate);
   const dependsOnDrafts = await pendingDraftIds(logDate);
