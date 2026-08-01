@@ -44,6 +44,12 @@ export interface LocalMeta {
    * such as the officer packet cover and placeholder pages.
    */
   is_demo?: boolean;
+  /**
+   * The `operators.demo_reset_at` value this device has already honoured. Only
+   * ever advanced by the demo wipe (see demoReset.ts), which refuses to run
+   * unless the server row says `is_demo`.
+   */
+  demo_reset_at?: string | null;
   updated_at: string;
 }
 
