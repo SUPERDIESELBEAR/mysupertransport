@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import {
-  MIGRATIONS_DIR,
-  migrationFiles,
-  resolvedDefiners,
-  stripComments,
-} from "./helpers/migrationFunctions";
+import { resolvedDefiners } from "./helpers/migrationFunctions";
 
 /**
  * Guards the conventions in docs/database-security-conventions.md.
