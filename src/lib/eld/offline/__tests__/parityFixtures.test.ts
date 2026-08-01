@@ -471,7 +471,17 @@ describe('certify_rods_day — client/server parity fixtures', () => {
 
   it('fixture numbers are 1..17 with no duplicates', () => {
     expect(FIXTURES.map((f) => f.n)).toEqual(
-      Array.from({ length: 17 }, (_, i) => i + 1),
+      Array.from({ length: 19 }, (_, i) => i + 1),
     );
+  });
+
+  it('unobserved-but-reachable codes are registered and still unasserted', () => {
+    for (const [code, recipe] of Object.entries(UNOBSERVED_REACHABLE)) {
+      // Real conditions: they must be known to the queue classifier even
+      // though no fixture can assert them yet.
+      expect(isRejectionSqlState(code)).toBe(true);
+      expect(recipe.length).toBeGreaterThan(20);
+      expect(OBSERVED_CODES).not.toContain(code);
+    }
   });
 });
