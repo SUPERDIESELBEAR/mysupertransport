@@ -180,6 +180,9 @@ Deno.serve(withErrorEnvelope(async (req) => {
   await admin.from('operators').update({
     is_active: scenario !== 'blank',
     demo_scenario: scenario,
+    // Device-side signal: the roadside Dexie stores drop any cached day older
+    // than this stamp, so a reset phone does not keep showing purged logs.
+    demo_reset_at: new Date().toISOString(),
     on_hold: false,
     on_hold_reason: null,
     on_hold_date: null,
