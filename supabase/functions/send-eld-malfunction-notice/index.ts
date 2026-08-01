@@ -119,7 +119,7 @@ async function handler(req: Request): Promise<Response> {
     .select(`id, operator_id, discovered_at, discovered_location, malfunction_code,
       malfunction_description, hinders_hos_recording, repair_deadline, notice_pdf_path,
       notice_uploaded_at, notice_sent_at, notice_send_attempts, device_provider, device_make,
-      device_model, device_serial,
+      device_model, device_serial, is_demo,
       operators!inner(unit_number, profiles(first_name, last_name))`)
     .eq('id', eventId)
     .maybeSingle();
@@ -148,6 +148,31 @@ async function handler(req: Request): Promise<Response> {
       notice_last_send_error: 'No active carrier notification recipients configured',
     }).eq('id', eventId);
     return fail(400, 'No active carrier notification recipients are configured');
+  }
+
+  // A demo run must not put anything in a real inbox. Suppression is visible,
+  // not silent: the caller gets the exact recipient list and subject that a
+  // live run would have used, so the driver sees the flow complete rather than
+  // an error. The event is still marked sent so the repair clock and the rest
+  // of the workflow behave exactly as they would for a real driver.
+  if (event.is_demo === true) {
+    const now = new Date().toISOString();
+    await supabase.from('eld_malfunction_events').update({
+      notice_sent_at: now,
+      notice_send_attempts: (event.notice_send_attempts ?? 0) + 1,
+      notice_last_send_error: null,
+    }).eq('id', eventId);
+    return ok({
+      success: true,
+      suppressed: true,
+      suppressed_reason: 'demo_operator',
+      would_have_sent: {
+        to: recipients,
+        subject: 'ELD Malfunction Notice',
+        attachment: 'ELD malfunction notice (PDF, DEMO watermarked)',
+      },
+      recipients: recipients.length,
+    });
   }
 
   const { data: file, error: downloadError } = await supabase.storage
