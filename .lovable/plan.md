@@ -1,49 +1,74 @@
-# Stage 4 — Phase 1a: the §2 escalation ladder (revised)
+## Confirmed before writing this (unchanged findings, plus two new)
 
-Build §2, verify it against the §9 list, report before §3 starts.
+- **`send-eld-malfunction-notice` fails on its first statement.** Line 123 embeds `operators!inner(... profiles(...))`; `operators.user_id` points at `auth.users`, so no such relationship exists. Every call returns `500 Could not load the malfunction event` — before the upload gate, before the demo branch, before the PDF read. Broken since the file was written, commit `2f1158be`, Wed Jul 29 23:17 UTC. `eld_malfunction_events` is empty (0 rows, 0 uploaded, 0 sent, 0 recorded errors), so no driver has hit it; the first real report would have.
+- **`eld_malfunction_notifications` has exactly one policy: `eld_notifications_select_staff` (SELECT, `authenticated`).** No UPDATE policy, no DELETE policy, for any role. Append-only through PostgREST today. The gap is not policy, it is that a service-role writer bypasses RLS entirely — which is why the trigger below is the actual guard.
+- **`day_number` has no reader yet** — only `process-eld-escalations` writes it; the semantics are still ours to define.
+- **`pg_cron` and `pg_net` are installed**; the app role cannot read the `cron` schema, so observing a run needs the reader function in step 2.
 
-## Verified current state
+## 1. Fix the notice embed — and make `dryRun` structurally unable to send
 
-- `eld_malfunction_notifications` exists (`event_id`, `notification_type`, `day_number`, `recipient_user_id`, `channel`, `sent_on`), **0 rows**, no writer.
-- No malfunction job in `cron.job` — the 8-day clock currently expires in silence.
-- `carrier_profile` has `home_terminal_timezone` and `fmcsa_division_state`.
-- `eld_malfunction_events` already carries `escalations_suppressed_reason` / `_until`, so §2.3 reads existing state.
-- `elapsedRepairDay(discovered_at)` in `src/lib/eld/constants.ts` is a raw UTC-millisecond floor with `MAX_BACKDATE_HOURS = 48` — it is a display helper and is **not** what the job will use.
+**Embed fix:** drop the nested `profiles(...)`, resolve the driver's name with a second read on `profiles` keyed by `operators.user_id`, keep the `'Driver'` fallback.
 
-## Correction 1 — what the ladder counts from
+**`dryRun` shape:** the handler splits at the resolution point.
 
-**Two clocks, kept separate.**
+```text
+resolveNotice(eventId) -> { event, driverName, unitNumber, recipients, subject, html }   // reads only
+  |
+  +-- dryRun  -> return the resolved summary. Returns here. No sender module in scope.
+  |
+  +-- live    -> deliverNotice(resolved, pdfBase64, authHeader)  // the only caller of sendResendDirect
+                 -> stampSent(eventId)                            // the only writer of notice_sent_at
+```
 
-- **Repair clock (the ladder rungs, day N of 8):** counted from `discovered_at` converted to a calendar date in the driver's home terminal timezone; the discovery date is day 1. This matches `repair_deadline = discovered_at::date + 8`, so day 8 and the deadline always name the same date and the console can't disagree with the job.
-- **Extension window (395.34(d)(2), 5 days):** keys on **`created_at`** — the moment the driver notified the carrier — not `discovered_at`. The regulation runs the window from notification, and on a backdated report those differ by up to 48 hours. The day-3 prompt states both dates explicitly so whoever files sees the discovery date and the notification date side by side.
+`sendResendDirect` is imported and called inside `deliverNotice` only, and `deliverNotice` is invoked from exactly one line — the non-dry branch, after `dryRun` has already returned. The dry branch never constructs a payload the sender could consume: it returns the summary object and exits. The PDF is not even downloaded on the dry path, so there is nothing to attach.
 
-**Backdated first evaluation:** the job fires **only the current rung**, plus the extension prompt if the extension window is still open and no prompt has been sent for the event. Missed lower rungs are recorded as skipped in the day-3/current-rung email body ("reported on day 3 of 8; days 1–2 elapsed before the report") rather than sent. A report backdated 48 hours produces one email, not five.
+`notice_sent_at`, `notice_send_attempts`, and `notice_last_send_error` are written only inside `deliverNotice`/`stampSent`, which the dry path cannot reach. A dry run therefore writes no `notice_sent_at`, no `email_send_log` row (that row is written by `sendResendDirect`, which is never called), and no ledger row (this function does not write the escalation ledger at all).
 
-The elapsed-day function used by the job is a new timezone-aware helper; `elapsedRepairDay` stays as-is for the existing badge, and a test asserts the two agree for a non-backdated event in the terminal timezone.
+**Verification:** seed a scratch event on a real operator with a small uploaded PDF, call with `dryRun`, assert the response carries the resolved driver name, unit, recipient list, and subject — then re-read the event row and assert `notice_sent_at IS NULL` and `notice_send_attempts` unchanged, and assert zero new `email_send_log` rows for the label `eld_malfunction_notice`. Then a demo-operator call to prove the `suppressed: true` branch (also previously unreachable) is now reached. Scratch rows deleted, counts re-asserted at zero.
 
-## Correction 2 — `ack_overdue` cadence and stops
+## 2. Land the cron with an observed run
 
-- Fires **at 24 hours** after `created_at`, again **at 72 hours**, then stops. After that the daily digest carries it.
-- Never suppressible by a pause (unchanged).
-- Stops immediately on **acknowledgment**, **resolve**, or a **granted extension** — each checked in the event query, not after the insert.
-- `day_number` is `NULL` for `ack_overdue`, so re-fire prevention inside a day rests entirely on `UNIQUE NULLS NOT DISTINCT (event_id, recipient_user_id, notification_type, day_number, channel, sent_on)`. This is the case the constraint exists for, and it gets its own verification item: two `ack_overdue` inserts for the same recipient on the same `sent_on` with `day_number IS NULL`, second one rejected, error reported verbatim. Run with `NULLS NOT DISTINCT` removed to confirm the duplicate lands — proving the clause is what's doing the work.
+Registration goes through the data tool, not a migration — the statement embeds the project URL and anon key and must not travel to a remix.
 
-## Unchanged and approved
+1. Register at `*/10 * * * *`. Wait for a real scheduled fire and read it out of `cron.job_run_details`.
+2. Once observed, alter to hourly at `:10`.
 
-Dedupe constraint plus separate partial digest index; confirm the existing `notification_type` CHECK enumerates all values before relying on it; `ON CONFLICT DO NOTHING` so a re-run is a no-op; demo operators filtered out of the event query entirely (no email, no `notifications` row); a taxonomy entry in `src/lib/notifications/taxonomy.ts` per new type; driver-facing sends restricted to 07:00–21:00 local, management unrestricted; pause auto-lapse fires a "pause lapsed" notification; day 9+ one send per literal elapsed day.
+Hourly is the steady state: the ladder is day-granular, but driver-facing rows are held outside 07:00–21:00 home-terminal time, so the job must come back after the quiet window opens. Repeat runs inside a day are no-ops by dedupe.
 
-Delivery reuses `raiseSyncAlert` → `eld_sync_alerts` → `notifications` for in-app and the `_shared/email-layout.ts` queue path for email, with the demo check already in `send-eld-malfunction-notice`.
+Add `public.eld_cron_status()` (`SECURITY DEFINER`, pinned `search_path`, executable by management and owner) returning the job row plus recent `cron.job_run_details`. §3's console needs a "last run" indicator, so this is a component, not scaffolding.
 
-## Verification (observation, not attestation)
+**Quiet run:** every open, non-demo, unacknowledged event is evaluated; none is on a rung, none is inside an unacknowledged 24h/72h step, none has an unoffered extension window. Response: `success: true`, `events: N`, `ledger_rows_inserted: 0`, `emails_sent: 0`, `results: []`; pg_cron records `succeeded`. That is most hours. `events: N` plus the `job_run_details` row is what separates "nothing to do" from "never woke up".
 
-1. A seeded event walked through days 3/5/6/7/8/9/10 — which sends fired, to whom, in which local timezone.
-2. An event backdated 48 hours, created past day 3 — assert exactly one rung email plus one extension prompt, and that the prompt's window is measured from `created_at`.
-3. Duplicate digest, and the `ack_overdue` NULL-`day_number` duplicate, both rejected; the second run with the clause removed shows the duplicate landing.
-4. `ack_overdue` at 24h and 72h, silent at 96h; and it stopping on each of acknowledgment, resolve, granted extension.
-5. A pause lapsing after 7 days; `ack_overdue` firing through a pause.
-6. A demo operator producing zero notification rows and zero emails.
-7. Each new alert type asserted **on the bell's rendered Action tab** via Playwright — the Pass B sweep found a rejection alert that inserted fine and rendered nowhere, so an insert-level assertion is not accepted here.
+## 3. `day_number` semantics
+
+Document per type in the ledger's header comment: `escalation_day` — the rung; `extension_prompt` — the day the one-time prompt fired, not a rung; `ack_overdue` — `NULL`, with the 24h/72h step in the reason text. Add a test asserting a rung query filters on `notification_type = 'escalation_day'`, so the console cannot read a prompt row as a rung.
+
+## 4. Override runs: audit entry plus an immutable ledger flag
+
+- **`audit_log` row per override run** — action `eld_escalation_override_run`, actor from the caller's JWT, metadata with the `nowOverride` value, channels, event filter, and resulting counts. Answers "who made the ladder believe it was a different day".
+- **`is_override boolean not null default false` on `eld_malfunction_notifications`** (migration), set true on any run with `nowOverride` or a channel override. Answers "is this row evidence".
+
+**Immutability:** `BEFORE UPDATE` trigger on the table, same treatment as `record_source` and `is_demo`, raising its own SQLSTATE when `NEW.is_override IS DISTINCT FROM OLD.is_override`. No privileged exemption path — not for the service role, not for a staff role, no `rods.privileged`-style bypass. The one column protecting the ledger's credibility cannot be cleared by any UPDATE.
+
+Also assert in the migration's accompanying test that the table still has no UPDATE and no DELETE policy for any role (currently true: one SELECT policy for `authenticated`), so append-only stays append-only.
+
+The console's timeliness column reads only `is_override = false` rows.
+
+## 5. APP_URL
+
+`buildAppUrl` already `console.warn`s on every fallback, and the escalation logs show it firing on every invocation — visible, but only to someone reading function logs. Rather than rely on that, fix it now: the current `APP_URL` value is not a URL at all, so it gets deleted and the function falls back to the published host by design, or it is set to the published origin explicitly. Either way the warning stops, and a persisting warning afterward means a real regression instead of steady-state noise.
+
+## Verification list
+
+1. Dry run returns a resolved name, unit, recipients, and subject — and writes no `notice_sent_at`, no attempt increment, no `email_send_log` row.
+2. Demo-operator call reaches the `suppressed: true` branch.
+3. `cron.job_run_details` shows a real scheduled invocation with its status, before the schedule is relaxed to hourly.
+4. A quiet run recorded and reported as `events: N`, zero rows, zero emails, `succeeded`.
+5. Override run writes one `audit_log` row and ledger rows with `is_override = true`; a normal run writes neither. A direct UPDATE attempting to clear `is_override` raises the trigger's SQLSTATE.
+6. `eld_malfunction_notifications` still has no UPDATE or DELETE policy for any role.
+7. All scratch rows removed, counts re-asserted at zero.
 
 ## Technical notes
 
-New SQL objects: `SET search_path = public, extensions`, coalesce-positive refuse authorization, a distinct SQLSTATE per condition registered in `REJECTION_SQLSTATES`, picked up by all three definer guards (confirmed by running them). Every new test run with the fix reverted. No writes to `rods_days` / `rods_events` in this phase.
+- Files: `supabase/functions/send-eld-malfunction-notice/index.ts` (split into `resolveNotice` / `deliverNotice`), `supabase/functions/process-eld-escalations/index.ts`, one migration (`is_override`, its immutability trigger, `eld_cron_status()`), one data-tool statement for `cron.schedule`, plus tests.
+- Both edge functions redeploy after editing.
