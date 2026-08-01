@@ -42,6 +42,24 @@ const NO_DISPLAY_COPY: DisplayCopy = { path: null, failed: false };
 const CONVERSION_FAILED: DisplayCopy = { path: null, failed: true };
 
 /**
+ * Browsers do not all recognise HEIC/HEIF, so `file.type` comes back empty on
+ * some devices and the file would be read as "not an image" — no conversion
+ * attempted, no flag, and a HEIC the merge cannot embed silently on file. The
+ * extension decides when the browser will not.
+ */
+const EXT_MIME: Record<string, string> = {
+  heic: 'image/heic', heif: 'image/heif',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif',
+  pdf: 'application/pdf',
+};
+
+function mimeOf(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  return EXT_MIME[ext] ?? 'application/octet-stream';
+}
+
+/**
  * Try to produce and store the display JPEG. Never throws: the original is
  * already filed by the time this runs, and every failure below degrades to the
  * flagged path rather than costing the driver their upload.
@@ -97,7 +115,7 @@ export default function UploadEldLogModal({
       const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf';
       const stamp = Date.now();
       const path = `${operatorId}/${logDate}/eld-log-${stamp}.${ext}`;
-      const mime = file.type || 'application/pdf';
+      const mime = mimeOf(file);
       // The ORIGINAL goes first and always. It is the record; nothing about the
       // display copy is allowed to cost us the upload.
       const { error: upErr } = await supabase.storage
