@@ -105,7 +105,7 @@ describe('commitCertification accepts a bound result', () => {
     const cached = await roadsideDb.rods_days_cache.get(DATE);
     expect(cached?.local_certified_at).toBe(res.localCertifiedAt);
     // The validation rides on the row and in the queue payload.
-    expect((cached?.day as Record<string, unknown>).certification_signature_validation)
+    expect((cached?.day as unknown as Record<string, unknown>).certification_signature_validation)
       .toMatchObject({ mode: 'pixel' });
     const certify = (await roadsideDb.sync_queue.toArray())
       .find((e) => e.kind === 'certify_rods_day');
