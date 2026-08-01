@@ -379,6 +379,41 @@ async def main():
         if not all(r["size"] == list(k["results"].values())[0]["size"] for r in k["results"].values()):
             notes.append("(k) signature variants produced differing byte counts — one embedded")
 
+        # ---- (k2) the refusal that keeps a blank line off a certified log ----
+        k2 = await page.evaluate(CASE_K2, {
+            "dayId": DAY_ID, "opId": OP_ID, "logDate": DATE,
+            "signatures": {
+                "not_a_data_url": "https://example.com/sig.png",
+                "wrong_mime": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+                "truncated_png": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg",
+                "garbage_base64": "data:image/png;base64,!!!!not-base64!!!!",
+                "empty": "",
+            },
+        })
+        print("(k2)", json.dumps(k2, indent=2))
+        must_refuse = ["blank", "speck", "not_a_data_url", "wrong_mime",
+                       "truncated_png", "garbage_base64", "empty"]
+        for label in must_refuse:
+            v = k2["validations"][label]
+            if v["threw"]:
+                failures.append(f"(k2) validator threw on {label}: {v['threw']}")
+            elif v["ok"]:
+                failures.append(f"(k2) validator ACCEPTED {label} — "
+                                f"a certified log could carry a blank signature line")
+        signed = k2["validations"]["signed"]
+        if not signed["ok"]:
+            failures.append(f"(k2) validator refused a real signature: {signed['reason']}")
+        elif signed["mode"] != "pixel":
+            failures.append("(k2) real browser fell back to structural — the pixel pass "
+                            "never ran, so nothing here tested it")
+        if not k2["commitRefused"]:
+            failures.append("(k2) commitCertification accepted a forged validation for blank bytes")
+        if k2["lockedAfter"] or k2["localCertifiedAfter"]:
+            failures.append("(k2) the refused certification still advanced the lock")
+        if k2["signatureRows"] or k2["pdfRows"] or k2["queued"]:
+            failures.append(f"(k2) refusal left state behind: sig={k2['signatureRows']} "
+                            f"pdf={k2['pdfRows']} queued={k2['queued']}")
+
         await page.screenshot(path=str(SHOTS / "eld_queue_gate.png"))
         await browser.close()
 
@@ -386,6 +421,7 @@ async def main():
     if failures:
         print("FAILURES:"); [print(" -", f) for f in failures]; sys.exit(1)
     print("PASS: (l) replay deletes only this attempt's uploads; "
-          "(i) in-flight edit ordering preserved; (k) bad signature degrades without lock or orphans")
+          "(i) in-flight edit ordering preserved; (k) bad signature degrades without lock or "
+          "orphans; (k2) blank and malformed signatures refused before the render")
 
 asyncio.run(main())
