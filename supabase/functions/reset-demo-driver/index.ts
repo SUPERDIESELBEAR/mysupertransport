@@ -108,6 +108,38 @@ Deno.serve(withErrorEnvelope(async (req) => {
   }
 
   // 1b. Records of duty status, through the authoritative purge path.
+  //
+  // Everything a demo ELD session leaves behind, cleared BEFORE the purge so
+  // no child row blocks a day from going. rods_unlock_events points at
+  // rods_day_id; the alerts and their bell notifications are the two halves of
+  // one fan-out and have to go together or the console keeps a link to a row
+  // that no longer exists.
+  const { data: demoAlerts } = await admin
+    .from('eld_sync_alerts').select('id').eq('operator_id', operatorId)
+  const alertIds = (demoAlerts ?? []).map((a: { id: string }) => a.id)
+  if (alertIds.length > 0) {
+    await admin.from('notifications').delete()
+      .eq('entity_type', 'eld_sync_alert').in('entity_id', alertIds)
+  }
+  for (const table of ['eld_sync_alerts', 'rods_unlock_events']) {
+    const { error } = await admin.from(table as any).delete().eq('operator_id', operatorId)
+    if (error) console.error(`reset-demo-driver: failed clearing ${table}`, error.message)
+  }
+  if (operator.user_id) {
+    await admin.from('notifications').delete().eq('user_id', operator.user_id)
+  }
+
+  // Public URLs. A demo operator should never have minted one — the share
+  // token trigger refuses — but a token issued before the guardrail shipped is
+  // still live infrastructure, so the reset revokes rather than assumes.
+  const { data: packetLinks } = await admin
+    .from('officer_packet_links').select('token').eq('operator_id', operatorId)
+  const linkTokens = (packetLinks ?? []).map((l: { token: string }) => l.token)
+  if (linkTokens.length > 0) {
+    await admin.from('share_tokens').delete().in('token', linkTokens)
+    await admin.from('officer_packet_links').delete().in('token', linkTokens)
+  }
+
   let rodsPurged: string[] = []
   try {
     rodsPurged = await purgeOperatorRodsDays(
