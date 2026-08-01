@@ -22,13 +22,19 @@ const { convertForDisplay, canDecode, DISPLAY_MIME, PROBE_TIMEOUT_MS } = await i
 
 const DATE = '2026-07-02';
 
-// jsdom's Blob has no arrayBuffer(); browsers do. Without this the encode step
-// throws and every conversion reads as a failure, which would make the flagged
-// assertions below pass for the wrong reason.
-if (typeof Blob.prototype.arrayBuffer !== 'function') {
-  Blob.prototype.arrayBuffer = function arrayBuffer(this: Blob) {
-    return new Response(this).arrayBuffer();
-  };
+/**
+ * jsdom's canvas Blob has no arrayBuffer(); browsers do. The stub below hands
+ * back one that does, so the encode step is exercised rather than failing for
+ * an environment reason — which would make the flagged assertions further down
+ * pass for the wrong reason.
+ */
+function jpegBlob(): Blob {
+  const buf = new Uint8Array([1, 2, 3, 4]).buffer;
+  const blob = new Blob([buf], { type: DISPLAY_MIME });
+  if (typeof blob.arrayBuffer !== 'function') {
+    (blob as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer = () => Promise.resolve(buf);
+  }
+  return blob;
 }
 
 /** A decode that succeeds, with a canvas that encodes to recognisable bytes. */
@@ -40,7 +46,7 @@ function stubDecodable() {
       width: 0,
       height: 0,
       getContext: () => ({ drawImage: () => undefined }),
-      toBlob: (cb: (b: Blob | null) => void) => cb(new Blob([new Uint8Array([1, 2, 3, 4])], { type: DISPLAY_MIME })),
+      toBlob: (cb: (b: Blob | null) => void) => cb(jpegBlob()),
     };
   }) as never);
 }
