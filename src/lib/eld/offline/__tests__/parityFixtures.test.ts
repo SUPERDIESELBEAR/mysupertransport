@@ -14,8 +14,10 @@
  * ONLY codes observed verbatim in `PostgrestError.code` over PostgREST are
  * asserted here — the seeded driver-session run of 2026-07-31 recorded in
  * docs/database-security-conventions.md §5a: P0010–P0015, P0020–P0023, P0030,
- * P0031, plus 42501 for `purge_rods_day`; and the 2026-08-01 run that closed
- * the record_source bypass: P0019, P0045, P0046. A code read out of a function body
+ * P0031, plus 42501 for `purge_rods_day`; the 2026-08-01 run that closed
+ * the record_source bypass: P0019, P0045, P0046; and the 2026-08-01 23:5x run
+ * that provoked the placeholder-name guard from a real driver session: P0032.
+ * A code read out of a function body
  * but never seen on the wire is not evidence; that assumption is what produced
  * P0022's wrong attribution earlier.
  *
@@ -37,7 +39,7 @@ const OBSERVED_CODES = [
   'P0010', 'P0011', 'P0012', 'P0013', 'P0014', 'P0015',
   'P0019',
   'P0020', 'P0021', 'P0022', 'P0023',
-  'P0030', 'P0031',
+  'P0030', 'P0031', 'P0032',
   'P0045', 'P0046',
   '42501',
 ] as const;
@@ -182,6 +184,11 @@ function serverGuardOutcome(
   if (c.tokenBoundToOtherDay) return 'P0013';
   if (d.status !== 'draft') return 'P0014';
   if (c.legalName.trim() === '') return 'P0015';
+
+  // 395.8 requires the driver's name. Non-empty is not the same as real: the
+  // codebase's own `|| 'Driver'` fallback clears P0015 and would certify a
+  // false entry. Refused in the database, immediately after the empty check.
+  if (PLACEHOLDER_LEGAL_NAMES.includes(c.legalName.trim().toLowerCase())) return 'P0032';
 
   // Layer A of the record_source bypass fix: this function certifies keyed
   // days and nothing else. The content block below is no longer conditional.
@@ -416,6 +423,20 @@ const FIXTURES: Fixture[] = [
       'Layer C. Raised by enforce_rods_day_source_document on INSERT or UPDATE, so a row cannot '
       + 'claim document provenance with no document behind it. Observed on a driver INSERT.',
   },
+  {
+    n: 20,
+    name: 'certification legal name is a placeholder, not a name',
+    day: day(), events: fullDayEvents(), ctx: ctx({ legalName: 'Driver' }),
+    clientBlocks: ['legal_name'],
+    code: 'P0032',
+    note:
+      'Observed over the wire 2026-08-01 from a real driver session against a seeded keyed '
+      + 'draft: PostgrestError.code "P0032", message '
+      + '\'rods_placeholder_legal_name: "Driver" is not a driver name. A record of duty status '
+      + "must be certified in the driver's own legal name.'. A whitespace-only name on the same "
+      + 'day returned P0015, and "Marcus Mueller" certified — so the two name guards are '
+      + 'distinct conditions and neither shadows the other.',
+  },
 ];
 
 describe('certify_rods_day — client/server parity fixtures', () => {
@@ -471,7 +492,7 @@ describe('certify_rods_day — client/server parity fixtures', () => {
 
   it('fixture numbers are 1..19 with no duplicates', () => {
     expect(FIXTURES.map((f) => f.n)).toEqual(
-      Array.from({ length: 19 }, (_, i) => i + 1),
+      Array.from({ length: 20 }, (_, i) => i + 1),
     );
   });
 
