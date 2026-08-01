@@ -173,9 +173,13 @@ async function handler(req: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
 
   const body = await req.json().catch(() => null) as
-    | { dryRun?: boolean; nowOverride?: string; eventId?: string }
+    | { dryRun?: boolean; nowOverride?: string; eventId?: string; channels?: 'all' | 'in_app' }
     | null;
   const dryRun = body?.dryRun === true;
+  // Verification runs walk the ladder for real (ledger + in-app rows, so the
+  // Action tab can be asserted on) without putting a synthetic driver in a real
+  // inbox. Service-role only.
+  const inAppOnly = auth.isService && body?.channels === 'in_app';
   // Time travel is a service-role-only affordance so verification runs can walk
   // an event through the ladder without waiting eight days.
   const now = auth.isService && body?.nowOverride ? new Date(body.nowOverride) : new Date();
@@ -251,7 +255,8 @@ async function handler(req: Request): Promise<Response> {
       const fired = await deliver({
         admin, dryRun, action, type, e, day, driverName, unitNumber, deadline,
         discoveredLocal: fmt(e.discovered_at), reportedLocal: fmt(e.created_at),
-        extensionDeadline, link, recipients, sentOn, timeZone, now, authHeader: auth.authHeader,
+        extensionDeadline, link, recipients, sentOn, timeZone, now, inAppOnly,
+        authHeader: auth.authHeader,
       });
       inserted += fired.inserted;
       emailed += fired.emailed;
@@ -293,6 +298,7 @@ interface DeliverArgs {
   sentOn: string;
   timeZone: string;
   now: Date;
+  inAppOnly: boolean;
   authHeader: string;
 }
 
@@ -357,7 +363,7 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
       entity_id: a.e.id,
     });
 
-    if (r.email) {
+    if (r.email && !a.inAppOnly) {
       const { data: emailLedger } = await a.admin
         .from('eld_malfunction_notifications')
         .upsert({
