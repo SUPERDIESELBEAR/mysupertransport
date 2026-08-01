@@ -1424,6 +1424,11 @@ export type Database = {
           escalations_suppressed_by: string | null
           escalations_suppressed_reason: string | null
           escalations_suppressed_until: string | null
+          extension_expires_on: string | null
+          extension_granted_at: string | null
+          extension_granted_by: string | null
+          extension_notes: string | null
+          extension_requested_at: string | null
           hinders_hos_recording: boolean
           id: string
           is_demo: boolean
@@ -1464,6 +1469,11 @@ export type Database = {
           escalations_suppressed_by?: string | null
           escalations_suppressed_reason?: string | null
           escalations_suppressed_until?: string | null
+          extension_expires_on?: string | null
+          extension_granted_at?: string | null
+          extension_granted_by?: string | null
+          extension_notes?: string | null
+          extension_requested_at?: string | null
           hinders_hos_recording?: boolean
           id?: string
           is_demo?: boolean
@@ -1504,6 +1514,11 @@ export type Database = {
           escalations_suppressed_by?: string | null
           escalations_suppressed_reason?: string | null
           escalations_suppressed_until?: string | null
+          extension_expires_on?: string | null
+          extension_granted_at?: string | null
+          extension_granted_by?: string | null
+          extension_notes?: string | null
+          extension_requested_at?: string | null
           hinders_hos_recording?: boolean
           id?: string
           is_demo?: boolean
@@ -1540,6 +1555,13 @@ export type Database = {
           {
             foreignKeyName: "eld_malfunction_events_escalations_suppressed_by_fkey"
             columns: ["escalations_suppressed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_malfunction_events_extension_granted_by_fkey"
+            columns: ["extension_granted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

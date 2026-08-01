@@ -1,45 +1,49 @@
-## Goal
+# Stage 4 — Phase 1a: the §2 escalation ladder (revised)
 
-Two gates are currently proven only in isolation. Prove both on the live path, in one run, against a demo operator.
+Build §2, verify it against the §9 list, report before §3 starts.
 
-## Part 1 — The `is_demo` three-state boundary, exercised for real
+## Verified current state
 
-The previous run reset a clean operator (`rodsDaysPurged: 0`), so the 409 never fired. This time the certified day exists before the flag is touched.
+- `eld_malfunction_notifications` exists (`event_id`, `notification_type`, `day_number`, `recipient_user_id`, `channel`, `sent_on`), **0 rows**, no writer.
+- No malfunction job in `cron.job` — the 8-day clock currently expires in silence.
+- `carrier_profile` has `home_terminal_timezone` and `fmcsa_division_state`.
+- `eld_malfunction_events` already carries `escalations_suppressed_reason` / `_until`, so §2.3 reads existing state.
+- `elapsedRepairDay(discovered_at)` in `src/lib/eld/constants.ts` is a raw UTC-millisecond floor with `MAX_BACKDATE_HOURS = 48` — it is a display helper and is **not** what the job will use.
 
-Sequence, driven end to end:
+## Correction 1 — what the ladder counts from
 
-1. Pick the demo operator (`operators.is_demo = true`) and confirm the starting state by query: zero `rods_days`.
-2. **Certify a day** through the app's own path (Playwright, managed session, driver switched to the demo operator) — not a direct insert, so `certify_rods_day` and the `is_demo` stamping trigger both run. Assert by query: one `rods_days` row, `status = 'certified'`, `is_demo = true`.
-3. **Call `set-demo-flag`** with `isDemo: false`. Assert:
-   - HTTP **409**,
-   - the message carries the certified count (`1`, singular wording),
-   - and — the part that actually matters — `operators.is_demo` is still `true` afterwards. A 409 that nonetheless wrote the flag would be worse than no check.
-4. **Purge** via `reset-demo-driver`. Assert `rodsDaysPurged: 1` and zero `rods_days` for the operator.
-5. **Re-call `set-demo-flag`** with `isDemo: false`. Assert 200, and assert by query that `operators.is_demo`, `applications.is_demo` and `profiles.is_demo` all went false together — the flag is written in three places and only the operator row is returned in the response.
-6. **Restore** `is_demo = true` (with the original `demo_label` / `demo_scenario`) so the sandbox account is left exactly as found.
+**Two clocks, kept separate.**
 
-That's the full three-state decision: blocked while watermarked logs exist, permitted once they don't.
+- **Repair clock (the ladder rungs, day N of 8):** counted from `discovered_at` converted to a calendar date in the driver's home terminal timezone; the discovery date is day 1. This matches `repair_deadline = discovered_at::date + 8`, so day 8 and the deadline always name the same date and the console can't disagree with the job.
+- **Extension window (395.34(d)(2), 5 days):** keys on **`created_at`** — the moment the driver notified the carrier — not `discovered_at`. The regulation runs the window from notification, and on a backdated report those differ by up to 48 hours. The day-3 prompt states both dates explicitly so whoever files sees the discovery date and the notification date side by side.
 
-## Part 2 — `maybeWipeForDemoReset` firing on a real stamp
+**Backdated first evaluation:** the job fires **only the current rung**, plus the extension prompt if the extension window is still open and no prompt has been sent for the event. Missed lower rungs are recorded as skipped in the day-3/current-rung email body ("reported on day 3 of 8; days 1–2 elapsed before the report") rather than sent. A report backdated 48 hours produces one email, not five.
 
-The gate has never run against a moved `demo_reset_at`. Hydration reads `is_demo` and `demo_reset_at` off the freshly fetched `operators` row and calls the wipe before anything else is written, so the whole path is reachable from a page load.
+The elapsed-day function used by the job is a new timezone-aware helper; `elapsedRepairDay` stays as-is for the existing badge, and a test asserts the two agree for a non-backdated event in the terminal timezone.
 
-1. Load the app as the demo driver, let hydration settle, then **seed every Dexie store the wipe drops** — `rods_pdfs`, `rods_documents`, `notice_pdfs`, `signature_images`, `roadside_manifest`, `rods_days_cache`, `rods_events_cache`, `pending_mutations`, `sync_queue`, `merged_packets`, `rods_divergences` — with recognisable sentinel rows, plus a `local_meta` row whose `demo_reset_at` is deliberately **older** than the server stamp (that's what arms the gate). Count every store and record the pre-state.
-2. Reload. Hydration runs `maybeWipeForDemoReset` with the server's newer stamp.
-3. Assert post-state: every seeded store empty of sentinels, and `local_meta.demo_reset_at` now equal to the server stamp. Note that `local_meta` is re-written by hydration immediately after the wipe, so the assertion is on the stamp having advanced, not on the row being absent.
-4. **Assert idempotence** — reload once more and confirm the second load reports `already_applied` and does *not* wipe the freshly hydrated cache. A gate that fires on every load would silently destroy each new hydration.
-5. **Assert the negative on the live path too**: with the stamp unchanged, seed sentinels again, reload, and confirm they survive. Same code, same page load, refusing.
+## Correction 2 — `ack_overdue` cadence and stops
 
-Part 2 runs after Part 1's purge, so the stamp `reset-demo-driver` writes in step 4 is the one that arms it — a genuinely server-produced timestamp, not a hand-set value.
+- Fires **at 24 hours** after `created_at`, again **at 72 hours**, then stops. After that the daily digest carries it.
+- Never suppressible by a pause (unchanged).
+- Stops immediately on **acknowledgment**, **resolve**, or a **granted extension** — each checked in the event query, not after the insert.
+- `day_number` is `NULL` for `ack_overdue`, so re-fire prevention inside a day rests entirely on `UNIQUE NULLS NOT DISTINCT (event_id, recipient_user_id, notification_type, day_number, channel, sent_on)`. This is the case the constraint exists for, and it gets its own verification item: two `ack_overdue` inserts for the same recipient on the same `sent_on` with `day_number IS NULL`, second one rejected, error reported verbatim. Run with `NULLS NOT DISTINCT` removed to confirm the duplicate lands — proving the clause is what's doing the work.
+
+## Unchanged and approved
+
+Dedupe constraint plus separate partial digest index; confirm the existing `notification_type` CHECK enumerates all values before relying on it; `ON CONFLICT DO NOTHING` so a re-run is a no-op; demo operators filtered out of the event query entirely (no email, no `notifications` row); a taxonomy entry in `src/lib/notifications/taxonomy.ts` per new type; driver-facing sends restricted to 07:00–21:00 local, management unrestricted; pause auto-lapse fires a "pause lapsed" notification; day 9+ one send per literal elapsed day.
+
+Delivery reuses `raiseSyncAlert` → `eld_sync_alerts` → `notifications` for in-app and the `_shared/email-layout.ts` queue path for email, with the demo check already in `send-eld-malfunction-notice`.
+
+## Verification (observation, not attestation)
+
+1. A seeded event walked through days 3/5/6/7/8/9/10 — which sends fired, to whom, in which local timezone.
+2. An event backdated 48 hours, created past day 3 — assert exactly one rung email plus one extension prompt, and that the prompt's window is measured from `created_at`.
+3. Duplicate digest, and the `ack_overdue` NULL-`day_number` duplicate, both rejected; the second run with the clause removed shows the duplicate landing.
+4. `ack_overdue` at 24h and 72h, silent at 96h; and it stopping on each of acknowledgment, resolve, granted extension.
+5. A pause lapsing after 7 days; `ack_overdue` firing through a pause.
+6. A demo operator producing zero notification rows and zero emails.
+7. Each new alert type asserted **on the bell's rendered Action tab** via Playwright — the Pass B sweep found a rejection alert that inserted fine and rendered nowhere, so an insert-level assertion is not accepted here.
 
 ## Technical notes
 
-- Playwright, headless Chromium, `http://localhost:8080`, managed session restored per the standard pattern. Scripts and evidence under `/tmp/browser/demo-boundary/`.
-- Dexie seeding and counting via `page.evaluate` against the app's own `roadsideDb`, so the store names and key shapes come from the real schema.
-- Edge functions called through the same authenticated path the UI uses, so `requireStaff` runs as it does in production.
-- Post-run state verified by database query, not by trusting edge responses.
-- Everything is left as found: operator back to `is_demo = true`, label and scenario restored, zero `rods_days`, Storage prefix empty.
-
-## Written up in
-
-`docs/eld-demo-boundary-2026-08-01.md` — the 409 body and certified count verbatim, the flag state at each of the three steps, and the Dexie store counts before and after each of the three reloads (armed, idempotent, unarmed).
+New SQL objects: `SET search_path = public, extensions`, coalesce-positive refuse authorization, a distinct SQLSTATE per condition registered in `REJECTION_SQLSTATES`, picked up by all three definer guards (confirmed by running them). Every new test run with the fix reverted. No writes to `rods_days` / `rods_events` in this phase.
