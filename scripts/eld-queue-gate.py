@@ -18,6 +18,11 @@ to find out.
                                wire must not overtake it.
   (k) Render failure         — a malformed signature must not orphan bytes and
                                must not advance the lock.
+  (k2) Signature refusal     — blank and malformed signatures are refused
+                               BEFORE the render, in a real browser where the
+                               pixel pass actually runs, and commitCertification
+                               refuses blank bytes even when handed a passing
+                               validation result for them.
 """
 import asyncio, json, sys
 from pathlib import Path
