@@ -53,11 +53,15 @@ function serviceClient(): SupabaseClient {
 }
 
 /** Service-role bearer (cron) or a signed-in staff user (manual/dry run). */
-async function authorize(req: Request): Promise<{ authHeader: string; isService: boolean } | Response> {
+async function authorize(
+  req: Request,
+): Promise<{ authHeader: string; isService: boolean; actorId: string | null } | Response> {
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader.startsWith('Bearer ')) return fail(401, 'Unauthorized: missing bearer token');
   const token = authHeader.slice('Bearer '.length);
-  if (token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) return { authHeader, isService: true };
+  if (token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) {
+    return { authHeader, isService: true, actorId: null };
+  }
 
   const userClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -76,7 +80,7 @@ async function authorize(req: Request): Promise<{ authHeader: string; isService:
     .in('role', ['management', 'onboarding_staff', 'owner'])
     .limit(1);
   if (!role || role.length === 0) return fail(403, 'Staff access required');
-  return { authHeader, isService: false };
+  return { authHeader, isService: false, actorId: uid };
 }
 
 interface Recipient { userId: string; email: string | null }
