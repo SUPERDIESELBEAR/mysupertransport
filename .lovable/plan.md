@@ -1,65 +1,70 @@
-## Verification of the two gaps (unchanged, confirmed against the code)
+## Revision: the RPC change ships in two migrations with the client between them
 
-**`ensureDayCached` is on the hydration path but is not the only writer.** It has exactly one non-test caller, `hydrate.ts:277`, so the named exposure does route through it. But `rods_events_cache` is written from three places, all via `putCachedEvents` (`cache.ts:81`): `ensureDayCached.ts:137` (hydration), `commitCertification.ts:156` (local certification, which does **not** go through `ensureDayCached`), and `cache.ts:99` (the re-put inside `markDaySynced`). The guard belongs at `putCachedEvents`.
+Approved and unchanged: named `structural` mode replacing the flag; `signature_validation` on the cached row and in the certify payload; the alert with server-side coalescing on `eld_sync_alerts.occurrences`; `commitCertification` requiring a `SignatureValidation` with digest binding and a staleness bound; digest-only re-checking so the pixel pass runs once; `renderRodsDay` untouched; fail-fast before the render; the ordering comment naming case (k); case (k) extended.
 
-**Provenance cannot be inferred.** `PutCachedEventsInput` carries only `rods_day_id`, `log_date`, `events`, `unsynced`, `version`, `cached_at`; `unsynced` does not stand in for the caller, since `markDaySynced` re-puts hydration-sourced rows. It also has no `status`, so it cannot tell a certified day from a draft. Both get passed in.
+## 1. Validator — `src/lib/eld/signatureIntegrity.ts`
 
-## Plan
+`validateSignatureImage(dataUrl)` → `SignatureValidation`:
 
-### 1. New alert kind
+```ts
+{
+  ok: boolean;
+  mode: 'pixel' | 'structural';
+  reason?: string;
+  ink_pixels?: number;
+  ink_fraction?: number;
+  byte_length: number;
+  digest: string;          // SHA-256 of the data URL, hex
+  checked_at: string;
+}
+```
 
-`certified_day_no_segments` in `SyncAlertKind` (`src/lib/eld/offline/queue/alerts.ts`) — a certified day cached with an empty segment set. Distinct from `certified_day_divergence`: one copy, structurally unable to render.
+Steps 1–2 (shape, base64 + PNG magic, floor size) always run. Step 3 decodes to a bitmap, counts `alpha > 16`, and requires both an absolute pixel count and a fraction of the canvas. Where `createImageBitmap` or a 2D context is unavailable, `mode: 'structural'` — the ink check did not run, and the record will say so.
 
-### 2. Guard at `putCachedEvents`
+## 2. `commitCertification` takes the result
 
-Two new **required** fields on `PutCachedEventsInput`:
+`CommitCertificationInput` gains a required `signatureValidation`, mirroring `enqueueCertifyDay`'s required `PreflightResult`. Before the transaction, no pixel work:
 
-- `provenance: 'hydration' | 'local_certification' | 'sync_flag_clear'`
-- `day_status: RodsDay['status']`
+1. `ok !== true` → throw.
+2. Binding: SHA-256 of `input.signatureDataUrl` must equal `signatureValidation.digest`, with `byte_length` as the cheap pre-check. A stale or foreign result is refused.
+3. `checked_at` within a short window of now.
 
-Required, not optional — a new writer must state both rather than defaulting into silence. Call sites: `ensureDayCached` passes `'hydration'` and `day.status`; `commitCertification` passes `'local_certification'` and the status it just wrote; `markDaySynced` passes `'sync_flag_clear'` and `existing.day.status`, which it already has loaded.
+`RodsDayEditor.certify()` validates once before `renderRodsDay`, refuses with *"Your signature didn't save. Please sign again."*, and threads the same result through.
 
-Condition: `day_status === 'certified' && events.length === 0`.
+## 3. Structural mode is recorded, counted, reported
 
-### 3. The condition is a return value, not module state
+- `signature_validation` on the cached day and in the certify queue payload: `mode`, ink numbers when present, `checked_at`.
+- New `SyncAlertKind` `signature_validated_structurally_only`, raised post-transaction (same flush discipline as `certified_day_no_segments`) whenever `mode === 'structural'`. `eld_sync_alerts` coalesces on the condition and carries `occurrences` / `last_seen_at` — verified against the table — so the office gets one row per operator with a count, and the dedupe cannot be reset by a cache clear the way a device-local "already told them" flag could.
 
-`putCachedEvents` returns `{ record, emptySegments }`, where `emptySegments` is `null` or a keys-only descriptor (`rods_day_id`, `log_date`, `provenance`). It stores nothing. `flushEmptySegmentAlerts(detected)` takes that value as an argument and raises through `raiseSyncAlert`, tolerating `null` so callers need no branch.
+## 4. The RPC, in two migrations — the ordering hazard is real
 
-This is what makes it correct under the two failure modes:
+You're right, and it is worse here than with `purge_rods_day`: those entries sit in drivers' queues, some offline, and a missing-signature failure classifies `server` and burns attempt budget rather than waiting for the new bundle.
 
-- **Aborted transaction:** the value lives in the caller's local variable inside the transaction callback. If the transaction throws, the exception propagates and the flush line after it never runs — the value is discarded with the frame. Nothing survives to be raised for a write that did not happen.
-- **Concurrency:** hydration and a certification each hold their own value. Neither can drain the other's, and no completion can be misattributed.
+**Migration 1 (now).**
+- `ALTER TABLE public.rods_days ADD COLUMN certification_signature_validation jsonb;`
+- `CREATE` the new signature `certify_rods_day(_day_id uuid, _legal_name text, _signature_path text, _pdf_path text, _device_info text, p_certification_token uuid, p_changes jsonb, p_signature_validation jsonb DEFAULT NULL)`, `SECURITY DEFINER`, `search_path` pinned, grants applied to match the existing seven-argument form.
+- **Leave the seven-argument form in place.** It resolves for in-flight callers and records no validation — correct for a client that never computed one. Its body is otherwise unchanged.
 
-Raising still happens **after** the commit, because the caller's flush call sits after its `roadsideDb.transaction(...)`: `raiseSyncAlert` writes to `sync_queue`, which is outside the cache-table transaction scope, so enqueueing inline would throw inside the transaction and take the cache write with it. `ensureDayCached` and `commitCertification` capture the returned value inside their transaction and flush after; `markDaySynced` flushes at the end (no transaction there).
+Overload resolution is unambiguous in practice because every client call is positional with a fixed arity, and the pattern already exists in the catalog (`search_audit_log` and `submit_pei_response` both carry transitional pairs).
 
-Coalescing is already keyed `kind:operator:log_date`, so a repeatedly re-hydrated bad day yields one entry.
+**Then deploy the client**, passing the eighth argument.
 
-### 4. Unchanged behaviour
+**Migration 2 (later, on the trigger).** `DROP FUNCTION public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb);`
 
-- Not raised from `RoadsideDayView` or `manifestBuild` — the view runs with an officer present and stays read-only.
-- `roadside_empty_event_set` stays as the driver-side counter.
-- The manifest still marks the day not `cached`/`renderable`/`printable`; the view still shows the "No certified record is stored on this device" tile, never the PDF embed.
-- `raiseSyncAlert` never throws and the flush is post-commit, so a failed alert cannot cost the cache write. `alert_delivery_failed` covers a dead alert path.
+## 5. Guard and register for the interim
 
-### 5. Tests
+- Add `public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb)` to the definer-catalog guard's allowlist with an inline comment naming the removal trigger and pointing at `docs/deferred-removals.md`. The guard's "allowlist may only shrink" assertion and its `MAX` constants are updated by one, so the entry has to be deliberately removed rather than drifting. The guard stays green and stays strict.
+- New entry in `docs/deferred-removals.md` alongside the `purge_rods_day` overload and the `classifyError` string fallback: what the old signature is, why it survives the deploy gap, and the trigger.
 
-In `src/lib/eld/offline/__tests__/emptyEventSet.test.tsx`:
+**Removal trigger, stated concretely:** no `certify_rods_day` queue entry predating the client deploy can still drain — i.e. the new bundle is live and every `rods_days` row certified after the deploy timestamp carries a non-null `certification_signature_validation`, with no seven-argument calls observed for a full drain window (the offline budget's outer bound). Confirmed by query before Migration 2.
 
-- hydration writes certified + `events: []` → one `raise_sync_alert` entry, kind `certified_day_no_segments`, provenance `hydration`
-- **local certification** commits certified + `events: []` → alert with provenance `local_certification` (the case the earlier design would have missed)
-- certified + non-empty events → no alert
-- **draft** + `events: []` → no alert
-- **aborted transaction:** `putCachedEvents` runs with the empty certified set, then the transaction throws → no alert queued, no cached rows
-- **interleaved callers:** a certification's flush raises only its own descriptor while a hydration's value is still in flight
-- alert enqueue rejects → cached day and event rows intact, `undeliverableAlertCount()` is 1
+## 6. Tests
 
-### 6. Register update
+- `signatureIntegrity.test.ts` — the five malformed inputs from (k) plus a genuinely blank canvas export refused; a real stroked PNG passing in `pixel` mode; stubbed-out `createImageBitmap` yielding `mode: 'structural'` with `ok: true`; digest stability.
+- `commitCertification` — throws on a failing result, a mismatched digest, a stale `checked_at`; in each case writes no `signature_images`/`rods_pdfs` row and no queue entry; raises the structural alert exactly once, post-transaction.
+- `scripts/eld-queue-gate.py` case (k) extended: `commitCertification` with a blank signature throws, leaves `local_certified_at` null, writes no bytes, enqueues nothing.
+- `definer-live-catalog.test.ts` re-run after Migration 1, with the interim allowlist entry.
 
-Run B section of `docs/eld-certification-playwright-run.md`: the condition now alerts rather than only counting; the reasoning (unreachable through `certify_rods_day`, which raises `P0023` for a keyed day that does not tile 1440 minutes, so any occurrence means something bypassed it); the two live paths that could produce it — a direct insert against `rods_days`, or a server-side event delete against a certified day; that the guard sits at `putCachedEvents` because three writers reach the event cache; and that the detection is call-scoped rather than module state, with the abort and concurrency reasons recorded so it is not "simplified" back later.
+## 7. Register
 
-## Technical notes
-
-- `alerts.ts` is Dexie-only, so importing it into `cache.ts` keeps `/roadside` free of Supabase.
-- Changing `putCachedEvents` to return `{ record, emptySegments }` touches its three call sites; none currently use the returned record except `markDaySynced`'s spread, which is unaffected.
-- No migration. `raise_sync_alert` takes the kind as text.
-- Adding required fields to `PutCachedEventsInput` is a compile-time break for any other writer, which is the intent.
+Run C addendum in `docs/eld-certification-playwright-run.md`: the finding resolved by validation at the commit edge and why the renderer was left alone; the structural-mode policy and why it is recorded, counted and alerted rather than silently permitted; the result-passing contract and its binding check; the two-migration sequencing and the reasoning above; and what (k) proved beyond its assertions — zero orphan bytes as evidence of render-before-write ordering, now pinned by comment and by the extended case.
