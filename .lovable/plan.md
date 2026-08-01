@@ -1,142 +1,69 @@
-# Share-link throttling: stated numbers, one correction, and the near-miss record
+## 1. The throttled card — one finding, from the rendered page
 
-## 1. The numbers, and why
-
-**Per link: 60 opens per rolling hour** (`_share_token_gate`, fails closed)
-
-Measured against what actually happens:
+I rendered `/inspect/:token` with the RPC response stubbed to `outcome: 'throttled'` (no database was touched, no access-log row written). Full visible text of the page:
 
 ```text
-Officer opens a binder link, reads it, opens the PDF again      2-4
-Driver re-scans after a failed read in bad signal               2-6
-Shop scans the same sticker across a morning inspection         5-10
-Worst realistic legitimate hour                                 ~20
-Shipped ceiling                                                 60
-Scripted pull of a leaked token                                 thousands
-```
-
-Roughly 3x headroom over the worst honest hour, and still orders of magnitude
-below the traffic that makes a leaked token worth harvesting. Per link rather
-than per document: two officers holding two different tokens for the same
-driver never contend with each other.
-
-This is the real control on both paths.
-
-**Per IP on the officer packet: 40 per 10 minutes — a coarse in-isolate guard,
-not a rate limit**
-
-State it as what it is. The counter is an in-memory map inside one edge
-isolate. Isolates are short-lived and several run concurrently, so a caller
-looping the stream gets a fresh counter on every cold start and can spread
-requests across isolates at the same time. It stops an accidental retry storm
-from a single warm isolate — worth keeping, and free — but it does not
-throttle a determined caller by source address, and nobody reading the
-register should think it does.
-
-The actual protection on the officer-packet path is the **4-hour token expiry**
-and the **per-token gate behind it**, which is shared-state and does count.
-
-Upgrade path, recorded rather than built now: a real per-IP limit needs shared
-state, and `share_token_access_log` already has it — it stores `ip_hash` and
-the per-token gate already counts rows in a window. A per-IP limit is the same
-query keyed on `ip_hash` instead of `token`. Notable wrinkle: `ip_hash` is NULL
-when the salt is unavailable (`v2_salt_unavailable`) or no IP header is present
-(`no_ip`), so that variant has to decide what a NULL fingerprint means before
-it can be trusted.
-
-All of this goes into the function comments and the register entry, replacing
-the current "per-IP limiting: 40/10min" phrasing.
-
-## 2. Correction: retries must not extend the lockout
-
-The window counts `outcome IN ('ok','throttled')`. Once a token trips, every
-refresh logs another `throttled` row inside the window and holds the count at
-the ceiling. An officer who refreshes twice a minute never gets back in — the
-hour restarts continuously. That is the exact failure the limit was supposed
-not to cause.
-
-Change the count to `outcome = 'ok'` only. Throttled attempts are still logged
-in full — the access log is the compliance record and loses nothing — they just
-stop feeding the counter. A tripped token then recovers on a fixed schedule as
-the successful opens age out, and a driver who waits is let back in whether or
-not they kept tapping.
-
-## 3. Throttled must not read as "Document Not Found"
-
-Today `resolve_share_token` returns nothing for throttled, revoked, expired and
-unknown alike, and the page shows one dead end. The advice differs: throttled
-means *wait a few minutes*; revoked means *the driver has to send a new link*.
-An officer given the wrong one of those wastes the inspection.
-
-Add a `throttled` signal to the resolver's return and a distinct screen:
-
-```text
+SUPERTRANSPORT
+Roadside Document Viewer
+Secure Link
 Too Many Opens
-This link has been opened many times in the last hour and is
-temporarily paused. Wait a few minutes and open it again — the
-link itself is still valid.
+
+This link has been opened too many times in the past hour and is
+temporarily rate-limited. It is still valid — wait a few minutes and
+reload this page.
 ```
 
-Revoked / expired / unknown keep the existing single "Document Not Found"
-state. That distinction is not free: it confirms to whoever holds the URL that
-the token exists and is live. Taking it anyway, because the holder must already
-possess a 122-bit random UUID — guessing one is infeasible, so the confirmation
-tells a realistic attacker nothing they did not already know — while the
-roadside cost of an unrecoverable-looking dead end is high and immediate.
+The card body is clean: no driver, no carrier, no document name, no dates, no operator id. Reading only the card source would have said "clean" and stopped there.
 
-Same treatment in `officer-packet-download`: its 404 currently says "no longer
-valid" for a throttled packet too. Return 429 with the wait-and-retry wording,
-keep 404 for the permanent outcomes.
+**The page header is not clean.** `InspectionSharePage` renders its black header — the SuperTransport logo image, the wordmark "SUPERTRANSPORT", and "Roadside Document Viewer" — in *every* state, including throttled. So an unauthenticated URL that has just confirmed the token is live also names the carrier and says the link is a document viewer. That is exactly the pairing to avoid: liveness confirmation plus attribution.
 
-## 4. Record the near-miss
+Nuance worth keeping: the header is correct on the `ok` state (an officer needs to know whose documents these are) and harmless on `Document Not Found`, which confirms nothing. Only the throttled state pairs a live-token signal with carrier attribution.
 
-Add to the run doc, under a Near Misses heading rather than buried in the
-throttling section:
+Fix:
 
-> **Verification probe rate-limited a live binder token.** Confirming the
-> per-token limit required 60 access rows against a real token, and the token
-> chosen was a production `inspection_document` token — a QR sticker physically
-> on a truck. For the remainder of that hour a real scan of that sticker would
-> have returned "Document Not Found". The probe rows were removed by migration
-> and the token was reconfirmed as resolving, but the recovery depended on
-> noticing, not on anything structural.
->
-> **This is why `share-token-throttle.test.ts` is read-only.** The committed
-> test asserts on `pg_get_functiondef` bodies and grants rather than driving
-> the limit, because driving it against this database means spending a real
-> driver's quota on a real sticker. That constraint is not excess caution and
-> should not be "improved" into an end-to-end test unless it runs against a
-> throwaway token on a throwaway resource.
+- Render the throttled state with neutral chrome: no logo, no wordmark, no "Roadside Document Viewer", no "Secure Link" badge.
+- Keep the card copy as-is — it names nothing and it is actionable.
+- Confirm (not assume) the `officer-packet-download` 429 body is equally nameless.
+- Assert the throttled render contains none of: carrier name, "Roadside Document Viewer", the token, or any document field.
 
-Register items added:
+## 2. Pass B §9 — verification sweep, 25 criteria
 
-- The throttle has no test exercising the counting path end to end; closing it
-  properly needs a seeded non-production token, not a relaxed read-only rule.
-- Officer-packet per-IP protection is an in-isolate guard only; a real one
-  needs `share_token_access_log` keyed on `ip_hash`.
-- `inspection_document` per-IP gap stays open (unchanged).
+Run as verification, not attestation. For each criterion: **what was observed, where, and by what method** — file and line, test name and result, query and rows returned, or rendered text. Anything I cannot observe is reported *unverified* with the reason, never marked pass. Three specified controls in this stage turned out never to have shipped; the sweep assumes more exist.
 
-## Technical detail
+Every criterion carries an explicit evidence class, and the document keeps them apart:
 
-- `_share_token_gate`: count predicate to `outcome = 'ok'`; ceiling reasoning
-  as a comment on `c_limit`.
-- `resolve_share_token`: return the gate outcome so the client can tell
-  `throttled` from the rest. The `inspection_document` row shape is unchanged
-  for the `ok` path — the QR sticker flow must not change.
-- `resolve_officer_packet_token`: same, so the edge function can pick 429
-  versus 404.
-- `InspectionSharePage.tsx`: third render state for throttled.
-- `officer-packet-download/index.ts`: 429 for throttled; rewrite the per-IP
-  comment to describe a coarse in-isolate guard with the shared-state upgrade
-  path.
-- `share-token-throttle.test.ts`: assert the counter excludes `throttled`, that
-  the per-IP guard still fails open, and that `resolve_share_token` returns the
-  four existing columns for a live non-expiring token. Verify the 693
-  NULL-expiry tokens are untouched, as before.
-- Migration touches function bodies only — no change to `share_tokens` rows, no
-  change to expiry semantics.
+- **verified-by-exercise** — the behaviour was driven and its output observed.
+- **verified-by-catalog** — the shipped definition, grant, policy or stored object was read and matched; the behaviour itself was not driven.
+- **unverified** — with the reason.
 
-## Not in scope
+Method per group:
 
-Closing the `inspection_document` per-IP gap still means moving every printed
-sticker's resolution behind an edge function.
+- **Offline (8)** — Playwright with the context offline, driving certify / report-malfunction / upload-ELD-document / officer-email for real, plus Dexie store reads after each. Rendered text and store contents, not source reading. *Exercise.*
+- **Sync (6)** — drain a seeded queue for real and record actual execution order, upload concurrency, and RPC serialisation. Idempotent replay run twice with the same token. *Exercise.*
+- **Rejection (2)** — force a guard rejection and a duplicate-date unique violation, then **assert the rendered surface**: the Management notification bell's Action tab shows the item, read as rendered text. A `notifications` row whose type nothing renders is the missing-edge-function failure one layer later, so the row is necessary evidence and not sufficient evidence. Both are recorded. *Exercise.*
+- **Parity (1)** — run the 17-fixture suite; quote fixture 17's asymmetry comment verbatim. *Exercise.*
+- **Delivery (5)** — **verified-by-catalog, all five.** Function bodies, grants, policies, Storage object metadata and existing access-log rows are read; the throttle counter and token resolution are *not* driven. The near-miss in `docs/eld-officer-packet-sharing.md` stands: no test writes to `share_token_access_log`, `share_tokens` or `officer_packet_links`. The document states plainly that these five rest on read evidence and what would be needed to raise them to exercise (a seeded non-production token on a throwaway resource).
+- **Regression (3)** — repository-wide scans plus the `/roadside` import-graph assertion re-derived from scratch. *Exercise.*
+
+### The five I expect to find something
+
+Called out now so a clean result means something.
+
+1. **Dependency ordering under a real drain.** Nothing has yet drained a queue holding a full dependent chain alongside concurrent byte uploads. Ordering is currently believed correct from reading `queue/runner.ts`.
+2. **`certify_rods_day` only after its uploads succeed.** Same drain, asserted on observed call order.
+3. **Rejection path Management notification.** Written before alert delivery worked end to end, so it has never run with delivery live. Checked at the bell, not at the table.
+4. **`/roadside` import graph.** Asserted before the queue, HEIC, officer-packet and throttling work landed.
+5. **What `/roadside` actually draws now.** `display_document_path`, `display_bytes`, the probe-on-hydration change and the packet builder all landed after the roadside assertions were last exercised end to end. The import graph is one check; the rendered screen is another, and neither of these three has been seen since:
+   - a **converted (HEIC→JPEG) day** — does the day view draw the display copy, and is the tile labelled "On file (ELD log)";
+   - a **flagged (`sync_rejected`) day** — still present in the packet, still no officer-facing rejection label;
+   - a **day with a live officer link** — the packet renders and the Email-to-officer path is reachable without pulling pdf-lib or Supabase into the graph.
+
+   Evidence is screenshots plus rendered text from `/roadside` with each state seeded into Dexie.
+
+Deliverable: `docs/eld-pass-b-acceptance-2026-08-01.md` — one entry per criterion with observation, evidence and evidence class; a findings section for failures and unverifiables; and §9 criteria 4 and 5 (installed cold launch on real iOS and Android hardware) restated as still-open deployment blockers that cannot be verified from here.
+
+## Technical notes
+
+- The throttled-chrome change is presentation-only in `src/pages/InspectionSharePage.tsx`; no resolver, migration, or grant changes.
+- The sweep creates no share tokens and no access-log rows.
+- Any criterion that turns out never to have shipped is written up as a finding in the same voice as the §7 throttling finding, not quietly fixed inside the sweep.
