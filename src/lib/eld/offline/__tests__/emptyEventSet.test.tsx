@@ -96,9 +96,11 @@ describe('roadside day view', () => {
     }} />);
 
     await waitFor(() => {
-      expect(document.querySelector('object, iframe, embed')).toBeNull();
-      expect(screen.queryByTestId('roadside-day-render')).toBeNull();
+      expect(screen.getByText(/No certified record is stored on this device/i)).toBeTruthy();
     });
+    expect(screen.queryByTestId('roadside-native-day')).toBeNull();
+    expect(screen.queryByTestId('roadside-native-grid')).toBeNull();
+      expect(document.querySelector('object, iframe, embed')).toBeNull();
     expect(JSON.parse(localStorage.getItem('roadside_empty_event_set') ?? '[]')).toContain(DATE);
     expect(localStorage.getItem('roadside_native_fallback')).toBeNull();
   });
