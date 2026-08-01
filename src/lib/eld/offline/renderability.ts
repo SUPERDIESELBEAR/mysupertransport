@@ -72,6 +72,36 @@ export interface ProbeResult {
 const NOT_RENDERABLE: ProbeResult = { renderable: false, display_bytes: null, display_mime: null };
 
 /**
+ * Decode-and-re-encode to JPEG. The ONE implementation — the hydration probe
+ * and the upload path both call it, so the display bytes are produced the same
+ * way whichever side made them.
+ *
+ * Returns null when the file is not an image, cannot be decoded on this device
+ * (HEIC on Chrome), or the decode/encode does not settle within the timeout.
+ */
+export async function convertForDisplay(bytes: ArrayBuffer, mime: string): Promise<ArrayBuffer | null> {
+  if (!isImageMime(mime)) return null;
+  const blob = new Blob([bytes], { type: mime });
+  const decoded = await withTimeout(decode(blob), PROBE_TIMEOUT_MS);
+  if (!decoded || !decoded.width || !decoded.height) return null;
+  return withTimeout(toJpeg(decoded), PROBE_TIMEOUT_MS);
+}
+
+/**
+ * Can THIS device draw these bytes? Used on display bytes that arrived over
+ * the network: the encode happened on the writing device, but truncation, a
+ * partial upload and transit corruption all happen after it. `renderable` has
+ * to keep meaning "this device can draw it", so provenance is never trusted.
+ * Microseconds on an intact JPEG.
+ */
+export async function canDecode(bytes: ArrayBuffer, mime: string): Promise<boolean> {
+  if (isPdfMime(mime)) return true;
+  if (!isImageMime(mime)) return false;
+  const decoded = await withTimeout(decode(new Blob([bytes], { type: mime })), PROBE_TIMEOUT_MS);
+  return !!decoded && !!decoded.width && !!decoded.height;
+}
+
+/**
  * Probe one file. Images get an offscreen decode attempt bounded by
  * PROBE_TIMEOUT_MS; on success the pixels are re-encoded to JPEG for display
  * while the original bytes are retained separately as the record.
