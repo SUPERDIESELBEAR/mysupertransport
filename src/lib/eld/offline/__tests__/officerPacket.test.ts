@@ -17,13 +17,8 @@ import { PDFDocument } from 'pdf-lib';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 
-const { roadsideDb } = await import('../db');
-const {
-  buildOfficerPacket, DOWNSAMPLE_PASSES, type Reencoder,
-} = await import('../buildOfficerPacket');
-
-type ManifestDay = import('../db').ManifestDay;
-type RoadsideManifest = import('../db').RoadsideManifest;
+import { roadsideDb, type ManifestDay, type RoadsideManifest } from '../db';
+import { buildOfficerPacket, DOWNSAMPLE_PASSES, type Reencoder } from '../buildOfficerPacket';
 
 const OPERATOR = '11111111-1111-4111-8111-111111111111';
 
