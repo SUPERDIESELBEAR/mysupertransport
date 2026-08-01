@@ -216,12 +216,30 @@ async function handler(req: Request): Promise<Response> {
 
   const { data: operator } = await supabase
     .from('operators')
-    .select('id, unit_number, is_demo, profiles(first_name, last_name)')
+    .select('id, unit_number, is_demo, user_id')
     .eq('id', body.operator_id)
     .maybeSingle();
-  // deno-lint-ignore no-explicit-any
-  const profile = (operator as any)?.profiles;
-  const driverName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Driver';
+  // operators has no FK to profiles (user_id points at auth.users), so the
+  // embed above never resolved and every packet was addressed to "Driver".
+  let profile: { first_name: string | null; last_name: string | null } | null = null;
+  if (operator?.user_id) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('user_id', operator.user_id)
+      .maybeSingle();
+    profile = data;
+  }
+  const driverName = resolvedDriverName(profile?.first_name, profile?.last_name);
+  // A roadside packet is a federal record. If the name cannot be resolved the
+  // packet does not go out under a placeholder — the same reasoning as refusing
+  // to certify on a blank signature.
+  if (!driverName) {
+    return fail(
+      422,
+      'This driver has no name on file, so a roadside packet cannot be generated. Add the driver\'s legal name to their profile and try again.',
+    );
+  }
   const unitNumber: string | null = operator?.unit_number ?? null;
 
   const { data: carrier } = await supabase
