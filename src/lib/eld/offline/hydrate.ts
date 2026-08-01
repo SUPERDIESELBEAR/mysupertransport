@@ -21,7 +21,7 @@ import {
   roadsideDb, requestPersistentStorage, readLocalMeta,
   type LocalMeta, type ManifestDay, type RoadsideManifest,
 } from './db';
-import { probeRenderability } from './renderability';
+import { canDecode, DISPLAY_MIME, probeRenderability } from './renderability';
 import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
 import { buildManifest, type ServerDayDescriptor } from './manifestBuild';
