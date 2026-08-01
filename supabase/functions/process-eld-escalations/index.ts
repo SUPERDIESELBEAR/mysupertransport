@@ -230,11 +230,11 @@ async function handler(req: Request): Promise<Response> {
   if (driverUserIds.length > 0) {
     const { data: profileRows } = await admin
       .from('profiles')
-      .select('id, first_name, last_name')
-      .in('id', driverUserIds);
+      .select('user_id, first_name, last_name')
+      .in('user_id', driverUserIds);
     for (const p of profileRows ?? []) {
       nameByUserId.set(
-        p.id as string,
+        p.user_id as string,
         [p.first_name, p.last_name].filter(Boolean).join(' '),
       );
     }
