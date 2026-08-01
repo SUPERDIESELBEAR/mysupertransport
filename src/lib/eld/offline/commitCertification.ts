@@ -247,5 +247,21 @@ export async function commitCertification(
   );
 
   await flushEmptySegmentAlerts(emptySegments);
+  if (signatureValidation.mode === 'structural') {
+    // Post-commit, same discipline as the empty-segment flush: raising
+    // enqueues onto sync_queue, outside the cache transaction above. The
+    // server coalesces on the condition and counts recurrences, so this is one
+    // row per operator with an occurrence count, not one per certification.
+    await raiseSyncAlert({
+      kind: 'signature_validated_structurally_only',
+      operator_id: operatorId,
+      log_date: logDate,
+      detail: JSON.stringify({
+        reason: signatureValidation.reason ?? null,
+        byte_length: signatureValidation.byte_length,
+        checked_at: signatureValidation.checked_at,
+      }),
+    });
+  }
   return { localCertifiedAt, certifyEntryId, manifest };
 }
