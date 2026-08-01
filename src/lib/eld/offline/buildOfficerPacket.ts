@@ -435,7 +435,13 @@ export async function buildOfficerPacket(
 
   const originals = sources.map((s) => (s.image ? { ...s.image } : null));
 
-  let result = await assemble(sources, meta, manifest, null, now);
+  // Fail safe: cached identity says demo, or any cached day carries the flag.
+  // A day row wins even if identity was never hydrated on this device.
+  const cachedDays = await roadsideDb.rods_days_cache.toArray();
+  const isDemo = meta?.is_demo === true
+    || cachedDays.some((entry) => entry.day?.is_demo === true);
+
+  let result = await assemble(sources, meta, manifest, null, now, isDemo);
   let usedPass: number | null = null;
 
   const hasPhotos = originals.some(Boolean);
@@ -454,7 +460,7 @@ export async function buildOfficerPacket(
     }
     if (!anyReduced) break;
     // eslint-disable-next-line no-await-in-loop
-    result = await assemble(sources, meta, manifest, i, now);
+    result = await assemble(sources, meta, manifest, i, now, isDemo);
     usedPass = i;
   }
 
