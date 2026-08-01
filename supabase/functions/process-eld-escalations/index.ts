@@ -203,13 +203,33 @@ async function handler(req: Request): Promise<Response> {
     .select(`id, operator_id, discovered_at, created_at, status, repair_deadline,
       carrier_acknowledged_at, extension_granted_at, escalations_suppressed_until,
       escalations_suppressed_reason, malfunction_code, is_demo,
-      operators!inner(id, unit_number, user_id, is_demo, profiles(first_name, last_name))`)
+      operators!inner(id, unit_number, user_id, is_demo)`)
     .eq('status', 'open')
     .eq('is_demo', false);
   if (body?.eventId) query = query.eq('id', body.eventId);
 
   const { data: events, error: eventsError } = await query;
   if (eventsError) return fail(500, 'Could not load malfunction events', eventsError.message);
+
+  // operators has no FK to profiles (user_id points at auth.users), so the
+  // driver's name is a second read rather than an embed.
+  const driverUserIds = Array.from(new Set(
+    // deno-lint-ignore no-explicit-any
+    (events ?? []).map((e: any) => e.operators?.user_id).filter(Boolean),
+  )) as string[];
+  const nameByUserId = new Map<string, string>();
+  if (driverUserIds.length > 0) {
+    const { data: profileRows } = await admin
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', driverUserIds);
+    for (const p of profileRows ?? []) {
+      nameByUserId.set(
+        p.id as string,
+        [p.first_name, p.last_name].filter(Boolean).join(' '),
+      );
+    }
+  }
 
   const recipients = await loadStaffRecipients(admin);
   const sentOn = new Intl.DateTimeFormat('en-CA', {
@@ -241,8 +261,7 @@ async function handler(req: Request): Promise<Response> {
       continue;
     }
 
-    const profile = e.operators?.profiles;
-    const driverName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Driver';
+    const driverName = nameByUserId.get(e.operators?.user_id) || 'Driver';
     const unitNumber: string | null = e.operators?.unit_number ?? null;
     const fmt = (iso: string) =>
       new Date(iso).toLocaleString('en-US', { timeZone, dateStyle: 'medium', timeStyle: 'short' });
