@@ -16,7 +16,7 @@
  * it writes.
  */
 import { roadsideDb, type RoadsideManifest } from './db';
-import { putCachedDay, putCachedEvents } from './cache';
+import { putCachedDay, putCachedEvents, flushEmptySegmentAlerts, type EmptySegmentsDetected } from './cache';
 import { signatureKeyForDay } from './prune';
 import { buildManifest } from './manifestBuild';
 import { newSyncId, type EnqueueInput } from './queue/store';
@@ -153,13 +153,19 @@ export async function commitCertification(
         sync_rejected: false,
         sync_stalled: false,
       });
-      await putCachedEvents({
+      ({ emptySegments } = await putCachedEvents({
         rods_day_id: signedDay.id,
         log_date: logDate,
+        operator_id: operatorId,
+        provenance: 'local_certification',
+        day_status: signedDay.status,
+        // The server row stays 'draft' until the queue drains; this is what
+        // makes a locally signed day certified for the purposes of the guard.
+        local_certified_at: localCertifiedAt,
         events,
         unsynced: true,
         version: (existing?.version ?? 0) + 1,
-      });
+      }));
 
       await roadsideDb.sync_queue.bulkPut([
         queueEntry({
