@@ -1,74 +1,67 @@
-## Confirmed before writing this (unchanged findings, plus two new)
+## Both corrections taken
 
-- **`send-eld-malfunction-notice` fails on its first statement.** Line 123 embeds `operators!inner(... profiles(...))`; `operators.user_id` points at `auth.users`, so no such relationship exists. Every call returns `500 Could not load the malfunction event` — before the upload gate, before the demo branch, before the PDF read. Broken since the file was written, commit `2f1158be`, Wed Jul 29 23:17 UTC. `eld_malfunction_events` is empty (0 rows, 0 uploaded, 0 sent, 0 recorded errors), so no driver has hit it; the first real report would have.
-- **`eld_malfunction_notifications` has exactly one policy: `eld_notifications_select_staff` (SELECT, `authenticated`).** No UPDATE policy, no DELETE policy, for any role. Append-only through PostgREST today. The gap is not policy, it is that a service-role writer bypasses RLS entirely — which is why the trigger below is the actual guard.
-- **`day_number` has no reader yet** — only `process-eld-escalations` writes it; the semantics are still ours to define.
-- **`pg_cron` and `pg_net` are installed**; the app role cannot read the `cron` schema, so observing a run needs the reader function in step 2.
+### 1. `certify_rods_day` rejects placeholder names server-side
 
-## 1. Fix the notice embed — and make `dryRun` structurally unable to send
+The client-side hard-fail in the certify modal is necessary but not the guard. The server's 12-field header check tests non-empty, not real — so any caller supplying `"Driver"` certifies a §395.8 record in a false name and passes every check. Same shape as the `record_source` bypass.
 
-**Embed fix:** drop the nested `profiles(...)`, resolve the driver's name with a second read on `profiles` keyed by `operators.user_id`, keep the `'Driver'` fallback.
+Add to `certify_rods_day`, alongside the existing header validation:
 
-**`dryRun` shape:** the handler splits at the resolution point.
+- Reject when `btrim(certification_legal_name)` is empty, or when `lower(btrim(...))` is in the placeholder set: `driver`, `unknown`, `operator`, `n/a`, `unnamed`, `test driver`. Own SQLSTATE (`ELD07`), distinct message naming the offending value.
+- Register `ELD07` in `REJECTION_SQLSTATES` so the client renders it as a rejection rather than an unknown 500.
+- No privileged exemption — no `rods.privileged` bypass, same as `is_override`.
 
-```text
-resolveNotice(eventId) -> { event, driverName, unitNumber, recipients, subject, html }   // reads only
-  |
-  +-- dryRun  -> return the resolved summary. Returns here. No sender module in scope.
-  |
-  +-- live    -> deliverNotice(resolved, pdfBase64, authHeader)  // the only caller of sendResendDirect
-                 -> stampSent(eventId)                            // the only writer of notice_sent_at
-```
+Order of work is observation before assertion: apply the migration, drive a real certify attempt over the wire with `certification_legal_name = 'Driver'`, capture the actual SQLSTATE and message the client receives, and only then write the fixture asserting it. A fixture written first would assert what I assumed the wire returns.
 
-`sendResendDirect` is imported and called inside `deliverNotice` only, and `deliverNotice` is invoked from exactly one line — the non-dry branch, after `dryRun` has already returned. The dry branch never constructs a payload the sender could consume: it returns the summary object and exits. The PDF is not even downloaded on the dry path, so there is nothing to attach.
+This cannot catch every wrong name. It makes the one the codebase actually produces — the `|| 'Driver'` fallback — structurally unable to reach a federal record, from any path, client or server.
 
-`notice_sent_at`, `notice_send_attempts`, and `notice_last_send_error` are written only inside `deliverNotice`/`stampSent`, which the dry path cannot reach. A dry run therefore writes no `notice_sent_at`, no `email_send_log` row (that row is written by `sendResendDirect`, which is never called), and no ledger row (this function does not write the escalation ledger at all).
+### 2. Triage of the 43 zero-argument `.maybeSingle()` calls
 
-**Verification:** seed a scratch event on a real operator with a small uploaded PDF, call with `dryRun`, assert the response carries the resolved driver name, unit, recipient list, and subject — then re-read the event row and assert `notice_sent_at IS NULL` and `notice_send_attempts` unchanged, and assert zero new `email_send_log` rows for the label `eld_malfunction_notice`. Then a demo-operator call to prove the `suppressed: true` branch (also previously unreachable) is now reached. Scratch rows deleted, counts re-asserted at zero.
+Sized rather than deferred. Three buckets.
 
-## 2. Land the cron with an observed run
+**Fix now — null yields a placeholder on a driver-facing or compliance artifact (6)**
 
-Registration goes through the data tool, not a migration — the statement embeds the project URL and anon key and must not travel to a remix.
+| Site | Null path produces |
+|---|---|
+| `certifyRodsDay` caller / certify modal | `certification_legal_name = 'Driver'` on a §395.8 record |
+| `send-eld-malfunction-notice:147` | `'Driver'` on the 395.34(a)(1) written notice |
+| `send-officer-packet:224` | `'Driver'` + null unit on the roadside packet (broken `profiles(...)` embed, error swallowed) |
+| `buildOfficerPacket.ts:221` | `'Driver'` drawn into the packet PDF |
+| `send-return-receipt-pdf:100` | `'Driver'` on the equipment-return receipt the driver signs |
+| `send-lease-termination:114` | `'Driver'` on the termination document |
 
-1. Register at `*/10 * * * *`. Wait for a real scheduled fire and read it out of `cron.job_run_details`.
-2. Once observed, alter to hourly at `:10`.
+All six become hard failures: resolve the name or refuse to produce the artifact, with the reason stamped where the caller can see it.
 
-Hourly is the steady state: the ladder is day-granular, but driver-facing rows are held outside 07:00–21:00 home-terminal time, so the job must come back after the quiet window opens. Repeat runs inside a day are no-ops by dedupe.
+**Accept, noted — UI or courtesy default, no record consequence (20)**
 
-Add `public.eld_cron_status()` (`SECURITY DEFINER`, pinned `search_path`, executable by management and owner) returning the job row plus recent `cron.job_run_details`. §3's console needs a "last run" indicator, so this is a component, not scaffolding.
+Sender/staff-name fallbacks (`'Staff'`, `'SUPERTRANSPORT Management'`, `'SUPERTRANSPORT Operations'`, caller-email fallbacks) in `invite-staff`, `invite-operator`, `invite-applicant`, `request-application-revisions`, `send-dot-consultant-request`, `send-insurance-request`, `send-deactivation-notice`, `send-return-receipt-pdf` (sender line), `send-equipment-return-instructions`; greeting-only `'Driver'` in `send-cert-reminder`, `send-payroll-docs`, `send-birthday-anniversary`, `cron-cert-reminders`, `check-cert-expiry`, `check-inspection-expiry`, `send-staff-birthday-message`, `send-test-email`, the passenger-auth template; `'Dispatcher'` / `'Coordinator'` in `OperatorPortal`; `'Unknown Operator'` in `OperatorDetailPanel`. A degraded greeting on a reminder email is not a false entry on a record. Two of these still get their wrong-column bug fixed (`send-test-email:78`, `send-equipment-return-instructions:69` both key `profiles` on `id` instead of `user_id`) — the fallback stays, the lookup stops being broken.
 
-**Quiet run:** every open, non-demo, unacknowledged event is evaluated; none is on a rung, none is inside an unacknowledged 24h/72h step, none has an unoffered extension window. Response: `success: true`, `events: N`, `ledger_rows_inserted: 0`, `emails_sent: 0`, `results: []`; pg_cron records `succeeded`. That is most hours. `events: N` plus the `job_run_details` row is what separates "nothing to do" from "never woke up".
+**Genuine optional read — null is a real, meaningful state (17)**
 
-## 3. `day_number` semantics
+Settings singletons (`insurance_email_settings`, `dot_consultant_email_settings`, `carrier_profile`), existence probes (`invite-operator` existing-operator check, `handle-email-unsubscribe` token, `email-track-open`), offline hydrate reads, `equipmentSync`, `truckSync`, `syncInspectionBinderDate`, `useIsDemoOperator`, `OperatorPortal` prefetches, `set-demo-flag`, `send-transactional-email` template/registry reads. These branch on null deliberately.
 
-Document per type in the ledger's header comment: `escalation_day` — the rung; `extension_prompt` — the day the one-time prompt fired, not a rung; `ack_overdue` — `NULL`, with the 24h/72h step in the reason text. Add a test asserting a rung query filters on `notification_type = 'escalation_day'`, so the console cannot read a prompt row as a rung.
+That's the list, with a length: **6 fix now, 20 accepted and named, 17 correct as written.**
 
-## 4. Override runs: audit entry plus an immutable ledger flag
+## Carried forward from the approved plan
 
-- **`audit_log` row per override run** — action `eld_escalation_override_run`, actor from the caller's JWT, metadata with the `nowOverride` value, channels, event filter, and resulting counts. Answers "who made the ladder believe it was a different day".
-- **`is_override boolean not null default false` on `eld_malfunction_notifications`** (migration), set true on any run with `nowOverride` or a channel override. Answers "is this row evidence".
+- **`eld_cron_runs`** — one row per invocation written in a `finally`: `effective_date`, `trigger_source`, `is_override`, `events_evaluated`, `ledger_rows_inserted`, `emails_sent`, `status`, `error_text`, `_result` jsonb. SELECT for management and owner; no INSERT/UPDATE/DELETE policy for any role; GRANT SELECT to `authenticated`, ALL to `service_role`. Permanent, not verification scaffolding — ten-minute log retention applies to every scheduled job.
+- **Relax to `'0 * * * *'` only after** a scheduled `*/10` invocation has left a row with `status: succeeded` and a readable quiet signature (`events_evaluated: N, ledger_rows_inserted: 0, emails_sent: 0`).
+- **`send-officer-packet` embed fix** — second read on `profiles` keyed by `operators.user_id`, error checked rather than swallowed.
+- **`APP_URL`** — set to the published origin this turn; confirm the `[app-url]` warning stops, so a future warning means a regression.
 
-**Immutability:** `BEFORE UPDATE` trigger on the table, same treatment as `record_source` and `is_demo`, raising its own SQLSTATE when `NEW.is_override IS DISTINCT FROM OLD.is_override`. No privileged exemption path — not for the service role, not for a staff role, no `rods.privileged`-style bypass. The one column protecting the ledger's credibility cannot be cleared by any UPDATE.
+## Verification
 
-Also assert in the migration's accompanying test that the table still has no UPDATE and no DELETE policy for any role (currently true: one SELECT policy for `authenticated`), so append-only stays append-only.
-
-The console's timeliness column reads only `is_override = false` rows.
-
-## 5. APP_URL
-
-`buildAppUrl` already `console.warn`s on every fallback, and the escalation logs show it firing on every invocation — visible, but only to someone reading function logs. Rather than rely on that, fix it now: the current `APP_URL` value is not a URL at all, so it gets deleted and the function falls back to the published host by design, or it is set to the published origin explicitly. Either way the warning stops, and a persisting warning afterward means a real regression instead of steady-state noise.
-
-## Verification list
-
-1. Dry run returns a resolved name, unit, recipients, and subject — and writes no `notice_sent_at`, no attempt increment, no `email_send_log` row.
-2. Demo-operator call reaches the `suppressed: true` branch.
-3. `cron.job_run_details` shows a real scheduled invocation with its status, before the schedule is relaxed to hourly.
-4. A quiet run recorded and reported as `events: N`, zero rows, zero emails, `succeeded`.
-5. Override run writes one `audit_log` row and ledger rows with `is_override = true`; a normal run writes neither. A direct UPDATE attempting to clear `is_override` raises the trigger's SQLSTATE.
-6. `eld_malfunction_notifications` still has no UPDATE or DELETE policy for any role.
-7. All scratch rows removed, counts re-asserted at zero.
+1. A certify attempt with `certification_legal_name = 'Driver'` is rejected over the wire with `ELD07`, observed before the fixture is written; the day stays uncertified.
+2. `ELD07` renders as a rejection in the modal, not an unknown error.
+3. Each of the six bucket-one paths fails rather than emitting a placeholder when the profile can't be resolved; the notice writes no `notice_sent_at` and no `email_send_log` row on that failure.
+4. `send-officer-packet` returns the real driver name and unit for a real operator.
+5. A scheduled cron invocation leaves an `eld_cron_runs` row with a readable quiet signature; only then the schedule moves to hourly.
+6. `eld_cron_runs` has no INSERT/UPDATE/DELETE policy for any role.
+7. `rg` for `profiles` + `.eq('id'` returns zero hits; committed test keeps that shape absent.
+8. No `[app-url]` warning in a fresh escalation run.
 
 ## Technical notes
 
-- Files: `supabase/functions/send-eld-malfunction-notice/index.ts` (split into `resolveNotice` / `deliverNotice`), `supabase/functions/process-eld-escalations/index.ts`, one migration (`is_override`, its immutability trigger, `eld_cron_status()`), one data-tool statement for `cron.schedule`, plus tests.
-- Both edge functions redeploy after editing.
+- Migrations: `certify_rods_day` placeholder rejection (`ELD07`); `eld_cron_runs` table with grants, RLS, policies.
+- Edge functions edited and redeployed: `process-eld-escalations`, `send-eld-malfunction-notice`, `send-officer-packet`, `send-return-receipt-pdf`, `send-lease-termination`, `send-test-email`, `send-equipment-return-instructions`.
+- Client: certify modal hard-fail, `REJECTION_SQLSTATES`, `src/lib/eld/offline/buildOfficerPacket.ts` required `driver_name`.
+- One `cron.alter_job` via the data tool, gated on item 5.
