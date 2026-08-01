@@ -7,6 +7,7 @@ import { AlertTriangle, BookOpen, Loader2, Printer } from 'lucide-react';
 import { CLOCK_RED, currentQuarterKey } from '@/lib/eld/constants';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
+import { useIsDemoOperator } from '@/hooks/useIsDemoOperator';
 import { useRoadsideHydration } from '@/hooks/useRoadsideHydration';
 import CachePacketChip from '@/components/eld/CachePacketChip';
 import ELDMalfunctionWizard from './ELDMalfunctionWizard';
@@ -22,6 +23,7 @@ export default function ELDMalfunctionView({
   unitNumber: string | null;
 }) {
   const { activeEvent, loading, refresh } = useEldMalfunction(operatorId);
+  const isDemo = useIsDemoOperator(operatorId);
   // Keeps local_meta and the offline packet current on every authenticated load.
   useRoadsideHydration(operatorId, driverName);
   const [reporting, setReporting] = useState(false);
@@ -45,7 +47,7 @@ export default function ELDMalfunctionView({
   async function printBlankLogs() {
     setPrinting(true);
     try {
-      const blob = await renderDutyStatusGrid({ pages: 8 });
+      const blob = await renderDutyStatusGrid({ pages: 8, isDemo });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank', 'noopener');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
