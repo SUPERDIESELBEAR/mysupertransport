@@ -268,6 +268,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <DemoSuppressionToaster />
           <BrowserRouter>
             <NavTraceRouterListener />
             <PreviewSessionBanner />
