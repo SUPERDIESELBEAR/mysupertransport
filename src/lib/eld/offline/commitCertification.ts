@@ -16,7 +16,7 @@
  * it writes.
  */
 import { roadsideDb, type RoadsideManifest } from './db';
-import { putCachedDay, putCachedEvents } from './cache';
+import { putCachedDay, putCachedEvents, flushEmptySegmentAlerts, type EmptySegmentsDetected } from './cache';
 import { signatureKeyForDay } from './prune';
 import { buildManifest } from './manifestBuild';
 import { newSyncId, type EnqueueInput } from './queue/store';
@@ -108,6 +108,9 @@ export async function commitCertification(
   // Every store the transaction touches — including the ones buildManifest
   // reads — has to be declared. Dexie throws on a table the outer transaction
   // did not name, and that throw would land after the driver signed.
+  // Scoped to this call, not module state: an abort throws past the flush
+  // below, and a concurrent hydration cannot drain this value.
+  let emptySegments: EmptySegmentsDetected | null = null;
   const manifest = await roadsideDb.transaction(
     'rw',
     [
@@ -153,13 +156,19 @@ export async function commitCertification(
         sync_rejected: false,
         sync_stalled: false,
       });
-      await putCachedEvents({
+      ({ emptySegments } = await putCachedEvents({
         rods_day_id: signedDay.id,
         log_date: logDate,
+        operator_id: operatorId,
+        provenance: 'local_certification',
+        day_status: signedDay.status,
+        // The server row stays 'draft' until the queue drains; this is what
+        // makes a locally signed day certified for the purposes of the guard.
+        local_certified_at: localCertifiedAt,
         events,
         unsynced: true,
         version: (existing?.version ?? 0) + 1,
-      });
+      }));
 
       await roadsideDb.sync_queue.bulkPut([
         queueEntry({
@@ -197,5 +206,6 @@ export async function commitCertification(
     },
   );
 
+  await flushEmptySegmentAlerts(emptySegments);
   return { localCertifiedAt, certifyEntryId, manifest };
 }

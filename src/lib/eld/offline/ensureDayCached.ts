@@ -14,7 +14,7 @@
 import { renderRodsDay } from '@/lib/eld/renderRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import { roadsideDb, type SignatureOrigin } from './db';
-import { putCachedDay, putCachedEvents } from './cache';
+import { putCachedDay, putCachedEvents, flushEmptySegmentAlerts, type EmptySegmentsDetected } from './cache';
 import { signatureKeyForDay } from './prune';
 
 export interface EnsureDayCachedInput {
@@ -118,6 +118,10 @@ export async function ensureDayCached(input: EnsureDayCachedInput): Promise<Ensu
   // Both structured stores commit together. A kill between them would leave a
   // day with header data and no segments, which renders as an empty grid
   // instead of falling back to the PDF embed.
+  // Scoped to this call: an abort of the transaction below throws past the
+  // flush, so nothing is raised for a write that never landed, and a
+  // concurrent certification cannot drain this value.
+  let emptySegments: EmptySegmentsDetected | null = null;
   await roadsideDb.transaction(
     'rw',
     roadsideDb.rods_days_cache,
@@ -134,16 +138,21 @@ export async function ensureDayCached(input: EnsureDayCachedInput): Promise<Ensu
         sync_stalled: previous?.sync_stalled ?? false,
         cached_at: cachedAt,
       });
-      await putCachedEvents({
+      ({ emptySegments } = await putCachedEvents({
         rods_day_id: day.id,
         log_date: day.log_date,
+        operator_id: day.operator_id,
+        provenance: 'hydration',
+        day_status: day.status,
+        local_certified_at: sync.localCertifiedAt,
         events,
         unsynced: sync.unsynced,
         version: sync.version,
         cached_at: cachedAt,
-      });
+      }));
     },
   );
+  await flushEmptySegmentAlerts(emptySegments);
 
   const blob = await renderRodsDay({ day, events, driverName, signatureDataUrl });
   const bytes = await blob.arrayBuffer();

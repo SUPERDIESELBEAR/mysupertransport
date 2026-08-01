@@ -9,7 +9,7 @@ import {
   assertDeleteApplied, assertRowsAffected, isRowNotWritable, markDayStale,
 } from '@/lib/eld/rodsWrite';
 import { roadsideDb } from '@/lib/eld/offline/db';
-import { putCachedDay, putCachedEvents } from '@/lib/eld/offline/cache';
+import { putCachedDay, putCachedEvents, flushEmptySegmentAlerts } from '@/lib/eld/offline/cache';
 import { enqueueCoalesced } from '@/lib/eld/offline/queue/store';
 import { newLocalRodsDay } from '@/lib/eld/rodsTypes';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
@@ -210,9 +210,14 @@ export function useRodsDay(params: {
         sync_rejected: false,
         sync_stalled: false,
       });
-      await putCachedEvents({
+      // A brand-new draft legitimately has no segments: day_status 'draft' and
+      // no local certification, so the empty-set guard stays silent.
+      const created = await putCachedEvents({
         rods_day_id: target.id, log_date: logDate, events: [], unsynced: true, version: version.current,
+        operator_id: operatorId, provenance: 'editor', day_status: target.status,
+        local_certified_at: null,
       });
+      await flushEmptySegmentAlerts(created.emptySegments);
       await enqueueCoalesced({
         kind: 'save_draft_day',
         coalesce_key: `save_draft_day:${logDate}`,
@@ -245,7 +250,11 @@ export function useRodsDay(params: {
         await putCachedEvents({
           rods_day_id: target.id, log_date: logDate, events: rowsOut,
           unsynced: false, version: version.current,
-        }).catch(() => undefined);
+          operator_id: operatorId, provenance: 'editor', day_status: target.status,
+          local_certified_at: null,
+        })
+          .then((r) => flushEmptySegmentAlerts(r.emptySegments))
+          .catch(() => undefined);
       }
     } else {
       setSegments([]);
@@ -372,13 +381,20 @@ export function useRodsDay(params: {
       // cached set. Segment edits shared the header's debounce race shape, so
       // they get the same single-writer treatment rather than a second fix.
       version.current += 1;
-      await putCachedEvents({
+      const saved = await putCachedEvents({
         rods_day_id: day.id,
         log_date: day.log_date,
         events: next.map((s) => toEventRow(day.id, s)),
         unsynced: true,
         version: version.current,
+        operator_id: day.operator_id,
+        provenance: 'editor',
+        day_status: day.status,
+        // saveSegments refuses to run at all once the day is locally
+        // certified (guard above), so this is a draft write by construction.
+        local_certified_at: null,
       });
+      await flushEmptySegmentAlerts(saved.emptySegments);
       await enqueueCoalesced({
         kind: 'save_draft_segments',
         coalesce_key: `save_draft_segments:${day.log_date}`,
