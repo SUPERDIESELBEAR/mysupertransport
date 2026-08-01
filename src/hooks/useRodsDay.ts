@@ -227,11 +227,19 @@ export function useRodsDay(params: {
 
     setDay(target);
     if (target) {
-      const { data: evs } = await supabase
+      const { data: evs, error: evsErr } = await supabase
         .from('rods_events')
         .select('*')
         .eq('rods_day_id', target.id)
         .order('start_minute');
+      if (evsErr) {
+        // A failed read yields no rows, which is indistinguishable from a day
+        // with no segments. Writing that to the cache would clobber a good
+        // cached set AND — on a certified day — raise the empty-segment alert
+        // for a network fault. Leave the cache and the screen as they were.
+        setLoading(false);
+        return;
+      }
       const rowsOut = (evs ?? []) as unknown as RodsEvent[];
       setSegments(rowsOut.map(toDraft));
       // Keep the cache aligned with what was just read, so the roadside packet
@@ -243,15 +251,15 @@ export function useRodsDay(params: {
           log_date: logDate,
           unsynced: false,
           version: version.current,
-          local_certified_at: null,
+          local_certified_at: localCertifiedAt.current,
           sync_rejected: cached?.sync_rejected ?? false,
           sync_stalled: cached?.sync_stalled ?? false,
         }).catch(() => undefined);
         await putCachedEvents({
           rods_day_id: target.id, log_date: logDate, events: rowsOut,
           unsynced: false, version: version.current,
-          operator_id: operatorId, provenance: 'editor', day_status: target.status,
-          local_certified_at: null,
+          operator_id: operatorId, provenance: 'server_read', day_status: target.status,
+          local_certified_at: localCertifiedAt.current,
         })
           .then((r) => flushEmptySegmentAlerts(r.emptySegments))
           .catch(() => undefined);
@@ -390,9 +398,10 @@ export function useRodsDay(params: {
         operator_id: day.operator_id,
         provenance: 'editor',
         day_status: day.status,
-        // saveSegments refuses to run at all once the day is locally
-        // certified (guard above), so this is a draft write by construction.
-        local_certified_at: null,
+        // The guard above refuses a locally-certified day, so this is a draft
+        // write — but pass the live ref rather than assert the invariant in a
+        // literal: if the guard ever regresses, the alert should fire.
+        local_certified_at: localCertifiedAt.current,
       });
       await flushEmptySegmentAlerts(saved.emptySegments);
       await enqueueCoalesced({
