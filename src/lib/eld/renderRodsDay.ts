@@ -244,6 +244,9 @@ export async function renderRodsDay(options: {
     signature,
   );
 
+  // Last, so the mark crosses the grid and the signature.
+  if (options.day.is_demo) drawDemoWatermark(page, bold, rgb, degrees);
+
   const bytes = await doc.save();
   return new Blob([bytes as BlobPart], { type: 'application/pdf' });
 }
