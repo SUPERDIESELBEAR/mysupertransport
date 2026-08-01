@@ -69,7 +69,12 @@ export default function RoadsideDayView({ day }: { day: ManifestDay }) {
             kind: 'native',
             day: dayRow.day,
             events: eventRow.events,
-            driverName: meta?.driver_name ?? dayRow.day.certification_legal_name ?? 'Driver',
+            // The certified name on the record wins; local meta is the fallback.
+            // Neither is a place for "Driver" — an officer reading a placeholder
+            // name on a §395.8 record is being shown a false entry.
+            driverName: dayRow.day.certification_legal_name
+              ?? meta?.driver_name
+              ?? '— no name on record —',
             signatureDataUrl: sig?.data_url ?? null,
           });
           return;
