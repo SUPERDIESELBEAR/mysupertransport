@@ -146,6 +146,7 @@ async (a) => {
     local_certified_at: null, sync_rejected: false, sync_stalled: false,
   });
 
+  const queuedBefore = (await store.allEntries()).map((e) => e.id);
   const results = {};
   for (const [label, sig] of Object.entries(a.signatures)) {
     let threw = null, size = null;
@@ -161,7 +162,9 @@ async (a) => {
   const after = await roadsideDb.rods_days_cache.get(a.logDate);
   const sigRows = await roadsideDb.signature_images.toArray();
   const pdfRows = await roadsideDb.rods_pdfs.toArray();
-  const queued = (await store.allEntries()).map((e) => e.kind);
+  // Only entries this case produced. (l) and (i) leave their own behind.
+  const queued = (await store.allEntries())
+    .filter((e) => !queuedBefore.includes(e.id)).map((e) => e.kind);
   return {
     results,
     lockedAfter: !!after?.day?.locked,
@@ -284,6 +287,8 @@ async def main():
             failures.append(f"(k) orphan bytes left behind: sig={k['signatureRows']} pdf={k['pdfRows']}")
         if k["queued"]:
             failures.append(f"(k) render enqueued work before the lock: {k['queued']}")
+        if not all(r["size"] == list(k["results"].values())[0]["size"] for r in k["results"].values()):
+            notes.append("(k) signature variants produced differing byte counts — one embedded")
 
         await page.screenshot(path=str(SHOTS / "eld_queue_gate.png"))
         await browser.close()
