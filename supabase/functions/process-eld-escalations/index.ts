@@ -326,7 +326,8 @@ async function handler(req: Request): Promise<Response> {
       entity_id: body?.eventId ?? null,
       actor_id: auth.actorId ?? null,
       actor_name: auth.isService ? 'service_role (cron/verification)' : null,
-      details: {
+      entity_label: 'ELD escalation override run',
+      metadata: {
         now_override: body?.nowOverride ?? null,
         channels: body?.channels ?? 'all',
         event_filter: body?.eventId ?? null,
