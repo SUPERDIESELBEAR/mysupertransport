@@ -14,13 +14,14 @@
  * ONLY codes observed verbatim in `PostgrestError.code` over PostgREST are
  * asserted here — the seeded driver-session run of 2026-07-31 recorded in
  * docs/database-security-conventions.md §5a: P0010–P0015, P0020–P0023, P0030,
- * P0031, plus 42501 for `purge_rods_day`. A code read out of a function body
+ * P0031, plus 42501 for `purge_rods_day`; and the 2026-08-01 run that closed
+ * the record_source bypass: P0019, P0045, P0046. A code read out of a function body
  * but never seen on the wire is not evidence; that assumption is what produced
  * P0022's wrong attribution earlier.
  *
- * P0016–P0018 (amendment change-record guards) are deliberately absent: they
- * are real conditions in the function, but they were not in the observed set,
- * so there is nothing here to assert them against.
+ * Conditions that are real and reachable but have no wire observation yet are
+ * listed in UNOBSERVED_REACHABLE below, with the provocation each one needs.
+ * They are absent for want of evidence, not because they do not matter.
  */
 import { describe, it, expect } from 'vitest';
 import { validateRodsDay } from '@/lib/eld/rodsValidation';
@@ -34,11 +35,36 @@ import { REJECTION_SQLSTATES, isRejectionSqlState } from '../queue/types';
  */
 const OBSERVED_CODES = [
   'P0010', 'P0011', 'P0012', 'P0013', 'P0014', 'P0015',
+  'P0019',
   'P0020', 'P0021', 'P0022', 'P0023',
   'P0030', 'P0031',
+  'P0045', 'P0046',
   '42501',
 ] as const;
 type ObservedCode = (typeof OBSERVED_CODES)[number];
+
+/**
+ * Reachable through the app, never yet seen on the wire. Each entry names the
+ * provocation that would close the gap. The next person to run a seeded driver
+ * session should provoke these, record the codes in
+ * docs/database-security-conventions.md §5a, then move them into
+ * OBSERVED_CODES with a fixture each.
+ *
+ * Excluded from the fixtures for want of an observation — NOT because they are
+ * unimportant. P0016–P0018 are the whole of the amendment change-record guard,
+ * and they are the only untested part of certify_rods_day.
+ */
+const UNOBSERVED_REACHABLE: Readonly<Record<string, string>> = {
+  P0016:
+    'Amend a certified day (creates a row with supersedes_day_id), clear '
+    + 'amendment_reason on the draft, then call certify_rods_day.',
+  P0017:
+    'Amend a certified day, keep amendment_reason, and call certify_rods_day '
+    + 'with p_changes = [] (or with one entry whose field_path is blank).',
+  P0018:
+    'Certify an ordinary keyed draft (supersedes_day_id null) while passing a '
+    + 'non-empty p_changes array.',
+};
 
 const OPERATOR = '11111111-1111-4111-8111-111111111111';
 const OTHER_OPERATOR = '22222222-2222-4222-8222-222222222222';
@@ -141,8 +167,9 @@ function ctx(overrides: Partial<CallContext> = {}): CallContext {
  * Guard order, per the 8-arg definition in
  * supabase/migrations/20260801155213_*.sql:
  *   token → row → owner → token/day binding → draft → legal name →
- *   [record_source <> 'eld_document' only: completeness → gap → overlap →
- *    1440 → header] → unique (operator_id, log_date) on certified rows.
+ *   amendment change record → record_source must be 'keyed' (P0019) →
+ *   completeness → gap → overlap → 1440 → header →
+ *   unique (operator_id, log_date) on certified rows.
  */
 function serverGuardOutcome(
   d: RodsDay,
@@ -156,9 +183,11 @@ function serverGuardOutcome(
   if (d.status !== 'draft') return 'P0014';
   if (c.legalName.trim() === '') return 'P0015';
 
-  // An uploaded ELD document has no keyed segments and no keyed header to
-  // check — the server skips the whole block. See fixture 17.
-  if (d.record_source !== 'eld_document') {
+  // Layer A of the record_source bypass fix: this function certifies keyed
+  // days and nothing else. The content block below is no longer conditional.
+  if (d.record_source !== 'keyed') return 'P0019';
+
+  {
     const incomplete = events.filter(
       (e) => e.end_minute === null || e.duty_status === null
         || (e.city ?? '').trim() === '' || (e.state ?? '').trim() === '',
@@ -338,7 +367,7 @@ const FIXTURES: Fixture[] = [
   },
   {
     n: 17,
-    name: 'uploaded ELD document with no keyed segments or header',
+    name: 'certify_rods_day refuses a log that is not keyed',
     day: day({
       record_source: 'eld_document',
       source_document_path: `${OPERATOR}/${LOG_DATE}/eld-log.pdf`,
@@ -354,13 +383,38 @@ const FIXTURES: Fixture[] = [
     clientBlocks: [
       'has_segments', 'all_segments_complete', 'no_gaps', 'sums_to_1440', 'header_complete',
     ],
-    code: null,
+    code: 'P0019',
     note:
-      'INTENTIONAL ASYMMETRY. The server skips the segment and header block entirely for '
-      + 'record_source = eld_document, so the write is accepted; the keyed checklist fails almost '
-      + 'everything. This is not a drift to fix: an uploaded log was certified on the driver\'s own '
-      + 'ELD and has no keyed face to check. The screen never runs this checklist against one — '
-      + 'the guard is that no keyed certify path may ever set record_source to eld_document.',
+      'WAS THE BYPASS. Until 2026-08-01 the server skipped the whole segment and header block '
+      + 'for record_source = eld_document and ACCEPTED this write. Demonstrated live: a keyed '
+      + 'draft with a 60-minute gap was refused P0021, the driver flipped record_source over '
+      + 'PostgREST, and the same log then certified with the gap intact and every header field '
+      + 'null. It is now refused outright — uploaded documents are filed already-certified by '
+      + 'create_eld_document_day and never pass through here.',
+  },
+  {
+    n: 18,
+    name: 'record_source changed after the log was filed',
+    day: day(), events: fullDayEvents(), ctx: ctx(),
+    clientBlocks: [],
+    code: 'P0045',
+    modelled: false,
+    note:
+      'Layer B. Not a certify path: raised by the enforce_rods_day_lock trigger on a plain '
+      + 'PostgREST UPDATE of record_source, before the lock test and with no rods.privileged '
+      + 'exemption. Observed as the demo driver on an unlocked draft they own.',
+  },
+  {
+    n: 19,
+    name: 'ELD-document row filed with no source document',
+    day: day({ record_source: 'eld_document', source_document_path: null }),
+    events: fullDayEvents(), ctx: ctx(),
+    clientBlocks: [],
+    code: 'P0046',
+    modelled: false,
+    note:
+      'Layer C. Raised by enforce_rods_day_source_document on INSERT or UPDATE, so a row cannot '
+      + 'claim document provenance with no document behind it. Observed on a driver INSERT.',
   },
 ];
 
@@ -415,9 +469,19 @@ describe('certify_rods_day — client/server parity fixtures', () => {
     expect(strays).toEqual([]);
   });
 
-  it('fixture numbers are 1..17 with no duplicates', () => {
+  it('fixture numbers are 1..19 with no duplicates', () => {
     expect(FIXTURES.map((f) => f.n)).toEqual(
-      Array.from({ length: 17 }, (_, i) => i + 1),
+      Array.from({ length: 19 }, (_, i) => i + 1),
     );
+  });
+
+  it('unobserved-but-reachable codes are registered and still unasserted', () => {
+    for (const [code, recipe] of Object.entries(UNOBSERVED_REACHABLE)) {
+      // Real conditions: they must be known to the queue classifier even
+      // though no fixture can assert them yet.
+      expect(isRejectionSqlState(code)).toBe(true);
+      expect(recipe.length).toBeGreaterThan(20);
+      expect(OBSERVED_CODES).not.toContain(code);
+    }
   });
 });

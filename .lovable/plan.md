@@ -1,50 +1,60 @@
-Two documentation corrections plus one guard hardening. No change to what any allowlist permits, and no database objects change.
+## Correction accepted — the baseline runs first
 
-## 1. The deploy timestamp becomes a blank, not a note
+Taking the decision rather than the omission: **run the bypass once against current code**, before the migration ships. A refusal observed only after the fix is indistinguishable from a refusal that was always there for some unrelated reason, and a security finding recorded on a code reading with no demonstration is a claim, not evidence.
 
-`docs/deferred-removals.md`, in the `certify_rods_day(uuid,text,text,text,text,uuid,jsonb)` entry. The removal query keys on a timestamp that currently appears only as the placeholder `'<deploy timestamp>'` inside the SQL — which reads as something to reconstruct later rather than something to record now.
+The conditions that make it acceptable are the ones you named: `rods_days` is empty (verified this turn), the row is scratch on a demo driver, and `purge-rods-day` removes it along with its events and any amendment children. The uncomfortable part — deliberately producing an invalid certified record — is bounded to a few seconds on a row nobody else can see, and it is the only way the finding is backed by an observation.
 
-Add a line directly under the entry's heading, above **What:**, so it is seen before the entry is read rather than at the end:
+### Step 0 — pre-fix baseline (before any migration)
 
-```text
-**Deploy timestamp:** ______ (fill on deploy)
+Real `@supabase/supabase-js` client, driver session minted through `create-preview-session` → `redeem-preview-session` → `verifyOtp` on a demo driver, seed/purge in a `finally` block, same discipline as the 2026-07-31 run in §5a:
+
+1. Seed a keyed draft with a **deliberate gap** (e.g. 0–360 and 420–1440) and a header that would also fail — so both the P0021 and P0030 paths are live.
+2. Certify it as-is. Expect a refusal; record the code. This proves the guard fires normally on this row.
+3. `UPDATE rods_days SET record_source = 'eld_document'` over PostgREST as that driver. Record whether the update returns the row (RLS permits it) or 0 rows.
+4. Call `certify_rods_day` again with a fresh token. **Record whether it certifies** — `status`, `locked`, `certified_at` read back from the row.
+5. Purge immediately via `purge-rods-day`, then read back `rods_days` / `rods_events` / `rods_amendments` counts to confirm zero, and the `rods_day_purged` audit row.
+
+Outcome recorded verbatim in `docs/database-security-conventions.md` §5a as the demonstration of the hole, whichever way it lands. If step 4 refuses, the finding is downgraded on the spot and the migration is re-scoped to whatever actually blocked it — that result is as valuable as the other one.
+
+## Migration — three layers
+
+**a. `certify_rods_day` refuses anything not keyed.** Remove the `IF v_day.record_source <> 'eld_document' THEN` wrapper so the completeness / gap / overlap / 1440 / header block runs unconditionally, and guard before it:
+
+```
+IF v_day.record_source <> 'keyed' THEN
+  RAISE EXCEPTION 'Cannot certify: this day is an uploaded ELD document...'
+    USING ERRCODE = 'P0019';
+END IF;
 ```
 
-Then point the removal-trigger prose at that line instead of describing the value in the abstract, and leave the SQL's `'<deploy timestamp>'` placeholder as-is so the query is obviously incomplete until the blank above it is filled.
+**b. `record_source` immutable after insert** — `enforce_rods_day_lock` (BEFORE UPDATE) raises `P0045` on `NEW.record_source IS DISTINCT FROM OLD.record_source`.
 
-This convention is added to this entry only. Neither `classifyError` nor `purge_rods_day` keys its removal check on a moment in time, so neither needs it.
+**c. A document row must carry a document** — BEFORE INSERT OR UPDATE trigger raising `P0046` when `record_source = 'eld_document' AND coalesce(btrim(source_document_path),'') = ''`.
 
-## 2. The duplicate allowlist entry gets recorded in the run doc
+Neither b nor c is exempted by `rods.privileged`. Confirmed safe against `replace_rods_document`: it updates only `status` on the superseded row and INSERTs the replacement with a literal `'eld_document'` and a `_new_path` it already refuses blank. Only two `public` functions both update `rods_days` and mention the column — that one and `certify_rods_day`, whose only reference is the branch being deleted. No client update path writes it.
 
-`docs/eld-certification-playwright-run.md`. Two additions.
+## Step 2 — post-fix provocation, then fixtures
 
-**A `(k2)` section**, following the existing `(l)` / `(i)` / `(k)` sections: blank and malformed signatures refused before the render in real Chromium where the pixel pass actually runs, and `commitCertification` refusing blank bytes even when handed a passing validation result for them. This section also closes the "Observation, not a defect here" paragraph that currently ends `(k)` — that paragraph predicted this exact gap ("if a future path ever feeds it a signature from elsewhere... the check belongs at that path's edge"), and the record should say the edge check now exists.
+Same session shape as step 0.
 
-**A note on the allowlist**, recording the mechanism rather than just the fix:
+- **P0019** — the flip is now refused at the UPDATE (b), so provoke certification refusal by seeding the row as `eld_document` with a valid path and calling `certify_rods_day` on it. Record the verbatim code.
+- **P0045** — the flip attempt from step 0, replayed. It is now a live provocation rather than a deferred one, since step 0 establishes it succeeded before; record the code and move it out of the ledger.
+- **P0046** — insert an `eld_document` row with a null path. Record the code.
+- Re-run the exact step-0 bypass sequence end to end and confirm it no longer certifies, now with a baseline to compare against.
 
-> `KNOWN_ANON_EXECUTABLE` held `certify_rods_day`'s seven-argument form twice. Because the "may only shrink" assertion compares `length` against the MAX rather than distinct membership, the list read one longer than the set it described and the MAX had been sized to the wrong number — leaving the assertion slack by one. Dropping to 58 removes the slack.
+Fixtures are written **after** these observations and assert the observed codes, added to `OBSERVED_CODES`. A code that comes back different from what the migration says it raises means the migration is wrong and gets fixed before any fixture is written.
 
-The note then points at item 3 as the structural fix.
+## Registration and tests
 
-## 3. Distinctness assertions on all three allowlists
+- `REJECTION_SQLSTATES`: P0019, P0045, P0046 — one condition, one function each. §6 code table gets the same three rows; §5a gets the step-0 baseline, the step-2 observations, and the remaining "reachable, not yet round-tripped" list.
+- `CONDITION_GROUPS`: decide when writing whether P0045/P0046 read as `locked_record` or want a new `record_source_integrity` group. No overloading a wire value.
+- Fixture 17 becomes **"keyed day flipped to eld_document is refused"** against the observed P0019, its note rewritten from "intentional asymmetry" to a record of the bypass, citing the step-0 demonstration. New fixtures for P0045 and P0046; the 1..N numbering assertion grows with them.
+- `serverGuardOutcome` loses the `record_source` branch and gains the refusal, so model and wire code keep cross-checking.
+- `UNOBSERVED_REACHABLE` ledger: P0016, P0017, P0018 with provocation recipes, plus the test asserting each key is in `REJECTION_SQLSTATES` and asserted by no fixture. Header comment states plainly they are excluded for want of a wire observation, not because they don't matter — they gate every correction to a certified log and are reachable from the driver PWA today.
+- `rodsValidation.ts` comment corrected: the checklist is keyed-only because certify accepts nothing else, not because of a deliberate skip.
 
-The lists live in two files:
+## Technical notes
 
-- `src/test/definer-live-catalog.test.ts` — `KNOWN_ANON_EXECUTABLE` (MAX 58) and `KNOWN_AUTHENTICATED_EXECUTABLE` (MAX 66)
-- `src/test/definer-search-path.test.ts` — `LEGACY_PUBLIC_ONLY_PINS` (`LEGACY_MAX` 104)
-
-Beside each existing `length <= MAX` check, assert `new Set(list).size === list.length`. On failure, report the duplicated signatures by name rather than just the counts — a bare count mismatch on a 104-entry list is not something anyone wants to diff by eye.
-
-Each assertion is placed with the length check it protects, so the two are read together and a future MAX adjustment can't miss it.
-
-**Why this is the right shape.** These MAXes are ratchets: the number encodes "this list may only shrink." A duplicate breaks that silently, because the length grows without the permitted set growing, and the next person sizes the MAX to the inflated number. The distinctness check makes the count mean what the ratchet assumes it means.
-
-No entry is added or removed from any list, and no MAX changes — 58, 66, and 104 stay as they are. If a distinctness assertion fails on first run, that is a second duplicate we didn't know about, and I'll bring it to you with the specific signature rather than adjusting a MAX to accommodate it.
-
-## Verification
-
-Run both guard files. Item 3 is the only executable change, and its correct result is that all three assertions pass with the MAXes untouched.
-
-## Not in scope
-
-Pass B's remainder — parity fixtures, HEIC upload, officer email merge, and the acceptance sweep — stays queued behind this.
+- One migration, ordered: `certify_rods_day`, `enforce_rods_day_lock`, then the new trigger function and its `CREATE TRIGGER`.
+- The new trigger function adds a `SECURITY DEFINER` entry, so `src/test/definer-live-catalog.test.ts` and `definer-search-path.test.ts` need their MAX counts re-checked against the live catalog and the distinctness assertions re-run.
+- No UI behaviour changes.

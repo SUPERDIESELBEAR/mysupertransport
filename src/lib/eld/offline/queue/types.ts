@@ -115,6 +115,7 @@ export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0016: 'written reason required to certify a correction',
   P0017: 'amendment carries no change record',
   P0018: 'change record supplied for a log that supersedes nothing',
+  P0019: 'certification attempted on a log that is not keyed',
   P0020: 'incomplete duty-status entries',
   P0021: 'gap in the 24-hour period',
   P0022: 'overlapping duty-status entries',
@@ -127,6 +128,8 @@ export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0042: 'certified log superseded with no certified replacement in the same transaction',
   P0043: 'correction draft deleted directly instead of through discard_rods_amendment()',
   P0044: 'duty-status entries of a certified log changed',
+  P0045: 'record_source changed after the log was filed',
+  P0046: 'ELD-document log with no source document referenced',
   // get_or_create_short_link.
   P0050: 'invalid share token',
   P0051: 'authentication required for a short link',

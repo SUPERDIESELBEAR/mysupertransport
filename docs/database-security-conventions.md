@@ -154,6 +154,41 @@ Not observed, and unreachable from a driver client: `P0002`, `P0040`, `P0041`,
 runs — the write returns **0 rows and no error**. Any client logic that waits
 for one of those codes will wait forever; check the affected row count instead.
 
+### 5b. The `record_source` bypass, demonstrated and closed, 2026-08-01
+
+Same harness as §5a (demo driver `ee993ec0`, scratch rows purged immediately).
+
+**Before the fix**, `certify_rods_day` ran its segment and header block only
+when `record_source <> 'eld_document'`, and nothing stopped a driver from
+changing that column on their own unlocked draft:
+
+1. keyed draft with a 60-minute hole at minute 360 → `certify_rods_day` → `P0021`
+2. `UPDATE rods_days SET record_source = 'eld_document'` over PostgREST, as the
+   driver → **accepted**, 1 row
+3. `certify_rods_day` again → **succeeded**: `status = certified`,
+   `locked = true`, gap intact, every header field null, no source document
+
+That is a bypass of the entire content guard, not an edge case. Three layers
+now close it (`20260802000000_close_record_source_bypass.sql`):
+
+- **A** — `certify_rods_day` refuses anything that is not `keyed` (`P0019`), and
+  the content block is unconditional. `eld_document` rows are filed
+  already-certified by `create_eld_document_day` and never pass through it.
+- **B** — `record_source` is immutable after insert (`P0045`), checked in
+  `enforce_rods_day_lock` before the lock test, with **no** `rods.privileged`
+  exemption.
+- **C** — an `eld_document` row must reference its source document (`P0046`).
+
+**After the fix**, observed verbatim on the same harness: the gap still returns
+`P0021`, the flip returns `P0045`, an `eld_document` insert with no path returns
+`P0046`, certifying an `eld_document` draft returns `P0019`, and a complete
+keyed day still certifies normally (regression check).
+
+Reachable but still unobserved: `P0016`, `P0017`, `P0018` — the amendment
+change-record guards, and the only untested part of `certify_rods_day`. The
+provocation each one needs is recorded in `UNOBSERVED_REACHABLE` in
+`src/lib/eld/offline/__tests__/parityFixtures.test.ts`.
+
 ### 6. One code, one condition, one function
 
 Every named condition raised from a `SECURITY DEFINER` function or a trigger
@@ -178,6 +213,7 @@ condition is done with `CONDITION_GROUPS` in
 | `certify_rods_day` | written reason required to certify a correction | `P0016` |
 | `certify_rods_day` | amendment carries no change record | `P0017` |
 | `certify_rods_day` | change record supplied for a log that supersedes nothing | `P0018` |
+| `certify_rods_day` | log is not keyed (uploaded ELD document) | `P0019` |
 | `certify_rods_day` | incomplete duty-status entries | `P0020` |
 | `certify_rods_day` | gap in the 24-hour period | `P0021` |
 | `certify_rods_day` | overlapping duty-status entries | `P0022` |
@@ -188,6 +224,8 @@ condition is done with `CONDITION_GROUPS` in
 | `enforce_rods_day_lock` | certified log modified | `P0040` |
 | `enforce_rods_day_lock` | locked log deleted | `P0041` |
 | `enforce_rods_day_lock` | correction draft deleted outside `discard_rods_amendment()` | `P0043` |
+| `enforce_rods_day_lock` | `record_source` changed after the log was filed | `P0045` |
+| `enforce_rods_day_source_document` | `eld_document` row with no source document | `P0046` |
 | `enforce_rods_certified_continuity` | certified log superseded with no certified replacement in the same transaction | `P0042` |
 | `enforce_rods_event_lock` | duty-status entries of a certified log changed | `P0044` |
 | `get_or_create_short_link` | invalid share token | `P0050` |
