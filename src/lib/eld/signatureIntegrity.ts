@@ -40,8 +40,12 @@ const PNG_PREFIX = 'data:image/png;base64,';
 const MIN_BYTES = 512;
 /** Absolute floor: fewer marked pixels than this is a stray tap, not a name. */
 const MIN_INK_PIXELS = 120;
-/** And it has to be visible relative to the canvas, not one dense speck. */
-const MIN_INK_FRACTION = 0.0008;
+/**
+ * And it has to be visible relative to the canvas, not one dense speck. A
+ * thin two-pixel stroke tracing a name across a signature pad covers a few
+ * percent of it; 0.4% is well under any real signature and well over a tap.
+ */
+const MIN_INK_FRACTION = 0.004;
 /** Below this alpha a pixel is antialiasing halo, not a stroke. */
 const ALPHA_THRESHOLD = 16;
 
