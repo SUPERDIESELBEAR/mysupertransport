@@ -41,6 +41,20 @@ import { resolvedDefiners } from "./helpers/migrationFunctions";
 const NULLABLE_SOURCES =
   /current_setting\s*\(|request\.jwt|session_user|current_user/i;
 
+/**
+ * Anything that reads "who is calling". A condition mentioning one of these
+ * is an authorization predicate, not business logic.
+ */
+const AUTHZ_SOURCES =
+  /\buser_roles\b|\bhas_role\s*\(|\bis_staff\s*\(|auth\.uid\s*\(|current_setting\s*\(|request\.jwt/i;
+
+/**
+ * Values that read as "nothing to see here" when returned from the
+ * non-matching branch of an authorization check: the caller gets a plausible
+ * answer instead of a refusal.
+ */
+const BENIGN_VALUE = /^(0|0::[a-z ]+|false|null|''|'\{\}'(::jsonb)?)$/i;
+
 /** Every `IF NOT ...` / `IF ... NOT (...)` condition up to its THEN. */
 function negatedConditions(block: string): string[] {
   const out: string[] = [];
@@ -49,6 +63,75 @@ function negatedConditions(block: string): string[] {
   while ((m = re.exec(block)) !== null) {
     const cond = m[1];
     if (/\bNOT\b/i.test(cond)) out.push(cond);
+  }
+  return out;
+}
+
+/**
+ * Every `CASE ... END` expression in the body, innermost-aware.
+ *
+ * `END IF`, `END LOOP` and `END CASE` are plpgsql block terminators, not the
+ * end of a CASE *expression*, so they are skipped when balancing. `END CASE`
+ * does close a plpgsql CASE statement, which is the same shape for our
+ * purposes, so it counts.
+ */
+function caseExpressions(block: string): string[] {
+  const out: string[] = [];
+  const stack: number[] = [];
+  const re = /\b(CASE|END)\b(\s+(IF|LOOP|CASE))?/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(block)) !== null) {
+    const word = m[1].toUpperCase();
+    const follower = m[3]?.toUpperCase();
+    if (word === "CASE") {
+      stack.push(m.index);
+      continue;
+    }
+    // END IF / END LOOP close a plpgsql control block, not a CASE expression.
+    if (follower === "IF" || follower === "LOOP") continue;
+    const start = stack.pop();
+    if (start !== undefined) {
+      out.push(block.slice(start, m.index + m[0].length));
+    }
+  }
+  return out;
+}
+
+/** Text of the final top-level ELSE branch, or `null` when there is none. */
+function elseBranch(caseExpr: string): string | null {
+  const idx = caseExpr.toUpperCase().lastIndexOf("ELSE");
+  if (idx === -1) return null;
+  return caseExpr
+    .slice(idx + 4)
+    .replace(/\bEND\b[\s\S]*$/i, "")
+    .trim();
+}
+
+/**
+ * Authorization checks whose refusal path yields a value instead of raising.
+ *
+ * The shape:
+ *
+ *   SELECT CASE WHEN EXISTS (SELECT 1 FROM user_roles ...)
+ *          THEN (SELECT count(*) ...)
+ *          ELSE 0
+ *          END
+ *
+ * count_unused_resume_tokens shipped exactly this on 2026-08-01 — written to
+ * REPLACE a silently-empty direct table read, and reproducing the defect one
+ * layer down. An unauthorized caller cannot tell "you may not see this" from
+ * "there are none", and neither can the UI.
+ */
+function benignAuthzDefaults(block: string): string[] {
+  const out: string[] = [];
+  for (const expr of caseExpressions(block)) {
+    if (!AUTHZ_SOURCES.test(expr)) continue;
+    if (/\bRAISE\b/i.test(expr)) continue;
+    const branch = elseBranch(expr);
+    // No ELSE at all is worse, not better: a CASE with no match yields NULL.
+    const value = branch === null ? "NULL (implicit — no ELSE)" : branch;
+    if (branch !== null && !BENIGN_VALUE.test(branch)) continue;
+    out.push(value);
   }
   return out;
 }
@@ -74,6 +157,24 @@ describe("SECURITY DEFINER guards are not fail-open", () => {
             .replace(/\s+/g, " ")
             .trim()
             .slice(0, 140)} THEN`,
+        );
+      }
+    }
+
+    expect(offenders, offenders.join("\n")).toEqual([]);
+  });
+
+  it("no authorization check refuses by returning a benign value", () => {
+    const offenders: string[] = [];
+
+    for (const fn of definers) {
+      for (const value of benignAuthzDefaults(fn.block)) {
+        offenders.push(
+          `${fn.file}: ${fn.signature} — authorization check yields ` +
+            `${value} on the refusal path instead of raising. The caller ` +
+            `cannot distinguish "not permitted" from "no rows", and neither ` +
+            `can the UI. Use a positive refuse: permit inside the IF, ` +
+            `RAISE EXCEPTION after it.`,
         );
       }
     }
