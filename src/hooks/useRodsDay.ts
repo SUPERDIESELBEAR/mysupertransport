@@ -210,9 +210,14 @@ export function useRodsDay(params: {
         sync_rejected: false,
         sync_stalled: false,
       });
-      await putCachedEvents({
+      // A brand-new draft legitimately has no segments: day_status 'draft' and
+      // no local certification, so the empty-set guard stays silent.
+      const created = await putCachedEvents({
         rods_day_id: target.id, log_date: logDate, events: [], unsynced: true, version: version.current,
+        operator_id: operatorId, provenance: 'editor', day_status: target.status,
+        local_certified_at: null,
       });
+      await flushEmptySegmentAlerts(created.emptySegments);
       await enqueueCoalesced({
         kind: 'save_draft_day',
         coalesce_key: `save_draft_day:${logDate}`,
@@ -245,7 +250,11 @@ export function useRodsDay(params: {
         await putCachedEvents({
           rods_day_id: target.id, log_date: logDate, events: rowsOut,
           unsynced: false, version: version.current,
-        }).catch(() => undefined);
+          operator_id: operatorId, provenance: 'editor', day_status: target.status,
+          local_certified_at: null,
+        })
+          .then((r) => flushEmptySegmentAlerts(r.emptySegments))
+          .catch(() => undefined);
       }
     } else {
       setSegments([]);
