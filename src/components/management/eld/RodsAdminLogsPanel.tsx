@@ -16,6 +16,7 @@ import { FileText, Loader2, MessageSquareWarning, RefreshCw } from 'lucide-react
 import RoadsideDayRender from '@/components/eld/RoadsideDayRender';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
+import { orderVersionsByDate } from '../../../../supabase/functions/_shared/eld/amendmentChain';
 import {
   CORRECTION_STATUS_LABEL, fetchCorrectionRequests, raiseCorrectionRequest,
   type CorrectionRequest,
@@ -113,16 +114,36 @@ export default function RodsAdminLogsPanel({
   const driverName = operator?.driver_name || 'Driver';
   const selected = days.find((d) => d.id === selectedId) ?? null;
 
-  /** Current versions first; a superseded version sits under its replacement. */
+  /**
+   * Current version first, every earlier version beneath it in supersession
+   * order. This used to be a one-level reverse map of `supersedes_day_id`,
+   * which on original <- A1 <- A2 attributed the original to A2 and dropped
+   * A1 entirely — staff read an incomplete chain of a federal record. It reads
+   * the shared `orderVersionsByDate` now, the same helper the retention export
+   * and the demo purge use, so what the office sees and what an auditor is
+   * handed cannot diverge.
+   */
   const grouped = useMemo(() => {
-    const supersededBy = new Map<string, RodsDay>();
-    for (const d of days) if (d.supersedes_day_id) supersededBy.set(d.supersedes_day_id, d);
-    const current = days.filter((d) => d.status !== 'superseded');
-    return current.map((d) => ({
-      day: d,
-      priorVersions: days.filter((p) => p.status === 'superseded' && supersededBy.get(p.id)?.id === d.id),
-      openRequest: requests.find((r) => r.log_date === d.log_date && r.status === 'open') ?? null,
-    }));
+    let byDate: Array<{ log_date: string; versions: RodsDay[] }>;
+    try {
+      byDate = orderVersionsByDate(days);
+    } catch {
+      // A cycle is a data fault, not a reason to show a blank list.
+      byDate = [...new Set(days.map((d) => d.log_date))].sort().map((log_date) => ({
+        log_date,
+        versions: days.filter((d) => d.log_date === log_date),
+      }));
+    }
+    return byDate
+      .sort((a, b) => b.log_date.localeCompare(a.log_date))
+      .map(({ log_date, versions }) => ({
+        // Newest version last out of the chain walk; that is the current one.
+        day: versions[versions.length - 1],
+        // Original first, so the list reads the way the record was amended.
+        priorVersions: versions.slice(0, -1),
+        openRequest: requests.find((r) => r.log_date === log_date && r.status === 'open') ?? null,
+      }))
+      .filter((g) => Boolean(g.day));
   }, [days, requests]);
 
   const dayRequests = selected
@@ -220,7 +241,7 @@ export default function RodsAdminLogsPanel({
                     )}
                   </div>
                 </button>
-                {priorVersions.map((p) => (
+                {priorVersions.map((p, i) => (
                   <button
                     key={p.id}
                     type="button"
@@ -229,7 +250,7 @@ export default function RodsAdminLogsPanel({
                       selectedId === p.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
                     }`}
                   >
-                    Superseded version — certified{' '}
+                    Version {i + 1} of {priorVersions.length + 1} (superseded) — certified{' '}
                     {p.certified_at ? new Date(p.certified_at).toLocaleDateString('en-US') : '—'}
                   </button>
                 ))}
