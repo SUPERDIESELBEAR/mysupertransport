@@ -1688,8 +1688,9 @@ export type Database = {
           last_seen_at: string
           log_date: string | null
           occurrences: number
-          operator_id: string
+          operator_id: string | null
           raised_at: string
+          raised_by: string | null
           updated_at: string
         }
         Insert: {
@@ -1703,8 +1704,9 @@ export type Database = {
           last_seen_at?: string
           log_date?: string | null
           occurrences?: number
-          operator_id: string
+          operator_id?: string | null
           raised_at?: string
+          raised_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -1718,8 +1720,9 @@ export type Database = {
           last_seen_at?: string
           log_date?: string | null
           occurrences?: number
-          operator_id?: string
+          operator_id?: string | null
           raised_at?: string
+          raised_by?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6630,6 +6633,18 @@ export type Database = {
           p_contract_id: string
           p_metadata?: Json
           p_operator_id: string
+        }
+        Returns: undefined
+      }
+      log_notification_delivery_failure: {
+        Args: {
+          p_body: string
+          p_entity_id: string
+          p_entity_label: string
+          p_entity_type: string
+          p_error: string
+          p_link: string
+          p_subject: string
         }
         Returns: undefined
       }
