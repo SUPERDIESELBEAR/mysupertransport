@@ -6921,6 +6921,15 @@ export type Database = {
             Args: { _day_id: string; _reason: string; _storage_owner: string }
             Returns: Json
           }
+        | {
+            Args: {
+              _actor_id?: string
+              _day_id: string
+              _reason: string
+              _storage_owner: string
+            }
+            Returns: Json
+          }
       raise_eld_sync_alert: {
         Args: {
           p_detail: string
