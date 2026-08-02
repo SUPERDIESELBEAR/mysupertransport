@@ -149,7 +149,18 @@ export const buildOperatorViewUrl = (
 
 export const getViewStateFromSearch = (search: string): OperatorViewState => {
   const params = new URLSearchParams(search);
-  const view = getOperatorViewFromTab(params.get('tab')) ?? 'progress';
+  // `tab` is this portal's own legacy param, but links written elsewhere — the
+  // management console, and notification rows built in database triggers —
+  // spell the destination `view`, matching /management. A `?view=paper-logs`
+  // link used to fall through to 'progress', so the driver tapped a bell item
+  // about their log and landed on the onboarding status screen.
+  const viewParam = params.get('view');
+  const view =
+    getOperatorViewFromTab(params.get('tab')) ??
+    getOperatorViewFromTab(viewParam) ??
+    // Route aliases ('rods', 'eld', 'doc-hub') are legal in a `view` link too.
+    (viewParam ? ROUTE_TO_VIEW[viewParam] : undefined) ??
+    'progress';
   return {
     view,
     binderView: view === 'inspection-binder' && params.get('binderView') === 'pages' ? 'pages' : undefined,

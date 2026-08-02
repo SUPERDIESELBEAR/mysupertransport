@@ -1,55 +1,63 @@
-## Part 1 — E: rename to `LogSyncBanner`, three states
+## §4 walkthrough, resumed at step 2
 
-Move `src/components/operator/rods/StalledLogBanner.tsx` to `LogSyncBanner.tsx`, update the two imports (`RodsDayEditor.tsx:30`, `RodsView.tsx:27`) and both call sites (`:381`, `:200`). The component's job becomes "report this day's sync state" — honest about all three things it reports rather than one of them.
+HARNESS-1 and the 2026-08-01 demo day are in place. Six steps, run in order, each one asserted before the next starts.
 
-States:
+### Step 2 — Raise the request, and prove the driver can see it
 
-- **stalled** — existing copy, `AlertTriangle`, unlock affordance. Unchanged.
-- **rejected** — existing copy for a recognised SQLSTATE; new plain copy for an unrecognised one (item D), carrying the code.
-- **confirmed** — the office has the log. Green, one affordance: dismiss.
+Raise it from the read-only log view in the management console (`RodsAdminLogsPanel`), driven in a real browser as the signed-in staff user — not by an insert. That is the only way the console's own guard rails (certified-day requirement, one-open-per-date index, `requested_by` stamping) are part of the evidence.
 
-**`confirmed` is dismissed explicitly, and only explicitly.** No timer, no mount-marks-itself-seen, no scroll heuristic. It appears when the cached day flips from locally-locked-and-unsynced to server-certified — the queue drained — and it stays there, across reloads and across sessions, until the driver taps to dismiss. `sync_confirmed_seen_at` is written to the day's Dexie cache entry at that tap and nowhere else; once written the banner never returns for that day. A driver who was driving when the queue drained finds the confirmation waiting for him, which is the case that justified the banner over a toast in the first place.
+Then assert the row: `status = 'open'`, `operator_id` / `log_date` stamped from the day, `rods_day_id` pointing at the version that prompted it.
 
-The docblock gets one sentence so the next person doesn't reimplement "seen":
+**The bell assertion is the part that failed in Pass B, so it is done the hard way.** Open the driver's notification bell in a browser, on the Action tab, and screenshot the item rendered. Querying `notifications` for a matching row is explicitly *not* the assertion — a written row that renders nowhere is exactly the defect this catches, and it has already happened once on this surface (`eld_sync_alert` landed as tier `fyi` and never reached Action).
 
-> The confirmed state is cleared by an explicit dismiss tap only — never by a timer, a mount, or a visibility heuristic — because a driver whose queue drained while he was driving must find the confirmation still there when he next opens the app.
+Signing in as the driver: the injected browser session belongs to the current staff user, not the demo driver, so the bell has to be reached through the existing **mobile preview session** mechanism (`preview_sessions`) — the same QR handoff that signs a phone in as a chosen driver.
 
-Steady state for a certified day is still no banner, so the failure states don't inherit blindness from a green row nobody reads.
+**Fallback, held as approved:** if that path cannot be driven headlessly, the walkthrough **stops at step 2 and reports plainly**. No substitute notifications query — that would produce a green §4 proving exactly what Pass B's green proved. In that case §4 stays **open** and the register reads **"bell render unverified"**, not "§4 closed".
 
-## Part 2 — `test:guards`, and what it honestly is
+While the bell is open, confirm the tier by screenshot: the trigger writes `priority = 'high'`, which `resolveTier` does not recognise, so the tier falls through to the type registry, where `rods_correction_requested` is `action`. Confirmed by what renders, not by reading the registry.
 
-The query-lint column checks are inside `postgrestEmbeds.test.ts` (`it('selects no column that does not exist on the table it is read from')`, line 183, alongside the FK-hop check at 212 and the regression pin at 243). There is no separate fifth suite — four files.
+### Step 3 — Amend path
 
-`package.json`:
+Driver amends the 2026-08-01 day and certifies the amendment. Assert, from the database:
 
-```
-"test:guards": "vitest run src/test/definer-search-path.test.ts src/test/policy-grant-parity.test.ts src/lib/__tests__/postgrestEmbeds.test.ts src/test/definer-live-catalog.test.ts"
-```
+- the request flips `open → actioned`
+- `resolved_by_day_id` is the **amendment's** day id, not the original's
+- `resolved_at` is stamped
+- Management's view shows the new certified version; the original reads `superseded` and stays locked
 
-`docs/database-security-conventions.md`, a section above the numbered rules rather than inside one:
+The close happens inside `certify_rods_day`, in the certifying transaction — so the assertion is that the request moved as a consequence of certifying, with no separate call.
 
-> **Post-migration step.** Every turn that authors a migration ends by running `npm run test:guards` in that same turn. Not before a commit — before the turn ends, because the turn is the unit of work that exists here.
+### Step 4 — Decline path
 
-And, as its own observation in that section:
+A second request against a **different** date, so it never collides with the one-open-per-date index. Driver declines with a written response. Assert:
 
-> **These guards do not run on their own.** `definer-search-path`, `policy-grant-parity` and the column/embed checks in `postgrestEmbeds` were each written after a class of silent failure had already shipped, each is correct, and none is wired to anything that runs automatically. There is no CI, there are no git hooks, and git is platform-managed — so there is nowhere to hang them. That is a structural property of this setup, not a lapse by whoever wrote them. Do not assume a green session means they ran.
+- `status = 'declined'`, `driver_response` holds the text
+- the response is visible to Management in the console (read from the UI, not just the row)
+- the resolution notification reaches the raising staff member
 
-Plus a project-memory entry so the step survives into sessions that never open the doc. This does not remove the memory dependency; it reduces it to one command tied to one trigger, and writes down that the guards are manual.
+### Step 5 — Offline no-op replay
 
-## Part 3 — the rest, as approved
+Certify a day that has **no** open request, offline, through the sync queue. Confirm the in-`certify_rods_day` close statement is a harmless no-op: zero rows touched, no exception, certification succeeds normally. This path runs on every single replay, so a close that raised on the empty case would break certification for every driver with nothing outstanding.
 
-- **A** — rewrite `src/test/rods-live-certification.test.ts`: PGHOST-gated loud skip banner in the `definer-live-catalog` shape; provisions and tears down its own operator fixture instead of the production identities it has been using; both arms (initial certification, superseding amendment); asserts four distinct non-zero derived-total buckets so a call that returns but records nothing fails; `duty_status` as integers 1–4 per Rule 6; `BEGIN … ROLLBACK` kept as a second line of defence rather than the only one.
-- **B** — header comment on `serverGuardOutcome` in `parityFixtures.test.ts`: models certify's guard sequence, does not represent the write arm, acceptance is proved by A.
-- **C** — confirm `runner.ts` reads `deterministic` for the shortened attempt allowance (`classify.ts:87` already sets it); extend `retryBudget.test.ts` to pin the 429/5xx/transport arm as unchanged. Class, alert kind and `markDayStalled` untouched — only the delay narrows.
-- **D** — recognised SQLSTATE keeps its `REJECTION_SQLSTATES` copy; unrecognised gets plain copy carrying the code: the office did not accept the log, it was not the driver's mistake, contact dispatch. Rendered by `LogSyncBanner`'s rejected state.
-- **E overlay half** — confirm `useRodsDays` and `useRodsDay` overlay `rods_days_cache` onto the Postgres rows on every consumer path. The five-way chip precedence, `isComplete`, and the removal of the `navigator.onLine` branch are already landed.
-- **F** — Rule 6 already in the doc. No edit.
-- **G** — code comment at `supabase/functions/rods-certification-reminders/index.ts:93`: reads Postgres only, cannot see `local_certified_at`, will remind a driver about a log he has already signed when the queue is stalled, not fixable inside the job, and `LogSyncBanner` plus the `eld_sync_alerts` row already cover it. No `docs/open-items.md`.
+### Step 6 — Policy audit
 
-## Verification
+Read `pg_policies` live and confirm no INSERT / UPDATE / DELETE policy on `rods_days` or `rods_events` exists for `management`, `owner`, `dispatcher`, or `onboarding_staff`. Report the **exact list observed**, not a verdict — including the SELECT policies that legitimately exist, so the read-only shape is visible rather than asserted.
 
-`npm run test:guards`, plus the ELD suites touched (`retryBudget`, `parityFixtures`, `displayCopy`, `classify`) and the rewritten `rods-live-certification`. `PGHOST` is set here so the live arms actually run; elsewhere the banner prints and the file is not evidence.
+### Step 7 — Cleanup
 
-## Then — resume the §4 walkthrough at step 2
+Purge every scratch day through the `purge-rods-day` edge function, **amendments before originals**. State that ordering in the report with its reason: the continuity guard refuses an original whose amendment still points at it — the constraint that made the earlier purge fail. Then remove:
 
-Against HARNESS-1 and the 2026-08-01 demo day: raise the staff correction request and confirm it reaches the driver's bell, drive the amend path to auto-close, drive the decline path, replay an offline certify entry and assert the auto-close is a no-op, audit that management roles stay read-only on RODS data, then clean up the harness and the demo day.
+- both correction requests
+- HARNESS-1
+- every notification the above spawned, on both the driver and staff sides
+
+Finish with a count query across each touched table confirming zero rows.
+
+### Technical notes
+
+- Browser work runs headless against `localhost:8080`; screenshots land under `/tmp/browser/`.
+- All scratch data is on the **demo** operator (`is_demo = true`). No step touches a live driver's record — the same rule the live certification test now enforces for itself.
+- Assertions are read through `read_query` against the live database; the UI-facing ones are read off the rendered page.
+- If any step fails, the walkthrough stops there and reports, rather than continuing and cleaning up the evidence.
+
+§4 closes only when all six pass. Otherwise it stays open with the blocked step named. §5 is next.
