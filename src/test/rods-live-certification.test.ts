@@ -53,6 +53,41 @@ function psqlJson(sql: string): unknown {
 
 const describeLive = HAS_DB ? describe : describe.skip;
 
+interface DemoFixture {
+  operator_id: string;
+  user_id: string;
+  legal_name: string;
+  is_demo: boolean;
+}
+
+/**
+ * The subject of every arm below. Demo-only by construction: the WHERE clause
+ * is the guard, and an empty result is a failure, never a fallback.
+ */
+function resolveDemoFixture(): DemoFixture {
+  const row = psqlJson(`
+SELECT jsonb_build_object(
+  'operator_id', o.id,
+  'user_id', o.user_id,
+  'legal_name', trim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')),
+  'is_demo', o.is_demo
+)
+FROM public.operators o
+JOIN public.profiles p ON p.user_id = o.user_id
+WHERE o.is_demo = true AND o.user_id IS NOT NULL
+ORDER BY o.id
+LIMIT 1;
+  `) as DemoFixture | null;
+
+  if (!row?.operator_id || !row.user_id || !row.is_demo) {
+    throw new Error(
+      'No demo operator available. This test refuses to certify against a live driver — ' +
+      'provision a demo driver (is_demo = true) and re-run.',
+    );
+  }
+  return row;
+}
+
 describeLive('certify_rods_day live RPC', () => {
   it('resolves a demo operator as its subject, never a live driver', () => {
     const fixture = resolveDemoFixture();
