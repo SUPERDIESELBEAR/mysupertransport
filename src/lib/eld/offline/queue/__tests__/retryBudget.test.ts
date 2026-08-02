@@ -104,6 +104,14 @@ describe('server-class budget applies to cascade-exempt kinds', () => {
     await drainOne(entry('certify_day', SERVER_ATTEMPT_LIMIT - 1), CHECK_VIOLATION);
 
     expect(raiseSyncAlert.mock.calls[0]![0].kind).toBe('sync_failed');
-    expect(markDayStalled).toHaveBeenCalledWith('2026-07-02', 'stalled');
+    // The third argument is what the driver-facing banner reads. A check
+    // violation is not a refusal this client knows by name, so it must arrive
+    // as recognized:false carrying its SQLSTATE — that pair is what selects
+    // "this is not something you did wrong (code 23514)" over copy that
+    // implies the driver made a mistake.
+    expect(markDayStalled).toHaveBeenCalledWith('2026-07-02', 'stalled', {
+      code: '23514',
+      recognized: false,
+    });
   });
 });
