@@ -160,18 +160,33 @@ export default function ELDMalfunctionsPanel() {
 
   async function liftPause(row: Row) {
     setBusyId(row.id);
+    // Do NOT null the column. `pauseJustLapsed` keys on
+    // `calendarDaysBetween(until, today) === 1`, so a cleared pause leaves both
+    // `isPaused` and `pauseJustLapsed` false and the very next run fires a rung
+    // with no lapse notice — the same "resume that also escalates" the
+    // automatic path exists to prevent, arriving through the button instead.
+    // Instead we END the pause: set expiry to yesterday where the trigger
+    // allows it (P0065 forbids an expiry before `escalations_suppressed_at`),
+    // otherwise to today, which lapses tomorrow. Either way the ladder emits
+    // `pause_lapsed` on its own run and skips the rung.
+    const dayMs = 86400000;
+    const key = (d: Date) => d.toISOString().slice(0, 10);
+    const yesterday = key(new Date(Date.now() - dayMs));
+    const pausedOn = row.escalations_suppressed_at
+      ? key(new Date(row.escalations_suppressed_at))
+      : yesterday;
+    const endsOn = yesterday >= pausedOn ? yesterday : pausedOn;
     const { error } = await supabase
       .from('eld_malfunction_events')
-      .update({
-        escalations_suppressed_at: null,
-        escalations_suppressed_by: null,
-        escalations_suppressed_reason: null,
-        escalations_suppressed_until: null,
-      })
+      .update({ escalations_suppressed_until: endsOn })
       .eq('id', row.id);
     setBusyId(null);
     if (error) { toast.error(error.message); return; }
-    toast.success('Escalations resumed.');
+    toast.success(
+      endsOn === yesterday
+        ? 'Pause ended. The lapse is announced on the next run; rungs resume after that.'
+        : 'Pause ends today. The lapse is announced tomorrow; rungs resume after that.',
+    );
     void load();
   }
 
