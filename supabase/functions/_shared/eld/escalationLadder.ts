@@ -167,6 +167,13 @@ export function evaluateEvent(
       dayNumber: null,
       reason: `escalation pause ended ${event.escalations_suppressed_until}`,
     });
+    // The lapse is its own event. Firing the current rung in the same run turns
+    // the moment a pause lifts into the loudest run the ladder produces — on a
+    // long pause, the lapse notice plus a past-deadline rung in the same minute,
+    // reading as though the pause did nothing. Evaluation resumes on the next
+    // hourly pass; one hour on an event deliberately quiet for days is not a
+    // compliance risk.
+    return { day, actions };
   }
 
   // Rungs. Only the current one — a backdated report must not fan out.
