@@ -18,7 +18,7 @@ That runs the four suites that catch silent failures:
 | --- | --- |
 | `src/test/definer-search-path.test.ts` | a `SECURITY DEFINER` without `SET search_path = public, extensions` (§1) |
 | `src/test/policy-grant-parity.test.ts` | an RLS policy with no matching `GRANT` (§3, §4) |
-| `src/test/postgrestEmbeds.test.ts` | broken embeds *and* column references that do not exist (query lint) |
+| `src/lib/__tests__/postgrestEmbeds.test.ts` | broken embeds *and* column references that do not exist (query lint) |
 | `src/lib/eld/offline/__tests__/parityFixtures.test.ts` | client/server validation drift |
 
 **A structural observation, not a lapse.** All of these guards were written
