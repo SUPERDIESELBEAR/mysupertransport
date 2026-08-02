@@ -301,3 +301,20 @@ export async function stalledLockedDates(): Promise<string[]> {
     .map((e) => e.log_date)
     .sort((a, b) => b.localeCompare(a));
 }
+
+/**
+ * Dates whose sync state the driver has something to read: the terminal
+ * failures above, plus days the office confirmed that the driver has not
+ * dismissed yet. Sorted newest first.
+ */
+export async function syncNoticeDates(): Promise<string[]> {
+  const all = await roadsideDb.rods_days_cache.toArray();
+  return all
+    .filter((e) => {
+      if (!e.local_certified_at) return false;
+      if (e.sync_stalled || e.sync_rejected) return true;
+      return e.day?.status === 'certified' && !e.sync_confirmed_seen_at;
+    })
+    .map((e) => e.log_date)
+    .sort((a, b) => b.localeCompare(a));
+}
