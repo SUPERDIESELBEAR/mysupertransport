@@ -81,12 +81,17 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'resolved', label: 'Resolved' },
 ];
 
-export default function ELDMalfunctionsPanel() {
+export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: string | null }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('open');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(focusEventId ?? null);
+  // A deep link may name a resolved event, which the default 'open' filter
+  // hides — the row would silently fall back to whatever sorts first. Widening
+  // to 'all' once, only when the link names an event the open list lacks,
+  // keeps the escalation notice landing on the event it is about.
+  const [focusHandled, setFocusHandled] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<Row | null>(null);
   const [resolveNotes, setResolveNotes] = useState('');
   const [suppressTarget, setSuppressTarget] = useState<Row | null>(null);
@@ -139,9 +144,18 @@ export default function ELDMalfunctionsPanel() {
   }, [rows, filter]);
 
   useEffect(() => {
+    if (focusEventId && !focusHandled && rows.length > 0) {
+      const target = rows.find((r) => r.id === focusEventId);
+      if (target) {
+        if (!filtered.some((r) => r.id === focusEventId)) setFilter('all');
+        setSelectedId(focusEventId);
+      }
+      setFocusHandled(true);
+      return;
+    }
     if (filtered.length === 0) { setSelectedId(null); return; }
     if (!filtered.some((r) => r.id === selectedId)) setSelectedId(filtered[0].id);
-  }, [filtered, selectedId]);
+  }, [filtered, selectedId, rows, focusEventId, focusHandled]);
 
   const selected = filtered.find((r) => r.id === selectedId) ?? null;
 
