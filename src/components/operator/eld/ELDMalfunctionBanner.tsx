@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
-import { CLOCK_RED, REPAIR_WINDOW_DAYS, elapsedRepairDay } from '@/lib/eld/constants';
+import { CLOCK_RED, REPAIR_WINDOW_DAYS } from '@/lib/eld/constants';
+import { repairDayInZone } from '@/lib/eld/repairClock';
 import type { EldMalfunctionEvent } from '@/hooks/useEldMalfunction';
 
 /** Non-dismissible while an ELD malfunction is open. */
@@ -11,7 +12,7 @@ export default function ELDMalfunctionBanner({
   onOpen: () => void;
 }) {
   if (!event) return null;
-  const day = elapsedRepairDay(event.discovered_at);
+  const day = repairDayInZone(event.discovered_at);
 
   return (
     <button

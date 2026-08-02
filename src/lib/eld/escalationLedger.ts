@@ -19,6 +19,9 @@ export interface LedgerRow {
   [k: string]: unknown;
 }
 
+/** The rungs the job sends on — mirrors LADDER_RUNGS in the shared job module. */
+export const LADDER_RUNGS_UI = [3, 5, 6, 7, 8] as const;
+
 /** Rows that actually represent a rung of the 8-day repair ladder. */
 export function rungRows<T extends LedgerRow>(rows: T[]): T[] {
   return rows.filter((r) => r.notification_type === 'escalation_day' && r.day_number != null);

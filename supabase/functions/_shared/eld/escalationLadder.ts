@@ -115,9 +115,18 @@ export function isPaused(event: LadderEvent, now: Date, timeZone: string): boole
   return event.escalations_suppressed_until >= zonedDateKey(now, timeZone);
 }
 
+/**
+ * True only on the FIRST local day after the pause expired.
+ *
+ * A plain `until < today` is true forever, which would re-announce the lapse
+ * every day (the ledger key includes `sent_on`, so a daily re-fire is not
+ * deduped) and — since the lapse run skips rung evaluation — would suppress
+ * the ladder permanently. The lapse is a one-day event: announced on the day
+ * the pause ends, after which the event is simply unpaused again.
+ */
 export function pauseJustLapsed(event: LadderEvent, now: Date, timeZone: string): boolean {
   if (!event.escalations_suppressed_until) return false;
-  return event.escalations_suppressed_until < zonedDateKey(now, timeZone);
+  return calendarDaysBetween(event.escalations_suppressed_until, zonedDateKey(now, timeZone)) === 1;
 }
 
 export function driverQuietHoursOk(now: Date, timeZone: string): boolean {
@@ -167,6 +176,13 @@ export function evaluateEvent(
       dayNumber: null,
       reason: `escalation pause ended ${event.escalations_suppressed_until}`,
     });
+    // The lapse is its own event. Firing the current rung in the same run turns
+    // the moment a pause lifts into the loudest run the ladder produces — on a
+    // long pause, the lapse notice plus a past-deadline rung in the same minute,
+    // reading as though the pause did nothing. Evaluation resumes on the next
+    // hourly pass; one hour on an event deliberately quiet for days is not a
+    // compliance risk.
+    return { day, actions };
   }
 
   // Rungs. Only the current one — a backdated report must not fan out.

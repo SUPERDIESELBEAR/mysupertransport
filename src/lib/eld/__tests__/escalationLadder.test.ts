@@ -170,15 +170,33 @@ describe('ack_overdue cadence and stops', () => {
 });
 
 describe('pause lifecycle', () => {
-  it('suppresses rungs while paused and announces the lapse after', () => {
+  it('suppresses rungs while paused and announces the lapse alone', () => {
     const e = ev({
       carrier_acknowledged_at: '2026-08-01T15:00:00Z',
       escalations_suppressed_until: '2026-08-04',
     });
     expect(kinds(e, '2026-08-03T18:00:00Z')).toEqual([]);
-    const after = kinds(e, '2026-08-05T18:00:00Z');
-    expect(after).toContain('pause_lapsed');
-    expect(after).toContain('escalation_day');
+    // Day 5 is a rung, but the lapse run must carry the lapse and nothing else.
+    expect(kinds(e, '2026-08-05T18:00:00Z')).toEqual(['pause_lapsed']);
+  });
+
+  it('resumes the ladder the day after the lapse, and never re-announces it', () => {
+    const e = ev({
+      carrier_acknowledged_at: '2026-08-01T15:00:00Z',
+      escalations_suppressed_until: '2026-08-04',
+    });
+    // Aug 6 is day 6 — a rung. The lapse belongs to Aug 5 only.
+    const next = kinds(e, '2026-08-06T18:00:00Z');
+    expect(next).toContain('escalation_day');
+    expect(next).not.toContain('pause_lapsed');
+  });
+
+  it('never emits a past-deadline rung alongside the lapse on a long pause', () => {
+    const e = ev({
+      carrier_acknowledged_at: '2026-08-01T15:00:00Z',
+      escalations_suppressed_until: '2026-08-08',
+    });
+    expect(kinds(e, '2026-08-09T18:00:00Z')).toEqual(['pause_lapsed']);
   });
 });
 
