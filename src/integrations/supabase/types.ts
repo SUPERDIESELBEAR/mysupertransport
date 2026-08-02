@@ -5721,6 +5721,7 @@ export type Database = {
           hash_version: string | null
           id: string
           ip_hash: string | null
+          operator_id: string | null
           outcome: string
           resource_id: string | null
           scope: string | null
@@ -5732,6 +5733,7 @@ export type Database = {
           hash_version?: string | null
           id?: string
           ip_hash?: string | null
+          operator_id?: string | null
           outcome: string
           resource_id?: string | null
           scope?: string | null
@@ -5743,13 +5745,22 @@ export type Database = {
           hash_version?: string | null
           id?: string
           ip_hash?: string | null
+          operator_id?: string | null
           outcome?: string
           resource_id?: string | null
           scope?: string | null
           token?: string | null
           user_agent?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "share_token_access_log_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       share_tokens: {
         Row: {
@@ -6621,6 +6632,20 @@ export type Database = {
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
+      get_eld_compliance_timeline: {
+        Args: { _event_id: string }
+        Returns: {
+          artifact_id: string
+          artifact_type: string
+          detail: string
+          label: string
+          occurred_at: string
+          seq: number
+          stage: string
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
       get_eld_escalation_ledger: {
         Args: { p_event_id: string }
         Returns: {
@@ -6758,6 +6783,7 @@ export type Database = {
         Returns: boolean
       }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
+      is_retention_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       is_thread_participant: {
         Args: { _thread: string; _user: string }
@@ -6915,6 +6941,20 @@ export type Database = {
       recompute_eld_extension_projection: {
         Args: { p_event_id: string }
         Returns: undefined
+      }
+      record_retention_export: {
+        Args: {
+          _artifact_count: number
+          _from: string
+          _include_demo: boolean
+          _kind: string
+          _label: string
+          _metadata?: Json
+          _operator_ids: string[]
+          _parts: number
+          _to: string
+        }
+        Returns: string
       }
       record_rods_purge_storage_result: {
         Args: {
@@ -7107,6 +7147,32 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      search_retention_archive: {
+        Args: {
+          _event_id?: string
+          _from?: string
+          _include_demo?: boolean
+          _operator_ids?: string[]
+          _status?: string
+          _to?: string
+          _truck?: string
+        }
+        Returns: {
+          artifact_id: string
+          artifact_type: string
+          event_id: string
+          is_demo: boolean
+          label: string
+          log_date: string
+          occurred_at: string
+          operator_id: string
+          status: string
+          storage_bucket: string
+          storage_path: string
+          supersedes_day_id: string
+          truck_number: string
+        }[]
+      }
       search_staff_faqs: {
         Args: { q: string }
         Returns: {
