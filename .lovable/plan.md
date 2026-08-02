@@ -1,63 +1,48 @@
-## §4 walkthrough, resumed at step 2
+## Goal
 
-HARNESS-1 and the 2026-08-01 demo day are in place. Six steps, run in order, each one asserted before the next starts.
+Find out why the amendment certification sits at "Signed on this device, syncing" and never reaches the server, report which shape it is, and only then resume step 3. Then close the two recurrences.
 
-### Step 2 — Raise the request, and prove the driver can see it
+## Step 1 — Read the device state (no code changes)
 
-Raise it from the read-only log view in the management console (`RodsAdminLogsPanel`), driven in a real browser as the signed-in staff user — not by an insert. That is the only way the console's own guard rails (certified-day requirement, one-open-per-date index, `requested_by` stamping) are part of the evidence.
+The queue and cache live in Dexie on the device, not in Postgres, so they can only be read from the browser. Drive a headless session for the harness driver (preview-session path, same as step 2), then from the page context dump three things:
 
-Then assert the row: `status = 'open'`, `operator_id` / `log_date` stamped from the day, `rods_day_id` pointing at the version that prompted it.
+**a. `sync_queue`** — every entry: `id, kind, status, depends_on, attempts, next_attempt_at, last_error, last_error_class, coalesce_key, client_timestamp`.
 
-**The bell assertion is the part that failed in Pass B, so it is done the hard way.** Open the driver's notification bell in a browser, on the Action tab, and screenshot the item rendered. Querying `notifications` for a matching row is explicitly *not* the assertion — a written row that renders nowhere is exactly the defect this catches, and it has already happened once on this surface (`eld_sync_alert` landed as tier `fyi` and never reached Action).
+**b. `rods_days_cache` for 2026-08-01** (original and amendment rows) — `local_certified_at, unsynced, version, sync_stalled, sync_rejected`, plus the day ids so the amendment can be told from the original. This is read *first* in the report's ordering: if the banner reads "syncing" while `local_certified_at` is null, the fault is upstream of the queue entirely and the queue entries are a red herring — the certification never committed locally, so nothing was ever enqueued to drain.
 
-Signing in as the driver: the injected browser session belongs to the current staff user, not the demo driver, so the bell has to be reached through the existing **mobile preview session** mechanism (`preview_sessions`) — the same QR handoff that signs a phone in as a chosen driver.
+**c. `local_meta`** — the carrier record, operator identity, timezone. A missing carrier record blocks creation paths, and the amendment draft was created in that same session, so an incomplete `local_meta` would explain a draft that exists but never produced a well-formed chain.
 
-**Fallback, held as approved:** if that path cannot be driven headlessly, the walkthrough **stops at step 2 and reports plainly**. No substitute notifications query — that would produce a green §4 proving exactly what Pass B's green proved. In that case §4 stays **open** and the register reads **"bell render unverified"**, not "§4 closed".
+Then the three discriminators, in the same session:
 
-While the bell is open, confirm the tier by screenshot: the trigger writes `priority = 'high'`, which `resolveTier` does not recognise, so the tier falls through to the type registry, where `rods_correction_requested` is `action`. Confirmed by what renders, not by reading the registry.
+- **Runner mounted?** `SyncRunnerMount` in `App.tsx` renders whenever `user` is truthy, above the routes, so a preview session should mount it. Confirm empirically: watch for the dynamic import of the `queue/runner` chunk in the network panel and log console output. If the chunk never loads, the runner never started.
+- **Dependency block?** `store.dueEntries` skips a `pending` entry unless every `depends_on` prerequisite is `succeeded` (absent = purged success). A `certify_rods_day` whose `save_draft_day` / `save_draft_segments` sits `pending`/`failed`/`rejected` is silently never due — matching a two-minute hold with no error.
+- **Kick / backstop?** `startSyncRunner` schedules a 60s `INTERVAL_MS` tick after its first forced pass. Observe whether a second attempt occurs ~60s after load, logging each `drainQueue` entry/exit. First pass never happens → runner. Pass happens but the draft stays `pending` at `attempts: 0` → dependency. `attempts` climbing with a `last_error` → neither, and the error text is the answer.
 
-### Step 3 — Amend path
+Report the shape, with all three dumps, **before changing any code**.
 
-Driver amends the 2026-08-01 day and certifies the amendment. Assert, from the database:
+## Step 2 — Fix (scoped once diagnosed)
 
-- the request flips `open → actioned`
-- `resolved_by_day_id` is the **amendment's** day id, not the original's
-- `resolved_at` is stamped
-- Management's view shows the new certified version; the original reads `superseded` and stays locked
+Fix follows the diagnosis; nothing is pre-committed. Then resume step 3 of the §4 walkthrough — amendment certification reaching the server, correction request auto-closing, `resolved_by_day_id` pointing at the amendment.
 
-The close happens inside `certify_rods_day`, in the certifying transaction — so the assertion is that the request moved as a consequence of certifying, with no separate call.
+## Step 3 — Guard: notification priority values
 
-### Step 4 — Decline path
+`notifications_priority_check` (migration `20260717202608`) accepts a fixed set; `'high'`/`'normal'` have now been written twice. Add a test under `src/test/` that scans every `supabase/migrations/*.sql`, extracts the allowed values from the latest `notifications_priority_check` definition, finds each `INSERT INTO public.notifications` and each `priority` assignment inside function bodies, and fails on any literal outside the allowed set. Register it in the `test:guards` script. Its header comment states the limit: static literals only, not values computed at runtime.
 
-A second request against a **different** date, so it never collides with the one-open-per-date index. Driver declines with a written response. Assert:
+## Step 4 — Both portals accept both spellings, with a canonical answer written down
 
-- `status = 'declined'`, `driver_response` holds the text
-- the response is visible to Management in the console (read from the UI, not just the row)
-- the resolution notification reaches the raising staff member
+Confirmed by reading the code:
 
-### Step 5 — Offline no-op replay
+- `src/lib/operatorRoutes.ts#getViewStateFromSearch` accepts `tab` first, then `view`, then route aliases (`rods`, `eld`, `doc-hub`).
+- `src/pages/management/ManagementPortal.tsx` reads **only** `view` (plus `op`/`operator`, `app`/`application`, `status`, `section`, `event`, `date`). No `tab` alias.
 
-Certify a day that has **no** open request, offline, through the sync queue. Confirm the in-`certify_rods_day` close statement is a harmless no-op: zero rows touched, no exception, certification succeeds normally. This path runs on every single replay, so a close that raised on the empty case would break certification for every driver with nothing outstanding.
+Do both halves:
 
-### Step 6 — Policy audit
+1. Add a `tab` alias on the management side. Frame it in the code comment as what it is — a **compatibility shim, not a convergence**. It stops a mis-spelled link dead-ending; it does not make the two portals one routing model.
+2. Enumerate every writer of a portal deep link — the `send-notification` edge function, the DB notification triggers, in-app `navigate` calls — and verify each against its target.
 
-Read `pg_policies` live and confirm no INSERT / UPDATE / DELETE policy on `rods_days` or `rods_events` exists for `management`, `owner`, `dispatcher`, or `onboarding_staff`. Report the **exact list observed**, not a verdict — including the SELECT policies that legitimately exist, so the read-only shape is visible rather than asserted.
+Then settle the coin flip: record in `docs/database-security-conventions.md` (or a sibling conventions doc, if routing fits better outside the security file) that **`view` is canonical** for both portals, `tab` is accepted only as legacy input and must never be written by new code. Without that line, "both portals accept both" just moves the ambiguity rather than removing it.
 
-### Step 7 — Cleanup
+## Technical notes
 
-Purge every scratch day through the `purge-rods-day` edge function, **amendments before originals**. State that ordering in the report with its reason: the continuity guard refuses an original whose amendment still points at it — the constraint that made the earlier purge fail. Then remove:
-
-- both correction requests
-- HARNESS-1
-- every notification the above spawned, on both the driver and staff sides
-
-Finish with a count query across each touched table confirming zero rows.
-
-### Technical notes
-
-- Browser work runs headless against `localhost:8080`; screenshots land under `/tmp/browser/`.
-- All scratch data is on the **demo** operator (`is_demo = true`). No step touches a live driver's record — the same rule the live certification test now enforces for itself.
-- Assertions are read through `read_query` against the live database; the UI-facing ones are read off the rendered page.
-- If any step fails, the walkthrough stops there and reports, rather than continuing and cleaning up the evidence.
-
-§4 closes only when all six pass. Otherwise it stays open with the blocked step named. §5 is next.
+- Nothing in step 1 writes to the database or the repo; it is a read-only browser session.
+- The dumps must come from the same origin the app runs on, or Dexie resolves to a different IndexedDB namespace and reads empty — an empty dump from the wrong origin looks exactly like a drained queue and a clean cache.
