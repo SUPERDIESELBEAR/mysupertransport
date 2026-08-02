@@ -242,44 +242,59 @@ async function deliverNotice(
     });
   }
 
-  const { data: file, error: downloadError } = await supabase.storage
-    .from(ELD_NOTICE_BUCKET)
-    .download(event.notice_pdf_path);
-  if (downloadError || !file) {
+  // Every explicit failure branch below records the reason in the same write
+  // that increments the attempt count. A THROWN failure (storage stream, base64
+  // encode, transport) would otherwise unwind through withErrorEnvelope having
+  // written nothing at all, leaving the event indistinguishable from "not yet
+  // sent" — the console would display an absence rather than a hard failure.
+  // So the whole download-through-send region records and re-throws.
+  try {
+    const { data: file, error: downloadError } = await supabase.storage
+      .from(ELD_NOTICE_BUCKET)
+      .download(event.notice_pdf_path);
+    if (downloadError || !file) {
+      await supabase.from('eld_malfunction_events').update({
+        notice_send_attempts: attempts,
+        notice_last_send_error: `Notice PDF unreadable: ${downloadError?.message ?? 'not found'}`,
+      }).eq('id', eventId);
+      return fail(502, 'Notice PDF could not be read from storage', downloadError?.message);
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+    const pdfBase64 = btoa(binary);
+
+    const result = await sendResendDirect({
+      supabase,
+      role: 'onboarding',
+      to: recipients,
+      subject: r.subject,
+      html: r.html,
+      attachments: [{
+        filename: `eld-malfunction-notice-${eventId.slice(0, 8)}.pdf`,
+        content: pdfBase64,
+        content_type: 'application/pdf',
+      }],
+      logLabel: 'eld_malfunction_notice',
+      skipSuppression: true,
+      authHeader,
+    });
+
+    if (!result.success) {
+      await supabase.from('eld_malfunction_events').update({
+        notice_send_attempts: attempts,
+        notice_last_send_error: `${result.error ?? 'Send failed'}${result.details ? ` — ${result.details}` : ''}`.slice(0, 500),
+      }).eq('id', eventId);
+      return fail(result.status || 502, result.error ?? 'Notice send failed', result.details);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? (err.message || String(err)) : String(err);
     await supabase.from('eld_malfunction_events').update({
       notice_send_attempts: attempts,
-      notice_last_send_error: `Notice PDF unreadable: ${downloadError?.message ?? 'not found'}`,
+      notice_last_send_error: `Unhandled send failure: ${msg}`.slice(0, 500),
     }).eq('id', eventId);
-    return fail(502, 'Notice PDF could not be read from storage', downloadError?.message);
-  }
-
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-  const pdfBase64 = btoa(binary);
-
-  const result = await sendResendDirect({
-    supabase,
-    role: 'onboarding',
-    to: recipients,
-    subject: r.subject,
-    html: r.html,
-    attachments: [{
-      filename: `eld-malfunction-notice-${eventId.slice(0, 8)}.pdf`,
-      content: pdfBase64,
-      content_type: 'application/pdf',
-    }],
-    logLabel: 'eld_malfunction_notice',
-    skipSuppression: true,
-    authHeader,
-  });
-
-  if (!result.success) {
-    await supabase.from('eld_malfunction_events').update({
-      notice_send_attempts: attempts,
-      notice_last_send_error: `${result.error ?? 'Send failed'}${result.details ? ` — ${result.details}` : ''}`.slice(0, 500),
-    }).eq('id', eventId);
-    return fail(result.status || 502, result.error ?? 'Notice send failed', result.details);
+    throw err;
   }
 
   await supabase.from('eld_malfunction_events').update({
