@@ -6359,6 +6359,21 @@ export type Database = {
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
+      get_eld_escalation_ledger: {
+        Args: { p_event_id: string }
+        Returns: {
+          channel: string
+          created_at: string
+          day_number: number
+          event_id: string
+          id: string
+          is_override: boolean
+          notification_type: string
+          recipient_name: string
+          recipient_user_id: string
+          sent_on: string
+        }[]
+      }
       get_equipment_shipping_for_operator: {
         Args: { p_operator_id: string }
         Returns: {
