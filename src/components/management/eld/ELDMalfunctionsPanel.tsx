@@ -22,6 +22,7 @@ import CarrierNotificationRecipients from './CarrierNotificationRecipients';
 import ELDEscalationJobHealth from './ELDEscalationJobHealth';
 import ClocksStrip from './ClocksStrip';
 import EscalationTimeline from './EscalationTimeline';
+import ELDExtensionRequests from './ELDExtensionRequests';
 
 type Row = {
   id: string;
@@ -99,10 +100,6 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
   const [suppressTarget, setSuppressTarget] = useState<Row | null>(null);
   const [suppressReason, setSuppressReason] = useState('');
   const [suppressUntil, setSuppressUntil] = useState('');
-  const [extTarget, setExtTarget] = useState<Row | null>(null);
-  const [extNotes, setExtNotes] = useState('');
-  const [extExpires, setExtExpires] = useState('');
-
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -220,30 +217,6 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
         ? 'Pause ended. The lapse is announced on the next run; rungs resume after that.'
         : 'Pause ends today. The lapse is announced tomorrow; rungs resume after that.',
     );
-    void load();
-  }
-
-  async function grantExtension() {
-    if (!extTarget) return;
-    if (!extNotes.trim()) { toast.error('Record why the extension was granted.'); return; }
-    if (!extExpires) { toast.error('Pick the extended repair date.'); return; }
-    setBusyId(extTarget.id);
-    const { data: userRes } = await supabase.auth.getUser();
-    const nowIso = new Date().toISOString();
-    const { error } = await supabase
-      .from('eld_malfunction_events')
-      .update({
-        extension_requested_at: nowIso,
-        extension_granted_at: nowIso,
-        extension_granted_by: userRes.user?.id ?? null,
-        extension_expires_on: extExpires,
-        extension_notes: extNotes.trim(),
-      })
-      .eq('id', extTarget.id);
-    setBusyId(null);
-    if (error) { toast.error(error.message); return; }
-    setExtTarget(null); setExtNotes(''); setExtExpires('');
-    toast.success('Extension recorded — the filing prompt stops on the next run.');
     void load();
   }
 
