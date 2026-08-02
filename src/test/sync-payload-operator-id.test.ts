@@ -4,7 +4,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { roadsideDb } from '@/lib/eld/offline/db';
 import { enqueue, enqueueCoalesced } from '@/lib/eld/offline/queue/store';
-import { raiseSyncAlert, undeliverableAlertCount } from '@/lib/eld/offline/queue/alerts';
+import {
+  raiseSyncAlert,
+  undeliverableAlertCount,
+  resetUndeliverableAlertCount,
+} from '@/lib/eld/offline/queue/alerts';
 
 /**
  * Every queued payload must carry `operator_id`.
@@ -110,5 +114,32 @@ describe('queued payloads carry operator_id', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * An unattributable alert is a WORSE condition than an ordinary terminal
+ * failure — an orphaned certified day has no owner at all — so it must produce
+ * MORE signal, not less. Before this, it produced a console line and a counter.
+ */
+describe('unattributed alerts still reach someone', () => {
+  beforeEach(() => resetUndeliverableAlertCount());
+
+  it('queues a null-operator alert into its own bucket, separate from a driver', async () => {
+    await raiseSyncAlert({ kind: 'notice_drain_corrupt', detail: 'no operator resolvable' });
+    await raiseSyncAlert({ kind: 'notice_drain_corrupt', operator_id: 'op-1', detail: 'a driver' });
+
+    const queued = await roadsideDb.sync_queue.toArray();
+    const keys = queued.map((e) => e.coalesce_key);
+    expect(keys).toContain('raise_sync_alert:notice_drain_corrupt:unattributed:-');
+    expect(keys).toContain('raise_sync_alert:notice_drain_corrupt:op-1:-');
+    expect(queued).toHaveLength(2);
+    expect(undeliverableAlertCount()).toBe(0);
+  });
+
+  it('refuses an empty-string operator_id rather than laundering it into unattributed', async () => {
+    await raiseSyncAlert({ kind: 'notice_drain_corrupt', operator_id: '', detail: 'bug at call site' });
+    expect(await roadsideDb.sync_queue.count()).toBe(0);
+    expect(undeliverableAlertCount()).toBe(1);
   });
 });
