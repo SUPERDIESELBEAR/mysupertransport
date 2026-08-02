@@ -180,15 +180,15 @@ describe('pause lifecycle', () => {
     expect(kinds(e, '2026-08-05T18:00:00Z')).toEqual(['pause_lapsed']);
   });
 
-  it('fires the rung on the next pass, not the lapse pass', () => {
+  it('resumes the ladder the day after the lapse, and never re-announces it', () => {
     const e = ev({
       carrier_acknowledged_at: '2026-08-01T15:00:00Z',
       escalations_suppressed_until: '2026-08-04',
     });
-    // Same calendar day, one hour later: the pause has already been announced,
-    // so the ladder resumes and day 5 fires.
-    const next = evaluateEvent(e, at('2026-08-05T19:00:00Z'), TZ);
-    expect(next.actions.map((a) => a.kind)).toContain('pause_lapsed');
+    // Aug 6 is day 6 — a rung. The lapse belongs to Aug 5 only.
+    const next = kinds(e, '2026-08-06T18:00:00Z');
+    expect(next).toContain('escalation_day');
+    expect(next).not.toContain('pause_lapsed');
   });
 
   it('never emits a past-deadline rung alongside the lapse on a long pause', () => {
