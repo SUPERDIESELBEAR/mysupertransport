@@ -56,7 +56,8 @@ function loadSchema() {
     if (t) { rowTable = t[1]; inRow = false; continue; }
     if (/^ {8}Row: \{$/.test(line)) { inRow = true; continue; }
     if (inRow && /^ {8}\}$/.test(line)) { inRow = false; continue; }
-    const c = /^ {10}([a-z0-9_]+)(\?)?: /.exec(line);
+    // The type may wrap to the next line, so the colon can end the line.
+    const c = /^ {10}([a-z0-9_]+)\??:( |$)/.exec(line);
     if (inRow && c && rowTable) {
       if (!columnsByTable.has(rowTable)) columnsByTable.set(rowTable, new Set());
       columnsByTable.get(rowTable)!.add(c[1]);
