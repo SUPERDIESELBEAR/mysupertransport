@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { roadsideDb } from '@/lib/eld/offline/db';
 import { enqueue, enqueueCoalesced } from '@/lib/eld/offline/queue/store';
+import { raiseSyncAlert, undeliverableAlertCount } from '@/lib/eld/offline/queue/alerts';
 
 /**
  * Every queued payload must carry `operator_id`.
