@@ -144,4 +144,21 @@ describe('PostgREST embeds resolve across real foreign keys', () => {
     expect(checked).toBeGreaterThan(50);
     expect(failures).toEqual([]);
   });
+
+  it('flags the shapes that were silently broken', () => {
+    const bad = parseHops('unit_number, profiles(first_name)', 'operators', tables, byColumn);
+    expect(bad).toContainEqual({ parent: 'operators', child: 'profiles' });
+    expect(fks.has('operators>profiles')).toBe(false);
+
+    const nested = parseHops('id, operators!inner(unit_number, profiles(first_name))', 'eld_devices', tables, byColumn);
+    // The hop is checked against its own parent, not the root table.
+    expect(nested).toContainEqual({ parent: 'operators', child: 'profiles' });
+
+    const receipts = parseHops('id, profiles(first_name)', 'equipment_receipts', tables, byColumn);
+    expect(fks.has(`${receipts[0].parent}>${receipts[0].child}`)).toBe(false);
+
+    // …and does not flag a real FK, in either direction.
+    expect(fks.has('eld_malfunction_events>profiles')).toBe(true);
+    expect(fks.has('operators>onboarding_status')).toBe(true);
+  });
 });
