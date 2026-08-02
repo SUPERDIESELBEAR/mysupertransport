@@ -6,8 +6,9 @@ import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle2, ClipboardList, FileText, Loader2, Printer, Wrench } from 'lucide-react';
 import {
   CLOCK_RED, MALFUNCTION_CODE_LABEL, NOTICE_DELIVERY_COPY, NOTICE_DELIVERY_TONE,
-  REPAIR_WINDOW_DAYS, elapsedRepairDay, getNoticeDeliveryState, repairClockColor,
+  REPAIR_WINDOW_DAYS, getNoticeDeliveryState, repairClockColor,
 } from '@/lib/eld/constants';
+import { repairDayInZone } from '@/lib/eld/repairClock';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import type { EldMalfunctionEvent } from '@/hooks/useEldMalfunction';
@@ -23,7 +24,7 @@ export default function ELDMalfunctionDashboard({
   const navigate = useNavigate();
   const location = useLocation();
   const basePath = location.pathname.startsWith('/owner') ? '/owner' : '/operator';
-  const day = elapsedRepairDay(event.discovered_at);
+  const day = repairDayInZone(event.discovered_at);
   const clockColor = repairClockColor(day);
   const deliveryState = getNoticeDeliveryState(event);
   const deadline = new Date(`${event.repair_deadline}T12:00:00`);
