@@ -59,9 +59,10 @@ describeLive('purge_rods_day path coverage', () => {
       ORDER BY column_name
     `).filter((c) => !NOT_STORAGE_OBJECTS.includes(c));
 
-    // Every overload, concatenated. There are two: a two-argument stub that
-    // refuses (it has no storage owner to attribute the deletes to) and the
-    // three-argument function that does the work. Reading only the first
+    // Every overload, concatenated. There are three: a two-argument stub that
+    // refuses (it has no storage owner to attribute the deletes to), a
+    // three-argument delegate kept alive for the deploy window, and the
+    // four-argument function that does the work. Reading only the first
     // matched the stub and reported all four columns missing.
     const def = psql(`
       SELECT pg_get_functiondef(p.oid)

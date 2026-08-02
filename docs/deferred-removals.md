@@ -53,9 +53,63 @@ three-argument form (a successful purge with `storage_owner` present in the
 DROP FUNCTION public.purge_rods_day(uuid, text);
 ```
 
+## `purge_rods_day(uuid, text, text)` — the three-argument overload
+
+**Where:** database function
+`public.purge_rods_day(_day_id uuid, _reason text, _storage_owner text)`
+
+**What:** the pre-attribution signature. Its body is now a single delegation to
+the four-argument form with `_actor_id => NULL`, so the purge logic lives in
+exactly one place and the two cannot drift. A call through it purges normally
+and records `actor_id = auth.uid()` — which is NULL under the service-role
+client `requireStaff` returns, i.e. the defect this pair exists to retire.
+
+**Why it still exists:** the edge function and the migration deploy separately.
+`purge_rods_day` is the only way to remove a certified record of duty status,
+so dropping the three-argument form in the same migration that added the
+four-argument one would leave a window — between the migration applying and
+`purge-rods-day` going live — in which the deployed function calls a signature
+that no longer exists and nothing can be purged, including a failed test run.
+Same sequence as the seven-argument `certify_rods_day`: migration 1 (new
+signature, old one kept as a delegate) → edge function deploy → migration 2
+(drop).
+
+`_actor_id` defaults to NULL deliberately, and that default outlives this
+entry: a genuinely unattended service-role call — a scheduled sweep — has no
+human behind it and should record `service_role` honestly rather than fail.
+
+**Removal trigger:** `purge-rods-day` is deployed and confirmed calling the
+four-argument form — a successful purge whose `rods_day_purged` audit row
+carries a non-null `actor_id`. Confirm with:
+
+```sql
+SELECT id, actor_id, actor_name, created_at
+  FROM public.audit_log
+ WHERE action = 'rods_day_purged'
+ ORDER BY created_at DESC
+ LIMIT 5;
+```
+
+**How to remove:**
+
+```sql
+DROP FUNCTION public.purge_rods_day(uuid, text, text);
+```
+
 ## `certify_rods_day(uuid,text,text,text,text,uuid,jsonb)` — the seven-argument overload
 
-**Deploy timestamp:** ______ (fill on deploy)
+**Deploy timestamp:** UNCONFIRMED as of 2026-08-02. The blank cannot be filled
+from the database: across all of `rods_days`, every certified row has
+`certification_signature_validation IS NULL` (latest `certified_at`
+2026-08-01T22:31:53Z), so not one certification through the eight-argument
+path has been observed. Fill this from the deploy record when the bundle ship
+time is known — a timestamp back-derived from data or git history is a guess,
+not the moment the old argument set stopped being issued.
+
+**Drain check has an empty numerator.** The only certified rows in the table
+were the `is_demo` scratch days, purged 2026-08-02. Until real certifications
+accumulate, the query below returns zeros for both columns and proves nothing;
+the removal trigger stays unmet.
 
 **Where:** database function
 `public.certify_rods_day(_day_id uuid, _legal_name text, _signature_path text,
