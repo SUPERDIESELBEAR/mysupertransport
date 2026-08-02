@@ -33,6 +33,12 @@ export interface PutCachedDayInput {
   local_certified_at: string | null;
   sync_rejected: boolean;
   sync_stalled: boolean;
+  /** SQLSTATE (or `HTTP <status>`) behind a terminal failure, when known. */
+  sync_failure_code?: string | null;
+  /** True when the refusal matched a rejection this client knows by name. */
+  sync_failure_recognized?: boolean;
+  /** Set only by the driver's dismiss tap. See markSyncConfirmedSeen. */
+  sync_confirmed_seen_at?: string | null;
   cached_at?: string;
 }
 
@@ -47,13 +53,28 @@ export function cachedDayRecord(input: PutCachedDayInput): RodsDayCacheEntry {
     local_certified_at: input.local_certified_at,
     sync_rejected: input.sync_rejected,
     sync_stalled: input.sync_stalled,
+    sync_failure_code: input.sync_failure_code ?? null,
+    sync_failure_recognized: input.sync_failure_recognized ?? false,
+    sync_confirmed_seen_at: input.sync_confirmed_seen_at ?? null,
     cached_at: input.cached_at ?? new Date().toISOString(),
   };
 }
 
 /** Write one cached day. Safe inside an open Dexie transaction. */
 export async function putCachedDay(input: PutCachedDayInput): Promise<RodsDayCacheEntry> {
-  const record = cachedDayRecord(input);
+  // Carried forward, never re-stated by every caller: these three describe
+  // what already happened to this day (a terminal failure, the driver's
+  // acknowledgement), not what the caller is writing. A hydration put that
+  // omitted them would silently resurrect a dismissed confirmation.
+  const existing = await roadsideDb.rods_days_cache.get(input.log_date);
+  const record = cachedDayRecord({
+    ...input,
+    sync_failure_code: input.sync_failure_code ?? existing?.sync_failure_code ?? null,
+    sync_failure_recognized:
+      input.sync_failure_recognized ?? existing?.sync_failure_recognized ?? false,
+    sync_confirmed_seen_at:
+      input.sync_confirmed_seen_at ?? existing?.sync_confirmed_seen_at ?? null,
+  });
   await roadsideDb.rods_days_cache.put(record);
   return record;
 }
