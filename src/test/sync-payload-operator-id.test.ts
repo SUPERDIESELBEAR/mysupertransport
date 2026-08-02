@@ -59,6 +59,40 @@ describe('queued payloads carry operator_id', () => {
     expect(entry.payload.operator_id).toBe('op-1');
   });
 
+  /**
+   * The empty string was the hole in the first version of this guard: it
+   * satisfied `typeof === 'string'`, satisfied the type, and then failed at
+   * delivery — which is the exact defect the guard exists to prevent, reached
+   * through the guard. Unattributable work says so explicitly with `null`.
+   */
+  it('refuses an empty-string operator_id', async () => {
+    await expect(enqueue({
+      kind: 'upload_rods_pdf',
+      payload: { operator_id: '', log_date: '2026-08-01', path: 'x.pdf' },
+    })).rejects.toThrow(/unusable operator_id/);
+    expect(await roadsideDb.sync_queue.count()).toBe(0);
+  });
+
+  it('refuses a whitespace-only operator_id', async () => {
+    await expect(enqueue({
+      kind: 'upload_rods_pdf',
+      payload: { operator_id: '  ', log_date: '2026-08-01', path: 'x.pdf' },
+    })).rejects.toThrow(/unusable operator_id/);
+  });
+
+  it('accepts an explicit null as the unattributable marker', async () => {
+    const entry = await enqueue({
+      kind: 'raise_sync_alert',
+      payload: {
+        operator_id: null,
+        alert_kind: 'notice_drain_corrupt',
+        log_date: null,
+        detail: 'unreadable pending notice',
+      },
+    });
+    expect(entry.payload.operator_id).toBeNull();
+  });
+
   it('every enqueue call site in src/ names operator_id in its payload', () => {
     // Source-level sweep, because a producer that never runs under test still
     // ships. Any literal `payload: {` inside an enqueue/queueEntry call has to
