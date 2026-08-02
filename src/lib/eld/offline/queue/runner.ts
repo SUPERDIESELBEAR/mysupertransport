@@ -115,11 +115,15 @@ async function notify(): Promise<void> {
  * bookkeeping about the day — flagging the day for it would tell the driver
  * their log is stuck when the log is fine.
  */
-async function flagDay(entry: SyncQueueEntry, which: 'stalled' | 'rejected'): Promise<void> {
+async function flagDay(
+  entry: SyncQueueEntry,
+  which: 'stalled' | 'rejected',
+  detail?: { code: string | null; recognized: boolean },
+): Promise<void> {
   if (isCascadeExempt(entry.kind)) return;
   const logDate = entry.payload.log_date;
   if (typeof logDate !== 'string' || !logDate) return;
-  await markDayStalled(logDate, which);
+  await markDayStalled(logDate, which, detail);
 }
 
 /**
@@ -160,14 +164,15 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     await handler(entry.payload);
     await markSucceeded(entry.id);
   } catch (err) {
-    const { klass, message, deterministic } = classifyError(err);
+    const { klass, message, deterministic, code, recognized } = classifyError(err);
+    const failure = { code: code ?? null, recognized: recognized ?? false };
 
     // RLS filtered the write: 0 rows, no error. Terminal, never retried, and
     // alerted separately — Management must see "the driver's edits were
     // dropped", not a generic sync failure. Bytes stay on the device.
     if (klass === 'row_not_writable') {
       await markTerminal(entry.id, 'rejected', klass, message);
-      await flagDay(entry, 'rejected');
+      await flagDay(entry, 'rejected', failure);
       await raiseSyncAlert({
         kind: 'log_not_writable',
         operator_id: (entry.payload.operator_id as string) ?? null,
@@ -181,7 +186,7 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
 
     if (klass === 'rejected') {
       await markTerminal(entry.id, 'rejected', klass, message);
-      await flagDay(entry, 'rejected');
+      await flagDay(entry, 'rejected', failure);
       await reportTerminal(
         entry,
         'certification_rejected',
@@ -199,7 +204,7 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     const serverLimit = deterministic ? DETERMINISTIC_SERVER_ATTEMPT_LIMIT : SERVER_ATTEMPT_LIMIT;
     if (klass === 'server' && entry.attempts + 1 >= serverLimit) {
       await markTerminal(entry.id, 'failed', klass, message);
-      await flagDay(entry, 'stalled');
+      await flagDay(entry, 'stalled', failure);
       await reportTerminal(
         entry,
         'sync_failed',
