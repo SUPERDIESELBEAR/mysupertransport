@@ -404,3 +404,17 @@ and earlier comments in `amendmentDiff.ts`, `RodsDayEditor.tsx` and
   It still does not require a change record.
 
 State the requirement as carrier policy. Do not re-attach a federal cite.
+
+## 11. Management deep links: `view` is canonical, `tab` is a shim
+
+Every link into `/management` selects its section with `?view=`. `ManagementPortal`
+reads `view` first and falls back to `tab` only because links written before the
+rename are already sitting in sent emails and in `notifications.action_url` rows,
+where nothing can rewrite them. The fallback never writes `tab` back to the URL,
+so a session started from a legacy link converts to the canonical form on the
+first navigation.
+
+Nothing new may emit `tab`. New notification rows, edge-function CTAs and
+in-app navigation all write `?view=<section>` (plus `op=` / `app=` / `event=`
+for the record to open). The shim is removable once no unexpired notification
+row or in-flight email carries `tab=`; there is no separate flag to flip.
