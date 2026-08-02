@@ -1981,6 +1981,10 @@ export default function ManagementPortal() {
           />
         )}
 
+        {view === 'eld-device-models' && (
+          <ELDDeviceModelsPanel />
+        )}
+
         {view === 'eld-retention' && (
           <RetentionArchivePanel />
         )}
