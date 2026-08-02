@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     }
 
     const appUrl = new URL(buildAppUrl('/')).origin;
-    const operatorLink = `${appUrl}/management?operator=${operator_id}`;
+    const operatorLink = `${appUrl}/management?view=operator-detail&op=${operator_id}`;
     const submittedDisplay = setup.submitted_at
       ? new Date(setup.submitted_at).toLocaleString('en-US', {
           timeZone: 'America/Chicago',
