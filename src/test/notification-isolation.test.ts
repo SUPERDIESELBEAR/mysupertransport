@@ -94,43 +94,63 @@ export function unwrapBody(block: string): string {
 export function findNotificationInserts(rawBody: string): Finding[] {
   const body = blankLiterals(stripComments(rawBody));
 
-  interface Frame { id: number; handled: boolean }
-  const frames: Frame[] = [];
+  interface Frame { kind: 'block' | 'case'; id: number; handled: boolean }
+  // One stack for both constructs. A `CASE ... END` *expression* closes with a
+  // bare END, indistinguishable from a block's END unless CASE is tracked —
+  // and treating it as a block close pops the real enclosing block early,
+  // reporting isolated inserts as bare. That false positive is worse than a
+  // miss: it trains people to ignore the guard.
+  const stack: Frame[] = [];
   const byId = new Map<number, Frame>();
   let nextId = 0;
 
   const pending: Array<{ at: number; stack: number[] }> = [];
 
-  const token = /\b(BEGIN|EXCEPTION|END)\b|INSERT\s+INTO\s+(?:public\s*\.\s*)?notifications\b/gi;
+  const token = /\b(BEGIN|CASE|EXCEPTION|END)\b|INSERT\s+INTO\s+(?:public\s*\.\s*)?notifications\b/gi;
   let m: RegExpExecArray | null;
   while ((m = token.exec(body)) !== null) {
     const word = (m[1] ?? '').toUpperCase();
 
     if (!word) {
-      pending.push({ at: m.index, stack: frames.map((f) => f.id) });
+      pending.push({
+        at: m.index,
+        stack: stack.filter((f) => f.kind === 'block').map((f) => f.id),
+      });
       continue;
     }
 
-    if (word === 'BEGIN') {
-      // `FOR ... IN ... LOOP` bodies and `CASE` do not open a plpgsql block,
-      // and `BEGIN` as a transaction statement does not appear inside a
-      // function body, so every BEGIN here is a block.
-      const frame = { id: nextId++, handled: false };
-      frames.push(frame);
+    if (word === 'BEGIN' || word === 'CASE') {
+      // `IF`/`LOOP` need no entry: they close with `END IF` / `END LOOP`,
+      // which is skipped below. `CASE` needs one because the expression form
+      // closes with a bare `END`.
+      const frame: Frame = {
+        kind: word === 'BEGIN' ? 'block' : 'case',
+        id: nextId++,
+        handled: false,
+      };
+      stack.push(frame);
       byId.set(frame.id, frame);
       continue;
     }
 
     if (word === 'EXCEPTION') {
-      const top = frames[frames.length - 1];
-      if (top) top.handled = true;
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i].kind === 'block') { stack[i].handled = true; break; }
+      }
       continue;
     }
 
-    // END: only a bare one closes a block.
+    // END: `END IF` / `END LOOP` close constructs that were never pushed.
     const after = body.slice(m.index + 3, m.index + 12).trim().toUpperCase();
-    if (/^(IF|LOOP|CASE)\b/.test(after)) continue;
-    frames.pop();
+    if (/^(IF|LOOP)\b/.test(after)) continue;
+    if (/^CASE\b/.test(after)) {
+      // Statement form: close the nearest open CASE.
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i].kind === 'case') { stack.splice(i, 1); break; }
+      }
+      continue;
+    }
+    stack.pop();
   }
 
   return pending.map((p) => ({
