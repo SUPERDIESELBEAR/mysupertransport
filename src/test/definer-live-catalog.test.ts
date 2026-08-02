@@ -225,11 +225,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.submit_pei_response(uuid,jsonb,jsonb)",
   "public.unacked_go_live_blockers(uuid)",
   "public.update_pei_archive_category(uuid,text,text)",
+  // Read by the ELD management console via supabase.rpc. Every row it returns
+  // is gated on public.is_staff(auth.uid()) inside the body, so the grant to
+  // `authenticated` is the intended surface; it is NOT granted to anon.
+  "public.get_eld_escalation_ledger(uuid)",
 ];
 
-// 65 + the interim certify_rods_day overload. Goes back to 65 when the
-// seven-argument form is dropped (docs/deferred-removals.md).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 66;
+// 65 + the interim certify_rods_day overload + get_eld_escalation_ledger.
+// Goes back to 66 when the seven-argument certify form is dropped
+// (docs/deferred-removals.md).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 67;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a
