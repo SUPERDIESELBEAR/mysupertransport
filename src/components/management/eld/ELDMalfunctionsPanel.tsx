@@ -110,7 +110,22 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
       .select(SELECT)
       .order('discovered_at', { ascending: false });
     if (error) toast.error(error.message);
-    setRows((data as unknown as Row[]) ?? []);
+    const list = (data as unknown as Row[]) ?? [];
+    const userIds = Array.from(
+      new Set(list.map((r) => r.operators?.user_id).filter((v): v is string => !!v)),
+    );
+    if (userIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', userIds);
+      const byUser = new Map((profs ?? []).map((p) => [p.user_id, p]));
+      for (const r of list) {
+        const p = r.operators?.user_id ? byUser.get(r.operators.user_id) : undefined;
+        r.driver = p ? { first_name: p.first_name, last_name: p.last_name } : null;
+      }
+    }
+    setRows(list);
     setLoading(false);
   }, []);
 
@@ -123,7 +138,7 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
   }, []);
 
   const driverName = (r: Row) => {
-    const p = r.operators?.profiles;
+    const p = r.driver;
     return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Driver';
   };
 
