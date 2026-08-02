@@ -17,6 +17,7 @@
  * yet, and here's why" is shown.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { isRejectionSqlState } from '@/lib/eld/offline/queue/types';
 
 export type CorrectionStatus = 'open' | 'actioned' | 'declined';
 
@@ -118,11 +119,21 @@ export async function raiseCorrectionRequest(args: {
 export async function declineCorrectionRequest(
   id: string,
   response: string,
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; message?: string; code?: string; terminal?: boolean }> {
   const { error } = await supabase
     .from('rods_correction_requests')
     .update({ status: 'declined', driver_response: response.trim() })
     .eq('id', id);
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    // The trigger's own wording is the accurate one for a refused write: the
+    // response is recorded once (P0106) and the row is otherwise append-only.
+    // A registered SQLSTATE is terminal — retrying the same write cannot pass.
+    return {
+      ok: false,
+      message: error.message,
+      code: error.code ?? undefined,
+      terminal: isRejectionSqlState(error.code ?? null),
+    };
+  }
   return { ok: true };
 }

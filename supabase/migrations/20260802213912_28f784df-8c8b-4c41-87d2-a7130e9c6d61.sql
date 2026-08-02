@@ -1,0 +1,1 @@
+ALTER FUNCTION public.enforce_rods_correction_request_update() SET search_path = public, extensions;
