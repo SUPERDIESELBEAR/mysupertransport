@@ -93,15 +93,56 @@ export default function LogSyncBanner({
     }
   }
 
-  if (!state || !state.locked || (!state.stalled && !state.rejected)) return null;
+  async function dismissConfirmed() {
+    await markSyncConfirmedSeen(logDate);
+    await refresh();
+  }
+
+  if (!state || !state.locked) return null;
+  const failed = state.stalled || state.rejected;
+  if (!failed && !state.confirmed) return null;
 
   const dayLabel = new Date(`${logDate}T12:00:00`).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   });
+
+  // Confirmed. Failure ranks above it: a day that is both is a day whose
+  // chain died, and the driver needs the dead end, not the good news.
+  if (!failed) {
+    const goodBase = 'The office has this log';
+    return (
+      <div className={`rounded-lg border border-emerald-600/40 bg-emerald-600/5 ${compact ? 'p-3' : 'p-4'}`}>
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+              {showDate ? `${dayLabel} — ${goodBase.charAt(0).toLowerCase()}${goodBase.slice(1)}` : goodBase}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Your signed log reached the office and is on file. Nothing else is needed from you.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-1"
+              onClick={() => { void dismissConfirmed(); }}
+            >
+              Got it
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const base = state.rejected
     ? 'The office could not accept this log'
     : 'This log has not reached the office yet';
   const headline = showDate ? `${dayLabel} — ${base.charAt(0).toLowerCase()}${base.slice(1)}` : base;
+  // A refusal this client knows by name gets copy about that refusal. One it
+  // does not know gets plain copy that quotes the code and says, out loud,
+  // that the driver did not cause it.
+  const unrecognized = state.rejected && !state.failureRecognized;
 
   return (
     <div className={`rounded-lg border border-destructive/40 bg-destructive/5 ${compact ? 'p-3' : 'p-4'}`}>
@@ -110,7 +151,9 @@ export default function LogSyncBanner({
         <div className="min-w-0 flex-1 space-y-2">
           <p className="text-sm font-semibold text-destructive">{headline}</p>
           <p className="text-sm text-muted-foreground">
-            {state.rejected
+            {unrecognized
+              ? `You signed this log and it is locked on this device. The office system did not accept it. This is not something you did wrong${state.failureCode ? ` (code ${state.failureCode})` : ''}.`
+              : state.rejected
               ? 'You signed this log and it is locked on this device, but the office system refused it. It has to be reopened and fixed before it can be sent.'
               : 'You signed this log and it is locked on this device. It keeps failing to send, so the office does not have it yet.'}
           </p>
