@@ -39,6 +39,7 @@ import ELDMalfunctionsPanel from '@/components/management/eld/ELDMalfunctionsPan
 import RodsStorageHealthCard from '@/components/management/eld/RodsStorageHealthCard';
 import RodsUnlockEventsPanel from '@/components/management/eld/RodsUnlockEventsPanel';
 import RodsAdminLogsPanel from '@/components/management/eld/RodsAdminLogsPanel';
+import RetentionArchivePanel from '@/components/management/eld/RetentionArchivePanel';
 import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
 import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
@@ -87,7 +88,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-logs' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -112,7 +113,7 @@ const STATUS_COLORS: Record<string, string> = {
   revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
 };
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-logs','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -909,6 +910,7 @@ export default function ManagementPortal() {
     { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />,     path: 'equipment' },
     { label: 'ELD Malfunctions', icon: <AlertTriangle className="h-4 w-4" />, path: 'eld-malfunctions' },
     { label: 'Driver Logs (RODS)', icon: <FileText className="h-4 w-4" />, path: 'eld-logs' },
+    { label: 'Retention Archive', icon: <Library className="h-4 w-4" />, path: 'eld-retention' },
     { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
     { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
     { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
@@ -1975,6 +1977,10 @@ export default function ManagementPortal() {
             operatorId={searchParams.get('op')}
             logDate={searchParams.get('date')}
           />
+        )}
+
+        {view === 'eld-retention' && (
+          <RetentionArchivePanel />
         )}
 
         {view === 'vehicle-hub' && (

@@ -6,6 +6,7 @@ import {
   type DemoScenario,
 } from '../_shared/demo-scenarios.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { purgeLeaves } from '../_shared/eld/amendmentChain.ts'
 
 // Resets a demo driver back to a chosen lifecycle scenario. Refuses to touch
 // any operator that is not flagged is_demo, so live drivers can never be wiped.
@@ -52,12 +53,16 @@ async function purgeOperatorRodsDays(
     const all = (rows ?? []) as Array<{ id: string; supersedes_day_id: string | null }>
     if (all.length === 0) return purged
 
-    const superseded = new Set(all.map((r) => r.supersedes_day_id).filter(Boolean) as string[])
-    const leaves = all.filter((r) => !superseded.has(r.id)).map((r) => r.id)
-    if (leaves.length === 0) {
-      // Every row is referenced by another: a cycle. Bail loudly.
+    // Shared with the retention export and the management log panel so the
+    // three cannot disagree about what a chain contains. Throws on a cycle.
+    let leaves: string[]
+    try {
+      leaves = purgeLeaves(all.map((r) => ({ ...r, log_date: '' }))).map((r) => r.id)
+    } catch (err) {
       throw new Error(
-        `Refusing to purge: duty-status amendment chain for operator ${operatorId} has no unreferenced row (cycle).`,
+        `Refusing to purge duty-status logs for operator ${operatorId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       )
     }
 
