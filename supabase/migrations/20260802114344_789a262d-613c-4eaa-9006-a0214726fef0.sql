@@ -1,0 +1,250 @@
+-- notify_operator_on_status_change is the largest fan-out in the system: 19
+-- driver notifications and 11 outbound milestone emails, all previously
+-- unisolated, on the same table (onboarding_status) where an unisolated
+-- notification already cost weeks of coordinator work. Every delivery now
+-- goes through try_notify / try_notify_http, so the status change commits
+-- whether or not the driver could be told.
+CREATE OR REPLACE FUNCTION public.notify_operator_on_status_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_user_id      UUID;
+  v_pref_enabled BOOLEAN;
+  v_op_id        UUID := NEW.operator_id;
+  v_fn_url       CONSTANT TEXT := 'https://qgxpkcudwjmacrdcyvhj.supabase.co/functions/v1/notify-onboarding-update';
+  v_anon_key     CONSTANT TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFneHBrY3Vkd2ptYWNyZGN5dmhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4NDg3NDgsImV4cCI6MjA4ODQyNDc0OH0.LoP0_X7zPsOL4-GHQim1orOhlqk6znV6i-tGB7__66o';
+BEGIN
+  SELECT user_id INTO v_user_id
+  FROM public.operators
+  WHERE id = NEW.operator_id;
+  IF v_user_id IS NULL THEN RETURN NEW; END IF;
+
+  SELECT COALESCE(
+    (SELECT in_app_enabled FROM public.notification_preferences
+     WHERE user_id = v_user_id AND event_type = 'onboarding_update' LIMIT 1),
+    TRUE
+  ) INTO v_pref_enabled;
+
+  -- ── Form 2290 ─────────────────────────────────────────────────────────────
+  IF OLD.form_2290 IS DISTINCT FROM NEW.form_2290 AND NEW.form_2290 = 'received' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Form 2290 reviewed ✓',
+        'Your Form 2290 has been received and confirmed by your coordinator.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'document_received'),
+      'document_received', 'operator', v_op_id);
+  END IF;
+
+  -- ── Truck Title ───────────────────────────────────────────────────────────
+  IF OLD.truck_title IS DISTINCT FROM NEW.truck_title AND NEW.truck_title = 'received' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Truck Title reviewed ✓',
+        'Your Truck Title has been received and confirmed by your coordinator.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'document_received'),
+      'document_received', 'operator', v_op_id);
+  END IF;
+
+  -- ── Truck Photos ──────────────────────────────────────────────────────────
+  IF OLD.truck_photos IS DISTINCT FROM NEW.truck_photos AND NEW.truck_photos = 'received' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Truck Photos reviewed ✓',
+        'Your Truck Photos have been received and confirmed by your coordinator.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'document_received'),
+      'document_received', 'operator', v_op_id);
+  END IF;
+
+  -- ── Truck Inspection ──────────────────────────────────────────────────────
+  IF OLD.truck_inspection IS DISTINCT FROM NEW.truck_inspection AND NEW.truck_inspection = 'received' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Truck Inspection reviewed ✓',
+        'Your Truck Inspection report has been received and confirmed by your coordinator.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'document_received'),
+      'document_received', 'operator', v_op_id);
+  END IF;
+
+  -- ── Drug Screening Scheduled ──────────────────────────────────────────────
+  IF OLD.pe_screening IS DISTINCT FROM NEW.pe_screening AND NEW.pe_screening = 'scheduled' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Drug screening scheduled',
+        'Your pre-employment drug screening has been scheduled. Check your email for the clinic and instructions.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'drug_screening_scheduled'),
+      'drug_screening_scheduled', 'operator', v_op_id);
+  END IF;
+
+  -- ── Background Check Approved / Denied ────────────────────────────────────
+  IF OLD.mvr_ch_approval IS DISTINCT FROM NEW.mvr_ch_approval THEN
+    IF NEW.mvr_ch_approval = 'approved' THEN
+      IF v_pref_enabled THEN
+        PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Background check cleared ✓',
+          'Your MVR and Clearinghouse checks have been approved. You are cleared to move forward.',
+          '/operator', NULL, 'operator', v_op_id);
+      END IF;
+      PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+        jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'background_check_cleared'),
+        'background_check_cleared', 'operator', v_op_id);
+    ELSIF NEW.mvr_ch_approval = 'denied' THEN
+      IF v_pref_enabled THEN
+        PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Background check — action required',
+          'An issue was found during your background screening. Your coordinator will reach out with next steps.',
+          '/operator', NULL, 'operator', v_op_id);
+      END IF;
+      PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+        jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'background_check_flagged'),
+        'background_check_flagged', 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── ICA Status ────────────────────────────────────────────────────────────
+  IF OLD.ica_status IS DISTINCT FROM NEW.ica_status THEN
+    IF NEW.ica_status = 'sent_for_signature' THEN
+      IF v_pref_enabled THEN
+        PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Your ICA is ready to sign',
+          'Your Independent Contractor Agreement has been prepared. Sign it from the ICA tab in your portal.',
+          '/operator', NULL, 'operator', v_op_id);
+      END IF;
+      PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+        jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'ica_ready_to_sign'),
+        'ica_ready_to_sign', 'operator', v_op_id);
+    ELSIF NEW.ica_status = 'complete' THEN
+      IF v_pref_enabled THEN
+        PERFORM public.try_notify(v_user_id, 'onboarding_update', 'ICA signed & complete ✓',
+          'Your Independent Contractor Agreement is fully signed. Moving to Missouri registration.',
+          '/operator', NULL, 'operator', v_op_id);
+      END IF;
+      PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+        jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'ica_complete'),
+        'ica_complete', 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── MO Docs Submitted ────────────────────────────────────────────────────
+  IF OLD.mo_docs_submitted IS DISTINCT FROM NEW.mo_docs_submitted AND NEW.mo_docs_submitted = 'submitted' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'MO registration filed',
+        'Your Missouri registration documents have been submitted to the state. Approval typically takes 2–4 weeks.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'mo_reg_filed'),
+      'mo_reg_filed', 'operator', v_op_id);
+  END IF;
+
+  -- ── MO Registration Received ─────────────────────────────────────────────
+  IF OLD.mo_reg_received IS DISTINCT FROM NEW.mo_reg_received AND NEW.mo_reg_received = 'yes' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Missouri registration received ✓',
+        'Your Missouri apportioned registration has been approved. Moving to equipment setup.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'mo_reg_received'),
+      'mo_reg_received', 'operator', v_op_id);
+  END IF;
+
+  -- ── Decal Applied ────────────────────────────────────────────────────────
+  IF OLD.decal_applied IS DISTINCT FROM NEW.decal_applied AND NEW.decal_applied = 'yes' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Decal applied — upload photos',
+        'Your company decal has been applied. Please upload driver-side and passenger-side photos of the installed decal from your Documents tab.',
+        '/operator?tab=documents', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'decal_photos_requested'),
+      'decal_photos_requested', 'operator', v_op_id);
+  END IF;
+
+  -- ── ELD Installed ────────────────────────────────────────────────────────
+  IF OLD.eld_installed IS DISTINCT FROM NEW.eld_installed AND NEW.eld_installed = 'yes' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'ELD device installed ✓',
+        'Your Electronic Logging Device has been installed and is ready for use.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── Fuel Card Issued ─────────────────────────────────────────────────────
+  IF OLD.fuel_card_issued IS DISTINCT FROM NEW.fuel_card_issued AND NEW.fuel_card_issued = 'yes' THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Fuel card issued ✓',
+        'Your company fuel card has been issued. Your coordinator will provide it to you directly.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── Insurance Added ──────────────────────────────────────────────────────
+  IF OLD.insurance_added_date IS DISTINCT FROM NEW.insurance_added_date AND NEW.insurance_added_date IS NOT NULL THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', 'Added to insurance policy ✓',
+        'You have been added to the company insurance policy. Unit number assignment is next.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── Paper Logbook Exception Approved ─────────────────────────────────────
+  IF (OLD.paper_logbook_approved IS DISTINCT FROM NEW.paper_logbook_approved)
+     AND NEW.paper_logbook_approved = TRUE
+     AND (OLD.paper_logbook_approved IS NULL OR OLD.paper_logbook_approved = FALSE)
+  THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', '⚠️ Exception approved — Paper Logbook',
+        'You are cleared to operate with a paper logbook while traveling to the SUPERTRANSPORT shop for ELD installation.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── Temporary Decals Exception Approved ──────────────────────────────────
+  IF (OLD.temp_decal_approved IS DISTINCT FROM NEW.temp_decal_approved)
+     AND NEW.temp_decal_approved = TRUE
+     AND (OLD.temp_decal_approved IS NULL OR OLD.temp_decal_approved = FALSE)
+  THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', '⚠️ Exception approved — Temporary Decals',
+        'You are cleared to operate with temporary decals while traveling to the SUPERTRANSPORT shop for permanent decal installation.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+  END IF;
+
+  -- ── Go-Live Date Set ─────────────────────────────────────────────────────
+  IF OLD.go_live_date IS DISTINCT FROM NEW.go_live_date AND NEW.go_live_date IS NOT NULL THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', '🚛 Go-live date confirmed!',
+        'Your go-live date has been set to ' || to_char(NEW.go_live_date, 'Month DD, YYYY') || '. You are cleared to start dispatching.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'go_live_set'),
+      'go_live_set', 'operator', v_op_id);
+  END IF;
+
+  -- ── Fully Onboarded ──────────────────────────────────────────────────────
+  IF (OLD.fully_onboarded IS NULL OR OLD.fully_onboarded = FALSE) AND NEW.fully_onboarded = TRUE THEN
+    IF v_pref_enabled THEN
+      PERFORM public.try_notify(v_user_id, 'onboarding_update', '🎉 You are fully onboarded!',
+        'Congratulations! All stages are complete — you are ready to start dispatching.',
+        '/operator', NULL, 'operator', v_op_id);
+    END IF;
+    PERFORM public.try_notify_http(v_fn_url, v_anon_key,
+      jsonb_build_object('operator_id', v_op_id::text, 'milestone_key', 'fully_onboarded'),
+      'fully_onboarded', 'operator', v_op_id);
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
