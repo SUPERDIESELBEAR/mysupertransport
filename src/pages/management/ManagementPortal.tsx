@@ -120,7 +120,15 @@ export default function ManagementPortal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const urlView = searchParams.get('view') as ManagementView | null;
-    const hasDeepLink = !!(searchParams.get('op') || searchParams.get('app'));
+    // Deep-link markers. `operator`/`application` are legacy aliases written by
+    // notification DB functions whose links already live in the database and
+    // cannot be rewritten; `event` comes from ELD escalation notices. Without
+    // these, sessionStorage wins and the link lands on the last-viewed section.
+    const hasDeepLink = !!(
+      searchParams.get('op') || searchParams.get('app') ||
+      searchParams.get('operator') || searchParams.get('application') ||
+      searchParams.get('event')
+    );
     // Honor URL only when it's an explicit deep-link from a notification/email.
     if (urlView && ALLOWED_VIEWS.includes(urlView) && hasDeepLink) return urlView;
     // Otherwise prefer the per-tab sessionStorage "last viewed section".
@@ -215,7 +223,7 @@ export default function ManagementPortal() {
   // Initial state was already seeded from the URL by the lazy useState above.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const op = params.get('op');
+    const op = params.get('op') ?? params.get('operator');
     if (op) {
       setSelectedOperatorId(op);
       setView('operator-detail');
@@ -223,7 +231,7 @@ export default function ManagementPortal() {
     // Notification deep-link: ?view=applications&app=<id> opens the review drawer
     // for that specific application. Used by application_denied / application_revised
     // bell notifications so a click jumps straight to the record.
-    const appId = params.get('app');
+    const appId = params.get('app') ?? params.get('application');
     if (appId) {
       setView('applications');
       (async () => {
