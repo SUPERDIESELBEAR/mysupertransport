@@ -90,7 +90,7 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260726204315_0aea3906-593d-4983-a6ed-275e06831b1e.sql::public.mark_equipment_return_completed()",
   "20260429142553_09ece42d-bd4a-46ca-a6bd-599a7cb3e2b2.sql::public.mark_operator_seen(boolean)",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.mark_thread_read(uuid)",
-  "20260729143338_ab7bc9d7-4972-4bd3-8d8d-a3b9d3964bdb.sql::public.match_staff_help_knowledge(vector, integer, float)",
+  "20260729143338_ab7bc9d7-4972-4bd3-8d8d-a3b9d3964bdb.sql::public.match_staff_help_knowledge(vector, integer, double precision)",
   "20260518151010_21459e56-4985-4b1a-b896-0464d7f291ea.sql::public.move_revisions_to_pending(uuid)",
   "20260618201129_2708979a-7f7d-4edd-b3d7-9a4889e4b265.sql::public.notifications_autofill_entity()",
   "20260720153657_d81fc002-e4c6-4f66-804e-ede3bee9da67.sql::public.on_ica_amendment_activated()",
