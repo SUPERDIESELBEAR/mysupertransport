@@ -8,6 +8,7 @@ import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { toast } from 'sonner';
 import { ShipmentReceiptsBlock, Receipt, EquipmentLine } from '@/components/equipment/ShipmentReceipts';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { fetchProfileNames } from '@/lib/profileNames';
 
 type DeliveryMethod = 'shipped' | 'orientation' | 'on_site' | 'awaiting_return' | 'not_assigned';
 
@@ -41,15 +42,18 @@ export default function OperatorReturnReceipts({ operatorId, status }: OperatorR
   const fetchReceipts = async () => {
     const { data, error } = await supabase
       .from('equipment_receipts')
-      .select('id, equipment_line, direction, carrier, tracking_number, file_url, file_name, uploaded_by, uploader_role, uploaded_at, profiles(first_name, last_name)')
+      .select('id, equipment_line, direction, carrier, tracking_number, file_url, file_name, uploaded_by, uploader_role, uploaded_at')
       .eq('operator_id', operatorId)
       .order('uploaded_at', { ascending: false });
     if (error) {
       console.error('[OperatorReturnReceipts] fetch receipts failed', error);
       return;
     }
+    // equipment_receipts.uploaded_by references auth.users, not profiles, so the
+    // uploader name has to come from a second read keyed on that id.
+    const names = await fetchProfileNames((data || []).map(r => r.uploaded_by));
     const mapped = (data || []).map(r => {
-      const p = (r as any).profiles;
+      const p = r.uploaded_by ? names.get(r.uploaded_by) : null;
       const display = p
         ? `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Staff'
         : r.uploader_role === 'driver'
