@@ -10,7 +10,8 @@ import {
 } from '@/lib/eld/rodsWrite';
 import { roadsideDb } from '@/lib/eld/offline/db';
 import { putCachedDay, putCachedEvents, flushEmptySegmentAlerts } from '@/lib/eld/offline/cache';
-import { enqueueCoalesced } from '@/lib/eld/offline/queue/store';
+import { enqueueCoalesced, lastTerminalError } from '@/lib/eld/offline/queue/store';
+import { subscribeSyncCounts } from '@/lib/eld/offline/queue/runner';
 import { newLocalRodsDay } from '@/lib/eld/rodsTypes';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 
@@ -122,10 +123,16 @@ export function useRodsDay(params: {
   const version = useRef(0);
   /** Non-null once the driver has signed on this device. Blocks every edit. */
   const localCertifiedAt = useRef<string | null>(null);
-  /** Device-side sync state for the chip, read from the cache on load. */
-  const [syncState, setSyncState] = useState<{ sync_rejected: boolean; sync_stalled: boolean }>({
-    sync_rejected: false, sync_stalled: false,
-  });
+  /**
+   * Device-side sync state for the chip. Read from the cache on load AND on
+   * every queue change: the flags are written by the runner long after this
+   * screen mounted, and a header that only read them at load kept showing a
+   * green "Signed on this device, syncing" over a day the server had already
+   * refused.
+   */
+  const [syncState, setSyncState] = useState<{
+    sync_rejected: boolean; sync_stalled: boolean; last_error: string | null;
+  }>({ sync_rejected: false, sync_stalled: false, last_error: null });
 
   const load = useCallback(async () => {
     if (!operatorId) return;
@@ -147,7 +154,11 @@ export function useRodsDay(params: {
       target = cached.day;
       version.current = cached.version;
       localCertifiedAt.current = cached.local_certified_at;
-      setSyncState({ sync_rejected: cached.sync_rejected, sync_stalled: cached.sync_stalled });
+      setSyncState({
+        sync_rejected: cached.sync_rejected,
+        sync_stalled: cached.sync_stalled,
+        last_error: await lastTerminalError(logDate).catch(() => null),
+      });
       const cachedEvents = await roadsideDb.rods_events_cache.get(cached.day.id).catch(() => undefined);
       setDay(target);
       setSegments((cachedEvents?.events ?? []).map(toDraft));
@@ -159,6 +170,7 @@ export function useRodsDay(params: {
     setSyncState({
       sync_rejected: cached?.sync_rejected ?? false,
       sync_stalled: cached?.sync_stalled ?? false,
+      last_error: await lastTerminalError(logDate).catch(() => null),
     });
     version.current = cached?.version ?? 0;
 
@@ -280,6 +292,27 @@ export function useRodsDay(params: {
   }, [operatorId, logDate, autoCreate, isReconstruction, defaults]);
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [operatorId, logDate]);
+
+  // Live sync flags. The runner writes `sync_stalled` / `sync_rejected` onto
+  // the cache row when an entry dies, which can be minutes after this screen
+  // mounted. Re-read them on every queue change so the header stops claiming
+  // "syncing" for a day the office has already refused.
+  useEffect(() => {
+    let alive = true;
+    const unsubscribe = subscribeSyncCounts(() => {
+      void (async () => {
+        const cached = await roadsideDb.rods_days_cache.get(logDate).catch(() => undefined);
+        const error = await lastTerminalError(logDate).catch(() => null);
+        if (!alive) return;
+        setSyncState({
+          sync_rejected: cached?.sync_rejected ?? false,
+          sync_stalled: cached?.sync_stalled ?? false,
+          last_error: error,
+        });
+      })();
+    });
+    return () => { alive = false; unsubscribe(); };
+  }, [logDate]);
 
   /**
    * Edits are accumulated, not replaced. The debounce timer is shared across

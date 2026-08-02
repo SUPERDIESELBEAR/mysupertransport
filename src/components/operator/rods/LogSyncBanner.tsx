@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle2, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCachedDay, markSyncConfirmedSeen } from '@/lib/eld/offline/cache';
+import { lastTerminalError } from '@/lib/eld/offline/queue/store';
+import { subscribeSyncCounts } from '@/lib/eld/offline/queue/runner';
 import { authorizedUnlockDay } from '@/lib/eld/offline/authorizedUnlock';
 import AuthorizedUnlockDialog from './AuthorizedUnlockDialog';
 
@@ -41,12 +43,15 @@ export default function LogSyncBanner({
     confirmed: boolean;
     failureCode: string | null;
     failureRecognized: boolean;
+    /** The server's own words. Quoted verbatim — see below. */
+    lastError: string | null;
   } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const entry = await getCachedDay(logDate);
+    const lastError = await lastTerminalError(logDate).catch(() => null);
     setState(entry
       ? {
         stalled: !!entry.sync_stalled,
@@ -55,11 +60,15 @@ export default function LogSyncBanner({
         confirmed: entry.day?.status === 'certified' && !entry.sync_confirmed_seen_at,
         failureCode: entry.sync_failure_code ?? null,
         failureRecognized: !!entry.sync_failure_recognized,
+        lastError,
       }
       : null);
   }, [logDate]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+  // The flags are written by the queue runner, not by this screen. Without
+  // this the banner reported whatever was true at mount.
+  useEffect(() => subscribeSyncCounts(() => { void refresh(); }), [refresh]);
 
   async function confirmUnlock(reason: string) {
     setBusy(true);
@@ -160,6 +169,14 @@ export default function LogSyncBanner({
           <p className="text-sm text-muted-foreground">
             Call the office. They can authorize reopening it so you can correct and re-sign it.
           </p>
+          {state.lastError ? (
+            // Verbatim, not paraphrased. "A written reason is required to
+            // certify a correction" tells the driver exactly what to fix;
+            // "the office refused it" tells them to phone someone.
+            <p className="rounded border border-destructive/30 bg-background/60 px-2 py-1 font-mono text-xs text-muted-foreground">
+              {state.lastError}
+            </p>
+          ) : null}
           <Button
             size="sm"
             variant="outline"

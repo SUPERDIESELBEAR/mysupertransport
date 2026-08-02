@@ -23,6 +23,7 @@ const TOKEN = '22222222-2222-4222-8222-222222222222';
 
 function payload(over: Partial<CertifyDayPayload> = {}): CertifyDayPayload {
   return {
+    operator_id: '33333333-3333-4333-8333-333333333333',
     day_id: DAY_ID,
     legal_name: 'Dana Reyes',
     signature_path: `sig/${DAY_ID}.png`,

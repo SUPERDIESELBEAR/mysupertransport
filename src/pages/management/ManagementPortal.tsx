@@ -120,7 +120,11 @@ export default function ManagementPortal() {
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
-    const urlView = searchParams.get('view') as ManagementView | null;
+    // `view` is canonical for this portal. `tab` is a COMPATIBILITY SHIM for
+    // links already in the wild (older notification rows and sent emails);
+    // nothing new should write it, and it is never written back to the URL.
+    // See docs/database-security-conventions.md.
+    const urlView = (searchParams.get('view') ?? searchParams.get('tab')) as ManagementView | null;
     // An explicit `?view=` is always an instruction — from a notification, an
     // email, or a pasted link — so it wins outright. Requiring a companion
     // deep-link marker (`op`/`app`/`event`) made every plain `?view=` link dead
@@ -255,7 +259,7 @@ export default function ManagementPortal() {
   // set a flag so the state-to-URL writer below does not clobber the
   // externally-driven URL on the same render cycle.
   useEffect(() => {
-    const currentUrlView = searchParams.get('view') as ManagementView | null;
+    const currentUrlView = (searchParams.get('view') ?? searchParams.get('tab')) as ManagementView | null;
     const prevUrlView = prevSearchParamsRef.current.get('view') as ManagementView | null;
     if (currentUrlView !== prevUrlView) {
       if (currentUrlView && ALLOWED_VIEWS.includes(currentUrlView) && currentUrlView !== view) {

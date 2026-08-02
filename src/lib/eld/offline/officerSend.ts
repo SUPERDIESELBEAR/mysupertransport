@@ -62,7 +62,7 @@ export async function queueOfficerPacket(input: OfficerSendInput): Promise<Offic
 
   const uploadEntry = await enqueue({
     kind: 'upload_merged_packet',
-    payload: { packet_id: sendEntryId, path },
+    payload: { operator_id: input.operatorId, packet_id: sendEntryId, path },
   });
 
   await enqueue({

@@ -184,7 +184,9 @@ async function enqueueAndConfirm(
   await enqueue({
     id: pdfId,
     kind: 'upload_notice_pdf',
-    payload: { event_id: notice.eventId, path: `${base}/notice.pdf` },
+    payload: {
+      operator_id: notice.operatorId, event_id: notice.eventId, path: `${base}/notice.pdf`,
+    },
     client_timestamp: notice.savedAt,
   });
   ids.push(pdfId);
@@ -194,7 +196,11 @@ async function enqueueAndConfirm(
     await enqueue({
       id: sigId,
       kind: 'upload_notice_signature',
-      payload: { key: noticeSignatureKey(notice.eventId), path: `${base}/signature.png` },
+      payload: {
+        operator_id: notice.operatorId,
+        key: noticeSignatureKey(notice.eventId),
+        path: `${base}/signature.png`,
+      },
       client_timestamp: notice.savedAt,
     });
     ids.push(sigId);
@@ -205,7 +211,7 @@ async function enqueueAndConfirm(
     await enqueue({
       id: sendId,
       kind: 'send_notice',
-      payload: { event_id: notice.eventId },
+      payload: { operator_id: notice.operatorId, event_id: notice.eventId },
       depends_on: [...ids],
       client_timestamp: notice.savedAt,
     });

@@ -19,6 +19,8 @@ import { enqueue } from './store';
 import type { SyncQueueEntry } from './types';
 
 export interface CertifyDayPayload extends Record<string, unknown> {
+  /** Required by the queue base type: a dead certification must be reportable. */
+  operator_id: string;
   day_id: string;
   legal_name: string;
   signature_path: string;
