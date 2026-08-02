@@ -290,6 +290,30 @@ export function resolveMigrationFunctions(): Map<string, ResolvedFunction> {
       createRe.lastIndex = close + 1;
     }
 
+    // --- ALTER FUNCTION ... SET search_path ----------------------------
+    // A pin can be corrected without re-authoring the body. Reading only
+    // CREATE headers made the guard describe a state the database was no
+    // longer in — it kept reporting functions whose pin had been repaired by
+    // ALTER, which is how a guard earns the right to be ignored.
+    const alterRe =
+      /ALTER\s+FUNCTION\s+([a-z0-9_."]+)\s*\(/gi;
+    let a: RegExpExecArray | null;
+    while ((a = alterRe.exec(sql)) !== null) {
+      const name = qualify(a[1]);
+      const open = a.index + a[0].length - 1;
+      const close = matchParen(sql, open);
+      if (close === -1) continue;
+      const args = normalizeArgs(sql.slice(open + 1, close));
+      const tail = sql.slice(close + 1, close + 400);
+      const stop = tail.indexOf(";");
+      const clause = stop === -1 ? tail : tail.slice(0, stop);
+      const pin = clause.match(/SET\s+search_path\s*(?:=|TO)\s*(.*)/i)?.[1];
+      alterRe.lastIndex = close + 1;
+      if (!pin) continue;
+      const existing = resolved.get(`${name}(${args})`);
+      if (existing) existing.searchPath = pin.trim();
+    }
+
     // --- DROP FUNCTION -------------------------------------------------
     const dropRe =
       /DROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([a-z0-9_."]+)\s*(\()?/gi;

@@ -1,62 +1,44 @@
-## Correction accepted — the latch records the outcome, not the attempt
+## Part A — close the twelve unisolated notification paths
 
-You're right: latching outside the isolated block trades an infinite abort for a silent permanent loss, on a notification the driver needs to sign. Revised shape for `notify_driver_equipment_sheet_ready`:
+One migration. Every function keeps its current behaviour; only the notification insert changes.
 
-```text
-BEGIN                                  -- isolated delivery
-  INSERT INTO public.notifications (... priority 'action' ...);
-  v_delivered := true;
-EXCEPTION WHEN OTHERS THEN
-  v_delivered := false;
-  v_err := SQLSTATE || ' ' || SQLERRM;
-END;
+**The ten triggers.** Wrap each `INSERT INTO public.notifications` in `BEGIN ... EXCEPTION WHEN OTHERS`, and on failure call `log_notification_delivery_failure` with the entity the trigger fired for, so a lost notification is recorded in `audit_log` and surfaced to staff. The trigger's own work — the status change, the deactivation, the receipt — commits regardless.
 
-NEW.equipment_asset_sheet_ready_notified_at := now();   -- unconditional: never re-arms
+For the four that also make outbound calls (`notify_operator_on_status_change`, `notify_driver_on_upload_status_change`, `notify_owner_on_pay_setup_submitted`, `notify_staff_on_release_note`), the `net.http` / `pg_notify` call goes inside the same protected block. An email gateway timeout must not roll back a driver's status change.
 
-IF NOT v_delivered THEN
-  INSERT INTO public.audit_log (action, entity_type, entity_id, entity_label, metadata)
-  VALUES ('notification_delivery_failed', 'operator', NEW.operator_id, <driver name>,
-          jsonb_build_object('notification_type','onboarding_update',
-                             'subject','equipment_asset_sheet_ready',
-                             'error', v_err, 'owed_at', now()));
-  BEGIN                                -- best-effort staff bell, nested and non-fatal
-    INSERT INTO public.notifications (user_id, type, title, body, link, priority)
-    SELECT ur.user_id, 'system_delivery_failure', 'A driver notification could not be delivered',
-           <driver name> || ' was not told their Equipment Asset Sheet is ready to sign.',
-           '/management?view=drivers&op=' || NEW.operator_id, 'action'
-    FROM public.user_roles ur WHERE ur.role IN ('management','owner');
-  EXCEPTION WHEN OTHERS THEN NULL;
-  END;
-END IF;
-```
+**The two RPCs.** `approve_application_correction` and `reject_application_correction` get the notification isolated, and a null guard on the recipient: when `requested_by_staff_id` is null, skip the insert and record it rather than attempting a NOT NULL violation. An approval that reached `applications` is never discarded because the staff notification could not be addressed.
 
-Rationale for the two sinks: `audit_log` is the durable one — the failing path is a `notifications` insert, so `notifications` cannot be the only record of its own failure, and `RAISE WARNING` is invisible under ten-minute log retention. The staff bell is the surface a human actually watches, so it is attempted too, nested so its own failure cannot cascade. `system_delivery_failure` is registered in `src/lib/notifications/taxonomy.ts` as `tier: 'action'` before the migration writes it, or it renders as an untitled FYI and misses the Action tab.
+**Comments carried in the migration**, because they are the assumptions the next author will make:
+- AFTER triggers abort their firing statement. AFTER buys nothing here — all ten need the block.
+- `priority` defaults to `'watch'`; the twelve that omit it were never exposed to the 23514. The exposure being closed is the general one.
+- At `certify_rods_day`'s correction-request close, a comment stating that this UPDATE is deliberately **not** isolated: it is business logic that must be atomic with the certification and inserts no notifications, so the rule above does not apply. Written at the call site so the next person applying the pattern doesn't "fix" it.
 
-Net state on failure: coordinator's save commits, trigger never re-arms, and two records exist saying the notification was owed and lost, one of them in front of a person.
+## Part B — the structural guard
 
-This is the same rule for `raise_eld_sync_alert` and `notify_rods_correction_request`: isolated delivery, outcome recorded to `audit_log` on failure, best-effort management bell. It matches the fallback chosen for the unattributed sync alert — Management's bell with no driver name — with `audit_log` underneath it for the case where the bell itself is what broke.
+New file in `test:guards` (making it seven): every function in `public` whose body contains `INSERT INTO public.notifications` must either be `log_notification_delivery_failure` itself or have that insert inside an exception block.
 
-**`record_rods_unlock` gets the same treatment.** It already isolates, but its `EXCEPTION` branch only warns, so it has the identical silent-loss shape and just hasn't hit it (0 unlock events). It stops being purely "the pattern" and gets the audit sink added.
+Parsed positionally against live catalog bodies, which carries the same silent-no-match failure mode as the priority parser — so it gets the same treatment. Checked-in fixtures: an insert outside any block that the guard **must** flag, and the same insert inside a `BEGIN ... EXCEPTION` that it **must not**, plus the adversarial shapes that break naive parsing — a nested `BEGIN` inside a loop, an `INSERT ... SELECT` spanning lines, and the string `INSERT INTO public.notifications` inside a comment and inside a quoted literal. Meta-assertion: the parser must locate an insert in every positive fixture; zero matches fails rather than passes.
 
-## 20c2b36f is notified as part of the migration
+## Part C — §4 walkthrough, steps 3 through 7
 
-Agreed — the whole failure is that the touch may not come. That driver has been fully verified since 22 July with no prompt. After the function is corrected, the same migration backfills:
+**Step 3 — amend and certify.** Open amendment draft `b64f2429` (supersedes `689eb664`, log date 2026-08-01, demo operator `ee993ec0`). Reclassify the 14:00–15:00 segment named in the request, supply the written amendment reason, certify. Confirm by query:
+- `certify_rods_day` returns `replayed: false`
+- `689eb664` moves to `superseded` and stays locked; `b64f2429` is `certified`
+- exactly one `rods_amendments` row per changed field, each carrying `original_day_id = 689eb664` and the reason
+- request `a97cf4b8` flips to `actioned` with `resolved_by_day_id = b64f2429` and `resolved_at` set
 
-- Insert the "Equipment Asset Sheet ready to sign" notification for `20c2b36f`'s user, priority `action`, link `/operator/my-truck?focus=equipment-sheet`.
-- Set `equipment_asset_sheet_ready_notified_at = now()` on that row so the corrected trigger won't duplicate it.
-- Scope: exactly the rows that are all-verified, have something assigned, are unsigned, and have a null latch. That is one row today; the statement is written as a set so if a second reaches the state between now and apply, it is covered.
-- The three partly-verified drivers are left alone — they are not owed anything yet, and the fixed trigger will notify them when their set completes.
+**Step 4 — decline path.** Raise a second correction request, driver declines with a written response. Confirm the request records the response and does not close, the original stays certified and unamended, and staff see the decline on the row.
 
-## Everything else as approved
+**Step 5 — offline no-op replay.** Replay step 3's certification with the same token. Confirm `replayed: true`, no second amendment row, no re-close of the already-actioned request.
 
-**Guard.** Positional parser over `INSERT INTO public.notifications`, swept across all 16 notification-inserting functions and the edge functions. Eight checked-in fixtures: the four real pre-fix bodies (`record_rods_unlock`, `notify_rods_correction_request`, `raise_eld_sync_alert`, `notify_driver_equipment_sheet_ready`), and four adversarial synthetics — nested `CASE`, a function call with commas, a comma inside a quoted literal with an escaped quote, and a combined `INSERT ... SELECT` with `priority` mid-list — each present in an illegal and a legal variant. Meta-assertion: the parser must report an extracted priority ordinal for all eight; zero extractions fails rather than passes, which is what turned the embed rule into a clean-reporting no-op.
+**Step 6 — policy audit.** Confirm management and owner are read-only on `rods_days`, `rods_events`, `rods_amendments`, and that a management session cannot certify, amend, or edit a day.
 
-**Migration** also carries the approved sync-alert work: explicit `null` as the orphan marker with `''` an error, `raised_by` recording `auth.uid()`, a separate coalesce bucket for unattributed alerts, `is_own_rods_operator` skipped only when the operator is null, `eld_sync_alerts.operator_id` made nullable.
+**Step 7 — capture, then purge.** Step 7 destroys the evidence steps 3–6 produced, so the record is written first:
 
-**Verification probe**, in a rolled-back transaction: fire the trigger on a verified row, confirm the UPDATE commits, the latch sets, and the driver notification exists at `action`; then force the delivery to fail and confirm the UPDATE still commits, the latch still sets, and an `audit_log` row plus a management bell row both exist.
+1. **Snapshot into the run doc** — all three `rods_days` rows with their statuses and supersedes chain, every `rods_amendments` row with `original_day_id` and reason, both correction requests with their dispositions and resolver, and the notification rows raised along the way. Written before anything is deleted.
+2. **Purge** via the demo reset path, which resolves the amendment chain leaf-first.
+3. **Assert zero** for that operator across `rods_days`, `rods_amendments`, `rods_correction_requests`, and the associated notifications.
 
-**Tests.** The eight fixtures; `sync-payload-operator-id` (`''` rejected, `null` accepted); `emptyEventSet` inverted to expect an unattributed alert with `operator_id: null`; bell tests for an unattributed sync alert and for `system_delivery_failure`, both rendering in Action.
+If the purge fails partway — the case the leaf-first ordering guard exists for — the run doc still holds proof of what steps 3–6 established, instead of a half-purged database behind a report claiming all steps passed. A partial failure is reported as a partial failure, against the snapshot.
 
-## For whoever runs onboarding
-
-No coordinator work was lost. The trigger was created 2026-07-23 16:41; every completed verification predates it, the latest by twenty minutes. But the "ready to sign" notification has never reached a driver since the feature shipped, and operator `20c2b36f` has been waiting since 22 July — that one is sent by this migration.
+Every step verified by query against live rows, not by the UI reporting success.
