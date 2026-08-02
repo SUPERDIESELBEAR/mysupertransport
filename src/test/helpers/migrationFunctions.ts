@@ -26,11 +26,19 @@ import path from "node:path";
  *
  * LIMITS
  * ------
+ * Since it began reading `ALTER FUNCTION ... SET search_path`, this resolver
+ * no longer describes the migration *text*; it describes the state the
+ * migration set RESOLVES TO. That is a change in what it means, not just what
+ * it parses, and it is why a repin no longer has to re-author a body to clear
+ * a guard.
+ *
  * This reads *files*. It cannot see a function created, altered, or granted
  * out of band — which has actually happened on this database; see
  * docs/eld-mail-queue-acl-2026-08-01.md. The authoritative check is
  * definer-live-catalog.test.ts, which reads `pg_proc`. Treat this resolver as
- * a fast pre-commit approximation, not as proof.
+ * a fast pre-commit approximation, not as proof. That file's
+ * "every live public-only pin is accounted for" test cross-checks the two, so
+ * the gap between them is declared (LIVE_ONLY_PUBLIC_PINS) rather than silent.
  */
 
 export const MIGRATIONS_DIR = path.resolve(
