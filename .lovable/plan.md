@@ -1,68 +1,62 @@
-## Reconciliation finding (unchanged, reported from the code)
+# §6 — Retention Archive
 
-**`eld_malfunction_events.extension_granted_at` is authoritative today; `eld_extension_requests` does not exist.** `rg` finds no reference to the table anywhere and it is absent from the live schema. The ladder's stop condition is `extensionHolds()` in `supabase/functions/_shared/eld/escalationLadder.ts` (144-147) — `if (!event.extension_granted_at) return false;`, with `extension_expires_on` only bounding the hold; its comment names that column as "the single field both sides read". The same column drives the day-3 prompt (227), `ELDMalfunctionDashboard.tsx` (34) and `ClocksStrip.tsx`. The console modal (`ELDMalfunctionsPanel.tsx` 228-240) stamps requested/granted/granted_by/expires/notes in one write from a free-text reason — a grant with no filed request behind it.
+A staff screen that finds every retained duty-status and malfunction artifact, exports it as a combined PDF, and writes an audit record for every export. Nothing is ever auto-deleted; the only removal path stays the existing audited admin purge.
 
-So: the generator owns `eld_extension_requests`, the event columns stay as the ladder's cached stop condition written only as a projection, and the console modal shrinks to recording FMCSA's response.
+## What I verified first (not assumed)
 
----
+**Demo flags — the ones added since the guardrails shipped do not all carry one.** Queried directly:
 
-## 1. Table `eld_extension_requests`
+| Carries `is_demo` | Does not |
+| --- | --- |
+| `rods_days`, `eld_malfunction_events`, `eld_extension_requests`, `rods_correction_requests` | `rods_events`, `rods_amendments`, `rods_unlock_events`, `eld_malfunction_notifications`, `officer_packet_links`, `share_tokens`, `share_token_access_log` |
 
-One row per filing: `event_id`, `operator_id`, `is_demo` (stamped from the operator), `status` (`draft | submitted | granted | denied | withdrawn`), filer `name/title/phone/email`, the carrier snapshot at filing, the frozen device snapshot copied from the event, `repair_actions`, `why_more_than_8_days`, `requested_through`, both clock anchors frozen at filing (`notification_at`, `discovered_at`), `pdf_path`, `submitted_at`, and the response: `response_text`, `response_date`, `fmcsa_conditions`, `granted_through`.
+Every flagless table except the two share-token tables reaches a flag with no extra join beyond what the query already walks: `rods_events` and `rods_amendments` hang off `rods_days`; `eld_malfunction_notifications` off `eld_malfunction_events`; `rods_unlock_events` and `officer_packet_links` carry `operator_id`, and `operators.is_demo` exists.
 
-**One open request per event.** Reported as asked: yes, it should be constrained. 395.34(d)(2) doesn't cap attempts, so refile-after-denial must stay open, but two *pending* filings on one event is not a real sequence — it is a duplicate filing, and it makes "what did we ask FMCSA for" unanswerable at roadside. A partial unique index on `(event_id) WHERE status IN ('draft','submitted')` permits the denied → refile sequence (a denied row leaves the predicate) while blocking a second filing alongside a pending one. Terminal rows are unconstrained, so an event can accumulate a full filing history.
+`share_tokens` is the exception: polymorphic (`scope`, `resource_id`), no `operator_id`, and the only scope in use today is `inspection_document` — so no officer-packet share-token access log is reachable by operator right now. `officer_packet_links` does carry `operator_id` and does FK `share_tokens.token`, so the join exists in that direction.
 
-§0.2 throughout: RLS on, explicit grants, `policy-grant-parity` coverage, staff write / driver read own submitted-or-later.
+**Other facts.** The fixpoint loop lives only in `reset-demo-driver/index.ts:39-75` — not shared. `RodsAdminLogsPanel.tsx:119` is a one-level reverse-map walk, so on `original ← A1 ← A2` it already shows staff an incomplete chain — fixed in this change, not worked around. `audit_log` is `(actor_id, actor_name, action, entity_type, entity_id, entity_label, metadata jsonb)`; `purge_rods_day` is the template for an explicit staff-action insert. `rods_days` is currently empty — the verification chain has to be created through the app.
 
-## 2. Projection — recomputed from all requests, never from the written row
+## Scope
 
-Correction taken. The trigger does **not** project the row being written. On any insert/update/delete of a request for an event it recomputes the event's extension state as a function of the event's whole request set:
+1. **Shared chain helper.** Extract the fixpoint loop into `supabase/functions/_shared/eld/amendmentChain.ts`, with `orderVersions()` returning every version of a `(operator, log_date)` in supersession order, original first. Three callers from day one: `reset-demo-driver` (purge ordering), the export, and `RodsAdminLogsPanel`. Display and export read the same function, so they cannot diverge. Unit tests cover a three-deep chain, a branch, and the cycle guard.
+2. **Fix `RodsAdminLogsPanel`.** Replace the reverse-map at `:119` with `orderVersions()` and render the full chain in order, so the panel that ships today stops hiding intermediate amendments.
+3. **Demo reachability fix.** Migration adds `operator_id` to `share_token_access_log`, backfilled through `officer_packet_links`, nullable for pre-existing `inspection_document` rows. No change to token issuance or redemption.
+4. **Search.** `search_retention_archive` SECURITY DEFINER RPC (management/owner) taking driver, date range, truck number, malfunction event, status, and `_include_demo boolean DEFAULT false`. `is_demo = false` is the default predicate; demo records require explicit opt-in, and the opt-in is recorded on the export.
+5. **Export — combined PDF only.** New `export-retention-archive` edge function (`requireStaff(['management','owner'])`): resolves the artifact set, orders each date's versions through `orderVersions()`, merges with pdf-lib (the `buildOfficerPacket` merge pattern, not its downsampling), writes the audit row **before** returning bytes — action `rods_retention_export`, metadata carrying actor, drivers, date range, artifact counts, and `include_demo` — and stores the artifact at `eld-notices/<operator_id>/retention-exports/<export_id>.pdf`. No ZIP, no new dependency.
+6. **Compliance timeline (§6.3).** `get_eld_compliance_timeline(event_id)` returning one ordered stream: discovered → notice generated → uploaded → sent → carrier acknowledged → each day certified with its amendments in supersession sequence → each authorized unlock with reason → extension filed → FMCSA response → resolved. Own panel, exports standalone, own audit action.
+7. **UI.** `RetentionArchivePanel.tsx` behind a new `eld-retention` view in `ManagementPortal` (`ManagementView`, `ALLOWED_VIEWS`, sidebar beside the two existing ELD entries). Filters, results grouped by driver and date showing every version in order, an "Include demo records" toggle off by default that visibly flags the export when on, and a range export control modelled on `DriverHistoryDownloadPopover`.
+8. **No auto-delete.** No TTL, no scheduled sweep. The only removal affordance links to the existing `purge-rods-day` flow.
 
-- `extension_granted_at` / `_by` / `extension_expires_on` / `extension_notes` come from the **most recent granted request whose `granted_through` has not passed** (in the home terminal timezone, same `zonedDateKey` the ladder uses).
-- Only when no request qualifies are the grant fields cleared.
-- `extension_requested_at` is the earliest `submitted_at` on the event.
+## Size ceiling — and why downsampling is not the answer
 
-That makes a denial harmless to a live earlier grant, and makes the outcome independent of the order two rows happen to move through statuses — the recompute reads the same set whichever trigger fires last. Ordering test: grant A, then deny B, then withdraw B, asserting the event's grant fields never flicker.
+`buildOfficerPacket` solves size by progressively downsampling embedded photos under a ~12–15 MB cap, because an officer's roadside copy is a convenience artifact. A retention export is the federal record itself, so **nothing is ever recompressed, downsampled, or dropped to fit**. The export either contains the artifact at full fidelity or it does not run.
 
-## 3. The PDF
+Rough magnitudes (estimate — there are no stored RODS PDFs to measure against right now, so I will measure real sizes during verification and tune the constants): a certified day PDF is on the order of 200–400 KB, more when a scanned source document or photos are attached. One driver-year lands near 100 MB; a 20-driver fleet-year is in the gigabytes. That is past what a single pdf-lib merge can hold in an edge function's memory, and past what a browser will reliably download as one file.
 
-`_shared/extensionRequestCore.ts` rendered with pdf-lib, mirroring the `malfunctionNoticeCore` split so browser and edge function produce byte-identical output. Contents:
+Behaviour at the boundary:
 
-- Addressed to the FMCSA Division Administrator for the State from `carrier_profile.fmcsa_division_state`.
-- Carrier legal name, USDOT, MC, principal place of business from `carrier_profile` — no constants in the renderer.
-- Filer name, title, phone, email.
-- ELD make, model, serial from the event's frozen `device_make` / `device_model` / `device_serial`; the renderer never joins `eld_devices`.
-- Date and location the malfunction was reported.
-- Repair/replace/service actions; why more than 8 days is needed.
-- Signature block: typed representative name, title, date.
-- Both clocks side by side — discovery and the driver's written notification, with the resulting filing deadline.
-- Demo requests watermarked; no share token minted.
+- **Soft ceiling, ~40 MB per output document.** When the resolved set exceeds it, the export splits into sequential parts — "Part 1 of N", each with a cover page naming the driver, the covered date range, and the part number. Splits only ever fall on a driver or whole-date boundary, never inside a date's amendment chain, so no version is ever separated from the chain it belongs to.
+- **Hard ceiling on the request, not the file.** Above a configured artifact count (initial value tuned from measured sizes during verification), the function refuses with a clear message naming the resolved size and asking the user to narrow by driver or date range, rather than timing out mid-merge and producing a truncated record.
+- One audit row per export request, listing every part it produced — a split is one audited export, not N.
 
-Stored in `eld-notices` under an event-owned path.
+## §0.2 treatment
 
-## 4. Missing carrier field — a message, not an exception
+Same handling as §4 and §5: explicit grants beside the table change, RLS scoped to management/owner, `SET search_path` on every definer function, new rejection SQLSTATEs allocated in a fresh P0120+ block and registered in `queue/types.ts`, and nothing asserting a rejection until it has been observed verbatim over PostgREST from a real session. Demo exports carry the existing `drawDemoWatermark`.
 
-Correction taken. `carrier_profile` is a seeded singleton and `fmcsa_division_state` is `NOT NULL DEFAULT 'MO'`, so an absent value is unreachable in practice — which is precisely when a raw failure reads as a broken app. Generation still refuses, but the form shows a plain sentence in the same register as `CARRIER_CACHE_MISSING_MESSAGE`: what is missing, why the request can't be produced without it, and where to set it (Management → Carrier Profile), with the generate button disabled rather than throwing. Applies to any required carrier field, not just the state.
+## Verification through the app
 
-## 5. Console
+Create `original ← A1 ← A2` for one date on the demo driver through the driver PWA (certify, amend with a written reason, amend the amendment), then from a management session:
 
-- **Open extension request**: form pre-filled from event + carrier profile, saves a `draft`, previews the PDF, **Mark as filed** → `submitted`.
-- Prominent warning past 5 days since `created_at`, using existing `extensionDaysLeft` / `extensionDeadline` — no new clock math.
-- **Record FMCSA response** on a submitted request: granted/denied, response date, response text, conditions, granted-through. The only path that can produce a grant; the current direct-write modal is removed.
-
-## 6. Driver dashboard
-
-`submitted` → the filed request with tap-to-open PDF for roadside. `granted` → granted status, through-date, FMCSA conditions, and the day-9 blocking notice gone (already keyed off `extension_granted_at`, now fed only by a recorded response).
-
-## 7. Verification (§9 criteria 9-11), observed not attested
-
-Through the app: generate against a real event whose truck has since been reassigned, read the produced PDF back, confirm every 395.34(d)(2) element and that make/model/serial match the frozen snapshot rather than the current `eld_devices` row. Then the deny-after-grant ordering case, the day-9 suppression flip, the duplicate-pending refusal, and visible demo suppression. Guards run in both directions (§0.1 rule 5).
-
----
+- confirm `RodsAdminLogsPanel` now shows all three versions in order — the panel's current defect, reproduced before the fix and gone after;
+- run the search and confirm all three versions appear for that date, in supersession order;
+- export the range and confirm the combined PDF contains all three versions of that date in the same order — the check a one-level walk fails;
+- measure the real per-day PDF size from that export and set the split and refusal constants from it;
+- confirm the default export contains zero demo rows, and the opt-in export contains them and records `include_demo` in the audit row;
+- read back the `audit_log` row and confirm actor, range, timestamp, parts, and `include_demo`;
+- export the compliance timeline for the demo malfunction event and confirm every stage from discovered through resolved is present and ordered.
 
 ## Technical notes
 
-- Append-only on the request body once `submitted` (filer, carrier, device snapshot, clock anchors, both narrative fields); only response fields and forward status moves are writable. Fresh SQLSTATE block `P0110`+ (next free after the correction-request `P0100`-`P0107`), registered in `REJECTION_SQLSTATES` and the §6 table, each observed verbatim over PostgREST before any fixture asserts it.
-- No new clock; `repairClock.ts` and `escalationLadder.ts` remain the single source.
-- The event's extension columns stay as a cache rather than being migrated away — ladder, dashboard and clocks strip all read them. The invariant is that the recompute trigger is their only writer.
-- Existing manufactured grants will be reported, not backfilled into synthetic requests.
+- The export runs server-side so the audit write and the demo predicate cannot be skipped by a client that simply doesn't call them.
+- §8 divergence records are not built yet; the artifact registry is shaped so adding them is one entry, not a rewrite.
+- ZIP stays out until a real request appears; if it lands, it slots behind the same registry and audit path.
