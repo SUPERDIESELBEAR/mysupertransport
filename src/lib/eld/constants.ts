@@ -84,7 +84,14 @@ export const NOTICE_DELIVERY_TONE: Record<NoticeDeliveryState, string> = {
   sent: '#2E7D4F',
 };
 
-/** Elapsed day of the 8-day repair window, 1-based. */
+/**
+ * @deprecated Use `repairDayInZone` from `@/lib/eld/repairClock`.
+ *
+ * This divides elapsed UTC milliseconds, so it rolls on the 24-hour anniversary
+ * of discovery rather than at local midnight — it can name a different day than
+ * the escalation job, which counts calendar days in the home terminal timezone.
+ * Kept only so the parity test can assert the divergence it was replaced for.
+ */
 export function elapsedRepairDay(discoveredAt: string | Date, now: Date = new Date()): number {
   const start = typeof discoveredAt === 'string' ? new Date(discoveredAt) : discoveredAt;
   const ms = now.getTime() - start.getTime();
