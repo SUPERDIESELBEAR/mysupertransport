@@ -50,23 +50,40 @@ function scopeFor(kind: SyncKind): DrainScope {
  * `operator_id` to address the alert it raises when an entry dies, and an
  * entry without one produces an alert nobody can be told about. A new
  * `SyncKind` cannot omit it, because the enqueue will not typecheck.
+ *
+ * `null` is a value, not an absence: it says "this work could not be
+ * attributed to an operator" — an orphaned certified day, a cached day with no
+ * segments. Those alerts must still reach someone, so they are routed to the
+ * unattributed surface rather than dropped. The empty string is neither, and
+ * is rejected: it passed every check and then failed silently at delivery,
+ * which is the exact defect this type exists to prevent.
  */
-export type SyncPayload = Record<string, unknown> & { operator_id: string };
+export type SyncPayload = Record<string, unknown> & { operator_id: string | null };
 
 /**
  * Runtime backstop for the base type above. The compile-time requirement is
  * the real guarantee; this catches the payload assembled as `Record<string,
  * unknown>` somewhere and cast on its way in, which typing cannot see.
  *
- * Presence, not truthiness: `raise_sync_alert` legitimately carries an empty
- * operator id when hydration finds an orphaned day and cannot attribute it.
+ * The key must be present. Its value must be a non-empty string, or an
+ * explicit `null` meaning "unattributable". `''` is an error, loudly: it is
+ * the shape that reaches delivery and dies there.
  */
 export function assertOperatorId(kind: SyncKind, payload: Record<string, unknown>): void {
-  if (typeof payload.operator_id !== 'string') {
+  if (!('operator_id' in payload)) {
     throw new Error(
       `Sync payload for "${kind}" has no operator_id. Every queued payload must carry one: `
       + 'a terminal entry raises an alert addressed by operator, and an alert with no '
       + 'operator cannot be delivered.',
+    );
+  }
+  const value = payload.operator_id;
+  if (value === null) return;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(
+      `Sync payload for "${kind}" has an unusable operator_id (${JSON.stringify(value)}). `
+      + 'Use a non-empty operator id, or an explicit null when the work genuinely cannot be '
+      + 'attributed — an empty string passes every check and then fails at delivery.',
     );
   }
 }

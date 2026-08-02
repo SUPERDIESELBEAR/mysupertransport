@@ -55,6 +55,10 @@ export type SyncAlertKind =
 
 export interface SyncAlertInput {
   kind: SyncAlertKind;
+  /**
+   * The operator this condition belongs to, or an explicit `null` when it
+   * genuinely cannot be attributed. `''` is an error — see `assertOperatorId`.
+   */
   operator_id?: string | null;
   log_date?: string | null;
   detail: string;
@@ -109,19 +113,30 @@ export function recordAlertDeliveryFailure(detail: unknown, message: string): vo
  */
 export async function raiseSyncAlert(input: SyncAlertInput): Promise<void> {
   try {
-    if (!input.operator_id) {
-      // The RPC resolves ownership from auth.uid() and refuses a write it
-      // cannot attribute. Nothing to queue.
+    if (input.operator_id === '') {
+      // Distinct from null. An empty id is a bug at the call site, not an
+      // unattributable condition, and must not be laundered into one.
       undeliverable += 1;
-      console.error('[eld-sync] alert has no operator_id and cannot be delivered', input);
+      console.error(
+        '[eld-sync] alert carried an empty operator_id — pass an explicit null when the '
+        + 'condition cannot be attributed',
+        input,
+      );
       return;
     }
+    // An unattributable alert is a WORSE condition than an ordinary one — an
+    // orphaned certified day has no owner at all — so it is raised, not
+    // dropped. `raise_eld_sync_alert` accepts a null operator and the server
+    // routes it to Management's bell with no driver name. It gets its own
+    // coalesce bucket so it can never collapse into a real driver's alert.
+    const operatorId = input.operator_id ?? null;
+    const bucket = operatorId ?? 'unattributed';
     await enqueueCoalesced({
       kind: 'raise_sync_alert',
-      coalesce_key: `raise_sync_alert:${input.kind}:${input.operator_id}:${input.log_date ?? '-'}`,
+      coalesce_key: `raise_sync_alert:${input.kind}:${bucket}:${input.log_date ?? '-'}`,
       payload: {
         alert_kind: input.kind,
-        operator_id: input.operator_id,
+        operator_id: operatorId,
         log_date: input.log_date ?? null,
         detail: (input.detail ?? '').slice(0, MAX_DETAIL_CHARS),
       },

@@ -110,7 +110,6 @@ const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260729143338_ab7bc9d7-4972-4bd3-8d8d-a3b9d3964bdb.sql::public.match_staff_help_knowledge(vector, integer, float)",
   "20260518151010_21459e56-4985-4b1a-b896-0464d7f291ea.sql::public.move_revisions_to_pending(uuid)",
   "20260618201129_2708979a-7f7d-4edd-b3d7-9a4889e4b265.sql::public.notifications_autofill_entity()",
-  "20260723164207_df21fa58-6ff7-438b-b6ce-00e275c917bb.sql::public.notify_driver_equipment_sheet_ready()",
   "20260317113641_243f0c04-4dfe-40fa-9c4c-308eeb6a62cd.sql::public.notify_driver_on_upload_status_change()",
   "20260618201129_2708979a-7f7d-4edd-b3d7-9a4889e4b265.sql::public.notify_on_truck_down()",
   "20260413005710_b0442004-dc78-429f-84a0-276d26fe797b.sql::public.notify_operator_on_status_change()",
@@ -159,7 +158,7 @@ const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  * function is a new defect: pin it to `public, extensions` instead of
  * widening the exemption.
  */
-const LEGACY_MAX = 104;
+const LEGACY_MAX = 103;
 
 /** pgcrypto functions that live in `extensions`, not `pg_catalog`. */
 const PGCRYPTO_FNS = [

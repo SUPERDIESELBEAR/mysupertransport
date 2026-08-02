@@ -4,6 +4,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { roadsideDb } from '@/lib/eld/offline/db';
 import { enqueue, enqueueCoalesced } from '@/lib/eld/offline/queue/store';
+import {
+  raiseSyncAlert,
+  undeliverableAlertCount,
+  resetUndeliverableAlertCount,
+} from '@/lib/eld/offline/queue/alerts';
 
 /**
  * Every queued payload must carry `operator_id`.
@@ -59,6 +64,40 @@ describe('queued payloads carry operator_id', () => {
     expect(entry.payload.operator_id).toBe('op-1');
   });
 
+  /**
+   * The empty string was the hole in the first version of this guard: it
+   * satisfied `typeof === 'string'`, satisfied the type, and then failed at
+   * delivery — which is the exact defect the guard exists to prevent, reached
+   * through the guard. Unattributable work says so explicitly with `null`.
+   */
+  it('refuses an empty-string operator_id', async () => {
+    await expect(enqueue({
+      kind: 'upload_rods_pdf',
+      payload: { operator_id: '', log_date: '2026-08-01', path: 'x.pdf' },
+    })).rejects.toThrow(/unusable operator_id/);
+    expect(await roadsideDb.sync_queue.count()).toBe(0);
+  });
+
+  it('refuses a whitespace-only operator_id', async () => {
+    await expect(enqueue({
+      kind: 'upload_rods_pdf',
+      payload: { operator_id: '  ', log_date: '2026-08-01', path: 'x.pdf' },
+    })).rejects.toThrow(/unusable operator_id/);
+  });
+
+  it('accepts an explicit null as the unattributable marker', async () => {
+    const entry = await enqueue({
+      kind: 'raise_sync_alert',
+      payload: {
+        operator_id: null,
+        alert_kind: 'notice_drain_corrupt',
+        log_date: null,
+        detail: 'unreadable pending notice',
+      },
+    });
+    expect(entry.payload.operator_id).toBeNull();
+  });
+
   it('every enqueue call site in src/ names operator_id in its payload', () => {
     // Source-level sweep, because a producer that never runs under test still
     // ships. Any literal `payload: {` inside an enqueue/queueEntry call has to
@@ -75,5 +114,32 @@ describe('queued payloads carry operator_id', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * An unattributable alert is a WORSE condition than an ordinary terminal
+ * failure — an orphaned certified day has no owner at all — so it must produce
+ * MORE signal, not less. Before this, it produced a console line and a counter.
+ */
+describe('unattributed alerts still reach someone', () => {
+  beforeEach(() => resetUndeliverableAlertCount());
+
+  it('queues a null-operator alert into its own bucket, separate from a driver', async () => {
+    await raiseSyncAlert({ kind: 'notice_drain_corrupt', detail: 'no operator resolvable' });
+    await raiseSyncAlert({ kind: 'notice_drain_corrupt', operator_id: 'op-1', detail: 'a driver' });
+
+    const queued = await roadsideDb.sync_queue.toArray();
+    const keys = queued.map((e) => e.coalesce_key);
+    expect(keys).toContain('raise_sync_alert:notice_drain_corrupt:unattributed:-');
+    expect(keys).toContain('raise_sync_alert:notice_drain_corrupt:op-1:-');
+    expect(queued).toHaveLength(2);
+    expect(undeliverableAlertCount()).toBe(0);
+  });
+
+  it('refuses an empty-string operator_id rather than laundering it into unattributed', async () => {
+    await raiseSyncAlert({ kind: 'notice_drain_corrupt', operator_id: '', detail: 'bug at call site' });
+    expect(await roadsideDb.sync_queue.count()).toBe(0);
+    expect(undeliverableAlertCount()).toBe(1);
   });
 });
