@@ -27,7 +27,7 @@ import DutyStatusTimeline from './DutyStatusTimeline';
 import CertifyDayModal from './CertifyDayModal';
 import CertifyMismatchDialog from './CertifyMismatchDialog';
 import UploadEldLogModal from './UploadEldLogModal';
-import StalledLogBanner from './StalledLogBanner';
+import LogSyncBanner from './LogSyncBanner';
 import CorrectionRequestBanner from './CorrectionRequestBanner';
 
 export default function RodsDayEditor({
@@ -378,7 +378,7 @@ export default function RodsDayEditor({
         {locked && <Lock className="h-4 w-4 text-muted-foreground" />}
       </div>
 
-      <StalledLogBanner
+      <LogSyncBanner
         operatorId={operatorId}
         logDate={logDate}
         onUnlocked={() => { void reload(); onChanged(); }}
