@@ -50,6 +50,8 @@ export const NOTIF_TAXONOMY: Record<string, NotifMeta> = {
   // Compliance
   compliance_update:          { tier: 'watch',  category: 'compliance',   label: 'Compliance Update' },
   cert_expiring:              { tier: 'action', category: 'compliance',   label: 'Certificate Expiring' },
+  rods_correction_requested:  { tier: 'action', category: 'compliance',   label: 'Log Correction Requested' },
+  rods_correction_resolved:   { tier: 'watch',  category: 'compliance',   label: 'Log Correction Resolved' },
 
   // Dispatch
   truck_down:                 { tier: 'action', category: 'dispatch',     label: 'Truck Down' },
