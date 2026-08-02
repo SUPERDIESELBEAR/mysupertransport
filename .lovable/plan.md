@@ -1,53 +1,36 @@
-## 1. Purge the 2026-08-05 scratch chain
+## 1. Canonical definer header as a copy target
 
-Confirmed present (all `is_demo = true`, operator `ee993ec0`, all `locked = true`):
+Add a fenced block immediately under the `# Database security conventions` title in `docs/database-security-conventions.md`, above §0, so it is the first thing on the page:
 
-```text
-92519fd1  original
-b30b9c22  supersedes 92519fd1   (A1)
-812eeb89  supersedes b30b9c22   (A2)
+```sql
+CREATE OR REPLACE FUNCTION public.<name>(<args>)
+RETURNS <type> LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, extensions
+AS $$ ... $$;
+REVOKE EXECUTE ON FUNCTION public.<name>(<argtypes>) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.<name>(<argtypes>) TO <authenticated|service_role>;
 ```
 
-Pre-state already read: `rods_events` for that date = 0, `rods_amendments` = 0 (the whole table is empty — the chain was recorded through `supersedes_day_id` only), and `pdf_path`, `certification_signature_path`, `source_document_path` are all NULL on all three. No `storage.objects` in `rods-logs` match that date.
+Framed as "paste this, then fill the blanks" — not as a rule. Three supporting edits:
 
-1. Invoke `purge-rods-day` as owner/management with `dayIds` in supersede-first order `[812eeb89, b30b9c22, 92519fd1]` and a written reason (>= 12 chars). Amendment-before-original is required: `supersedes_day_id` is a non-deferrable FK at the original.
-2. Report verbatim: counts in `rods_days`, `rods_events`, `rods_amendments` for `log_date = '2026-08-05'`, and a `storage.objects` scan of the operator prefix in `rods-logs`.
-3. Report the three `rods_day_purged` audit rows with their `storage_disposition` as returned — no assumption of `not_applicable`; if any comes back `pending_caller`, the path list is reported as-is.
+- §0's post-migration step gets a line before the `npm run test:guards` block pointing at the template by name, so the checklist reads copy-then-verify rather than verify-only.
+- §1 currently states only the `search_path` half of the rule. Add the `REVOKE`/`GRANT` half there, since a definer created without an explicit REVOKE inherits `PUBLIC EXECUTE` by default — that default is the actual mechanism behind the recurring miss, and it is not stated anywhere in the doc today.
+- Update §0's "broken three separate times" line to five, and name the five batches. The paragraph's argument is that detection latency is the defect; an accurate count is what makes it land.
 
-## 2. `purge_rods_day` actor attribution — two-migration split
+No code, schema, or test changes. Documentation only.
 
-Defect confirmed: `purge_rods_day(uuid,text,text)` gates authorization on the JWT claim role (positively formed, unaffected), but writes `audit_log.actor_id = auth.uid()`, which is NULL under the service-role client `requireStaff` hands back. Every purge is attributed to `actor_name = 'service_role'` with a null actor. Lost human attribution on a compliance-purge record, not an open gate.
+### On making it automatic
 
-Sequenced like the seven-arg `certify_rods_day`, not as a same-migration swap:
+It cannot be. Migrations are authored by writing SQL directly into the migration tool — there is no scaffold step, no template file the tool reads, and no pre-apply hook to inject a header into. The doc itself already records that this project has no CI and no git hooks, and that git is platform-managed. `npm run test:guards` remains post-apply by construction. So the copy target is what there is, and its only enforcement is that someone opens the file. I will state that plainly in the doc rather than implying stronger coverage.
 
-- **Migration 1:** add `purge_rods_day(_day_id uuid, _reason text, _storage_owner text, _actor_id uuid DEFAULT NULL)`. The three-arg form stays and delegates to it, so a call carrying the old shape still resolves during the window between the migration applying and the edge function going live. Audit row writes `coalesce(_actor_id, auth.uid())` — so a service-role call with no human behind it (a scheduled sweep) still succeeds and records `service_role` honestly rather than failing. Service-role requirement and the storage-owner gate stay exactly as written.
-- **Deploy:** `purge-rods-day` passes `auth.userId` from `requireStaff` as `_actor_id`.
-- **Migration 2 (follow-up, not this turn):** `DROP FUNCTION public.purge_rods_day(uuid,text,text)`.
+## 2. `is_retention_admin` — what anon-callable would have permitted
 
-Add a `deferred-removals.md` entry for the three-arg form: trigger is a successful purge whose `rods_day_purged` audit row carries a non-null `actor_id`, with the drop SQL recorded. If the definer catalog guard counts these, its max moves with the pair declared, not tolerated.
+Confirmed against the live catalog; this is report content, no change to make. The function returns a bare boolean and reads no retention data, so no archive record, driver row, or log was reachable through it. But `_user_id` is caller-supplied rather than `auth.uid()`, so an anonymous caller passing a known uuid learns whether that user holds management or owner — a bounded role-membership oracle over `user_roles`, which anon cannot otherwise read. Worth stating rather than rounding down to "returns false for anon".
 
-## 3. `certify_rods_day` deploy-timestamp blank
+## 3. Register the `has_role` / `is_staff` deferral
 
-Checked — **still blank**, and it cannot be reconstructed from data. Across all of `rods_days`, three rows are certified, all with `certification_signature_validation IS NULL`, latest `certified_at` 2026-08-01 22:31:53Z; zero rows have a non-null validation. So no certification through the eight-arg path has been observed yet, and the removal check in that entry cannot run.
+The same oracle is still open through the two parent functions, and `has_role` is strictly worse — it takes the role as a parameter, so it tests any of the seven `app_role` values. The entry text is written and handed over; you are adding it to `docs/deferred-removals.md` yourself, so this plan does not edit that file.
 
-Two consequences to record in the entry rather than paper over:
-- The blank gets the real client-deploy timestamp, which has to come from the deploy record — I will fill it with the value you give me, or note explicitly that the deploy is unconfirmed. I will not back-derive one from the data, since a derived timestamp here is a guess.
-- Add a line noting the drain check currently has an empty numerator: the only certified rows are the demo ones being purged in §1, so after the purge there is no certification evidence at all and the trigger stays unmet until real certifications accumulate.
+What the entry commits to, so it is visible here too: the pickup order is enumerate policies calling either function → determine which are anon-reachable → confirm each has a path not depending on the anon EXECUTE grant → only then revoke, re-pinning `search_path` in the same migration and dropping both from the live-catalog legacy allowlist. Revoke-and-see-what-breaks is the inverse order and fails silently at the read path.
 
-## 4. `MAX_ARTIFACTS` / `PART_CEILING_BYTES` labelling
-
-Both constants stay at their current values (`40 * 1024 * 1024`, `400`). Only the comment changes: label the `~300 KB a certified day` basis as derived from attachment-free generated days — the sole chain the export was exercised against is the one being purged here, with zero events and no scanned document, photo, or display sibling anywhere in it. Note that a scanned-document day can be an order of magnitude larger and that the number must be re-derived from a mixed sample before anyone treats it as tuned. No re-tuning on the current evidence.
-
-## 5. `requireStaff` comment
-
-Add a one-line comment at `requireStaff`'s return: `supabase` is service-role; any definer function gating on `auth.uid()` must be called on a caller-built scoped client. The failure is silent — a null `auth.uid()` makes a gate return false or a column go null rather than raise.
-
-Grep result for the record (14 callers):
-- **User-scoped, gate intact:** `export-retention-archive` — builds its own client with `auth.authHeader` for `get_eld_compliance_timeline`, `search_retention_archive`, `record_retention_export`. Those are the only three definer functions in the schema that read `auth.uid()` on a staff path.
-- **Service-role, nothing downstream reads `auth.uid()`:** `delete-osas-sheet`, `send-return-receipt-pdf`, `send-lease-termination`, `send-insurance-request`, `send-equipment-return-instructions`, `send-osas-to-operator`, `send-dot-consultant-request`, `send-deactivation-notice`, `sweep-rods-orphans` (`record_rods_purge_storage_result` has no `auth.uid()`), `set-demo-flag`, `provision-demo-driver`, `reset-demo-driver`.
-- **Service-role with an `auth.uid()` read:** `purge-rods-day` only — fixed in §2.
-
-## Verification
-
-- Post-purge counts, storage scan, and audit rows reported verbatim.
-- After the signature change, one purge against a throwaway demo day to confirm `audit_log.actor_id` carries the human's uid; that day is then purged and reported too.
+I have not run the enumeration, so neither the entry nor this plan claims how many policies are involved or whether any is anon-reachable.
