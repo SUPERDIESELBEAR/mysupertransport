@@ -237,12 +237,18 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.get_eld_compliance_timeline(uuid)",
   "public.search_retention_archive(uuid[],date,date,text,uuid,text,boolean)",
   "public.record_retention_export(text,uuid[],date,date,boolean,integer,integer,text,jsonb)",
+  // §7 revoked-list verification. Called from the management console via
+  // supabase.rpc under the signed-in staff member, and gates on
+  // has_role(auth.uid(), 'management'|'owner') in its body — so the check is
+  // attributed to a real person. Granted to `authenticated`, never anon.
+  "public.record_revoked_list_check(uuid,text,date,text,date,date)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
-// + the three §6 retention RPCs. Goes back to 69 when the seven-argument
-// certify form is dropped (docs/deferred-removals.md).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 70;
+// + the three §6 retention RPCs + the §7 revoked-list recorder. Goes back to
+// 70 when the seven-argument certify form is dropped
+// (docs/deferred-removals.md).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 71;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a

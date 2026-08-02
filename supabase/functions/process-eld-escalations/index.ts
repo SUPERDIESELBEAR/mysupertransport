@@ -22,6 +22,7 @@ import {
   type LadderAction,
   type LadderEvent,
 } from '../_shared/eld/escalationLadder.ts';
+import { reminderText, type StaleModel } from '../_shared/eld/revokedListReminder.ts';
 
 const DEFAULT_TZ = 'America/Chicago';
 
@@ -379,6 +380,8 @@ async function handler(req: Request): Promise<Response> {
 
   // An override run is tellable apart from a real run at a glance, without
   // reading the ledger.
+  const revokedListReminders = await sendRevokedListReminders(admin, recipients, now, dryRun);
+
   if (isOverride && !dryRun) {
     await admin.from('audit_log').insert({
       action: 'eld_escalation_override_run',
@@ -407,6 +410,7 @@ async function handler(req: Request): Promise<Response> {
     events: events?.length ?? 0,
     ledger_rows_inserted: inserted,
     emails_sent: emailed,
+    revoked_list_reminders: revokedListReminders,
     results,
   };
   await finishRun('ok', payload);
@@ -573,3 +577,81 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
 }
 
 Deno.serve(withErrorEnvelope(handler));
+
+/**
+ * §7 quarterly revoked-list reminder. Folded into this job rather than a
+ * second scheduled function so there is one cron, one run ledger, and one
+ * place where a missed run is visible.
+ *
+ * Dedupe is a 90-day lookback on the notification itself, so a daily cron
+ * produces one reminder per model per quarter. The frequency cannot escalate;
+ * the text does (see revokedListReminder.ts).
+ */
+async function sendRevokedListReminders(
+  admin: SupabaseClient,
+  recipients: Recipient[],
+  now: Date,
+  dryRun: boolean,
+): Promise<{ models_due: number; notifications_inserted: number; skipped_deduped: number }> {
+  const staleBefore = new Date(now.getTime() - 90 * 86400000).toISOString();
+
+  const { data: models, error } = await admin
+    .from('eld_device_models')
+    .select('id, provider_name, device_make, device_model, last_check_at, created_at')
+    .eq('is_active', true)
+    .or(`last_check_at.is.null,last_check_at.lt.${staleBefore}`);
+  if (error) {
+    console.error('revoked-list reminder query failed', error.message);
+    return { models_due: 0, notifications_inserted: 0, skipped_deduped: 0 };
+  }
+
+  let insertedCount = 0;
+  let deduped = 0;
+
+  for (const row of (models ?? []) as unknown as StaleModel[]) {
+    // One reminder per model per 90 days, regardless of recipient count.
+    const { data: prior } = await admin
+      .from('notifications')
+      .select('id')
+      .eq('type', 'eld_revoked_list_due')
+      .eq('entity_type', 'eld_device_model')
+      .eq('entity_id', row.id)
+      .gte('sent_at', staleBefore)
+      .limit(1);
+    if (prior && prior.length > 0) { deduped += 1; continue; }
+
+    // Demo operators are excluded: a sandbox driver is not exposure.
+    const { count } = await admin
+      .from('eld_devices')
+      .select('id, operators!inner(is_demo)', { count: 'exact', head: true })
+      .eq('eld_device_model_id', row.id)
+      .eq('is_active', true)
+      .eq('operators.is_demo', false);
+    const trucks = count ?? 0;
+
+    const { title, body } = reminderText(row, trucks, now);
+    if (dryRun) { insertedCount += 1; continue; }
+
+    for (const r of recipients) {
+      // Priority stays 'action': a stale check is a task. The revocation
+      // notification is the incident, and inflating this one would erode it.
+      await admin.from('notifications').insert({
+        user_id: r.userId,
+        type: 'eld_revoked_list_due',
+        title,
+        body,
+        link: `/management?view=eld-device-models&model=${row.id}`,
+        priority: 'action',
+        entity_type: 'eld_device_model',
+        entity_id: row.id,
+      });
+      insertedCount += 1;
+    }
+  }
+
+  return {
+    models_due: (models ?? []).length,
+    notifications_inserted: insertedCount,
+    skipped_deduped: deduped,
+  };
+}
