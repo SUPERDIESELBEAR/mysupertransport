@@ -217,7 +217,9 @@ describe('pause lifecycle', () => {
       carrier_acknowledged_at: '2026-08-01T15:00:00Z',
       escalations_suppressed_until: null,
     });
-    expect(kinds(cleared, '2026-08-05T18:00:00Z')).toEqual(['escalation_day']);
+    // (the filing prompt is also still open on Aug 5 — the point is the rung)
+    expect(kinds(cleared, '2026-08-05T18:00:00Z')).toContain('escalation_day');
+    expect(kinds(cleared, '2026-08-05T18:00:00Z')).not.toContain('pause_lapsed');
   });
 });
 
