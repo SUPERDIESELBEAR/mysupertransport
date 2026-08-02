@@ -367,11 +367,7 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
               onLiftPause={() => liftPause(selected)}
               onResolve={() => { setResolveTarget(selected); setResolveNotes(''); }}
               onPause={() => { setSuppressTarget(selected); setSuppressReason(''); setSuppressUntil(''); }}
-              onExtend={() => {
-                setExtTarget(selected);
-                setExtNotes('');
-                setExtExpires(selected.extension_expires_on ?? '');
-              }}
+              unitNumber={selected.operators?.unit_number ?? null}
             />
           )}
         </div>
@@ -390,33 +386,6 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
           <DialogFooter>
             <Button variant="outline" onClick={() => setResolveTarget(null)}>Cancel</Button>
             <Button onClick={resolve}>Resolve</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!extTarget} onOpenChange={(o) => !o && setExtTarget(null)}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Record a repair extension</DialogTitle></DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            49 CFR 395.34(d)(2) — the carrier has five days from the driver's report to
-            file. Recording it here stops the filing prompt and ends acknowledgment
-            escalation for this event.
-          </p>
-          <div className="space-y-2">
-            <Label htmlFor="ext-notes">What was filed and with whom (required)</Label>
-            <Textarea id="ext-notes" rows={3} value={extNotes} onChange={(e) => setExtNotes(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ext-expires">Extended repair date</Label>
-            <Input
-              id="ext-expires" type="date" value={extExpires}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setExtExpires(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExtTarget(null)}>Cancel</Button>
-            <Button onClick={grantExtension}>Record extension</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
