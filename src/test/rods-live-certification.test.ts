@@ -146,7 +146,7 @@ BEGIN
   -- Arm 1: initial certification.
   v_cert := public.certify_rods_day(
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    'Marcus Mueller',
+    ${JSON.stringify(legalName).replace(/"/g, "'")},
     'sigs/initial.png',
     'pdfs/initial.pdf',
     'live-test',
@@ -190,7 +190,7 @@ BEGIN
 
   v_cert := public.certify_rods_day(
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    'Marcus Mueller',
+    ${JSON.stringify(legalName).replace(/"/g, "'")},
     'sigs/amendment.png',
     'pdfs/amendment.pdf',
     'live-test',
