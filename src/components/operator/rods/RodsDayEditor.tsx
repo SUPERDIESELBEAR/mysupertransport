@@ -19,6 +19,7 @@ import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
 import { assertPersistedMatches, isPreflightMismatch } from '@/lib/eld/certifyPreflight';
 import { assertRowsAffected, isRowNotWritable, markDayStale } from '@/lib/eld/rodsWrite';
 import { commitCertification } from '@/lib/eld/offline/commitCertification';
+import { getCachedDay } from '@/lib/eld/offline/cache';
 import {
   validateSignatureImage, SIGNATURE_INVALID_MESSAGE,
 } from '@/lib/eld/signatureIntegrity';
@@ -203,8 +204,15 @@ export default function RodsDayEditor({
         await flushPendingHeader();
       }
 
+      // Resolved ONCE, after the reason flush, and used everywhere below.
+      // `day` is the render-time value: it predates the flush, so from here on
+      // it is stale for any field the flush wrote (the amendment reason above).
+      // commitCertification no longer takes a day at all — it reads this same
+      // cache row itself — so these two uses are the only ones left.
+      const certifiedDay = (await getCachedDay(logDate))?.day ?? day!;
+
       const signedEvents = segments.map((s) => ({
-        id: s.localId, rods_day_id: day!.id,
+        id: s.localId, rods_day_id: certifiedDay.id,
         start_minute: s.start_minute, end_minute: s.end_minute,
         duty_status: s.duty_status, city: s.city, state: s.state,
         remarks: s.remarks || null,
@@ -228,7 +236,11 @@ export default function RodsDayEditor({
       // render failure throws before the transaction opens. Moving the render
       // after the write re-creates the orphaned-bytes defect it was guarding.
       const pdf = await renderRodsDay({
-        day: { ...day!, certification_legal_name: legalName, certified_at: new Date().toISOString() },
+        day: {
+          ...certifiedDay,
+          certification_legal_name: legalName,
+          certified_at: new Date().toISOString(),
+        },
         events: signedEvents,
         driverName,
         originalCertifiedAt,
@@ -246,7 +258,7 @@ export default function RodsDayEditor({
         ? diffAmendment(
             { day: originalDay, events: originalEvents as never },
             {
-              day: { ...day!, amendment_reason: amendmentReason.trim() },
+              day: certifiedDay,
               events: segments.map((s) => ({
                 start_minute: s.start_minute, end_minute: s.end_minute,
                 duty_status: s.duty_status, city: s.city, state: s.state,
@@ -262,7 +274,6 @@ export default function RodsDayEditor({
       await commitCertification({
         operatorId,
         logDate,
-        day: day!,
         events: signedEvents as never,
         legalName,
         signatureDataUrl,

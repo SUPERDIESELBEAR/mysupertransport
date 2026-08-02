@@ -234,33 +234,13 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     await cacheReturnedDay(row);
   },
 
-  async create_eld_document_day(payload) {
-    const carrier = payload.carrier;
-    if (!carrier || typeof carrier !== 'object') {
-      throw new Error('Sync payload is missing the carrier snapshot.');
-    }
-    const { data, error } = await supabase.rpc('create_eld_document_day', {
-      p_operator_id: str(payload, 'operator_id'),
-      p_log_date: str(payload, 'log_date'),
-      p_source_document_path: str(payload, 'source_document_path'),
-      p_carrier: carrier as never,
-      p_certification_token: str(payload, 'token'),
-    });
-    if (error) throw new Error(error.message);
-    await cacheReturnedDay(Array.isArray(data) ? data[0] : data);
-  },
-
-  async replace_rods_document(payload) {
-    const { data, error } = await supabase.rpc('replace_rods_document', {
-      _day_id: str(payload, 'day_id'),
-      _new_path: str(payload, 'new_path'),
-      _reason: str(payload, 'reason'),
-      p_certification_token: str(payload, 'token'),
-    });
-    if (error) throw new Error(error.message);
-    await cacheReturnedDay(Array.isArray(data) ? data[0] : data);
-  },
-
+  // `create_eld_document_day` and `replace_rods_document` had handlers here and
+  // no enqueue site: UploadEldLogModal calls both RPCs directly. They were also
+  // already behind that caller — neither passed `p_display_document_path` or
+  // `p_display_conversion_failed`, so filing through them would have produced
+  // document days with no display rendition. Deleted rather than wired up. If
+  // an offline path for document days is ever wanted, write it against the
+  // modal's current argument list, not against these.
   /**
    * 395.34(a)(1) notice PDF. `notice_uploaded_at` is stamped only after the
    * bytes land, because the server must never try to email a notice that has

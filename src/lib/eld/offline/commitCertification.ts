@@ -19,7 +19,7 @@ import { roadsideDb, type RoadsideManifest } from './db';
 import { putCachedDay, putCachedEvents, flushEmptySegmentAlerts, type EmptySegmentsDetected } from './cache';
 import { signatureKeyForDay } from './prune';
 import { buildManifest } from './manifestBuild';
-import { newSyncId, type EnqueueInput } from './queue/store';
+import { assertOperatorId, newSyncId, type EnqueueInput } from './queue/store';
 import { assertSmallPayload } from './queue/types';
 import { raiseSyncAlert } from './queue/alerts';
 import {
@@ -39,8 +39,6 @@ const VALIDATION_MAX_AGE_MS = 10 * 60 * 1000;
 export interface CommitCertificationInput {
   operatorId: string;
   logDate: string;
-  /** The day as signed, including the typed legal name. */
-  day: RodsDay;
   events: RodsEvent[];
   legalName: string;
   signatureDataUrl: string;
@@ -86,6 +84,7 @@ async function pendingDraftIds(logDate: string): Promise<string[]> {
 
 function queueEntry(input: EnqueueInput & { id: string }) {
   assertSmallPayload(input.kind, input.payload);
+  assertOperatorId(input.kind, input.payload);
   const now = new Date().toISOString();
   return {
     id: input.id,
@@ -108,7 +107,7 @@ export async function commitCertification(
   input: CommitCertificationInput,
 ): Promise<CommitCertificationResult> {
   const {
-    operatorId, logDate, day, events, legalName, signatureDataUrl, pdfBytes,
+    operatorId, logDate, events, legalName, signatureDataUrl, pdfBytes,
     signaturePath, pdfPath, deviceInfo, token, changes, signatureValidation,
   } = input;
 
@@ -154,20 +153,13 @@ export async function commitCertification(
   const pdfEntryId = newSyncId();
   const certifyEntryId = newSyncId();
 
-  const signedDay = {
-    ...day,
-    certification_legal_name: legalName,
-    certification_signature_path: signaturePath,
-    pdf_path: pdfPath,
-    certification_signature_validation: effectiveValidation,
-  } as RodsDay;
-
   // Every store the transaction touches — including the ones buildManifest
   // reads — has to be declared. Dexie throws on a table the outer transaction
   // did not name, and that throw would land after the driver signed.
   // Scoped to this call, not module state: an abort throws past the flush
   // below, and a concurrent hydration cannot drain this value.
   let emptySegments: EmptySegmentsDetected | null = null;
+  let signedDay!: RodsDay;
   const manifest = await roadsideDb.transaction(
     'rw',
     [
@@ -200,6 +192,25 @@ export async function commitCertification(
       });
 
       const existing = await roadsideDb.rods_days_cache.get(logDate);
+      // The cache is authoritative, and it is read here rather than taken as
+      // an argument on purpose. `flushPendingHeader` has already written the
+      // merged header (an amendment reason among it), so a caller passing the
+      // day from its render closure would hand over a stale copy — which is
+      // exactly the defect that certified amendments with a null reason. With
+      // no argument to pass, there is no stale day to pass.
+      if (!existing?.day) {
+        throw new Error(
+          'This log is not on this device yet, so it cannot be certified. '
+          + 'Reopen the log and try again.',
+        );
+      }
+      signedDay = {
+        ...existing.day,
+        certification_legal_name: legalName,
+        certification_signature_path: signaturePath,
+        pdf_path: pdfPath,
+        certification_signature_validation: effectiveValidation,
+      } as RodsDay;
       await putCachedDay({
         log_date: logDate,
         operator_id: operatorId,
@@ -231,12 +242,14 @@ export async function commitCertification(
         queueEntry({
           id: sigEntryId,
           kind: 'upload_signature',
-          payload: { key: signatureKey, path: signaturePath, log_date: logDate },
+          payload: {
+            operator_id: operatorId, key: signatureKey, path: signaturePath, log_date: logDate,
+          },
         }),
         queueEntry({
           id: pdfEntryId,
           kind: 'upload_rods_pdf',
-          payload: { log_date: logDate, path: pdfPath },
+          payload: { operator_id: operatorId, log_date: logDate, path: pdfPath },
         }),
         queueEntry({
           id: certifyEntryId,
@@ -245,6 +258,7 @@ export async function commitCertification(
           // must not run until the bytes are actually in Storage.
           depends_on: [...dependsOnDrafts, sigEntryId, pdfEntryId],
           payload: {
+            operator_id: operatorId,
             day_id: signedDay.id,
             log_date: logDate,
             legal_name: legalName.trim(),

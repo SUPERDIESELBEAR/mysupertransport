@@ -52,7 +52,7 @@ async function validation(over: Record<string, unknown> = {}) {
 
 function input(sigValidation: unknown) {
   return {
-    operatorId: 'op-1', logDate: DATE, day: day(),
+    operatorId: 'op-1', logDate: DATE,
     events: [{
       id: 'e1', rods_day_id: 'day-1', start_minute: 0, end_minute: 1440,
       duty_status: 1, city: 'Joplin', state: 'MO', remarks: null, is_short_period: false,
@@ -80,6 +80,12 @@ beforeEach(async () => {
     roadsideDb.rods_pdfs.clear(), roadsideDb.signature_images.clear(),
     roadsideDb.sync_queue.clear(), roadsideDb.roadside_manifest.clear(),
   ]);
+  // commitCertification reads the day from the cache rather than taking it as
+  // an argument, so the cache row IS the input now.
+  await roadsideDb.rods_days_cache.put({
+    log_date: DATE, operator_id: 'op-1', day: day(),
+    cached_at: '2026-07-09T00:00:00.000Z', version: 0, unsynced: false,
+  } as never);
 });
 
 describe('commitCertification refuses an unvalidated signature', () => {

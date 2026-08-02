@@ -16,6 +16,23 @@ export function newSyncId(): string {
 }
 
 /**
+ * The server's own words for why this day's sync died.
+ *
+ * The flags on the cache row say THAT a day failed; this says WHY, and the
+ * driver-facing banner quotes it. Without it the app knew "A written reason is
+ * required to certify a correction" and showed the driver a green
+ * "syncing" — the whole class of defect this exists to close.
+ */
+export async function lastTerminalError(logDate: string): Promise<string | null> {
+  const dead = (await roadsideDb.sync_queue.toArray())
+    .filter((e) => e.payload?.log_date === logDate
+      && (e.status === 'rejected' || e.status === 'failed' || e.status === 'cancelled')
+      && !!e.last_error)
+    .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+  return dead.length ? dead[dead.length - 1].last_error : null;
+}
+
+/**
  * Draft writes are already durable in Dexie and the certify chain depends_on
  * them, so they can drain lazily. Everything else is something the driver is
  * watching finish.
@@ -26,11 +43,39 @@ function scopeFor(kind: SyncKind): DrainScope {
   return DRAFT_KINDS.includes(kind) ? 'draft' : 'chain';
 }
 
+/**
+ * Every queued payload carries the operator it belongs to.
+ *
+ * This is a base-type requirement, not a convention: `reportTerminal` reads
+ * `operator_id` to address the alert it raises when an entry dies, and an
+ * entry without one produces an alert nobody can be told about. A new
+ * `SyncKind` cannot omit it, because the enqueue will not typecheck.
+ */
+export type SyncPayload = Record<string, unknown> & { operator_id: string };
+
+/**
+ * Runtime backstop for the base type above. The compile-time requirement is
+ * the real guarantee; this catches the payload assembled as `Record<string,
+ * unknown>` somewhere and cast on its way in, which typing cannot see.
+ *
+ * Presence, not truthiness: `raise_sync_alert` legitimately carries an empty
+ * operator id when hydration finds an orphaned day and cannot attribute it.
+ */
+export function assertOperatorId(kind: SyncKind, payload: Record<string, unknown>): void {
+  if (typeof payload.operator_id !== 'string') {
+    throw new Error(
+      `Sync payload for "${kind}" has no operator_id. Every queued payload must carry one: `
+      + 'a terminal entry raises an alert addressed by operator, and an alert with no '
+      + 'operator cannot be delivered.',
+    );
+  }
+}
+
 export interface EnqueueInput {
   /** Supply an id to make the enqueue idempotent across restarts. */
   id?: string;
   kind: SyncKind;
-  payload: Record<string, unknown>;
+  payload: SyncPayload;
   depends_on?: string[];
   client_timestamp?: string;
   /**
@@ -47,6 +92,7 @@ export interface EnqueueInput {
  */
 export async function enqueue(input: EnqueueInput): Promise<SyncQueueEntry> {
   assertSmallPayload(input.kind, input.payload);
+  assertOperatorId(input.kind, input.payload);
   const id = input.id ?? newSyncId();
   const now = new Date().toISOString();
 
@@ -100,6 +146,7 @@ export async function enqueueCoalesced(
   input: EnqueueInput & { coalesce_key: string },
 ): Promise<SyncQueueEntry> {
   assertSmallPayload(input.kind, input.payload);
+  assertOperatorId(input.kind, input.payload);
   const now = new Date().toISOString();
 
   const entry = await roadsideDb.transaction('rw', roadsideDb.sync_queue, async () => {
