@@ -122,6 +122,10 @@ export function useRodsDay(params: {
   const version = useRef(0);
   /** Non-null once the driver has signed on this device. Blocks every edit. */
   const localCertifiedAt = useRef<string | null>(null);
+  /** Device-side sync state for the chip, read from the cache on load. */
+  const [syncState, setSyncState] = useState<{ sync_rejected: boolean; sync_stalled: boolean }>({
+    sync_rejected: false, sync_stalled: false,
+  });
 
   const load = useCallback(async () => {
     if (!operatorId) return;
@@ -143,6 +147,7 @@ export function useRodsDay(params: {
       target = cached.day;
       version.current = cached.version;
       localCertifiedAt.current = cached.local_certified_at;
+      setSyncState({ sync_rejected: cached.sync_rejected, sync_stalled: cached.sync_stalled });
       const cachedEvents = await roadsideDb.rods_events_cache.get(cached.day.id).catch(() => undefined);
       setDay(target);
       setSegments((cachedEvents?.events ?? []).map(toDraft));
@@ -151,6 +156,10 @@ export function useRodsDay(params: {
     }
 
     localCertifiedAt.current = null;
+    setSyncState({
+      sync_rejected: cached?.sync_rejected ?? false,
+      sync_stalled: cached?.sync_stalled ?? false,
+    });
     version.current = cached?.version ?? 0;
 
     const { data: rows, error: readErr } = await supabase
@@ -427,6 +436,7 @@ export function useRodsDay(params: {
     day, setDay, segments, setSegments,
     loading, saving,
     localCertifiedAt: localCertifiedAt.current,
+    syncState,
     reload: load,
     patchHeader, flushPendingHeader, saveSegments,
   };

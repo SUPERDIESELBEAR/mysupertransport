@@ -19,7 +19,7 @@
  *              believes is certified is not.
  */
 import { type SyncQueueEntry } from '../db';
-import { isCascadeExempt, SERVER_ATTEMPT_LIMIT } from './types';
+import { DETERMINISTIC_SERVER_ATTEMPT_LIMIT, isCascadeExempt, SERVER_ATTEMPT_LIMIT } from './types';
 import { classifyError, isDuplicateDateRejection } from './classify';
 import { isRowNotWritable } from '@/lib/eld/rodsWrite';
 import { HANDLERS } from './handlers';
@@ -160,7 +160,7 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     await handler(entry.payload);
     await markSucceeded(entry.id);
   } catch (err) {
-    const { klass, message } = classifyError(err);
+    const { klass, message, deterministic } = classifyError(err);
 
     // RLS filtered the write: 0 rows, no error. Terminal, never retried, and
     // alerted separately — Management must see "the driver's edits were
@@ -196,13 +196,14 @@ async function runEntry(entry: SyncQueueEntry): Promise<void> {
     // The budget is by CLASS, not by kind. `network` is unbounded below — a
     // dead zone is not a failure. A `server` answer is bounded for every kind,
     // exempt ones included, or a permanent fault loops forever.
-    if (klass === 'server' && entry.attempts + 1 >= SERVER_ATTEMPT_LIMIT) {
+    const serverLimit = deterministic ? DETERMINISTIC_SERVER_ATTEMPT_LIMIT : SERVER_ATTEMPT_LIMIT;
+    if (klass === 'server' && entry.attempts + 1 >= serverLimit) {
       await markTerminal(entry.id, 'failed', klass, message);
       await flagDay(entry, 'stalled');
       await reportTerminal(
         entry,
         'sync_failed',
-        `"${entry.kind}" gave up after ${SERVER_ATTEMPT_LIMIT} attempts: ${message}`,
+        `"${entry.kind}" gave up after ${serverLimit} attempts: ${message}`,
         message,
       );
       return;

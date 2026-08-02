@@ -16,6 +16,9 @@ export function backoffFor(attempts: number): number {
 /** Attempts allowed for a `server`-class failure before the entry gives up. */
 export const SERVER_ATTEMPT_LIMIT = 8;
 
+/** Attempts allowed for a deterministic 4xx that the classifier cannot identify. */
+export const DETERMINISTIC_SERVER_ATTEMPT_LIMIT = 2;
+
 /**
  * Kinds that exist to TELL somebody something, and so must outlive the thing
  * they are reporting on.

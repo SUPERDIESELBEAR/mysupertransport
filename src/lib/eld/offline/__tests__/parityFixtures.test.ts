@@ -1,6 +1,13 @@
 /**
  * Pass B §5 — client/server validation parity fixtures for `certify_rods_day`.
  *
+ * ⚠️  MODEL, NOT LIVE SQL. `serverGuardOutcome` is a hand-maintained JS model
+ * of the guard order in `certify_rods_day`. It is useful for catching reordering
+ * drift, but it is NOT a substitute for the live database function. The only
+ * evidence that the SQL actually works is a real invocation of
+ * `public.certify_rods_day` (see `src/test/rods-live-certification.test.ts).
+ * If a fixture here passes while the live test fails, the fixture is wrong.
+ *
  * Each fixture states one provocation twice: what the on-screen checklist
  * (`validateRodsDay`) does with it, and what SQLSTATE the database raises for
  * it. The pair is the point. A drift in either direction is a defect:

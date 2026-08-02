@@ -145,7 +145,7 @@ afterwards via `purge_rods_day` (11 rows, `rods_days`/`rods_events`/
 Observed verbatim in `PostgrestError.code`: `P0010`, `P0011`, `P0012`, `P0013`,
 `P0014`, `P0015`, `P0020`, `P0021`, `P0022`, `P0023`, `P0030`, `P0031`, plus
 `42501` for `purge_rods_day`. The deferred continuity trigger arrived as
-`P0001` on that run and now carries `P0042` (see rule 6).
+`P0001` on that run and now carries `P0042` (see rule 7).
 
 Not observed, and unreachable from a driver client: `P0002`, `P0040`, `P0041`,
 `P0044`. The `rods_days` UPDATE and DELETE policies both require
@@ -233,7 +233,33 @@ two `storage_failed` entries on that purge are the seeded row's declared
 `pdf_path` and signature path, which the probe never uploaded — no bytes were
 stranded.
 
-### 6. One code, one condition, one function
+## 6. `duty_status` is an integer 1–4 everywhere
+
+`rods_events.duty_status` is a physical 24-hour clock, not a labelled string.
+The four values are fixed and must be used consistently in the client, the
+server, and any test that constructs events:
+
+| Integer | Meaning | US FMCSA status |
+| --- | --- | --- |
+| 1 | Off-duty | Off Duty |
+| 2 | Sleeper berth | Sleeper Berth |
+| 3 | Driving | Driving |
+| 4 | On-duty, not driving | On Duty |
+
+Do not store the enum as strings (`'off_duty'`, `'OFF'`, `'D'`) in `rods_events`.
+Do not compare with string literals in SQL (`duty_status = 'off_duty'`). A
+string comparison in `certify_rods_day` caused a live `22P02` error that blocked
+all driver certifications after migration `20260802015334` — every historical
+row was integer, but the guard was written against text literals. The guard was
+repaired to integer comparisons; the convention is now that the database owns
+the authoritative integer representation and every client helper must emit it.
+
+Fixtures in `src/lib/eld/offline/__tests__/parityFixtures.test.ts` and the live
+RPC test in `src/test/rods-live-certification.test.ts` both build events with
+integer `duty_status` values. If a future refactor changes the representation,
+both files must change together; the live test is the proof.
+
+## 7. One code, one condition, one function
 
 Every named condition raised from a `SECURITY DEFINER` function or a trigger
 carries an explicit `USING ERRCODE`. `P0001` is the bare-`RAISE` default and is
@@ -294,7 +320,7 @@ condition is done with `CONDITION_GROUPS` in
 `P0060`–`P0065` are validation-on-write, not sync-queue outcomes, so they are
 deliberately absent from `REJECTION_SQLSTATES`.
 
-### 7. On `rods_days` and `rods_events`, 0 rows is the refusal
+## 8. On `rods_days` and `rods_events`, 0 rows is the refusal
 
 For these two tables the driver-visible signal that a locked row refused a
 write is **"0 rows affected", not an error code**. Every client write therefore
@@ -307,7 +333,7 @@ rows and passes the count to `assertDeleteApplied`.
 In the sync queue this classifies as `row_not_writable`: terminal, never
 retried, bytes retained, and alerted to Management as `log_not_writable`.
 
-### 8. Verify through the app's entry point, not the function
+## 9. Verify through the app's entry point, not the function
 
 A function proven by a direct RPC is not a proven code path. Four defects in
 this audit share one signature — correct or near-correct code that had simply
@@ -325,9 +351,9 @@ Every one of them would have passed a direct round-trip proof. "The function is
 correct" and "the feature works" are different claims and need different
 evidence. Where a report claims behaviour the app performs, drive the app's
 real caller — the same distinction that made the driver-session 0-row proof in
-rule 7 worth insisting on rather than accepting a privileged-path provocation.
+rule 8 worth insisting on rather than accepting a privileged-path provocation.
 
-### 9. RODS amendment records: carrier policy, not 49 CFR 395.30
+## 10. RODS amendment records: carrier policy, not 49 CFR 395.30
 
 `certify_rods_day` refuses to certify a correction without a written reason
 (`P0016`) and a field-level change record (`P0017`), and files those rows in
