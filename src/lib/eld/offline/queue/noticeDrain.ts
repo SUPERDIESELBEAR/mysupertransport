@@ -235,7 +235,7 @@ function releaseKeys(key: string, eventId: string): void {
 
 // ------------------------------------------------------------------- branches
 
-async function handleDeferredMissing(eventId: string): Promise<void> {
+async function handleDeferredMissing(eventId: string, operatorId: string | null): Promise<void> {
   const stateKey = `${STATE_PREFIX}${eventId}`;
   const prev = readJson<DrainState>(stateKey);
   const state: DrainState = {
@@ -252,6 +252,8 @@ async function handleDeferredMissing(eventId: string): Promise<void> {
     state.alerted_missing = true;
     await raiseSyncAlert({
       kind: 'notice_orphaned',
+      // The decoded notice knows its operator, so this one IS attributable.
+      operator_id: operatorId,
       detail:
         `Pending malfunction notice for event ${eventId} has no matching event row on the `
         + `server after ${state.deferrals} attempt(s) since ${state.first_deferred_at}. `
@@ -276,6 +278,10 @@ async function handleCorrupt(key: string, err: unknown): Promise<void> {
   const message = err instanceof Error ? err.message : String(err);
   await raiseSyncAlert({
     kind: 'notice_drain_corrupt',
+    // Genuinely unattributable: the entry failed to decode, so it has no
+    // operator to name. Explicit null routes it to Management's bell rather
+    // than being counted as undeliverable and lost.
+    operator_id: null,
     detail:
       `Unreadable pending malfunction notice at localStorage key "${key}" (${message}). `
       + 'The entry has been left in place; its bytes may be the only copy of a signed notice.',
