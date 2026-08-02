@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';

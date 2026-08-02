@@ -23,11 +23,9 @@ function migrationSql(): string[] {
 function allowedPriorities(): string[] {
   let allowed: string[] | null = null;
   for (const sql of migrationSql()) {
-    const defs = sql.match(/notifications_priority_check[\s\S]{0,400?}?\)/gi) ?? [];
+    const defs = sql.match(/notifications_priority_check\s+CHECK\s*\(([^)]*)\)/gi) ?? [];
     for (const def of defs) {
-      const values = [...def.matchAll(/'([a-z_]+)'::text/gi)].map((m) => m[1]);
-      const plain = [...def.matchAll(/'([a-z_]+)'/gi)].map((m) => m[1]);
-      const found = values.length ? values : plain;
+      const found = [...def.matchAll(/'([a-z_]+)'/gi)].map((m) => m[1]);
       if (found.length) allowed = [...new Set(found)];
     }
   }
