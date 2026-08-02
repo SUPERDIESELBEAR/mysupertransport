@@ -147,7 +147,9 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
     if (focusEventId && !focusHandled && rows.length > 0) {
       const target = rows.find((r) => r.id === focusEventId);
       if (target) {
-        if (!filtered.some((r) => r.id === focusEventId)) setFilter('all');
+        if (!filtered.some((r) => r.id === focusEventId)) {
+          setFilter(target.status === 'open' ? 'open' : 'resolved');
+        }
         setSelectedId(focusEventId);
       }
       setFocusHandled(true);
