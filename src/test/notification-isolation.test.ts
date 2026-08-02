@@ -80,6 +80,17 @@ function blankLiterals(sql: string): string {
  * seen after the insert, so frames are resolved at the end rather than
  * inspected in place.
  */
+/**
+ * A resolved block is `CREATE FUNCTION ... AS $function$ <body> $function$`.
+ * The body has to be unwrapped before literals are blanked, or the outer
+ * dollar-quote swallows the entire function and the parser finds nothing —
+ * which is exactly the silent-no-match failure the meta-assertions guard.
+ */
+export function unwrapBody(block: string): string {
+  const m = block.match(/AS\s+(\$[a-zA-Z_]*\$)([\s\S]*)\1\s*;?\s*$/i);
+  return m ? m[2] : block;
+}
+
 export function findNotificationInserts(rawBody: string): Finding[] {
   const body = blankLiterals(stripComments(rawBody));
 
@@ -156,7 +167,7 @@ describe('notification insert isolation', () => {
 
     it('finds notification inserts somewhere (the matcher still matches)', () => {
       const total = resolved.reduce(
-        (n, f) => n + findNotificationInserts(f.block).length, 0);
+        (n, f) => n + findNotificationInserts(unwrapBody(f.block)).length, 0);
       expect(total).toBeGreaterThan(0);
     });
 
@@ -164,7 +175,7 @@ describe('notification insert isolation', () => {
       const offenders: string[] = [];
       for (const fn of resolved) {
         if (OWNERS.has(fn.name)) continue;
-        const found = findNotificationInserts(fn.block);
+        const found = findNotificationInserts(unwrapBody(fn.block));
         const bare = found.filter((f) => !f.protectedByHandler).length;
         if (bare > 0) offenders.push(`${fn.signature} (${bare} in ${fn.file})`);
       }
