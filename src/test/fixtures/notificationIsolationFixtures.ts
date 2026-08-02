@@ -174,6 +174,43 @@ BEGIN
 END;`,
   },
   {
+    // The false positive found on 2026-08-02: an inline CASE expression
+    // closes with a bare END, and treating it as the block's END popped the
+    // enclosing handler early — reporting two correctly isolated triggers as
+    // offenders.
+    name: 'inline CASE ... END inside an isolated insert stays isolated',
+    offends: false,
+    inserts: 1,
+    body: `
+BEGIN
+  BEGIN
+    INSERT INTO public.notifications (user_id, type, title, body)
+    VALUES (
+      p_user, 'x', 'y',
+      CASE WHEN p_ok THEN 'actioned' ELSE 'declined' END
+    );
+  EXCEPTION WHEN OTHERS THEN
+    PERFORM public.log_notification_delivery_failure('x', 'y', NULL, NULL, 'e', NULL, NULL);
+  END;
+  RETURN NEW;
+END;`,
+  },
+  {
+    name: 'statement-form CASE closed with END CASE, then a bare insert',
+    offends: true,
+    inserts: 1,
+    body: `
+BEGIN
+  CASE p_kind
+    WHEN 'a' THEN v_title := 'A';
+    ELSE v_title := 'B';
+  END CASE;
+  INSERT INTO public.notifications (user_id, type, title)
+  VALUES (p_user, 'x', v_title);
+  RETURN NEW;
+END;`,
+  },
+  {
     name: 'dollar-quoted literal containing END; does not close the block',
     offends: false,
     inserts: 1,
