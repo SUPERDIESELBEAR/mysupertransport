@@ -93,7 +93,7 @@ export async function raiseCorrectionRequest(args: {
   issue: string;
   requestedBy: string;
   requestedByName: string | null;
-}): Promise<{ ok: true } | { ok: false; message: string }> {
+}): Promise<{ ok: boolean; message?: string }> {
   const { error } = await supabase.from('rods_correction_requests').insert({
     rods_day_id: args.rodsDayId,
     operator_id: args.operatorId,
@@ -118,7 +118,7 @@ export async function raiseCorrectionRequest(args: {
 export async function declineCorrectionRequest(
   id: string,
   response: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<{ ok: boolean; message?: string }> {
   const { error } = await supabase
     .from('rods_correction_requests')
     .update({ status: 'declined', driver_response: response.trim() })

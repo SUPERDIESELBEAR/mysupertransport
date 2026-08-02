@@ -15,12 +15,13 @@ import { toast } from 'sonner';
 import { FileText, Loader2, MessageSquareWarning, RefreshCw } from 'lucide-react';
 import RoadsideDayRender from '@/components/eld/RoadsideDayRender';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
+import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
 import {
   CORRECTION_STATUS_LABEL, fetchCorrectionRequests, raiseCorrectionRequest,
   type CorrectionRequest,
 } from '@/lib/eld/correctionRequests';
 
-interface OperatorRow { id: string; driver_name: string | null; unit_number: string | null }
+interface OperatorRow { id: string; user_id: string | null; unit_number: string | null; driver_name: string }
 
 /**
  * Management's read-only view of a driver's records of duty status.
@@ -53,11 +54,19 @@ export default function RodsAdminLogsPanel({
 
   useEffect(() => {
     void (async () => {
+      // `operators` has no name column and no FK into `profiles`, so the name
+      // is a second read keyed on user_id. See src/lib/profileNames.ts.
       const { data } = await supabase
         .from('operators')
-        .select('id, driver_name, unit_number')
-        .order('driver_name');
-      setOperators((data ?? []) as OperatorRow[]);
+        .select('id, user_id, unit_number')
+        .eq('is_active', true);
+      const rows = (data ?? []) as Array<{ id: string; user_id: string | null; unit_number: string | null }>;
+      const names = await fetchProfileNames(rows.map((r) => r.user_id));
+      setOperators(
+        rows
+          .map((r) => ({ ...r, driver_name: formatProfileName(names.get(r.user_id ?? '')) }))
+          .sort((a, b) => a.driver_name.localeCompare(b.driver_name)),
+      );
     })();
   }, []);
 
@@ -140,7 +149,7 @@ export default function RodsAdminLogsPanel({
       requestedByName: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
     });
     setBusy(false);
-    if (!result.ok) { toast.error(result.message); return; }
+    if (!result.ok) { toast.error(result.message ?? 'Could not raise the request.'); return; }
     toast.success('Correction request sent to the driver.');
     setRaiseOpen(false);
     setIssue('');

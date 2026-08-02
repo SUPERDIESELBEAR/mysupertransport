@@ -54,7 +54,7 @@ export default function CorrectionRequestBanner({
     setBusy(true);
     const result = await declineCorrectionRequest(request.id, response);
     setBusy(false);
-    if (!result.ok) { toast.error(result.message); return; }
+    if (!result.ok) { toast.error(result.message ?? 'Could not send your response.'); return; }
     toast.success('Sent. The office can see your response.');
     setDeclineOpen(false);
     setResponse('');
