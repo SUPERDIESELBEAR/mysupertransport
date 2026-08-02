@@ -145,7 +145,7 @@ afterwards via `purge_rods_day` (11 rows, `rods_days`/`rods_events`/
 Observed verbatim in `PostgrestError.code`: `P0010`, `P0011`, `P0012`, `P0013`,
 `P0014`, `P0015`, `P0020`, `P0021`, `P0022`, `P0023`, `P0030`, `P0031`, plus
 `42501` for `purge_rods_day`. The deferred continuity trigger arrived as
-`P0001` on that run and now carries `P0042` (see rule 6).
+`P0001` on that run and now carries `P0042` (see rule 7).
 
 Not observed, and unreachable from a driver client: `P0002`, `P0040`, `P0041`,
 `P0044`. The `rods_days` UPDATE and DELETE policies both require
