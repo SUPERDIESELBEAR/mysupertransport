@@ -263,7 +263,8 @@ async function handler(req: Request): Promise<Response> {
   let query = admin
     .from('eld_malfunction_events')
     .select(`id, operator_id, discovered_at, created_at, status, repair_deadline,
-      carrier_acknowledged_at, extension_granted_at, escalations_suppressed_until,
+      carrier_acknowledged_at, extension_granted_at, extension_expires_on,
+      escalations_suppressed_until,
       escalations_suppressed_reason, malfunction_code, is_demo,
       operators!inner(id, unit_number, user_id, is_demo)`)
     .eq('status', 'open')
@@ -317,6 +318,7 @@ async function handler(req: Request): Promise<Response> {
       status: e.status,
       carrier_acknowledged_at: e.carrier_acknowledged_at,
       extension_granted_at: e.extension_granted_at,
+      extension_expires_on: e.extension_expires_on,
       escalations_suppressed_until: e.escalations_suppressed_until,
       escalations_suppressed_reason: e.escalations_suppressed_reason,
     };
