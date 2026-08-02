@@ -253,7 +253,9 @@ export function isLocallyCertified(entry: RodsDayCacheEntry | undefined | null):
  * and inventing a row here would fabricate a federal record.
  */
 export async function markDayStalled(
-  logDate: string, which: 'stalled' | 'rejected',
+  logDate: string,
+  which: 'stalled' | 'rejected',
+  detail?: { code: string | null; recognized: boolean },
 ): Promise<void> {
   const existing = await roadsideDb.rods_days_cache.get(logDate);
   if (!existing) return;
@@ -261,6 +263,29 @@ export async function markDayStalled(
     ...existing,
     sync_stalled: which === 'stalled' ? true : existing.sync_stalled,
     sync_rejected: which === 'rejected' ? true : existing.sync_rejected,
+    // First terminal answer wins: a later cancellation must not overwrite the
+    // code that actually explains why the day is stuck.
+    sync_failure_code: existing.sync_failure_code ?? detail?.code ?? null,
+    sync_failure_recognized: existing.sync_failure_code
+      ? existing.sync_failure_recognized
+      : detail?.recognized ?? false,
+    cached_at: existing.cached_at,
+  });
+}
+
+/**
+ * Record the driver's dismissal of the "the office has your log" confirmation.
+ *
+ * This is the ONLY writer of `sync_confirmed_seen_at`, and it is called from
+ * exactly one place: the dismiss button in LogSyncBanner. Nothing else may set
+ * it — the whole point of the field is that the confirmation waits for a tap.
+ */
+export async function markSyncConfirmedSeen(logDate: string): Promise<void> {
+  const existing = await roadsideDb.rods_days_cache.get(logDate);
+  if (!existing) return;
+  await putCachedDay({
+    ...existing,
+    sync_confirmed_seen_at: new Date().toISOString(),
     cached_at: existing.cached_at,
   });
 }
