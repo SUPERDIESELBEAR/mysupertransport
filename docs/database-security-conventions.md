@@ -337,6 +337,14 @@ condition is done with `CONDITION_GROUPS` in
 | `discard_rods_amendment` | correction draft not found | `P0070` |
 | `discard_rods_amendment` | not the owner | `P0071` |
 | `discard_rods_amendment` | not an uncertified correction draft | `P0072` |
+| `enforce_rods_correction_request_update` | request is append-only (identity/issue/provenance edited) | `P0100` |
+| `enforce_rods_correction_request_update` | resolution pointer set by hand | `P0101` |
+| `enforce_rods_correction_request_update` | only the driver may answer | `P0102` |
+| `enforce_rods_correction_request_update` | already resolved | `P0103` |
+| `enforce_rods_correction_request_update` | target status is neither actioned nor declined | `P0104` |
+| `enforce_rods_correction_request_update` | decline with no written response | `P0105` |
+| `enforce_rods_correction_request_update` | driver response revised after it was recorded | `P0106` |
+| `enforce_rods_correction_request_update` | `resolved_at` changed after it was set | `P0107` |
 | `create_eld_document_day` | certification token required | `P0080` |
 | `create_eld_document_day` | not the driver filing their own log | `P0081` |
 | `create_eld_document_day` | uploaded document missing | `P0082` |
@@ -346,6 +354,62 @@ condition is done with `CONDITION_GROUPS` in
 
 `P0060`–`P0065` are validation-on-write, not sync-queue outcomes, so they are
 deliberately absent from `REJECTION_SQLSTATES`.
+
+### 7a. Correction requests own the `P0100` block
+
+`enforce_rods_correction_request_update` originally raised `P0072`–`P0075`,
+which collided with `discard_rods_amendment`'s `P0070`–`P0072`. `classifyError`
+routes on the code alone, so a revised driver response and a failed discard
+were indistinguishable on the wire. The trigger was moved to its own free block
+(`P0100`+) and `P0072` belongs to `discard_rods_amendment` again.
+
+Two conditions in that block are new, and both close the same hole: a
+correction request is append-only, but `driver_response` and `resolved_at` were
+not in the immutability list. A driver could re-write the text of a refusal
+after the fact — no status transition occurs, so the status machine never
+fired. Both are now write-once: `NULL → text` is the decline, `text → other
+text` is `P0106`; `resolved_at` is stamped once and is `P0107` thereafter.
+
+While in the function, `resolved_by_day_id → NULL` was narrowed from the broad
+`rods.privileged` flag to `rods.purge` alone. Setting the pointer to a real log
+still requires `rods.privileged` (that is `certify_rods_day` closing the
+request); nulling it belongs only to a purge deleting the log it pointed at.
+The purge exemption on `rods_day_id` was already narrow — it tolerates the
+`→ NULL` transition and nothing else, and `rods.purge` is set transaction-
+locally inside a service-role-gated definer.
+
+Observed verbatim over PostgREST on 2026-08-02 from a real driver session
+(demo operator `ee993ec0`, JWT via `create-preview-session` →
+`redeem-preview-session` → `/auth/v1/verify`), PATCHing request `09ee2d9f`
+(declined, response and `resolved_at` already set):
+
+```json
+{
+  "code": "P0106",
+  "details": null,
+  "hint": null,
+  "message": "A correction request response is recorded once and cannot be revised."
+}
+```
+
+```json
+{
+  "code": "P0107",
+  "details": null,
+  "hint": null,
+  "message": "The time a correction request was resolved cannot be changed."
+}
+```
+
+The legal path was provoked in the same run against a scratch request
+(`b62132cf`): `open → declined` carrying the response as its first write
+returned HTTP 200 with a server-stamped `resolved_at`, and a second PATCH of
+`driver_response` on that row returned `P0106`. Write-once is scoped to
+revision, not to the decline. Both observations are pinned in
+`src/lib/eld/offline/__tests__/correctionRequestRejections.test.ts`, and
+`P0100`–`P0107` are registered in `REJECTION_SQLSTATES` (`append_only_record`
+condition group — terminal, never retried). The scratch log and request were
+purged afterwards.
 
 ## 8. On `rods_days` and `rods_events`, 0 rows is the refusal
 
