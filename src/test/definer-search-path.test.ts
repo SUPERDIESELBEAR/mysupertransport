@@ -48,7 +48,6 @@ import { resolvedDefiners } from "./helpers/migrationFunctions";
 const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260518142644_816faa0d-9b1d-4e9b-8285-5d60c7fe84da.sql::public._audit_actor_name(uuid)",
   "20260727191658_491568bc-4bab-4670-903f-b7f05c17708b.sql::public.add_pei_staff_note(uuid, text)",
-  "20260519161607_06ff0ba1-ee4d-4c64-b3c4-96a2b61cab94.sql::public.approve_application_correction(text, text, text, jsonb)",
   "20260727202654_18fa0162-7ac2-4bd1-9c05-80afbbbbabbf.sql::public.archive_applicant_pei(uuid, text, text)",
   "20260727191658_491568bc-4bab-4670-903f-b7f05c17708b.sql::public.archive_applicant_pei(uuid, text)",
   "20260720153657_d81fc002-e4c6-4f66-804e-ede3bee9da67.sql::public.assign_ica_amendment_number()",
@@ -85,7 +84,6 @@ const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260728163658_df64e4da-2143-4da5-9e44-affc4a82cb2c.sql::public.get_staff_contact_info(uuid[])",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.get_thread_participants(uuid)",
   "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.get_user_roles(uuid)",
-  "20260727153803_44f36d19-304d-4f53-98b7-06ea7d627ee1.sql::public.handle_operator_deactivated()",
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.handle_operator_document_soft_delete()",
   "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.has_role(uuid, public.app_role)",
   "20260729234627_b6bc3761-1036-44c1-97a8-909fa2f98d0f.sql::public.is_own_rods_operator(uuid)",
@@ -110,20 +108,10 @@ const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260729143338_ab7bc9d7-4972-4bd3-8d8d-a3b9d3964bdb.sql::public.match_staff_help_knowledge(vector, integer, float)",
   "20260518151010_21459e56-4985-4b1a-b896-0464d7f291ea.sql::public.move_revisions_to_pending(uuid)",
   "20260618201129_2708979a-7f7d-4edd-b3d7-9a4889e4b265.sql::public.notifications_autofill_entity()",
-  "20260317113641_243f0c04-4dfe-40fa-9c4c-308eeb6a62cd.sql::public.notify_driver_on_upload_status_change()",
-  "20260618201129_2708979a-7f7d-4edd-b3d7-9a4889e4b265.sql::public.notify_on_truck_down()",
-  "20260413005710_b0442004-dc78-429f-84a0-276d26fe797b.sql::public.notify_operator_on_status_change()",
-  "20260317171441_1e8c2366-3c8b-4925-bbe3-59b44c8a4bb5.sql::public.notify_operators_on_fleet_share()",
-  "20260422192300_292544be-0dbf-4802-ba7d-9ab5495ff859.sql::public.notify_owner_on_pay_setup_submitted()",
-  "20260309013416_01347688-fe01-4bba-9c2d-7fc6aadb4720.sql::public.notify_staff_on_docs_uploaded()",
-  "20260724203448_4aa5f2d0-2c99-4124-807a-88ce45eaac7c.sql::public.notify_staff_on_osas_signed()",
-  "20260330115046_6f125986-5be3-4aaa-a5b3-eb235263c371.sql::public.notify_staff_on_release_note()",
-  "20260726123808_c98a98b7-b03e-4331-8779-b785e9b799b6.sql::public.notify_staff_on_return_receipt()",
   "20260720153657_d81fc002-e4c6-4f66-804e-ede3bee9da67.sql::public.on_ica_amendment_activated()",
   "20260706164608_632bbeb7-598d-4fc3-84e2-d24dde593621.sql::public.operator_awaiting_return(uuid)",
   "20260726123808_c98a98b7-b03e-4331-8779-b785e9b799b6.sql::public.operator_return_requested(uuid)",
   "20260714125956_29f3e624-04c3-40f0-b121-e69d53033015.sql::public.prevent_recipient_message_tampering()",
-  "20260515183610_31d9c6cc-8a17-4ba1-adf6-c0daab0222b6.sql::public.reject_application_correction(text, text, jsonb)",
   "20260327200930_def071a4-28fb-4c91-bb65-f07eab4a8730.sql::public.remove_user_role(uuid, app_role)",
   "20260729175715_cfce4671-7913-4ee4-9b2b-ba7b99c8e14c.sql::public.resolve_short_link(text)",
   "20260727194914_a485ef85-e1ec-4d73-a895-01e33553f8b0.sql::public.restore_applicant_pei(uuid)",
@@ -158,7 +146,7 @@ const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  * function is a new defect: pin it to `public, extensions` instead of
  * widening the exemption.
  */
-const LEGACY_MAX = 103;
+const LEGACY_MAX = 91;
 
 /** pgcrypto functions that live in `extensions`, not `pg_catalog`. */
 const PGCRYPTO_FNS = [
