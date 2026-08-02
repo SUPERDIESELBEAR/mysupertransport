@@ -121,23 +121,16 @@ export default function ManagementPortal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const urlView = searchParams.get('view') as ManagementView | null;
-    // Deep-link markers. `operator`/`application` are legacy aliases written by
-    // notification DB functions whose links already live in the database and
-    // cannot be rewritten; `event` comes from ELD escalation notices. Without
-    // these, sessionStorage wins and the link lands on the last-viewed section.
-    const hasDeepLink = !!(
-      searchParams.get('op') || searchParams.get('app') ||
-      searchParams.get('operator') || searchParams.get('application') ||
-      searchParams.get('event')
-    );
-    // Honor URL only when it's an explicit deep-link from a notification/email.
-    if (urlView && ALLOWED_VIEWS.includes(urlView) && hasDeepLink) return urlView;
-    // Otherwise prefer the per-tab sessionStorage "last viewed section".
+    // An explicit `?view=` is always an instruction — from a notification, an
+    // email, or a pasted link — so it wins outright. Requiring a companion
+    // deep-link marker (`op`/`app`/`event`) made every plain `?view=` link dead
+    // for anyone who had already visited another section in the same tab.
+    if (urlView && ALLOWED_VIEWS.includes(urlView)) return urlView;
+    // With no view in the URL, restore the per-tab "last viewed section".
     try {
       const saved = sessionStorage.getItem('mgmt_last_view') as ManagementView | null;
       if (saved && ALLOWED_VIEWS.includes(saved)) return saved;
     } catch { /* ignore */ }
-    if (urlView && ALLOWED_VIEWS.includes(urlView)) return urlView;
     return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
