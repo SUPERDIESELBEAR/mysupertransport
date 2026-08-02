@@ -1,92 +1,62 @@
-## Defect 1 — remove the argument, not the mistake
+## Correction accepted — the latch records the outcome, not the attempt
 
-**`commitCertification` reads the day from `rods_days_cache` and drops `day` from its input.**
+You're right: latching outside the isolated block trades an infinite abort for a silent permanent loss, on a notification the driver needs to sign. Revised shape for `notify_driver_equipment_sheet_ready`:
 
-It already reads it: line 202 does `const existing = await roadsideDb.rods_days_cache.get(logDate)` inside the same transaction that writes `signedDay`, purely for the version counter. Taking the day from `existing.day` costs nothing, stays inside the transaction, and makes a stale day unrepresentable — there is no argument left to pass wrong. `flushPendingHeader` has already written the merged row by then, so the cache is authoritative.
+```text
+BEGIN                                  -- isolated delivery
+  INSERT INTO public.notifications (... priority 'action' ...);
+  v_delivered := true;
+EXCEPTION WHEN OTHERS THEN
+  v_delivered := false;
+  v_err := SQLSTATE || ' ' || SQLERRM;
+END;
 
-- `CommitCertificationInput`: delete `day`. Build `signedDay` from `existing.day`. Refuse with a clear error if the cache has no row for the date — that state means the editor never flushed, and certifying it would lock a row nobody has seen.
-- Update `RodsDayEditor.certify` and the two input-constructing tests (`signatureCommitGuard.test.ts`, `emptyEventSet.test.tsx`).
+NEW.equipment_asset_sheet_ready_notified_at := now();   -- unconditional: never re-arms
 
-### Other render-time `day` uses inside `certify()`
-
-The reason patch lands at line 202, so anything before it is fine and anything after it is suspect:
-
-| line | use | after the patch? | verdict |
-|---|---|---|---|
-| 168, 171 | `assertPersistedMatches` | before | fine |
-| 185, 187 | `day!.supersedes_day_id` | at | fine — untouched by the patch |
-| 207 | `rods_day_id: day!.id` | after | fine — id is stable |
-| **231** | `renderRodsDay({ day: { ...day!, ... } })` | **after** | **second live instance** |
-| 249 | `diffAmendment` | after | already spreads the reason — the workaround |
-| **265** | `commitCertification({ day: day! })` | **after** | the defect found |
-
-Line 231 renders the officer-facing PDF from a day whose `amendment_reason` is null. Resolve the merged day **once**, immediately after the reason flush, and use that variable at 231 and 249:
-
-```ts
-const certifiedDay = (await getCachedDay(logDate))?.day ?? day!;
+IF NOT v_delivered THEN
+  INSERT INTO public.audit_log (action, entity_type, entity_id, entity_label, metadata)
+  VALUES ('notification_delivery_failed', 'operator', NEW.operator_id, <driver name>,
+          jsonb_build_object('notification_type','onboarding_update',
+                             'subject','equipment_asset_sheet_ready',
+                             'error', v_err, 'owed_at', now()));
+  BEGIN                                -- best-effort staff bell, nested and non-fatal
+    INSERT INTO public.notifications (user_id, type, title, body, link, priority)
+    SELECT ur.user_id, 'system_delivery_failure', 'A driver notification could not be delivered',
+           <driver name> || ' was not told their Equipment Asset Sheet is ready to sign.',
+           '/management?view=drivers&op=' || NEW.operator_id, 'action'
+    FROM public.user_roles ur WHERE ur.role IN ('management','owner');
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+END IF;
 ```
 
-Both mechanisms: one resolved variable for the two in-handler uses, no `day` argument at all on `commitCertification`.
+Rationale for the two sinks: `audit_log` is the durable one — the failing path is a `notifications` insert, so `notifications` cannot be the only record of its own failure, and `RAISE WARNING` is invisible under ten-minute log retention. The staff bell is the surface a human actually watches, so it is attempted too, nested so its own failure cannot cascade. `system_delivery_failure` is registered in `src/lib/notifications/taxonomy.ts` as `tier: 'action'` before the migration writes it, or it renders as an untitled FYI and misses the Action tab.
 
-## Defect 2 — `operator_id` in the base payload type
+Net state on failure: coordinator's save commits, trigger never re-arms, and two records exist saying the notification was owed and lost, one of them in front of a person.
 
-Audit of every `SyncKind` at its enqueue site:
+This is the same rule for `raise_eld_sync_alert` and `notify_rods_correction_request`: isolated delivery, outcome recorded to `audit_log` on failure, best-effort management bell. It matches the fallback chosen for the unattributed sync alert — Management's bell with no driver name — with `audit_log` underneath it for the case where the bell itself is what broke.
 
-| kind | enqueue site | `operator_id` |
-|---|---|---|
-| `save_draft_day` | `useRodsDay.ts:231`, `:335` | yes |
-| `save_draft_segments` | `useRodsDay.ts:417` | yes |
-| `record_unlock` | `authorizedUnlock.ts:122` | yes |
-| `send_officer_email` | `officerSend.ts:70` | yes |
-| `raise_sync_alert` | `alerts.ts:120` | yes |
-| **`certify_rods_day`** | `commitCertification.ts:241` | **no** |
-| **`upload_signature`** | `commitCertification.ts:232` | **no** |
-| **`upload_rods_pdf`** | `commitCertification.ts:237` | **no** |
-| **`upload_notice_pdf`** | `noticeDrain.ts:186` | **no** |
-| **`upload_notice_signature`** | `noticeDrain.ts:196` | **no** |
-| **`send_notice`** | `noticeDrain.ts:207` | **no** |
-| **`upload_merged_packet`** | `officerSend.ts:64` | **no** |
-| `create_eld_document_day` | none | deleted, below |
-| `replace_rods_document` | none | deleted, below |
+**`record_rods_unlock` gets the same treatment.** It already isolates, but its `EXCEPTION` branch only warns, so it has the identical silent-loss shape and just hasn't hit it (0 unlock events). It stops being purely "the pattern" and gets the audit sink added.
 
-Eight live kinds carry no `operator_id`, so each has the same undeliverable-alert defect waiting. The notice chain matters most: a notice that permanently fails to send is exactly what Management must hear about.
+## 20c2b36f is notified as part of the migration
 
-- Add `operator_id: string` to the queue payload base type, so `EnqueueInput` / `queueEntry` will not typecheck without it. A new kind cannot omit it.
-- Backfill all eight. Every one of those scopes already holds the operator id.
-- `reportTerminal` reads it as required; the `undeliverable` counter stays as a runtime backstop, not the guarantee.
+Agreed — the whole failure is that the touch may not come. That driver has been fully verified since 22 July with no prompt. After the function is corrected, the same migration backfills:
 
-## Deleting the two enqueue-less kinds
+- Insert the "Equipment Asset Sheet ready to sign" notification for `20c2b36f`'s user, priority `action`, link `/operator/my-truck?focus=equipment-sheet`.
+- Set `equipment_asset_sheet_ready_notified_at = now()` on that row so the corrected trigger won't duplicate it.
+- Scope: exactly the rows that are all-verified, have something assigned, are unsigned, and have a null latch. That is one row today; the statement is written as a set so if a second reaches the state between now and apply, it is covered.
+- The three partly-verified drivers are left alone — they are not owed anything yet, and the fixed trigger will notify them when their set completes.
 
-Delete them. No planned offline path justifies keeping them, and they have **already diverged** — the evidence is in the code as of now:
+## Everything else as approved
 
-- `UploadEldLogModal.tsx:129` calls `replace_rods_document` with `p_display_document_path` and `p_display_conversion_failed`. The handler at `handlers.ts:253` passes neither.
-- `UploadEldLogModal.tsx:151` calls `create_eld_document_day` with the same two display arguments. The handler at `handlers.ts:237` passes neither.
+**Guard.** Positional parser over `INSERT INTO public.notifications`, swept across all 16 notification-inserting functions and the edge functions. Eight checked-in fixtures: the four real pre-fix bodies (`record_rods_unlock`, `notify_rods_correction_request`, `raise_eld_sync_alert`, `notify_driver_equipment_sheet_ready`), and four adversarial synthetics — nested `CASE`, a function call with commas, a comma inside a quoted literal with an escaped quote, and a combined `INSERT ... SELECT` with `priority` mid-list — each present in an illegal and a legal variant. Meta-assertion: the parser must report an extracted priority ordinal for all eight; zero extractions fails rather than passes, which is what turned the embed rule into a clean-reporting no-op.
 
-So the drift the concern predicts is not hypothetical — the handlers are already behind the only real caller and would file document days with no display rendition. Wiring them up today would ship that bug.
+**Migration** also carries the approved sync-alert work: explicit `null` as the orphan marker with `''` an error, `raised_by` recording `auth.uid()`, a separate coalesce bucket for unattributed alerts, `is_own_rods_operator` skipped only when the operator is null, `eld_sync_alerts.operator_id` made nullable.
 
-Removing:
-- The two handler methods in `handlers.ts`.
-- The two members of the `SyncKind` union in `db.ts:259-260`.
-- Any test fixture referencing them (`parityFixtures.test.ts:407` is a comment about the RPC, not the kind — it stays).
+**Verification probe**, in a rolled-back transaction: fire the trigger on a verified row, confirm the UPDATE commits, the latch sets, and the driver notification exists at `action`; then force the delivery to fail and confirm the UPDATE still commits, the latch still sets, and an `audit_log` row plus a management bell row both exist.
 
-Not removing: the RPCs themselves, their SQLSTATE entries in `types.ts` (P0080-P0084), and their `definer-live-catalog.test.ts` pins. The modal calls both RPCs directly and that path is live.
+**Tests.** The eight fixtures; `sync-payload-operator-id` (`''` rejected, `null` accepted); `emptyEventSet` inverted to expect an unattributed alert with `operator_id: null`; bell tests for an unattributed sync alert and for `system_delivery_failure`, both rendering in Action.
 
-`SyncKind` is a durable value in Dexie, so an entry queued by an older build could in principle carry a removed kind. Nothing ever enqueued these, so no such entry can exist — but the runner's unknown-kind path will be checked to confirm it fails the entry loudly rather than crashing the drain, and that fact recorded in the deletion commit.
+## For whoever runs onboarding
 
-## Defect 3 — approved as reported
-
-The day header reads `sync_stalled` / `sync_rejected` from the cache instead of showing the green "Signed on this device, syncing" unconditionally, and surfaces `last_error` from the terminal entry.
-
-## Guards — five files, all in `test:guards`
-
-1. **Notification priority** — scan `supabase/migrations/*.sql`, extract the allowed set from the latest `notifications_priority_check`, fail on any literal `priority` outside it.
-2. **Payload `operator_id`** — assert at runtime that every enqueued payload carries a non-empty `operator_id`, backing the compile-time base type.
-3. **`tab` alias** on `ManagementPortal.tsx`, framed in the comment as a compatibility shim, not a convergence.
-4. **Conventions doc** — `docs/database-security-conventions.md` records `view` as canonical for both portals; `tab` accepted as legacy input, never written by new code.
-5. **Deep-link writer audit** — the `send-notification` edge function, the DB notification triggers, and in-app `navigate` calls each verified against their target.
-
-Both new tests are registered in `test:guards` so neither depends on someone remembering to run it.
-
-## Then resume
-
-Re-run the §4 walkthrough from step 3: amend, certify, `certify_rods_day` succeeds, the amendment supersedes `689eb664`, one `rods_amendments` row per changed field, and the correction request auto-closes.
+No coordinator work was lost. The trigger was created 2026-07-23 16:41; every completed verification predates it, the latest by twenty minutes. But the "ready to sign" notification has never reached a driver since the feature shipped, and operator `20c2b36f` has been waiting since 22 July — that one is sent by this migration.
