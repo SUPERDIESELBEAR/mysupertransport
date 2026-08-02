@@ -51,7 +51,9 @@ type Row = {
   extension_granted_at: string | null;
   extension_expires_on: string | null;
   extension_notes: string | null;
-  operators?: { unit_number: string | null; profiles?: { first_name: string | null; last_name: string | null } | null } | null;
+  operators?: { unit_number: string | null; user_id: string | null } | null;
+  /** Joined in a second read — operators has no FK to profiles, so PostgREST cannot embed it. */
+  driver?: { first_name: string | null; last_name: string | null } | null;
 };
 
 const SELECT = `id, operator_id, discovered_at, created_at, discovered_location, malfunction_code, malfunction_description,
@@ -60,7 +62,7 @@ const SELECT = `id, operator_id, discovered_at, created_at, discovered_location,
   notice_send_attempts, notice_last_send_error, escalations_suppressed_at,
   escalations_suppressed_reason, escalations_suppressed_until,
   extension_granted_at, extension_expires_on, extension_notes,
-  operators!inner(unit_number, profiles(first_name, last_name))`;
+  operators!inner(unit_number, user_id)`;
 
 type PauseState = 'none' | 'paused_active' | 'paused_lapsed';
 
