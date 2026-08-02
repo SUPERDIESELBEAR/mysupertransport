@@ -900,6 +900,7 @@ export default function ManagementPortal() {
     { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
     { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />,     path: 'equipment' },
     { label: 'ELD Malfunctions', icon: <AlertTriangle className="h-4 w-4" />, path: 'eld-malfunctions' },
+    { label: 'Driver Logs (RODS)', icon: <FileText className="h-4 w-4" />, path: 'eld-logs' },
     { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
     { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
     { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
@@ -1959,6 +1960,13 @@ export default function ManagementPortal() {
             <RodsUnlockEventsPanel />
             <RodsStorageHealthCard />
           </div>
+        )}
+
+        {view === 'eld-logs' && (
+          <RodsAdminLogsPanel
+            operatorId={searchParams.get('op')}
+            logDate={searchParams.get('date')}
+          />
         )}
 
         {view === 'vehicle-hub' && (
