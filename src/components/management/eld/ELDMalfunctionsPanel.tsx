@@ -7,18 +7,27 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { AlertTriangle, BellOff, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import {
-  MALFUNCTION_CODE_LABEL, MAX_SUPPRESSION_DAYS, NOTICE_DELIVERY_COPY, REPAIR_WINDOW_DAYS,
-  elapsedRepairDay, getNoticeDeliveryState, repairClockColor,
+  AlertTriangle, BellOff, BellRing, CalendarClock, CheckCircle2, Loader2, ShieldAlert,
+} from 'lucide-react';
+import {
+  MALFUNCTION_CODE_LABEL, MAX_SUPPRESSION_DAYS, REPAIR_WINDOW_DAYS, repairClockColor,
 } from '@/lib/eld/constants';
+import { repairDayInZone } from '@/lib/eld/repairClock';
+import {
+  CONSOLE_DELIVERY_COPY, CONSOLE_DELIVERY_TONE, getConsoleDeliveryState,
+} from '@/lib/eld/noticeDelivery';
 import ELDDeviceDataQuality from './ELDDeviceDataQuality';
 import CarrierNotificationRecipients from './CarrierNotificationRecipients';
+import ELDEscalationJobHealth from './ELDEscalationJobHealth';
+import ClocksStrip from './ClocksStrip';
+import EscalationTimeline from './EscalationTimeline';
 
 type Row = {
   id: string;
   operator_id: string;
   discovered_at: string;
+  created_at: string;
   discovered_location: string;
   malfunction_code: string;
   malfunction_description: string;
@@ -31,30 +40,61 @@ type Row = {
   device_provider: string | null;
   device_model: string | null;
   device_serial: string | null;
+  notice_generated_at: string | null;
   notice_uploaded_at: string | null;
   notice_sent_at: string | null;
   notice_send_attempts: number;
   notice_last_send_error: string | null;
+  escalations_suppressed_at: string | null;
   escalations_suppressed_reason: string | null;
   escalations_suppressed_until: string | null;
+  extension_granted_at: string | null;
+  extension_expires_on: string | null;
+  extension_notes: string | null;
   operators?: { unit_number: string | null; profiles?: { first_name: string | null; last_name: string | null } | null } | null;
 };
 
-const SELECT = `id, operator_id, discovered_at, discovered_location, malfunction_code, malfunction_description,
+const SELECT = `id, operator_id, discovered_at, created_at, discovered_location, malfunction_code, malfunction_description,
   driver_notes, hinders_hos_recording, repair_deadline, status, resolution_notes, carrier_acknowledged_at,
-  device_provider, device_model, device_serial, notice_uploaded_at, notice_sent_at, notice_send_attempts,
-  notice_last_send_error, escalations_suppressed_reason, escalations_suppressed_until,
+  device_provider, device_model, device_serial, notice_generated_at, notice_uploaded_at, notice_sent_at,
+  notice_send_attempts, notice_last_send_error, escalations_suppressed_at,
+  escalations_suppressed_reason, escalations_suppressed_until,
+  extension_granted_at, extension_expires_on, extension_notes,
   operators!inner(unit_number, profiles(first_name, last_name))`;
+
+type PauseState = 'none' | 'paused_active' | 'paused_lapsed';
+
+function pauseState(r: Row): PauseState {
+  if (!r.escalations_suppressed_until) return 'none';
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+  return r.escalations_suppressed_until >= todayKey ? 'paused_active' : 'paused_lapsed';
+}
+
+type Filter = 'open' | 'paused_active' | 'paused_lapsed' | 'unacknowledged' | 'failing' | 'resolved';
+
+const FILTERS: Array<{ key: Filter; label: string }> = [
+  { key: 'open', label: 'Open' },
+  { key: 'unacknowledged', label: 'Awaiting acknowledgment' },
+  { key: 'failing', label: 'Delivery failing' },
+  { key: 'paused_active', label: 'Paused' },
+  { key: 'paused_lapsed', label: 'Pause lapsed' },
+  { key: 'resolved', label: 'Resolved' },
+];
 
 export default function ELDMalfunctionsPanel() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>('open');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [resolveTarget, setResolveTarget] = useState<Row | null>(null);
   const [resolveNotes, setResolveNotes] = useState('');
   const [suppressTarget, setSuppressTarget] = useState<Row | null>(null);
   const [suppressReason, setSuppressReason] = useState('');
   const [suppressUntil, setSuppressUntil] = useState('');
+  const [extTarget, setExtTarget] = useState<Row | null>(null);
+  const [extNotes, setExtNotes] = useState('');
+  const [extExpires, setExtExpires] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +120,31 @@ export default function ELDMalfunctionsPanel() {
     return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Driver';
   };
 
+  const filtered = useMemo(() => {
+    const list = rows.filter((r) => {
+      const open = r.status === 'open';
+      switch (filter) {
+        case 'open': return open;
+        case 'resolved': return !open;
+        case 'unacknowledged': return open && !r.carrier_acknowledged_at;
+        case 'failing': return getConsoleDeliveryState(r) === 'failing';
+        case 'paused_active': return open && pauseState(r) === 'paused_active';
+        case 'paused_lapsed': return open && pauseState(r) === 'paused_lapsed';
+        default: return true;
+      }
+    });
+    return list.sort(
+      (a, b) => repairDayInZone(b.discovered_at) - repairDayInZone(a.discovered_at),
+    );
+  }, [rows, filter]);
+
+  useEffect(() => {
+    if (filtered.length === 0) { setSelectedId(null); return; }
+    if (!filtered.some((r) => r.id === selectedId)) setSelectedId(filtered[0].id);
+  }, [filtered, selectedId]);
+
+  const selected = filtered.find((r) => r.id === selectedId) ?? null;
+
   async function acknowledge(row: Row) {
     setBusyId(row.id);
     const { data: userRes } = await supabase.auth.getUser();
@@ -90,6 +155,47 @@ export default function ELDMalfunctionsPanel() {
     setBusyId(null);
     if (error) { toast.error(error.message); return; }
     toast.success('Acknowledged.');
+    void load();
+  }
+
+  async function liftPause(row: Row) {
+    setBusyId(row.id);
+    const { error } = await supabase
+      .from('eld_malfunction_events')
+      .update({
+        escalations_suppressed_at: null,
+        escalations_suppressed_by: null,
+        escalations_suppressed_reason: null,
+        escalations_suppressed_until: null,
+      })
+      .eq('id', row.id);
+    setBusyId(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Escalations resumed.');
+    void load();
+  }
+
+  async function grantExtension() {
+    if (!extTarget) return;
+    if (!extNotes.trim()) { toast.error('Record why the extension was granted.'); return; }
+    if (!extExpires) { toast.error('Pick the extended repair date.'); return; }
+    setBusyId(extTarget.id);
+    const { data: userRes } = await supabase.auth.getUser();
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from('eld_malfunction_events')
+      .update({
+        extension_requested_at: nowIso,
+        extension_granted_at: nowIso,
+        extension_granted_by: userRes.user?.id ?? null,
+        extension_expires_on: extExpires,
+        extension_notes: extNotes.trim(),
+      })
+      .eq('id', extTarget.id);
+    setBusyId(null);
+    if (error) { toast.error(error.message); return; }
+    setExtTarget(null); setExtNotes(''); setExtExpires('');
+    toast.success('Extension recorded — the filing prompt stops on the next run.');
     void load();
   }
 
@@ -143,80 +249,110 @@ export default function ELDMalfunctionsPanel() {
         </div>
       </div>
 
+      <ELDEscalationJobHealth />
+
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <Button
+            key={f.key}
+            size="sm"
+            variant={filter === f.key ? 'default' : 'outline'}
+            onClick={() => setFilter(f.key)}
+          >
+            {f.label}
+            <span className="ml-2 text-xs opacity-70">
+              {rows.filter((r) => {
+                const open = r.status === 'open';
+                if (f.key === 'open') return open;
+                if (f.key === 'resolved') return !open;
+                if (f.key === 'unacknowledged') return open && !r.carrier_acknowledged_at;
+                if (f.key === 'failing') return getConsoleDeliveryState(r) === 'failing';
+                return open && pauseState(r) === f.key;
+              }).length}
+            </span>
+          </Button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
-      ) : rows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
-          No malfunctions reported.
+          Nothing in this view.
         </div>
       ) : (
-        <div className="space-y-3">
-          {rows.map((row) => {
-            const day = elapsedRepairDay(row.discovered_at);
-            const open = row.status === 'open';
-            const delivery = getNoticeDeliveryState(row);
-            const suppressed = !!row.escalations_suppressed_until
-              && new Date(`${row.escalations_suppressed_until}T23:59:59`) >= new Date();
-            return (
-              <div key={row.id} className="rounded-lg border border-border p-4 space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-foreground">{driverName(row)}</span>
-                  <span className="text-xs text-muted-foreground">Unit {row.operators?.unit_number || '—'}</span>
-                  {open ? (
-                    <Badge style={{ backgroundColor: repairClockColor(day), color: '#fff' }}>
-                      Day {day} of {REPAIR_WINDOW_DAYS}
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">{row.status}</Badge>
-                  )}
-                  <Badge variant="outline">{NOTICE_DELIVERY_COPY[delivery]}</Badge>
-                  {row.carrier_acknowledged_at
-                    ? <Badge variant="outline"><CheckCircle2 className="mr-1 h-3 w-3" /> Acknowledged</Badge>
-                    : <Badge variant="outline"><AlertTriangle className="mr-1 h-3 w-3" /> Not acknowledged</Badge>}
-                  {suppressed && (
-                    <Badge variant="destructive">
-                      <BellOff className="mr-1 h-3 w-3" /> Escalations paused until {row.escalations_suppressed_until}
-                    </Badge>
-                  )}
-                </div>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+          <ul className="space-y-2">
+            {filtered.map((row) => {
+              const day = repairDayInZone(row.discovered_at);
+              const delivery = getConsoleDeliveryState(row);
+              const pause = pauseState(row);
+              const active = row.id === selectedId;
+              return (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(row.id)}
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                      active ? 'border-primary bg-muted/60' : 'border-border hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-foreground">{driverName(row)}</span>
+                      {row.status === 'open' ? (
+                        <Badge style={{ backgroundColor: repairClockColor(day), color: '#fff' }}>
+                          Day {day} of {REPAIR_WINDOW_DAYS}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">{row.status}</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Unit {row.operators?.unit_number || '—'} · {row.malfunction_code} —{' '}
+                      {MALFUNCTION_CODE_LABEL[row.malfunction_code]}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Badge variant="outline" style={{ color: CONSOLE_DELIVERY_TONE[delivery] }}>
+                        {CONSOLE_DELIVERY_COPY[delivery]}
+                      </Badge>
+                      {!row.carrier_acknowledged_at && row.status === 'open' && (
+                        <Badge variant="outline">
+                          <AlertTriangle className="mr-1 h-3 w-3" /> Not acknowledged
+                        </Badge>
+                      )}
+                      {pause === 'paused_active' && (
+                        <Badge variant="secondary">
+                          <BellOff className="mr-1 h-3 w-3" /> Paused
+                        </Badge>
+                      )}
+                      {pause === 'paused_lapsed' && (
+                        <Badge variant="outline">
+                          <BellRing className="mr-1 h-3 w-3" /> Pause lapsed
+                        </Badge>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-                {suppressed && row.escalations_suppressed_reason && (
-                  <p className="text-xs text-muted-foreground">Pause reason: {row.escalations_suppressed_reason}</p>
-                )}
-
-                <dl className="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 text-xs">
-                  <dt className="text-muted-foreground">Malfunction</dt>
-                  <dd>{row.malfunction_code} — {MALFUNCTION_CODE_LABEL[row.malfunction_code]}</dd>
-                  <dt className="text-muted-foreground">Discovered</dt>
-                  <dd>{new Date(row.discovered_at).toLocaleString()} · {row.discovered_location}</dd>
-                  <dt className="text-muted-foreground">Device</dt>
-                  <dd>{[row.device_provider, row.device_model, row.device_serial].filter(Boolean).join(' · ') || '—'}</dd>
-                  <dt className="text-muted-foreground">Repair deadline</dt><dd>{row.repair_deadline}</dd>
-                  <dt className="text-muted-foreground">Driver notes</dt><dd>{row.driver_notes || '—'}</dd>
-                  {row.notice_last_send_error && (<>
-                    <dt className="text-muted-foreground">Last send error</dt>
-                    <dd>{row.notice_last_send_error} ({row.notice_send_attempts} attempts)</dd>
-                  </>)}
-                </dl>
-
-                {open && (
-                  <div className="flex flex-wrap gap-2">
-                    {!row.carrier_acknowledged_at && (
-                      <Button size="sm" variant="outline" disabled={busyId === row.id} onClick={() => acknowledge(row)}>
-                        {busyId === row.id ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null} Acknowledge
-                      </Button>
-                    )}
-                    <Button size="sm" variant="outline" onClick={() => { setResolveTarget(row); setResolveNotes(''); }}>
-                      Resolve
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setSuppressTarget(row); setSuppressReason(''); setSuppressUntil(''); }}>
-                      <BellOff className="mr-2 h-3 w-3" /> Pause escalations
-                    </Button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {selected && (
+            <DetailPane
+              row={selected}
+              driverName={driverName(selected)}
+              busy={busyId === selected.id}
+              onAcknowledge={() => acknowledge(selected)}
+              onLiftPause={() => liftPause(selected)}
+              onResolve={() => { setResolveTarget(selected); setResolveNotes(''); }}
+              onPause={() => { setSuppressTarget(selected); setSuppressReason(''); setSuppressUntil(''); }}
+              onExtend={() => {
+                setExtTarget(selected);
+                setExtNotes('');
+                setExtExpires(selected.extension_expires_on ?? '');
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -233,6 +369,33 @@ export default function ELDMalfunctionsPanel() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setResolveTarget(null)}>Cancel</Button>
             <Button onClick={resolve}>Resolve</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!extTarget} onOpenChange={(o) => !o && setExtTarget(null)}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Record a repair extension</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            49 CFR 395.34(d)(2) — the carrier has five days from the driver's report to
+            file. Recording it here stops the filing prompt and ends acknowledgment
+            escalation for this event.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="ext-notes">What was filed and with whom (required)</Label>
+            <Textarea id="ext-notes" rows={3} value={extNotes} onChange={(e) => setExtNotes(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ext-expires">Extended repair date</Label>
+            <Input
+              id="ext-expires" type="date" value={extExpires}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setExtExpires(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtTarget(null)}>Cancel</Button>
+            <Button onClick={grantExtension}>Record extension</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -262,6 +425,122 @@ export default function ELDMalfunctionsPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DetailPane({
+  row, driverName, busy, onAcknowledge, onLiftPause, onResolve, onPause, onExtend,
+}: {
+  row: Row;
+  driverName: string;
+  busy: boolean;
+  onAcknowledge: () => void;
+  onLiftPause: () => void;
+  onResolve: () => void;
+  onPause: () => void;
+  onExtend: () => void;
+}) {
+  const open = row.status === 'open';
+  const pause = pauseState(row);
+  const delivery = getConsoleDeliveryState(row);
+  const resumesIn = row.escalations_suppressed_until
+    ? Math.max(0, Math.ceil(
+      (new Date(`${row.escalations_suppressed_until}T23:59:59`).getTime() - Date.now()) / 86400000,
+    ))
+    : 0;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-lg font-semibold text-foreground">{driverName}</span>
+        <span className="text-xs text-muted-foreground">Unit {row.operators?.unit_number || '—'}</span>
+        {row.carrier_acknowledged_at
+          ? <Badge variant="outline"><CheckCircle2 className="mr-1 h-3 w-3" /> Acknowledged</Badge>
+          : <Badge variant="outline"><AlertTriangle className="mr-1 h-3 w-3" /> Not acknowledged</Badge>}
+      </div>
+
+      <ClocksStrip
+        discoveredAt={row.discovered_at}
+        createdAt={row.created_at}
+        repairDeadline={row.repair_deadline}
+        extensionGrantedAt={row.extension_granted_at}
+        extensionExpiresOn={row.extension_expires_on}
+      />
+
+      {pause === 'paused_active' && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
+          <p className="font-semibold text-foreground">
+            <BellOff className="mr-1 inline h-3 w-3" />
+            Escalations paused — resume {row.escalations_suppressed_until} ({resumesIn} day
+            {resumesIn === 1 ? '' : 's'})
+          </p>
+          <p className="text-muted-foreground">Reason: {row.escalations_suppressed_reason}</p>
+          <Button size="sm" variant="outline" className="mt-2" disabled={busy} onClick={onLiftPause}>
+            {busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null} Lift pause
+          </Button>
+        </div>
+      )}
+      {pause === 'paused_lapsed' && (
+        <p className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
+          <BellRing className="mr-1 inline h-3 w-3" />
+          Pause ended {row.escalations_suppressed_until}. The ladder announced the lapse on
+          its own run and resumes escalating from the following day.
+        </p>
+      )}
+
+      <div className="rounded-lg border border-border p-3 text-xs">
+        <p className="font-semibold" style={{ color: CONSOLE_DELIVERY_TONE[delivery] }}>
+          {CONSOLE_DELIVERY_COPY[delivery]}
+        </p>
+        {delivery === 'failing' && (
+          <p className="mt-1 text-muted-foreground">
+            {row.notice_send_attempts} attempt{row.notice_send_attempts === 1 ? '' : 's'} —{' '}
+            {row.notice_last_send_error || 'no reason recorded'}
+          </p>
+        )}
+      </div>
+
+      <dl className="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 text-xs">
+        <dt className="text-muted-foreground">Malfunction</dt>
+        <dd>{row.malfunction_code} — {MALFUNCTION_CODE_LABEL[row.malfunction_code]}</dd>
+        <dt className="text-muted-foreground">Discovered</dt>
+        <dd>{new Date(row.discovered_at).toLocaleString()} · {row.discovered_location}</dd>
+        <dt className="text-muted-foreground">Reported</dt>
+        <dd>{new Date(row.created_at).toLocaleString()}</dd>
+        <dt className="text-muted-foreground">Device</dt>
+        <dd>{[row.device_provider, row.device_model, row.device_serial].filter(Boolean).join(' · ') || '—'}</dd>
+        <dt className="text-muted-foreground">Driver notes</dt><dd>{row.driver_notes || '—'}</dd>
+        {row.extension_notes && (<>
+          <dt className="text-muted-foreground">Extension</dt><dd>{row.extension_notes}</dd>
+        </>)}
+        {!open && row.resolution_notes && (<>
+          <dt className="text-muted-foreground">Resolution</dt><dd>{row.resolution_notes}</dd>
+        </>)}
+      </dl>
+
+      <EscalationTimeline eventId={row.id} />
+
+      {open && (
+        <div className="flex flex-wrap gap-2">
+          {!row.carrier_acknowledged_at && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={onAcknowledge}>
+              {busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null} Acknowledge
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={onResolve}>Resolve</Button>
+          {!row.extension_granted_at && (
+            <Button size="sm" variant="outline" onClick={onExtend}>
+              <CalendarClock className="mr-2 h-3 w-3" /> Record extension
+            </Button>
+          )}
+          {pause !== 'paused_active' && (
+            <Button size="sm" variant="ghost" onClick={onPause}>
+              <BellOff className="mr-2 h-3 w-3" /> Pause escalations
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
