@@ -150,6 +150,12 @@ const TYPE_ALIASES: Record<string, string> = {
   int4: "integer",
   int8: "bigint",
   bool: "boolean",
+  // `float` with no precision is `double precision` in Postgres. Without this
+  // the resolver keys match_staff_help_knowledge as (vector, integer, float)
+  // while pg_proc reports (vector, integer, double precision) — one function
+  // counted as two, so a repin would leave an allowlist entry the stale-entry
+  // check cannot resolve.
+  float: "double precision",
   float4: "real",
   float8: "double precision",
   varchar: "character varying",
