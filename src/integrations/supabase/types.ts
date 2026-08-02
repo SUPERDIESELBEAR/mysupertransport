@@ -6970,6 +6970,32 @@ export type Database = {
             }
             Returns: string
           }
+      try_notify: {
+        Args: {
+          p_body: string
+          p_channel?: string
+          p_entity_id?: string
+          p_entity_label?: string
+          p_entity_type?: string
+          p_link?: string
+          p_priority?: string
+          p_title: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      try_notify_http: {
+        Args: {
+          p_bearer: string
+          p_body: Json
+          p_entity_id?: string
+          p_entity_type?: string
+          p_subject: string
+          p_url: string
+        }
+        Returns: boolean
+      }
       unacked_go_live_blockers: {
         Args: { _operator_id: string }
         Returns: {
