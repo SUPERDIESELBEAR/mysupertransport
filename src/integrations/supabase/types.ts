@@ -4934,6 +4934,82 @@ export type Database = {
           },
         ]
       }
+      rods_correction_requests: {
+        Row: {
+          created_at: string
+          driver_response: string | null
+          id: string
+          is_demo: boolean
+          issue: string
+          log_date: string
+          operator_id: string
+          requested_at: string
+          requested_by: string | null
+          requested_by_name: string | null
+          resolved_at: string | null
+          resolved_by_day_id: string | null
+          rods_day_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_response?: string | null
+          id?: string
+          is_demo?: boolean
+          issue: string
+          log_date: string
+          operator_id: string
+          requested_at?: string
+          requested_by?: string | null
+          requested_by_name?: string | null
+          resolved_at?: string | null
+          resolved_by_day_id?: string | null
+          rods_day_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_response?: string | null
+          id?: string
+          is_demo?: boolean
+          issue?: string
+          log_date?: string
+          operator_id?: string
+          requested_at?: string
+          requested_by?: string | null
+          requested_by_name?: string | null
+          resolved_at?: string | null
+          resolved_by_day_id?: string | null
+          rods_day_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rods_correction_requests_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rods_correction_requests_resolved_by_day_id_fkey"
+            columns: ["resolved_by_day_id"]
+            isOneToOne: false
+            referencedRelation: "rods_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rods_correction_requests_rods_day_id_fkey"
+            columns: ["rods_day_id"]
+            isOneToOne: false
+            referencedRelation: "rods_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rods_days: {
         Row: {
           amendment_reason: string | null
