@@ -269,6 +269,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
   if (kind === 'timeline') {
     const rows = timeline as unknown as Array<{
       occurred_at: string; stage: string; label: string; detail: string | null
+      storage_bucket: string | null; storage_path: string | null
     }>
     contents.push(...rows.map((r) => `${(r.occurred_at ?? '').slice(0, 19).replace('T', ' ')} - ${r.label}`))
     units.push({
@@ -277,6 +278,14 @@ Deno.serve(withErrorEnvelope(async (req) => {
           `${(r.occurred_at ?? '').slice(0, 19).replace('T', ' ')}  ${String(r.stage).toUpperCase()}  ${r.label}`
           + (r.detail ? `  -  ${r.detail}` : '')
         )))
+        // The timeline stands on its own, so the documents it cites travel
+        // with it — a stage that names a notice without the notice attached
+        // proves nothing to an auditor.
+        for (const r of rows) {
+          if (r.storage_bucket && r.storage_path) {
+            await mergeStored(pdf, r.storage_bucket, r.storage_path, r.label)
+          }
+        }
       },
     })
   } else {
