@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, BellOff, BellRing, CalendarClock, CheckCircle2, Loader2, ShieldAlert,
+  AlertTriangle, BellOff, BellRing, CheckCircle2, Loader2, ShieldAlert,
 } from 'lucide-react';
 import {
   MALFUNCTION_CODE_LABEL, MAX_SUPPRESSION_DAYS, REPAIR_WINDOW_DAYS, repairClockColor,
