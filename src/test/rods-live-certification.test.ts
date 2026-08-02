@@ -64,6 +64,11 @@ interface DemoFixture {
  * The subject of every arm below. Demo-only by construction: the WHERE clause
  * is the guard, and an empty result is a failure, never a fallback.
  */
+/** Single-quote a value for inline SQL. Fixture data only. */
+function sqlLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 function resolveDemoFixture(): DemoFixture {
   const row = psqlJson(`
 SELECT jsonb_build_object(
@@ -146,7 +151,7 @@ BEGIN
   -- Arm 1: initial certification.
   v_cert := public.certify_rods_day(
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    ${JSON.stringify(legalName).replace(/"/g, "'")},
+    ${sqlLiteral(legalName)},
     'sigs/initial.png',
     'pdfs/initial.pdf',
     'live-test',
@@ -190,7 +195,7 @@ BEGIN
 
   v_cert := public.certify_rods_day(
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    ${JSON.stringify(legalName).replace(/"/g, "'")},
+    ${sqlLiteral(legalName)},
     'sigs/amendment.png',
     'pdfs/amendment.pdf',
     'live-test',
