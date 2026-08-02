@@ -336,7 +336,9 @@ async function handler(req: Request): Promise<Response> {
       .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const extensionDeadline = new Date(new Date(e.created_at).getTime() + 5 * 86400000)
       .toLocaleDateString('en-US', { timeZone, month: 'long', day: 'numeric', year: 'numeric' });
-    const link = buildAppUrl(`/management?tab=eld-malfunctions&event=${e.id}`);
+    // The portal reads `?view=`; `?tab=` silently falls through to Overview,
+    // so an escalation notice would never land on the event it is about.
+    const link = buildAppUrl(`/management?view=eld-malfunctions&event=${e.id}`);
 
     // The extension prompt is offered ONCE per event, not once per day: the
     // per-day ledger key would otherwise repeat it every day the window is
