@@ -498,7 +498,7 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
       type: a.type,
       title: heading,
       body: a.action.reason,
-      link: `/management?tab=eld-malfunctions&event=${a.e.id}`,
+      link: `/management?view=eld-malfunctions&event=${a.e.id}`,
       priority: 'action',
       entity_type: 'eld_malfunction_event',
       entity_id: a.e.id,
