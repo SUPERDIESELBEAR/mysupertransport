@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { LEGACY_PUBLIC_ONLY_PINS } from "./helpers/legacyPublicOnlyPins";
 
 /**
  * DATABASE-BACKED SECURITY DEFINER GUARD -- THIS FILE IS THE AUTHORITY.
