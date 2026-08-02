@@ -1,52 +1,63 @@
-## §4 Walkthrough — Steps 3A–7 (revised)
+## Finding 1 — the purge exemption is narrow (no change)
 
-Step 3 is already complete and verified. This plan covers keying a second demo day, then steps 4–7.
+`enforce_rods_correction_request_update` permits exactly one thing under `rods.purge`:
 
-### Step 3A — key and certify 2026-07-31 (new)
-Driver session (preview-session handover for demo operator `ee993ec0`, Marcus Mueller).
+```text
+NEW.rods_day_id IS DISTINCT FROM OLD.rods_day_id
+  AND NOT (v_purging AND NEW.rods_day_id IS NULL)
+```
 
-Key a log for **2026-07-31** that is materially different from 2026-08-01 so no later assertion can pass by matching the wrong row:
-- **Header**: different truck #, trailer #, shipping doc / BOL, co-driver blank vs. set, different from/to cities and total miles than the 08-01 log.
-- **Segments**: a different count and shape — e.g. 00:00–05:30 Off Duty, 05:30–07:00 On Duty, 07:00–12:15 Driving, 12:15–13:00 Off Duty, 13:00–18:30 Driving, 18:30–24:00 Sleeper — versus 08-01's three blocks.
+That is the `rods_day_id → NULL` transition only, not "any UPDATE under purge": issue text, requester identity, `requested_at`, `operator_id`, `log_date` and `created_at` stay guarded while the flag is on. `rods.purge` is set transaction-locally (`set_config(..., true)`) inside `purge_rods_day`, which refuses any caller that is not service_role, so a client session cannot assert it. Nothing to narrow.
 
-Certify it as the driver. Assert by query: row exists for 2026-07-31, `status = certified`, `locked = true`, `supersedes_day_id IS NULL`, no `rods_amendments` rows, and its header/segment values differ from `b64f2429`.
+## Finding 2 — `driver_response` is not append-only
 
-### Step 4 — decline path (against 2026-07-31)
-Staff raise a second correction request against the newly certified 2026-07-31 day. The amended 2026-08-01 chain stays untouched as the actioned example.
+`driver_response` appears nowhere in the immutability list. The status machine blocks a second *status* transition once a request leaves `open`, but a driver can UPDATE only the response text on an already-declined request: no status change, so the machine never fires; `is_own_rods_operator` passes; the trigger stamps `updated_at` and returns NEW. The written refusal is silently editable after the fact. Not caused by the purge exemption — the same invariant, missing on the other half of the row.
 
-Driver declines with a written response. Assert live:
-- request row stores the written response, status `declined`
-- `resolved_by_day_id IS NULL`, not closed
-- 2026-07-31 stays `certified`, `locked`, unamended (`supersedes_day_id IS NULL` on all rows for that date, zero `rods_amendments`)
-- decline visible on the staff-side request row
+## SQLSTATE assignment
 
-### Step 5 — offline no-op replay
-Replay the step 3 certification of `b64f2429` with the **same** certification token. Assert:
-- `replayed: true`
-- no second `rods_amendments` row (count still 4)
-- request `a97cf4b8` unchanged — `resolved_at` and `resolved_by_day_id` identical to step 3 values
+The correction-request trigger currently reuses `P0072` (assigned to `discard_rods_amendment` = "not an uncertified correction draft", and mapped to the `not_a_draft` condition group in `queue/types.ts`), and `P0073`–`P0075` sit inside the same `P0070` block. Codes in use today: `P0001`–`P0002`, `P0010`–`P0023`, `P0030`–`P0032`, `P0040`–`P0051`, `P0060`–`P0065`, `P0070`–`P0075`, `P0080`–`P0084`, `P0090`–`P0091`.
 
-### Step 6 — policy audit + driver-session immutability (hardest gate)
-Read `pg_policies` live for `rods_days`, `rods_events`, `rods_amendments`. Report the **exact** observed policy list, SELECT policies included, so the read-only shape is visible rather than asserted. Confirm no INSERT/UPDATE/DELETE policy exists for management, owner, dispatcher, onboarding_staff, and that `is_own_rods_operator` is the only write path.
+Correction requests get their own free block, `P0100`+, and the collision is retired rather than left in place:
 
-Behavioural checks:
-- Management session: cannot certify, amend, or edit a day.
-- **Driver session, the one that matters**: `UPDATE` and `DELETE` against a `locked = true` day and its events → **zero rows affected and no error**. RLS filters before the lock trigger runs, so the certified record must be invisible to writes from the only role holding write policies. Any error raised, or any non-zero row count, fails step 6 and stops the walkthrough.
+| condition | code |
+| --- | --- |
+| request is append-only (identity/issue/provenance edited) | `P0100` |
+| resolution pointer set by hand | `P0101` |
+| only the driver may answer | `P0102` |
+| already resolved | `P0103` |
+| invalid target status | `P0104` |
+| decline without a written response | `P0105` |
+| **driver response revised after it was recorded** | `P0106` |
+| **`resolved_at` altered after it was set** | `P0107` |
 
-### Step 7 — snapshot, then purge
-Write the final state into `docs/eld-certification-playwright-run.md` **before** purging — the snapshot now covers **four** `rods_days` rows, not three:
-1. `689eb664` (2026-08-01 original, superseded, locked)
-2. `b64f2429` (2026-08-01 amendment, certified, locked)
-3. the 2026-07-31 day (certified, locked)
-4. HARNESS-1's day
-Plus: `rods_amendments` rows with `original_day_id`, both correction requests with dispositions, and every notification row spawned.
+`P0072` returns to `discard_rods_amendment` exclusively, so `classifyError` routing on the code alone stays unambiguous.
 
-Then purge through `purge-rods-day`, amendments before the originals they supersede (the continuity guard refuses an original whose amendment still points at it). Remove both correction requests, HARNESS-1, the 2026-08-01 chain, the 2026-07-31 day, and the notifications. Confirm zero rows across each touched table.
+## Change
 
-### Failure rule
-Any failing assertion stops the walkthrough at that step and is reported as-is — no continuing, no cleanup that destroys the evidence.
+One migration replacing `enforce_rods_correction_request_update`:
 
-### Technical notes
-- All assertions by live query against rows, never by UI success messaging.
-- Driver writes go through a preview-session Playwright handover; the sandbox `psql` role cannot write `rods_days`.
-- Preview session tokens expire in ~3 minutes; re-mint per phase.
+- Re-code the existing raises to the `P0100` block above.
+- `driver_response` write-once: once `OLD.driver_response` is non-null, any distinct `NEW.driver_response` raises `P0106`. NULL → text stays allowed (the decline path).
+- `resolved_at` immutable once set → `P0107`.
+- Narrow `resolved_by_day_id`: allow `→ NULL` under `rods.purge`, and a real day id only under `rods.privileged`. Purge no longer borrows the broader flag for the null-out.
+
+Client side:
+
+- `src/lib/eld/offline/queue/types.ts` — add `P0100`–`P0107` to `REJECTION_SQLSTATES` with their descriptions; drop `P0072` from any correction-request meaning and leave its `not_a_draft` group membership intact for `discard_rods_amendment`. Add the two new codes to the appropriate condition group (terminal rejection, not retryable).
+- `src/lib/eld/correctionRequests.ts` — `declineCorrectionRequest` surfaces the trigger message rather than a raw error string for the new codes.
+- `docs/database-security-conventions.md` — update the SQLSTATE table and the observed-verbatim list.
+
+## Pinning the new codes (per standing rule)
+
+The verification run is the provocation; its output is what gets registered, not a one-off confirmation:
+
+1. Against the demo operator over PostgREST as the driver, UPDATE `driver_response` on a resolved request and UPDATE `resolved_at` on a resolved request. Capture the full `PostgrestError` (`code`, `message`, `details`, `hint`) verbatim from each.
+2. Add both captures as fixtures in `src/lib/eld/offline/__tests__/parityFixtures.test.ts`, in the same shape as the existing rejection fixtures, so `isRejectionSqlState` and the `REJECTION_SQLSTATES` description assertions cover them. Extend the explicit code list in `rowNotWritable.test.ts` to include `P0100`–`P0107`.
+3. Paste the raw JSON envelopes into `docs/database-security-conventions.md` alongside the `P0032` precedent, and move the codes into the "observed verbatim" list.
+4. Also pin the legal decline (NULL → text from `open`) as a fixture, so a future trigger rewrite that over-tightens fails loudly instead of breaking the only path that is supposed to work.
+
+## Rest of verification
+
+- Re-run `purge-path-coverage.test.ts`, `parityFixtures.test.ts`, `rowNotWritable.test.ts` and the RODS suite.
+- Purge a day carrying a correction request: completes, request survives, both pointers nulled.
+- `certify_rods_day` auto-close still sets status/`resolved_at`/`resolved_by_day_id` in one write under `rods.privileged`.
