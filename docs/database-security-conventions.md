@@ -2,6 +2,31 @@
 
 These rules are enforced by tests. **Nothing runs those tests for you.**
 
+## The definer header — copy this, then fill the blanks
+
+Do not write a `SECURITY DEFINER` function from memory. Start from this block
+every time; every clause in it is a rule that has been broken at least once:
+
+```sql
+CREATE OR REPLACE FUNCTION public.<name>(<args>)
+RETURNS <type> LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, extensions
+AS $$ ... $$;
+REVOKE EXECUTE ON FUNCTION public.<name>(<argtypes>) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.<name>(<argtypes>) TO <authenticated|service_role>;
+```
+
+Swap `sql`/`STABLE` for `plpgsql`/`VOLATILE` as the body requires; the
+`search_path`, `REVOKE`, and `GRANT` lines do not vary. Trigger functions get
+`TO service_role` only — nothing calls them directly.
+
+**This cannot be automated here.** Migrations are authored by writing SQL
+straight into the migration tool: there is no scaffold step, no template file
+the tool reads, and no pre-apply hook that could inject this header. With no CI
+and no git hooks (§0), `npm run test:guards` is post-apply by construction. So
+this block is a copy target, and its only enforcement is that someone opens
+this file.
+
 ## 0. Run the guards after every migration
 
 There is no CI in this setup, no git hooks, and git is platform-managed — so
@@ -11,6 +36,10 @@ after authoring or applying any migration, in the same turn:
 ```sh
 npm run test:guards
 ```
+
+Before that: if the migration created or replaced a `SECURITY DEFINER`
+function, check it against the copy target at the top of this file. The
+checklist is copy-then-verify, not verify-only.
 
 That runs the four suites that catch silent failures:
 
@@ -23,12 +52,16 @@ That runs the four suites that catch silent failures:
 
 **A structural observation, not a lapse.** All of these guards were written
 *after* a class of silent failure had already shipped, each is correct, and
-none of them runs on its own. The definer-header rule has now been broken three
-separate times *after* it was written down — the assertion was right every
-time; it just did not execute when the migration was authored. The detection
-latency is the defect. Until this project has CI or hooks, the guards are a
-checklist item tied to the turn, not an automatic safety net. Do not assume a
-migration is clean because the rule exists.
+none of them runs on its own. The definer-header rule has now been broken in
+five separate batches *after* it was written down — the demo-guardrail
+triggers, the §3/§4 RODS batch, the twelve rewritten notification functions,
+the §5 extension-request triggers, and the §6 retention RPCs including
+`is_retention_admin` — each shipping a default `PUBLIC EXECUTE`, a
+`search_path = public`, or both. The assertion was right every time; it just
+did not execute when the migration was authored. The detection latency is the
+defect. Until this project has CI or hooks, the guards are a checklist item
+tied to the turn, not an automatic safety net. Do not assume a migration is
+clean because the rule exists.
 
 ## 1. SECURITY DEFINER functions must pin `search_path`
 
@@ -47,6 +80,26 @@ This is not theoretical: `get_or_create_short_link` shipped with
 invocation raised `function gen_random_bytes(integer) does not exist`, and the
 `document_short_links` table sat at zero rows until it was found in the
 2026-07-30 audit.
+
+### 1a. …and must revoke the default `PUBLIC EXECUTE`
+
+Postgres grants `EXECUTE` to `PUBLIC` on every new function automatically. A
+definer created without an explicit `REVOKE` is therefore callable by `anon`,
+regardless of what it reads — and a definer reads with the owner's privileges,
+so §3's table grants do not protect it. This default is the mechanism behind
+all five batches counted in §0, not carelessness.
+
+Pair every definer with:
+
+```sql
+REVOKE EXECUTE ON FUNCTION public.<name>(<argtypes>) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.<name>(<argtypes>) TO authenticated;  -- or service_role
+```
+
+Grant `anon` only when a signed-out page genuinely calls the RPC (§3's
+tokenized flows). Note that an `auth.uid()` gate inside the body does not make
+the grant harmless if the function takes a user id as an argument: that shape
+answers role-membership questions for any uuid the caller supplies.
 
 ## 2. Extension calls must be schema-qualified
 
