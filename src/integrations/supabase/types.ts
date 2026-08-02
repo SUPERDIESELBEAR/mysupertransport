@@ -1379,10 +1379,16 @@ export type Database = {
           created_at: string
           device_make: string
           device_model: string
+          fmcsa_list_date: string | null
           fmcsa_registration_id: string | null
           id: string
           is_active: boolean
+          last_check_at: string | null
+          last_check_id: string | null
+          last_check_result: string | null
           provider_name: string
+          replacement_deadline: string | null
+          revocation_date: string | null
           support_phone: string | null
           updated_at: string
         }
@@ -1390,10 +1396,16 @@ export type Database = {
           created_at?: string
           device_make: string
           device_model: string
+          fmcsa_list_date?: string | null
           fmcsa_registration_id?: string | null
           id?: string
           is_active?: boolean
+          last_check_at?: string | null
+          last_check_id?: string | null
+          last_check_result?: string | null
           provider_name: string
+          replacement_deadline?: string | null
+          revocation_date?: string | null
           support_phone?: string | null
           updated_at?: string
         }
@@ -1401,10 +1413,16 @@ export type Database = {
           created_at?: string
           device_make?: string
           device_model?: string
+          fmcsa_list_date?: string | null
           fmcsa_registration_id?: string | null
           id?: string
           is_active?: boolean
+          last_check_at?: string | null
+          last_check_id?: string | null
+          last_check_result?: string | null
           provider_name?: string
+          replacement_deadline?: string | null
+          revocation_date?: string | null
           support_phone?: string | null
           updated_at?: string
         }
@@ -1855,6 +1873,56 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "eld_malfunction_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eld_revoked_list_checks: {
+        Row: {
+          checked_at: string
+          checked_by: string | null
+          created_at: string
+          eld_device_model_id: string
+          fmcsa_list_date: string | null
+          id: string
+          is_demo: boolean
+          notes: string | null
+          replacement_deadline: string | null
+          result: string
+          revocation_date: string | null
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string | null
+          created_at?: string
+          eld_device_model_id: string
+          fmcsa_list_date?: string | null
+          id?: string
+          is_demo?: boolean
+          notes?: string | null
+          replacement_deadline?: string | null
+          result: string
+          revocation_date?: string | null
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string | null
+          created_at?: string
+          eld_device_model_id?: string
+          fmcsa_list_date?: string | null
+          id?: string
+          is_demo?: boolean
+          notes?: string | null
+          replacement_deadline?: string | null
+          result?: string
+          revocation_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_revoked_list_checks_eld_device_model_id_fkey"
+            columns: ["eld_device_model_id"]
+            isOneToOne: false
+            referencedRelation: "eld_device_models"
             referencedColumns: ["id"]
           },
         ]
@@ -6962,6 +7030,17 @@ export type Database = {
           _operator_ids: string[]
           _parts: number
           _to: string
+        }
+        Returns: string
+      }
+      record_revoked_list_check: {
+        Args: {
+          _fmcsa_list_date?: string
+          _model_id: string
+          _notes?: string
+          _replacement_deadline?: string
+          _result: string
+          _revocation_date?: string
         }
         Returns: string
       }
