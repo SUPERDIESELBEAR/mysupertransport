@@ -28,6 +28,7 @@ import CertifyDayModal from './CertifyDayModal';
 import CertifyMismatchDialog from './CertifyMismatchDialog';
 import UploadEldLogModal from './UploadEldLogModal';
 import StalledLogBanner from './StalledLogBanner';
+import CorrectionRequestBanner from './CorrectionRequestBanner';
 
 export default function RodsDayEditor({
   operatorId,
@@ -376,6 +377,14 @@ export default function RodsDayEditor({
         operatorId={operatorId}
         logDate={logDate}
         onUnlocked={() => { void reload(); onChanged(); }}
+      />
+
+      <CorrectionRequestBanner
+        operatorId={operatorId}
+        logDate={logDate}
+        canAmend={locked && !isDocument}
+        onAmend={() => { void amend(); }}
+        onChanged={onChanged}
       />
 
       {day.supersedes_day_id && day.status === 'draft' && (

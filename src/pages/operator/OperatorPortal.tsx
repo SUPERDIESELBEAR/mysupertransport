@@ -340,13 +340,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     // Fire-and-forget; we don't need the result here.
     try {
       if (target === 'inspection-binder') {
-        void sb.from('inspection_documents').select('id, document_type, file_url').limit(1);
-        void sb.from('driver_uploads').select('id, document_type, file_url').eq('operator_id', operatorId).limit(50);
+        void sb.from('inspection_documents').select('id, name, file_url').limit(1);
+        void sb.from('driver_uploads').select('id, category, file_url').eq('driver_id', operatorId).limit(50);
       } else if (target === 'forecast') {
         void sb.from('operators').select('pay_percentage').eq('id', operatorId).maybeSingle();
       } else if (target === 'my-truck') {
-        void sb.from('operators').select('id, truck_year, truck_make, truck_vin, truck_plate').eq('id', operatorId).maybeSingle();
-        void sb.from('truck_maintenance_records').select('id, service_date, service_type').eq('operator_id', operatorId).limit(10);
+        void sb.from('operators').select('id, unit_number, home_terminal_timezone').eq('id', operatorId).maybeSingle();
+        void sb.from('truck_maintenance_records').select('id, service_date, shop_name').eq('operator_id', operatorId).limit(10);
       } else if (target === 'resource-center') {
         void sb.from('resource_documents').select('id, title').limit(20);
       }

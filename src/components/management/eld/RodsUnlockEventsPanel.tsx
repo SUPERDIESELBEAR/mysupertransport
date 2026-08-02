@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, Unlock } from 'lucide-react';
+import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
 
 interface UnlockRow {
   id: string;
@@ -14,7 +15,7 @@ interface UnlockRow {
   reason: string;
   device_info: string | null;
   cancelled_entry_ids: unknown;
-  operators?: { driver_name: string | null; unit_number: string | null } | null;
+  operators?: { unit_number: string | null } | null;
 }
 
 /**
@@ -27,17 +28,25 @@ interface UnlockRow {
 export default function RodsUnlockEventsPanel({ operatorId }: { operatorId?: string }) {
   const [rows, setRows] = useState<UnlockRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [nameById, setNameById] = useState<Map<string, string>>(new Map());
 
   const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from('rods_unlock_events')
-      .select('*, operators(driver_name, unit_number)')
+      .select('*, operators(user_id, unit_number)')
       .order('unlocked_at', { ascending: false })
       .limit(100);
     if (operatorId) query = query.eq('operator_id', operatorId);
     const { data } = await query;
-    setRows((data ?? []) as unknown as UnlockRow[]);
+    const list = (data ?? []) as unknown as Array<UnlockRow & { operators?: { user_id?: string | null } | null }>;
+    // `operators` has no name column and no FK into `profiles`; selecting
+    // driver_name failed the whole request and this panel rendered nothing.
+    const names = await fetchProfileNames(list.map((r) => r.operators?.user_id ?? null));
+    setNameById(new Map(list.map((r) => [
+      r.id, formatProfileName(names.get(r.operators?.user_id ?? '')),
+    ])));
+    setRows(list as UnlockRow[]);
     setLoading(false);
   }, [operatorId]);
 
@@ -67,7 +76,7 @@ export default function RodsUnlockEventsPanel({ operatorId }: { operatorId?: str
             <div key={row.id} className="rounded-lg border border-border p-3 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
-                  {row.operators?.driver_name ?? 'Driver'}
+                  {nameById.get(row.id) ?? 'Driver'}
                   {row.operators?.unit_number ? ` — Unit ${row.operators.unit_number}` : ''}
                 </span>
                 <Badge variant="outline" className="shrink-0 whitespace-nowrap">Log {row.log_date}</Badge>
