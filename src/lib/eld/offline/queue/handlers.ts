@@ -96,7 +96,9 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
    */
   async raise_sync_alert(payload) {
     const { error } = await supabase.rpc('raise_eld_sync_alert', {
-      p_operator_id: str(payload, 'operator_id'),
+      // Null is a real value here: an unattributable alert. The RPC accepts it
+      // and routes the fan-out to Management with no driver name.
+      p_operator_id: optStr(payload, 'operator_id'),
       p_kind: str(payload, 'alert_kind'),
       p_log_date: optStr(payload, 'log_date'),
       p_detail: optStr(payload, 'detail') ?? '',
