@@ -24,8 +24,8 @@ import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RodsDayStrip from './RodsDayStrip';
 import RodsDayEditor from './RodsDayEditor';
 import ReconstructionWizard from './ReconstructionWizard';
-import StalledLogBanner from './StalledLogBanner';
-import { stalledLockedDates } from '@/lib/eld/offline/cache';
+import LogSyncBanner from './LogSyncBanner';
+import { syncNoticeDates } from '@/lib/eld/offline/cache';
 
 /**
  * Paper logs module. Only reachable while an ELD malfunction is open — outside
@@ -59,11 +59,11 @@ export default function RodsView({
   }, [loading]);
 
   useEffect(() => {
-    void stalledLockedDates().then(setStalledDates);
+    void syncNoticeDates().then(setStalledDates);
   }, [loading]);
 
   const refreshStalled = async () => {
-    setStalledDates(await stalledLockedDates());
+    setStalledDates(await syncNoticeDates());
     await refresh();
   };
 
@@ -197,7 +197,7 @@ export default function RodsView({
       )}
 
       {stalledDates.map((date) => (
-        <StalledLogBanner
+        <LogSyncBanner
           key={date}
           operatorId={operatorId}
           logDate={date}
