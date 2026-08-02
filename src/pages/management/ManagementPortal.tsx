@@ -38,6 +38,7 @@ import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ELDMalfunctionsPanel from '@/components/management/eld/ELDMalfunctionsPanel';
 import RodsStorageHealthCard from '@/components/management/eld/RodsStorageHealthCard';
 import RodsUnlockEventsPanel from '@/components/management/eld/RodsUnlockEventsPanel';
+import RodsAdminLogsPanel from '@/components/management/eld/RodsAdminLogsPanel';
 import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
 import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
