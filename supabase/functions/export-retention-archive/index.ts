@@ -72,7 +72,17 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
   const auth = await requireStaff(req, { roles: ['management', 'owner'] })
   if (auth instanceof Response) return auth
-  const { supabase } = auth
+  // `requireStaff` hands back a SERVICE-ROLE client. The retention RPCs gate on
+  // `is_retention_admin(auth.uid())`, and auth.uid() is null under service role,
+  // so the searches and the audit write go through a user-scoped client. That
+  // keeps the definer gate live instead of quietly bypassing it, and it makes
+  // the audit row attribute to the human who asked for the export.
+  const admin = auth.supabase
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: auth.authHeader } }, auth: { persistSession: false } },
+  )
 
   let body: Record<string, unknown>
   try { body = await req.json() } catch { return fail(400, 'Invalid JSON body') }
@@ -89,12 +99,6 @@ Deno.serve(withErrorEnvelope(async (req) => {
   const includeDemo = body.includeDemo === true
 
   if (kind === 'timeline' && !eventId) return fail(400, 'eventId is required for a timeline export')
-
-  const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  )
 
   // ---------------------------------------------------------------- resolve
   let artifacts: ArtifactRow[] = []
