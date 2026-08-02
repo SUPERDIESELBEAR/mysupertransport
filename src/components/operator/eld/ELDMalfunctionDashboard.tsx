@@ -28,6 +28,10 @@ export default function ELDMalfunctionDashboard({
   const clockColor = repairClockColor(day);
   const deliveryState = getNoticeDeliveryState(event);
   const deadline = new Date(`${event.repair_deadline}T12:00:00`);
+  // The ladder stops escalating the moment `extension_granted_at` is set
+  // (escalationLadder.ts:154). The driver's past-deadline notice reads the same
+  // field, so the console and the job can never disagree in front of a driver.
+  const extensionGranted = !!event.extension_granted_at;
 
   async function openNotice() {
     if (!event.notice_pdf_path) {
@@ -84,9 +88,18 @@ export default function ELDMalfunctionDashboard({
         <p className="mt-1 text-sm text-muted-foreground">
           Repair deadline {deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
-        {day > REPAIR_WINDOW_DAYS && (
+        {day > REPAIR_WINDOW_DAYS && !extensionGranted && (
           <p className="mt-2 text-sm font-semibold" style={{ color: CLOCK_RED }}>
             This repair is past the 8-day federal limit. Management has been notified.
+          </p>
+        )}
+        {extensionGranted && (
+          <p className="mt-2 text-sm font-semibold text-muted-foreground">
+            Management recorded a repair extension
+            {event.extension_expires_on
+              ? ` through ${new Date(`${event.extension_expires_on}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+              : ''}
+            . Keep using paper logs until the repair is done.
           </p>
         )}
       </div>

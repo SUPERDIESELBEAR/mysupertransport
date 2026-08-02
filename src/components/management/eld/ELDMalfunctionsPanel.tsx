@@ -51,7 +51,9 @@ type Row = {
   extension_granted_at: string | null;
   extension_expires_on: string | null;
   extension_notes: string | null;
-  operators?: { unit_number: string | null; profiles?: { first_name: string | null; last_name: string | null } | null } | null;
+  operators?: { unit_number: string | null; user_id: string | null } | null;
+  /** Joined in a second read — operators has no FK to profiles, so PostgREST cannot embed it. */
+  driver?: { first_name: string | null; last_name: string | null } | null;
 };
 
 const SELECT = `id, operator_id, discovered_at, created_at, discovered_location, malfunction_code, malfunction_description,
@@ -60,7 +62,7 @@ const SELECT = `id, operator_id, discovered_at, created_at, discovered_location,
   notice_send_attempts, notice_last_send_error, escalations_suppressed_at,
   escalations_suppressed_reason, escalations_suppressed_until,
   extension_granted_at, extension_expires_on, extension_notes,
-  operators!inner(unit_number, profiles(first_name, last_name))`;
+  operators!inner(unit_number, user_id)`;
 
 type PauseState = 'none' | 'paused_active' | 'paused_lapsed';
 
@@ -81,12 +83,17 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'resolved', label: 'Resolved' },
 ];
 
-export default function ELDMalfunctionsPanel() {
+export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: string | null }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('open');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(focusEventId ?? null);
+  // A deep link may name a resolved event, which the default 'open' filter
+  // hides — the row would silently fall back to whatever sorts first. Widening
+  // to 'all' once, only when the link names an event the open list lacks,
+  // keeps the escalation notice landing on the event it is about.
+  const [focusHandled, setFocusHandled] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<Row | null>(null);
   const [resolveNotes, setResolveNotes] = useState('');
   const [suppressTarget, setSuppressTarget] = useState<Row | null>(null);
@@ -103,7 +110,22 @@ export default function ELDMalfunctionsPanel() {
       .select(SELECT)
       .order('discovered_at', { ascending: false });
     if (error) toast.error(error.message);
-    setRows((data as unknown as Row[]) ?? []);
+    const list = (data as unknown as Row[]) ?? [];
+    const userIds = Array.from(
+      new Set(list.map((r) => r.operators?.user_id).filter((v): v is string => !!v)),
+    );
+    if (userIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', userIds);
+      const byUser = new Map((profs ?? []).map((p) => [p.user_id, p]));
+      for (const r of list) {
+        const p = r.operators?.user_id ? byUser.get(r.operators.user_id) : undefined;
+        r.driver = p ? { first_name: p.first_name, last_name: p.last_name } : null;
+      }
+    }
+    setRows(list);
     setLoading(false);
   }, []);
 
@@ -116,7 +138,7 @@ export default function ELDMalfunctionsPanel() {
   }, []);
 
   const driverName = (r: Row) => {
-    const p = r.operators?.profiles;
+    const p = r.driver;
     return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Driver';
   };
 
@@ -139,9 +161,20 @@ export default function ELDMalfunctionsPanel() {
   }, [rows, filter]);
 
   useEffect(() => {
+    if (focusEventId && !focusHandled && rows.length > 0) {
+      const target = rows.find((r) => r.id === focusEventId);
+      if (target) {
+        if (!filtered.some((r) => r.id === focusEventId)) {
+          setFilter(target.status === 'open' ? 'open' : 'resolved');
+        }
+        setSelectedId(focusEventId);
+      }
+      setFocusHandled(true);
+      return;
+    }
     if (filtered.length === 0) { setSelectedId(null); return; }
     if (!filtered.some((r) => r.id === selectedId)) setSelectedId(filtered[0].id);
-  }, [filtered, selectedId]);
+  }, [filtered, selectedId, rows, focusEventId, focusHandled]);
 
   const selected = filtered.find((r) => r.id === selectedId) ?? null;
 
@@ -160,18 +193,33 @@ export default function ELDMalfunctionsPanel() {
 
   async function liftPause(row: Row) {
     setBusyId(row.id);
+    // Do NOT null the column. `pauseJustLapsed` keys on
+    // `calendarDaysBetween(until, today) === 1`, so a cleared pause leaves both
+    // `isPaused` and `pauseJustLapsed` false and the very next run fires a rung
+    // with no lapse notice — the same "resume that also escalates" the
+    // automatic path exists to prevent, arriving through the button instead.
+    // Instead we END the pause: set expiry to yesterday where the trigger
+    // allows it (P0065 forbids an expiry before `escalations_suppressed_at`),
+    // otherwise to today, which lapses tomorrow. Either way the ladder emits
+    // `pause_lapsed` on its own run and skips the rung.
+    const dayMs = 86400000;
+    const key = (d: Date) => d.toISOString().slice(0, 10);
+    const yesterday = key(new Date(Date.now() - dayMs));
+    const pausedOn = row.escalations_suppressed_at
+      ? key(new Date(row.escalations_suppressed_at))
+      : yesterday;
+    const endsOn = yesterday >= pausedOn ? yesterday : pausedOn;
     const { error } = await supabase
       .from('eld_malfunction_events')
-      .update({
-        escalations_suppressed_at: null,
-        escalations_suppressed_by: null,
-        escalations_suppressed_reason: null,
-        escalations_suppressed_until: null,
-      })
+      .update({ escalations_suppressed_until: endsOn })
       .eq('id', row.id);
     setBusyId(null);
     if (error) { toast.error(error.message); return; }
-    toast.success('Escalations resumed.');
+    toast.success(
+      endsOn === yesterday
+        ? 'Pause ended. The lapse is announced on the next run; rungs resume after that.'
+        : 'Pause ends today. The lapse is announced tomorrow; rungs resume after that.',
+    );
     void load();
   }
 

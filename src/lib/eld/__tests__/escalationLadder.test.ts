@@ -198,6 +198,60 @@ describe('pause lifecycle', () => {
     });
     expect(kinds(e, '2026-08-09T18:00:00Z')).toEqual(['pause_lapsed']);
   });
+
+  it('treats a manual lift (expiry set to yesterday) exactly like an automatic lapse', () => {
+    // The console's lift button ENDS the pause rather than clearing it, so the
+    // lift leaves the same one-day trace: lapse alone on the next run, rungs
+    // after that. Clearing the column would skip the lapse and let a rung fire
+    // in the same run as the resume.
+    const e = ev({
+      carrier_acknowledged_at: '2026-08-01T15:00:00Z',
+      escalations_suppressed_until: '2026-08-04', // lifted on Aug 5
+    });
+    expect(kinds(e, '2026-08-05T18:00:00Z')).toEqual(['pause_lapsed']);
+    expect(kinds(e, '2026-08-06T18:00:00Z')).toEqual(['escalation_day']);
+  });
+
+  it('a cleared pause would resume and escalate in the same run — the case the lift avoids', () => {
+    const cleared = ev({
+      carrier_acknowledged_at: '2026-08-01T15:00:00Z',
+      escalations_suppressed_until: null,
+    });
+    // (the filing prompt is also still open on Aug 5 — the point is the rung)
+    expect(kinds(cleared, '2026-08-05T18:00:00Z')).toContain('escalation_day');
+    expect(kinds(cleared, '2026-08-05T18:00:00Z')).not.toContain('pause_lapsed');
+  });
+});
+
+describe('a recorded extension stops the ladder', () => {
+  const granted = (over = {}) => ev({
+    carrier_acknowledged_at: '2026-08-01T15:00:00Z',
+    extension_granted_at: '2026-08-05T10:00:00Z',
+    extension_expires_on: '2026-08-20',
+    ...over,
+  });
+
+  it('suppresses the day-9+ past-deadline repeats', () => {
+    expect(kinds(granted(), '2026-08-09T18:00:00Z')).toEqual([]);
+    expect(kinds(granted(), '2026-08-15T18:00:00Z')).toEqual([]);
+  });
+
+  it('suppresses the remaining rungs inside the original window too', () => {
+    expect(kinds(granted(), '2026-08-06T18:00:00Z')).toEqual([]);
+  });
+
+  it('holds indefinitely when no extended date was recorded', () => {
+    expect(kinds(granted({ extension_expires_on: null }), '2026-09-01T18:00:00Z')).toEqual([]);
+  });
+
+  it('resumes once the extended date passes', () => {
+    expect(kinds(granted(), '2026-08-21T18:00:00Z')).toEqual(['escalation_day']);
+  });
+
+  it('leaves ack_overdue alone — a granted extension already ends it', () => {
+    const unacked = granted({ carrier_acknowledged_at: null });
+    expect(kinds(unacked, '2026-08-02T15:00:00Z')).not.toContain('ack_overdue');
+  });
 });
 
 describe('driver quiet hours', () => {

@@ -26,13 +26,15 @@ export type EldMalfunctionEvent = {
   notice_generated_at: string | null;
   notice_uploaded_at: string | null;
   notice_sent_at: string | null;
+  extension_granted_at: string | null;
+  extension_expires_on: string | null;
 };
 
 const SELECT = `id, operator_id, discovered_at, discovered_location, malfunction_code,
   malfunction_description, driver_notes, hinders_hos_recording, repair_deadline, status,
   resolved_at, resolution_notes, carrier_acknowledged_at, device_provider, device_make,
   device_model, device_serial, eld_registration_id, notice_pdf_path, notice_generated_at,
-  notice_uploaded_at, notice_sent_at, is_demo`;
+  notice_uploaded_at, notice_sent_at, is_demo, extension_granted_at, extension_expires_on`;
 
 export function useEldMalfunction(operatorId: string | null) {
   const [activeEvent, setActiveEvent] = useState<EldMalfunctionEvent | null>(null);

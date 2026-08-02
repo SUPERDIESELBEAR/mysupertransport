@@ -47,6 +47,8 @@ export interface LadderEvent {
   status: string;
   carrier_acknowledged_at: string | null;
   extension_granted_at: string | null;
+  /** `YYYY-MM-DD`; the extended repair date recorded with the grant. */
+  extension_expires_on?: string | null;
   escalations_suppressed_until: string | null;
   escalations_suppressed_reason: string | null;
 }
@@ -129,6 +131,22 @@ export function pauseJustLapsed(event: LadderEvent, now: Date, timeZone: string)
   return calendarDaysBetween(event.escalations_suppressed_until, zonedDateKey(now, timeZone)) === 1;
 }
 
+/**
+ * A recorded extension holds the rung ladder until the extended date passes.
+ *
+ * Without this the console can show "extension granted" while the job keeps
+ * sending day-9 past-deadline escalations every hour — a disagreement a staff
+ * member sees and does not believe. `extension_granted_at` is the single field
+ * both sides read; `extension_expires_on` only says when the hold ends. A grant
+ * with no recorded date holds indefinitely, which is the safe direction: the
+ * carrier has an extension on file.
+ */
+export function extensionHolds(event: LadderEvent, now: Date, timeZone: string): boolean {
+  if (!event.extension_granted_at) return false;
+  if (!event.extension_expires_on) return true;
+  return event.extension_expires_on >= zonedDateKey(now, timeZone);
+}
+
 export function driverQuietHoursOk(now: Date, timeZone: string): boolean {
   const h = zonedHour(now, timeZone);
   return h >= DRIVER_QUIET_HOURS.startHour && h < DRIVER_QUIET_HOURS.endHour;
@@ -187,7 +205,7 @@ export function evaluateEvent(
 
   // Rungs. Only the current one — a backdated report must not fan out.
   const isRung = (LADDER_RUNGS as readonly number[]).includes(day) || day >= 9;
-  if (isRung) {
+  if (isRung && !extensionHolds(event, now, timeZone)) {
     const firstEvaluatedDay = repairDayInZone(
       event.discovered_at,
       new Date(event.created_at),

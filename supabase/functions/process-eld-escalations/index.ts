@@ -263,7 +263,8 @@ async function handler(req: Request): Promise<Response> {
   let query = admin
     .from('eld_malfunction_events')
     .select(`id, operator_id, discovered_at, created_at, status, repair_deadline,
-      carrier_acknowledged_at, extension_granted_at, escalations_suppressed_until,
+      carrier_acknowledged_at, extension_granted_at, extension_expires_on,
+      escalations_suppressed_until,
       escalations_suppressed_reason, malfunction_code, is_demo,
       operators!inner(id, unit_number, user_id, is_demo)`)
     .eq('status', 'open')
@@ -317,6 +318,7 @@ async function handler(req: Request): Promise<Response> {
       status: e.status,
       carrier_acknowledged_at: e.carrier_acknowledged_at,
       extension_granted_at: e.extension_granted_at,
+      extension_expires_on: e.extension_expires_on,
       escalations_suppressed_until: e.escalations_suppressed_until,
       escalations_suppressed_reason: e.escalations_suppressed_reason,
     };
@@ -334,7 +336,9 @@ async function handler(req: Request): Promise<Response> {
       .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const extensionDeadline = new Date(new Date(e.created_at).getTime() + 5 * 86400000)
       .toLocaleDateString('en-US', { timeZone, month: 'long', day: 'numeric', year: 'numeric' });
-    const link = buildAppUrl(`/management?tab=eld-malfunctions&event=${e.id}`);
+    // The portal reads `?view=`; `?tab=` silently falls through to Overview,
+    // so an escalation notice would never land on the event it is about.
+    const link = buildAppUrl(`/management?view=eld-malfunctions&event=${e.id}`);
 
     // The extension prompt is offered ONCE per event, not once per day: the
     // per-day ledger key would otherwise repeat it every day the window is
@@ -494,7 +498,7 @@ async function deliver(a: DeliverArgs): Promise<{ inserted: number; emailed: num
       type: a.type,
       title: heading,
       body: a.action.reason,
-      link: `/management?tab=eld-malfunctions&event=${a.e.id}`,
+      link: `/management?view=eld-malfunctions&event=${a.e.id}`,
       priority: 'action',
       entity_type: 'eld_malfunction_event',
       entity_id: a.e.id,

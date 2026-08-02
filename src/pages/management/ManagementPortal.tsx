@@ -1947,7 +1947,7 @@ export default function ManagementPortal() {
 
         {view === 'eld-malfunctions' && (
           <div className="space-y-6">
-            <ELDMalfunctionsPanel />
+            <ELDMalfunctionsPanel focusEventId={searchParams.get('event')} />
             <RodsUnlockEventsPanel />
             <RodsStorageHealthCard />
           </div>
