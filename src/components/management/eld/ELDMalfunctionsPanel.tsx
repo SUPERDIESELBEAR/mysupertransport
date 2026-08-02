@@ -420,16 +420,16 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
 }
 
 function DetailPane({
-  row, driverName, busy, onAcknowledge, onLiftPause, onResolve, onPause, onExtend,
+  row, driverName, unitNumber, busy, onAcknowledge, onLiftPause, onResolve, onPause,
 }: {
   row: Row;
   driverName: string;
+  unitNumber: string | null;
   busy: boolean;
   onAcknowledge: () => void;
   onLiftPause: () => void;
   onResolve: () => void;
   onPause: () => void;
-  onExtend: () => void;
 }) {
   const open = row.status === 'open';
   const pause = pauseState(row);
@@ -511,6 +511,8 @@ function DetailPane({
 
       <EscalationTimeline eventId={row.id} />
 
+      <ELDExtensionRequests eventId={row.id} driverName={driverName} unitNumber={unitNumber} />
+
       {open && (
         <div className="flex flex-wrap gap-2">
           {!row.carrier_acknowledged_at && (
@@ -519,11 +521,6 @@ function DetailPane({
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={onResolve}>Resolve</Button>
-          {!row.extension_granted_at && (
-            <Button size="sm" variant="outline" onClick={onExtend}>
-              <CalendarClock className="mr-2 h-3 w-3" /> Record extension
-            </Button>
-          )}
           {pause !== 'paused_active' && (
             <Button size="sm" variant="ghost" onClick={onPause}>
               <BellOff className="mr-2 h-3 w-3" /> Pause escalations
