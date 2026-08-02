@@ -12,6 +12,7 @@ import { repairDayInZone } from '@/lib/eld/repairClock';
 import { ELD_NOTICE_BUCKET } from '@/lib/eld/pendingNotice';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import type { EldMalfunctionEvent } from '@/hooks/useEldMalfunction';
+import ELDExtensionRequestCard from './ELDExtensionRequestCard';
 
 export default function ELDMalfunctionDashboard({
   event,
@@ -95,7 +96,7 @@ export default function ELDMalfunctionDashboard({
         )}
         {extensionGranted && (
           <p className="mt-2 text-sm font-semibold text-muted-foreground">
-            Management recorded a repair extension
+            FMCSA granted a repair extension
             {event.extension_expires_on
               ? ` through ${new Date(`${event.extension_expires_on}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
               : ''}
@@ -103,6 +104,8 @@ export default function ELDMalfunctionDashboard({
           </p>
         )}
       </div>
+
+      <ELDExtensionRequestCard eventId={event.id} />
 
       <div className="rounded-lg border border-border p-4 space-y-2">
         <div className="text-sm font-semibold text-foreground">Malfunction</div>

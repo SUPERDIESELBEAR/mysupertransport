@@ -1458,6 +1458,189 @@ export type Database = {
           },
         ]
       }
+      eld_extension_requests: {
+        Row: {
+          actions_taken: string
+          carrier_legal_name: string
+          carrier_main_office_address: string
+          carrier_mc: string | null
+          carrier_usdot: string
+          created_at: string
+          created_by: string | null
+          device_make: string | null
+          device_model: string | null
+          device_provider: string | null
+          device_serial: string | null
+          discovered_at: string
+          discovered_location: string
+          driver_license_number: string | null
+          driver_license_state: string | null
+          driver_name: string
+          eld_registration_id: string | null
+          event_id: string
+          filer_email: string
+          filer_name: string
+          filer_phone: string
+          filer_title: string
+          fmcsa_division_state: string
+          generated_at: string | null
+          granted_through: string | null
+          id: string
+          is_demo: boolean
+          malfunction_code: string
+          malfunction_description: string
+          operator_id: string
+          pdf_path: string | null
+          repair_deadline: string
+          reported_at: string
+          requested_through: string
+          responded_by: string | null
+          response_date: string | null
+          response_notes: string | null
+          response_reference: string | null
+          response_status_at: string | null
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+          vehicle_unit_number: string | null
+          vehicle_vin: string | null
+          why_extension_needed: string
+        }
+        Insert: {
+          actions_taken: string
+          carrier_legal_name: string
+          carrier_main_office_address: string
+          carrier_mc?: string | null
+          carrier_usdot: string
+          created_at?: string
+          created_by?: string | null
+          device_make?: string | null
+          device_model?: string | null
+          device_provider?: string | null
+          device_serial?: string | null
+          discovered_at: string
+          discovered_location: string
+          driver_license_number?: string | null
+          driver_license_state?: string | null
+          driver_name: string
+          eld_registration_id?: string | null
+          event_id: string
+          filer_email: string
+          filer_name: string
+          filer_phone: string
+          filer_title: string
+          fmcsa_division_state: string
+          generated_at?: string | null
+          granted_through?: string | null
+          id?: string
+          is_demo?: boolean
+          malfunction_code: string
+          malfunction_description: string
+          operator_id: string
+          pdf_path?: string | null
+          repair_deadline: string
+          reported_at: string
+          requested_through: string
+          responded_by?: string | null
+          response_date?: string | null
+          response_notes?: string | null
+          response_reference?: string | null
+          response_status_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+          vehicle_unit_number?: string | null
+          vehicle_vin?: string | null
+          why_extension_needed: string
+        }
+        Update: {
+          actions_taken?: string
+          carrier_legal_name?: string
+          carrier_main_office_address?: string
+          carrier_mc?: string | null
+          carrier_usdot?: string
+          created_at?: string
+          created_by?: string | null
+          device_make?: string | null
+          device_model?: string | null
+          device_provider?: string | null
+          device_serial?: string | null
+          discovered_at?: string
+          discovered_location?: string
+          driver_license_number?: string | null
+          driver_license_state?: string | null
+          driver_name?: string
+          eld_registration_id?: string | null
+          event_id?: string
+          filer_email?: string
+          filer_name?: string
+          filer_phone?: string
+          filer_title?: string
+          fmcsa_division_state?: string
+          generated_at?: string | null
+          granted_through?: string | null
+          id?: string
+          is_demo?: boolean
+          malfunction_code?: string
+          malfunction_description?: string
+          operator_id?: string
+          pdf_path?: string | null
+          repair_deadline?: string
+          reported_at?: string
+          requested_through?: string
+          responded_by?: string | null
+          response_date?: string | null
+          response_notes?: string | null
+          response_reference?: string | null
+          response_status_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+          vehicle_unit_number?: string | null
+          vehicle_vin?: string | null
+          why_extension_needed?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_extension_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_extension_requests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "eld_malfunction_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_extension_requests_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_extension_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_extension_requests_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eld_malfunction_events: {
         Row: {
           backdate_reason: string | null
@@ -6728,6 +6911,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      recompute_eld_extension_projection: {
+        Args: { p_event_id: string }
+        Returns: undefined
       }
       record_rods_purge_storage_result: {
         Args: {

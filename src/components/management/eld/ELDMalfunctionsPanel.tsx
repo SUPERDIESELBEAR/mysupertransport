@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, BellOff, BellRing, CalendarClock, CheckCircle2, Loader2, ShieldAlert,
+  AlertTriangle, BellOff, BellRing, CheckCircle2, Loader2, ShieldAlert,
 } from 'lucide-react';
 import {
   MALFUNCTION_CODE_LABEL, MAX_SUPPRESSION_DAYS, REPAIR_WINDOW_DAYS, repairClockColor,
@@ -22,6 +22,7 @@ import CarrierNotificationRecipients from './CarrierNotificationRecipients';
 import ELDEscalationJobHealth from './ELDEscalationJobHealth';
 import ClocksStrip from './ClocksStrip';
 import EscalationTimeline from './EscalationTimeline';
+import ELDExtensionRequests from './ELDExtensionRequests';
 
 type Row = {
   id: string;
@@ -99,10 +100,6 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
   const [suppressTarget, setSuppressTarget] = useState<Row | null>(null);
   const [suppressReason, setSuppressReason] = useState('');
   const [suppressUntil, setSuppressUntil] = useState('');
-  const [extTarget, setExtTarget] = useState<Row | null>(null);
-  const [extNotes, setExtNotes] = useState('');
-  const [extExpires, setExtExpires] = useState('');
-
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -220,30 +217,6 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
         ? 'Pause ended. The lapse is announced on the next run; rungs resume after that.'
         : 'Pause ends today. The lapse is announced tomorrow; rungs resume after that.',
     );
-    void load();
-  }
-
-  async function grantExtension() {
-    if (!extTarget) return;
-    if (!extNotes.trim()) { toast.error('Record why the extension was granted.'); return; }
-    if (!extExpires) { toast.error('Pick the extended repair date.'); return; }
-    setBusyId(extTarget.id);
-    const { data: userRes } = await supabase.auth.getUser();
-    const nowIso = new Date().toISOString();
-    const { error } = await supabase
-      .from('eld_malfunction_events')
-      .update({
-        extension_requested_at: nowIso,
-        extension_granted_at: nowIso,
-        extension_granted_by: userRes.user?.id ?? null,
-        extension_expires_on: extExpires,
-        extension_notes: extNotes.trim(),
-      })
-      .eq('id', extTarget.id);
-    setBusyId(null);
-    if (error) { toast.error(error.message); return; }
-    setExtTarget(null); setExtNotes(''); setExtExpires('');
-    toast.success('Extension recorded — the filing prompt stops on the next run.');
     void load();
   }
 
@@ -394,11 +367,7 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
               onLiftPause={() => liftPause(selected)}
               onResolve={() => { setResolveTarget(selected); setResolveNotes(''); }}
               onPause={() => { setSuppressTarget(selected); setSuppressReason(''); setSuppressUntil(''); }}
-              onExtend={() => {
-                setExtTarget(selected);
-                setExtNotes('');
-                setExtExpires(selected.extension_expires_on ?? '');
-              }}
+              unitNumber={selected.operators?.unit_number ?? null}
             />
           )}
         </div>
@@ -417,33 +386,6 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
           <DialogFooter>
             <Button variant="outline" onClick={() => setResolveTarget(null)}>Cancel</Button>
             <Button onClick={resolve}>Resolve</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!extTarget} onOpenChange={(o) => !o && setExtTarget(null)}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Record a repair extension</DialogTitle></DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            49 CFR 395.34(d)(2) — the carrier has five days from the driver's report to
-            file. Recording it here stops the filing prompt and ends acknowledgment
-            escalation for this event.
-          </p>
-          <div className="space-y-2">
-            <Label htmlFor="ext-notes">What was filed and with whom (required)</Label>
-            <Textarea id="ext-notes" rows={3} value={extNotes} onChange={(e) => setExtNotes(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ext-expires">Extended repair date</Label>
-            <Input
-              id="ext-expires" type="date" value={extExpires}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setExtExpires(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExtTarget(null)}>Cancel</Button>
-            <Button onClick={grantExtension}>Record extension</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -478,16 +420,16 @@ export default function ELDMalfunctionsPanel({ focusEventId }: { focusEventId?: 
 }
 
 function DetailPane({
-  row, driverName, busy, onAcknowledge, onLiftPause, onResolve, onPause, onExtend,
+  row, driverName, unitNumber, busy, onAcknowledge, onLiftPause, onResolve, onPause,
 }: {
   row: Row;
   driverName: string;
+  unitNumber: string | null;
   busy: boolean;
   onAcknowledge: () => void;
   onLiftPause: () => void;
   onResolve: () => void;
   onPause: () => void;
-  onExtend: () => void;
 }) {
   const open = row.status === 'open';
   const pause = pauseState(row);
@@ -569,6 +511,8 @@ function DetailPane({
 
       <EscalationTimeline eventId={row.id} />
 
+      <ELDExtensionRequests eventId={row.id} driverName={driverName} unitNumber={unitNumber} />
+
       {open && (
         <div className="flex flex-wrap gap-2">
           {!row.carrier_acknowledged_at && (
@@ -577,11 +521,6 @@ function DetailPane({
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={onResolve}>Resolve</Button>
-          {!row.extension_granted_at && (
-            <Button size="sm" variant="outline" onClick={onExtend}>
-              <CalendarClock className="mr-2 h-3 w-3" /> Record extension
-            </Button>
-          )}
           {pause !== 'paused_active' && (
             <Button size="sm" variant="ghost" onClick={onPause}>
               <BellOff className="mr-2 h-3 w-3" /> Pause escalations

@@ -1,63 +1,68 @@
-## Finding 1 — the purge exemption is narrow (no change)
+## Reconciliation finding (unchanged, reported from the code)
 
-`enforce_rods_correction_request_update` permits exactly one thing under `rods.purge`:
+**`eld_malfunction_events.extension_granted_at` is authoritative today; `eld_extension_requests` does not exist.** `rg` finds no reference to the table anywhere and it is absent from the live schema. The ladder's stop condition is `extensionHolds()` in `supabase/functions/_shared/eld/escalationLadder.ts` (144-147) — `if (!event.extension_granted_at) return false;`, with `extension_expires_on` only bounding the hold; its comment names that column as "the single field both sides read". The same column drives the day-3 prompt (227), `ELDMalfunctionDashboard.tsx` (34) and `ClocksStrip.tsx`. The console modal (`ELDMalfunctionsPanel.tsx` 228-240) stamps requested/granted/granted_by/expires/notes in one write from a free-text reason — a grant with no filed request behind it.
 
-```text
-NEW.rods_day_id IS DISTINCT FROM OLD.rods_day_id
-  AND NOT (v_purging AND NEW.rods_day_id IS NULL)
-```
+So: the generator owns `eld_extension_requests`, the event columns stay as the ladder's cached stop condition written only as a projection, and the console modal shrinks to recording FMCSA's response.
 
-That is the `rods_day_id → NULL` transition only, not "any UPDATE under purge": issue text, requester identity, `requested_at`, `operator_id`, `log_date` and `created_at` stay guarded while the flag is on. `rods.purge` is set transaction-locally (`set_config(..., true)`) inside `purge_rods_day`, which refuses any caller that is not service_role, so a client session cannot assert it. Nothing to narrow.
+---
 
-## Finding 2 — `driver_response` is not append-only
+## 1. Table `eld_extension_requests`
 
-`driver_response` appears nowhere in the immutability list. The status machine blocks a second *status* transition once a request leaves `open`, but a driver can UPDATE only the response text on an already-declined request: no status change, so the machine never fires; `is_own_rods_operator` passes; the trigger stamps `updated_at` and returns NEW. The written refusal is silently editable after the fact. Not caused by the purge exemption — the same invariant, missing on the other half of the row.
+One row per filing: `event_id`, `operator_id`, `is_demo` (stamped from the operator), `status` (`draft | submitted | granted | denied | withdrawn`), filer `name/title/phone/email`, the carrier snapshot at filing, the frozen device snapshot copied from the event, `repair_actions`, `why_more_than_8_days`, `requested_through`, both clock anchors frozen at filing (`notification_at`, `discovered_at`), `pdf_path`, `submitted_at`, and the response: `response_text`, `response_date`, `fmcsa_conditions`, `granted_through`.
 
-## SQLSTATE assignment
+**One open request per event.** Reported as asked: yes, it should be constrained. 395.34(d)(2) doesn't cap attempts, so refile-after-denial must stay open, but two *pending* filings on one event is not a real sequence — it is a duplicate filing, and it makes "what did we ask FMCSA for" unanswerable at roadside. A partial unique index on `(event_id) WHERE status IN ('draft','submitted')` permits the denied → refile sequence (a denied row leaves the predicate) while blocking a second filing alongside a pending one. Terminal rows are unconstrained, so an event can accumulate a full filing history.
 
-The correction-request trigger currently reuses `P0072` (assigned to `discard_rods_amendment` = "not an uncertified correction draft", and mapped to the `not_a_draft` condition group in `queue/types.ts`), and `P0073`–`P0075` sit inside the same `P0070` block. Codes in use today: `P0001`–`P0002`, `P0010`–`P0023`, `P0030`–`P0032`, `P0040`–`P0051`, `P0060`–`P0065`, `P0070`–`P0075`, `P0080`–`P0084`, `P0090`–`P0091`.
+§0.2 throughout: RLS on, explicit grants, `policy-grant-parity` coverage, staff write / driver read own submitted-or-later.
 
-Correction requests get their own free block, `P0100`+, and the collision is retired rather than left in place:
+## 2. Projection — recomputed from all requests, never from the written row
 
-| condition | code |
-| --- | --- |
-| request is append-only (identity/issue/provenance edited) | `P0100` |
-| resolution pointer set by hand | `P0101` |
-| only the driver may answer | `P0102` |
-| already resolved | `P0103` |
-| invalid target status | `P0104` |
-| decline without a written response | `P0105` |
-| **driver response revised after it was recorded** | `P0106` |
-| **`resolved_at` altered after it was set** | `P0107` |
+Correction taken. The trigger does **not** project the row being written. On any insert/update/delete of a request for an event it recomputes the event's extension state as a function of the event's whole request set:
 
-`P0072` returns to `discard_rods_amendment` exclusively, so `classifyError` routing on the code alone stays unambiguous.
+- `extension_granted_at` / `_by` / `extension_expires_on` / `extension_notes` come from the **most recent granted request whose `granted_through` has not passed** (in the home terminal timezone, same `zonedDateKey` the ladder uses).
+- Only when no request qualifies are the grant fields cleared.
+- `extension_requested_at` is the earliest `submitted_at` on the event.
 
-## Change
+That makes a denial harmless to a live earlier grant, and makes the outcome independent of the order two rows happen to move through statuses — the recompute reads the same set whichever trigger fires last. Ordering test: grant A, then deny B, then withdraw B, asserting the event's grant fields never flicker.
 
-One migration replacing `enforce_rods_correction_request_update`:
+## 3. The PDF
 
-- Re-code the existing raises to the `P0100` block above.
-- `driver_response` write-once: once `OLD.driver_response` is non-null, any distinct `NEW.driver_response` raises `P0106`. NULL → text stays allowed (the decline path).
-- `resolved_at` immutable once set → `P0107`.
-- Narrow `resolved_by_day_id`: allow `→ NULL` under `rods.purge`, and a real day id only under `rods.privileged`. Purge no longer borrows the broader flag for the null-out.
+`_shared/extensionRequestCore.ts` rendered with pdf-lib, mirroring the `malfunctionNoticeCore` split so browser and edge function produce byte-identical output. Contents:
 
-Client side:
+- Addressed to the FMCSA Division Administrator for the State from `carrier_profile.fmcsa_division_state`.
+- Carrier legal name, USDOT, MC, principal place of business from `carrier_profile` — no constants in the renderer.
+- Filer name, title, phone, email.
+- ELD make, model, serial from the event's frozen `device_make` / `device_model` / `device_serial`; the renderer never joins `eld_devices`.
+- Date and location the malfunction was reported.
+- Repair/replace/service actions; why more than 8 days is needed.
+- Signature block: typed representative name, title, date.
+- Both clocks side by side — discovery and the driver's written notification, with the resulting filing deadline.
+- Demo requests watermarked; no share token minted.
 
-- `src/lib/eld/offline/queue/types.ts` — add `P0100`–`P0107` to `REJECTION_SQLSTATES` with their descriptions; drop `P0072` from any correction-request meaning and leave its `not_a_draft` group membership intact for `discard_rods_amendment`. Add the two new codes to the appropriate condition group (terminal rejection, not retryable).
-- `src/lib/eld/correctionRequests.ts` — `declineCorrectionRequest` surfaces the trigger message rather than a raw error string for the new codes.
-- `docs/database-security-conventions.md` — update the SQLSTATE table and the observed-verbatim list.
+Stored in `eld-notices` under an event-owned path.
 
-## Pinning the new codes (per standing rule)
+## 4. Missing carrier field — a message, not an exception
 
-The verification run is the provocation; its output is what gets registered, not a one-off confirmation:
+Correction taken. `carrier_profile` is a seeded singleton and `fmcsa_division_state` is `NOT NULL DEFAULT 'MO'`, so an absent value is unreachable in practice — which is precisely when a raw failure reads as a broken app. Generation still refuses, but the form shows a plain sentence in the same register as `CARRIER_CACHE_MISSING_MESSAGE`: what is missing, why the request can't be produced without it, and where to set it (Management → Carrier Profile), with the generate button disabled rather than throwing. Applies to any required carrier field, not just the state.
 
-1. Against the demo operator over PostgREST as the driver, UPDATE `driver_response` on a resolved request and UPDATE `resolved_at` on a resolved request. Capture the full `PostgrestError` (`code`, `message`, `details`, `hint`) verbatim from each.
-2. Add both captures as fixtures in `src/lib/eld/offline/__tests__/parityFixtures.test.ts`, in the same shape as the existing rejection fixtures, so `isRejectionSqlState` and the `REJECTION_SQLSTATES` description assertions cover them. Extend the explicit code list in `rowNotWritable.test.ts` to include `P0100`–`P0107`.
-3. Paste the raw JSON envelopes into `docs/database-security-conventions.md` alongside the `P0032` precedent, and move the codes into the "observed verbatim" list.
-4. Also pin the legal decline (NULL → text from `open`) as a fixture, so a future trigger rewrite that over-tightens fails loudly instead of breaking the only path that is supposed to work.
+## 5. Console
 
-## Rest of verification
+- **Open extension request**: form pre-filled from event + carrier profile, saves a `draft`, previews the PDF, **Mark as filed** → `submitted`.
+- Prominent warning past 5 days since `created_at`, using existing `extensionDaysLeft` / `extensionDeadline` — no new clock math.
+- **Record FMCSA response** on a submitted request: granted/denied, response date, response text, conditions, granted-through. The only path that can produce a grant; the current direct-write modal is removed.
 
-- Re-run `purge-path-coverage.test.ts`, `parityFixtures.test.ts`, `rowNotWritable.test.ts` and the RODS suite.
-- Purge a day carrying a correction request: completes, request survives, both pointers nulled.
-- `certify_rods_day` auto-close still sets status/`resolved_at`/`resolved_by_day_id` in one write under `rods.privileged`.
+## 6. Driver dashboard
+
+`submitted` → the filed request with tap-to-open PDF for roadside. `granted` → granted status, through-date, FMCSA conditions, and the day-9 blocking notice gone (already keyed off `extension_granted_at`, now fed only by a recorded response).
+
+## 7. Verification (§9 criteria 9-11), observed not attested
+
+Through the app: generate against a real event whose truck has since been reassigned, read the produced PDF back, confirm every 395.34(d)(2) element and that make/model/serial match the frozen snapshot rather than the current `eld_devices` row. Then the deny-after-grant ordering case, the day-9 suppression flip, the duplicate-pending refusal, and visible demo suppression. Guards run in both directions (§0.1 rule 5).
+
+---
+
+## Technical notes
+
+- Append-only on the request body once `submitted` (filer, carrier, device snapshot, clock anchors, both narrative fields); only response fields and forward status moves are writable. Fresh SQLSTATE block `P0110`+ (next free after the correction-request `P0100`-`P0107`), registered in `REJECTION_SQLSTATES` and the §6 table, each observed verbatim over PostgREST before any fixture asserts it.
+- No new clock; `repairClock.ts` and `escalationLadder.ts` remain the single source.
+- The event's extension columns stay as a cache rather than being migrated away — ladder, dashboard and clocks strip all read them. The invariant is that the recompute trigger is their only writer.
+- Existing manufactured grants will be reported, not backfilled into synthetic requests.
