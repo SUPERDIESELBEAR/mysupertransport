@@ -245,7 +245,135 @@ function duplicatesIn(list: readonly string[]): string[] {
   return [...dupes].sort();
 }
 
+/**
+ * Live SECURITY DEFINER functions pinned to `public` alone that exist in NO
+ * migration file, so definer-search-path.test.ts cannot see them and its
+ * allowlist cannot cover them.
+ *
+ * WHAT AN ENTRY HERE MEANS. Not merely "public-only pin" — that is the
+ * low-severity defect the other allowlist tracks. It means an object that is
+ * in the database and in none of our migrations: created, altered, or granted
+ * OUT OF BAND. That fact is the thing to explain before exempting it, because
+ * it is the same shape as the 2026-08-01 incident. `handle_new_user()` has a
+ * reason — it is Supabase's own auth hook, which our migration set does not
+ * author. The next one may not. "It showed up live" is not a justification.
+ *
+ * THIS LIST MAY ONLY SHRINK, same ratchet as everything else here: it is a
+ * list of exemptions, so it has that property whether or not it is stated,
+ * and without a checked-in maximum the next out-of-band public-only function
+ * can be quietly appended during a red-test fix rather than investigated.
+ */
+const LIVE_ONLY_PUBLIC_PINS: readonly string[] = [
+  "public.handle_new_user()",
+];
+
+const LIVE_ONLY_PUBLIC_PINS_MAX = 1;
+
+/*
+ * THE OUT-OF-BAND INVENTORY, as of 2026-08-02.
+ *
+ * Five SECURITY DEFINER functions are live in `public` and appear in no
+ * migration. Recorded so the next diff between the two guards is a known
+ * delta rather than a surprise:
+ *
+ *   email_queue_dispatch()               search_path=""            compliant
+ *   email_queue_wake()                   search_path=""            compliant
+ *   handle_new_user()                    search_path=public        exempt below
+ *   resolve_officer_packet_token(uuid)   search_path=public, extensions
+ *   resolve_share_token(uuid)            search_path=public, extensions
+ *
+ * The empty-string pin on the two email_queue_* functions is STRONGER than
+ * `public, extensions`, not weaker: nothing resolves unqualified. The check
+ * below must therefore match on "the pin contains public and not extensions",
+ * never on "the pin lacks extensions", which would sweep these in.
+ */
+
+/** `public.has_role(uuid,app_role)` and `public.has_role(uuid, public.app_role)` compare equal. */
+function normalizeSignature(sig: string): string {
+  const lower = sig.trim().toLowerCase();
+  const open = lower.indexOf("(");
+  if (open === -1) return lower;
+  const name = lower.slice(0, open);
+  const args = lower.slice(open + 1, lower.lastIndexOf(")"));
+  const parts = args
+    .split(",")
+    .map((a) => a.trim().replace(/^public\./, ""))
+    .filter(Boolean);
+  return `${name}(${parts.join(",")})`;
+}
+
 describe("live SECURITY DEFINER catalog (pg_proc)", () => {
+  it("the live-only public-pin exemption list may only shrink", () => {
+    expect(
+      LIVE_ONLY_PUBLIC_PINS.length,
+      `LIVE_ONLY_PUBLIC_PINS has ${LIVE_ONLY_PUBLIC_PINS.length} entries but ` +
+        `LIVE_ONLY_PUBLIC_PINS_MAX is ${LIVE_ONLY_PUBLIC_PINS_MAX}. Growing it ` +
+        `means exempting another object that exists outside the migration set — ` +
+        `explain that first.`,
+    ).toBeLessThanOrEqual(LIVE_ONLY_PUBLIC_PINS_MAX);
+    expect(
+      duplicatesIn(LIVE_ONLY_PUBLIC_PINS),
+      "duplicate entries in LIVE_ONLY_PUBLIC_PINS",
+    ).toEqual([]);
+  });
+
+  it.runIf(HAS_DB)(
+    "every live public-only pin is accounted for by the file-based guard",
+    () => {
+      // WHY THIS EXISTS. The check below it asserts only the absence of a pin.
+      // Nothing asserted anything about public-ONLY pins live, which is how the
+      // file guard and this one could drift apart silently: the file guard's
+      // allowlist could shrink because a function was repinned, or because the
+      // resolver stopped seeing it, and both read identical from here.
+      //
+      // Reconciled 2026-08-02: 139 signatures shared, zero class
+      // disagreements. This test is what keeps that a checked property.
+      const livePublicOnly = psql(`
+        SELECT 'public.' || p.oid::regprocedure::text
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.prosecdef
+          AND EXISTS (
+            SELECT 1 FROM unnest(p.proconfig) c
+            WHERE c LIKE 'search_path=%'
+              AND c ~ '(^|[=,[:space:]])public([,[:space:]]|$)'
+              AND c !~ 'extensions'
+          )
+        ORDER BY 1;
+      `);
+
+      // Meta-assertion: a query that matches nothing would make this test pass
+      // by describing an empty world. There are known public-only pins.
+      expect(
+        livePublicOnly.length,
+        "found zero live public-only pins — the query stopped matching, " +
+          "it did not become true",
+      ).toBeGreaterThan(0);
+
+      const accounted = new Set([
+        ...LEGACY_PUBLIC_ONLY_PINS.map((e) =>
+          normalizeSignature(e.slice(e.indexOf("::") + 2)),
+        ),
+        ...LIVE_ONLY_PUBLIC_PINS.map(normalizeSignature),
+      ]);
+
+      const unaccounted = livePublicOnly.filter(
+        (sig) => !accounted.has(normalizeSignature(sig)),
+      );
+
+      expect(
+        unaccounted,
+        `Live SECURITY DEFINER functions pinned to "public" alone that neither ` +
+          `guard knows about. Either the function is in a migration and the file ` +
+          `guard's resolver is not seeing it — which means that guard is ` +
+          `describing a database that does not exist — or the object was created ` +
+          `out of band, in which case find out by whom before adding it to ` +
+          `LIVE_ONLY_PUBLIC_PINS:\n  ${unaccounted.join("\n  ")}`,
+      ).toEqual([]);
+    },
+  );
+
   it("the allowlist may only shrink", () => {
     expect(KNOWN_ANON_EXECUTABLE.length).toBeLessThanOrEqual(
       KNOWN_ANON_EXECUTABLE_MAX,
