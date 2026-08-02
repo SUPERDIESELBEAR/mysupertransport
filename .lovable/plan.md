@@ -1,85 +1,55 @@
-## Consumers of the completeness predicate
+## Part 1 — E: rename to `LogSyncBanner`, three states
 
-`isComplete` in `rodsTypes.ts` is RODS-specific and has three client consumers. The other `isComplete` hits in the grep (`PipelineDashboard`, `OperatorDetailPanel`, `OperatorStatusPage`, `OnboardingChecklist`, `PEScreeningTimeline`) are unrelated local variables in the onboarding surfaces — different predicate, not touched.
+Move `src/components/operator/rods/StalledLogBanner.tsx` to `LogSyncBanner.tsx`, update the two imports (`RodsDayEditor.tsx:30`, `RodsView.tsx:27`) and both call sites (`:381`, `:200`). The component's job becomes "report this day's sync state" — honest about all three things it reports rather than one of them.
 
-**Display counts only:**
+States:
 
-1. `useRodsDays:42` → `completeCount` / `reconstructionComplete`. Consumed at `RodsView:187` to show or hide the amber "Reconstruction incomplete" panel and its "N of 8 days still need a log" line.
-2. `ReconstructionWizard:36` → progress bar and "N of 8 days complete".
+- **stalled** — existing copy, `AlertTriangle`, unlock affordance. Unchanged.
+- **rejected** — existing copy for a recognised SQLSTATE; new plain copy for an unrecognised one (item D), carrying the code.
+- **confirmed** — the office has the log. Green, one affordance: dismiss.
 
-Both are counters. Syncing counts as complete in both, for the reason given: the driver signed it.
+**`confirmed` is dismissed explicitly, and only explicitly.** No timer, no mount-marks-itself-seen, no scroll heuristic. It appears when the cached day flips from locally-locked-and-unsynced to server-certified — the queue drained — and it stays there, across reloads and across sessions, until the driver taps to dismiss. `sync_confirmed_seen_at` is written to the day's Dexie cache entry at that tap and nowhere else; once written the banner never returns for that day. A driver who was driving when the queue drained finds the confirmation waiting for him, which is the case that justified the banner over a toast in the first place.
 
-**One state-ish consumer:**
+The docblock gets one sentence so the next person doesn't reimplement "seen":
 
-3. `ReconstructionWizard:88` keys the per-day button off `chip.state`: `complete` → **View**, `in_progress` → **Continue**, `needed` → **Fill in this day**. Not a lock — the editor's own `day.locked` decides editability — but the label is a promise. A locally-certified day is locked on the device, so **View** is correct for `syncing`; **Continue** would offer an edit the editor will refuse.
+> The confirmed state is cleared by an explicit dismiss tap only — never by a timer, a mount, or a visibility heuristic — because a driver whose queue drained while he was driving must find the confirmation still there when he next opens the app.
 
-`RodsView:195` "Reconstruct my logs" is gated only by `!reconstructionComplete`, i.e. by the same counter. Nothing else unlocks a next step, closes the wizard, or suppresses a prompt on this predicate. The wizard closes on the driver's back action, not on completion.
+Steady state for a certified day is still no banner, so the failure states don't inherit blindness from a green row nobody reads.
 
-**Fourth consumer, server-side, and it does gate a prompt:**
+## Part 2 — `test:guards`, and what it honestly is
 
-`supabase/functions/rods-certification-reminders/index.ts:93-107` computes its own `completeCount` from Postgres — `status === 'certified'` — and branches: reconstruction incomplete → `rods_reconstruction_reminder`; otherwise → "Your paper log for {date} is not certified yet."
+The query-lint column checks are inside `postgrestEmbeds.test.ts` (`it('selects no column that does not exist on the table it is read from')`, line 183, alongside the FK-hop check at 212 and the regression pin at 243). There is no separate fifth suite — four files.
 
-This job cannot see `local_certified_at`; it reads the database only. So a driver whose certification is still in the queue is, from the job's side, uncertified. In the normal case the queue drains in seconds and this never fires. In the stalled case it does: the driver gets nagged to certify a log he signed and that the office refused.
+`package.json`:
 
-That is a real defect but it is **not** the one under repair here, and it should not be fixed by teaching the job about device state — it can't have that state. The right answer is that a stalled day is already surfaced by `StalledLogBanner` and its `eld_sync_alerts` row, so the office knows; the reminder is redundant noise rather than a wrong instruction. The plan adds an inline comment at `supabase/functions/rods-certification-reminders/index.ts` around line 93 with that reasoning, so the next person editing the job sees it before rediscovering it.
+```
+"test:guards": "vitest run src/test/definer-search-path.test.ts src/test/policy-grant-parity.test.ts src/lib/__tests__/postgrestEmbeds.test.ts src/test/definer-live-catalog.test.ts"
+```
 
-## Chip precedence
+`docs/database-security-conventions.md`, a section above the numbered rules rather than inside one:
 
-Confirmed and specified: failure ranks above syncing. `rodsChip` gains its states in this order, first match wins:
+> **Post-migration step.** Every turn that authors a migration ends by running `npm run test:guards` in that same turn. Not before a commit — before the turn ends, because the turn is the unit of work that exists here.
 
-1. `sync_rejected` — the office refused this log. Red, action wording, and the code from item D carried through so dispatch has something to quote.
-2. `sync_stalled` — signed here, sync chain went terminal. Amber, matching the `StalledLogBanner` already on the page.
-3. `syncing` — locally certified, server row not yet `certified`. Green, "Certified — signed on this device, syncing".
-4. Server `certified` — plain "Certified" / "On file (ELD log)".
-5. `draft` → "In progress"; absent → "Needed".
+And, as its own observation in that section:
 
-A rejected or stalled day is still **complete** for the counters — the driver signed it and cannot un-sign it, so it does not belong in "N days still need a log", and the failure banner is what asks him to act. `chip.state` for both is `complete`, so the wizard button reads **View**. The distinction lives in the label and colour, which is where the driver reads it.
+> **These guards do not run on their own.** `definer-search-path`, `policy-grant-parity` and the column/embed checks in `postgrestEmbeds` were each written after a class of silent failure had already shipped, each is correct, and none is wired to anything that runs automatically. There is no CI, there are no git hooks, and git is platform-managed — so there is nowhere to hang them. That is a structural property of this setup, not a lapse by whoever wrote them. Do not assume a green session means they ran.
 
-## The work
+Plus a project-memory entry so the step survives into sessions that never open the doc. This does not remove the memory dependency; it reduces it to one command tied to one trigger, and writes down that the guards are manual.
 
-### A. Live-RPC certification test, both arms
+## Part 3 — the rest, as approved
 
-New DB-backed test, `PGHOST`-gated, with a boxed skip banner in the same register as `definer-live-catalog.test.ts` — naming this file, saying the certification write path was not exercised, and saying a green run without it is not evidence.
+- **A** — rewrite `src/test/rods-live-certification.test.ts`: PGHOST-gated loud skip banner in the `definer-live-catalog` shape; provisions and tears down its own operator fixture instead of the production identities it has been using; both arms (initial certification, superseding amendment); asserts four distinct non-zero derived-total buckets so a call that returns but records nothing fails; `duty_status` as integers 1–4 per Rule 6; `BEGIN … ROLLBACK` kept as a second line of defence rather than the only one.
+- **B** — header comment on `serverGuardOutcome` in `parityFixtures.test.ts`: models certify's guard sequence, does not represent the write arm, acceptance is proved by A.
+- **C** — confirm `runner.ts` reads `deterministic` for the shortened attempt allowance (`classify.ts:87` already sets it); extend `retryBudget.test.ts` to pin the 429/5xx/transport arm as unchanged. Class, alert kind and `markDayStalled` untouched — only the delay narrows.
+- **D** — recognised SQLSTATE keeps its `REJECTION_SQLSTATES` copy; unrecognised gets plain copy carrying the code: the office did not accept the log, it was not the driver's mistake, contact dispatch. Rendered by `LogSyncBanner`'s rejected state.
+- **E overlay half** — confirm `useRodsDays` and `useRodsDay` overlay `rods_days_cache` onto the Postgres rows on every consumer path. The five-way chip precedence, `isComplete`, and the removal of the `navigator.onLine` branch are already landed.
+- **F** — Rule 6 already in the doc. No edit.
+- **G** — code comment at `supabase/functions/rods-certification-reminders/index.ts:93`: reads Postgres only, cannot see `local_certified_at`, will remind a driver about a log he has already signed when the queue is stalled, not fixable inside the job, and `LogSyncBanner` plus the `eld_sync_alerts` row already cover it. No `docs/open-items.md`.
 
-- *Original arm.* One keyed day, segments tiling 1440, all 12 header fields, real legal name. Assert `status = 'certified'`, locked, legal name recorded, and the four totals matching the segments.
-- *Amendment arm.* Certify, build a correction draft, amend, certify again. Assert the totals recompute on the amendment row, the original flips to `superseded`, and both land in one transaction.
+## Verification
 
-Segments chosen so all four buckets are distinct and non-zero. Provisions and tears down its own operator and days.
+`npm run test:guards`, plus the ELD suites touched (`retryBudget`, `parityFixtures`, `displayCopy`, `classify`) and the rewritten `rods-live-certification`. `PGHOST` is set here so the live arms actually run; elsewhere the banner prints and the file is not evidence.
 
-### B. Mirror comment in the parity file
+## Then — resume the §4 walkthrough at step 2
 
-Header comment on `serverGuardOutcome` in `parityFixtures.test.ts`: it models certify's guard sequence, it does not represent the write arm, and acceptance is proved by the live test in A.
-
-### C. Split server class by HTTP status
-
-`classifyError` returns `deterministic: true` alongside `server` for an unrecognised 4xx; the runner reads it to pick a short attempt allowance instead of the full `SERVER_ATTEMPT_LIMIT`. 5xx, 429 and transport failures are unchanged. Class, alert kind, and `markDayStalled` are unchanged — the flag narrows only the delay before a human sees it.
-
-### D. Certify failure must speak
-
-- Recognised SQLSTATE in `REJECTION_SQLSTATES`: existing rejection copy.
-- Unrecognised: plain copy saying the office did not accept the log, that it was not the driver's mistake, and to contact dispatch — carrying the code.
-
-### E. One event, one sentence — and the second affirmative moment
-
-- Delete the `navigator.onLine` branch at `RodsDayEditor.tsx:272`. One string for the local commit: signed and locked on this device, on its way to the office.
-- `useRodsDays` overlays the Dexie `rods_days_cache` (`local_certified_at`, `unsynced`, `sync_stalled`, `sync_rejected`) onto the Postgres rows; `rodsChip` gains the five-way precedence above. `RodsDayStrip`, `ReconstructionWizard` and `RodsDayEditor` all read `rodsChip`, so all three pick the states up without further change.
-- Second affirmative moment when the `certify_rods_day` entry succeeds — the office has the log on file — delivered on the same surface as D's failure copy.
-- `isComplete` treats `syncing`, `stalled` and `rejected` as complete, per the reasoning above.
-
-### F. Conventions line
-
-`rods_events.duty_status` is `integer` 1–4 matching the federal form's line numbering (1 off duty, 2 sleeper, 3 driving, 4 on duty). `dutyStatusLabel()` is the only mapping. SQL comparing it to `'off_duty'`/`'driving'` raises 22P02 at runtime — nothing catches it statically.
-
-### G. Inline comment in the reminder job
-
-Add a comment at `supabase/functions/rods-certification-reminders/index.ts` around line 93 where `completeCount` is computed from `status === 'certified'`. It states: this job reads Postgres only, cannot see `local_certified_at`, so a driver whose certification is stalled in the queue will be reminded to certify a log he already signed; not fixable inside the job; `StalledLogBanner` and `eld_sync_alerts` already surface the case to the driver and office.
-
-## Then
-
-Resume the §4 walkthrough at step 2 — staff correction request, bell render assertion, amend and decline paths, the offline no-op replay, the policy audit, cleanup. HARNESS-1 and the `2026-08-01` demo day stay until then.
-
-## Technical notes
-
-- The overlay is a `rods_days_cache` read keyed by `log_date`, merged over the server rows; `StalledLogBanner` and `CorrectionRequestBanner` already use that table.
-- `rodsChip`'s `eld_document` branch is untouched — uploads certify on the driver's own ELD and never enter this queue.
-- `RodsChipState` keeps the new failure states as labels only, but all failure states map to `state: 'complete'` so the existing three-way button logic keeps working.
+Against HARNESS-1 and the 2026-08-01 demo day: raise the staff correction request and confirm it reaches the driver's bell, drive the amend path to auto-close, drive the decline path, replay an offline certify entry and assert the auto-close is a no-op, audit that management roles stay read-only on RODS data, then clean up the harness and the demo day.
