@@ -111,8 +111,14 @@ const OBSERVED: ObservedRejection[] = [
  * 200 with the row still present on the follow-up select: there is no DELETE
  * policy on eld_extension_requests, so RLS filters the row out and the trigger
  * never runs — the same shape as the locked-day no-op delete. P0114 is a
- * backstop for definer/purge paths only. Treat it as unreachable from any
- * client session until a run observes it.
+ * backstop only. Treat it as unreachable from any client session until a run
+ * observes it.
+ *
+ * P0114 also carries one narrow exemption, added after this run: a demo
+ * sandbox row (is_demo = true) may be deleted at any status, because the demo
+ * reset deletes eld_malfunction_events and the FK cascades here. Without it a
+ * filed demo request would make reset-demo-driver fail outright. Real filings
+ * (is_demo = false) remain undeletable by every role and path.
  */
 const OBSERVED_DELETE_NOOP = { http: 200, rows_deleted: 0, row_still_present: true } as const;
 
