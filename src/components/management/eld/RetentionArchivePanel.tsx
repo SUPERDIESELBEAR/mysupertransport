@@ -82,7 +82,7 @@ export default function RetentionArchivePanel() {
           .map((o) => ({
             id: o.id,
             unit: o.unit_number,
-            name: formatProfileName(names[o.user_id ?? '']) || `Unit ${o.unit_number ?? '—'}`,
+            name: formatProfileName(names.get(o.user_id ?? ''), `Unit ${o.unit_number ?? '—'}`),
           }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
