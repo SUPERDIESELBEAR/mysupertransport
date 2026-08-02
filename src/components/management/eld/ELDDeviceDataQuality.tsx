@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Database, Loader2 } from 'lucide-react';
+import { fetchProfileNames, formatProfileName, ProfileName } from '@/lib/profileNames';
 
 type ModelRow = { id: string; provider_name: string; device_make: string; device_model: string };
 
@@ -14,7 +15,9 @@ type DeviceRow = {
   eld_device_model_id: string | null;
   serial_number: string | null;
   truck_number: string | null;
-  operators?: { unit_number: string | null; profiles?: { first_name: string | null; last_name: string | null } | null } | null;
+  operators?: { unit_number: string | null; user_id: string | null } | null;
+  /** Joined by a second read — operators has no FK to profiles. */
+  driver?: ProfileName | null;
 };
 
 function isMalformed(d: DeviceRow) {
@@ -35,7 +38,7 @@ export default function ELDDeviceDataQuality() {
     const [{ data, error }, { data: modelData }] = await Promise.all([
       supabase
         .from('eld_devices')
-        .select('id, operator_id, eld_device_model_id, serial_number, truck_number, operators!inner(unit_number, profiles(first_name, last_name))')
+        .select('id, operator_id, eld_device_model_id, serial_number, truck_number, operators!inner(unit_number, user_id)')
         .eq('is_active', true),
       supabase
         .from('eld_device_models')
@@ -45,7 +48,12 @@ export default function ELDDeviceDataQuality() {
     ]);
     if (error) toast.error(error.message);
     setModels((modelData as ModelRow[]) ?? []);
-    setRows(((data as unknown as DeviceRow[]) ?? []).filter(isMalformed));
+    const malformed = ((data as unknown as DeviceRow[]) ?? []).filter(isMalformed);
+    const names = await fetchProfileNames(malformed.map((d) => d.operators?.user_id));
+    for (const d of malformed) {
+      d.driver = d.operators?.user_id ? names.get(d.operators.user_id) ?? null : null;
+    }
+    setRows(malformed);
     setLoading(false);
   }, []);
 
@@ -70,10 +78,7 @@ export default function ELDDeviceDataQuality() {
     void load();
   }
 
-  const name = (r: DeviceRow) => {
-    const p = r.operators?.profiles;
-    return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Driver';
-  };
+  const name = (r: DeviceRow) => formatProfileName(r.driver);
 
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
