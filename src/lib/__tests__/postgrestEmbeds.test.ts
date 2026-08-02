@@ -24,25 +24,33 @@ function loadSchema() {
   for (const m of text.matchAll(/^ {6}([a-z0-9_]+): \{$/gm)) tables.add(m[1]);
 
   // foreignKeyName blocks carry the owning table implicitly (they appear inside
-  // it), so walk linearly and track the most recent table header.
+  // it), so walk linearly and track the most recent table header. `byColumn`
+  // lets us resolve embeds written against the FK column name
+  // (`operator:operator_id(...)`) rather than the table name.
   const fks = new Set<string>();
+  const byColumn = new Map<string, string>();
   let current: string | null = null;
+  let columns: string[] = [];
   for (const line of text.split('\n')) {
     const t = /^ {6}([a-z0-9_]+): \{$/.exec(line);
     if (t) { current = t[1]; continue; }
+    const c = /columns: \["([a-z0-9_]+)"\]/.exec(line);
+    if (c) { columns = [c[1]]; continue; }
     const r = /referencedRelation: "([a-z0-9_]+)"/.exec(line);
     if (r && current) {
       fks.add(`${current}>${r[1]}`);
       fks.add(`${r[1]}>${current}`); // embeds resolve in both directions
+      if (columns[0]) byColumn.set(`${current}.${columns[0]}`, r[1]);
+      columns = [];
     }
   }
-  return { tables, fks };
+  return { tables, fks, byColumn };
 }
 
 type Hop = { parent: string; child: string };
 
 /** Walk a select string's paren tree, yielding each parent -> child embed hop. */
-function parseHops(select: string, root: string, tables: Set<string>): Hop[] {
+function parseHops(select: string, root: string, tables: Set<string>, byColumn: Map<string, string>): Hop[] {
   const hops: Hop[] = [];
   const stack: string[] = [root];
   let token = '';
@@ -52,14 +60,17 @@ function parseHops(select: string, root: string, tables: Set<string>): Hop[] {
       // Strip modifiers: alias:table!inner, table!left, table!fk_name
       const raw = token.split(',').pop()!.trim();
       const named = raw.includes(':') ? raw.split(':').pop()!.trim() : raw;
-      const name = named.split('!')[0].trim();
-      // Only a known table opening a nested field list is an embed; anything
-      // else is a column or an aggregate like count().
-      if (tables.has(name)) {
-        hops.push({ parent: stack[stack.length - 1], child: name });
+      const token2 = named.split('!')[0].trim();
+      const parent = stack[stack.length - 1];
+      // An embed can be written as the table name, or as the FK column that
+      // points at it (`operator:operator_id(...)`). Anything else is a plain
+      // column or an aggregate like count().
+      const name = tables.has(token2) ? token2 : byColumn.get(`${parent}.${token2}`);
+      if (name) {
+        hops.push({ parent, child: name });
         stack.push(name);
       } else {
-        stack.push(stack[stack.length - 1]);
+        stack.push(parent);
       }
       token = '';
     } else if (ch === ')') {
@@ -85,19 +96,22 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-// .from('table') … .select('literal') — the `…` allows chained calls in between.
-const QUERY = /\.from\(\s*['"]([a-z0-9_]+)['"]\s*\)([\s\S]{0,1500}?)\.select\(\s*(['"`])([\s\S]*?)\3/g;
+// .from('table') … .select('literal'). The gap must not swallow another query:
+// without excluding `.from(`/`.select(` the regex pairs one statement's table
+// with a later statement's select and reports phantom hops.
+const QUERY = /\.from\(\s*['"]([a-z0-9_]+)['"]\s*\)((?:(?!\.from\(|\.select\()[\s\S]){0,400}?)\.select\(\s*(['"`])([\s\S]*?)\3/g;
 // A .select() whose argument is not a plain literal (a variable, a template with
 // ${}) can't be checked statically.
 const DYNAMIC = /\.select\(\s*[^'"`)]/g;
 
 describe('PostgREST embeds resolve across real foreign keys', () => {
-  const { tables, fks } = loadSchema();
+  const { tables, fks, byColumn } = loadSchema();
 
   it('parses the generated schema', () => {
     expect(tables.size).toBeGreaterThan(50);
     expect(fks.has('operators>applications')).toBe(true);
     expect(fks.has('operators>profiles')).toBe(false);
+    expect(byColumn.get('onboard_assignment_sheets.operator_id')).toBe('operators');
   });
 
   it('has no embed across a table pair with no foreign key', () => {
@@ -112,7 +126,7 @@ describe('PostgREST embeds resolve across real foreign keys', () => {
         const [root, select] = [m[1], m[4]];
         if (select.includes('${')) { skipped++; continue; }
         const line = text.slice(0, m.index!).split('\n').length;
-        for (const hop of parseHops(select, root, tables)) {
+        for (const hop of parseHops(select, root, tables, byColumn)) {
           checked++;
           if (!fks.has(`${hop.parent}>${hop.child}`)) {
             failures.push(
