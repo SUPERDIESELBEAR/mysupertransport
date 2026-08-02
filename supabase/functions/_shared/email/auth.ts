@@ -60,7 +60,13 @@ export interface StaffAuth {
   userId: string;
   email: string;
   roles: StaffRole[];
-  /** Service-role client, ready for RLS-bypassing DB work. */
+  /**
+   * Service-role client, ready for RLS-bypassing DB work. NOTE: `auth.uid()`
+   * is NULL on this client — any SECURITY DEFINER function that gates on
+   * `auth.uid()` (or records it) must be called on a caller-built client
+   * carrying `authHeader`, or the gate silently returns false / the column
+   * silently goes null instead of raising.
+   */
   supabase: SupabaseClient;
   /** Auth header string passed by the caller, for onward invoke() calls. */
   authHeader: string;

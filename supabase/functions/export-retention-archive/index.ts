@@ -31,6 +31,14 @@ const PART_CEILING_BYTES = 40 * 1024 * 1024
  * Hard ceiling on the REQUEST, not the file. A merge that runs out of memory
  * mid-assembly produces a truncated federal record, which is worse than a
  * refusal. At ~300 KB a certified day this is roughly a driver-year.
+ *
+ * UNMEASURED FLOOR, not a tuned value. That ~300 KB comes from the only chain
+ * this export has been exercised against: attachment-free generated days —
+ * zero rods_events, no scanned source document, no display sibling, no photo.
+ * That is the cheapest case there is. A day whose original was a scanned
+ * upload can be an order of magnitude larger, which would blow the 40 MB part
+ * ceiling long before 400 records. Re-derive both numbers from a mixed sample
+ * that includes scanned documents and photos before treating either as tuned.
  */
 const MAX_ARTIFACTS = 400
 

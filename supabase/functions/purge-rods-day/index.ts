@@ -24,7 +24,10 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
   const auth = await requireStaff(req, { roles: ['management', 'owner'] })
   if (auth instanceof Response) return auth
-  const { supabase } = auth
+  // `requireStaff` hands back a SERVICE-ROLE client, so `auth.uid()` is null
+  // inside `purge_rods_day`. The human's id is passed explicitly as
+  // `_actor_id` so the purge audit row attributes to a person.
+  const { supabase, userId } = auth
 
   let body: { dayIds?: unknown; reason?: unknown }
   try {
@@ -56,6 +59,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       // Required. The SQL function cannot remove objects itself, so the caller
       // must name itself as the party that will.
       _storage_owner: 'purge-rods-day edge function',
+      _actor_id: userId,
     })
     if (error) {
       results.push({ day_id: dayId, purged: false, error: error.message })
