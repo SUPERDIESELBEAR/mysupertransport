@@ -47,11 +47,11 @@ function noteStringFallback(message: string): void {
  * for a human instead of firing the duplicate alarm at a driver whose day
  * certified perfectly.
  */
-export function classifyError(err: unknown): { klass: SyncErrorClass; message: string } {
+export function classifyError(err: unknown): { klass: SyncErrorClass; message: string; deterministic?: boolean } {
   // Checked first: a RowNotWritableError carries no status and no SQLSTATE, so
   // every branch below would misread it.
   if (isRowNotWritable(err)) {
-    return { klass: 'row_not_writable', message: ROW_NOT_WRITABLE_MESSAGE };
+    return { klass: 'row_not_writable', message: ROW_NOT_WRITABLE_MESSAGE, deterministic: true };
   }
 
   const message = err instanceof Error ? err.message : String(err ?? 'Unknown error');
@@ -59,12 +59,12 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
 
   // Authoritative path: a class-P0 SQLSTATE from the database names the
   // refusal exactly, with no text parsing.
-  if (isRejectionSqlState(extractSqlState(err))) return { klass: 'rejected', message };
+  if (isRejectionSqlState(extractSqlState(err))) return { klass: 'rejected', message, deterministic: true };
 
   for (const marker of Object.values(REJECTION_MARKERS)) {
     if (message.includes(marker)) {
       noteStringFallback(message);
-      return { klass: 'rejected', message };
+      return { klass: 'rejected', message, deterministic: true };
     }
   }
 
@@ -76,13 +76,15 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
     || lower.includes('has already been replaced')
   ) {
     noteStringFallback(message);
-    return { klass: 'rejected', message };
+    return { klass: 'rejected', message, deterministic: true };
   }
 
   const status = extractStatus(err);
   if (status !== null) {
     if (status === 429 || status >= 500) return { klass: 'network', message };
-    if (status >= 400) return { klass: 'server', message };
+    // 4xx that is not a named rejection above is a deterministic server answer:
+    // repeating it will produce the same answer, so park it quickly.
+    if (status >= 400) return { klass: 'server', message, deterministic: true };
   }
 
   if (
@@ -97,7 +99,7 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
     return { klass: 'network', message };
   }
 
-  return { klass: 'server', message };
+  return { klass: 'server', message, deterministic: true };
 }
 
 function extractStatus(err: unknown): number | null {

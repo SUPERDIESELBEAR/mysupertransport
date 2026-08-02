@@ -51,7 +51,8 @@ export default function RodsDayEditor({
   onChanged: () => void;
 }) {
   const {
-    day, segments, setSegments, loading, saving, reload, patchHeader, flushPendingHeader, saveSegments,
+    day, segments, setSegments, loading, saving, reload, localCertifiedAt, syncState,
+    patchHeader, flushPendingHeader, saveSegments,
   } = useRodsDay({ operatorId, logDate, defaults, autoCreate: true, isReconstruction });
 
   const [activeLocalId, setActiveLocalId] = useState<string | null>(null);
@@ -88,8 +89,13 @@ export default function RodsDayEditor({
     return <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>;
   }
 
-  const chip = rodsChip(day);
-  const locked = day.locked;
+  const chip = rodsChip({
+    ...day,
+    local_certified_at: localCertifiedAt,
+    sync_rejected: syncState.sync_rejected,
+    sync_stalled: syncState.sync_stalled,
+  });
+  const locked = day.locked || !!localCertifiedAt;
   const isDocument = day.record_source === 'eld_document';
 
   function copyYesterday() {
@@ -269,11 +275,10 @@ export default function RodsDayEditor({
         token: (certifyToken.current ??= crypto.randomUUID()),
         changes,
       });
-      toast.success(
-        navigator.onLine
-          ? 'Log certified.'
-          : 'Log signed and locked on this device. It will reach the office when you have a signal.',
-      );
+      // The queue is the sole writer. Online and offline are the same path;
+      // they differ only in how fast the queue drains. The chip will read
+      // "Signed on this device, syncing" until the office confirms it.
+      toast.success('Log signed and locked on this device. It will reach the office when you have a signal.');
       certifyToken.current = null;
       setCertifyOpen(false);
       onChanged();

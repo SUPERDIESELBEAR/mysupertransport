@@ -1,0 +1,176 @@
+/**
+ * Live RPC certification test — the database is the authority.
+ *
+ * Pass A built `certify_rods_day` and its offline counterpart. Pass B fixed the
+ * 22P02 integer/string mismatch. This test runs the live function as the
+ * authenticated driver, end-to-end, with a real transaction that rolls back.
+ *
+ * It covers the two arms that matter: a clean initial certification, and a
+ * superseding amendment that replaces it. Both must succeed, not just return.
+ *
+ * WHEN THIS FILE SKIPS, IT SAYS SO LOUDLY.
+ */
+import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+
+const HAS_DB = Boolean(process.env.PGHOST);
+
+if (!HAS_DB) {
+  console.warn(
+    [
+      '',
+      '  ############################################################',
+      '  #  rods-live-certification.test.ts DID NOT RUN             #',
+      '  #                                                          #',
+      '  #  No PGHOST in the environment. The live certification      #',
+      '  #  RPC could not be exercised. A green run without this      #',
+      '  #  file is not evidence that certify_rods_day works.       #',
+      '  ############################################################',
+      '',
+    ].join('\n'),
+  );
+}
+
+function psql(sql: string): string {
+  return execFileSync('psql', ['-qAt', '-c', sql], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function psqlJson(sql: string): unknown {
+  const out = psql(sql);
+  return out ? JSON.parse(out) : null;
+}
+
+const describeLive = HAS_DB ? describe : describe.skip;
+
+describeLive('certify_rods_day live RPC', () => {
+  it('certifies a clean initial draft and supersedes it with an amendment', () => {
+    // Pick a real driver to avoid writing to auth.users from a non-superuser
+    // connection. The transaction is rolled back at the end, so no production
+    // row is permanently modified.
+    const userId = 'd7a8e212-6a68-40ad-969a-cfb15f7ef5aa';
+    const operatorId = '82fb0f40-e9f1-47ad-83ec-cbaafea3bf05';
+    const logDate = '2030-01-01';
+    const token1 = '11111111-1111-1111-1111-111111111111';
+    const token2 = '22222222-2222-2222-2222-222222222222';
+
+    const result = psqlJson(`
+BEGIN;
+
+DO $$
+DECLARE
+  v_cert jsonb;
+BEGIN
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', '${userId}', 'role', 'authenticated')::text, true);
+
+  INSERT INTO public.rods_days (
+    id, operator_id, log_date, record_source, status, locked, is_reconstructed,
+    supersedes_day_id, amendment_reason, carrier_name, carrier_usdot, carrier_mc,
+    main_office_address, home_terminal_address, home_terminal_timezone,
+    truck_number, total_miles_driving_today, from_location, to_location,
+    co_driver_name, shipping_document_no, period_start_time,
+    total_off_duty_minutes, total_sleeper_minutes, total_driving_minutes, total_on_duty_minutes,
+    pdf_path, certification_signature_path, certified_at, certification_legal_name,
+    created_at, updated_at
+  ) VALUES (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '${operatorId}', '${logDate}',
+    'keyed', 'draft', false, false,
+    null, null, 'SuperTransport Inc', '1234567', 'MC-123456',
+    '123 Main St, Springfield, MO', '456 Depot Rd, Springfield, MO', 'America/Chicago',
+    'TRUCK-01', 100, 'Springfield, MO', 'Joplin, MO',
+    'None', 'SHIP-12345', '00:00:00',
+    1440, 0, 0, 0,
+    null, null, null, null,
+    now(), now()
+  );
+
+  INSERT INTO public.rods_events (
+    id, rods_day_id, start_minute, end_minute, duty_status, city, state, remarks, is_short_period
+  ) VALUES (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    0, 1440, 1, 'Off-Duty', 'XX', 'Rest day', false
+  );
+
+  -- Arm 1: initial certification.
+  v_cert := public.certify_rods_day(
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'Marcus Mueller',
+    'sigs/initial.png',
+    'pdfs/initial.pdf',
+    'live-test',
+    '${token1}'::uuid,
+    '[]'::jsonb,
+    '{}'::jsonb
+  );
+  IF (v_cert->>'status') IS NULL THEN
+    RAISE EXCEPTION 'Initial certification returned null: %', v_cert;
+  END IF;
+
+  -- Arm 2: superseding amendment.
+  INSERT INTO public.rods_days (
+    id, operator_id, log_date, record_source, status, locked, is_reconstructed,
+    supersedes_day_id, amendment_reason, carrier_name, carrier_usdot, carrier_mc,
+    main_office_address, home_terminal_address, home_terminal_timezone,
+    truck_number, total_miles_driving_today, from_location, to_location,
+    co_driver_name, shipping_document_no, period_start_time,
+    total_off_duty_minutes, total_sleeper_minutes, total_driving_minutes, total_on_duty_minutes,
+    pdf_path, certification_signature_path, certified_at, certification_legal_name,
+    created_at, updated_at
+  ) VALUES (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc', '${operatorId}', '${logDate}',
+    'keyed', 'draft', false, false,
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Added missing co-driver', 'SuperTransport Inc', '1234567', 'MC-123456',
+    '123 Main St, Springfield, MO', '456 Depot Rd, Springfield, MO', 'America/Chicago',
+    'TRUCK-01', 100, 'Springfield, MO', 'Joplin, MO',
+    'Jane Smith', 'SHIP-12345', '00:00:00',
+    1440, 0, 0, 0,
+    null, null, null, null,
+    now(), now()
+  );
+
+  INSERT INTO public.rods_events (
+    id, rods_day_id, start_minute, end_minute, duty_status, city, state, remarks, is_short_period
+  ) VALUES (
+    'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    0, 1440, 1, 'Off-Duty', 'XX', 'Rest day', false
+  );
+
+  v_cert := public.certify_rods_day(
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    'Marcus Mueller',
+    'sigs/amendment.png',
+    'pdfs/amendment.pdf',
+    'live-test',
+    '${token2}'::uuid,
+    jsonb_build_array(
+      jsonb_build_object('field_path', 'co_driver_name', 'old_value', 'None', 'new_value', 'Jane Smith')
+    ),
+    '{}'::jsonb
+  );
+  IF (v_cert->>'status') IS NULL THEN
+    RAISE EXCEPTION 'Amendment certification returned null: %', v_cert;
+  END IF;
+END $$;
+
+SELECT jsonb_build_object(
+  'original_status', (SELECT status FROM public.rods_days WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'original_locked', (SELECT locked FROM public.rods_days WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'amendment_status', (SELECT status FROM public.rods_days WHERE id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  'amendment_locked', (SELECT locked FROM public.rods_days WHERE id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  'amendment_count', (SELECT count(*) FROM public.rods_amendments WHERE original_day_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')
+);
+
+ROLLBACK;
+    `) as Record<string, unknown>;
+
+    expect(result.original_status).toBe('superseded');
+    expect(result.original_locked).toBe(true);
+    expect(result.amendment_status).toBe('certified');
+    expect(result.amendment_locked).toBe(true);
+    expect(result.amendment_count).toBe(1);
+  });
+});

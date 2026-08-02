@@ -89,6 +89,12 @@ Deno.serve(async (req) => {
       .lte('log_date', local.date);
 
     const rows = days ?? [];
+    // BLIND SPOT: this query only sees the server-side rods_days row. It does
+    // not see device-local state from the offline queue (local_certified_at,
+    // sync_rejected, sync_stalled) in IndexedDB. A driver who has signed and
+    // locked a log on their phone but has not yet synced will still receive the
+    // reminder until the queue uploads. Fixing this requires a server-side
+    // heartbeat or sync-state event; do not assume the row is the whole truth.
     const completeDates = new Set(
       rows.filter((r) => r.status === 'certified').map((r) => r.log_date as string),
     );

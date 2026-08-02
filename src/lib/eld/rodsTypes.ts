@@ -85,6 +85,12 @@ export interface RodsDay {
    */
   is_demo?: boolean;
 
+  /** Device-local state overlaid by `useRodsDays`. Server rows never set these. */
+  local_certified_at?: string | null;
+  unsynced?: boolean;
+  sync_rejected?: boolean;
+  sync_stalled?: boolean;
+
   created_at: string;
   updated_at: string;
 }
@@ -200,10 +206,18 @@ export function newLocalRodsDay(input: NewLocalRodsDayInput): RodsDay {
 }
 
 /**
- * Three states only. "Already on file" was removed — it was always the same
- * state as complete, just a different label.
+ * Five states. Failure states rank above `syncing` because a signed day that
+ * hit a terminal error is not "in progress" — it needs the driver or office
+ * to act. `syncing` means the driver signed on this device and the office has
+ * not yet confirmed the write.
  */
-export type RodsChipState = 'needed' | 'in_progress' | 'complete';
+export type RodsChipState =
+  | 'needed'
+  | 'in_progress'
+  | 'syncing'
+  | 'stalled'
+  | 'rejected'
+  | 'complete';
 
 export interface RodsChip {
   state: RodsChipState;
@@ -213,8 +227,17 @@ export interface RodsChip {
 
 export function rodsChip(day: RodsDay | null | undefined): RodsChip {
   if (!day) return { state: 'needed', label: 'Needed', color: '#C0392B' };
+  if (day.sync_rejected) {
+    return { state: 'rejected', label: 'Rejected — contact dispatch', color: '#C0392B' };
+  }
+  if (day.sync_stalled) {
+    return { state: 'stalled', label: 'Stalled — contact dispatch', color: '#E08A2E' };
+  }
+  if (day.local_certified_at && day.status !== 'certified') {
+    return { state: 'syncing', label: 'Signed on this device, syncing', color: '#2E7D4F' };
+  }
   if (day.status === 'draft') return { state: 'in_progress', label: 'In progress', color: '#E08A2E' };
-  // Storage state is 'certified' for both. The label differs by record_source:
+  // Server state is 'certified' for both. The label differs by record_source:
   // uploads were certified on the driver's own ELD, not in SUPERDRIVE.
   return day.record_source === 'eld_document'
     ? { state: 'complete', label: 'On file (ELD log)', color: '#2E7D4F' }
@@ -222,7 +245,14 @@ export function rodsChip(day: RodsDay | null | undefined): RodsChip {
 }
 
 export function isComplete(day: RodsDay | null | undefined): boolean {
-  return rodsChip(day).state === 'complete';
+  // A signed day counts as complete for reconstruction counters and for the
+  // "View" label, because the driver cannot edit it anymore. Failure states
+  // are also complete: the signature happened, even if the office did not
+  // receive it. (The chip tells the driver the office side failed.)
+  const chip = rodsChip(day);
+  if (chip.state === 'complete') return true;
+  if (chip.state === 'syncing' || chip.state === 'stalled' || chip.state === 'rejected') return true;
+  return false;
 }
 
 /**
