@@ -55,7 +55,18 @@ DROP FUNCTION public.purge_rods_day(uuid, text);
 
 ## `certify_rods_day(uuid,text,text,text,text,uuid,jsonb)` — the seven-argument overload
 
-**Deploy timestamp:** ______ (fill on deploy)
+**Deploy timestamp:** UNCONFIRMED as of 2026-08-02. The blank cannot be filled
+from the database: across all of `rods_days`, every certified row has
+`certification_signature_validation IS NULL` (latest `certified_at`
+2026-08-01T22:31:53Z), so not one certification through the eight-argument
+path has been observed. Fill this from the deploy record when the bundle ship
+time is known — a timestamp back-derived from data or git history is a guess,
+not the moment the old argument set stopped being issued.
+
+**Drain check has an empty numerator.** The only certified rows in the table
+were the `is_demo` scratch days, purged 2026-08-02. Until real certifications
+accumulate, the query below returns zeros for both columns and proves nothing;
+the removal trigger stays unmet.
 
 **Where:** database function
 `public.certify_rods_day(_day_id uuid, _legal_name text, _signature_path text,
