@@ -158,6 +158,14 @@ export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0105: 'declining a correction request requires a written response',
   P0106: 'correction request response revised after it was recorded',
   P0107: 'correction request resolution time changed after it was set',
+  // enforce_eld_extension_request_write. A 395.34(d)(2) filing is a federal
+  // record: once filed, its body and FMCSA's answer are frozen.
+  P0110: 'extension request revised after it was filed',
+  P0111: 'extension request status moved along an illegal path',
+  P0112: 'granted extension recorded with no through-date',
+  P0113: 'FMCSA response recorded with no date or text',
+  P0114: 'filed extension request deleted',
+  P0115: 'extension response time changed after it was set',
 } as const;
 
 export function isRejectionSqlState(code: string | null): boolean {
@@ -182,7 +190,9 @@ export const CONDITION_GROUPS: Readonly<Record<string, readonly string[]>> = {
   already_resolved: ['P0103'],
   // Write-once fields on an append-only compliance record. Terminal: a retry
   // of the same write can never succeed.
-  append_only_record: ['P0100', 'P0101', 'P0106', 'P0107'],
+  append_only_record: ['P0100', 'P0101', 'P0106', 'P0107', 'P0110', 'P0114', 'P0115'],
+  // Server-side refusals a re-file can satisfy but a replay never can.
+  extension_filing_invalid: ['P0111', 'P0112', 'P0113'],
 } as const;
 
 export function conditionGroupFor(code: string | null): string | null {
