@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:guards": "vitest run src/test/definer-search-path.test.ts src/test/policy-grant-parity.test.ts src/test/postgrestEmbeds.test.ts src/lib/eld/offline/__tests__/parityFixtures.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
