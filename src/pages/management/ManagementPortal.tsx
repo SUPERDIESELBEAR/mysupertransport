@@ -217,8 +217,15 @@ export default function ManagementPortal() {
   // Initial state was already seeded from the URL by the lazy useState above.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const urlView = params.get('view') as ManagementView | null;
+    const hasExplicitView = !!urlView && ALLOWED_VIEWS.includes(urlView);
     const op = params.get('op') ?? params.get('operator');
-    if (op) {
+    // `op` is an operator marker, not a destination. Screens other than the
+    // driver profile read it too — Driver Logs (RODS) takes `?view=eld-logs&op=…`
+    // straight from a staff notification — so an explicit `?view=` wins and the
+    // operator id is left for that screen to consume. Without this guard every
+    // eld-logs deep link that named a driver landed on the profile instead.
+    if (op && !hasExplicitView) {
       setSelectedOperatorId(op);
       setView('operator-detail');
     }
@@ -269,7 +276,10 @@ export default function ManagementPortal() {
     }
     const next = new URLSearchParams(window.location.search);
     if (view && view !== 'overview') next.set('view', view); else next.delete('view');
-    if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId); else next.delete('op');
+    // eld-logs consumes `op` as well; stripping it there made a refresh on a
+    // deep-linked driver log lose the driver.
+    if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId);
+    else if (view !== 'eld-logs') next.delete('op');
     if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
     const current = window.location.search.replace(/^\?/, '');
     if (next.toString() !== current) {
