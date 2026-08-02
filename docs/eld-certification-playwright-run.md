@@ -376,3 +376,136 @@ assert distinctness beside their length check and report the duplicated
 entries by name — `KNOWN_ANON_EXECUTABLE` and `KNOWN_AUTHENTICATED_EXECUTABLE`
 here, and `LEGACY_PUBLIC_ONLY_PINS` in `definer-search-path.test.ts`, which
 already had the check. No entry and no MAX changed: 58, 66, and 104 stand.
+
+---
+
+## §4 walkthrough — steps 3A through 7 (demo operator, HARNESS-1)
+
+Driver: Marcus Mueller, operator `ee993ec0-e0a2-4d0f-aa05-6d22eb931405`, all
+rows `is_demo = true`. The driver half of every step below ran under a real
+driver JWT minted through `create-preview-session` → `redeem-preview-session`
+→ `/auth/v1/verify`, not through a service key — the point of the exercise is
+what the driver's own role can and cannot do.
+
+### Step 3A — a second certified day, deliberately unlike the first
+
+2026-07-31 was keyed and certified so that no later assertion can pass by
+matching the 2026-08-01 row. Every header field differs, and the segment shape
+differs in count and in status mix:
+
+| | 2026-07-31 `cda56ea8` | 2026-08-01 `b64f2429` |
+| --- | --- | --- |
+| Truck / trailer | 2214 / TRL-8802 | 1900 / TRL-4417 |
+| Shipping doc | BOL-77341 | BOL-99120 |
+| From → to | Springfield, MO → Little Rock, AR | Pleasant Hill, MO → Tulsa, OK |
+| Miles driving | 287 | 412 |
+| Co-driver | D. Whitfield | None |
+| Segments | 6 | 5 |
+| Off / sleeper / driving / on duty | 375 / 330 / 645 / 90 | 0 / 480 / 420 / 540 |
+
+`certify_rods_day` returned `replayed: false`, `status: certified`,
+`locked: true`, `supersedes_day_id: null` — a first-issue certification, not an
+amendment, and it carries no `rods_amendments` rows.
+
+### Step 4 — correction request raised and declined
+
+Raised by the owner against the 2026-07-31 log (request `09ee2d9f`), asking
+whether the 12:15–13:00 meal break was really off duty. The driver read it
+through his own policy (`is_own_rods_operator`), then declined with a written
+response.
+
+Result: `status = declined`, `driver_response` recorded, `resolved_at` set,
+`resolved_by_day_id` **null** — a decline resolves the request without
+attributing it to a superseding log. The 2026-07-31 record stayed `certified`
+and `locked`, unchanged: declining is an answer, not an edit.
+
+The 2026-08-01 chain was left untouched as the actioned example — request
+`a97cf4b8` still `actioned` with `resolved_by_day_id = b64f2429`.
+
+### Step 5 — replay is idempotent, and tokens are bound to their log
+
+- Re-calling `certify_rods_day` with `b64f2429`'s own certification token
+  returned `replayed: true` and `certified_at` unchanged at
+  `2026-08-02 13:02:24` — the original certification instant, not a new one.
+- Presenting 2026-07-31's token against the 2026-08-01 day was refused with
+  `P0013 rods_token_day_mismatch`. A token is not a generic retry ticket.
+
+### Step 6 — the certified record is immutable to the only role with write policies
+
+Policy audit. Across `rods_days`, `rods_events`, `rods_amendments` and
+`rods_unlock_events`, staff hold **read policies only** — there is no staff
+write path to RODS data at all. Every driver write policy carries
+`locked = false` in its `USING` clause (and, for event inserts, in
+`WITH CHECK`).
+
+Behavioural gate, run under the driver session against `cda56ea8`
+(`locked = true`):
+
+| Attempt | Result |
+| --- | --- |
+| Update day header (`truck_number`) | HTTP 200, **0 rows** |
+| Set `locked = false` | HTTP 200, **0 rows** |
+| Set `status = 'draft'` | HTTP 200, **0 rows** |
+| Delete the day | HTTP 200, **0 rows** |
+| Update a segment | HTTP 200, **0 rows** |
+| Delete a segment | HTTP 200, **0 rows** |
+| Insert a new segment | HTTP 500 `P0044` — refused by trigger |
+
+Zero rows and no error is the shape that matters: the row is invisible to the
+write, so there is nothing to fail. Afterwards the day still read
+`truck_number = 2214`, `status = certified`, `locked = true`, 6 segments.
+Inserts are the one case that cannot be silent — there is no existing row for
+RLS to filter — so the trigger refuses them out loud.
+
+Under the owner session, update and delete against the same day and its
+segments also affected 0 rows, and an attempted `rods_amendments` insert was
+refused `42501`. Amendment rows are written only by `certify_rods_day`.
+
+### Step 7 — state at snapshot, then ordered purge
+
+Three `rods_days` rows existed at snapshot — the amendment pair on 2026-08-01
+plus the new 2026-07-31 day:
+
+| Log date | Id | Status | Supersedes | Segments | Amendments | Storage |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-31 | `cda56ea8` | certified | — | 6 | 0 | none |
+| 2026-08-01 | `689eb664` | superseded | — | 3 | 4 (as original) | pdf + signature |
+| 2026-08-01 | `b64f2429` | certified | `689eb664` | 5 | 4 (as amendment) | pdf + signature |
+
+Correction requests: `a97cf4b8` (2026-08-01, actioned, resolved by `b64f2429`)
+and `09ee2d9f` (2026-07-31, declined, driver response recorded).
+
+Purge order is not free: `rods_days.supersedes_day_id` and
+`rods_amendments.original_day_id` both point at the original and neither is
+deferrable, so the amendment goes first — `b64f2429`, then `689eb664`, then
+`cda56ea8`.
+
+**The purge found a bug.** `b64f2429` purged cleanly, taking its PDF and
+signature with it. The next two failed with
+`P0072 A correction request is append-only; only the driver's response may be
+recorded.`
+
+Cause: `rods_correction_requests.rods_day_id` and `resolved_by_day_id` are both
+`ON DELETE SET NULL`, so deleting a log arrives at the request table as an
+`UPDATE`. `enforce_rods_correction_request_update` treated any change to
+`rods_day_id` as tampering and aborted — which meant **any log that had ever
+had a correction request raised against it could not be purged at all**. The
+`resolved_by_day_id` leg was already exempt under `rods.privileged`, which is
+why `b64f2429` (the resolving log) got through and the two *referenced* logs
+did not.
+
+The trigger now also honours `rods.purge`, the flag `purge_rods_day` already
+sets, and only for nulling `rods_day_id`. Everything else stands: the issue
+text, requester, requested_at, log_date and `is_demo` remain immutable, only
+the driver may answer, and `resolved_by_day_id` still cannot be set by hand.
+
+Final state after the ordered purge:
+
+- `rods_days`, `rods_events`, `rods_amendments` for the demo operator: **0 rows**.
+- Storage: all four objects removed, none failed.
+- Three `rods_day_purged` audit rows written, each carrying the reason, the
+  pre-purge status, and its storage disposition.
+- Both correction requests **survive** with their day pointers nulled —
+  `a97cf4b8` still `actioned`, `09ee2d9f` still `declined` with the driver's
+  written response intact. The purge removes the record of duty status, not the
+  paper trail of what was asked about it.
