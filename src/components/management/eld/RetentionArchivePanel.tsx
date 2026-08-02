@@ -41,14 +41,14 @@ type OperatorOption = { id: string; name: string; unit: string | null };
 
 const TYPE_LABEL: Record<string, string> = {
   rods_day: 'Duty-status log',
-  malfunction_event: 'Malfunction event',
-  malfunction_notice: 'Malfunction notice',
-  extension_request: 'FMCSA extension request',
+  eld_malfunction_event: 'Malfunction event',
+  eld_malfunction_notice: 'Malfunction notice',
+  eld_extension_request: 'FMCSA extension request',
   officer_packet: 'Officer packet',
   share_token_access: 'Share-token access',
-  unlock_event: 'Authorized unlock',
-  amendment: 'Amendment',
-  correction_request: 'Correction request',
+  rods_unlock_event: 'Authorized unlock',
+  rods_amendment: 'Amendment',
+  rods_correction_request: 'Correction request',
 };
 
 const STATUS_OPTIONS = ['certified', 'draft', 'superseded', 'open', 'granted', 'denied'];
