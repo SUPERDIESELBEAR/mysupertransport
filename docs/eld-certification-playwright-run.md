@@ -479,3 +479,33 @@ Purge order is not free: `rods_days.supersedes_day_id` and
 `rods_amendments.original_day_id` both point at the original and neither is
 deferrable, so the amendment goes first — `b64f2429`, then `689eb664`, then
 `cda56ea8`.
+
+**The purge found a bug.** `b64f2429` purged cleanly, taking its PDF and
+signature with it. The next two failed with
+`P0072 A correction request is append-only; only the driver's response may be
+recorded.`
+
+Cause: `rods_correction_requests.rods_day_id` and `resolved_by_day_id` are both
+`ON DELETE SET NULL`, so deleting a log arrives at the request table as an
+`UPDATE`. `enforce_rods_correction_request_update` treated any change to
+`rods_day_id` as tampering and aborted — which meant **any log that had ever
+had a correction request raised against it could not be purged at all**. The
+`resolved_by_day_id` leg was already exempt under `rods.privileged`, which is
+why `b64f2429` (the resolving log) got through and the two *referenced* logs
+did not.
+
+The trigger now also honours `rods.purge`, the flag `purge_rods_day` already
+sets, and only for nulling `rods_day_id`. Everything else stands: the issue
+text, requester, requested_at, log_date and `is_demo` remain immutable, only
+the driver may answer, and `resolved_by_day_id` still cannot be set by hand.
+
+Final state after the ordered purge:
+
+- `rods_days`, `rods_events`, `rods_amendments` for the demo operator: **0 rows**.
+- Storage: all four objects removed, none failed.
+- Three `rods_day_purged` audit rows written, each carrying the reason, the
+  pre-purge status, and its storage disposition.
+- Both correction requests **survive** with their day pointers nulled —
+  `a97cf4b8` still `actioned`, `09ee2d9f` still `declined` with the driver's
+  written response intact. The purge removes the record of duty status, not the
+  paper trail of what was asked about it.
