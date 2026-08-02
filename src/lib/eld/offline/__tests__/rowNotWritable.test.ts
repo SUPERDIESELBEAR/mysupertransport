@@ -69,6 +69,7 @@ describe('SQLSTATE scheme', () => {
     for (const code of [
       'P0042', 'P0043', 'P0044', 'P0050', 'P0051',
       'P0070', 'P0071', 'P0072', 'P0080', 'P0081', 'P0082', 'P0083', 'P0084',
+      'P0100', 'P0101', 'P0102', 'P0103', 'P0104', 'P0105', 'P0106', 'P0107',
     ]) {
       expect(REJECTION_SQLSTATES[code], code).toBeTruthy();
     }
