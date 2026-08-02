@@ -47,24 +47,44 @@ function noteStringFallback(message: string): void {
  * for a human instead of firing the duplicate alarm at a driver whose day
  * certified perfectly.
  */
-export function classifyError(err: unknown): { klass: SyncErrorClass; message: string; deterministic?: boolean } {
+export interface ClassifiedError {
+  klass: SyncErrorClass;
+  message: string;
+  deterministic?: boolean;
+  /**
+   * The SQLSTATE, or `HTTP <status>` when there is no SQLSTATE. Carried so the
+   * driver-facing banner can quote it for a refusal this client does not know
+   * by name.
+   */
+  code?: string | null;
+  /** True when the refusal matched a named rejection (SQLSTATE or marker). */
+  recognized?: boolean;
+}
+
+export function classifyError(err: unknown): ClassifiedError {
   // Checked first: a RowNotWritableError carries no status and no SQLSTATE, so
   // every branch below would misread it.
   if (isRowNotWritable(err)) {
-    return { klass: 'row_not_writable', message: ROW_NOT_WRITABLE_MESSAGE, deterministic: true };
+    return {
+      klass: 'row_not_writable', message: ROW_NOT_WRITABLE_MESSAGE,
+      deterministic: true, code: null, recognized: true,
+    };
   }
 
   const message = err instanceof Error ? err.message : String(err ?? 'Unknown error');
   const lower = message.toLowerCase();
+  const sqlState = extractSqlState(err);
 
   // Authoritative path: a class-P0 SQLSTATE from the database names the
   // refusal exactly, with no text parsing.
-  if (isRejectionSqlState(extractSqlState(err))) return { klass: 'rejected', message, deterministic: true };
+  if (isRejectionSqlState(sqlState)) {
+    return { klass: 'rejected', message, deterministic: true, code: sqlState, recognized: true };
+  }
 
   for (const marker of Object.values(REJECTION_MARKERS)) {
     if (message.includes(marker)) {
       noteStringFallback(message);
-      return { klass: 'rejected', message, deterministic: true };
+      return { klass: 'rejected', message, deterministic: true, code: sqlState, recognized: true };
     }
   }
 
@@ -76,15 +96,20 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
     || lower.includes('has already been replaced')
   ) {
     noteStringFallback(message);
-    return { klass: 'rejected', message, deterministic: true };
+    return { klass: 'rejected', message, deterministic: true, code: sqlState, recognized: true };
   }
 
   const status = extractStatus(err);
   if (status !== null) {
-    if (status === 429 || status >= 500) return { klass: 'network', message };
+    if (status === 429 || status >= 500) return { klass: 'network', message, code: `HTTP ${status}` };
     // 4xx that is not a named rejection above is a deterministic server answer:
     // repeating it will produce the same answer, so park it quickly.
-    if (status >= 400) return { klass: 'server', message, deterministic: true };
+    if (status >= 400) {
+      return {
+        klass: 'server', message, deterministic: true,
+        code: sqlState ?? `HTTP ${status}`, recognized: false,
+      };
+    }
   }
 
   if (
@@ -96,10 +121,10 @@ export function classifyError(err: unknown): { klass: SyncErrorClass; message: s
     || lower.includes('timed out')
     || (typeof navigator !== 'undefined' && navigator.onLine === false)
   ) {
-    return { klass: 'network', message };
+    return { klass: 'network', message, code: sqlState };
   }
 
-  return { klass: 'server', message, deterministic: true };
+  return { klass: 'server', message, deterministic: true, code: sqlState, recognized: false };
 }
 
 function extractStatus(err: unknown): number | null {

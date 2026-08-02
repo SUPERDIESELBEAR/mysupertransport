@@ -8,6 +8,14 @@
  * It covers the two arms that matter: a clean initial certification, and a
  * superseding amendment that replaces it. Both must succeed, not just return.
  *
+ * FIXTURE RULE — read before editing. This test resolves its own subject at
+ * runtime: a DEMO operator (`operators.is_demo = true`). It must never name a
+ * real driver. An earlier revision hardcoded a production driver's user_id and
+ * operator_id; certifying against a real operator is the shape that puts a
+ * scratch federal record on a working driver's account, and the rollback is the
+ * SECOND line of defence, not the first. If no demo operator exists, this test
+ * FAILS rather than falling back to a live identity.
+ *
  * WHEN THIS FILE SKIPS, IT SAYS SO LOUDLY.
  */
 import { describe, expect, it } from 'vitest';
@@ -45,13 +53,59 @@ function psqlJson(sql: string): unknown {
 
 const describeLive = HAS_DB ? describe : describe.skip;
 
+interface DemoFixture {
+  operator_id: string;
+  user_id: string;
+  legal_name: string;
+  is_demo: boolean;
+}
+
+/**
+ * The subject of every arm below. Demo-only by construction: the WHERE clause
+ * is the guard, and an empty result is a failure, never a fallback.
+ */
+/** Single-quote a value for inline SQL. Fixture data only. */
+function sqlLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function resolveDemoFixture(): DemoFixture {
+  const row = psqlJson(`
+SELECT jsonb_build_object(
+  'operator_id', o.id,
+  'user_id', o.user_id,
+  'legal_name', trim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')),
+  'is_demo', o.is_demo
+)
+FROM public.operators o
+JOIN public.profiles p ON p.user_id = o.user_id
+WHERE o.is_demo = true AND o.user_id IS NOT NULL
+ORDER BY o.id
+LIMIT 1;
+  `) as DemoFixture | null;
+
+  if (!row?.operator_id || !row.user_id || !row.is_demo) {
+    throw new Error(
+      'No demo operator available. This test refuses to certify against a live driver — ' +
+      'provision a demo driver (is_demo = true) and re-run.',
+    );
+  }
+  return row;
+}
+
 describeLive('certify_rods_day live RPC', () => {
+  it('resolves a demo operator as its subject, never a live driver', () => {
+    const fixture = resolveDemoFixture();
+    expect(fixture.operator_id).toBeTruthy();
+    expect(fixture.user_id).toBeTruthy();
+    expect(fixture.is_demo).toBe(true);
+  });
+
   it('certifies a clean initial draft and supersedes it with an amendment', () => {
-    // Pick a real driver to avoid writing to auth.users from a non-superuser
-    // connection. The transaction is rolled back at the end, so no production
-    // row is permanently modified.
-    const userId = 'd7a8e212-6a68-40ad-969a-cfb15f7ef5aa';
-    const operatorId = '82fb0f40-e9f1-47ad-83ec-cbaafea3bf05';
+    // Own fixture, resolved live. The connection cannot write auth.users, so
+    // the subject is an existing DEMO operator — an account that exists to be
+    // written to — rather than a working driver. Rollback still wraps it.
+    const { user_id: userId, operator_id: operatorId, legal_name: legalName } = resolveDemoFixture();
     const logDate = '2030-01-01';
     const token1 = '11111111-1111-1111-1111-111111111111';
     const token2 = '22222222-2222-2222-2222-222222222222';
@@ -97,7 +151,7 @@ BEGIN
   -- Arm 1: initial certification.
   v_cert := public.certify_rods_day(
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    'Marcus Mueller',
+    ${sqlLiteral(legalName)},
     'sigs/initial.png',
     'pdfs/initial.pdf',
     'live-test',
@@ -141,7 +195,7 @@ BEGIN
 
   v_cert := public.certify_rods_day(
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    'Marcus Mueller',
+    ${sqlLiteral(legalName)},
     'sigs/amendment.png',
     'pdfs/amendment.pdf',
     'live-test',

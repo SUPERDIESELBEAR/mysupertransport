@@ -33,6 +33,12 @@ export interface PutCachedDayInput {
   local_certified_at: string | null;
   sync_rejected: boolean;
   sync_stalled: boolean;
+  /** SQLSTATE (or `HTTP <status>`) behind a terminal failure, when known. */
+  sync_failure_code?: string | null;
+  /** True when the refusal matched a rejection this client knows by name. */
+  sync_failure_recognized?: boolean;
+  /** Set only by the driver's dismiss tap. See markSyncConfirmedSeen. */
+  sync_confirmed_seen_at?: string | null;
   cached_at?: string;
 }
 
@@ -47,13 +53,28 @@ export function cachedDayRecord(input: PutCachedDayInput): RodsDayCacheEntry {
     local_certified_at: input.local_certified_at,
     sync_rejected: input.sync_rejected,
     sync_stalled: input.sync_stalled,
+    sync_failure_code: input.sync_failure_code ?? null,
+    sync_failure_recognized: input.sync_failure_recognized ?? false,
+    sync_confirmed_seen_at: input.sync_confirmed_seen_at ?? null,
     cached_at: input.cached_at ?? new Date().toISOString(),
   };
 }
 
 /** Write one cached day. Safe inside an open Dexie transaction. */
 export async function putCachedDay(input: PutCachedDayInput): Promise<RodsDayCacheEntry> {
-  const record = cachedDayRecord(input);
+  // Carried forward, never re-stated by every caller: these three describe
+  // what already happened to this day (a terminal failure, the driver's
+  // acknowledgement), not what the caller is writing. A hydration put that
+  // omitted them would silently resurrect a dismissed confirmation.
+  const existing = await roadsideDb.rods_days_cache.get(input.log_date);
+  const record = cachedDayRecord({
+    ...input,
+    sync_failure_code: input.sync_failure_code ?? existing?.sync_failure_code ?? null,
+    sync_failure_recognized:
+      input.sync_failure_recognized ?? existing?.sync_failure_recognized ?? false,
+    sync_confirmed_seen_at:
+      input.sync_confirmed_seen_at ?? existing?.sync_confirmed_seen_at ?? null,
+  });
   await roadsideDb.rods_days_cache.put(record);
   return record;
 }
@@ -232,7 +253,9 @@ export function isLocallyCertified(entry: RodsDayCacheEntry | undefined | null):
  * and inventing a row here would fabricate a federal record.
  */
 export async function markDayStalled(
-  logDate: string, which: 'stalled' | 'rejected',
+  logDate: string,
+  which: 'stalled' | 'rejected',
+  detail?: { code: string | null; recognized: boolean },
 ): Promise<void> {
   const existing = await roadsideDb.rods_days_cache.get(logDate);
   if (!existing) return;
@@ -240,6 +263,29 @@ export async function markDayStalled(
     ...existing,
     sync_stalled: which === 'stalled' ? true : existing.sync_stalled,
     sync_rejected: which === 'rejected' ? true : existing.sync_rejected,
+    // First terminal answer wins: a later cancellation must not overwrite the
+    // code that actually explains why the day is stuck.
+    sync_failure_code: existing.sync_failure_code ?? detail?.code ?? null,
+    sync_failure_recognized: existing.sync_failure_code
+      ? existing.sync_failure_recognized
+      : detail?.recognized ?? false,
+    cached_at: existing.cached_at,
+  });
+}
+
+/**
+ * Record the driver's dismissal of the "the office has your log" confirmation.
+ *
+ * This is the ONLY writer of `sync_confirmed_seen_at`, and it is called from
+ * exactly one place: the dismiss button in LogSyncBanner. Nothing else may set
+ * it — the whole point of the field is that the confirmation waits for a tap.
+ */
+export async function markSyncConfirmedSeen(logDate: string): Promise<void> {
+  const existing = await roadsideDb.rods_days_cache.get(logDate);
+  if (!existing) return;
+  await putCachedDay({
+    ...existing,
+    sync_confirmed_seen_at: new Date().toISOString(),
     cached_at: existing.cached_at,
   });
 }
@@ -252,6 +298,23 @@ export async function stalledLockedDates(): Promise<string[]> {
   const all = await roadsideDb.rods_days_cache.toArray();
   return all
     .filter((e) => !!e.local_certified_at && (e.sync_stalled || e.sync_rejected))
+    .map((e) => e.log_date)
+    .sort((a, b) => b.localeCompare(a));
+}
+
+/**
+ * Dates whose sync state the driver has something to read: the terminal
+ * failures above, plus days the office confirmed that the driver has not
+ * dismissed yet. Sorted newest first.
+ */
+export async function syncNoticeDates(): Promise<string[]> {
+  const all = await roadsideDb.rods_days_cache.toArray();
+  return all
+    .filter((e) => {
+      if (!e.local_certified_at) return false;
+      if (e.sync_stalled || e.sync_rejected) return true;
+      return e.day?.status === 'certified' && !e.sync_confirmed_seen_at;
+    })
     .map((e) => e.log_date)
     .sort((a, b) => b.localeCompare(a));
 }

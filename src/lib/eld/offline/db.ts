@@ -201,6 +201,20 @@ export interface RodsDayCacheEntry {
   sync_rejected: boolean;
   /** The chain for this day gave up or was cancelled. Same. */
   sync_stalled: boolean;
+  /**
+   * The SQLSTATE (or `HTTP <status>`) behind a terminal failure, and whether
+   * the refusal was one this client knows by name. An unrecognised code gets
+   * plain driver-facing copy that carries the code instead of copy that
+   * implies the driver did something wrong.
+   */
+  sync_failure_code?: string | null;
+  sync_failure_recognized?: boolean;
+  /**
+   * When the driver tapped to dismiss the "the office has your log"
+   * confirmation. Written ONLY by that tap. Never set by a timer, a mount, or
+   * a visibility heuristic — see LogSyncBanner.
+   */
+  sync_confirmed_seen_at?: string | null;
   cached_at: string;
 }
 

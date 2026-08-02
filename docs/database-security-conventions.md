@@ -1,7 +1,34 @@
 # Database security conventions
 
-These rules are enforced by `src/test/definer-search-path.test.ts`. A migration
-that breaks them fails CI.
+These rules are enforced by tests. **Nothing runs those tests for you.**
+
+## 0. Run the guards after every migration
+
+There is no CI in this setup, no git hooks, and git is platform-managed — so
+the assertions below execute only when someone types the command. Immediately
+after authoring or applying any migration, in the same turn:
+
+```sh
+npm run test:guards
+```
+
+That runs the four suites that catch silent failures:
+
+| Suite | Catches |
+| --- | --- |
+| `src/test/definer-search-path.test.ts` | a `SECURITY DEFINER` without `SET search_path = public, extensions` (§1) |
+| `src/test/policy-grant-parity.test.ts` | an RLS policy with no matching `GRANT` (§3, §4) |
+| `src/lib/__tests__/postgrestEmbeds.test.ts` | broken embeds *and* column references that do not exist (query lint) |
+| `src/lib/eld/offline/__tests__/parityFixtures.test.ts` | client/server validation drift |
+
+**A structural observation, not a lapse.** All of these guards were written
+*after* a class of silent failure had already shipped, each is correct, and
+none of them runs on its own. The definer-header rule has now been broken three
+separate times *after* it was written down — the assertion was right every
+time; it just did not execute when the migration was authored. The detection
+latency is the defect. Until this project has CI or hooks, the guards are a
+checklist item tied to the turn, not an automatic safety net. Do not assume a
+migration is clean because the rule exists.
 
 ## 1. SECURITY DEFINER functions must pin `search_path`
 
