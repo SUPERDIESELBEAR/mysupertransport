@@ -123,24 +123,21 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
   const fetchData = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true); else setRefreshing(true);
 
-    // Fetch operators joined with profiles and auth emails
     const { data: ops } = await supabase
       .from('operators')
-      .select('id, user_id, profiles(first_name, last_name)')
+      .select('id, user_id')
       .order('created_at', { ascending: true })
       .limit(1000);
 
-    // Fetch all auth users to get emails — done via a server-side function call
-    // We call get-staff-list which returns emails, or fallback to profiles only
-    const opList: OperatorRow[] = (ops ?? []).map((op: any) => {
-      const profile = Array.isArray(op.profiles) ? op.profiles[0] : op.profiles;
-      return {
-        operator_id: op.id,
-        user_id: op.user_id,
-        name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown Operator',
-        email: '',
-      };
-    });
+    // Names come from a second read: operators has no FK to profiles, so a
+    // PostgREST embed here fails the whole request and returns no operators.
+    const names = await fetchProfileNames((ops ?? []).map((op: any) => op.user_id));
+    const opList: OperatorRow[] = (ops ?? []).map((op: any) => ({
+      operator_id: op.id,
+      user_id: op.user_id,
+      name: formatProfileName(names.get(op.user_id), 'Unknown Operator'),
+      email: '',
+    }));
     setOperators(opList);
 
     // Fetch all acknowledgments for required docs
