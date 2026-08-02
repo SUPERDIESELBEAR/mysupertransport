@@ -229,12 +229,20 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // is gated on public.is_staff(auth.uid()) inside the body, so the grant to
   // `authenticated` is the intended surface; it is NOT granted to anon.
   "public.get_eld_escalation_ledger(uuid)",
+  // The §6 retention archive RPCs. `export-retention-archive` deliberately
+  // builds a USER-SCOPED client for these three, because each one gates on
+  // is_retention_admin(auth.uid()) in its body — under the service-role client
+  // requireStaff returns, auth.uid() is null and the gate silently reads
+  // false. So `authenticated` must hold EXECUTE; anon does not.
+  "public.get_eld_compliance_timeline(uuid)",
+  "public.search_retention_archive(uuid[],date,date,text,uuid,text,boolean)",
+  "public.record_retention_export(text,uuid[],date,date,boolean,integer,integer,text,jsonb)",
 ];
 
-// 65 + the interim certify_rods_day overload + get_eld_escalation_ledger.
-// Goes back to 66 when the seven-argument certify form is dropped
-// (docs/deferred-removals.md).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 67;
+// 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
+// + the three §6 retention RPCs. Goes back to 69 when the seven-argument
+// certify form is dropped (docs/deferred-removals.md).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 70;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a
