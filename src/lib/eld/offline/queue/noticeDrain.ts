@@ -349,7 +349,7 @@ export async function drainPendingNotices(): Promise<NoticeDrainSummary> {
       summary.deferredMissing += 1;
       console.warn('[eld-notice-drain] deferred: event not found on server', notice.eventId);
       // eslint-disable-next-line no-await-in-loop
-      await handleDeferredMissing(notice.eventId);
+      await handleDeferredMissing(notice.eventId, notice.operatorId ?? null);
       continue;
     }
 
