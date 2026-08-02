@@ -147,6 +147,17 @@ export const REJECTION_SQLSTATES: Readonly<Record<string, string>> = {
   P0082: 'uploaded ELD document is missing',
   P0083: 'ELD document token belongs to another log',
   P0084: 'a certified log already exists for this date',
+  // enforce_rods_correction_request_update. Its own block: the correction
+  // request trigger previously reused P0072..P0075, which collided with
+  // discard_rods_amendment and made the code alone ambiguous.
+  P0100: 'a correction request is append-only',
+  P0101: 'correction request resolution pointer set by hand',
+  P0102: 'only the driver may answer a correction request',
+  P0103: 'correction request already resolved',
+  P0104: 'a correction request can only be actioned or declined',
+  P0105: 'declining a correction request requires a written response',
+  P0106: 'correction request response revised after it was recorded',
+  P0107: 'correction request resolution time changed after it was set',
 } as const;
 
 export function isRejectionSqlState(code: string | null): boolean {
@@ -167,6 +178,11 @@ export const CONDITION_GROUPS: Readonly<Record<string, readonly string[]>> = {
   duplicate_certified_date: ['P0031', 'P0084'],
   locked_record: ['P0002', 'P0040', 'P0041', 'P0043', 'P0044'],
   continuity: ['P0042'],
+  not_owner_of_request: ['P0102'],
+  already_resolved: ['P0103'],
+  // Write-once fields on an append-only compliance record. Terminal: a retry
+  // of the same write can never succeed.
+  append_only_record: ['P0100', 'P0101', 'P0106', 'P0107'],
 } as const;
 
 export function conditionGroupFor(code: string | null): string | null {
