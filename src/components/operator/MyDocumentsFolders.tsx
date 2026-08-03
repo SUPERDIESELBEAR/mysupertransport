@@ -239,6 +239,8 @@ export default function MyDocumentsFolders({ operatorId }: Props) {
             onPrev={safeIndex > 0 ? () => setPreview({ folderKey: preview.folderKey, index: safeIndex - 1 }) : undefined}
             onNext={safeIndex < total - 1 ? () => setPreview({ folderKey: preview.folderKey, index: safeIndex + 1 }) : undefined}
             counter={total > 1 ? `${safeIndex + 1} of ${total}` : undefined}
+            index={safeIndex}
+            total={total}
           />
         );
       })()}
