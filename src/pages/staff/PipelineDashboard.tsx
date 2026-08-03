@@ -1870,54 +1870,98 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   };
 
 
+  // ---------------------------------------------------------------------------
+  // One predicate, used by BOTH the rendered list and every chip count.
+  //
+  // Previously each chip counted with its own `operators.filter(...)` over the
+  // raw list, so the badge ignored the other active filters AND the baseline
+  // exclusions below. That's why a chip could advertise "21" and the table then
+  // said "No operators match your filters". Chip counts are now faceted: they
+  // run this same predicate with their own dimension overridden.
+  // ---------------------------------------------------------------------------
+  type FilterOverrides = Partial<{
+    stage: string;
+    status: string;
+    coordinator: string;
+    dispatch: 'all' | DispatchStatus;
+    progress: 'all' | 'low' | 'mid' | 'high';
+    compliance: 'all' | 'critical' | 'warning';
+    idle: boolean;
+    unread: boolean;
+    invitePending: boolean;
+    exception: boolean;
+    stageNodes: Set<string>;
+  }>;
+
+  const matchesFilters = (op: OperatorRow, o: FilterOverrides = {}) => {
+    const fStage = o.stage ?? stageFilter;
+    const fStatus = o.status ?? statusFilter;
+    const fCoordinator = o.coordinator ?? coordinatorFilter;
+    const fDispatch = o.dispatch ?? dispatchFilter;
+    const fProgress = o.progress ?? progressFilter;
+    const fCompliance = o.compliance ?? complianceFilter;
+    const fIdle = o.idle ?? idleFilter;
+    const fUnread = o.unread ?? unreadFilter;
+    const fInvitePending = o.invitePending ?? invitePendingFilter;
+    const fException = o.exception ?? exceptionFilter;
+    const fStageNodes = o.stageNodes ?? stageNodeFilters;
+
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q || [
+      `${op.first_name ?? ''} ${op.last_name ?? ''}`,
+      op.email,
+      op.phone,
+      op.truck_vin,
+      op.unit_number,
+      op.truck_plate,
+      op.home_state,
+      op.assigned_staff_name,
+    ].some(v => (v ?? '').toString().toLowerCase().includes(q));
+    const matchStage = fStage === 'all' || op.current_stage === fStage;
+    const matchStatus = fStatus === 'all' || getStatus(op) === fStatus;
+    const matchCoordinator = fCoordinator === 'all' ||
+      (fCoordinator === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === fCoordinator);
+    const matchDispatch = fDispatch === 'all' || op.dispatch_status === fDispatch ||
+      (fDispatch === 'not_dispatched' && op.dispatch_status === null);
+    const matchProgress = fProgress === 'all' ||
+      (fProgress === 'low' && op.progress_pct <= 33) ||
+      (fProgress === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
+      (fProgress === 'high' && op.progress_pct >= 67);
+    const worstAlert = complianceByOperator[op.id];
+    const matchCompliance = fCompliance === 'all' ||
+      (fCompliance === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
+      (fCompliance === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
+    const matchIdle = !fIdle || (
+      op.onboarding_updated_at != null &&
+      differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
+    );
+    const matchUnread = !fUnread || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
+    const matchInvitePending = !fInvitePending || op.never_logged_in;
+    const matchException = !fException || (op.paper_logbook_approved || op.temp_decal_approved);
+    // Stage node filter (multi-select): OR semantics — incomplete in ANY selected stage.
+    const matchStageNode = fStageNodes.size === 0 || Array.from(fStageNodes).some(key => {
+      const cfg = stageConfigs.find(c => c.stage_key === key);
+      if (!cfg || cfg.items.length === 0) return false;
+      return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+    });
+    // Operators surfaced in the "Active — Open Onboarding Items" top section
+    // (fully onboarded but Stage 5 still open) are normally hidden here so they
+    // aren't listed twice. Asking for Status = Fully Onboarded is an explicit
+    // request for exactly that group, so let them through in that one case.
+    const inActiveOpenSection = op.fully_onboarded && isStage5Open(op);
+    const hiddenAsDuplicate = inActiveOpenSection && fStatus !== 'onboarded';
+
+    return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch &&
+      matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending &&
+      matchException && matchStageNode &&
+      !op.on_hold && !hiddenAsDuplicate && !OWNER_USER_IDS.has(op.user_id);
+  };
+
+  /** Count operators that would remain if this chip's dimension were applied. */
+  const facetCount = (o: FilterOverrides) => operators.filter(op => matchesFilters(op, o)).length;
+
   const filtered = operators
-    .filter(op => {
-      const q = search.trim().toLowerCase();
-      const matchSearch = !q || [
-        `${op.first_name ?? ''} ${op.last_name ?? ''}`,
-        op.email,
-        op.phone,
-        op.truck_vin,
-        op.unit_number,
-        op.truck_plate,
-        op.home_state,
-        op.assigned_staff_name,
-      ].some(v => (v ?? '').toString().toLowerCase().includes(q));
-      const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
-      const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
-      const matchCoordinator = coordinatorFilter === 'all' ||
-        (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
-      const matchDispatch = dispatchFilter === 'all' || op.dispatch_status === dispatchFilter ||
-        (dispatchFilter === 'not_dispatched' && op.dispatch_status === null);
-      const matchProgress = progressFilter === 'all' ||
-        (progressFilter === 'low' && op.progress_pct <= 33) ||
-        (progressFilter === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
-        (progressFilter === 'high' && op.progress_pct >= 67);
-      const worstAlert = complianceByOperator[op.id];
-      const matchCompliance = complianceFilter === 'all' ||
-        (complianceFilter === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
-        (complianceFilter === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
-      const matchIdle = !idleFilter || (
-        op.onboarding_updated_at != null &&
-        differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
-      );
-      const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
-      const matchInvitePending = !invitePendingFilter || op.never_logged_in;
-      const matchException = !exceptionFilter || (op.paper_logbook_approved || op.temp_decal_approved);
-      // Stage node filter (multi-select): show operators who are incomplete in ANY of the selected stages
-      const matchStageNode = stageNodeFilters.size === 0 || (() => {
-        // Operator must be incomplete in ALL selected stages (AND logic: show operators missing both BG AND ICA)
-        return Array.from(stageNodeFilters).every(key => {
-          const cfg = stageConfigs.find(c => c.stage_key === key);
-          if (!cfg || cfg.items.length === 0) return true;
-          return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
-        });
-      })();
-      // Exclude operators surfaced in the "Active — Open Onboarding Items" top section
-      // (they're fully onboarded but Stage 5 is still open — already shown above).
-      const inActiveOpenSection = op.fully_onboarded && isStage5Open(op);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !inActiveOpenSection && !OWNER_USER_IDS.has(op.user_id);
-    })
+    .filter(op => matchesFilters(op))
     .sort((a, b) => {
       if (!sortKey) return 0;
       if (sortKey === 'compliance') {
@@ -1983,10 +2027,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
-  const idleCount = operators.filter(op =>
-    op.onboarding_updated_at != null &&
-    differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
-  ).length;
+  const idleCount = facetCount({ idle: true });
 
   const activeFilterCount = [
     stageFilter !== 'all',
@@ -2023,8 +2064,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   ).length;
 
   const stageCounts: Record<string, number> = {};
-  operators.forEach(op => {
-    stageCounts[op.current_stage] = (stageCounts[op.current_stage] ?? 0) + 1;
+  STAGES.forEach(stage => {
+    stageCounts[stage] = facetCount({ stage });
   });
 
   return (
@@ -2181,8 +2222,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           <div className="flex items-center gap-2 shrink-0">
             {/* Invite Pending quick-filter chip */}
             {(() => {
-              const pendingCount = operators.filter(o => o.never_logged_in).length;
-              if (pendingCount === 0) return null;
+              const pendingCount = facetCount({ invitePending: true });
+              if (pendingCount === 0 && !invitePendingFilter) return null;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -2213,8 +2254,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             })()}
             {/* Exception Active quick-filter chip */}
             {(() => {
-              const exceptionCount = operators.filter(o => o.paper_logbook_approved || o.temp_decal_approved).length;
-              if (exceptionCount === 0) return null;
+              const exceptionCount = facetCount({ exception: true });
+              if (exceptionCount === 0 && !exceptionFilter) return null;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -2404,21 +2445,21 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   .filter(c => c.is_active)
                   .sort((a, b) => a.stage_order - b.stage_order)
                   .map(cfg => {
-                    const incompleteCount = operators.filter(op =>
-                      cfg.items.length > 0 &&
-                      !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-                    ).length;
-                    if (incompleteCount === 0) return null;
                     const isActive = stageNodeFilters.has(cfg.stage_key);
+                    const incompleteCount = facetCount({ stageNodes: new Set([cfg.stage_key]) });
+                    const disabled = incompleteCount === 0 && !isActive;
                     return (
                       <button
                         key={cfg.stage_key}
                         type="button"
+                        disabled={disabled}
                         onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                         className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-all active:scale-95 ${
                           isActive
                             ? 'bg-gold text-white border-gold'
-                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                            : disabled
+                              ? 'bg-muted/40 text-muted-foreground/40 border-border/50 cursor-not-allowed'
+                              : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
                         }`}
                       >
                         {cfg.label}
@@ -2609,28 +2650,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       {/* Stage breakdown — compact single-line ribbon */}
       <div className="bg-white border border-border rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold text-muted-foreground shrink-0 mr-1">Stages:</span>
-        {STAGES.map((stage, i) => (
-          <button
-            key={stage}
-            onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
-            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
-              stageFilter === stage
-                ? 'border-gold bg-gold/10 text-gold'
-                : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
-            }`}
-          >
-            <span className="font-bold">{stageCounts[stage] ?? 0}</span>
-            <span className="text-muted-foreground">{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
-          </button>
-        ))}
+        {STAGES.map((stage, i) => {
+          const isActive = stageFilter === stage;
+          const count = stageCounts[stage] ?? 0;
+          const disabled = count === 0 && !isActive;
+          return (
+            <button
+              key={stage}
+              disabled={disabled}
+              onClick={() => setStageFilter(isActive ? 'all' : stage)}
+              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
+                isActive
+                  ? 'border-gold bg-gold/10 text-gold'
+                  : disabled
+                    ? 'border-border/50 bg-muted/20 text-muted-foreground/40 cursor-not-allowed'
+                    : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
+              }`}
+            >
+              <span className="font-bold">{count}</span>
+              <span className={disabled ? '' : 'text-muted-foreground'}>{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
+            </button>
+          );
+        })}
         <span className="w-px h-4 bg-border shrink-0 mx-1" />
         {/* Dispatch + Compliance quick-filter chips */}
         <div className="flex items-center gap-2 flex-wrap">
             {((['dispatched', 'home'] as DispatchStatus[]).map(status => {
               const badge = DISPATCH_BADGE[status];
-              const count = operators.filter(op => op.dispatch_status === status).length;
-              if (count === 0) return null;
               const isActive = dispatchFilter === status;
+              const count = facetCount({ dispatch: status });
+              if (count === 0 && !isActive) return null;
               return (
                 <button
                   key={status}
@@ -2649,14 +2698,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             }))}
             {/* Compliance filter chips */}
             {(() => {
-              const criticalCount = operators.filter(op => {
-                const a = complianceByOperator[op.id];
-                return a != null && a.days_until <= 30;
-              }).length;
-              const warningCount = operators.filter(op => {
-                const a = complianceByOperator[op.id];
-                return a != null && a.days_until > 30 && a.days_until <= 90;
-              }).length;
+              const criticalCount = facetCount({ compliance: 'critical' });
+              const warningCount = facetCount({ compliance: 'warning' });
               return (
                 <>
                   {(criticalCount > 0 || complianceFilter === 'critical') && (
@@ -2816,30 +2859,32 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             .filter(c => c.is_active)
             .sort((a, b) => a.stage_order - b.stage_order)
             .map(cfg => {
-              const incompleteCount = operators.filter(op =>
-                cfg.items.length > 0 &&
-                !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-              ).length;
-              if (incompleteCount === 0) return null;
+              const isActive = stageNodeFilters.has(cfg.stage_key);
+              const stageNodes = new Set([cfg.stage_key]);
+              // Faceted: counts reflect every OTHER active filter, so the badge
+              // matches the row count you get when you click it.
+              const incompleteCount = facetCount({ stageNodes });
               // Partial = at least one item done but not all (in-progress)
               const partialCount = operators.filter(op =>
-                cfg.items.length > 0 &&
-                cfg.items.some(item => evalItem(op, item.field, item.complete_value)) &&
-                !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                matchesFilters(op, { stageNodes }) &&
+                cfg.items.some(item => evalItem(op, item.field, item.complete_value))
               ).length;
               // Not-started = none done
               const notStartedCount = incompleteCount - partialCount;
-              const isActive = stageNodeFilters.has(cfg.stage_key);
+              const disabled = incompleteCount === 0 && !isActive;
               return (
                 <TooltipProvider key={cfg.stage_key} delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
+                        disabled={disabled}
                         onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                         className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
                           isActive
                             ? 'bg-gold text-white border-gold shadow-sm'
-                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                            : disabled
+                              ? 'bg-muted/40 text-muted-foreground/40 border-border/50 cursor-not-allowed'
+                              : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
                         }`}
                       >
                         {cfg.label}
@@ -3039,10 +3084,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                           .filter(c => c.is_active)
                           .sort((a, b) => a.stage_order - b.stage_order)
                           .map((cfg, i, arr) => {
-                            const incompleteCount = operators.filter(op =>
-                              cfg.items.length > 0 &&
-                              !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-                            ).length;
+                            const incompleteCount = facetCount({ stageNodes: new Set([cfg.stage_key]) });
                             const isFiltered = stageNodeFilters.has(cfg.stage_key);
                             return (
                               <div key={cfg.stage_key} className="flex items-center">
@@ -3251,7 +3293,25 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
-                    {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
+                    {operators.length === 0 ? (
+                      'No operators in the pipeline yet.'
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm">No operators match your filters.</p>
+                        {(activeFilterCount > 0 || search.trim()) && (
+                          <>
+                            <p className="text-xs">
+                              {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                              {search.trim() ? ' plus a search term' : ''} across {operators.length} operators.
+                            </p>
+                            <Button variant="outline" size="sm" onClick={clearAllFilters} className="mt-1">
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              Clear all filters
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
