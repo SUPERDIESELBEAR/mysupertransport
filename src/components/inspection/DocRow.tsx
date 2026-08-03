@@ -558,6 +558,31 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
     setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1));
   };
 
+  // ---- Swipe to flip (mobile) -------------------------------------------
+  const canFlip = !!(onPrev || onNext);
+  // Only flip on horizontal swipe when showing a fit-to-screen image, so a
+  // pinch-zoomed photo can still be panned normally.
+  const swipeEnabled = canFlip && isImage && imageFitMode;
+  const swipe = useSwipeGesture<HTMLDivElement>({
+    onSwipeLeft: () => { if (swipeEnabled) onNext?.(); },
+    onSwipeRight: () => { if (swipeEnabled) onPrev?.(); },
+    excludeSelector: 'iframe, canvas, input[type="range"], select',
+  });
+
+  // One-time "Swipe to flip" hint per device.
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  useEffect(() => {
+    if (!isMobile || !swipeEnabled) return;
+    try {
+      if (localStorage.getItem('superdrive_swipe_hint_seen')) return;
+      localStorage.setItem('superdrive_swipe_hint_seen', '1');
+    } catch { /* storage unavailable — show once per session */ }
+    setShowSwipeHint(true);
+    const t = setTimeout(() => setShowSwipeHint(false), 2600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, swipeEnabled]);
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black" onClick={onClose}>
       {/* Header */}
