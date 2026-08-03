@@ -109,6 +109,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         user_id,
         unit_number,
+        deactivated_at,
         applications(first_name, last_name),
         onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
