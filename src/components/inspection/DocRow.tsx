@@ -520,16 +520,29 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
 
-  // Auto-open mobile PDFs directly in the device's native viewer,
-  // skipping the intermediate "Open PDF / Share / Save" card.
-  const autoOpenedRef = useRef<string | null>(null);
+  // Mobile PDFs render inline via pdf.js (never auto-close / hand off to a new
+  // tab — that handoff is blocked inside the installed PWA and left the driver
+  // staring at an empty screen).
+  const [pdfPages, setPdfPages] = useState<string[] | null>(null);
+  const [pdfPagesError, setPdfPagesError] = useState<string | null>(null);
+  const renderedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!showMobilePdfFallback) return;
-    if (autoOpenedRef.current === resolvedUrl) return;
-    autoOpenedRef.current = resolvedUrl;
-    window.open(resolvedUrl, '_blank', 'noopener,noreferrer');
-    onClose();
-  }, [showMobilePdfFallback, resolvedUrl, onClose]);
+    if (!showMobilePdfFallback || !resolvedUrl) return;
+    if (renderedForRef.current === resolvedUrl) return;
+    renderedForRef.current = resolvedUrl;
+    setPdfPages(null);
+    setPdfPagesError(null);
+    let cancelled = false;
+    (async () => {
+      try {
+        const pages = await pdfToImages(resolvedUrl, { scale: 2 });
+        if (!cancelled) setPdfPages(pages);
+      } catch (err: any) {
+        if (!cancelled) setPdfPagesError(err?.message || 'Could not render this PDF.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showMobilePdfFallback, resolvedUrl]);
 
   const isImageFitMode = isImage && imageFitMode;
   const zoomLabel = isImageFitMode ? 'Fit' : `${zoom}%`;
