@@ -196,6 +196,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── ICA milestones: the truck owner is the sole signer ─────────────────
+    // When a truck owner is linked to this unit, the driver receives no ICA
+    // email at all — the owner is notified through send-notification and the
+    // executed agreement is auto-filed into the driver's DOT binder.
+    if (milestone_key === 'ica_ready_to_sign' || milestone_key === 'ica_complete') {
+      const { data: ownerRow } = await supabaseAdmin
+        .from('truck_owners')
+        .select('id')
+        .eq('operator_id', operator_id)
+        .limit(1)
+        .maybeSingle();
+      if (ownerRow) {
+        return new Response(
+          JSON.stringify({ skipped: true, reason: 'unit has a truck owner — ICA notices route to the owner only' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     // Check operator email preference for onboarding_update
     const { data: prefRow } = await supabaseAdmin
       .from('notification_preferences')

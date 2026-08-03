@@ -7114,6 +7114,10 @@ export type Database = {
         Args: { _operator_id: string }
         Returns: boolean
       }
+      operator_has_truck_owner: {
+        Args: { _operator_id: string }
+        Returns: boolean
+      }
       operator_return_requested: {
         Args: { _operator_id: string }
         Returns: boolean

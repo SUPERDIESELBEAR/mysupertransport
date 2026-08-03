@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Pen, CheckCircle2, Loader2, Building2 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from '@/components/ica/ICADocumentView';
-import DriverICAAcknowledgment from './DriverICAAcknowledgment';
+import { fileExecutedIca } from '@/lib/ica/fileExecutedIca';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { withTimeout } from '@/lib/withTimeout';
@@ -48,6 +48,10 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const [depositInitials, setDepositInitials] = useState('');
   const [depositElectedDate, setDepositElectedDate] = useState('');
   const [signerRole, setSignerRole] = useState<'driver' | 'truck_owner' | 'unknown'>('unknown');
+  // True when this unit has a linked truck owner — the owner is the only
+  // signer, so the driver sees the agreement read-only.
+  const [unitHasTruckOwner, setUnitHasTruckOwner] = useState(false);
+  const pendingBinderFileRef = useRef(false);
   // Editable owner contact fields (only used when signer is the truck owner)
   const [ownerEdits, setOwnerEdits] = useState({
     owner_address: '', owner_city: '', owner_state: '', owner_zip: '',
@@ -57,6 +61,28 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   useEffect(() => {
     if (session?.user?.id) fetchContract();
   }, [session?.user?.id]);
+
+  // After a successful signature, render the executed agreement to PDF and
+  // file it into the driver's DOT inspection binder ("Lease Agreement (ICA)").
+  // Runs once, after the signed document has painted. Best-effort only.
+  useEffect(() => {
+    if (!pendingBinderFileRef.current) return;
+    if (!contract || contract.status !== 'fully_executed' || !operatorId) return;
+    pendingBinderFileRef.current = false;
+    const id = window.setTimeout(async () => {
+      const result = await fileExecutedIca({
+        elementId: 'operator-ica-print-area',
+        operatorId,
+        contractId: contract.id,
+      });
+      if (result.filed) {
+        toast.success('A copy of the signed ICA was filed in the DOT inspection binder.');
+      } else {
+        console.warn('[OperatorICASign] binder filing skipped:', result.reason);
+      }
+    }, 600);
+    return () => window.clearTimeout(id);
+  }, [contract, operatorId]);
 
   const logIcaEvent = async (
     action: 'ica_screen_opened' | 'ica_execute_clicked' | 'ica_upload_failed' | 'ica_signed',
@@ -83,31 +109,42 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
 
   const fetchContract = async () => {
     setLoading(true);
-    // Resolve operator: driver path first, then truck-owner fallback.
+    // Resolve operator: TRUCK OWNER first — when an owner is linked to the
+    // unit, they are the ICA signer and the driver is a read-only viewer.
     let resolvedOperatorId: string | null = null;
     let resolvedSignerRole: 'driver' | 'truck_owner' = 'driver';
-    const { data: op } = await supabase
-      .from('operators')
-      .select('id, user_id')
+    let ownerLinked = false;
+    const { data: to } = await supabase
+      .from('truck_owners')
+      .select('operator_id')
       .eq('user_id', session!.user.id)
       .maybeSingle();
-    if (op) {
-      resolvedOperatorId = op.id as string;
-      resolvedSignerRole = 'driver';
+    if (to) {
+      resolvedOperatorId = (to as any).operator_id;
+      resolvedSignerRole = 'truck_owner';
+      ownerLinked = true;
     } else {
-      const { data: to } = await supabase
-        .from('truck_owners')
-        .select('operator_id')
+      const { data: op } = await supabase
+        .from('operators')
+        .select('id, user_id')
         .eq('user_id', session!.user.id)
         .maybeSingle();
-      if (to) {
-        resolvedOperatorId = (to as any).operator_id;
-        resolvedSignerRole = 'truck_owner';
+      if (op) {
+        resolvedOperatorId = op.id as string;
+        resolvedSignerRole = 'driver';
+        const { data: unitOwner } = await supabase
+          .from('truck_owners')
+          .select('id')
+          .eq('operator_id', op.id as string)
+          .limit(1)
+          .maybeSingle();
+        ownerLinked = !!unitOwner;
       }
     }
     if (!resolvedOperatorId) { setLoading(false); return; }
     setOperatorId(resolvedOperatorId);
     setSignerRole(resolvedSignerRole);
+    setUnitHasTruckOwner(ownerLinked);
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -253,6 +290,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       }
 
       toast.success('ICA Signed! Your Independent Contractor Agreement has been fully executed.');
+      pendingBinderFileRef.current = true;
       fetchContract();
       if (onComplete) onComplete();
     } catch (err: any) {
@@ -286,6 +324,9 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   );
 
   const isFullyExecuted = contract.status === 'fully_executed';
+  // Driver on a unit that has a truck owner: view-only, never a signer.
+  const isReadOnlyViewer = signerRole === 'driver' && unitHasTruckOwner;
+  const canSign = !isFullyExecuted && !isReadOnlyViewer;
 
   return (
     <>
@@ -295,7 +336,22 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
           <CheckCircle2 className="h-5 w-5 text-status-complete shrink-0" />
           <div>
             <p className="font-semibold text-status-complete text-sm">ICA Fully Executed</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Signed on {new Date(contract.contractor_signed_at!).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {contract.contractor_signed_at
+                ? `Signed on ${new Date(contract.contractor_signed_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+                : 'This agreement is fully executed.'}
+              {isReadOnlyViewer ? ' Signed by your truck owner — a copy is filed in your DOT binder.' : ''}
+            </p>
+          </div>
+        </div>
+      ) : isReadOnlyViewer ? (
+        <div className="flex items-center gap-3 p-4 bg-surface border border-border rounded-xl">
+          <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+          <div>
+            <p className="font-semibold text-foreground text-sm">Your truck owner signs this ICA</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              This agreement is between SUPERTRANSPORT, LLC and your truck owner. No action is needed from you — once it's signed, a copy is filed in your DOT inspection binder.
+            </p>
           </div>
         </div>
       ) : (
@@ -312,11 +368,6 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Driver acknowledgment of an owner-signed ICA */}
-      {isFullyExecuted && signerRole === 'driver' && (
-        <DriverICAAcknowledgment contractId={contract.id} />
       )}
 
       {/* Owner contact field editor — visible only to truck-owner signers before signing */}
@@ -358,6 +409,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         </div>
       )}
 
+      <div id="operator-ica-print-area" className="bg-white">
       <ICADocumentView
         data={{
           ...contract,
@@ -366,7 +418,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
           owner_ssn: (contract as any).owner_ssn ?? '',
         }}
         operatorName={operatorName}
-        previewMode={isFullyExecuted}
+        previewMode={!canSign}
         carrierSignatureUrl={contract.carrier_signature_url}
         carrierTypedName={contract.carrier_typed_name}
         carrierTitle={contract.carrier_title}
@@ -374,7 +426,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         contractorSignatureUrl={isFullyExecuted ? contract.contractor_signature_url : undefined}
         contractorTypedName={isFullyExecuted ? contract.contractor_typed_name ?? undefined : undefined}
         contractorSignedAt={isFullyExecuted ? contract.contractor_signed_at : undefined}
-        contractorSigRef={!isFullyExecuted ? sigRef : undefined}
+        contractorSigRef={canSign ? sigRef : undefined}
         contractorSignedName={signedName}
         onContractorSignedNameChange={setSignedName}
         onSignatureEnd={() => setHasDrawn(true)}
@@ -382,19 +434,20 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         depositElected={depositElected}
         depositInitials={depositInitials}
         depositElectedDate={depositElectedDate}
-        onDepositChange={!isFullyExecuted ? (vals) => {
+        onDepositChange={canSign ? (vals) => {
           if (vals.elected !== undefined) setDepositElected(vals.elected);
           if (vals.initials !== undefined) setDepositInitials(vals.initials);
           if (vals.date !== undefined) setDepositElectedDate(vals.date);
         } : undefined}
       />
+      </div>
 
       {/* Spacer so content isn't hidden behind sticky bar */}
-      {!isFullyExecuted && <div className="pb-28" />}
+      {canSign && <div className="pb-28" />}
     </div>
 
     {/* Sticky floating action bar */}
-    {!isFullyExecuted && (
+    {canSign && (
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-dark/95 backdrop-blur-sm border-t border-border p-4 space-y-2">
         <p className="text-xs text-center font-medium" style={{ color: !signedName || !hasDrawn ? 'hsl(var(--gold))' : 'hsl(var(--green-500, 142 71% 45%))' }}>
           {!signedName && !hasDrawn

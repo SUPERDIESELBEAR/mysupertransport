@@ -1,13 +1,13 @@
 /**
  * Single source of truth for "the driver's ICA is signed/complete".
  *
- * Two flows can complete an ICA from the driver portal:
- *   1) Owner-operator self-sign (OperatorICASign) — sets
- *      `onboarding_status.ica_status = 'complete'` and flips the contract to
- *      `fully_executed`.
- *   2) Non-owner driver acknowledging an owner-signed ICA
- *      (DriverICAAcknowledgment) — inserts into `ica_driver_acknowledgments`
- *      and (now) also flips `onboarding_status.ica_status = 'complete'`.
+ * There is exactly ONE signer per ICA:
+ *   - Owner-operator (no separate truck owner): the driver signs it themself.
+ *   - Unit with a linked truck owner: the TRUCK OWNER signs it. The driver
+ *     gets no ICA notice and no acknowledgment step — the executed agreement
+ *     is auto-filed into their DOT inspection binder as "Lease Agreement (ICA)".
+ * Either way the contract flips to `fully_executed` and
+ * `onboarding_status.ica_status` becomes `complete`.
  *
  * Every CTA, banner, badge and tab indicator in the driver portal that used
  * to compare `ica_status === 'sent_for_signature'` should funnel through this

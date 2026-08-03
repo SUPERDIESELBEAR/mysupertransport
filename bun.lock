@@ -67,6 +67,7 @@
         "dompurify": "^3.4.11",
         "embla-carousel-react": "^8.6.0",
         "html-to-image": "^1.11.13",
+        "html2canvas": "^1.4.1",
         "input-otp": "^1.4.2",
         "jspdf": "^4.2.1",
         "konva": "^10.2.3",
