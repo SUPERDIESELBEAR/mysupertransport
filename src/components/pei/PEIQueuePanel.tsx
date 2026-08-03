@@ -398,8 +398,14 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     }
   }
 
-  function expandAll() { setOpenGroups(new Set(grouped.map((g) => g.applicationId))); }
-  function collapseAll() { setOpenGroups(new Set()); }
+  function expandAll() {
+    setOpenSections(new Set(visibleSections.map((s) => s.key)));
+    setOpenGroups(new Set(grouped.map((g) => g.applicationId)));
+  }
+  function collapseAll() {
+    setOpenSections(new Set());
+    setOpenGroups(new Set());
+  }
 
   async function handleSend(row: PEIQueueRow, kind: 'initial' | 'follow_up' | 'final_notice') {
     setBusy(row.request_id);
