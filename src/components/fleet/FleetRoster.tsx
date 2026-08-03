@@ -751,6 +751,15 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {showDeactivated ? (
+                                <DropdownMenuItem
+                                  className="text-primary focus:text-primary focus:bg-primary/10"
+                                  onClick={() => setConfirmReactivate(row)}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                                  Reactivate unit
+                                </DropdownMenuItem>
+                              ) : (
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
                                 onClick={() => navigate(`/management/deactivate/${row.operatorId}`)}
@@ -758,6 +767,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                                 <UserX className="h-3.5 w-3.5 mr-2" />
                                 Deactivate & Delease
                               </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => onSelectOperator(row.operatorId)}>
                                 Open driver profile
                               </DropdownMenuItem>
