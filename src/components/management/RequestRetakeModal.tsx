@@ -18,7 +18,7 @@ interface Props {
   /** Slot pre-selected when the modal opens (from the row's Request retake button). */
   initialKey?: RetakeDocumentKey | null;
   onClose: () => void;
-  onRequested: () => void;
+  onRequested: (keys: RetakeDocumentKey[]) => void;
 }
 
 const KEYS = Object.keys(RETAKE_DOCUMENT_LABELS) as RetakeDocumentKey[];
@@ -50,7 +50,7 @@ export function RequestRetakeModal({ applicationId, applicantEmail, initialKey, 
       if (error) throw error;
       if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
       toast.success(`Retake request emailed to ${applicantEmail}`);
-      onRequested();
+      onRequested(chosen);
       onClose();
     } catch (err) {
       toast.error((err as { message?: string })?.message ?? 'Could not send the retake request.');
