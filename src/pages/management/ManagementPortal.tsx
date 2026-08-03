@@ -644,7 +644,7 @@ export default function ManagementPortal() {
 
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
-      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null'),
+      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
       supabase.from('operators').select('id, onboarding_status!inner(fully_onboarded)', { count: 'exact', head: true }).or('fully_onboarded.is.null,fully_onboarded.eq.false', { referencedTable: 'onboarding_status' }),
       supabase.from('active_dispatch').select('id, operators!inner(excluded_from_dispatch)', { count: 'exact' }).eq('operators.excluded_from_dispatch', false),
       supabase.from('onboarding_status').select('id', { count: 'exact' }).or('mvr_ch_approval.eq.denied,pe_screening_result.eq.non_clear'),
@@ -668,12 +668,12 @@ export default function ManagementPortal() {
 
     if (statusFilter === 'all') {
       // Show submitted apps + any awaiting revisions
-      query = query.or('is_draft.eq.false,review_status.eq.revisions_requested,revisions_handled_by_staff_at.not.is.null');
+      query = query.or('is_draft.eq.false,review_status.eq.revisions_requested,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null');
     } else if (statusFilter === 'revisions_requested') {
       query = query.eq('review_status', 'revisions_requested');
     } else {
       query = query
-        .or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null')
+        .or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null')
         .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
     }
 
