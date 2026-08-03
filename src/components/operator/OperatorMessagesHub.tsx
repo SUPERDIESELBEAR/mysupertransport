@@ -22,6 +22,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
   );
   const [pendingChatUserId, setPendingChatUserId] = useState<string | undefined>(undefined);
   const clearPendingChatUser = useCallback(() => setPendingChatUserId(undefined), []);
+  const [directUnread, setDirectUnread] = useState(0);
 
   // Load badge counts for announcements
   useEffect(() => {
@@ -70,6 +71,9 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
             </TabsTrigger>
             <TabsTrigger value="direct" className="gap-2">
               <MessageSquare className="h-4 w-4" /> Direct
+              {directUnread > 0 && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{directUnread}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Users className="h-4 w-4" /> Contacts
@@ -84,6 +88,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
             <OperatorMessagesView
               initialUserId={pendingChatUserId}
               onInitialUserConsumed={clearPendingChatUser}
+              onUnreadCountChange={setDirectUnread}
             />
           </div>
         </TabsContent>
