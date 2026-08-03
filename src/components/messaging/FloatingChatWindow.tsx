@@ -265,13 +265,12 @@ export default function FloatingChatWindow() {
 
   // ── Drag handlers ───────────────────────────────────────────────────────────
   const onDragStart = useCallback((e: React.PointerEvent) => {
-    if (minimized) return;
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('[data-no-drag]')) return;
     e.preventDefault();
     dragRef.current = { startX: e.clientX, startY: e.clientY, initialX: x, initialY: y };
     windowRef.current?.setPointerCapture(e.pointerId);
-  }, [minimized, x, y]);
+  }, [x, y]);
 
   const onDragMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current) return;
@@ -304,8 +303,8 @@ export default function FloatingChatWindow() {
     const dy = e.clientY - resizeRef.current.startY;
     setState(prev => ({
       ...prev,
-      width: Math.max(280, Math.min(resizeRef.current!.initialW + dx, window.innerWidth - prev.x - 16)),
-      height: Math.max(320, Math.min(resizeRef.current!.initialH + dy, window.innerHeight - prev.y - 16)),
+      width: Math.max(MIN_WIDTH, Math.min(resizeRef.current!.initialW + dx, window.innerWidth - prev.x - 16)),
+      height: Math.max(MIN_HEIGHT, Math.min(resizeRef.current!.initialH + dy, window.innerHeight - prev.y - 16)),
     }));
   }, []);
 
