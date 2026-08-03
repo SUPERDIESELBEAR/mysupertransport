@@ -55,6 +55,16 @@ const STATUS_ORDER: PEIRequestStatus[] = [
 
 type SectionKey = 'overdue' | 'pending' | 'in_progress' | 'completed' | 'archived_hired' | 'archived_not_hired';
 
+type FilterKey =
+  | 'all'
+  | 'pending'
+  | 'sent'
+  | 'overdue'
+  | 'completed'
+  | 'gfe'
+  | 'archived_hired'
+  | 'archived_not_hired';
+
 interface SectionDef {
   key: SectionKey;
   label: string;
@@ -87,6 +97,22 @@ interface ApplicantGroup {
 
 function isResolved(r: PEIQueueRow) {
   return r.status === 'completed' || r.status === 'gfe_documented';
+}
+
+/** Single source of truth for the filter chips — used by the list AND the chip counts. */
+function rowMatchesFilter(r: PEIQueueRow, f: FilterKey): boolean {
+  const archived = !!r.pei_archived_at;
+  if (f === 'archived_hired') return archived && r.pei_archive_category === 'hired';
+  if (f === 'archived_not_hired') return archived && r.pei_archive_category === 'not_hired';
+  if (f === 'all') return true;
+  // Every status chip is an active-queue view: archived applicants are excluded.
+  if (archived) return false;
+  if (f === 'overdue') return r.is_overdue;
+  if (f === 'pending') return r.status === 'pending';
+  if (f === 'sent') return r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent';
+  if (f === 'completed') return r.status === 'completed';
+  if (f === 'gfe') return r.status === 'gfe_documented';
+  return true;
 }
 
 /** Highest-severity rule: Archived > Overdue > Pending/In Progress > Completed. */
