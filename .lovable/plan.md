@@ -5,7 +5,7 @@
 - Vehicle Hub (`FleetRoster`) already has an **Active / Deactivated** toggle and lists deactivated units, but those rows are read-only — no reactivate action exists anywhere in Vehicle Hub.
 - The only reactivation control in the app is in **Driver Hub → Archived Drivers**, and it does exactly two things: set the operator active and write an `operator_reactivated` audit row.
 - Vehicle Hub's Active list additionally requires an insurance date on the onboarding record. A unit reactivated without that date would flip to active but still not show up in the Active tab.
-- There is no Tracey Dorsey record in the database at all. Unit 187 exists, attached to a different deactivated driver, with no deactivation date recorded — consistent with a pre-wizard, manual deactivation.
+- Correction to my earlier note: Tracey Dorsey is in the system — as the **truck owner** on the ICA for unit 187, not as a driver record. The unit's operator record is Jamian Anderson (deactivated, with no deactivation date recorded — consistent with a pre-wizard, manual deactivation), and its ICA still exists in "sent to operator" status rather than having been voided. So this unit can be reactivated in place; it does not need a new driver record.
 
 ## What to build
 
