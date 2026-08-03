@@ -1887,6 +1887,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     progress: 'all' | 'low' | 'mid' | 'high';
     compliance: 'all' | 'critical' | 'warning';
     idle: boolean;
+    unread: boolean;
+    invitePending: boolean;
+    exception: boolean;
     stageNodes: Set<string>;
   }>;
 
@@ -1898,6 +1901,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     const fProgress = o.progress ?? progressFilter;
     const fCompliance = o.compliance ?? complianceFilter;
     const fIdle = o.idle ?? idleFilter;
+    const fUnread = o.unread ?? unreadFilter;
+    const fInvitePending = o.invitePending ?? invitePendingFilter;
+    const fException = o.exception ?? exceptionFilter;
     const fStageNodes = o.stageNodes ?? stageNodeFilters;
 
     const q = search.trim().toLowerCase();
@@ -1929,9 +1935,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       op.onboarding_updated_at != null &&
       differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
     );
-    const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
-    const matchInvitePending = !invitePendingFilter || op.never_logged_in;
-    const matchException = !exceptionFilter || (op.paper_logbook_approved || op.temp_decal_approved);
+    const matchUnread = !fUnread || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
+    const matchInvitePending = !fInvitePending || op.never_logged_in;
+    const matchException = !fException || (op.paper_logbook_approved || op.temp_decal_approved);
     // Stage node filter (multi-select): OR semantics — incomplete in ANY selected stage.
     const matchStageNode = fStageNodes.size === 0 || Array.from(fStageNodes).some(key => {
       const cfg = stageConfigs.find(c => c.stage_key === key);
