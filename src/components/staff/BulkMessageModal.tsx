@@ -492,7 +492,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-base font-semibold leading-tight">Bulk Message</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Select operators, then compose and send a message to all at once
+                Sends a separate 1-on-1 message to each person. Recipients cannot see each other, and replies come back to you privately.
               </DialogDescription>
             </div>
             {/* Step pills */}
@@ -516,6 +516,13 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
         {step === 'select' && (
           <>
             <div className="px-5 py-3 border-b border-border shrink-0 space-y-2">
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+                <p className="text-[11px] text-foreground/80 leading-relaxed">
+                  This is <strong>not</strong> a group chat — everyone selected gets their own private
+                  1-on-1 message, and replies come back to you individually.
+                  <span className="text-muted-foreground"> Need everyone in one conversation? Use New group chat instead.</span>
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
