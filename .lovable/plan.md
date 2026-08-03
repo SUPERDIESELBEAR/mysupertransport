@@ -1,43 +1,38 @@
 ## Goal
 
-1. Confirm the driver's license (front/rear) and medical card uploads work for a logged-out applicant after last turn's storage-policy fix.
-2. Let applicants either pick an existing image/PDF **or** take a photo directly with the phone camera.
+When an applicant's driver's license or medical card upload is blurry, cut off, or otherwise unusable, staff get two side-by-side options on the application review drawer:
 
-## Current state (verified)
+1. **Replace it themselves** — upload the better copy the applicant emailed in.
+2. **Ask the applicant to retake it** — a document-specific request that drops the applicant straight onto the Documents step of their own application.
 
-- `src/components/application/Step7Documents.tsx` has one `FileUploader` per document; each renders a single hidden `<input type="file" accept="image/*,application/pdf">` with no `capture` attribute.
-- On phones, `image/*` already makes the OS offer "Camera" in its picker sheet, but there is no explicit in-app "Take Photo" action, and behavior varies by browser.
-- The app already uses `capture="environment"` elsewhere (`TruckPhotoGuideModal.tsx`, `EquipmentReturnCard.tsx`), so the pattern is established.
+Both live in the "Uploaded Documents" section of the applicant's review drawer, so the fix happens where the bad photo is spotted.
 
-## Part 1 — Verification pass
+## What staff will see
 
-Drive the live app with Playwright as an anonymous applicant:
-- Start a new application, advance to Step 7.
-- Upload a test JPG to "Front of Driver's License", a PNG to "Rear", and a PDF to "Medical Certificate".
-- Assert each tile flips to the green "File uploaded successfully" state, capture screenshots, and watch console/network for any 403 / "permission denied" responses.
-- Confirm the objects actually landed in the `application-documents` bucket under the draft-token folder, then remove the test objects so no junk stays behind.
-
-Report pass/fail per document with evidence.
-
-## Part 2 — Add direct photo capture
-
-In `Step7Documents.tsx`, change each uploader's empty state from one tap-target into two explicit actions (drag & drop still works on desktop):
+Each document (DL Front, DL Rear, Medical Certificate) becomes a small row instead of a bare chip:
 
 ```text
-┌───────────────────────────────────────┐
-│   [ Take Photo ]   [ Choose File ]    │
-│   JPG, PNG, or PDF · Max 10 MB        │
-└───────────────────────────────────────┘
+DL Front        [ View ]  [ Replace ]  [ Request retake ]
+  Replaced by Kenneth M. on Aug 2, 2026 · view original
 ```
 
-- **Take Photo** → hidden input with `accept="image/*"` + `capture="environment"` (rear camera).
-- **Choose File** → existing hidden input with `accept="image/*,application/pdf"` (photo library, Files, scans).
-- Both feed the same `handleFile` path, so validation (`validateFile`, 10 MB, type check) and the `uploadToBucket` call are unchanged.
-- Show "Take Photo" only on touch/mobile devices so the desktop experience stays a single clean drop zone.
-- Keep accessible labels and 44px tap targets per the existing mobile patterns.
+**Replace** opens a compact uploader (Choose file / drag-and-drop, JPG/PNG/PDF, 10 MB max — same validation as the applicant form). On save it stores the new file, points the application at it, records who replaced it and why (short reason picker: blurry, cut off, wrong document, expired, applicant emailed a better copy), and offers an optional "Let the applicant know" checkbox, unchecked by default.
+
+**Request retake** opens a small dialog where staff tick which of the three documents need redoing, pick a reason per document, and optionally add a note. It sends the applicant an email with a resume link that opens their application directly on the Documents step, with the flagged documents highlighted and their old file cleared so they must re-upload. The existing 7-day resume-token mechanism is reused.
+
+## Original file handling
+
+Originals are never deleted. Each replacement writes a history row (document slot, old path, new path, who, when, reason). The review drawer shows a "view original" link and the applicant-facing snapshot/print output shows the current file with a footnote that it was replaced by staff on a date — which is what keeps the file defensible in a DOT audit.
 
 ## Technical notes
 
-- No backend, storage-policy, or schema changes needed — Part 2 is presentation-only.
-- `capture` is a hint: desktop browsers ignore it, iOS Safari and Android Chrome open the camera directly.
-- Live-camera capture from a browser cannot bypass the OS camera UI without a full `getUserMedia` viewfinder; the `capture` attribute is the standard, reliable approach and is what the rest of the app uses.
+- **New table `application_document_history`**: `application_id`, `document_key` (`dl_front_url` | `dl_rear_url` | `medical_cert_url`), `old_path`, `new_path`, `source` (`staff_replacement` | `applicant_retake`), `reason`, `note`, `changed_by`, `changed_by_name`, `changed_at`. GRANTs to `authenticated` + `service_role`; RLS restricts reads/writes to staff roles (`onboarding_staff`, `management`, `owner`) via the existing `has_role` pattern; append-only trigger.
+- **Storage**: staff uploads go to the existing `application-documents` bucket under `applications/{application_id}/staff/{uuid}.{ext}` using `uploadToBucket`. A staff-scoped INSERT policy is added for that prefix (the current applicant policies are keyed on draft token). Old objects stay in place.
+- **`ApplicationReviewDrawer.tsx`**: extend the existing `EditableDocumentKey` machinery (which already handles crop/rotate saves through `DocumentEditor` and `editedDocPaths`) with a replace-upload path and a history strip. New small components: `DocumentSlotRow.tsx` and `RequestRetakeModal.tsx` under `src/components/management/`.
+- **Retake request**: extend `request-application-revisions` (or a thin sibling function) to accept `documents: EditableDocumentKey[]` plus per-document reason. It nulls the flagged columns, stores the flags on the application, issues the 7-day resume token as today, and emails a `/apply?resume=<token>&step=7` link.
+- **`ApplicationForm.tsx` / `Step7Documents.tsx`**: on resume with retake flags, jump to the Documents step and render a gold callout per flagged document ("Staff asked for a clearer photo — reason"). Mobile already offers Take Photo / Choose File, so the applicant can shoot a fresh photo in place.
+- **Audit**: both actions write to `audit_log` alongside the history table, matching the existing revision-request logging.
+
+## Advice
+
+Prefer the retake path when the applicant is still responsive — the file arrives already tied to their identity and no chain-of-custody note is needed. Use staff replace for emailed copies, expedited approvals, and unresponsive applicants. Keeping the reason picker mandatory on both paths is what makes the audit trail worth having.

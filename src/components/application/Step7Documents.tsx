@@ -5,11 +5,14 @@ import { ApplicationFormData } from './types';
 import { FormField } from './FormField';
 import { validateFile } from '@/lib/validateFile';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
+import { retakeReasonLabel, type RetakeRequestMap, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
 
 interface Props {
   data: ApplicationFormData;
   onChange: (field: keyof ApplicationFormData, value: any) => void;
   errors: Partial<Record<keyof ApplicationFormData, string>>;
+  /** Slots staff asked the applicant to re-upload. */
+  retakeRequests?: RetakeRequestMap;
 }
 
 interface FileUploadProps {
@@ -20,9 +23,10 @@ interface FileUploadProps {
   accept?: string;
   required?: boolean;
   error?: string;
+  retakeNotice?: { reason?: string | null; note?: string | null } | null;
 }
 
-function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,application/pdf', required, error }: FileUploadProps) {
+function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,application/pdf', required, error, retakeNotice }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +90,16 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
 
   return (
     <FormField label={label} required={required} error={error || uploadError} hint={hint}>
+      {retakeNotice && !value && (
+        <div className="mb-2 flex items-start gap-2 rounded-lg border border-status-progress/40 bg-status-progress/10 p-3">
+          <AlertCircle className="h-4 w-4 text-status-progress shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="text-xs leading-relaxed text-foreground">
+            <p className="font-semibold">Please upload this one again</p>
+            <p className="mt-0.5">{retakeReasonLabel(retakeNotice.reason)}</p>
+            {retakeNotice.note && <p className="mt-1 text-muted-foreground">{retakeNotice.note}</p>}
+          </div>
+        </div>
+      )}
       {value ? (
         <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
           <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
@@ -171,7 +185,8 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
   );
 }
 
-export default function Step7Documents({ data, onChange, errors }: Props) {
+export default function Step7Documents({ data, onChange, errors, retakeRequests }: Props) {
+  const notice = (key: RetakeDocumentKey) => retakeRequests?.[key] ?? null;
   return (
     <div className="space-y-6">
       <div>
@@ -195,6 +210,7 @@ export default function Step7Documents({ data, onChange, errors }: Props) {
         onUploaded={url => onChange('dl_front_url', url)}
         required
         error={errors.dl_front_url}
+        retakeNotice={notice('dl_front_url')}
       />
       <FileUploader
         label="Rear of Driver's License"
@@ -203,6 +219,7 @@ export default function Step7Documents({ data, onChange, errors }: Props) {
         onUploaded={url => onChange('dl_rear_url', url)}
         required
         error={errors.dl_rear_url}
+        retakeNotice={notice('dl_rear_url')}
       />
       <FileUploader
         label="Medical Certificate (Short Form)"
@@ -211,6 +228,7 @@ export default function Step7Documents({ data, onChange, errors }: Props) {
         onUploaded={url => onChange('medical_cert_url', url)}
         required
         error={errors.medical_cert_url}
+        retakeNotice={notice('medical_cert_url')}
       />
     </div>
   );

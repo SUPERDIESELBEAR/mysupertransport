@@ -35,6 +35,10 @@ import { RevisionReplyAttachments } from '@/components/management/RevisionReplyA
 import { RevisionAuditLog } from '@/components/management/RevisionAuditLog';
 import { ReviewActionButton } from '@/components/management/ReviewActionButton';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { DocumentSlotRow } from '@/components/management/DocumentSlotRow';
+import { RequestRetakeModal } from '@/components/management/RequestRetakeModal';
+import { DocumentHistoryList } from '@/components/management/DocumentHistoryList';
+import { parseRetakeRequests, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -286,6 +290,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: EditableDocumentKey } | null>(null);
   const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: EditableDocumentKey } | null>(null);
   const [editedDocPaths, setEditedDocPaths] = useState<Partial<Record<EditableDocumentKey, string>>>({});
+  const [retakeModalKey, setRetakeModalKey] = useState<RetakeDocumentKey | null | undefined>(undefined);
+  const [docHistoryRefresh, setDocHistoryRefresh] = useState(0);
+  const [retakeMap, setRetakeMap] = useState<ReturnType<typeof parseRetakeRequests>>({});
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
@@ -310,7 +317,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   }, []);
 
   const getCurrentDocumentPath = useCallback((key: EditableDocumentKey): string | null => {
-    if (editedDocPaths[key]) return editedDocPaths[key] ?? null;
+    if (key in editedDocPaths) return editedDocPaths[key] || null;
 
     if (key === 'dl_front_url') return app?.dl_front_url ?? null;
     if (key === 'dl_rear_url') return app?.dl_rear_url ?? null;
@@ -323,6 +330,22 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     setReasonEditing(false);
     setReasonDraft('');
   }, [app?.id]);
+
+  // Outstanding retake requests for this application's document slots
+  useEffect(() => {
+    const id = app?.id;
+    if (!id) { setRetakeMap({}); return; }
+    let cancelled = false;
+    supabase
+      .from('applications')
+      .select('document_retake_requests')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setRetakeMap(parseRetakeRequests((data as { document_retake_requests?: unknown } | null)?.document_retake_requests));
+      });
+    return () => { cancelled = true; };
+  }, [app?.id, docHistoryRefresh]);
 
   useEffect(() => {
     if (!app) return;
@@ -1205,36 +1228,37 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               </Section>
 
               {/* Uploaded Documents */}
-              {(app.dl_front_url || app.dl_rear_url || app.medical_cert_url) && (
-                <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
-                  <div className="flex flex-wrap gap-2">
-                    {app.dl_front_url && (
-                      <button
-                        onClick={() => setPreviewDoc({ url: signedUrls.dl_front_url || app.dl_front_url!, name: 'DL Front', key: 'dl_front_url' })}
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> DL Front
-                      </button>
-                    )}
-                    {app.dl_rear_url && (
-                      <button
-                        onClick={() => setPreviewDoc({ url: signedUrls.dl_rear_url || app.dl_rear_url!, name: 'DL Rear', key: 'dl_rear_url' })}
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> DL Rear
-                      </button>
-                    )}
-                    {app.medical_cert_url && (
-                      <button
-                        onClick={() => setPreviewDoc({ url: signedUrls.medical_cert_url || app.medical_cert_url!, name: 'Medical Certificate', key: 'medical_cert_url' })}
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Medical Cert
-                      </button>
-                    )}
-                  </div>
-                </Section>
-              )}
+              <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  Replace a poor-quality file with a copy the applicant emailed you, or ask the applicant to retake it in their application.
+                </p>
+                <div className="space-y-2">
+                  {(['dl_front_url', 'dl_rear_url', 'medical_cert_url'] as RetakeDocumentKey[]).map(key => {
+                    const currentPath = getCurrentDocumentPath(key);
+                    const shortName = key === 'dl_front_url' ? 'DL Front' : key === 'dl_rear_url' ? 'DL Rear' : 'Medical Certificate';
+                    return (
+                      <DocumentSlotRow
+                        key={key}
+                        applicationId={app.id}
+                        docKey={key}
+                        currentPath={currentPath}
+                        signedUrl={signedUrls[key]}
+                        retake={retakeMap[key]}
+                        onPreview={() => setPreviewDoc({ url: signedUrls[key] || currentPath || '', name: shortName, key })}
+                        onRequestRetake={() => setRetakeModalKey(key)}
+                        onReplaced={async (path) => {
+                          setEditedDocPaths(prev => ({ ...prev, [key]: path }));
+                          const { data } = await supabase.storage.from('application-documents').createSignedUrl(path, 3600);
+                          if (data?.signedUrl) setSignedUrls(prev => ({ ...prev, [key]: data.signedUrl }));
+                          setDocHistoryRefresh(n => n + 1);
+                          onApplicationUpdated?.({ id: app.id, [key]: path } as Partial<FullApplication> & { id: string });
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <DocumentHistoryList applicationId={app.id} refreshKey={docHistoryRefresh} />
+              </Section>
 
               {/* Existing reviewer notes */}
               {app.reviewer_notes && (
@@ -1510,6 +1534,27 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         )}
       </div>
+      {/* Request retake modal */}
+      {retakeModalKey !== undefined && (
+        <RequestRetakeModal
+          applicationId={app.id}
+          applicantEmail={app.email}
+          initialKey={retakeModalKey}
+          onClose={() => setRetakeModalKey(undefined)}
+          onRequested={(keys) => {
+            setDocHistoryRefresh(n => n + 1);
+            setEditedDocPaths(prev => {
+              const next = { ...prev };
+              keys.forEach(k => { next[k] = ''; });
+              return next;
+            });
+            const patch: Record<string, unknown> = { id: app.id, review_status: 'revisions_requested' };
+            keys.forEach(k => { patch[k] = null; });
+            onApplicationUpdated?.(patch as Partial<FullApplication> & { id: string });
+          }}
+        />
+      )}
+
       {/* In-app document preview modal */}
       {previewDoc && (
         <FilePreviewModal

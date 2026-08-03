@@ -173,6 +173,59 @@ export type Database = {
           },
         ]
       }
+      application_document_history: {
+        Row: {
+          application_id: string
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          document_key: string
+          id: string
+          new_path: string | null
+          note: string | null
+          old_path: string | null
+          reason: string | null
+          source: string
+        }
+        Insert: {
+          application_id: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          document_key: string
+          id?: string
+          new_path?: string | null
+          note?: string | null
+          old_path?: string | null
+          reason?: string | null
+          source: string
+        }
+        Update: {
+          application_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          document_key?: string
+          id?: string
+          new_path?: string | null
+          note?: string | null
+          old_path?: string | null
+          reason?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_document_history_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_invites: {
         Row: {
           created_at: string
@@ -323,6 +376,7 @@ export type Database = {
           dl_front_url: string | null
           dl_rear_url: string | null
           dob: string | null
+          document_retake_requests: Json
           dot_accidents: boolean | null
           dot_accidents_description: string | null
           dot_positive_test_past_2yr: boolean | null
@@ -407,6 +461,7 @@ export type Database = {
           dl_front_url?: string | null
           dl_rear_url?: string | null
           dob?: string | null
+          document_retake_requests?: Json
           dot_accidents?: boolean | null
           dot_accidents_description?: string | null
           dot_positive_test_past_2yr?: boolean | null
@@ -491,6 +546,7 @@ export type Database = {
           dl_front_url?: string | null
           dl_rear_url?: string | null
           dob?: string | null
+          document_retake_requests?: Json
           dot_accidents?: boolean | null
           dot_accidents_description?: string | null
           dot_positive_test_past_2yr?: boolean | null
@@ -6674,6 +6730,7 @@ export type Database = {
           dl_front_url: string | null
           dl_rear_url: string | null
           dob: string | null
+          document_retake_requests: Json
           dot_accidents: boolean | null
           dot_accidents_description: string | null
           dot_positive_test_past_2yr: boolean | null
