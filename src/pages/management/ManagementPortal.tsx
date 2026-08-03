@@ -2104,7 +2104,10 @@ export default function ManagementPortal() {
               </Button>
             </div>
             <div className="flex-1 min-h-0">
-              <MessagesView initialUserId={messageInitialUserId} />
+              <MessagesView
+                initialUserId={messageInitialUserId}
+                onBulkMessage={() => { if (guardDemo()) return; setBulkMessageOpen(true); }}
+              />
             </div>
           </div>
         )}
