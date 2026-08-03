@@ -506,6 +506,7 @@ async function run(operatorId: string, driverName: string) {
     const evt = events?.[0] ?? null;
     const hasNotice = evt ? await cacheNotice(evt.id, evt.notice_pdf_path).catch(() => false) : false;
 
+    await reconcileDivergenceAcks(operatorId);
     const diverged = await openDivergenceDates();
 
     // The device decides what it can show; the server only says what exists.
