@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck, RotateCcw } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
@@ -17,6 +17,17 @@ import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/hooks/use-toast';
 
 import { useAuth } from '@/hooks/useAuth';
 
@@ -50,6 +61,8 @@ interface FleetRow {
   decalPhotoDsUrl: string | null;
   decalPhotoPsUrl: string | null;
   decalPhotosExtra: Array<{ url: string; label?: string }>;
+  deactivatedAt: string | null;
+  insuranceAddedDate: string | null;
 }
 
 interface FleetRosterProps {
