@@ -97,9 +97,11 @@ interface OperatorMessagesViewProps {
   onThreadSelected?: () => void;
   /** Called once the deep-linked conversation has been opened, so the parent can clear it. */
   onInitialUserConsumed?: () => void;
+  /** Reports the total unread count (direct + group) so the parent can badge its tab. */
+  onUnreadCountChange?: (count: number) => void;
 }
 
-export default function OperatorMessagesView({ initialUserId, onThreadSelected, onInitialUserConsumed }: OperatorMessagesViewProps = {}) {
+export default function OperatorMessagesView({ initialUserId, onThreadSelected, onInitialUserConsumed, onUnreadCountChange }: OperatorMessagesViewProps = {}) {
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -107,9 +109,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
   const [groupParticipants, setGroupParticipants] = useState<Record<string, Record<string, string>>>({});
   const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [markedUnread, setMarkedUnread] = useState<string[]>(() => readUnreadMarks());
+
+  const toggleMarkedUnread = useCallback((id: string, next: boolean) => {
+    setMarkedUnread(prev => {
+      const set = new Set(prev);
+      if (next) set.add(id); else set.delete(id);
+      const arr = Array.from(set);
+      writeUnreadMarks(arr);
+      return arr;
+    });
+  }, []);
 
   // Latest selection, readable from callbacks without making them re-run.
   const selectedUserIdRef = useRef<string | null>(selectedUserId);
@@ -203,7 +217,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
 
     const { data: msgs } = await supabase
       .from('messages')
-      .select('id, sender_id, recipient_id, body, sent_at, read_at, deleted_at, attachment_name')
+      .select('id, sender_id, recipient_id, body, sent_at, read_at, deleted_at, attachment_name, attachment_mime')
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order('sent_at', { ascending: false });
 
