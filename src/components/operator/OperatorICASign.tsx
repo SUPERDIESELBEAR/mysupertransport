@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Pen, CheckCircle2, Loader2, Building2 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from '@/components/ica/ICADocumentView';
-import DriverICAAcknowledgment from './DriverICAAcknowledgment';
+import { fileExecutedIca } from '@/lib/ica/fileExecutedIca';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { withTimeout } from '@/lib/withTimeout';
@@ -48,6 +48,10 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const [depositInitials, setDepositInitials] = useState('');
   const [depositElectedDate, setDepositElectedDate] = useState('');
   const [signerRole, setSignerRole] = useState<'driver' | 'truck_owner' | 'unknown'>('unknown');
+  // True when this unit has a linked truck owner — the owner is the only
+  // signer, so the driver sees the agreement read-only.
+  const [unitHasTruckOwner, setUnitHasTruckOwner] = useState(false);
+  const pendingBinderFileRef = useRef(false);
   // Editable owner contact fields (only used when signer is the truck owner)
   const [ownerEdits, setOwnerEdits] = useState({
     owner_address: '', owner_city: '', owner_state: '', owner_zip: '',
@@ -83,31 +87,42 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
 
   const fetchContract = async () => {
     setLoading(true);
-    // Resolve operator: driver path first, then truck-owner fallback.
+    // Resolve operator: TRUCK OWNER first — when an owner is linked to the
+    // unit, they are the ICA signer and the driver is a read-only viewer.
     let resolvedOperatorId: string | null = null;
     let resolvedSignerRole: 'driver' | 'truck_owner' = 'driver';
-    const { data: op } = await supabase
-      .from('operators')
-      .select('id, user_id')
+    let ownerLinked = false;
+    const { data: to } = await supabase
+      .from('truck_owners')
+      .select('operator_id')
       .eq('user_id', session!.user.id)
       .maybeSingle();
-    if (op) {
-      resolvedOperatorId = op.id as string;
-      resolvedSignerRole = 'driver';
+    if (to) {
+      resolvedOperatorId = (to as any).operator_id;
+      resolvedSignerRole = 'truck_owner';
+      ownerLinked = true;
     } else {
-      const { data: to } = await supabase
-        .from('truck_owners')
-        .select('operator_id')
+      const { data: op } = await supabase
+        .from('operators')
+        .select('id, user_id')
         .eq('user_id', session!.user.id)
         .maybeSingle();
-      if (to) {
-        resolvedOperatorId = (to as any).operator_id;
-        resolvedSignerRole = 'truck_owner';
+      if (op) {
+        resolvedOperatorId = op.id as string;
+        resolvedSignerRole = 'driver';
+        const { data: unitOwner } = await supabase
+          .from('truck_owners')
+          .select('id')
+          .eq('operator_id', op.id as string)
+          .limit(1)
+          .maybeSingle();
+        ownerLinked = !!unitOwner;
       }
     }
     if (!resolvedOperatorId) { setLoading(false); return; }
     setOperatorId(resolvedOperatorId);
     setSignerRole(resolvedSignerRole);
+    setUnitHasTruckOwner(ownerLinked);
 
     const { data: profile } = await supabase
       .from('profiles')
