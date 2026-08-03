@@ -780,8 +780,24 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           </div>
         ) :
 
-        /* Mobile PDF fallback — show action card instead of broken iframe */
+        /* Mobile PDF — render pages inline with pdf.js */
         showMobilePdfFallback ? (
+          pdfPages && pdfPages.length > 0 ? (
+            <div className="min-h-full w-full bg-black py-2 space-y-2">
+              {pdfPages.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt={`${name} — page ${i + 1}`}
+                  className="w-full h-auto block"
+                  onLoad={i === 0 ? handleLoad : undefined}
+                />
+              ))}
+              <p className="text-center text-[11px] text-muted-foreground pt-1 pb-3">
+                {pdfPages.length} page{pdfPages.length === 1 ? '' : 's'}
+              </p>
+            </div>
+          ) : pdfPagesError ? (
           <div className="absolute inset-0 flex items-center justify-center p-6">
             <div className="bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center space-y-4 shadow-xl">
               <div className="h-14 w-14 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
@@ -789,14 +805,16 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">{name}</p>
-                <p className="text-xs text-muted-foreground mt-1">Tap below to open or share this PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Couldn’t display this PDF in the app. {pdfPagesError}
+                </p>
               </div>
               <div className="space-y-2">
                 <button
                   onClick={() => window.open(resolvedUrl, '_blank', 'noopener,noreferrer')}
                   className="w-full flex items-center justify-center gap-2 bg-gold text-white font-semibold text-sm py-3 rounded-xl hover:bg-gold-light transition-colors"
                 >
-                  <ExternalLink className="h-4 w-4" /> Open PDF
+                  <ExternalLink className="h-4 w-4" /> Open in browser
                 </button>
                 <div className="flex gap-2">
                   <button
@@ -815,6 +833,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               </div>
             </div>
           </div>
+          ) : null
         ) : blobUrl ? (
             <div
               style={{
