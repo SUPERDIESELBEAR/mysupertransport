@@ -1098,8 +1098,8 @@ export default function ManagementPortal() {
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => { setDriverComplianceFilter('all'); setView('drivers'); }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setDriverComplianceFilter('all'); setView('drivers'); } }}
+                  onClick={() => { setDriverComplianceFilter('all'); setDriverDispatchFilter('all'); setView('drivers'); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setDriverComplianceFilter('all'); setDriverDispatchFilter('all'); setView('drivers'); } }}
                   className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border flex flex-col items-start"
                 >
                   <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-2 sm:mb-3">
@@ -1110,22 +1110,29 @@ export default function ManagementPortal() {
                   {onboardingStageBreakdown.fully_onboarded > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {([
-                        { key: 'dispatched',     label: 'On Road',   dotClass: 'bg-status-complete' },
-                        { key: 'home',           label: 'Home',      dotClass: 'bg-info' },
-                        { key: 'not_dispatched', label: 'Available', dotClass: 'bg-muted-foreground' },
-                        { key: 'truck_down',     label: 'Down',      dotClass: 'bg-destructive' },
+                        { key: 'dispatched',     label: 'Dispatched',     dotClass: 'bg-status-complete' },
+                        { key: 'home',           label: 'Home',           dotClass: 'bg-status-progress' },
+                        { key: 'not_dispatched', label: 'Not Dispatched', dotClass: 'bg-muted-foreground' },
+                        { key: 'truck_down',     label: 'Truck Down',     dotClass: 'bg-destructive' },
                       ] as const).map(({ key, label, dotClass }) => {
                         const count = dispatchBreakdown[key];
                         if (!count) return null;
                         return (
                           <Tooltip key={key}>
                             <TooltipTrigger asChild>
-                              <span
-                                className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none"
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setDriverComplianceFilter('all');
+                                  setDriverDispatchFilter(key);
+                                  setView('drivers');
+                                }}
+                                className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none hover:bg-secondary/70 transition-colors"
                               >
                                 <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />
                                 {count}
-                              </span>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent side="bottom" className="text-xs">{label}: {count}</TooltipContent>
                           </Tooltip>
