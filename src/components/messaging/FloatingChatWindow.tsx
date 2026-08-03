@@ -7,6 +7,9 @@ import { initials } from '@/lib/initials';
 import { format, isToday, isYesterday } from 'date-fns';
 import { MessageSquare, X, Search, User, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { playTruckDownChime } from '@/lib/chime';
+import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,9 +37,12 @@ interface Thread {
   oldestUnreadAt: string | null;
 }
 
+type RailFilter = 'unread' | 'chats' | 'all';
+
 interface WindowState {
   open: boolean;
   railCollapsed: boolean;
+  railFilter: RailFilter;
   x: number;
   y: number;
   width: number;
@@ -59,6 +65,7 @@ function getDefaultState(): WindowState {
   return {
     open: false,
     railCollapsed: false,
+    railFilter: 'chats',
     x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
     y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
     width: DEFAULT_WIDTH,
@@ -67,21 +74,38 @@ function getDefaultState(): WindowState {
   };
 }
 
+/**
+ * Force the whole window box inside the current viewport: shrink first
+ * (so a stale oversized size can't push it off-screen), then clamp x/y so
+ * the right/bottom edges stay visible with an 8px margin.
+ */
+function clampToViewport<T extends { x: number; y: number; width: number; height: number }>(s: T): T {
+  const margin = 8;
+  const maxW = Math.max(320, window.innerWidth - margin * 2);
+  const maxH = Math.max(280, window.innerHeight - margin * 2);
+  const width = Math.min(Math.max(Math.min(MIN_WIDTH, maxW), s.width), maxW);
+  const height = Math.min(Math.max(Math.min(MIN_HEIGHT, maxH), s.height), maxH);
+  const x = Math.min(Math.max(margin, s.x), Math.max(margin, window.innerWidth - width - margin));
+  const y = Math.min(Math.max(margin, s.y), Math.max(margin, window.innerHeight - height - margin));
+  return { ...s, x, y, width, height };
+}
+
 function loadState(): WindowState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getDefaultState();
     const parsed = JSON.parse(raw) as Partial<WindowState>;
     const def = getDefaultState();
-    return {
+    return clampToViewport({
       open: parsed.open ?? def.open,
       railCollapsed: parsed.railCollapsed ?? def.railCollapsed,
-      x: Math.max(8, Math.min(parsed.x ?? def.x, window.innerWidth - 200)),
-      y: Math.max(8, Math.min(parsed.y ?? def.y, window.innerHeight - 120)),
-      width: Math.max(MIN_WIDTH, Math.min(parsed.width ?? def.width, window.innerWidth - 32)),
-      height: Math.max(MIN_HEIGHT, Math.min(parsed.height ?? def.height, window.innerHeight - 32)),
+      railFilter: parsed.railFilter ?? def.railFilter,
+      x: parsed.x ?? def.x,
+      y: parsed.y ?? def.y,
+      width: parsed.width ?? def.width,
+      height: parsed.height ?? def.height,
       selectedUserId: parsed.selectedUserId ?? null,
-    };
+    });
   } catch {
     return getDefaultState();
   }
@@ -124,7 +148,12 @@ export default function FloatingChatWindow() {
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; initialW: number; initialH: number } | null>(null);
 
-  const { open, railCollapsed, x, y, width, height, selectedUserId } = state;
+  const { open, railCollapsed, railFilter, x, y, width, height, selectedUserId } = state;
+  const { fireNotification } = useDesktopNotifications();
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
+  const selectedRef = useRef(selectedUserId);
+  useEffect(() => { selectedRef.current = selectedUserId; }, [selectedUserId]);
 
   // Persist state changes
   useEffect(() => { saveState(state); }, [state]);
@@ -132,13 +161,7 @@ export default function FloatingChatWindow() {
   // Clamp to viewport on resize
   useEffect(() => {
     const handleResize = () => {
-      setState(prev => ({
-        ...prev,
-        x: Math.max(8, Math.min(prev.x, window.innerWidth - 200)),
-        y: Math.max(8, Math.min(prev.y, window.innerHeight - 120)),
-        width: Math.max(MIN_WIDTH, Math.min(prev.width, window.innerWidth - 32)),
-        height: Math.max(MIN_HEIGHT, Math.min(prev.height, window.innerHeight - 32)),
-      }));
+      setState(prev => clampToViewport(prev));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
