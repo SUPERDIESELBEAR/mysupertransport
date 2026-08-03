@@ -2644,20 +2644,28 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       {/* Stage breakdown — compact single-line ribbon */}
       <div className="bg-white border border-border rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold text-muted-foreground shrink-0 mr-1">Stages:</span>
-        {STAGES.map((stage, i) => (
-          <button
-            key={stage}
-            onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
-            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
-              stageFilter === stage
-                ? 'border-gold bg-gold/10 text-gold'
-                : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
-            }`}
-          >
-            <span className="font-bold">{stageCounts[stage] ?? 0}</span>
-            <span className="text-muted-foreground">{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
-          </button>
-        ))}
+        {STAGES.map((stage, i) => {
+          const isActive = stageFilter === stage;
+          const count = stageCounts[stage] ?? 0;
+          const disabled = count === 0 && !isActive;
+          return (
+            <button
+              key={stage}
+              disabled={disabled}
+              onClick={() => setStageFilter(isActive ? 'all' : stage)}
+              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
+                isActive
+                  ? 'border-gold bg-gold/10 text-gold'
+                  : disabled
+                    ? 'border-border/50 bg-muted/20 text-muted-foreground/40 cursor-not-allowed'
+                    : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
+              }`}
+            >
+              <span className="font-bold">{count}</span>
+              <span className={disabled ? '' : 'text-muted-foreground'}>{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
+            </button>
+          );
+        })}
         <span className="w-px h-4 bg-border shrink-0 mx-1" />
         {/* Dispatch + Compliance quick-filter chips */}
         <div className="flex items-center gap-2 flex-wrap">
