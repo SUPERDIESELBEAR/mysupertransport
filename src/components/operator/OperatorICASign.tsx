@@ -62,6 +62,28 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
     if (session?.user?.id) fetchContract();
   }, [session?.user?.id]);
 
+  // After a successful signature, render the executed agreement to PDF and
+  // file it into the driver's DOT inspection binder ("Lease Agreement (ICA)").
+  // Runs once, after the signed document has painted. Best-effort only.
+  useEffect(() => {
+    if (!pendingBinderFileRef.current) return;
+    if (!contract || contract.status !== 'fully_executed' || !operatorId) return;
+    pendingBinderFileRef.current = false;
+    const id = window.setTimeout(async () => {
+      const result = await fileExecutedIca({
+        elementId: 'operator-ica-print-area',
+        operatorId,
+        contractId: contract.id,
+      });
+      if (result.filed) {
+        toast.success('A copy of the signed ICA was filed in the DOT inspection binder.');
+      } else {
+        console.warn('[OperatorICASign] binder filing skipped:', result.reason);
+      }
+    }, 600);
+    return () => window.clearTimeout(id);
+  }, [contract, operatorId]);
+
   const logIcaEvent = async (
     action: 'ica_screen_opened' | 'ica_execute_clicked' | 'ica_upload_failed' | 'ica_signed',
     opId: string | null,
