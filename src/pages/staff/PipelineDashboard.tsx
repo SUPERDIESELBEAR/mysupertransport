@@ -1870,54 +1870,92 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   };
 
 
+  // ---------------------------------------------------------------------------
+  // One predicate, used by BOTH the rendered list and every chip count.
+  //
+  // Previously each chip counted with its own `operators.filter(...)` over the
+  // raw list, so the badge ignored the other active filters AND the baseline
+  // exclusions below. That's why a chip could advertise "21" and the table then
+  // said "No operators match your filters". Chip counts are now faceted: they
+  // run this same predicate with their own dimension overridden.
+  // ---------------------------------------------------------------------------
+  type FilterOverrides = Partial<{
+    stage: string;
+    status: string;
+    coordinator: string;
+    dispatch: 'all' | DispatchStatus;
+    progress: 'all' | 'low' | 'mid' | 'high';
+    compliance: 'all' | 'critical' | 'warning';
+    idle: boolean;
+    stageNodes: Set<string>;
+  }>;
+
+  const matchesFilters = (op: OperatorRow, o: FilterOverrides = {}) => {
+    const fStage = o.stage ?? stageFilter;
+    const fStatus = o.status ?? statusFilter;
+    const fCoordinator = o.coordinator ?? coordinatorFilter;
+    const fDispatch = o.dispatch ?? dispatchFilter;
+    const fProgress = o.progress ?? progressFilter;
+    const fCompliance = o.compliance ?? complianceFilter;
+    const fIdle = o.idle ?? idleFilter;
+    const fStageNodes = o.stageNodes ?? stageNodeFilters;
+
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q || [
+      `${op.first_name ?? ''} ${op.last_name ?? ''}`,
+      op.email,
+      op.phone,
+      op.truck_vin,
+      op.unit_number,
+      op.truck_plate,
+      op.home_state,
+      op.assigned_staff_name,
+    ].some(v => (v ?? '').toString().toLowerCase().includes(q));
+    const matchStage = fStage === 'all' || op.current_stage === fStage;
+    const matchStatus = fStatus === 'all' || getStatus(op) === fStatus;
+    const matchCoordinator = fCoordinator === 'all' ||
+      (fCoordinator === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === fCoordinator);
+    const matchDispatch = fDispatch === 'all' || op.dispatch_status === fDispatch ||
+      (fDispatch === 'not_dispatched' && op.dispatch_status === null);
+    const matchProgress = fProgress === 'all' ||
+      (fProgress === 'low' && op.progress_pct <= 33) ||
+      (fProgress === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
+      (fProgress === 'high' && op.progress_pct >= 67);
+    const worstAlert = complianceByOperator[op.id];
+    const matchCompliance = fCompliance === 'all' ||
+      (fCompliance === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
+      (fCompliance === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
+    const matchIdle = !fIdle || (
+      op.onboarding_updated_at != null &&
+      differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
+    );
+    const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
+    const matchInvitePending = !invitePendingFilter || op.never_logged_in;
+    const matchException = !exceptionFilter || (op.paper_logbook_approved || op.temp_decal_approved);
+    // Stage node filter (multi-select): OR semantics — incomplete in ANY selected stage.
+    const matchStageNode = fStageNodes.size === 0 || Array.from(fStageNodes).some(key => {
+      const cfg = stageConfigs.find(c => c.stage_key === key);
+      if (!cfg || cfg.items.length === 0) return false;
+      return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+    });
+    // Operators surfaced in the "Active — Open Onboarding Items" top section
+    // (fully onboarded but Stage 5 still open) are normally hidden here so they
+    // aren't listed twice. Asking for Status = Fully Onboarded is an explicit
+    // request for exactly that group, so let them through in that one case.
+    const inActiveOpenSection = op.fully_onboarded && isStage5Open(op);
+    const hiddenAsDuplicate = inActiveOpenSection && fStatus !== 'onboarded';
+
+    return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch &&
+      matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending &&
+      matchException && matchStageNode &&
+      !op.on_hold && !hiddenAsDuplicate && !OWNER_USER_IDS.has(op.user_id);
+  };
+
+  /** Count operators that would remain if this chip's dimension were applied. */
+  const facetCount = (o: FilterOverrides) => operators.filter(op => matchesFilters(op, o)).length;
+
   const filtered = operators
-    .filter(op => {
-      const q = search.trim().toLowerCase();
-      const matchSearch = !q || [
-        `${op.first_name ?? ''} ${op.last_name ?? ''}`,
-        op.email,
-        op.phone,
-        op.truck_vin,
-        op.unit_number,
-        op.truck_plate,
-        op.home_state,
-        op.assigned_staff_name,
-      ].some(v => (v ?? '').toString().toLowerCase().includes(q));
-      const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
-      const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
-      const matchCoordinator = coordinatorFilter === 'all' ||
-        (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
-      const matchDispatch = dispatchFilter === 'all' || op.dispatch_status === dispatchFilter ||
-        (dispatchFilter === 'not_dispatched' && op.dispatch_status === null);
-      const matchProgress = progressFilter === 'all' ||
-        (progressFilter === 'low' && op.progress_pct <= 33) ||
-        (progressFilter === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
-        (progressFilter === 'high' && op.progress_pct >= 67);
-      const worstAlert = complianceByOperator[op.id];
-      const matchCompliance = complianceFilter === 'all' ||
-        (complianceFilter === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
-        (complianceFilter === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
-      const matchIdle = !idleFilter || (
-        op.onboarding_updated_at != null &&
-        differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
-      );
-      const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
-      const matchInvitePending = !invitePendingFilter || op.never_logged_in;
-      const matchException = !exceptionFilter || (op.paper_logbook_approved || op.temp_decal_approved);
-      // Stage node filter (multi-select): show operators who are incomplete in ANY of the selected stages
-      const matchStageNode = stageNodeFilters.size === 0 || (() => {
-        // Operator must be incomplete in ALL selected stages (AND logic: show operators missing both BG AND ICA)
-        return Array.from(stageNodeFilters).every(key => {
-          const cfg = stageConfigs.find(c => c.stage_key === key);
-          if (!cfg || cfg.items.length === 0) return true;
-          return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
-        });
-      })();
-      // Exclude operators surfaced in the "Active — Open Onboarding Items" top section
-      // (they're fully onboarded but Stage 5 is still open — already shown above).
-      const inActiveOpenSection = op.fully_onboarded && isStage5Open(op);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !inActiveOpenSection && !OWNER_USER_IDS.has(op.user_id);
-    })
+    .filter(op => matchesFilters(op))
     .sort((a, b) => {
       if (!sortKey) return 0;
       if (sortKey === 'compliance') {
