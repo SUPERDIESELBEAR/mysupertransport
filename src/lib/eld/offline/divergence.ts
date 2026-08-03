@@ -149,5 +149,68 @@ export async function acknowledgeDivergence(
     acknowledged_by: by.actor,
     acknowledged_reason: by.reason,
     acknowledged_at: new Date().toISOString(),
+    // Marked pending until the queue entry carrying it drains. Reconciliation
+    // reads this: a local acknowledgement the server has not seen is
+    // authoritative and must not be reopened by a hydration pass.
+    ack_pending: 1,
   });
+}
+
+/**
+ * Dates whose acknowledgement exists only on this device — the sync queue entry
+ * has not drained. PRECEDENCE: these win over the server row. A driver who
+ * dismissed offline must not have the chip come back because hydration ran
+ * before the queue did. Same rule as `unsynced` on the day cache.
+ */
+export async function pendingAckDates(): Promise<Set<string>> {
+  try {
+    const rows = await roadsideDb.rods_divergences.toArray();
+    return new Set(rows.filter((r) => r.ack_pending === 1).map((r) => r.log_date));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Apply a resolution recorded in the office to the device copy.
+ *
+ * One direction only: open → acknowledged. This never reopens a resolved row,
+ * so it can never undo a driver's dismissal, and a locally pending
+ * acknowledgement is skipped outright by the caller.
+ */
+export async function applyServerAcknowledgement(
+  logDate: string,
+  ack: {
+    serverId: string;
+    source: DivergenceAckSource;
+    actor: string | null;
+    reason: string | null;
+    at: string | null;
+  },
+): Promise<boolean> {
+  const existing = await roadsideDb.rods_divergences.get(logDate);
+  if (!existing) return false;
+  if (existing.ack_pending === 1) return false;
+  if (existing.acknowledged === 1) return false;
+  await roadsideDb.rods_divergences.put({
+    ...existing,
+    acknowledged: 1,
+    acknowledged_source: ack.source,
+    acknowledged_by: ack.actor,
+    acknowledged_reason: ack.reason,
+    acknowledged_at: ack.at ?? new Date().toISOString(),
+    ack_pending: 0,
+    server_id: ack.serverId,
+  });
+  return true;
+}
+
+/** Local rows that have never been reported to the server, for the report queue. */
+export async function unreportedDivergences(): Promise<RodsDivergenceEntry[]> {
+  try {
+    const rows = await roadsideDb.rods_divergences.toArray();
+    return rows.filter((r) => !r.server_id);
+  } catch {
+    return [];
+  }
 }
