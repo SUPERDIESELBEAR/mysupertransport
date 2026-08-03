@@ -89,6 +89,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [truckPhotoTarget, setTruckPhotoTarget] = useState<FleetRow | null>(null);
   const [decalPhotoTarget, setDecalPhotoTarget] = useState<FleetRow | null>(null);
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
+  const [confirmReactivate, setConfirmReactivate] = useState<FleetRow | null>(null);
+  const [reactivating, setReactivating] = useState(false);
+  const [postReactivate, setPostReactivate] = useState<FleetRow | null>(null);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
   const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
     return (localStorage.getItem('vehicle_hub_dot_filter') as DotFilter) || 'all';
@@ -238,6 +241,35 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   }, [buildRows]);
 
   useEffect(() => { fetchFleet(); }, [fetchFleet]);
+
+  const handleReactivate = async () => {
+    if (!confirmReactivate) return;
+    const row = confirmReactivate;
+    setReactivating(true);
+    const { error } = await supabase
+      .from('operators')
+      .update({ is_active: true })
+      .eq('id', row.operatorId);
+
+    if (error) {
+      toast({ title: 'Error', description: 'Could not reactivate this unit.', variant: 'destructive' });
+    } else {
+      await supabase.from('audit_log').insert({
+        entity_type: 'operator',
+        entity_id: row.operatorId,
+        entity_label: `Unit ${row.unitNumber ?? '—'} · ${row.driverName}`,
+        action: 'operator_reactivated',
+      });
+      toast({
+        title: `Unit ${row.unitNumber ?? ''} reactivated`.trim(),
+        description: `${row.driverName} is back on the active roster.`,
+      });
+      setConfirmReactivate(null);
+      if (!row.insuranceAddedDate) setPostReactivate(row);
+      fetchFleet();
+    }
+    setReactivating(false);
+  };
 
   const rows = showDeactivated ? deactivatedRows : activeRows;
 
