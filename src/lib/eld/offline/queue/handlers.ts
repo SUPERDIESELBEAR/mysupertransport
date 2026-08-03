@@ -358,12 +358,12 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
 
   /**
    * File the server-side divergence record, and write the returned row id back
- * into the local record so a later acknowledgement can name it directly.
- *
- * Cascade-exempt and retried forever for the same reason as `record_unlock`:
- * the office learning late that a certified day disagrees with its copy is
- * recoverable, never learning it is not.
- */
+   * into the local record so a later acknowledgement can name it directly.
+   *
+   * Cascade-exempt and retried forever for the same reason as `record_unlock`:
+   * the office learning late that a certified day disagrees with its copy is
+   * recoverable, never learning it is not.
+   */
   async record_divergence(payload) {
   const logDate = str(payload, 'log_date');
   const { data, error } = await supabase.rpc('record_rods_divergence', {
@@ -387,18 +387,18 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     }
   },
 
-/**
- * Propagate a device-side resolution.
- *
- * The row is named by id when the report has already drained, and resolved by
- * (operator, date) when it has not — the two entries can drain in either order
- * on a device that came back online mid-sequence. A row that does not exist
- * server-side yet is a no-op success, not a failure: the report entry is still
- * queued and this device will re-issue the acknowledgement after it lands.
- *
- * `ack_pending` is cleared only once the server has the resolution. Until then
- * hydration treats the local acknowledgement as authoritative.
- */
+  /**
+   * Propagate a device-side resolution.
+   *
+   * The row is named by id when the report has already drained, and resolved by
+   * (operator, date) when it has not — the two entries can drain in either order
+   * on a device that came back online mid-sequence. A row that does not exist
+   * server-side yet is a no-op success, not a failure: the report entry is still
+   * queued and this device will re-issue the acknowledgement after it lands.
+   *
+   * `ack_pending` is cleared only once the server has the resolution. Until then
+   * hydration treats the local acknowledgement as authoritative.
+   */
   async acknowledge_divergence(payload) {
   const logDate = str(payload, 'log_date');
   const operatorId = str(payload, 'operator_id');
@@ -434,4 +434,4 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
       });
     }
   },
-};
+  };
