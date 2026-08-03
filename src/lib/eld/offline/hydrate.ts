@@ -259,6 +259,56 @@ async function flagDivergence(
  * See the PRECEDENCE block on ensureDayCached — this is where it is enforced.
  * Exported for the precedence tests; not part of the module's public surface.
  */
+/**
+ * The return leg: a resolution recorded in the office clears the chip here.
+ *
+ * PRECEDENCE, and it runs the opposite way from the rest of this file. A
+ * locally acknowledged divergence whose queue entry has not drained WINS over
+ * the server row: the driver dismissed it on his phone, the server has not
+ * heard yet, and treating the server as authoritative would un-acknowledge him
+ * and put the chip back. Reconciliation is therefore one-directional — it can
+ * only move a row from open to acknowledged, never the reverse — and it skips
+ * any date carrying an undrained acknowledgement outright.
+ *
+ * A failed read leaves every local row exactly as it is.
+ */
+export async function reconcileDivergenceAcks(operatorId: string): Promise<number> {
+  try {
+    const open = await openDivergenceDates();
+    if (open.size === 0) return 0;
+    const pending = await pendingAckDates();
+    const dates = [...open].filter((d) => !pending.has(d));
+    if (dates.length === 0) return 0;
+
+    const { data, error } = await supabase
+      .from('rods_divergences')
+      .select('id, log_date, acknowledged, acknowledged_source, acknowledged_by, acknowledged_reason, acknowledged_at')
+      .eq('operator_id', operatorId)
+      .eq('acknowledged', true)
+      .in('log_date', dates);
+    if (error || !data) return 0;
+
+    let cleared = 0;
+    for (const row of data) {
+      const applied = await applyServerAcknowledgement(row.log_date, {
+        serverId: row.id,
+        source: row.acknowledged_source === 'driver' ? 'driver' : 'management',
+        actor: row.acknowledged_by ?? null,
+        reason: row.acknowledged_reason ?? null,
+        at: row.acknowledged_at ?? null,
+      });
+      if (applied) cleared += 1;
+    }
+    return cleared;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * See the PRECEDENCE block on ensureDayCached — this is where it is enforced.
+ * Exported for the precedence tests; not part of the module's public surface.
+ */
 export async function cacheKeyedDay(day: RodsDay, driverName: string) {
   const existing = await roadsideDb.rods_pdfs.get(day.log_date);
   // Case 1: certified here, not yet synced. Local wins absolutely.
