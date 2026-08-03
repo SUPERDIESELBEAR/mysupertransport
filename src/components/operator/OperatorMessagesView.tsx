@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
@@ -73,9 +73,11 @@ function previewBody(m: { body: string; deleted_at: string | null; attachment_na
 interface OperatorMessagesViewProps {
   initialUserId?: string;
   onThreadSelected?: () => void;
+  /** Called once the deep-linked conversation has been opened, so the parent can clear it. */
+  onInitialUserConsumed?: () => void;
 }
 
-export default function OperatorMessagesView({ initialUserId, onThreadSelected }: OperatorMessagesViewProps = {}) {
+export default function OperatorMessagesView({ initialUserId, onThreadSelected, onInitialUserConsumed }: OperatorMessagesViewProps = {}) {
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -87,10 +89,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
 
-  // React to a new initialUserId arriving after mount (e.g. from Contacts tab)
+  // Latest selection, readable from callbacks without making them re-run.
+  const selectedUserIdRef = useRef<string | null>(selectedUserId);
+  useEffect(() => { selectedUserIdRef.current = selectedUserId; }, [selectedUserId]);
+  /** Auto-select on desktop should happen once per mount, never after a back press. */
+  const autoSelectedRef = useRef(false);
+
+  // React to a new initialUserId arriving after mount (e.g. from Contacts tab).
+  // Consumed immediately so pressing back doesn't re-open the same thread.
   useEffect(() => {
-    if (initialUserId) setSelectedUserId(initialUserId);
-  }, [initialUserId]);
+    if (!initialUserId) return;
+    setSelectedUserId(initialUserId);
+    setSelectedGroupId(null);
+    autoSelectedRef.current = true;
+    onInitialUserConsumed?.();
+  }, [initialUserId, onInitialUserConsumed]);
 
   // ── Load my group threads ────────────────────────────────────────────────
   const loadGroups = useCallback(async () => {
@@ -202,15 +215,14 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
     setThreads(built);
     setLoadingThreads(false);
 
-    // Auto-select: prefer initialUserId, then first thread (only on desktop)
-    if (built.length > 0 && !selectedUserId) {
-      const isMobile = window.innerWidth < 768;
-      const target = initialUserId && built.find(t => t.staffUserId === initialUserId);
-      if (!isMobile || initialUserId) {
-        setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
-      }
+    // Auto-select the first conversation once per mount, desktop only.
+    // Mobile always lands on the list so the back arrow can return to it.
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile && !autoSelectedRef.current && built.length > 0 && !selectedUserIdRef.current) {
+      autoSelectedRef.current = true;
+      setSelectedUserId(built[0].staffUserId);
     }
-  }, [user?.id, selectedUserId, initialUserId]);
+  }, [user?.id]);
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => { loadStaff(); }, [loadStaff]);
@@ -230,7 +242,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
         filter: `recipient_id=eq.${user.id}`,
       }, (payload) => {
         const msg = payload.new as ChatMessage;
-        if (msg.sender_id === selectedUserId) return;
+        if (msg.sender_id === selectedUserIdRef.current) return;
         setThreads(prev => prev.map(t =>
           t.staffUserId === msg.sender_id
             ? { ...t, lastMessage: previewBody(msg), lastAt: msg.sent_at, unreadCount: t.unreadCount + 1 }
@@ -239,7 +251,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user?.id, selectedUserId]);
+  }, [user?.id]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const filteredThreads = threads.filter(t =>
