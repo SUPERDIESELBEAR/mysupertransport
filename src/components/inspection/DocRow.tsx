@@ -430,6 +430,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   onNext?: () => void;
   /** e.g. "2 of 4" */
   counter?: string;
+  /** Zero-based position + total, enables the mobile dot strip */
+  index?: number;
+  total?: number;
 }) {
   const { toast } = useToast();
   const [showEditor, setShowEditor] = useState(false);
