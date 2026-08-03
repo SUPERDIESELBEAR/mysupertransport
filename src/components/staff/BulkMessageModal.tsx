@@ -812,6 +812,27 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
           </>
         )}
       </DialogContent>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Send {selectedIds.size} separate message{selectedIds.size !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This is not a group chat. Each of the {selectedIds.size} recipient
+              {selectedIds.size !== 1 ? 's' : ''} gets their own private 1-on-1 message, they cannot
+              see each other, and replies come back to you individually.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmOpen(false); void handleSend(); }}>
+              Send {selectedIds.size} message{selectedIds.size !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
