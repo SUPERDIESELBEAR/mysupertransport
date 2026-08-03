@@ -2439,21 +2439,21 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   .filter(c => c.is_active)
                   .sort((a, b) => a.stage_order - b.stage_order)
                   .map(cfg => {
-                    const incompleteCount = operators.filter(op =>
-                      cfg.items.length > 0 &&
-                      !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-                    ).length;
-                    if (incompleteCount === 0) return null;
                     const isActive = stageNodeFilters.has(cfg.stage_key);
+                    const incompleteCount = facetCount({ stageNodes: new Set([cfg.stage_key]) });
+                    const disabled = incompleteCount === 0 && !isActive;
                     return (
                       <button
                         key={cfg.stage_key}
                         type="button"
+                        disabled={disabled}
                         onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                         className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-all active:scale-95 ${
                           isActive
                             ? 'bg-gold text-white border-gold'
-                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                            : disabled
+                              ? 'bg-muted/40 text-muted-foreground/40 border-border/50 cursor-not-allowed'
+                              : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
                         }`}
                       >
                         {cfg.label}
