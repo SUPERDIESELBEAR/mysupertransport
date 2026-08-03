@@ -326,8 +326,8 @@ export default function FloatingChatWindow() {
       {/* Floating bubble — hidden on mobile where bottom nav already has Messages */}
       {!open && (
         <button
-          onClick={() => setState(prev => ({ ...prev, open: true, minimized: false }))}
-          className="hidden lg:flex fixed z-50 bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all"
+          onClick={() => setState(prev => ({ ...prev, open: true }))}
+          className="hidden lg:flex fixed z-50 bottom-24 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all"
           aria-label="Open chat"
         >
           <MessageSquare className="h-5 w-5" />
