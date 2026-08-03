@@ -212,6 +212,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         decalPhotoDsUrl: os?.decal_photo_ds_url ?? null,
         decalPhotoPsUrl: os?.decal_photo_ps_url ?? null,
         decalPhotosExtra,
+        deactivatedAt: op.deactivated_at ?? null,
+        insuranceAddedDate: os?.insurance_added_date ?? null,
       };
     });
 
