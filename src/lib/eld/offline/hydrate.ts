@@ -26,8 +26,10 @@ import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
 import { buildManifest, type ServerDayDescriptor } from './manifestBuild';
 import {
-  compareDocumentDay, compareKeyedDay, openDivergenceDates, recordDivergence,
+  applyServerAcknowledgement,
+  compareDocumentDay, compareKeyedDay, openDivergenceDates, pendingAckDates, recordDivergence,
 } from './divergence';
+import { enqueueDivergenceReport } from './queue/divergenceSync';
 import { raiseSyncAlert } from './queue/alerts';
 import { maybeWipeForDemoReset } from './demoReset';
 import { windowDatesInTimezone } from './roadsideManifest';
@@ -236,6 +238,15 @@ async function flagDivergence(
     logDate, operatorId, localDay, localEvents, serverRowId, comparison,
   });
   if (!isNew) return;
+  // File it with the office. Queued, not called: the device that notices a
+  // divergence is frequently the one that is offline.
+  const row = await roadsideDb.rods_divergences.get(logDate);
+  if (row) {
+    await enqueueDivergenceReport(
+      row,
+      typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    ).catch(() => undefined);
+  }
   await raiseSyncAlert({
     kind: 'certified_day_divergence',
     operator_id: operatorId,
