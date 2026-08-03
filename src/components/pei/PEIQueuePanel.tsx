@@ -472,13 +472,15 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return { counts, overdue: groupRows.filter((r) => r.is_overdue).length };
   }
 
-  const FILTERS: Array<{ key: typeof filter; label: string }> = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'sent', label: 'Sent' },
-    { key: 'overdue', label: 'Overdue' },
-    { key: 'completed', label: 'Completed' },
-    { key: 'gfe', label: 'GFE' },
+  const FILTERS: Array<{ key: FilterKey; label: string; group: 'active' | 'archive' }> = [
+    { key: 'all', label: 'All', group: 'active' },
+    { key: 'pending', label: 'Pending', group: 'active' },
+    { key: 'sent', label: 'Sent', group: 'active' },
+    { key: 'overdue', label: 'Overdue', group: 'active' },
+    { key: 'completed', label: 'Completed', group: 'active' },
+    { key: 'gfe', label: 'GFE', group: 'active' },
+    { key: 'archived_hired', label: 'Archived (Hired)', group: 'archive' },
+    { key: 'archived_not_hired', label: 'Archived (Not Hired)', group: 'archive' },
   ];
 
   return (
