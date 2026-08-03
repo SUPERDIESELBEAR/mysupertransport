@@ -589,6 +589,17 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {showDeactivated && (isManagement || isOwner) && (
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
+                      title="Put this unit back on the active roster"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Reactivate Unit
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -744,6 +755,17 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        {showDeactivated && (isManagement || isOwner) && (
+                          <Button
+                            size="sm"
+                            className="h-7 gap-1.5 text-xs"
+                            onClick={() => setConfirmReactivate(row)}
+                            title="Put this unit back on the active roster"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reactivate
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="outline"
