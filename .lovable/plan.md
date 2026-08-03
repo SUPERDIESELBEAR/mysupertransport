@@ -1,38 +1,57 @@
-## Goal
+# Truck-Owner ICA Signing — One Signer, Auto-Filed to the Driver's Binder
 
-When an applicant's driver's license or medical card upload is blurry, cut off, or otherwise unusable, staff get two side-by-side options on the application review drawer:
+## The problem, confirmed in the live data
 
-1. **Replace it themselves** — upload the better copy the applicant emailed in.
-2. **Ask the applicant to retake it** — a document-specific request that drops the applicant straight onto the Documents step of their own application.
+For Kevin Foy (driver) and David Mitchell (truck owner, The Country Club of Rebecca LLC):
 
-Both live in the "Uploaded Documents" section of the applicant's review drawer, so the fix happens where the bad photo is spotted.
+- **Two ICA notices go out.** A database trigger fires whenever the ICA status flips to "sent for signature" and always emails the *driver* an "Action Required: Review & Sign My ICA" message. Separately, the ICA Builder sends its own notice that correctly looks up the truck owner and goes to *David*. Neither knows about the other, so both men get told to sign.
+- **The wrong person can sign.** The driver's ICA screen resolves the signer by whoever is logged in and defaults to "driver", so Kevin sees a full signature pad. Only after the contract is executed does the read-and-acknowledge card appear instead.
+- **Nothing files the signed ICA.** The ICA is print-only — no PDF is ever stored. Kevin's DOT Inspection Binder has zero documents; the per-driver "Lease Agreement" slot is empty and would have to be filled by hand.
 
-## What staff will see
+## What we're building
 
-Each document (DL Front, DL Rear, Medical Certificate) becomes a small row instead of a bare chip:
+**One signer.** When a unit has a linked truck owner, the ICA is addressed to the owner only. The owner gets the signature request; the driver gets nothing about signing.
+
+**The driver is silent.** No ICA emails, no ICA in-app notifications, no ICA "action required" badge for the driver. The executed agreement simply appears in their binder and documents.
+
+**No acknowledgment step.** The owner's signature alone completes the ICA. The read-and-acknowledge card is removed from the driver portal.
+
+**Auto-file to the binder.** The moment the owner signs, the system renders the fully executed ICA to PDF and files it into the driver's binder under **Lease Agreement (ICA)**. Staff keep a Replace action on that slot for corrections and amendments.
+
+## Flow after the change
 
 ```text
-DL Front        [ View ]  [ Replace ]  [ Request retake ]
-  Replaced by Kenneth M. on Aug 2, 2026 · view original
+Staff issues ICA
+      |
+      +--> linked truck owner?  YES --> email + in-app notice to OWNER only
+      |                                  driver: nothing
+      |                          NO  --> email + in-app notice to DRIVER (unchanged)
+      |
+Owner opens ICA, confirms contact info, signs
+      |
+      +--> contract -> fully_executed
+      +--> executed ICA rendered to PDF, stored
+      +--> filed into driver's binder: "Lease Agreement (ICA)"
+      +--> staff notified: ICA signed
+      +--> driver sees the executed ICA read-only in their binder + documents
 ```
 
-**Replace** opens a compact uploader (Choose file / drag-and-drop, JPG/PNG/PDF, 10 MB max — same validation as the applicant form). On save it stores the new file, points the application at it, records who replaced it and why (short reason picker: blurry, cut off, wrong document, expired, applicant emailed a better copy), and offers an optional "Let the applicant know" checkbox, unchecked by default.
+## What each person sees
 
-**Request retake** opens a small dialog where staff tick which of the three documents need redoing, pick a reason per document, and optionally add a note. It sends the applicant an email with a resume link that opens their application directly on the Documents step, with the flagged documents highlighted and their old file cleared so they must re-upload. The existing 7-day resume-token mechanism is reused.
-
-## Original file handling
-
-Originals are never deleted. Each replacement writes a history row (document slot, old path, new path, who, when, reason). The review drawer shows a "view original" link and the applicant-facing snapshot/print output shows the current file with a footnote that it was replaced by staff on a date — which is what keeps the file defensible in a DOT audit.
+- **David (truck owner):** one email, "Your ICA is ready to sign", deep-linking to the ICA screen. Confirms his contact fields, signs. Confirmation once executed.
+- **Kevin (driver):** no signing prompt anywhere. His ICA tab shows the executed agreement read-only once signed, and the PDF appears in his DOT binder for roadside use.
+- **Staff:** the ICA card shows who it was routed to, whether the owner has signed, and the binder slot it landed in — plus a Replace action.
 
 ## Technical notes
 
-- **New table `application_document_history`**: `application_id`, `document_key` (`dl_front_url` | `dl_rear_url` | `medical_cert_url`), `old_path`, `new_path`, `source` (`staff_replacement` | `applicant_retake`), `reason`, `note`, `changed_by`, `changed_by_name`, `changed_at`. GRANTs to `authenticated` + `service_role`; RLS restricts reads/writes to staff roles (`onboarding_staff`, `management`, `owner`) via the existing `has_role` pattern; append-only trigger.
-- **Storage**: staff uploads go to the existing `application-documents` bucket under `applications/{application_id}/staff/{uuid}.{ext}` using `uploadToBucket`. A staff-scoped INSERT policy is added for that prefix (the current applicant policies are keyed on draft token). Old objects stay in place.
-- **`ApplicationReviewDrawer.tsx`**: extend the existing `EditableDocumentKey` machinery (which already handles crop/rotate saves through `DocumentEditor` and `editedDocPaths`) with a replace-upload path and a history strip. New small components: `DocumentSlotRow.tsx` and `RequestRetakeModal.tsx` under `src/components/management/`.
-- **Retake request**: extend `request-application-revisions` (or a thin sibling function) to accept `documents: EditableDocumentKey[]` plus per-document reason. It nulls the flagged columns, stores the flags on the application, issues the 7-day resume token as today, and emails a `/apply?resume=<token>&step=7` link.
-- **`ApplicationForm.tsx` / `Step7Documents.tsx`**: on resume with retake flags, jump to the Documents step and render a gold callout per flagged document ("Staff asked for a clearer photo — reason"). Mobile already offers Take Photo / Choose File, so the applicant can shoot a fresh photo in place.
-- **Audit**: both actions write to `audit_log` alongside the history table, matching the existing revision-request logging.
+1. **Single routing decision.** Add a shared helper that resolves the ICA signer for an operator (`truck_owners` row → owner, else driver). The trigger-driven `notify-onboarding-update` path skips the `ica_ready_to_sign` email entirely when a truck owner is linked; `send-notification` stays the single sender in that case and already routes to the owner. `ica_complete` driver copy is suppressed the same way.
+2. **Signer resolution fix.** `OperatorICASign` currently checks `operators.user_id` before `truck_owners`. Reverse that precedence: if the operator has a linked truck owner and the viewer is not that owner, render read-only — no signature pad.
+3. **Remove acknowledgment.** Drop `DriverICAAcknowledgment` from the driver portal and stop keying completion logic on `ica_driver_acknowledgments`. The table stays for historical records; no new writes.
+4. **PDF generation + filing.** New edge function (`file-executed-ica`) invoked after the owner's signature: renders the executed ICA server-side, uploads it to storage, and upserts an `inspection_documents` row for the driver named `Lease Agreement (ICA)`. Idempotent by contract id so re-runs replace rather than duplicate. Failures are logged and surfaced to staff as a retry action, never blocking the signature.
+5. **Binder slot rename.** Rename the per-driver slot from `Lease Agreement` to `Lease Agreement (ICA)` in `InspectionBinderTypes.ts`, plus a data migration renaming existing `inspection_documents` rows and the `inspection_binder_order` entry so nothing orphans.
+6. **Backfill.** One-time pass for already-executed contracts with a linked truck owner (David/Kevin included) so their binders get the PDF without re-signing.
 
-## Advice
+## Out of scope
 
-Prefer the retake path when the applicant is still responsive — the file arrives already tied to their identity and no chain-of-custody note is needed. Use staff replace for emailed copies, expedited approvals, and unresponsive applicants. Keeping the reason picker mandatory on both paths is what makes the audit trail worth having.
+- ICA amendments and lease terminations keep their current routing; only the base ICA is covered here.
+- No change to the ICA document content or the carrier signature settings.
