@@ -10,7 +10,7 @@ import StaffAvailabilityCard from './StaffAvailabilityCard';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Settings2, Users, Plus } from 'lucide-react';
+import { Settings2, Users, Plus, Send } from 'lucide-react';
 import { NewGroupModal } from '@/components/messaging/NewGroupModal';
 import { NewDirectMessageModal, loadDMCandidates, type DMCandidate } from '@/components/messaging/NewDirectMessageModal';
 import { ManageGroupModal } from '@/components/messaging/ManageGroupModal';
