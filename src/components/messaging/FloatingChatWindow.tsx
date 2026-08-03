@@ -382,7 +382,7 @@ export default function FloatingChatWindow() {
       {/* Floating bubble — hidden on mobile where bottom nav already has Messages */}
       {!open && (
         <button
-          onClick={() => setState(prev => ({ ...prev, open: true }))}
+          onClick={() => setState(prev => clampToViewport({ ...prev, open: true }))}
           className="hidden lg:flex fixed z-50 bottom-24 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all"
           aria-label="Open chat"
         >
@@ -464,6 +464,23 @@ export default function FloatingChatWindow() {
                   {railCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
                 </button>
               </div>
+              {!railCollapsed && (
+                <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-border">
+                  {(['unread', 'chats', 'all'] as RailFilter[]).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setState(prev => ({ ...prev, railFilter: f }))}
+                      className={`flex-1 h-6 rounded text-[11px] font-medium capitalize transition-colors ${
+                        railFilter === f
+                          ? 'bg-primary/15 text-primary'
+                          : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {f === 'unread' && totalUnread > 0 ? `Unread ${totalUnread > 9 ? '9+' : totalUnread}` : f}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto">
                 {loadingThreads ? (
                   <div className="flex justify-center py-6">
@@ -474,7 +491,13 @@ export default function FloatingChatWindow() {
                     <User className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                     {!railCollapsed && (
                       <p className="text-xs text-muted-foreground">
-                        {search ? 'No operators found' : 'No messages yet'}
+                        {search
+                          ? 'No operators found'
+                          : railFilter === 'unread'
+                            ? 'No unread messages'
+                            : railFilter === 'chats'
+                              ? 'No conversations yet — switch to All to start one'
+                              : 'No operators yet'}
                       </p>
                     )}
                   </div>
