@@ -384,109 +384,119 @@ export default function FloatingChatWindow() {
           </div>
 
           {/* Body */}
-          {!minimized && (
-            <div className="flex flex-1 min-h-0">
-              {/* Thread list */}
-              <div className={`${selectedUserId ? 'hidden md:flex' : 'flex'} w-full md:w-44 shrink-0 flex-col border-r border-border bg-muted/20`}>
-                <div className="px-3 py-2 border-b border-border">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+          <div className="flex flex-1 min-h-0" data-no-drag>
+            {/* Contacts rail */}
+            <div className={`${railCollapsed ? 'w-14' : 'w-56'} shrink-0 flex flex-col border-r border-border bg-muted/20 transition-[width] duration-150`}>
+              <div className={`${railCollapsed ? 'px-1.5' : 'px-2.5'} py-2 border-b border-border flex items-center gap-1.5`}>
+                {!railCollapsed && (
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
-                      placeholder="Search…"
+                      placeholder="Search contacts…"
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      className="pl-6 h-7 text-[11px]"
+                      className="pl-7 h-8 text-xs"
                     />
                   </div>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  {loadingThreads ? (
-                    <div className="flex justify-center py-6">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    </div>
-                  ) : filteredThreads.length === 0 ? (
-                    <div className="py-6 text-center px-3">
-                      <User className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
-                      <p className="text-[11px] text-muted-foreground">
+                )}
+                <button
+                  onClick={() => setState(prev => ({ ...prev, railCollapsed: !prev.railCollapsed }))}
+                  className="h-8 w-8 shrink-0 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
+                  aria-label={railCollapsed ? 'Show contacts' : 'Collapse contacts'}
+                  title={railCollapsed ? 'Show contacts' : 'Collapse contacts'}
+                >
+                  {railCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {loadingThreads ? (
+                  <div className="flex justify-center py-6">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : filteredThreads.length === 0 ? (
+                  <div className="py-6 text-center px-3">
+                    <User className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
+                    {!railCollapsed && (
+                      <p className="text-xs text-muted-foreground">
                         {search ? 'No operators found' : 'No messages yet'}
                       </p>
-                    </div>
-                  ) : (
-                    filteredThreads.map(t => (
-                      <button
-                        key={t.operatorUserId}
-                        onClick={() => setState(prev => ({ ...prev, selectedUserId: t.operatorUserId }))}
-                        className={`w-full text-left px-3 py-2 border-b border-border/50 transition-colors hover:bg-muted/50 ${
-                          selectedUserId === t.operatorUserId ? 'bg-primary/8 border-l-2 border-l-primary' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="relative shrink-0">
-                            <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
-                              {t.avatarUrl ? (
-                                <img src={t.avatarUrl} alt={t.name} className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="text-primary text-[10px] font-bold">{initials(t.name)}</span>
-                              )}
-                            </div>
-                            {t.unreadCount > 0 && (
-                              <span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-3.5 px-0.5 rounded-full bg-destructive text-white text-[8px] font-bold flex items-center justify-center">
-                                {t.unreadCount > 9 ? '9+' : t.unreadCount}
-                              </span>
+                    )}
+                  </div>
+                ) : (
+                  filteredThreads.map(t => (
+                    <button
+                      key={t.operatorUserId}
+                      onClick={() => setState(prev => ({ ...prev, selectedUserId: t.operatorUserId }))}
+                      title={t.name}
+                      className={`w-full text-left ${railCollapsed ? 'px-2 py-2 flex justify-center' : 'px-2.5 py-2'} border-b border-border/50 transition-colors hover:bg-muted/50 ${
+                        selectedUserId === t.operatorUserId ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="relative shrink-0">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                            {t.avatarUrl ? (
+                              <img src={t.avatarUrl} alt={t.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-primary text-[11px] font-bold">{initials(t.name)}</span>
                             )}
                           </div>
+                          {t.unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
+                              {t.unreadCount > 9 ? '9+' : t.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        {!railCollapsed && (
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[11px] truncate ${t.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>
+                            <p className={`text-xs truncate ${t.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>
                               {t.name}
                             </p>
-                            <p className={`text-[10px] truncate ${t.unreadCount > 0 ? 'text-foreground/70 font-medium' : 'text-muted-foreground'}`}>
+                            <p className={`text-[11px] truncate ${t.unreadCount > 0 ? 'text-foreground/70 font-medium' : 'text-muted-foreground'}`}>
                               {t.lastMessage}
                             </p>
                           </div>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Thread panel */}
-              <div className={`${selectedUserId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
-                {!selectedUserId ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-4 gap-2">
-                    <MessageSquare className="h-5 w-5 text-muted-foreground/30" />
-                    <p className="text-xs text-muted-foreground">Select an operator to chat</p>
-                  </div>
-                ) : (
-                  <MessageThread
-                    key={selectedUserId}
-                    myUserId={user?.id ?? null}
-                    otherUserId={selectedUserId}
-                    otherName={selectedThread?.name ?? 'Operator'}
-                    otherSubtitle="Owner-Operator"
-                    otherAvatarUrl={selectedThread?.avatarUrl ?? null}
-                    isStaff={true}
-                    onBack={() => setState(prev => ({ ...prev, selectedUserId: null }))}
-                    placeholder={`Message ${selectedThread?.name ?? 'operator'}…`}
-                    onMessagesChanged={handleMessagesChanged}
-                  />
+                        )}
+                      </div>
+                    </button>
+                  ))
                 )}
               </div>
             </div>
-          )}
+
+            {/* Conversation panel */}
+            <div className="flex flex-1 flex-col min-w-0">
+              {!selectedUserId ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-4 gap-2">
+                  <MessageSquare className="h-6 w-6 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">Select an operator to chat</p>
+                </div>
+              ) : (
+                <MessageThread
+                  key={selectedUserId}
+                  myUserId={user?.id ?? null}
+                  otherUserId={selectedUserId}
+                  otherName={selectedThread?.name ?? 'Operator'}
+                  otherSubtitle="Owner-Operator"
+                  otherAvatarUrl={selectedThread?.avatarUrl ?? null}
+                  isStaff={true}
+                  placeholder={`Message ${selectedThread?.name ?? 'operator'}…`}
+                  onMessagesChanged={handleMessagesChanged}
+                />
+              )}
+            </div>
+          </div>
 
           {/* Resize handle */}
-          {!minimized && (
-            <div
-              className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
-              onPointerDown={onResizeStart}
-              data-no-drag
-            >
-              <svg width="10" height="10" viewBox="0 0 10 10" className="absolute bottom-1 right-1 text-muted-foreground/40">
-                <path d="M10 10 L0 10 L10 0 Z" fill="currentColor" />
-              </svg>
-            </div>
-          )}
+          <div
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
+            onPointerDown={onResizeStart}
+            data-no-drag
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" className="absolute bottom-1 right-1 text-muted-foreground/40">
+              <path d="M10 10 L0 10 L10 0 Z" fill="currentColor" />
+            </svg>
+          </div>
         </div>
       )}
     </>
