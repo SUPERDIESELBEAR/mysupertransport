@@ -28,7 +28,7 @@ import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, ShieldAlert,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, SlidersHorizontal, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy,
 } from 'lucide-react';
@@ -978,15 +978,15 @@ export default function ManagementPortal() {
         notificationsPath="/dashboard?view=notifications"
         isDemo={isDemo}
         onExitDemo={exitDemo}
-        headerActions={
-          <button
-            onClick={() => setNotifPrefsOpen(true)}
-            title="Notification preferences"
-            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
-          >
-            <Settings2 className="h-5 w-5" />
-          </button>
-        }
+          headerActions={
+            <button
+              onClick={() => setNotifPrefsOpen(true)}
+              title="Notification preferences"
+              className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
+            >
+              <SlidersHorizontal className="h-5 w-5" />
+            </button>
+          }
       >
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
