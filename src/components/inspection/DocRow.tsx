@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { pdfToImage } from '@/lib/pdfToImage';
+import { pdfToImages } from '@/lib/pdfToImages';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { printImageUrl } from '@/lib/printImage';
