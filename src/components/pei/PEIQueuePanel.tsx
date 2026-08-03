@@ -144,7 +144,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [archiveFor, setArchiveFor] = useState<ApplicantGroup | null>(null);
   const [changeCategoryFor, setChangeCategoryFor] = useState<ApplicantGroup | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
@@ -152,6 +152,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
     new Set(SECTIONS.filter((s) => s.defaultOpen).map((s) => s.key))
   );
+  const lastFilterKeyRef = useRef<string>('');
   const [deleteTarget, setDeleteTarget] = useState<PEIQueueRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -227,22 +228,30 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return { applicants, awaiting, overdue, completedThisMonth, archivedHired, archivedNotHired };
   }, [activeRows, rows]);
 
-  const filteredRows = useMemo(() => {
+  const searchedRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = rows;
-    if (q) {
-      list = list.filter((r) => {
-        const name = [r.applicant_first_name, r.applicant_last_name].filter(Boolean).join(' ').toLowerCase();
-        return name.includes(q) || r.employer_name.toLowerCase().includes(q);
-      });
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const name = [r.applicant_first_name, r.applicant_last_name].filter(Boolean).join(' ').toLowerCase();
+      return name.includes(q) || r.employer_name.toLowerCase().includes(q);
+    });
+  }, [rows, search]);
+
+  const filteredRows = useMemo(
+    () => searchedRows.filter((r) => rowMatchesFilter(r, filter)),
+    [searchedRows, filter]
+  );
+
+  /** Applicant count per chip, computed with the exact predicate the list uses. */
+  const chipCounts = useMemo(() => {
+    const out = {} as Record<FilterKey, number>;
+    for (const f of FILTER_KEYS) {
+      const ids = new Set<string>();
+      for (const r of searchedRows) if (rowMatchesFilter(r, f)) ids.add(r.application_id);
+      out[f] = ids.size;
     }
-    if (filter === 'overdue') list = list.filter((r) => r.is_overdue);
-    else if (filter === 'pending') list = list.filter((r) => r.status === 'pending');
-    else if (filter === 'sent') list = list.filter((r) => r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent');
-    else if (filter === 'completed') list = list.filter((r) => r.status === 'completed');
-    else if (filter === 'gfe') list = list.filter((r) => r.status === 'gfe_documented');
-    return list;
-  }, [rows, filter, search]);
+    return out;
+  }, [searchedRows]);
 
   const grouped = useMemo<ApplicantGroup[]>(() => {
     const map = new Map<string, PEIQueueRow[]>();
