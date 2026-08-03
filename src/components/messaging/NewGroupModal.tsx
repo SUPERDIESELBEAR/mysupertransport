@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Loader2, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Candidate {
   user_id: string;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: Props) {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -35,13 +37,33 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
     if (!open) return;
     setTitle(''); setSelected(new Set()); setSearch('');
     void loadCandidates();
-  }, [open, callerIsStaff]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, callerIsStaff, user?.id]);
 
   const loadCandidates = async () => {
     setLoading(true);
     try {
-      // Staff candidates: all users with a staff role
       const list: Candidate[] = [];
+
+      // Driver mode: only staff the driver is permitted to contact.
+      if (!callerIsStaff) {
+        if (user?.id) {
+          const { data: contacts } = await supabase.rpc('list_driver_contacts', { _driver: user.id });
+          for (const c of contacts ?? []) {
+            list.push({
+              user_id: c.staff_id,
+              name: c.full_name?.trim() || 'Staff Member',
+              subtitle: roleLabel(c.role),
+              kind: 'staff',
+            });
+          }
+        }
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setCandidates(list);
+        return;
+      }
+
+      // Staff candidates: all users with a staff role
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id, role')
@@ -60,20 +82,18 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
       }
 
       // Driver candidates (staff mode only)
-      if (callerIsStaff) {
-        const { data: ops } = await supabase.from('operators').select('user_id');
-        const opIds = (ops ?? []).map(o => o.user_id);
-        if (opIds.length) {
-          const { data: opProfs } = await supabase
-            .from('profiles').select('user_id, first_name, last_name').in('user_id', opIds);
-          for (const p of opProfs ?? []) {
-            list.push({
-              user_id: p.user_id,
-              name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Driver',
-              subtitle: 'Owner-Operator',
-              kind: 'driver',
-            });
-          }
+      const { data: ops } = await supabase.from('operators').select('user_id');
+      const opIds = (ops ?? []).map(o => o.user_id);
+      if (opIds.length) {
+        const { data: opProfs } = await supabase
+          .from('profiles').select('user_id, first_name, last_name').in('user_id', opIds);
+        for (const p of opProfs ?? []) {
+          list.push({
+            user_id: p.user_id,
+            name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Driver',
+            subtitle: 'Owner-Operator',
+            kind: 'driver',
+          });
         }
       }
 
@@ -133,7 +153,9 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
             Shared thread — everyone in the group sees replies.
           </p>
           {!callerIsStaff && (
-            <p className="text-[11px] text-muted-foreground">You can only add staff members to a group.</p>
+            <p className="text-[11px] text-muted-foreground">
+              You can only add SUPERTRANSPORT staff assigned to you — other drivers aren't available.
+            </p>
           )}
           <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
             {loading ? (
