@@ -136,6 +136,15 @@ export function MessageThread({
             {otherTyping ? <span className="text-primary italic">typing…</span> : (otherSubtitle ?? '')}
           </p>
         </div>
+        {unreadOnOpen > 0 && (
+          <button
+            type="button"
+            onClick={() => unreadDividerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            className="shrink-0 h-6 px-2 rounded-full bg-primary/10 border border-primary/30 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+          >
+            {unreadOnOpen} new
+          </button>
+        )}
         {headerAction}
       </div>
 
@@ -206,6 +215,15 @@ export function MessageThread({
                 new Date(messages[i - 1].sent_at).toDateString() !== new Date(m.sent_at).toDateString();
               return (
                 <div key={m.id}>
+                  {firstUnreadId === m.id && (
+                    <div ref={unreadDividerRef} className="flex items-center gap-2 my-3">
+                      <div className="flex-1 h-px bg-primary/40" />
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-primary px-2">
+                        New messages
+                      </span>
+                      <div className="flex-1 h-px bg-primary/40" />
+                    </div>
+                  )}
                   {showDate && (
                     <div className="flex items-center gap-2 my-3">
                       <div className="flex-1 h-px bg-border" />
