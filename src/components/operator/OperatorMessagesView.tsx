@@ -524,8 +524,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                           {t.lastMessage}
                         </p>
                       </div>
+                      {t.lastAt && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); toggleMarkedUnread(t.staffUserId, !markedUnread.includes(t.staffUserId)); }}
+                          className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-muted transition-colors"
+                          aria-label={markedUnread.includes(t.staffUserId) ? 'Mark as read' : 'Mark as unread'}
+                          title={markedUnread.includes(t.staffUserId) ? 'Mark as read' : 'Mark as unread'}
+                        >
+                          {markedUnread.includes(t.staffUserId)
+                            ? <MailOpen className="h-3.5 w-3.5" />
+                            : <Mail className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
