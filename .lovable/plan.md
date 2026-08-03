@@ -1,13 +1,14 @@
 # Message settings access + bulk message clarity
 
-## 1. Message settings stay staff-only
+## 1. Reword "Driver Availability"
 
-Current state (verified): the settings gear and the availability/alerts panel live only in the staff `MessagesView`, which renders in the Management, Staff, and Dispatch portals. The driver-facing messaging view has no settings surface, so drivers cannot mute or opt out today.
+No access changes. The settings panel already appears only in the staff Messages view, and the driver-facing messaging view has no settings surface — drivers cannot mute or opt out today.
 
-To make that guarantee explicit rather than incidental:
-- Gate the settings gear behind a staff role check (management / owner / onboarding staff / dispatcher) instead of relying on which portal renders the component.
-- Reword the availability control so it is unambiguous: it only controls whether a driver can **start** a new thread with you. Messages management sends to a driver always arrive, and existing threads always stay open.
-- Add a short line under the control: "Drivers always receive messages you send. This only limits who can start a new conversation with you."
+The problem is the label: "Driver Availability" reads like it changes a driver's settings, when it actually controls the staff member's own availability to receive driver-initiated messages.
+
+- Rename the section to "My Availability to Drivers".
+- Reword the control to "Which drivers can start a conversation with me?", with the options phrased from the staff member's point of view.
+- Add a clarifying line: "This only limits who can start a new conversation with you. Messages you send always reach the driver, and existing threads stay open."
 
 ## 2. Bulk message: make 1:1 fan-out obvious
 
