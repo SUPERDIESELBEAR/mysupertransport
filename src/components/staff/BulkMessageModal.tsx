@@ -9,6 +9,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { sanitizeText } from '@/lib/sanitize';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -244,6 +248,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
   const [step, setStep] = useState<'select' | 'compose'>('select');
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Templates
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -453,14 +458,14 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
 
     if (failCount > 0) {
       toast({
-        title: `${successCount} messages sent`,
+        title: `${successCount} individual message${successCount !== 1 ? 's' : ''} sent`,
         description: `${failCount} failed to send.`,
         variant: 'destructive',
       });
     } else {
       toast({
-        title: `Message sent to ${successCount} operator${successCount !== 1 ? 's' : ''}`,
-        description: 'All recipients will receive an in-app notification.',
+        title: `Sent ${successCount} individual message${successCount !== 1 ? 's' : ''}`,
+        description: 'Each recipient got their own private 1-on-1 message.',
       });
     }
   };
@@ -471,6 +476,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     setStep('select');
     setSentCount(null);
     setShowSaveForm(false);
+    setConfirmOpen(false);
     onClose();
   };
 
@@ -759,7 +765,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   />
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] text-muted-foreground">
-                      Each operator receives this as an individual message in their inbox.
+                      Each recipient receives this as a separate 1-on-1 message — they cannot see each other.
                     </p>
                     <span className="text-[11px] text-muted-foreground tabular-nums">
                       {message.length}/2000
@@ -776,7 +782,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                 <div>
                   <p className="font-semibold text-foreground">Messages sent!</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Your message was delivered to <strong>{sentCount}</strong> operator{sentCount !== 1 ? 's' : ''}.
+                    Sent as <strong>{sentCount}</strong> separate 1-on-1 message{sentCount !== 1 ? 's' : ''}.
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleClose} className="text-xs mt-2">Close</Button>
@@ -792,13 +798,13 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                 <Button
                   size="sm"
                   disabled={!message.trim() || sending}
-                  onClick={handleSend}
+                  onClick={() => setConfirmOpen(true)}
                   className="text-xs gap-2"
                 >
                   {sending ? (
                     <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
                   ) : (
-                    <><Send className="h-3.5 w-3.5" />Send to {selectedIds.size} operator{selectedIds.size !== 1 ? 's' : ''}</>
+                    <><Send className="h-3.5 w-3.5" />Send {selectedIds.size} separate message{selectedIds.size !== 1 ? 's' : ''}</>
                   )}
                 </Button>
               </div>
