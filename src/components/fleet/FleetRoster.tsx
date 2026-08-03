@@ -651,7 +651,15 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             </div>
           ))}
         </div>
+        </>
       ) : (
+        <>
+        {showDeactivated && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
+            <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
+            These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
+          </div>
+        )}
         <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${showDeactivated ? 'opacity-75' : ''}`}>
           <div className="overflow-x-auto">
             <Table>
@@ -789,6 +797,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             </Table>
           </div>
         </div>
+        </>
       )}
 
       {editTarget && (
