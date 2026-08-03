@@ -31,6 +31,9 @@ export function useMessageThread({
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
+  /** Id of the first message that was still unread when this thread was opened. */
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
+  const [unreadOnOpen, setUnreadOnOpen] = useState(0);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentAt = useRef(0);
@@ -68,10 +71,16 @@ export function useMessageThread({
     onMessagesLoaded?.(list);
 
     if (isGroup) {
+      const lastRead = null;
+      setFirstUnreadId(null);
+      setUnreadOnOpen(0);
       // Mark group thread read for me
       await supabase.rpc('mark_thread_read', { _thread_id: threadId! });
     } else {
-      const unreadIds = list.filter(m => m.sender_id === otherUserId && !m.read_at).map(m => m.id);
+      const unread = list.filter(m => m.sender_id === otherUserId && !m.read_at);
+      const unreadIds = unread.map(m => m.id);
+      setFirstUnreadId(unread[0]?.id ?? null);
+      setUnreadOnOpen(unread.length);
       if (unreadIds.length > 0) {
         await supabase
           .from('messages')
@@ -385,7 +394,7 @@ export function useMessageThread({
   }, [myUserId, reactions]);
 
   return {
-    messages, reactions, loading, otherTyping,
+    messages, reactions, loading, otherTyping, firstUnreadId, unreadOnOpen,
     send, editMessage, deleteMessage, togglePin, toggleReaction,
     notifyTyping, notifyStoppedTyping,
     setMessages, // exposed so parent can patch (e.g., resync after thread switch)
