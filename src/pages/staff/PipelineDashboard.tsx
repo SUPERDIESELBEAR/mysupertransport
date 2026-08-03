@@ -3070,10 +3070,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                           .filter(c => c.is_active)
                           .sort((a, b) => a.stage_order - b.stage_order)
                           .map((cfg, i, arr) => {
-                            const incompleteCount = operators.filter(op =>
-                              cfg.items.length > 0 &&
-                              !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-                            ).length;
+                            const incompleteCount = facetCount({ stageNodes: new Set([cfg.stage_key]) });
                             const isFiltered = stageNodeFilters.has(cfg.stage_key);
                             return (
                               <div key={cfg.stage_key} className="flex items-center">
@@ -3282,7 +3279,25 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
-                    {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
+                    {operators.length === 0 ? (
+                      'No operators in the pipeline yet.'
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm">No operators match your filters.</p>
+                        {(activeFilterCount > 0 || search.trim()) && (
+                          <>
+                            <p className="text-xs">
+                              {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                              {search.trim() ? ' plus a search term' : ''} across {operators.length} operators.
+                            </p>
+                            <Button variant="outline" size="sm" onClick={clearAllFilters} className="mt-1">
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              Clear all filters
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
