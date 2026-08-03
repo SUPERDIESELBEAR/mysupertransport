@@ -253,6 +253,9 @@ export default function FloatingChatWindow() {
     if (operators.length > 0) buildThreads(operators);
   }, [operators, buildThreads]);
 
+  const threadsRef = useRef<Thread[]>([]);
+  useEffect(() => { threadsRef.current = threads; }, [threads]);
+
   // ── Realtime: bump thread list on inbound messages ──────────────────────────
   useEffect(() => {
     if (!user?.id) return;
@@ -269,10 +272,26 @@ export default function FloatingChatWindow() {
             ? { ...t, lastMessage: previewBody(msg), lastAt: msg.sent_at, unreadCount: t.unreadCount + 1 }
             : t
         ));
+
+        // Alert the recipient: chime + toast + (background) desktop notification
+        const senderName =
+          threadsRef.current.find(t => t.operatorUserId === msg.sender_id)?.name ?? 'New message';
+        const preview = previewBody(msg);
+        try { playTruckDownChime(); } catch { /* audio blocked */ }
+        toast(senderName, {
+          description: preview,
+          action: {
+            label: 'Open',
+            onClick: () => setState(prev => clampToViewport({
+              ...prev, open: true, selectedUserId: msg.sender_id,
+            })),
+          },
+        });
+        fireNotification({ title: senderName, body: preview, type: 'new_message' });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user?.id, selectedUserId]);
+  }, [user?.id, selectedUserId, fireNotification]);
 
   // ── Update preview when active thread messages change ──────────────────────
   const handleMessagesChanged = useCallback((msgs: ChatMessage[]) => {
@@ -309,6 +328,7 @@ export default function FloatingChatWindow() {
 
   const onDragEnd = useCallback((e: React.PointerEvent) => {
     dragRef.current = null;
+    setState(prev => clampToViewport(prev));
     windowRef.current?.releasePointerCapture(e.pointerId);
   }, []);
 
@@ -333,15 +353,28 @@ export default function FloatingChatWindow() {
 
   const onResizeEnd = useCallback((e: React.PointerEvent) => {
     resizeRef.current = null;
+    setState(prev => clampToViewport(prev));
     windowRef.current?.releasePointerCapture(e.pointerId);
   }, []);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  const matchesFilter = (t: Thread) => {
+    if (railFilter === 'unread') return t.unreadCount > 0;
+    if (railFilter === 'chats') return !!t.lastAt;
+    return true;
+  };
   const filteredThreads = threads.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    matchesFilter(t) && t.name.toLowerCase().includes(search.toLowerCase())
   );
   const selectedThread = threads.find(t => t.operatorUserId === selectedUserId);
   const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0);
+
+  // ── Unread count in the browser tab title ─────────────────────────────────
+  useEffect(() => {
+    const original = document.title.replace(/^\(\d+\+?\)\s*/, '');
+    document.title = totalUnread > 0 ? `(${totalUnread > 9 ? '9+' : totalUnread}) ${original}` : original;
+    return () => { document.title = original; };
+  }, [totalUnread]);
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
