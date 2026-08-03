@@ -1,0 +1,1 @@
+DELETE FROM public.applications WHERE draft_token::text = '2a21bd56-20eb-4300-ab9f-82c900545401';
