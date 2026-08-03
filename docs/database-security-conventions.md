@@ -2,6 +2,44 @@
 
 These rules are enforced by tests. **Nothing runs those tests for you.**
 
+## The platform re-grants EXECUTE after a migration applies
+
+**Read this before the copy target below.** The `REVOKE` line in that template
+is necessary and **not sufficient**, and assuming otherwise is how four
+functions ended up anon-callable with a correct `REVOKE` sitting in their
+creating migration.
+
+- The platform re-grants `EXECUTE` to `anon` and `authenticated` on newly
+  created functions in `public` **after** the migration transaction applies.
+  A `REVOKE` written inside the creating migration does not survive that step.
+- The revoke therefore has to be **re-asserted in a follow-up statement or a
+  follow-up migration**. A correcting migration is not exempt from the re-grant
+  either, so re-assert and then *read the result back*.
+- `src/test/definer-live-catalog.test.ts` is the only thing that proves the end
+  state, because it reads the live catalog. The file-based guards parse
+  migration text — correct as written, and irrelevant to this failure mode: the
+  text is right and the ACL is wrong.
+
+Read the end state, never the migration:
+
+```sql
+SELECT p.proname,
+       array_agg(DISTINCT a.grantee::regrole::text) AS grantees
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  LEFT JOIN LATERAL aclexplode(p.proacl) a ON true
+ WHERE n.nspname = 'public' AND p.proname = '<name>'
+ GROUP BY 1;
+```
+
+A `NULL` `proacl` means the default — `EXECUTE` to `PUBLIC` — not "no grants".
+
+Observed 2026-08-03: `discard_rods_amendment`, `log_ica_event`,
+`match_staff_help_knowledge` and `revoke_share_token` each shipped a `REVOKE`
+in their creating migration and were anon-executable live. A second migration
+re-asserting the revoke did stick, confirmed by reading the ACL back — but the
+read is the proof, not the statement.
+
 ## The definer header — copy this, then fill the blanks
 
 Do not write a `SECURITY DEFINER` function from memory. Start from this block
