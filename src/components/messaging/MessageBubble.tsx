@@ -333,7 +333,7 @@ export function MessageBubble({
             message.read_at ? (
               <span className="flex items-center gap-0.5 text-primary/70 font-medium">
                 <CheckCheck className="h-3 w-3" />
-                <span>Seen</span>
+                <span>Seen {format(new Date(message.read_at), 'h:mm a')}</span>
               </span>
             ) : (
               <CheckCheck className="h-3 w-3 text-muted-foreground/40" />
