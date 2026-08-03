@@ -414,7 +414,7 @@ function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | nu
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter }: {
+export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter, index, total }: {
   url: string;
   name: string;
   onClose: () => void;
