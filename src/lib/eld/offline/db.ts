@@ -375,6 +375,18 @@ export interface RodsDivergenceEntry {
   acknowledged_by: string | null;
   acknowledged_reason: string | null;
   acknowledged_at: string | null;
+  /**
+   * The server row id, once `record_divergence` has drained. Absent while the
+   * report is still queued — the acknowledgement handler resolves the row by
+   * (operator, date) in that case.
+   */
+  server_id?: string | null;
+  /**
+   * 1 while an acknowledgement has been made on this device but the queue
+   * entry carrying it has not drained. Reconciliation treats such a row as
+   * locally authoritative: the driver's dismissal wins until it syncs.
+   */
+  ack_pending?: 0 | 1;
 }
 
 class RoadsideDb extends Dexie {
