@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { pdfToImage } from '@/lib/pdfToImage';
+import { pdfToImages } from '@/lib/pdfToImages';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { printImageUrl } from '@/lib/printImage';
@@ -520,16 +521,29 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
 
-  // Auto-open mobile PDFs directly in the device's native viewer,
-  // skipping the intermediate "Open PDF / Share / Save" card.
-  const autoOpenedRef = useRef<string | null>(null);
+  // Mobile PDFs render inline via pdf.js (never auto-close / hand off to a new
+  // tab — that handoff is blocked inside the installed PWA and left the driver
+  // staring at an empty screen).
+  const [pdfPages, setPdfPages] = useState<string[] | null>(null);
+  const [pdfPagesError, setPdfPagesError] = useState<string | null>(null);
+  const renderedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!showMobilePdfFallback) return;
-    if (autoOpenedRef.current === resolvedUrl) return;
-    autoOpenedRef.current = resolvedUrl;
-    window.open(resolvedUrl, '_blank', 'noopener,noreferrer');
-    onClose();
-  }, [showMobilePdfFallback, resolvedUrl, onClose]);
+    if (!showMobilePdfFallback || !resolvedUrl) return;
+    if (renderedForRef.current === resolvedUrl) return;
+    renderedForRef.current = resolvedUrl;
+    setPdfPages(null);
+    setPdfPagesError(null);
+    let cancelled = false;
+    (async () => {
+      try {
+        const pages = await pdfToImages(resolvedUrl, { scale: 2 });
+        if (!cancelled) setPdfPages(pages);
+      } catch (err: any) {
+        if (!cancelled) setPdfPagesError(err?.message || 'Could not render this PDF.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showMobilePdfFallback, resolvedUrl]);
 
   const isImageFitMode = isImage && imageFitMode;
   const zoomLabel = isImageFitMode ? 'Fit' : `${zoom}%`;
@@ -702,18 +716,16 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           >
             <Download className="h-4 w-4" />
           </button>
-          {!isMobile && (
-            <a
+          <a
               href={resolvedUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
               onClick={e => e.stopPropagation()}
-              title="Open in new tab"
+              title="Open in browser"
             >
               <ExternalLink className="h-4 w-4" />
-            </a>
-          )}
+          </a>
           <button
             onClick={onClose}
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
@@ -733,11 +745,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
         onTouchMove={swipeEnabled ? swipe.onTouchMove : undefined}
         onTouchEnd={swipeEnabled ? swipe.onTouchEnd : undefined}
       >
-        {isLoading && (
+        {(isLoading || (showMobilePdfFallback && !pdfPages && !pdfPagesError)) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
             <span className="text-sm text-muted-foreground">
-              {signing ? 'Preparing secure preview…' : 'Loading document…'}
+              {signing ? 'Preparing secure preview…' : showMobilePdfFallback ? 'Rendering document…' : 'Loading document…'}
             </span>
           </div>
         )}
@@ -768,8 +780,24 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           </div>
         ) :
 
-        /* Mobile PDF fallback — show action card instead of broken iframe */
+        /* Mobile PDF — render pages inline with pdf.js */
         showMobilePdfFallback ? (
+          pdfPages && pdfPages.length > 0 ? (
+            <div className="min-h-full w-full bg-black py-2 space-y-2">
+              {pdfPages.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt={`${name} — page ${i + 1}`}
+                  className="w-full h-auto block"
+                  onLoad={i === 0 ? handleLoad : undefined}
+                />
+              ))}
+              <p className="text-center text-[11px] text-muted-foreground pt-1 pb-3">
+                {pdfPages.length} page{pdfPages.length === 1 ? '' : 's'}
+              </p>
+            </div>
+          ) : pdfPagesError ? (
           <div className="absolute inset-0 flex items-center justify-center p-6">
             <div className="bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center space-y-4 shadow-xl">
               <div className="h-14 w-14 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
@@ -777,14 +805,16 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">{name}</p>
-                <p className="text-xs text-muted-foreground mt-1">Tap below to open or share this PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Couldn’t display this PDF in the app. {pdfPagesError}
+                </p>
               </div>
               <div className="space-y-2">
                 <button
                   onClick={() => window.open(resolvedUrl, '_blank', 'noopener,noreferrer')}
                   className="w-full flex items-center justify-center gap-2 bg-gold text-white font-semibold text-sm py-3 rounded-xl hover:bg-gold-light transition-colors"
                 >
-                  <ExternalLink className="h-4 w-4" /> Open PDF
+                  <ExternalLink className="h-4 w-4" /> Open in browser
                 </button>
                 <div className="flex gap-2">
                   <button
@@ -803,6 +833,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               </div>
             </div>
           </div>
+          ) : null
         ) : blobUrl ? (
             <div
               style={{
