@@ -73,9 +73,11 @@ function previewBody(m: { body: string; deleted_at: string | null; attachment_na
 interface OperatorMessagesViewProps {
   initialUserId?: string;
   onThreadSelected?: () => void;
+  /** Called once the deep-linked conversation has been opened, so the parent can clear it. */
+  onInitialUserConsumed?: () => void;
 }
 
-export default function OperatorMessagesView({ initialUserId, onThreadSelected }: OperatorMessagesViewProps = {}) {
+export default function OperatorMessagesView({ initialUserId, onThreadSelected, onInitialUserConsumed }: OperatorMessagesViewProps = {}) {
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -87,10 +89,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
 
-  // React to a new initialUserId arriving after mount (e.g. from Contacts tab)
+  // Latest selection, readable from callbacks without making them re-run.
+  const selectedUserIdRef = useRef<string | null>(selectedUserId);
+  useEffect(() => { selectedUserIdRef.current = selectedUserId; }, [selectedUserId]);
+  /** Auto-select on desktop should happen once per mount, never after a back press. */
+  const autoSelectedRef = useRef(false);
+
+  // React to a new initialUserId arriving after mount (e.g. from Contacts tab).
+  // Consumed immediately so pressing back doesn't re-open the same thread.
   useEffect(() => {
-    if (initialUserId) setSelectedUserId(initialUserId);
-  }, [initialUserId]);
+    if (!initialUserId) return;
+    setSelectedUserId(initialUserId);
+    setSelectedGroupId(null);
+    autoSelectedRef.current = true;
+    onInitialUserConsumed?.();
+  }, [initialUserId, onInitialUserConsumed]);
 
   // ── Load my group threads ────────────────────────────────────────────────
   const loadGroups = useCallback(async () => {
