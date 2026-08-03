@@ -48,6 +48,7 @@ export function MessageThread({
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [pinnedSheetOpen, setPinnedSheetOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const unreadDividerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleIncomingMessage = useCallback((msg: ChatMessage) => {
@@ -55,7 +56,7 @@ export function MessageThread({
   }, [onIncomingMessage]);
 
   const {
-    messages, reactions, loading, otherTyping,
+    messages, reactions, loading, otherTyping, firstUnreadId, unreadOnOpen,
     send, editMessage, deleteMessage, togglePin, toggleReaction,
     notifyTyping, notifyStoppedTyping,
   } = useMessageThread({
