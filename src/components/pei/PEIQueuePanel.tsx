@@ -402,6 +402,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     setOpenSections(new Set(visibleSections.map((s) => s.key)));
     setOpenGroups(new Set(grouped.map((g) => g.applicationId)));
   }
+
   function collapseAll() {
     setOpenSections(new Set());
     setOpenGroups(new Set());
