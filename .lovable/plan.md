@@ -6,9 +6,11 @@ No access changes. The settings panel already appears only in the staff Messages
 
 The problem is the label: "Driver Availability" reads like it changes a driver's settings, when it actually controls the staff member's own availability to receive driver-initiated messages.
 
+Scope recommendation: keep the control driver-only. Staff-to-staff messaging should always stay open — colleagues need to reach each other for dispatch and onboarding coordination, and letting staff block staff creates silent dead ends. Since the setting only ever governs drivers, the label should say so rather than use a broad "Messaging Availability".
+
 - Rename the section to "My Availability to Drivers".
 - Reword the control to "Which drivers can start a conversation with me?", with the options phrased from the staff member's point of view.
-- Add a clarifying line: "This only limits who can start a new conversation with you. Messages you send always reach the driver, and existing threads stay open."
+- Add a clarifying line: "This only limits which drivers can start a new conversation with you. Messages you send always reach the driver, existing threads stay open, and other management staff can always reach you."
 
 ## 2. Bulk message: make 1:1 fan-out obvious
 
