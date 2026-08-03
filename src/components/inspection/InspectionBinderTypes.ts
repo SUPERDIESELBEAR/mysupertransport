@@ -46,7 +46,7 @@ export const PER_DRIVER_DOCS = [
   { key: 'CDL (Back)', hasExpiry: true },
   { key: 'Medical Certificate', hasExpiry: true },
   { key: 'Periodic DOT Inspections', hasExpiry: true },
-  { key: 'Lease Agreement', hasExpiry: false },
+  { key: 'Lease Agreement (ICA)', hasExpiry: false },
   { key: 'Form 2290', hasExpiry: true },
 ] as const;
 
