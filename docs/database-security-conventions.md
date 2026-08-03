@@ -90,16 +90,29 @@ That runs the four suites that catch silent failures:
 
 **A structural observation, not a lapse.** All of these guards were written
 *after* a class of silent failure had already shipped, each is correct, and
-none of them runs on its own. The definer-header rule has now been broken in
-five separate batches *after* it was written down — the demo-guardrail
-triggers, the §3/§4 RODS batch, the twelve rewritten notification functions,
-the §5 extension-request triggers, and the §6 retention RPCs including
-`is_retention_admin` — each shipping a default `PUBLIC EXECUTE`, a
-`search_path = public`, or both. The assertion was right every time; it just
-did not execute when the migration was authored. The detection latency is the
-defect. Until this project has CI or hooks, the guards are a checklist item
-tied to the turn, not an automatic safety net. Do not assume a migration is
-clean because the rule exists.
+none of them runs on its own. Batches have shipped anon-callable definers
+repeatedly *after* the rule was written down — the demo-guardrail triggers, the
+§3/§4 RODS batch, the twelve rewritten notification functions, the §5
+extension-request triggers, and the §6 retention RPCs including
+`is_retention_admin`.
+
+**Two distinct causes, and they must not be collapsed into one.** The 2026-08-03
+sweep separated them by comparing migration text against the live ACL:
+
+- **Genuine omission** — the migration contains no `REVOKE` at all. 61 `public`
+  functions are anon-executable with nothing in any migration that ever tried to
+  close them. That is the hand-authoring failure this paragraph originally
+  described, and the copy target is the fix.
+- **Platform re-grant** — the migration contains the correct `REVOKE` and the
+  function is anon-executable anyway. Four proven cases
+  (`discard_rods_amendment`, `log_ica_event`, `match_staff_help_knowledge`,
+  `revoke_share_token`). No amount of care at authoring time prevents this one;
+  see the re-grant section at the top of this file.
+
+The detection latency is the defect in both. Until this project has CI or hooks,
+the guards are a checklist item tied to the turn, not an automatic safety net.
+Do not assume a migration is clean because the rule exists, and do not assume it
+is clean because you wrote the `REVOKE`.
 
 ## 1. SECURITY DEFINER functions must pin `search_path`
 
