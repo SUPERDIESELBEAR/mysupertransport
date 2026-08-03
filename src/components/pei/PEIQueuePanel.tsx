@@ -559,10 +559,18 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
             />
           </div>
           <div className="ml-auto flex gap-2">
-            <button onClick={expandAll} className="text-xs text-muted-foreground hover:text-foreground underline">
+            <button
+              onClick={expandAll}
+              disabled={allExpanded}
+              className="text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+            >
               Expand all
             </button>
-            <button onClick={collapseAll} className="text-xs text-muted-foreground hover:text-foreground underline">
+            <button
+              onClick={collapseAll}
+              disabled={allCollapsed}
+              className="text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+            >
               Collapse all
             </button>
           </div>
