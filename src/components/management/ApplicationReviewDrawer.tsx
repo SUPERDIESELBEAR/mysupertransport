@@ -292,6 +292,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [editedDocPaths, setEditedDocPaths] = useState<Partial<Record<EditableDocumentKey, string>>>({});
   const [retakeModalKey, setRetakeModalKey] = useState<RetakeDocumentKey | null | undefined>(undefined);
   const [docHistoryRefresh, setDocHistoryRefresh] = useState(0);
+  const [retakeMap, setRetakeMap] = useState<ReturnType<typeof parseRetakeRequests>>({});
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
@@ -329,6 +330,22 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     setReasonEditing(false);
     setReasonDraft('');
   }, [app?.id]);
+
+  // Outstanding retake requests for this application's document slots
+  useEffect(() => {
+    const id = app?.id;
+    if (!id) { setRetakeMap({}); return; }
+    let cancelled = false;
+    supabase
+      .from('applications')
+      .select('document_retake_requests')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setRetakeMap(parseRetakeRequests((data as { document_retake_requests?: unknown } | null)?.document_retake_requests));
+      });
+    return () => { cancelled = true; };
+  }, [app?.id, docHistoryRefresh]);
 
   useEffect(() => {
     if (!app) return;
