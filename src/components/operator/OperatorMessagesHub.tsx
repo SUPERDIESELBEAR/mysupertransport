@@ -22,6 +22,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
   );
   const [pendingChatUserId, setPendingChatUserId] = useState<string | undefined>(undefined);
   const clearPendingChatUser = useCallback(() => setPendingChatUserId(undefined), []);
+  const [directUnread, setDirectUnread] = useState(0);
 
   // Load badge counts for announcements
   useEffect(() => {
@@ -41,6 +42,15 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
       setNeedsAck(rows.filter((r: any) =>
         r.operator_broadcasts.requires_acknowledgment === true && !r.acknowledged_at
       ).length);
+
+      // Unread direct messages (badge stays accurate while the Direct tab is unmounted)
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .is('read_at', null)
+        .is('deleted_at', null);
+      if (!cancelled) setDirectUnread(count ?? 0);
     };
     load();
     // Re-load when the user switches into the announcements tab so the badge stays fresh.
@@ -70,6 +80,9 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
             </TabsTrigger>
             <TabsTrigger value="direct" className="gap-2">
               <MessageSquare className="h-4 w-4" /> Direct
+              {directUnread > 0 && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{directUnread}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Users className="h-4 w-4" /> Contacts
@@ -84,6 +97,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
             <OperatorMessagesView
               initialUserId={pendingChatUserId}
               onInitialUserConsumed={clearPendingChatUser}
+              onUnreadCountChange={setDirectUnread}
             />
           </div>
         </TabsContent>

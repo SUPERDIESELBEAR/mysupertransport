@@ -3,10 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { format, isToday, isYesterday } from 'date-fns';
-import { MessageSquare, Search, User, Users, Plus } from 'lucide-react';
+import { MessageSquare, Search, User, Users, Plus, Mail, MailOpen } from 'lucide-react';
 import { MessageThread } from '@/components/messaging/MessageThread';
 import type { ChatMessage } from '@/components/messaging/types';
-import { NewGroupModal } from '@/components/messaging/NewGroupModal';
+import { NewChatChooser } from '@/components/messaging/NewChatChooser';
 import { Button } from '@/components/ui/button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,12 +60,34 @@ function roleToLabel(role: string | null | undefined): string {
   }
 }
 
-function previewBody(m: { body: string; deleted_at: string | null; attachment_name: string | null } | null): string {
+function previewBody(m: { body: string; deleted_at: string | null; attachment_name: string | null; attachment_mime?: string | null } | null): string {
   if (!m) return 'No messages yet';
   if (m.deleted_at) return '(deleted)';
   if (m.body) return m.body;
-  if (m.attachment_name) return `📎 ${m.attachment_name}`;
+  if (m.attachment_name) {
+    if ((m.attachment_mime ?? '').startsWith('image/')) return '📷 Photo';
+    if ((m.attachment_mime ?? '') === 'application/pdf') return `📄 ${m.attachment_name}`;
+    return `📎 ${m.attachment_name}`;
+  }
   return 'No messages yet';
+}
+
+// ─── Locally "marked unread" conversations (per device) ───────────────────────
+
+const UNREAD_MARKS_KEY = 'driver_msgs_marked_unread';
+
+function readUnreadMarks(): string[] {
+  try {
+    const raw = localStorage.getItem(UNREAD_MARKS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUnreadMarks(ids: string[]) {
+  try { localStorage.setItem(UNREAD_MARKS_KEY, JSON.stringify(ids)); } catch { /* storage unavailable */ }
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -75,9 +97,11 @@ interface OperatorMessagesViewProps {
   onThreadSelected?: () => void;
   /** Called once the deep-linked conversation has been opened, so the parent can clear it. */
   onInitialUserConsumed?: () => void;
+  /** Reports the total unread count (direct + group) so the parent can badge its tab. */
+  onUnreadCountChange?: (count: number) => void;
 }
 
-export default function OperatorMessagesView({ initialUserId, onThreadSelected, onInitialUserConsumed }: OperatorMessagesViewProps = {}) {
+export default function OperatorMessagesView({ initialUserId, onThreadSelected, onInitialUserConsumed, onUnreadCountChange }: OperatorMessagesViewProps = {}) {
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -85,9 +109,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
   const [groupParticipants, setGroupParticipants] = useState<Record<string, Record<string, string>>>({});
   const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [markedUnread, setMarkedUnread] = useState<string[]>(() => readUnreadMarks());
+
+  const toggleMarkedUnread = useCallback((id: string, next: boolean) => {
+    setMarkedUnread(prev => {
+      const set = new Set(prev);
+      if (next) set.add(id); else set.delete(id);
+      const arr = Array.from(set);
+      writeUnreadMarks(arr);
+      return arr;
+    });
+  }, []);
 
   // Latest selection, readable from callbacks without making them re-run.
   const selectedUserIdRef = useRef<string | null>(selectedUserId);
@@ -181,7 +217,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
 
     const { data: msgs } = await supabase
       .from('messages')
-      .select('id, sender_id, recipient_id, body, sent_at, read_at, deleted_at, attachment_name')
+      .select('id, sender_id, recipient_id, body, sent_at, read_at, deleted_at, attachment_name, attachment_mime')
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order('sent_at', { ascending: false });
 
@@ -267,15 +303,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
   }, [user?.id]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  const isThreadUnread = (t: Thread) => t.unreadCount > 0 || markedUnread.includes(t.staffUserId);
   const filteredThreads = threads.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    t.name.toLowerCase().includes(search.toLowerCase()) && (!unreadOnly || isThreadUnread(t))
   );
-  const filteredGroups = groupThreads.filter(g => (g.title ?? '').toLowerCase().includes(search.toLowerCase()));
+  const filteredGroups = groupThreads.filter(g =>
+    (g.title ?? '').toLowerCase().includes(search.toLowerCase()) &&
+    (!unreadOnly || (g.unread_count ?? 0) > 0 || markedUnread.includes(g.thread_id))
+  );
   const selectedThread = threads.find(t => t.staffUserId === selectedUserId);
   const selectedGroup = groupThreads.find(g => g.thread_id === selectedGroupId);
   const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0)
     + groupThreads.reduce((s, g) => s + (g.unread_count ?? 0), 0);
   const noMessagesYet = !loadingThreads && staffList.length === 0 && groupThreads.length === 0;
+
+  useEffect(() => { onUnreadCountChange?.(totalUnread); }, [totalUnread, onUnreadCountChange]);
 
   const handleMessagesChanged = useCallback((msgs: ChatMessage[]) => {
     if (!selectedUserId) return;
@@ -301,16 +343,34 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
     autoSelectedRef.current = true;
     setSelectedGroupId(null);
     setSelectedUserId(staffUserId);
+    toggleMarkedUnread(staffUserId, false);
     onThreadSelected?.();
-  }, [onThreadSelected]);
+  }, [onThreadSelected, toggleMarkedUnread]);
+
+  /** Open (or start) a 1:1 chat, adding the contact to the list if there's no history yet. */
+  const handleStartDirect = useCallback(async (staffUserId: string) => {
+    if (!staffList.some(s => s.user_id === staffUserId)) {
+      const { data: profs } = await supabase.rpc('get_staff_contact_info', { _user_ids: [staffUserId] });
+      const p = (profs ?? [])[0];
+      setStaffList(prev => prev.some(s => s.user_id === staffUserId) ? prev : [...prev, {
+        user_id: staffUserId,
+        first_name: p?.first_name ?? null,
+        last_name: p?.last_name ?? null,
+        avatar_url: p?.avatar_url ?? null,
+        role: p?.primary_role ?? null,
+      }]);
+    }
+    handleSelectDirect(staffUserId);
+  }, [staffList, handleSelectDirect]);
 
   const handleSelectGroup = useCallback((threadId: string) => {
     inboxRequestedRef.current = false;
     autoSelectedRef.current = true;
     setSelectedUserId(null);
     setSelectedGroupId(threadId);
+    toggleMarkedUnread(threadId, false);
     onThreadSelected?.();
-  }, [onThreadSelected]);
+  }, [onThreadSelected, toggleMarkedUnread]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -326,6 +386,9 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
               Your onboarding coordinator will reach out here soon. You'll be notified when you have new messages.
             </p>
           </div>
+          <Button onClick={() => setNewChatOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Start a conversation
+          </Button>
         </div>
       ) : (
         <div className="flex flex-1 min-h-0">
@@ -340,7 +403,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                     {totalUnread}
                   </span>
                 )}
-                <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" title="New group" onClick={() => setNewGroupOpen(true)}>
+                <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" title="New message" aria-label="New message" onClick={() => setNewChatOpen(true)}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -352,6 +415,25 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                   onChange={e => setSearch(e.target.value)}
                   className="pl-8 h-8 text-xs"
                 />
+              </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                {(['all', 'unread'] as const).map(f => {
+                  const active = (f === 'unread') === unreadOnly;
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setUnreadOnly(f === 'unread')}
+                      className={`h-6 px-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border transition-colors ${
+                        active
+                          ? 'bg-primary/10 border-primary/40 text-primary'
+                          : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {f === 'all' ? 'All' : `Unread${totalUnread > 0 ? ` (${totalUnread})` : ''}`}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -399,10 +481,13 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                 </div>
               ) : (
                 filteredThreads.map(t => (
-                  <button
+                  <div
                     key={t.staffUserId}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleSelectDirect(t.staffUserId)}
-                    className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 ${
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectDirect(t.staffUserId); } }}
+                    className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 cursor-pointer group ${
                       selectedUserId === t.staffUserId ? 'bg-primary/8 border-l-2 border-l-primary' : ''
                     }`}
                   >
@@ -420,10 +505,13 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                             {t.unreadCount > 9 ? '9+' : t.unreadCount}
                           </span>
                         )}
+                        {t.unreadCount === 0 && markedUnread.includes(t.staffUserId) && (
+                          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary border border-white" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <p className={`text-xs truncate ${t.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>
+                          <p className={`text-xs truncate ${isThreadUnread(t) ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>
                             {t.name}
                           </p>
                           {t.lastAt && (
@@ -436,8 +524,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                           {t.lastMessage}
                         </p>
                       </div>
+                      {t.lastAt && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); toggleMarkedUnread(t.staffUserId, !markedUnread.includes(t.staffUserId)); }}
+                          className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-muted transition-colors"
+                          aria-label={markedUnread.includes(t.staffUserId) ? 'Mark as read' : 'Mark as unread'}
+                          title={markedUnread.includes(t.staffUserId) ? 'Mark as read' : 'Mark as unread'}
+                        >
+                          {markedUnread.includes(t.staffUserId)
+                            ? <MailOpen className="h-3.5 w-3.5" />
+                            : <Mail className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))
               )}
             </div>
@@ -486,12 +587,12 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
         </div>
       )}
 
-      {newGroupOpen && (
-        <NewGroupModal
-          open={newGroupOpen}
-          onOpenChange={setNewGroupOpen}
-          callerIsStaff={false}
-          onCreated={(tid) => { void loadGroups().then(() => { setSelectedUserId(null); setSelectedGroupId(tid); }); }}
+      {newChatOpen && (
+        <NewChatChooser
+          open={newChatOpen}
+          onOpenChange={setNewChatOpen}
+          onSelectDirect={(staffId) => { void handleStartDirect(staffId); }}
+          onCreatedGroup={(tid) => { void loadGroups().then(() => { setSelectedUserId(null); setSelectedGroupId(tid); }); }}
         />
       )}
     </div>
