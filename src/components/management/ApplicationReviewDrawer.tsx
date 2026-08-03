@@ -317,7 +317,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   }, []);
 
   const getCurrentDocumentPath = useCallback((key: EditableDocumentKey): string | null => {
-    if (editedDocPaths[key]) return editedDocPaths[key] ?? null;
+    if (key in editedDocPaths) return editedDocPaths[key] || null;
 
     if (key === 'dl_front_url') return app?.dl_front_url ?? null;
     if (key === 'dl_rear_url') return app?.dl_rear_url ?? null;
@@ -1541,10 +1541,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           applicantEmail={app.email}
           initialKey={retakeModalKey}
           onClose={() => setRetakeModalKey(undefined)}
-          onRequested={() => {
+          onRequested={(keys) => {
             setDocHistoryRefresh(n => n + 1);
-            setEditedDocPaths(prev => ({ ...prev }));
-            onApplicationUpdated?.({ id: app.id, review_status: 'revisions_requested' } as Partial<FullApplication> & { id: string });
+            setEditedDocPaths(prev => {
+              const next = { ...prev };
+              keys.forEach(k => { next[k] = ''; });
+              return next;
+            });
+            const patch: Record<string, unknown> = { id: app.id, review_status: 'revisions_requested' };
+            keys.forEach(k => { patch[k] = null; });
+            onApplicationUpdated?.(patch as Partial<FullApplication> & { id: string });
           }}
         />
       )}
