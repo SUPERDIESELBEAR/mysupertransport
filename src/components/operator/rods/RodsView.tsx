@@ -18,6 +18,7 @@ import { useEldMalfunction } from '@/hooks/useEldMalfunction';
 import { useIsDemoOperator } from '@/hooks/useIsDemoOperator';
 import { useRodsDays } from '@/hooks/useRodsDays';
 import { acknowledgeDivergence, openDivergenceDates } from '@/lib/eld/offline/divergence';
+import { enqueueDivergenceAck } from '@/lib/eld/offline/queue/divergenceSync';
 import { raiseSyncAlert } from '@/lib/eld/offline/queue/alerts';
 import type { DraftSegment } from '@/hooks/useRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
@@ -68,23 +69,26 @@ export default function RodsView({
   };
 
   /**
-   * Interim resolution path until the Management console lands: a driver may
-   * clear the warning on this device only. The dismissal is recorded locally
-   * and does not resolve the server-side mismatch.
+   * A driver may clear the warning here. The dismissal is applied locally
+   * first and queued to the office, so it works offline: until the queue
+   * drains the local acknowledgement is authoritative and hydration will not
+   * put the chip back.
    */
   async function confirmDismissDivergence() {
     if (!pendingDismissDate) return;
     const logDate = pendingDismissDate;
+    const reason = `Driver ${driverName} cleared the divergence warning on the device.`;
     await acknowledgeDivergence(logDate, {
       source: 'driver',
       actor: driverName,
-      reason: 'Driver cleared the divergence warning on this device only.',
+      reason,
     });
+    void enqueueDivergenceAck({ operatorId, logDate, reason }).catch(() => undefined);
     void raiseSyncAlert({
       kind: 'certified_day_divergence',
       operator_id: operatorId,
       log_date: logDate,
-      detail: `Driver ${driverName} cleared the divergence warning for ${logDate} on this device only.`,
+      detail: `Driver ${driverName} cleared the divergence warning for ${logDate} on the device.`,
     });
     setPendingDismissDate(null);
     setDiverged(await openDivergenceDates());
