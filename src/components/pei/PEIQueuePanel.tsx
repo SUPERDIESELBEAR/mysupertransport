@@ -473,6 +473,11 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return { counts, overdue: groupRows.filter((r) => r.is_overdue).length };
   }
 
+  const allExpanded =
+    visibleSections.every((s) => openSections.has(s.key)) &&
+    grouped.every((g) => openGroups.has(g.applicationId));
+  const allCollapsed = openSections.size === 0 && openGroups.size === 0;
+
   const FILTERS: Array<{ key: FilterKey; label: string; group: 'active' | 'archive' }> = [
     { key: 'all', label: 'All', group: 'active' },
     { key: 'pending', label: 'Pending', group: 'active' },
