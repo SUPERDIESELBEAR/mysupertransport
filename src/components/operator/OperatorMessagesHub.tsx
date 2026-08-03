@@ -80,7 +80,10 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
         </TabsContent>
         <TabsContent value="direct" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
           <div className="flex-1 min-h-0">
-            <OperatorMessagesView initialUserId={pendingChatUserId} />
+            <OperatorMessagesView
+              initialUserId={pendingChatUserId}
+              onInitialUserConsumed={() => setPendingChatUserId(undefined)}
+            />
           </div>
         </TabsContent>
         <TabsContent value="contacts" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
