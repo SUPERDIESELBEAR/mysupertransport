@@ -1534,6 +1534,21 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         )}
       </div>
+      {/* Request retake modal */}
+      {retakeModalKey !== undefined && (
+        <RequestRetakeModal
+          applicationId={app.id}
+          applicantEmail={app.email}
+          initialKey={retakeModalKey}
+          onClose={() => setRetakeModalKey(undefined)}
+          onRequested={() => {
+            setDocHistoryRefresh(n => n + 1);
+            setEditedDocPaths(prev => ({ ...prev }));
+            onApplicationUpdated?.({ id: app.id, review_status: 'revisions_requested' } as Partial<FullApplication> & { id: string });
+          }}
+        />
+      )}
+
       {/* In-app document preview modal */}
       {previewDoc && (
         <FilePreviewModal
