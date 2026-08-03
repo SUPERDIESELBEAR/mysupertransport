@@ -387,6 +387,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         </div>
       )}
 
+      <div id="operator-ica-print-area" className="bg-white">
       <ICADocumentView
         data={{
           ...contract,
@@ -395,7 +396,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
           owner_ssn: (contract as any).owner_ssn ?? '',
         }}
         operatorName={operatorName}
-        previewMode={isFullyExecuted}
+        previewMode={!canSign}
         carrierSignatureUrl={contract.carrier_signature_url}
         carrierTypedName={contract.carrier_typed_name}
         carrierTitle={contract.carrier_title}
@@ -403,7 +404,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         contractorSignatureUrl={isFullyExecuted ? contract.contractor_signature_url : undefined}
         contractorTypedName={isFullyExecuted ? contract.contractor_typed_name ?? undefined : undefined}
         contractorSignedAt={isFullyExecuted ? contract.contractor_signed_at : undefined}
-        contractorSigRef={!isFullyExecuted ? sigRef : undefined}
+        contractorSigRef={canSign ? sigRef : undefined}
         contractorSignedName={signedName}
         onContractorSignedNameChange={setSignedName}
         onSignatureEnd={() => setHasDrawn(true)}
@@ -411,19 +412,20 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         depositElected={depositElected}
         depositInitials={depositInitials}
         depositElectedDate={depositElectedDate}
-        onDepositChange={!isFullyExecuted ? (vals) => {
+        onDepositChange={canSign ? (vals) => {
           if (vals.elected !== undefined) setDepositElected(vals.elected);
           if (vals.initials !== undefined) setDepositInitials(vals.initials);
           if (vals.date !== undefined) setDepositElectedDate(vals.date);
         } : undefined}
       />
+      </div>
 
       {/* Spacer so content isn't hidden behind sticky bar */}
-      {!isFullyExecuted && <div className="pb-28" />}
+      {canSign && <div className="pb-28" />}
     </div>
 
     {/* Sticky floating action bar */}
-    {!isFullyExecuted && (
+    {canSign && (
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-dark/95 backdrop-blur-sm border-t border-border p-4 space-y-2">
         <p className="text-xs text-center font-medium" style={{ color: !signedName || !hasDrawn ? 'hsl(var(--gold))' : 'hsl(var(--green-500, 142 71% 45%))' }}>
           {!signedName && !hasDrawn
