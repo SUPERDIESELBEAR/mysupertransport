@@ -1969,6 +1969,7 @@ export default function ManagementPortal() {
           <DriverHubView
             canAddDriver={true}
             defaultComplianceFilter={driverComplianceFilter}
+            defaultDispatchFilter={driverDispatchFilter}
             initialSelectedOperatorId={driverHubBinderTarget?.operatorId ?? null}
             scrollToBinderOnOpen={!!driverHubBinderTarget}
             onMessageDriver={() => {
