@@ -286,6 +286,28 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return map;
   }, [grouped]);
 
+  /** Sections rendered for the active filter. Empty archive placeholders only under All / that archive chip. */
+  const visibleSections = useMemo(
+    () =>
+      SECTIONS.filter((s) => {
+        const count = bySection.get(s.key)?.length ?? 0;
+        if (count > 0) return true;
+        if (!s.showWhenEmpty) return false;
+        return filter === 'all' || filter === s.key;
+      }),
+    [bySection, filter]
+  );
+
+  /** Changing the filter or search re-opens every section that has matches. */
+  useEffect(() => {
+    const key = `${filter}|${search.trim().toLowerCase()}`;
+    if (lastFilterKeyRef.current === key) return;
+    lastFilterKeyRef.current = key;
+    setOpenSections(
+      new Set(SECTIONS.filter((s) => (bySection.get(s.key)?.length ?? 0) > 0).map((s) => s.key))
+    );
+  }, [filter, search, bySection]);
+
   const selectedGroups = useMemo(
     () => grouped.filter((g) => selected.has(g.applicationId)),
     [grouped, selected]
