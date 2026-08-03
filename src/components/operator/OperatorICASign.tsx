@@ -268,6 +268,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       }
 
       toast.success('ICA Signed! Your Independent Contractor Agreement has been fully executed.');
+      pendingBinderFileRef.current = true;
       fetchContract();
       if (onComplete) onComplete();
     } catch (err: any) {
