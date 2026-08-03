@@ -215,15 +215,6 @@ export function MessageThread({
                 new Date(messages[i - 1].sent_at).toDateString() !== new Date(m.sent_at).toDateString();
               return (
                 <div key={m.id}>
-                  {firstUnreadId === m.id && (
-                    <div ref={unreadDividerRef} className="flex items-center gap-2 my-3">
-                      <div className="flex-1 h-px bg-primary/40" />
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-primary px-2">
-                        New messages
-                      </span>
-                      <div className="flex-1 h-px bg-primary/40" />
-                    </div>
-                  )}
                   {showDate && (
                     <div className="flex items-center gap-2 my-3">
                       <div className="flex-1 h-px bg-border" />
@@ -235,6 +226,15 @@ export function MessageThread({
                           : format(new Date(m.sent_at), 'MMMM d, yyyy')}
                       </span>
                       <div className="flex-1 h-px bg-border" />
+                    </div>
+                  )}
+                  {firstUnreadId === m.id && (
+                    <div ref={unreadDividerRef} className="flex items-center gap-2 my-3">
+                      <div className="flex-1 h-px bg-primary/40" />
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-primary px-2">
+                        New messages
+                      </span>
+                      <div className="flex-1 h-px bg-primary/40" />
                     </div>
                   )}
                   <MessageBubble
