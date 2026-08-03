@@ -30,8 +30,8 @@ The existing Driver Hub bulk entry point (with preselected drivers) stays unchan
 
 ## Technical notes
 
-- `src/components/staff/StaffAvailabilityCard.tsx` — role gate helper text, clarified availability copy.
-- `src/components/staff/MessagesView.tsx` — role-gate the settings `Sheet` trigger; add the bulk item to the "+" dropdown (accepts an `onBulkMessage` callback prop).
+- `src/components/staff/StaffAvailabilityCard.tsx` — section rename and clarified availability copy.
+- `src/components/staff/MessagesView.tsx` — add the bulk item to the "+" dropdown (accepts an `onBulkMessage` callback prop).
 - `src/pages/management/ManagementPortal.tsx`, `src/pages/staff/StaffPortal.tsx`, `src/pages/dispatch/DispatchPortal.tsx` — pass the existing bulk-modal opener into `MessagesView`.
 - `src/components/staff/BulkMessageModal.tsx` — header subtitle, notice bar on the select step, count-based send confirmation and toast.
 
