@@ -99,6 +99,8 @@ interface DriverRosterProps {
   /** Controlled compliance filter — lifted to parent for header chips */
   complianceFilter?: ComplianceFilter;
   onComplianceFilterChange?: (filter: ComplianceFilter) => void;
+  /** Dispatch-status filter to pre-apply (e.g. from Management Overview chips) */
+  defaultStatusFilter?: DispatchFilter;
   /** Called after each data fetch with fresh fleet-wide counts */
   onComplianceCountsChange?: (counts: ComplianceCounts) => void;
   /** Called when inline "Update" is clicked on a compliance-filtered row */
@@ -361,6 +363,7 @@ export default function DriverRoster({
   onSelectionChange,
   complianceFilter: externalComplianceFilter,
   onComplianceFilterChange,
+  defaultStatusFilter,
   onComplianceCountsChange,
   onUpdateCompliance,
   onDriversChange,
@@ -372,7 +375,7 @@ export default function DriverRoster({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<DispatchFilter>(defaultStatusFilter ?? 'all');
   const [internalComplianceFilter, setInternalComplianceFilter] = useState<ComplianceFilter>('all');
   // Map of operator_id → most recent cert_reminders sent_at (ISO string) — for counts
   const [lastReminderMap, setLastReminderMap] = useState<Record<string, string>>({});
@@ -615,6 +618,11 @@ export default function DriverRoster({
       setInternalComplianceFilter(externalComplianceFilter);
     }
   }, [externalComplianceFilter]);
+
+  // Sync externally requested dispatch-status filter (Overview card chips)
+  useEffect(() => {
+    if (defaultStatusFilter !== undefined) setStatusFilter(defaultStatusFilter);
+  }, [defaultStatusFilter]);
 
   // Compliance tier counts (over all drivers, before any filter)
   const { windowDays } = useComplianceWindow();
