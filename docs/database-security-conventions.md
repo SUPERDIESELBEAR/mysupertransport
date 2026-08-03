@@ -137,8 +137,10 @@ invocation raised `function gen_random_bytes(integer) does not exist`, and the
 Postgres grants `EXECUTE` to `PUBLIC` on every new function automatically. A
 definer created without an explicit `REVOKE` is therefore callable by `anon`,
 regardless of what it reads — and a definer reads with the owner's privileges,
-so §3's table grants do not protect it. This default is the mechanism behind
-all five batches counted in §0, not carelessness.
+so §3's table grants do not protect it. This default explains the 61 functions
+§0 counts as genuine omissions. It does **not** explain the four re-grant
+cases, where the `REVOKE` was written and the platform undid it afterwards —
+those need the re-assertion described at the top of this file.
 
 Pair every definer with:
 
