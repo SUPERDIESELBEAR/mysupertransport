@@ -35,6 +35,10 @@ import { RevisionReplyAttachments } from '@/components/management/RevisionReplyA
 import { RevisionAuditLog } from '@/components/management/RevisionAuditLog';
 import { ReviewActionButton } from '@/components/management/ReviewActionButton';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { DocumentSlotRow } from '@/components/management/DocumentSlotRow';
+import { RequestRetakeModal } from '@/components/management/RequestRetakeModal';
+import { DocumentHistoryList } from '@/components/management/DocumentHistoryList';
+import { parseRetakeRequests, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -286,6 +290,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: EditableDocumentKey } | null>(null);
   const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: EditableDocumentKey } | null>(null);
   const [editedDocPaths, setEditedDocPaths] = useState<Partial<Record<EditableDocumentKey, string>>>({});
+  const [retakeModalKey, setRetakeModalKey] = useState<RetakeDocumentKey | null | undefined>(undefined);
+  const [docHistoryRefresh, setDocHistoryRefresh] = useState(0);
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
