@@ -15,6 +15,7 @@ import React, { Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -414,7 +415,7 @@ function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | nu
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter }: {
+export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter, index, total }: {
   url: string;
   name: string;
   onClose: () => void;
@@ -430,6 +431,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   onNext?: () => void;
   /** e.g. "2 of 4" */
   counter?: string;
+  /** Zero-based position + total, enables the mobile dot strip */
+  index?: number;
+  total?: number;
 }) {
   const { toast } = useToast();
   const [showEditor, setShowEditor] = useState(false);
@@ -554,6 +558,31 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
     }
     setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1));
   };
+
+  // ---- Swipe to flip (mobile) -------------------------------------------
+  const canFlip = !!(onPrev || onNext);
+  // Only flip on horizontal swipe when showing a fit-to-screen image, so a
+  // pinch-zoomed photo can still be panned normally.
+  const swipeEnabled = canFlip && isImage && imageFitMode;
+  const swipe = useSwipeGesture<HTMLDivElement>({
+    onSwipeLeft: () => { if (swipeEnabled) onNext?.(); },
+    onSwipeRight: () => { if (swipeEnabled) onPrev?.(); },
+    excludeSelector: 'iframe, canvas, input[type="range"], select',
+  });
+
+  // One-time "Swipe to flip" hint per device.
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  useEffect(() => {
+    if (!isMobile || !swipeEnabled) return;
+    try {
+      if (localStorage.getItem('superdrive_swipe_hint_seen')) return;
+      localStorage.setItem('superdrive_swipe_hint_seen', '1');
+    } catch { /* storage unavailable — show once per session */ }
+    setShowSwipeHint(true);
+    const t = setTimeout(() => setShowSwipeHint(false), 2600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, swipeEnabled]);
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black" onClick={onClose}>
@@ -696,7 +725,14 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
       </div>
 
       {/* Document area */}
-      <div className="flex-1 relative overflow-auto" onClick={e => e.stopPropagation()}>
+      <div
+        ref={swipe.ref}
+        className="flex-1 relative overflow-auto"
+        onClick={e => e.stopPropagation()}
+        onTouchStart={swipeEnabled ? swipe.onTouchStart : undefined}
+        onTouchMove={swipeEnabled ? swipe.onTouchMove : undefined}
+        onTouchEnd={swipeEnabled ? swipe.onTouchEnd : undefined}
+      >
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
@@ -723,6 +759,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                 style={imageStyle}
                 onLoad={handleLoad}
               />
+            )}
+            {showSwipeHint && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 text-white text-[11px] font-medium pointer-events-none animate-in fade-in">
+                Swipe to flip photos
+              </div>
             )}
           </div>
         ) :
@@ -783,6 +824,21 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
         ) : null}
 
       </div>
+
+      {/* Mobile dot strip — album position at a glance */}
+      {isMobile && canFlip && typeof total === 'number' && total > 1 && total <= 20 && (
+        <div
+          className="flex items-center justify-center gap-1.5 py-3 bg-surface-dark border-t border-surface-dark-border"
+          onClick={e => e.stopPropagation()}
+        >
+          {Array.from({ length: total }).map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${i === index ? 'w-4 bg-gold' : 'w-1.5 bg-white/30'}`}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Built-in Document Editor */}
       {showEditor && effectiveBucket && effectivePath && (

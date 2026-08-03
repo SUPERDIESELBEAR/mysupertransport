@@ -121,6 +121,8 @@ export default function TruckPhotoViewerModal({ open, onClose, driverName, files
       onPrev={hasPrev ? () => setActiveIndex((i) => Math.max(0, i - 1)) : undefined}
       onNext={hasNext ? () => setActiveIndex((i) => Math.min(tiles.length - 1, i + 1)) : undefined}
       counter={tiles.length > 1 ? `${safeIndex + 1} of ${tiles.length}` : undefined}
+      index={safeIndex}
+      total={tiles.length}
     />
   );
 }
