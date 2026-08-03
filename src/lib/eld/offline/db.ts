@@ -278,7 +278,20 @@ export type SyncKind =
    * Exempt from every cancellation path — it reports the very act that
    * cancelled the rest of the day's chain, so the chain cannot kill it.
    */
-  | 'record_unlock';
+  | 'record_unlock'
+  /**
+   * Office-facing. Files the server-side record of a certified day whose local
+   * copy does not match the office copy. Cascade-exempt: a divergence is
+   * reported precisely when the day's own chain is in doubt, so that chain must
+   * not be able to cancel the report of it.
+   */
+  | 'record_divergence'
+  /**
+   * Office-facing. Propagates a device-side resolution of a divergence to the
+   * server so the console and the phone agree. Cascade-exempt for the same
+   * reason as its sibling.
+   */
+  | 'acknowledge_divergence';
 
 /**
  * `cancelled` is terminal and is NOT a failure of the entry itself: the chain
