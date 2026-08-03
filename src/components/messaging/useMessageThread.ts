@@ -71,7 +71,6 @@ export function useMessageThread({
     onMessagesLoaded?.(list);
 
     if (isGroup) {
-      const lastRead = null;
       setFirstUnreadId(null);
       setUnreadOnOpen(0);
       // Mark group thread read for me
