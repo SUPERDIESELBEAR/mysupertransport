@@ -181,6 +181,10 @@ export default function ManagementPortal() {
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const [driverComplianceFilter, setDriverComplianceFilter] = useState<ComplianceFilter>('all');
+  const [driverDispatchFilter, setDriverDispatchFilter] = useState<DispatchFilter>('all');
+  // Same warning window the Driver Hub chips use, so Overview counts and Driver
+  // Hub counts are derived from one shared definition.
+  const { windowDays: complianceWindowDays } = useComplianceWindow();
   // Target driver whose Inspection Binder should auto-open when navigating into Driver Hub
   // (set by the Dispatch Board Binder button, cleared when leaving Driver Hub).
   const [driverHubBinderTarget, setDriverHubBinderTarget] = useState<{ operatorId: string } | null>(null);
