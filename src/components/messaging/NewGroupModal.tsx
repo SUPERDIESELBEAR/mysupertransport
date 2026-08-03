@@ -129,6 +129,9 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input placeholder="Search people…" value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Shared thread — everyone in the group sees replies.
+          </p>
           {!callerIsStaff && (
             <p className="text-[11px] text-muted-foreground">You can only add staff members to a group.</p>
           )}
@@ -138,18 +141,40 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
             ) : filtered.length === 0 ? (
               <div className="py-6 text-center text-xs text-muted-foreground">No people found</div>
             ) : (
-              filtered.map(c => (
-                <label key={c.user_id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50">
-                  <Checkbox checked={selected.has(c.user_id)} onCheckedChange={() => toggle(c.user_id)} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{c.subtitle}</p>
+              (['staff', 'driver'] as const).map(kind => {
+                const rows = filtered.filter(c => c.kind === kind);
+                if (rows.length === 0) return null;
+                const allSelected = rows.every(r => selected.has(r.user_id));
+                return (
+                  <div key={kind}>
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {kind === 'staff' ? 'Staff' : 'Drivers'}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-[10px] font-medium text-primary hover:underline"
+                        onClick={() => setSelected(prev => {
+                          const n = new Set(prev);
+                          rows.forEach(r => { if (allSelected) n.delete(r.user_id); else n.add(r.user_id); });
+                          return n;
+                        })}
+                      >
+                        {allSelected ? 'Clear' : `Select all ${kind === 'staff' ? 'staff' : 'drivers'}`}
+                      </button>
+                    </div>
+                    {rows.map(c => (
+                      <label key={c.user_id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 border-t">
+                        <Checkbox checked={selected.has(c.user_id)} onCheckedChange={() => toggle(c.user_id)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{c.name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{c.subtitle}</p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.kind === 'staff' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                    {c.kind === 'staff' ? 'Staff' : 'Driver'}
-                  </span>
-                </label>
-              ))
+                );
+              })
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">{selected.size} selected</p>
