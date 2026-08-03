@@ -5,7 +5,7 @@
 - Vehicle Hub (`FleetRoster`) already has an **Active / Deactivated** toggle and lists deactivated units, but those rows are read-only — no reactivate action exists anywhere in Vehicle Hub.
 - The only reactivation control in the app is in **Driver Hub → Archived Drivers**, and it does exactly two things: set the operator active and write an `operator_reactivated` audit row.
 - Vehicle Hub's Active list additionally requires an insurance date on the onboarding record. A unit reactivated without that date would flip to active but still not show up in the Active tab.
-- There is no Tracey Dorsey record in the database at all. Unit 187 exists, attached to a different deactivated driver, with no deactivation date recorded — consistent with a pre-wizard, manual deactivation.
+- Correction to my earlier note: Tracey Dorsey is in the system — as the **truck owner** on the ICA for unit 187, not as a driver record. The unit's operator record is Jamian Anderson (deactivated, with no deactivation date recorded — consistent with a pre-wizard, manual deactivation), and its ICA still exists in "sent to operator" status rather than having been voided. So this unit can be reactivated in place; it does not need a new driver record.
 
 ## What to build
 
@@ -29,9 +29,9 @@ The confirmation dialog lists what offboarding tore down so staff know what to r
 
 If the unit has no insurance date on record it will stay hidden from the Active tab. After reactivation, when that date is missing, show a follow-up prompt linking to the driver's onboarding record, and flag the unit in the Active list as "Insurance date missing".
 
-## For a driver like Tracey who predates the system
+## Unit 187 specifically
 
-No operator record exists, so there is nothing to reactivate — she goes through the normal add-driver / onboarding path. This plan covers units deactivated inside SUPERDRIVE.
+Because this unit was deactivated before the wizard existed, its ICA and other records were never torn down. Reactivating it from Vehicle Hub restores it to the active roster; staff then only need to re-verify compliance dates and confirm the ICA and onboard systems are still accurate, rather than rebuilding everything.
 
 ## Technical notes
 
