@@ -452,6 +452,13 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           <p className="text-sm">{search ? 'No vehicles match your search.' : showDeactivated ? 'No deactivated vehicles.' : 'No active vehicles found.'}</p>
         </div>
       ) : viewMode === 'cards' ? (
+        <>
+        {showDeactivated && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
+            <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
+            These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
+          </div>
+        )}
         <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${showDeactivated ? 'opacity-75' : ''}`}>
           {filteredAndSorted.map(row => (
             <div
