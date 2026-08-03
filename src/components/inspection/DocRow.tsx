@@ -716,18 +716,16 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
           >
             <Download className="h-4 w-4" />
           </button>
-          {!isMobile && (
-            <a
+          <a
               href={resolvedUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
               onClick={e => e.stopPropagation()}
-              title="Open in new tab"
+              title="Open in browser"
             >
               <ExternalLink className="h-4 w-4" />
-            </a>
-          )}
+          </a>
           <button
             onClick={onClose}
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
@@ -747,11 +745,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
         onTouchMove={swipeEnabled ? swipe.onTouchMove : undefined}
         onTouchEnd={swipeEnabled ? swipe.onTouchEnd : undefined}
       >
-        {isLoading && (
+        {(isLoading || (showMobilePdfFallback && !pdfPages && !pdfPagesError)) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
             <span className="text-sm text-muted-foreground">
-              {signing ? 'Preparing secure preview…' : 'Loading document…'}
+              {signing ? 'Preparing secure preview…' : showMobilePdfFallback ? 'Rendering document…' : 'Loading document…'}
             </span>
           </div>
         )}
