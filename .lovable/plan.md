@@ -29,9 +29,9 @@ The confirmation dialog lists what offboarding tore down so staff know what to r
 
 If the unit has no insurance date on record it will stay hidden from the Active tab. After reactivation, when that date is missing, show a follow-up prompt linking to the driver's onboarding record, and flag the unit in the Active list as "Insurance date missing".
 
-## For a driver like Tracey who predates the system
+## Unit 187 specifically
 
-No operator record exists, so there is nothing to reactivate — she goes through the normal add-driver / onboarding path. This plan covers units deactivated inside SUPERDRIVE.
+Because this unit was deactivated before the wizard existed, its ICA and other records were never torn down. Reactivating it from Vehicle Hub restores it to the active roster; staff then only need to re-verify compliance dates and confirm the ICA and onboard systems are still accurate, rather than rebuilding everything.
 
 ## Technical notes
 
