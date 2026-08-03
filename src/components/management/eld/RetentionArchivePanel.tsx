@@ -49,9 +49,13 @@ const TYPE_LABEL: Record<string, string> = {
   rods_unlock_event: 'Authorized unlock',
   rods_amendment: 'Amendment',
   rods_correction_request: 'Correction request',
+  rods_divergence: 'Log divergence',
+  eld_revoked_list_check: 'Revoked-list check',
 };
 
-const STATUS_OPTIONS = ['certified', 'draft', 'superseded', 'open', 'granted', 'denied'];
+const STATUS_OPTIONS = [
+  'certified', 'draft', 'superseded', 'open', 'granted', 'denied', 'resolved',
+];
 
 function fmt(ts: string | null): string {
   if (!ts) return '—';
