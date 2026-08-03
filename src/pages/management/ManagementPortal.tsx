@@ -2088,7 +2088,8 @@ export default function ManagementPortal() {
                   Messages
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
+                  Message drivers and staff 1-on-1, start a group chat (shared thread — everyone sees replies),
+                  or use Bulk Message for an announcement to many with private replies.
                 </p>
               </div>
               <Button
@@ -2096,6 +2097,7 @@ export default function ManagementPortal() {
                 variant="outline"
                 onClick={() => { if (guardDemo()) return; setBulkMessageOpen(true); }}
                 className="text-xs gap-2 shrink-0 ml-3"
+                title="Announcement to many — replies come back privately, 1-on-1"
               >
                 <Users className="h-3.5 w-3.5" />
                 Bulk Message

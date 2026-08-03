@@ -277,7 +277,9 @@ export default function FloatingChatWindow() {
         const senderName =
           threadsRef.current.find(t => t.operatorUserId === msg.sender_id)?.name ?? 'New message';
         const preview = previewBody(msg);
-        try { playTruckDownChime(); } catch { /* audio blocked */ }
+        let soundOn = true;
+        try { soundOn = localStorage.getItem('superdrive_messages_sound_enabled') !== 'false'; } catch { /* ignore */ }
+        if (soundOn) { try { playTruckDownChime(); } catch { /* audio blocked */ } }
         toast(senderName, {
           description: preview,
           action: {
