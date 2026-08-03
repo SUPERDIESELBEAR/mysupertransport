@@ -386,6 +386,9 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
               Your onboarding coordinator will reach out here soon. You'll be notified when you have new messages.
             </p>
           </div>
+          <Button onClick={() => setNewChatOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Start a conversation
+          </Button>
         </div>
       ) : (
         <div className="flex flex-1 min-h-0">
