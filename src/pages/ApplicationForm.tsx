@@ -85,6 +85,7 @@ export default function ApplicationForm() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [revisionMessage, setRevisionMessage] = useState<string | null>(null);
   const [showRevisionBanner, setShowRevisionBanner] = useState(false);
+  const [retakeRequests, setRetakeRequests] = useState<RetakeRequestMap>({});
   // Step-level blocker shown at the top of the current step so applicants
   // immediately see why they can't proceed (validation gaps, server errors,
   // duplicate-email pre-check failures, etc.) instead of getting stuck.
@@ -117,6 +118,7 @@ export default function ApplicationForm() {
             setRevisionMessage((data as any).revision_request_message);
             setShowRevisionBanner(true);
           }
+          setRetakeRequests(parseRetakeRequests((data as any).document_retake_requests));
           const restored: ApplicationFormData = {
             ...defaultFormData,
             first_name: data.first_name ?? '',
@@ -803,7 +805,7 @@ export default function ApplicationForm() {
               {step === 4 && <Step4Driving data={formData} onChange={handleChange} errors={errors} />}
               {step === 5 && <Step5Accidents data={formData} onChange={handleChange} errors={errors} />}
               {step === 6 && <Step6DrugAlcohol data={formData} onChange={handleChange} errors={errors} />}
-              {step === 7 && <Step7Documents data={formData} onChange={handleChange} errors={errors} />}
+              {step === 7 && <Step7Documents data={formData} onChange={handleChange} errors={errors} retakeRequests={retakeRequests} />}
               {step === 8 && <Step8Disclosures data={formData} onChange={handleChange} errors={errors} />}
               {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
             </Suspense>
