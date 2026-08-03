@@ -1228,36 +1228,37 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               </Section>
 
               {/* Uploaded Documents */}
-              {(app.dl_front_url || app.dl_rear_url || app.medical_cert_url) && (
-                <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
-                  <div className="flex flex-wrap gap-2">
-                    {app.dl_front_url && (
-                      <button
-                        onClick={() => setPreviewDoc({ url: signedUrls.dl_front_url || app.dl_front_url!, name: 'DL Front', key: 'dl_front_url' })}
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> DL Front
-                      </button>
-                    )}
-                    {app.dl_rear_url && (
-                      <button
-                        onClick={() => setPreviewDoc({ url: signedUrls.dl_rear_url || app.dl_rear_url!, name: 'DL Rear', key: 'dl_rear_url' })}
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> DL Rear
-                      </button>
-                    )}
-                    {app.medical_cert_url && (
-                      <button
-                        onClick={() => setPreviewDoc({ url: signedUrls.medical_cert_url || app.medical_cert_url!, name: 'Medical Certificate', key: 'medical_cert_url' })}
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Medical Cert
-                      </button>
-                    )}
-                  </div>
-                </Section>
-              )}
+              <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  Replace a poor-quality file with a copy the applicant emailed you, or ask the applicant to retake it in their application.
+                </p>
+                <div className="space-y-2">
+                  {(['dl_front_url', 'dl_rear_url', 'medical_cert_url'] as RetakeDocumentKey[]).map(key => {
+                    const currentPath = getCurrentDocumentPath(key);
+                    const shortName = key === 'dl_front_url' ? 'DL Front' : key === 'dl_rear_url' ? 'DL Rear' : 'Medical Certificate';
+                    return (
+                      <DocumentSlotRow
+                        key={key}
+                        applicationId={app.id}
+                        docKey={key}
+                        currentPath={currentPath}
+                        signedUrl={signedUrls[key]}
+                        retake={retakeMap[key]}
+                        onPreview={() => setPreviewDoc({ url: signedUrls[key] || currentPath || '', name: shortName, key })}
+                        onRequestRetake={() => setRetakeModalKey(key)}
+                        onReplaced={async (path) => {
+                          setEditedDocPaths(prev => ({ ...prev, [key]: path }));
+                          const { data } = await supabase.storage.from('application-documents').createSignedUrl(path, 3600);
+                          if (data?.signedUrl) setSignedUrls(prev => ({ ...prev, [key]: data.signedUrl }));
+                          setDocHistoryRefresh(n => n + 1);
+                          onApplicationUpdated?.({ id: app.id, [key]: path } as Partial<FullApplication> & { id: string });
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <DocumentHistoryList applicationId={app.id} refreshKey={docHistoryRefresh} />
+              </Section>
 
               {/* Existing reviewer notes */}
               {app.reviewer_notes && (
