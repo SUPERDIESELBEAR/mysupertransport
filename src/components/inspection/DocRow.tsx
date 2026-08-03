@@ -725,7 +725,14 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
       </div>
 
       {/* Document area */}
-      <div className="flex-1 relative overflow-auto" onClick={e => e.stopPropagation()}>
+      <div
+        ref={swipe.ref}
+        className="flex-1 relative overflow-auto"
+        onClick={e => e.stopPropagation()}
+        onTouchStart={swipeEnabled ? swipe.onTouchStart : undefined}
+        onTouchMove={swipeEnabled ? swipe.onTouchMove : undefined}
+        onTouchEnd={swipeEnabled ? swipe.onTouchEnd : undefined}
+      >
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
@@ -752,6 +759,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                 style={imageStyle}
                 onLoad={handleLoad}
               />
+            )}
+            {showSwipeHint && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 text-white text-[11px] font-medium pointer-events-none animate-in fade-in">
+                Swipe to flip photos
+              </div>
             )}
           </div>
         ) :
