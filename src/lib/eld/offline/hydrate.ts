@@ -26,8 +26,10 @@ import { pruneRoadsideCache, signatureKeyForDay } from './prune';
 import { ensureDayCached } from './ensureDayCached';
 import { buildManifest, type ServerDayDescriptor } from './manifestBuild';
 import {
-  compareDocumentDay, compareKeyedDay, openDivergenceDates, recordDivergence,
+  applyServerAcknowledgement,
+  compareDocumentDay, compareKeyedDay, openDivergenceDates, pendingAckDates, recordDivergence,
 } from './divergence';
+import { enqueueDivergenceReport } from './queue/divergenceSync';
 import { raiseSyncAlert } from './queue/alerts';
 import { maybeWipeForDemoReset } from './demoReset';
 import { windowDatesInTimezone } from './roadsideManifest';
@@ -236,12 +238,71 @@ async function flagDivergence(
     logDate, operatorId, localDay, localEvents, serverRowId, comparison,
   });
   if (!isNew) return;
+  // File it with the office. Queued, not called: the device that notices a
+  // divergence is frequently the one that is offline.
+  const row = await roadsideDb.rods_divergences.get(logDate);
+  if (row) {
+    await enqueueDivergenceReport(
+      row,
+      typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    ).catch(() => undefined);
+  }
   await raiseSyncAlert({
     kind: 'certified_day_divergence',
     operator_id: operatorId,
     log_date: logDate,
     detail: `Local row ${localDay.id} differs from server row ${serverRowId} on: ${comparison.differing.join(', ') || 'row identity'}.`,
   });
+}
+
+/**
+ * See the PRECEDENCE block on ensureDayCached — this is where it is enforced.
+ * Exported for the precedence tests; not part of the module's public surface.
+ */
+/**
+ * The return leg: a resolution recorded in the office clears the chip here.
+ *
+ * PRECEDENCE, and it runs the opposite way from the rest of this file. A
+ * locally acknowledged divergence whose queue entry has not drained WINS over
+ * the server row: the driver dismissed it on his phone, the server has not
+ * heard yet, and treating the server as authoritative would un-acknowledge him
+ * and put the chip back. Reconciliation is therefore one-directional — it can
+ * only move a row from open to acknowledged, never the reverse — and it skips
+ * any date carrying an undrained acknowledgement outright.
+ *
+ * A failed read leaves every local row exactly as it is.
+ */
+export async function reconcileDivergenceAcks(operatorId: string): Promise<number> {
+  try {
+    const open = await openDivergenceDates();
+    if (open.size === 0) return 0;
+    const pending = await pendingAckDates();
+    const dates = [...open].filter((d) => !pending.has(d));
+    if (dates.length === 0) return 0;
+
+    const { data, error } = await supabase
+      .from('rods_divergences')
+      .select('id, log_date, acknowledged, acknowledged_source, acknowledged_by, acknowledged_reason, acknowledged_at')
+      .eq('operator_id', operatorId)
+      .eq('acknowledged', true)
+      .in('log_date', dates);
+    if (error || !data) return 0;
+
+    let cleared = 0;
+    for (const row of data) {
+      const applied = await applyServerAcknowledgement(row.log_date, {
+        serverId: row.id,
+        source: row.acknowledged_source === 'driver' ? 'driver' : 'management',
+        actor: row.acknowledged_by ?? null,
+        reason: row.acknowledged_reason ?? null,
+        at: row.acknowledged_at ?? null,
+      });
+      if (applied) cleared += 1;
+    }
+    return cleared;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -495,6 +556,7 @@ async function run(operatorId: string, driverName: string) {
     const evt = events?.[0] ?? null;
     const hasNotice = evt ? await cacheNotice(evt.id, evt.notice_pdf_path).catch(() => false) : false;
 
+    await reconcileDivergenceAcks(operatorId);
     const diverged = await openDivergenceDates();
 
     // The device decides what it can show; the server only says what exists.

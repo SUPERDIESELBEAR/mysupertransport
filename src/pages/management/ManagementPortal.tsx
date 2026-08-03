@@ -38,6 +38,7 @@ import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ELDMalfunctionsPanel from '@/components/management/eld/ELDMalfunctionsPanel';
 import RodsStorageHealthCard from '@/components/management/eld/RodsStorageHealthCard';
 import RodsUnlockEventsPanel from '@/components/management/eld/RodsUnlockEventsPanel';
+import RodsDivergencesPanel from '@/components/management/eld/RodsDivergencesPanel';
 import RodsAdminLogsPanel from '@/components/management/eld/RodsAdminLogsPanel';
 import RetentionArchivePanel from '@/components/management/eld/RetentionArchivePanel';
 import ELDDeviceModelsPanel from '@/components/management/eld/ELDDeviceModelsPanel';
@@ -1969,6 +1970,7 @@ export default function ManagementPortal() {
         {view === 'eld-malfunctions' && (
           <div className="space-y-6">
             <ELDMalfunctionsPanel focusEventId={searchParams.get('event')} />
+            <RodsDivergencesPanel focusId={searchParams.get('divergence')} />
             <RodsUnlockEventsPanel />
             <RodsStorageHealthCard />
           </div>

@@ -278,7 +278,20 @@ export type SyncKind =
    * Exempt from every cancellation path — it reports the very act that
    * cancelled the rest of the day's chain, so the chain cannot kill it.
    */
-  | 'record_unlock';
+  | 'record_unlock'
+  /**
+   * Office-facing. Files the server-side record of a certified day whose local
+   * copy does not match the office copy. Cascade-exempt: a divergence is
+   * reported precisely when the day's own chain is in doubt, so that chain must
+   * not be able to cancel the report of it.
+   */
+  | 'record_divergence'
+  /**
+   * Office-facing. Propagates a device-side resolution of a divergence to the
+   * server so the console and the phone agree. Cascade-exempt for the same
+   * reason as its sibling.
+   */
+  | 'acknowledge_divergence';
 
 /**
  * `cancelled` is terminal and is NOT a failure of the entry itself: the chain
@@ -362,6 +375,18 @@ export interface RodsDivergenceEntry {
   acknowledged_by: string | null;
   acknowledged_reason: string | null;
   acknowledged_at: string | null;
+  /**
+   * The server row id, once `record_divergence` has drained. Absent while the
+   * report is still queued — the acknowledgement handler resolves the row by
+   * (operator, date) in that case.
+   */
+  server_id?: string | null;
+  /**
+   * 1 while an acknowledgement has been made on this device but the queue
+   * entry carrying it has not drained. Reconciliation treats such a row as
+   * locally authoritative: the driver's dismissal wins until it syncs.
+   */
+  ack_pending?: 0 | 1;
 }
 
 class RoadsideDb extends Dexie {

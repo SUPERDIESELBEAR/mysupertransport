@@ -2,6 +2,44 @@
 
 These rules are enforced by tests. **Nothing runs those tests for you.**
 
+## The platform re-grants EXECUTE after a migration applies
+
+**Read this before the copy target below.** The `REVOKE` line in that template
+is necessary and **not sufficient**, and assuming otherwise is how four
+functions ended up anon-callable with a correct `REVOKE` sitting in their
+creating migration.
+
+- The platform re-grants `EXECUTE` to `anon` and `authenticated` on newly
+  created functions in `public` **after** the migration transaction applies.
+  A `REVOKE` written inside the creating migration does not survive that step.
+- The revoke therefore has to be **re-asserted in a follow-up statement or a
+  follow-up migration**. A correcting migration is not exempt from the re-grant
+  either, so re-assert and then *read the result back*.
+- `src/test/definer-live-catalog.test.ts` is the only thing that proves the end
+  state, because it reads the live catalog. The file-based guards parse
+  migration text — correct as written, and irrelevant to this failure mode: the
+  text is right and the ACL is wrong.
+
+Read the end state, never the migration:
+
+```sql
+SELECT p.proname,
+       array_agg(DISTINCT a.grantee::regrole::text) AS grantees
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  LEFT JOIN LATERAL aclexplode(p.proacl) a ON true
+ WHERE n.nspname = 'public' AND p.proname = '<name>'
+ GROUP BY 1;
+```
+
+A `NULL` `proacl` means the default — `EXECUTE` to `PUBLIC` — not "no grants".
+
+Observed 2026-08-03: `discard_rods_amendment`, `log_ica_event`,
+`match_staff_help_knowledge` and `revoke_share_token` each shipped a `REVOKE`
+in their creating migration and were anon-executable live. A second migration
+re-asserting the revoke did stick, confirmed by reading the ACL back — but the
+read is the proof, not the statement.
+
 ## The definer header — copy this, then fill the blanks
 
 Do not write a `SECURITY DEFINER` function from memory. Start from this block
@@ -52,16 +90,29 @@ That runs the four suites that catch silent failures:
 
 **A structural observation, not a lapse.** All of these guards were written
 *after* a class of silent failure had already shipped, each is correct, and
-none of them runs on its own. The definer-header rule has now been broken in
-five separate batches *after* it was written down — the demo-guardrail
-triggers, the §3/§4 RODS batch, the twelve rewritten notification functions,
-the §5 extension-request triggers, and the §6 retention RPCs including
-`is_retention_admin` — each shipping a default `PUBLIC EXECUTE`, a
-`search_path = public`, or both. The assertion was right every time; it just
-did not execute when the migration was authored. The detection latency is the
-defect. Until this project has CI or hooks, the guards are a checklist item
-tied to the turn, not an automatic safety net. Do not assume a migration is
-clean because the rule exists.
+none of them runs on its own. Batches have shipped anon-callable definers
+repeatedly *after* the rule was written down — the demo-guardrail triggers, the
+§3/§4 RODS batch, the twelve rewritten notification functions, the §5
+extension-request triggers, and the §6 retention RPCs including
+`is_retention_admin`.
+
+**Two distinct causes, and they must not be collapsed into one.** The 2026-08-03
+sweep separated them by comparing migration text against the live ACL:
+
+- **Genuine omission** — the migration contains no `REVOKE` at all. 61 `public`
+  functions are anon-executable with nothing in any migration that ever tried to
+  close them. That is the hand-authoring failure this paragraph originally
+  described, and the copy target is the fix.
+- **Platform re-grant** — the migration contains the correct `REVOKE` and the
+  function is anon-executable anyway. Four proven cases
+  (`discard_rods_amendment`, `log_ica_event`, `match_staff_help_knowledge`,
+  `revoke_share_token`). No amount of care at authoring time prevents this one;
+  see the re-grant section at the top of this file.
+
+The detection latency is the defect in both. Until this project has CI or hooks,
+the guards are a checklist item tied to the turn, not an automatic safety net.
+Do not assume a migration is clean because the rule exists, and do not assume it
+is clean because you wrote the `REVOKE`.
 
 ## 1. SECURITY DEFINER functions must pin `search_path`
 
@@ -86,8 +137,10 @@ invocation raised `function gen_random_bytes(integer) does not exist`, and the
 Postgres grants `EXECUTE` to `PUBLIC` on every new function automatically. A
 definer created without an explicit `REVOKE` is therefore callable by `anon`,
 regardless of what it reads — and a definer reads with the owner's privileges,
-so §3's table grants do not protect it. This default is the mechanism behind
-all five batches counted in §0, not carelessness.
+so §3's table grants do not protect it. This default explains the 61 functions
+§0 counts as genuine omissions. It does **not** explain the four re-grant
+cases, where the `REVOKE` was written and the platform undid it afterwards —
+those need the re-assertion described at the top of this file.
 
 Pair every definer with:
 

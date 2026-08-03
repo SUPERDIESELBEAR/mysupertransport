@@ -48,6 +48,8 @@ export const DETERMINISTIC_SERVER_ATTEMPT_LIMIT = 2;
 export const CASCADE_EXEMPT_KINDS: ReadonlySet<string> = new Set([
   'record_unlock',
   'raise_sync_alert',
+  'record_divergence',
+  'acknowledge_divergence',
 ]);
 
 export function isCascadeExempt(kind: string): boolean {

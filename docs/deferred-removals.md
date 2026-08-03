@@ -158,3 +158,52 @@ DROP FUNCTION public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb);
 
 Then drop both the interim entry and the comment from the catalog guard and put
 `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` back to 65.
+
+## Anon-executable functions with no `REVOKE` in any migration — the 61
+
+**Where:** schema `public`, 61 functions. Confirmed 2026-08-03 by comparing the
+live ACL (`aclexplode(pg_proc.proacl)`, extension-owned objects excluded via
+`pg_depend.deptype = 'e'`) against every `REVOKE` in `supabase/migrations`.
+
+**What:** 61 functions hold `EXECUTE` for `anon` with nothing in any migration
+that ever tried to close them. Genuine omissions, distinct from the four
+platform re-grant cases (fixed 2026-08-03), which had the `REVOKE` and lost it
+after apply.
+
+**Risk read, done today, not deferred.** Four are write paths reachable by
+`anon` at the grant layer. All four hold a body-level gate and all four fail
+closed, because `auth.uid()` is NULL for `anon`:
+
+| Function | Gate | Anon outcome |
+| --- | --- | --- |
+| `assign_user_role` | inline `EXISTS` on `user_roles` for management/owner; refuses `owner` outright | raises `Only management users can assign roles` |
+| `remove_user_role` | same inline `EXISTS`; refuses `owner` outright | raises `Only management users can remove roles` |
+| `set_go_live_with_override` | `has_role(auth.uid(), 'owner')` | raises `insufficient_privilege` |
+| `move_revisions_to_pending` | `is_staff(auth.uid())` | raises `not_authorized` |
+
+Hygiene, not an open door: the grant layer is reachable, the body is not. The
+remaining 57 are reads and helpers, several taking a caller-supplied uuid
+(`get_user_roles`, `get_staff_contact_info`, `get_thread_participants`,
+`get_equipment_shipping_for_operator`, the PEI queue family) — the
+`has_role`/`is_staff` role-membership oracle shape already registered, at wider
+scope.
+
+**Removal trigger:** each function's `anon` grant is revoked and the revoke is
+re-read live (per the re-grant section of `database-security-conventions.md`),
+with the tokenized signed-out flows in §3 explicitly exempted. Closed when the
+live sweep returns zero non-exempt anon-executable functions.
+
+## Duplicated role-membership check in `assign_user_role` / `remove_user_role`
+
+**Where:** `public.assign_user_role`, `public.remove_user_role`.
+
+**What:** each carries its own inline
+`EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('management','owner'))`
+instead of calling `public.has_role`. Two independent copies of "who may assign
+roles", governing role assignment itself — the same drift shape as the label
+drift and `AMENDABLE_HEADER_FIELDS`. A change to the role hierarchy that lands
+in `has_role` does not reach these two.
+
+**Removal trigger:** both bodies consolidated onto `has_role` (or
+`has_any_role`), with the `owner` refusal kept as its own explicit check — or a
+line recorded here stating why the inline copy has to exist.

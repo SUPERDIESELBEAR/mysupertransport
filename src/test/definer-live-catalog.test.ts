@@ -78,7 +78,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.cancel_application_correction(uuid)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
-  "public.discard_rods_amendment(uuid)",
   "public.email_queue_dispatch()",
   "public.get_application_by_draft_token(uuid)",
   "public.get_application_correction_by_token(text)",
@@ -101,11 +100,9 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.list_driver_contacts(uuid)",
   "public.list_my_group_threads()",
   "public.list_staff_auto_assigned_drivers(uuid)",
-  "public.log_ica_event(text,uuid,uuid,jsonb)",
   "public.log_pei_manual_send(uuid,timestamp with time zone,text,text)",
   "public.log_pei_phone_attempt(uuid,timestamp with time zone,text,text)",
   "public.mark_thread_read(uuid)",
-  "public.match_staff_help_knowledge(vector,integer,double precision)",
   "public.move_revisions_to_pending(uuid)",
   "public.operator_awaiting_return(uuid)",
   "public.operator_return_requested(uuid)",
@@ -114,7 +111,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
-  "public.revoke_share_token(uuid)",
   "public.save_application_draft(uuid,jsonb)",
   "public.search_audit_log(text,text,timestamp with time zone,timestamp with time zone,integer,integer,uuid,uuid)",
   "public.search_audit_log(text,text,timestamp with time zone,timestamp with time zone,integer,integer)",
@@ -131,7 +127,10 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
  * this number in the same diff -- a deliberate act, rather than a quiet append
  * while chasing a red test.
  */
-const KNOWN_ANON_EXECUTABLE_MAX = 58;
+// 58 minus the four whose creating-migration REVOKE the platform re-grant had
+// undone (discard_rods_amendment, log_ica_event, match_staff_help_knowledge,
+// revoke_share_token), re-asserted 2026-08-03 and re-read live.
+const KNOWN_ANON_EXECUTABLE_MAX = 54;
 
 
 /**
@@ -242,13 +241,20 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role(auth.uid(), 'management'|'owner') in its body — so the check is
   // attributed to a real person. Granted to `authenticated`, never anon.
   "public.record_revoked_list_check(uuid,text,date,text,date,date)",
+  // §8 server-side divergence resolution. record_ is the driver write path and
+  // gates on is_own_rods_operator; acknowledge_ admits staff for anyone and a
+  // driver for his own row only. Both are called by signed-in users from the
+  // phone and the console, never anon.
+  "public.record_rods_divergence(uuid,date,uuid,uuid,text[],jsonb,jsonb,timestamp with time zone,text,text)",
+  "public.acknowledge_rods_divergence(uuid,text)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
-// + the three §6 retention RPCs + the §7 revoked-list recorder. Goes back to
+// + the three §6 retention RPCs + the §7 revoked-list recorder
+// + the two §8 divergence RPCs. Goes back to
 // 70 when the seven-argument certify form is dropped
 // (docs/deferred-removals.md).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 71;
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 73;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a

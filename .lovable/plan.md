@@ -1,73 +1,62 @@
-## §7 — Revoked-list verification (revised)
+## 1. Fix the four re-grant victims, then re-read the live ACL
 
-Manual check by design. No scraper: a human records an outcome, the app keeps the record permanent and surfaces staleness.
+One migration re-asserting the revoke on the four functions whose creating migration already contained it and was overridden:
 
-### Correction 2 — what happens to a model unchecked for a year
+```sql
+REVOKE ALL ON FUNCTION public.discard_rods_amendment(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.log_ica_event(text, uuid, uuid, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.match_staff_help_knowledge(vector, int, float) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.revoke_share_token(uuid) FROM PUBLIC, anon;
+```
+with the intended `authenticated` / `service_role` grants re-stated after each, since `REVOKE ALL … FROM PUBLIC` would otherwise strip the grants the platform supplied and leave the function callable by nobody but the owner.
 
-With the 90-day dedupe as originally written: four identical reminders, twelve months apart in effect, each one indistinguishable from the first. Nothing in the message tells the reader the model is now a year stale, and the only place that shows is the panel's red band — which is only seen by someone who already opened the panel. So the answer is yes, four identical nudges and no escalation.
+Then the proof step, which is the point: read `aclexplode(pg_proc.proacl)` for all four **after** the migration applies and report the grantee list verbatim. A correcting migration is subject to the same re-grant as the original — if `anon` is back, the fix moves to a post-apply statement and gets re-read again. Finish with `npm run test:guards`, including `definer-live-catalog`.
 
-Fix in the message rather than in a second ladder: the reminder carries the age and the exposure, so its text escalates even though its frequency does not.
+## 2. The 61 as a scoped item, with the write paths reported today
 
-- Title: `Revoked-list check overdue — Samsara VG34 (unchecked 340 days, 12 trucks)`
-- Body names the last check date (or "never checked since it was added on <date>"), the truck count, and the consequence: under 395.8(a)(1) an unregistered device is an out-of-service finding at roadside.
-- Bands in the wording, matching how the malfunction rungs read: 91–120 days "overdue", 121–270 "well overdue", over 270 or never "no verification on record for this model in <N> days".
-- Notification `priority` stays `action`; a revocation notification is the high-priority one. A stale check is a task, not an incident, and inflating it would erode the signal the revoked path needs.
-- Dedupe stays 90 days per model, so a daily cron still produces one reminder per quarter.
+Not fixed in this change. Register entry: *61 `public` functions are anon-executable with no `REVOKE` in any migration — genuine omissions, distinct from the re-grant.*
 
-### Correction 1 — banner condition
+The four named write paths were read at the body level today. All four hold a gate and all four fail closed for `anon`, because `auth.uid()` is NULL there:
 
-The banner keys on **a model whose latest check result is `revoked` and which has at least one assigned active `eld_devices` row**, with `eld_device_models.is_active` deliberately not in the predicate. Deactivating the model in the registry does not replace the hardware, and clearing a red banner is exactly what a stressed admin reaches for. When the fleet genuinely retires the model, the affected-truck count falls to zero and the banner clears on its own — a fact rather than a flag someone set. That reasoning goes in a comment above the query.
+| Function | Gate | Anon outcome |
+| --- | --- | --- |
+| `assign_user_role` | inline `EXISTS` on `user_roles` for management/owner; refuses `owner` outright | raises `Only management users can assign roles` |
+| `remove_user_role` | same inline `EXISTS`; refuses `owner` outright | raises `Only management users can remove roles` |
+| `set_go_live_with_override` | `has_role(auth.uid(), 'owner')`, `insufficient_privilege` | raises |
+| `move_revisions_to_pending` | `is_staff(auth.uid())` | raises `not_authorized` |
 
-The same predicate drives the affected-truck list and countdown. The panel keeps showing a revoked-but-deactivated model with its trucks, flagged as deactivated-in-registry so the state is legible rather than hidden.
+Hygiene, not an open door: the grant layer is reachable, the body is not. The remaining 57 are reads and helpers, several taking a caller-supplied uuid (`get_user_roles`, `get_staff_contact_info`, `get_thread_participants`, `get_equipment_shipping_for_operator`, the PEI queue family) — the `has_role`/`is_staff` oracle shape already in the register, at wider scope.
 
-### Verified current state
+### 2a. Separate register line — the duplicated membership check
 
-- `eld_device_models` (6 rows): `provider_name`, `device_make`, `device_model`, `fmcsa_registration_id` (nullable), `support_phone`, `is_active`. Management-only writes, authenticated read. No check-history table exists.
-- `eld_devices` links model → operator and `truck_number`, with `is_active` — the affected-truck join.
-- `search_retention_archive` is the artifact registry: 7 `UNION ALL` arms today.
-- `process-eld-escalations` evaluates open malfunction events, owns the `eld_cron_runs` ledger and the staff fan-out.
-- Management views are a string union plus `ALLOWED_VIEWS` in `src/pages/management/ManagementPortal.tsx`.
+*`assign_user_role` and `remove_user_role` each carry their own inline `EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('management','owner'))` instead of calling `has_role`. Two copies of "who may assign roles" that can drift independently, governing role assignment itself — the same shape as the label drift and `AMENDABLE_HEADER_FIELDS`. Open item: consolidate both onto `has_role`, or record why the inline copy has to exist.*
 
-### Data
+## 3. Conventions doc
 
-New `eld_revoked_list_checks`, one row per model per check, append-only: `eld_device_model_id`, `checked_by`, `checked_at`, `result` (`registered | revoked | not_found`), `fmcsa_list_date`, `notes`, and on a revoked outcome `revocation_date` plus `replacement_deadline` (defaults to revocation + 60 days, editable — the grace period is set per revocation, not by regulation). `is_demo boolean not null default false`.
+New section `## The platform re-grants EXECUTE after a migration applies`, placed **above** the copy target:
 
-BEFORE UPDATE/DELETE triggers reject changes; a wrong entry is corrected by recording a new check.
+- The platform re-grants `EXECUTE` to `anon` and `authenticated` on newly created `public` functions after the migration applies; a `REVOKE` inside the creating migration does not survive it.
+- The revoke must be re-asserted in a follow-up statement or migration, and re-read afterwards — a correcting migration is not exempt.
+- `definer-live-catalog.test.ts` is the only thing that proves the end state. The file-reading guards parse migration text: correct as written, and irrelevant here, because the text is right and the live ACL is wrong.
 
-Denormalized onto `eld_device_models`: `last_check_at`, `last_check_result`, `last_check_id`, `fmcsa_list_date`, `revocation_date`, `replacement_deadline`, written only by the recording function.
+Then correct §0's five-batches paragraph and §1a's closing sentence, which attribute all five batches to the default `PUBLIC EXECUTE` and hand-authoring. Both causes are real and must be separated: a migration with no `REVOKE` at all is a genuine omission; a migration that contains the `REVOKE` and is still anon-callable live is the re-grant. Four functions are proven re-grant victims; the 61 are proven omissions.
 
-GRANTs and RLS: insert/select for management and owner, `service_role` full, no `anon`.
+## 4. §8 — server-side divergence resolution
 
-### Recording a check
+**The 8.3 path does not exist.** Confirmed by reading `hydrate.ts` and grepping the client: there is no directive mechanism. Divergence flows one way — `flagDivergence` writes Dexie and calls `raiseSyncAlert`, `openDivergenceDates()` drives the chip from local rows only, and `acknowledgeDivergence` is called only from `RodsView.tsx`. §8 builds the return leg rather than reusing one.
 
-One `SECURITY DEFINER` function authored from the copy target at the top of `docs/database-security-conventions.md` (`search_path = public, extensions`, `REVOKE ... FROM PUBLIC`, explicit `GRANT`), doing three things atomically: insert the check, update the denormalized status, and on `revoked` only, fan out one high-priority Management notification per staff recipient with entity `eld_device_model`.
+**Reconciliation precedence — both directions, stated as a rule:**
 
-A comment in the function body states that drivers are never notified and no malfunction event is opened on this path: a revocation is a fleet procurement decision, and wrongly telling twelve drivers to start manual logs would be its own incident.
+1. **Local acknowledgement with an undrained `acknowledge_divergence` queue entry wins.** Hydration must not un-acknowledge it, exactly as `unsynced` and `local_certified_at` protect the day cache in `cacheKeyedDay`. The Dexie divergence row keeps a pending marker until its queue entry reaches `succeeded`; while that marker is set, server state is ignored for that date.
+2. Otherwise, a server row carrying `acknowledged_at` marks the local row acknowledged with the staff actor and reason.
+3. A server row with no local counterpart is inserted, so a second device shows the same divergence.
+4. Reconciliation runs before `openDivergenceDates()` is read, so the chip reflects merged state on first paint.
 
-`not_found` records amber with no notification — the recorded model number being wrong is the common cause.
+Tested in both directions: acknowledge in the console → hydrate a second device → chip clears and the staff reason is present (criterion 20); acknowledge offline with the queue undrained → hydrate → **chip stays clear**, and stays clear again after the entry drains.
 
-### Device models panel
+The rest stands as planned: `rods_divergences` server table (no FK on `local_day_id`, with the column comment), `record_divergence` / `acknowledge_divergence` queue kinds in `CASCADE_EXEMPT_KINDS`, the console pane beside the malfunction list, the acknowledgement definer from the copy target with a distinct new SQLSTATE observed verbatim before any fixture asserts it, no roadside badge plus the decision comment beside the day strip, the ninth archive arm, and §0.3 demo suppression. Criteria 21 and 22 verified as written; scratch rows purged through `purge-rods-day`.
 
-New `src/components/management/eld/ELDDeviceModelsPanel.tsx`; view `eld-device-models` added to the view union, `ALLOWED_VIEWS`, and the ELD nav group.
+## Technical notes
 
-Columns: provider, make, model, FMCSA registration ID (blank is normal — not required on any federal document), assigned truck count, last check date, result, days since. Age colour gold 0–90, amber 91–120, red over 120 or never checked; a `revoked` result outranks the age colour and is always red.
-
-Banner per the predicate above: model identifiers, revocation date, replacement deadline, every affected truck with a day countdown.
-
-`RevokedListCheckModal.tsx`: opens FMCSA's registered and revoked lists in new tabs, shows this model's identifiers alongside for comparison, and requires an explicit outcome with nothing pre-selected. Fixed note: the ELD identifier the device reports in DOT Inspection mode is the authoritative value to match; a registration ID copied from a third-party site is not. On `revoked`, revocation date is required and the replacement deadline pre-fills to +60 days and stays editable.
-
-### Archive
-
-Eighth arm in `search_retention_archive`: `eld_revoked_list_check`, `log_date = checked_at::date`, label `Revoked-list check — <make> <model> (<result>)`, `operator_id NULL`. Fleet-level rather than per-driver, so the arm is emitted only when `_operator_ids`, `_truck`, and `_event_id` are all NULL — a driver- or truck-scoped search would otherwise drop it silently or attach it wrongly. Text-only, so the combined-PDF exporter lists it in the summary with no stored file to merge.
-
-### Quarterly reminder
-
-Inside `process-eld-escalations`, after the malfunction loop. Select active models whose `last_check_at` is null or older than 90 days, count assigned trucks excluding demo operators, and raise one Management notification per model carrying the age band, day count, and truck count as described above. Dedupe on an existing `eld_revoked_list_due` notification for that model within 90 days. Counts flow into the run-ledger result payload; `dryRun` and override runs behave as they do for escalations.
-
-### Demo handling (§0.3)
-
-Device models are fleet-level, so a check is never a demo artifact: `is_demo` is stamped false and demo runs record none. Demo operators are excluded from affected-truck counts and the banner list, and this path sends no email at all (in-app management notification only), so there is nothing for suppression to leak.
-
-### Verification through the app
-
-Record all three outcomes against real models and report: console state and colour for each, the notification produced or absent, the banner and countdown on the revoked path, that the banner survives setting `is_active = false` on the revoked model and only clears when the last assigned device is removed, the append-only rejection on an edit attempt, that no driver notification and no malfunction event were created, and one reminder pass plus a second showing dedupe and the age-carrying text. `npm run test:guards` in the same turn as the migration.
+- ACL reads use `aclexplode(pg_proc.proacl)` / `aclexplode(pg_class.relacl)` with extension-owned objects excluded via `pg_depend.deptype = 'e'` — never `information_schema`, per §3a.
+- Tables remain clean: `anon` holds only `INSERT ON applications` and `SELECT ON faq`, and no `public` table has RLS on with zero policies and a grant. The re-grant is function-only.

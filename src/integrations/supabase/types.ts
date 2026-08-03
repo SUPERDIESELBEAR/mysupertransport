@@ -5426,6 +5426,80 @@ export type Database = {
           },
         ]
       }
+      rods_divergences: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_reason: string | null
+          acknowledged_source: string | null
+          created_at: string
+          detected_at: string
+          device_info: string | null
+          differing_fields: string[]
+          id: string
+          idempotency_key: string
+          is_demo: boolean
+          local_row_id: string | null
+          local_values: Json
+          log_date: string
+          operator_id: string
+          server_row_id: string | null
+          server_values: Json
+          updated_at: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_reason?: string | null
+          acknowledged_source?: string | null
+          created_at?: string
+          detected_at?: string
+          device_info?: string | null
+          differing_fields?: string[]
+          id?: string
+          idempotency_key: string
+          is_demo?: boolean
+          local_row_id?: string | null
+          local_values?: Json
+          log_date: string
+          operator_id: string
+          server_row_id?: string | null
+          server_values?: Json
+          updated_at?: string
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_reason?: string | null
+          acknowledged_source?: string | null
+          created_at?: string
+          detected_at?: string
+          device_info?: string | null
+          differing_fields?: string[]
+          id?: string
+          idempotency_key?: string
+          is_demo?: boolean
+          local_row_id?: string | null
+          local_values?: Json
+          log_date?: string
+          operator_id?: string
+          server_row_id?: string | null
+          server_values?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rods_divergences_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rods_events: {
         Row: {
           city: string | null
@@ -6394,6 +6468,10 @@ export type Database = {
         Args: { p_alert_id: string }
         Returns: undefined
       }
+      acknowledge_rods_divergence: {
+        Args: { p_divergence_id: string; p_reason: string }
+        Returns: string
+      }
       add_pei_staff_note: {
         Args: { _note: string; _request_id: string }
         Returns: Json
@@ -7041,6 +7119,21 @@ export type Database = {
           _replacement_deadline?: string
           _result: string
           _revocation_date?: string
+        }
+        Returns: string
+      }
+      record_rods_divergence: {
+        Args: {
+          p_detected_at: string
+          p_device_info: string
+          p_differing_fields: string[]
+          p_idempotency_key: string
+          p_local_row_id: string
+          p_local_values: Json
+          p_log_date: string
+          p_operator_id: string
+          p_server_row_id: string
+          p_server_values: Json
         }
         Returns: string
       }
