@@ -343,23 +343,30 @@ export default function FloatingChatWindow() {
       {open && (
         <div
           ref={windowRef}
-          className={`hidden lg:flex fixed z-50 flex-col rounded-xl shadow-2xl border border-border bg-background overflow-hidden ${minimized ? 'cursor-default' : ''}`}
-          style={{ left: x, top: y, width: minimized ? 280 : width, height: minimized ? 48 : height }}
+          className="hidden lg:flex fixed z-50 flex-col rounded-xl shadow-2xl border border-border bg-background overflow-hidden"
+          style={{ left: x, top: y, width, height }}
           onPointerDown={onDragStart}
           onPointerMove={(e) => { onDragMove(e); onResizeMove(e); }}
           onPointerUp={(e) => { onDragEnd(e); onResizeEnd(e); }}
         >
           {/* Header */}
-          <div
-            className="h-12 shrink-0 px-3 flex items-center justify-between border-b border-border bg-muted/40 select-none"
-            data-no-drag={minimized ? undefined : true}
-          >
+          <div className="h-12 shrink-0 px-3 flex items-center justify-between border-b border-border bg-muted/40 select-none cursor-move">
             <div className="flex items-center gap-2 min-w-0">
-              <MessageSquare className="h-4 w-4 text-primary shrink-0" />
+              {selectedThread ? (
+                <div className="h-7 w-7 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                  {selectedThread.avatarUrl ? (
+                    <img src={selectedThread.avatarUrl} alt={selectedThread.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-primary text-[10px] font-bold">{initials(selectedThread.name)}</span>
+                  )}
+                </div>
+              ) : (
+                <MessageSquare className="h-4 w-4 text-primary shrink-0" />
+              )}
               <span className="text-sm font-semibold text-foreground truncate">
-                {minimized ? 'Messages' : (selectedThread?.name ?? 'Messages')}
+                {selectedThread?.name ?? 'Messages'}
               </span>
-              {!minimized && totalUnread > 0 && (
+              {totalUnread > 0 && (
                 <span className="h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
                   {totalUnread > 9 ? '9+' : totalUnread}
                 </span>
@@ -367,14 +374,7 @@ export default function FloatingChatWindow() {
             </div>
             <div className="flex items-center gap-0.5" data-no-drag>
               <button
-                onClick={() => setState(prev => ({ ...prev, minimized: !prev.minimized }))}
-                className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-                aria-label={minimized ? 'Expand' : 'Minimize'}
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setState(prev => ({ ...prev, open: false, minimized: false }))}
+                onClick={() => setState(prev => ({ ...prev, open: false }))}
                 className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
                 aria-label="Close chat"
               >
