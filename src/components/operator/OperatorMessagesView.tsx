@@ -215,15 +215,14 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
     setThreads(built);
     setLoadingThreads(false);
 
-    // Auto-select: prefer initialUserId, then first thread (only on desktop)
-    if (built.length > 0 && !selectedUserId) {
-      const isMobile = window.innerWidth < 768;
-      const target = initialUserId && built.find(t => t.staffUserId === initialUserId);
-      if (!isMobile || initialUserId) {
-        setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
-      }
+    // Auto-select the first conversation once per mount, desktop only.
+    // Mobile always lands on the list so the back arrow can return to it.
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile && !autoSelectedRef.current && built.length > 0 && !selectedUserIdRef.current) {
+      autoSelectedRef.current = true;
+      setSelectedUserId(built[0].staffUserId);
     }
-  }, [user?.id, selectedUserId, initialUserId]);
+  }, [user?.id]);
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => { loadStaff(); }, [loadStaff]);
@@ -243,7 +242,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
         filter: `recipient_id=eq.${user.id}`,
       }, (payload) => {
         const msg = payload.new as ChatMessage;
-        if (msg.sender_id === selectedUserId) return;
+        if (msg.sender_id === selectedUserIdRef.current) return;
         setThreads(prev => prev.map(t =>
           t.staffUserId === msg.sender_id
             ? { ...t, lastMessage: previewBody(msg), lastAt: msg.sent_at, unreadCount: t.unreadCount + 1 }
@@ -252,7 +251,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user?.id, selectedUserId]);
+  }, [user?.id]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const filteredThreads = threads.filter(t =>
