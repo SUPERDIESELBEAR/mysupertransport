@@ -343,16 +343,34 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
     autoSelectedRef.current = true;
     setSelectedGroupId(null);
     setSelectedUserId(staffUserId);
+    toggleMarkedUnread(staffUserId, false);
     onThreadSelected?.();
-  }, [onThreadSelected]);
+  }, [onThreadSelected, toggleMarkedUnread]);
+
+  /** Open (or start) a 1:1 chat, adding the contact to the list if there's no history yet. */
+  const handleStartDirect = useCallback(async (staffUserId: string) => {
+    if (!staffList.some(s => s.user_id === staffUserId)) {
+      const { data: profs } = await supabase.rpc('get_staff_contact_info', { _user_ids: [staffUserId] });
+      const p = (profs ?? [])[0];
+      setStaffList(prev => prev.some(s => s.user_id === staffUserId) ? prev : [...prev, {
+        user_id: staffUserId,
+        first_name: p?.first_name ?? null,
+        last_name: p?.last_name ?? null,
+        avatar_url: p?.avatar_url ?? null,
+        role: p?.primary_role ?? null,
+      }]);
+    }
+    handleSelectDirect(staffUserId);
+  }, [staffList, handleSelectDirect]);
 
   const handleSelectGroup = useCallback((threadId: string) => {
     inboxRequestedRef.current = false;
     autoSelectedRef.current = true;
     setSelectedUserId(null);
     setSelectedGroupId(threadId);
+    toggleMarkedUnread(threadId, false);
     onThreadSelected?.();
-  }, [onThreadSelected]);
+  }, [onThreadSelected, toggleMarkedUnread]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
