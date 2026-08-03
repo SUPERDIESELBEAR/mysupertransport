@@ -1,45 +1,43 @@
-# Applicant document uploads fail: "permission denied for table operators"
+## Goal
 
-## What's actually happening (verified against the live database)
+1. Confirm the driver's license (front/rear) and medical card uploads work for a logged-out applicant after last turn's storage-policy fix.
+2. Let applicants either pick an existing image/PDF **or** take a photo directly with the phone camera.
 
-The applicant upload itself is configured correctly. The bucket policy that should let a draft applicant upload exists and is fine:
+## Current state (verified)
 
-- `Applicants upload docs under their own draft token` — INSERT, roles `{anon, authenticated}`, checks `is_valid_application_draft_token(...)` (SECURITY DEFINER, so it does not need table grants).
+- `src/components/application/Step7Documents.tsx` has one `FileUploader` per document; each renders a single hidden `<input type="file" accept="image/*,application/pdf">` with no `capture` attribute.
+- On phones, `image/*` already makes the OS offer "Camera" in its picker sheet, but there is no explicit in-app "Take Photo" action, and behavior varies by browser.
+- The app already uses `capture="environment"` elsewhere (`TruckPhotoGuideModal.tsx`, `EquipmentReturnCard.tsx`), so the pattern is established.
 
-The failure comes from a *different, unrelated* policy on the same table. Postgres evaluates **every** permissive INSERT policy that applies to the caller's role, not just the one that would allow the row. This policy applies to role `public`, which includes `anon`:
+## Part 1 — Verification pass
 
-- `Operators can upload pay setup docs` — INSERT, roles `{public}`, body contains `EXISTS (SELECT 1 FROM operators WHERE ...)`.
+Drive the live app with Playwright as an anonymous applicant:
+- Start a new application, advance to Step 7.
+- Upload a test JPG to "Front of Driver's License", a PNG to "Rear", and a PDF to "Medical Certificate".
+- Assert each tile flips to the green "File uploaded successfully" state, capture screenshots, and watch console/network for any 403 / "permission denied" responses.
+- Confirm the objects actually landed in the `application-documents` bucket under the draft-token folder, then remove the test objects so no junk stays behind.
 
-And the live ACL on `public.operators` is:
+Report pass/fail per document with evidence.
+
+## Part 2 — Add direct photo capture
+
+In `Step7Documents.tsx`, change each uploader's empty state from one tap-target into two explicit actions (drag & drop still works on desktop):
 
 ```text
-postgres, authenticated, service_role   (no anon, no PUBLIC)
+┌───────────────────────────────────────┐
+│   [ Take Photo ]   [ Choose File ]    │
+│   JPG, PNG, or PDF · Max 10 MB        │
+└───────────────────────────────────────┘
 ```
 
-So when a not-signed-in applicant inserts into `storage.objects`, the planner initializes that pay-setup policy's subplan against `public.operators`, `anon` has no privilege on it, and the whole statement aborts with `permission denied for table operators` — before the applicant's own draft-token policy ever gets a chance to allow the row. That is exactly the red text in the screenshot under "Front of Driver's License", and it will hit every uploader on Step 7 (DL front, DL rear, medical card) identically.
+- **Take Photo** → hidden input with `accept="image/*"` + `capture="environment"` (rear camera).
+- **Choose File** → existing hidden input with `accept="image/*,application/pdf"` (photo library, Files, scans).
+- Both feed the same `handleFile` path, so validation (`validateFile`, 10 MB, type check) and the `uploadToBucket` call are unchanged.
+- Show "Take Photo" only on touch/mobile devices so the desktop experience stays a single clean drop zone.
+- Keep accessible labels and 44px tap targets per the existing mobile patterns.
 
-The same shape exists on other commands for anonymous callers (not the reported bug, but the same latent defect):
+## Technical notes
 
-- `Operators can update their pay setup docs` — UPDATE, roles `{public}`, reads `operators`
-- `Operators can view own fleet documents` — SELECT, roles `{public}`, reads `operators`
-
-## The fix
-
-A migration that re-creates the offending policies scoped to `authenticated` instead of `public`. Nothing about the policy logic changes — every one of them already requires `auth.uid()` to match an operator row, so they can never grant anything to an anonymous caller. Restricting the role is purely removing dead surface that anon is forced to evaluate.
-
-1. `DROP POLICY` / `CREATE POLICY ... TO authenticated` for:
-   - `Operators can upload pay setup docs` (the reported break)
-   - `Operators can update their pay setup docs`
-   - `Operators can view own fleet documents`
-2. Leave the staff `is_staff(auth.uid())` policies alone — `is_staff` is SECURITY DEFINER and needs no grants, so it is safe under `public`.
-
-## Verification
-
-- Re-read `pg_policies` for `storage.objects` and confirm no policy reachable by `anon` dereferences a table `anon` cannot read.
-- Drive the live app with Playwright as a signed-out applicant: open the application form, reach Step 7, upload a test image to Front of Driver's License, and assert the green "File uploaded successfully" state instead of the red error. Repeat for Medical Certificate.
-- Sanity-check that an authenticated operator can still upload a pay-setup document and view fleet documents, so the role narrowing didn't regress those paths.
-
-## Notes
-
-- No frontend changes are needed; `Step7Documents.tsx` and `uploadWithAuth.ts` are surfacing the database error correctly.
-- Existing applicants who hit this can retry immediately once the migration applies — nothing was written half-way, the insert aborted.
+- No backend, storage-policy, or schema changes needed — Part 2 is presentation-only.
+- `capture` is a hint: desktop browsers ignore it, iOS Safari and Android Chrome open the camera directly.
+- Live-camera capture from a browser cannot bypass the OS camera UI without a full `getUserMedia` viewfinder; the `capture` attribute is the standard, reliable approach and is what the rest of the app uses.
