@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Upload, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, CheckCircle2, Loader2, X, AlertCircle, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationFormData } from './types';
 import { FormField } from './FormField';
@@ -26,6 +26,14 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [canCapture, setCanCapture] = useState(false);
+
+  // Only offer "Take Photo" on devices with a real camera-first input (phones/tablets)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    setCanCapture(window.matchMedia('(pointer: coarse)').matches);
+  }, []);
 
   const handleFile = async (file: File) => {
     setUploadError('');
@@ -95,23 +103,45 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
         <div
           onDrop={handleDrop}
           onDragOver={e => e.preventDefault()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-gold/50 hover:bg-gold/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 ${(error || uploadError) ? 'border-destructive' : 'border-border'}`}
-          onClick={() => inputRef.current?.click()}
-          onKeyDown={(e) => {
+          className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${canCapture ? '' : 'cursor-pointer hover:border-gold/50 hover:bg-gold/5'} ${(error || uploadError) ? 'border-destructive' : 'border-border'}`}
+          onClick={canCapture ? undefined : () => inputRef.current?.click()}
+          onKeyDown={canCapture ? undefined : (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               inputRef.current?.click();
             }
           }}
-          role="button"
-          tabIndex={0}
-          aria-label={`Upload ${label}. Tap or press Enter to choose a file, or drag and drop.`}
+          role={canCapture ? undefined : 'button'}
+          tabIndex={canCapture ? undefined : 0}
+          aria-label={canCapture ? undefined : `Upload ${label}. Tap or press Enter to choose a file, or drag and drop.`}
           aria-busy={uploading}
         >
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="h-6 w-6 text-gold animate-spin" />
               <p className="text-sm text-muted-foreground">Uploading…</p>
+            </div>
+          ) : canCapture ? (
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => cameraRef.current?.click()}
+                  className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-lg bg-gold text-primary-foreground text-sm font-semibold flex-1 min-w-[9rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
+                  aria-label={`Take a photo of ${label} with your camera`}
+                >
+                  <Camera className="h-4 w-4" aria-hidden="true" /> Take Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-lg border border-border bg-background text-foreground text-sm font-semibold flex-1 min-w-[9rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
+                  aria-label={`Choose an existing file for ${label}`}
+                >
+                  <Upload className="h-4 w-4" aria-hidden="true" /> Choose File
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">JPG, PNG, or PDF · Max 10 MB</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
@@ -124,6 +154,14 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
             ref={inputRef}
             type="file"
             accept={accept}
+            onChange={handleChange}
+            className="hidden"
+          />
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
             onChange={handleChange}
             className="hidden"
           />
