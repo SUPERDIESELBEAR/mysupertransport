@@ -5,7 +5,7 @@ import { MessageThread } from './MessageThread';
 import type { ChatMessage } from './types';
 import { initials } from '@/lib/initials';
 import { format, isToday, isYesterday } from 'date-fns';
-import { MessageSquare, X, Minus, Search, User } from 'lucide-react';
+import { MessageSquare, X, Search, User, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ interface Thread {
 
 interface WindowState {
   open: boolean;
-  minimized: boolean;
+  railCollapsed: boolean;
   x: number;
   y: number;
   width: number;
@@ -48,15 +48,19 @@ interface WindowState {
 
 const STORAGE_KEY = 'superdrive_floating_chat';
 
-const DEFAULT_WIDTH = 360;
-const DEFAULT_HEIGHT = 520;
+const DEFAULT_WIDTH = 720;
+const DEFAULT_HEIGHT = 600;
+const MIN_WIDTH = 480;
+const MIN_HEIGHT = 380;
+/** Vertical space reserved at the bottom-right for the Jump-to-bottom pill. */
+const JUMP_BUTTON_CLEARANCE = 80;
 
 function getDefaultState(): WindowState {
   return {
     open: false,
-    minimized: false,
+    railCollapsed: false,
     x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
-    y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - 24),
+    y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
     selectedUserId: null,
@@ -71,11 +75,11 @@ function loadState(): WindowState {
     const def = getDefaultState();
     return {
       open: parsed.open ?? def.open,
-      minimized: parsed.minimized ?? def.minimized,
+      railCollapsed: parsed.railCollapsed ?? def.railCollapsed,
       x: Math.max(8, Math.min(parsed.x ?? def.x, window.innerWidth - 200)),
       y: Math.max(8, Math.min(parsed.y ?? def.y, window.innerHeight - 120)),
-      width: Math.max(280, Math.min(parsed.width ?? def.width, window.innerWidth - 32)),
-      height: Math.max(320, Math.min(parsed.height ?? def.height, window.innerHeight - 32)),
+      width: Math.max(MIN_WIDTH, Math.min(parsed.width ?? def.width, window.innerWidth - 32)),
+      height: Math.max(MIN_HEIGHT, Math.min(parsed.height ?? def.height, window.innerHeight - 32)),
       selectedUserId: parsed.selectedUserId ?? null,
     };
   } catch {
