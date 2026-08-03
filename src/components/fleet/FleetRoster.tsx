@@ -835,6 +835,85 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           decalPhotosExtra={decalPhotoTarget.decalPhotosExtra}
         />
       )}
+
+      {/* Reactivate unit confirmation */}
+      <AlertDialog open={!!confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-primary" />
+              Reactivate Unit {confirmReactivate?.unitNumber || ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{confirmReactivate?.driverName}</strong>
+                  {confirmReactivate?.ownerName && confirmReactivate.ownerName !== confirmReactivate.driverName
+                    ? <> (owner: {confirmReactivate.ownerName})</>
+                    : null}
+                  {' '}will be moved back to the active roster and become visible to dispatch.
+                  {confirmReactivate?.deactivatedAt
+                    ? ` Deactivated ${format(parseISO(confirmReactivate.deactivatedAt), 'MMM d, yyyy')}.`
+                    : ''}
+                </p>
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="flex items-center gap-1.5 font-medium text-amber-900">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Reactivation does not restore these — verify or redo each by hand:
+                  </div>
+                  <ul className="mt-1.5 list-disc pl-5 text-amber-900/90 space-y-0.5">
+                    <li>ICA / lease agreement — reissue and sign if it was voided</li>
+                    <li>MO plate assignment — may already be reassigned</li>
+                    <li>Onboard systems: ELD, dash cam, BestPass, fuel card</li>
+                    <li>Compliance docs: CDL, med cert, IRP, 2290, insurance — likely expired</li>
+                    <li>Driver login, if access was revoked at offboarding</li>
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reactivating}
+              onClick={e => { e.preventDefault(); handleReactivate(); }}
+              className="gap-1.5"
+            >
+              {reactivating
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reactivating…</>
+                : <><RotateCcw className="h-3.5 w-3.5" />Reactivate Unit</>}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Missing insurance date follow-up */}
+      <AlertDialog open={!!postReactivate} onOpenChange={open => { if (!open) setPostReactivate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Insurance date missing
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Unit {postReactivate?.unitNumber || '—'} is active again, but it will stay hidden from the Active
+              list until an insurance added date is recorded on {postReactivate?.driverName}&apos;s onboarding record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Later</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = postReactivate?.operatorId;
+                setPostReactivate(null);
+                if (id) onSelectOperator(id);
+              }}
+            >
+              Open driver record
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
