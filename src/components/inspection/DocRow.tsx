@@ -825,6 +825,21 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
       </div>
 
+      {/* Mobile dot strip — album position at a glance */}
+      {isMobile && canFlip && typeof total === 'number' && total > 1 && total <= 20 && (
+        <div
+          className="flex items-center justify-center gap-1.5 py-3 bg-surface-dark border-t border-surface-dark-border"
+          onClick={e => e.stopPropagation()}
+        >
+          {Array.from({ length: total }).map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${i === index ? 'w-4 bg-gold' : 'w-1.5 bg-white/30'}`}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Built-in Document Editor */}
       {showEditor && effectiveBucket && effectivePath && (
         <EditorErrorBoundary onClose={() => { setShowEditor(false); setPdfImageSource(null); }}>
