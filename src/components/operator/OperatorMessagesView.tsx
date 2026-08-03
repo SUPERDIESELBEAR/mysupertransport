@@ -303,15 +303,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
   }, [user?.id]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  const isThreadUnread = (t: Thread) => t.unreadCount > 0 || markedUnread.includes(t.staffUserId);
   const filteredThreads = threads.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    t.name.toLowerCase().includes(search.toLowerCase()) && (!unreadOnly || isThreadUnread(t))
   );
-  const filteredGroups = groupThreads.filter(g => (g.title ?? '').toLowerCase().includes(search.toLowerCase()));
+  const filteredGroups = groupThreads.filter(g =>
+    (g.title ?? '').toLowerCase().includes(search.toLowerCase()) &&
+    (!unreadOnly || (g.unread_count ?? 0) > 0 || markedUnread.includes(g.thread_id))
+  );
   const selectedThread = threads.find(t => t.staffUserId === selectedUserId);
   const selectedGroup = groupThreads.find(g => g.thread_id === selectedGroupId);
   const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0)
     + groupThreads.reduce((s, g) => s + (g.unread_count ?? 0), 0);
   const noMessagesYet = !loadingThreads && staffList.length === 0 && groupThreads.length === 0;
+
+  useEffect(() => { onUnreadCountChange?.(totalUnread); }, [totalUnread, onUnreadCountChange]);
 
   const handleMessagesChanged = useCallback((msgs: ChatMessage[]) => {
     if (!selectedUserId) return;
