@@ -42,6 +42,15 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
       setNeedsAck(rows.filter((r: any) =>
         r.operator_broadcasts.requires_acknowledgment === true && !r.acknowledged_at
       ).length);
+
+      // Unread direct messages (badge stays accurate while the Direct tab is unmounted)
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .is('read_at', null)
+        .is('deleted_at', null);
+      if (!cancelled) setDirectUnread(count ?? 0);
     };
     load();
     // Re-load when the user switches into the announcements tab so the badge stays fresh.
