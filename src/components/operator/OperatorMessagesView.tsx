@@ -400,7 +400,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                     {totalUnread}
                   </span>
                 )}
-                <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" title="New group" onClick={() => setNewGroupOpen(true)}>
+                <Button variant="ghost" size="icon" className="ml-auto h-7 w-7" title="New message" aria-label="New message" onClick={() => setNewChatOpen(true)}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -412,6 +412,25 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                   onChange={e => setSearch(e.target.value)}
                   className="pl-8 h-8 text-xs"
                 />
+              </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                {(['all', 'unread'] as const).map(f => {
+                  const active = (f === 'unread') === unreadOnly;
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setUnreadOnly(f === 'unread')}
+                      className={`h-6 px-2.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border transition-colors ${
+                        active
+                          ? 'bg-primary/10 border-primary/40 text-primary'
+                          : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {f === 'all' ? 'All' : `Unread${totalUnread > 0 ? ` (${totalUnread})` : ''}`}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
