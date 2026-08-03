@@ -302,6 +302,9 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   );
 
   const isFullyExecuted = contract.status === 'fully_executed';
+  // Driver on a unit that has a truck owner: view-only, never a signer.
+  const isReadOnlyViewer = signerRole === 'driver' && unitHasTruckOwner;
+  const canSign = !isFullyExecuted && !isReadOnlyViewer;
 
   return (
     <>
@@ -311,7 +314,22 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
           <CheckCircle2 className="h-5 w-5 text-status-complete shrink-0" />
           <div>
             <p className="font-semibold text-status-complete text-sm">ICA Fully Executed</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Signed on {new Date(contract.contractor_signed_at!).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {contract.contractor_signed_at
+                ? `Signed on ${new Date(contract.contractor_signed_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+                : 'This agreement is fully executed.'}
+              {isReadOnlyViewer ? ' Signed by your truck owner — a copy is filed in your DOT binder.' : ''}
+            </p>
+          </div>
+        </div>
+      ) : isReadOnlyViewer ? (
+        <div className="flex items-center gap-3 p-4 bg-surface border border-border rounded-xl">
+          <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+          <div>
+            <p className="font-semibold text-foreground text-sm">Your truck owner signs this ICA</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              This agreement is between SUPERTRANSPORT, LLC and your truck owner. No action is needed from you — once it's signed, a copy is filed in your DOT inspection binder.
+            </p>
           </div>
         </div>
       ) : (
@@ -328,11 +346,6 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Driver acknowledgment of an owner-signed ICA */}
-      {isFullyExecuted && signerRole === 'driver' && (
-        <DriverICAAcknowledgment contractId={contract.id} />
       )}
 
       {/* Owner contact field editor — visible only to truck-owner signers before signing */}
