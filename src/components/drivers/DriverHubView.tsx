@@ -26,7 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert, Archive, Rocket } from 'lucide-react';
-import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
+import type { ComplianceFilter, ComplianceCounts, DispatchFilter } from './DriverRoster';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 
 interface DriverHubViewProps {
@@ -38,6 +38,8 @@ interface DriverHubViewProps {
   onMessageDriver?: (userId: string) => void;
   /** Initial compliance filter to pre-apply when this view mounts */
   defaultComplianceFilter?: ComplianceFilter;
+  /** Initial dispatch-status filter to pre-apply (e.g. from Overview card chips) */
+  defaultDispatchFilter?: DispatchFilter;
   /** If provided, immediately open the given driver's detail panel on mount */
   initialSelectedOperatorId?: string | null;
   /** If true, scroll the opened driver detail panel to the Inspection Binder section */
@@ -54,7 +56,7 @@ interface BulkReminderTarget {
 
 const RATE_LIMIT_MS = 600;
 
-export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter, initialSelectedOperatorId, scrollToBinderOnOpen }: DriverHubViewProps) {
+export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter, defaultDispatchFilter, initialSelectedOperatorId, scrollToBinderOnOpen }: DriverHubViewProps) {
   const { toast } = useToast();
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   // Sync external "open this driver" requests (e.g. from Dispatch Board → Binder button)
@@ -563,6 +565,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               onComplianceCountsChange={setComplianceCounts}
               onUpdateCompliance={handleUpdateCompliance}
               onDriversChange={drivers => { allDriversRef.current = drivers; }}
+              defaultStatusFilter={defaultDispatchFilter}
             />
           </TabsContent>
 
@@ -590,6 +593,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
           onComplianceCountsChange={setComplianceCounts}
           onUpdateCompliance={handleUpdateCompliance}
           onDriversChange={drivers => { allDriversRef.current = drivers; }}
+          defaultStatusFilter={defaultDispatchFilter}
         />
       )}
 

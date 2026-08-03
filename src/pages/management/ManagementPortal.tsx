@@ -59,7 +59,9 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import PendingInviteAcceptance from '@/components/management/PendingInviteAcceptance';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 import PEIQueuePanel from '@/components/pei/PEIQueuePanel';
-import type { ComplianceCounts, ComplianceFilter } from '@/components/drivers/DriverRoster';
+import type { ComplianceCounts, ComplianceFilter, DispatchFilter } from '@/components/drivers/DriverRoster';
+import { getComplianceTierWithin, isNeverRenewed } from '@/components/drivers/DriverRoster';
+import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -179,6 +181,10 @@ export default function ManagementPortal() {
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const [driverComplianceFilter, setDriverComplianceFilter] = useState<ComplianceFilter>('all');
+  const [driverDispatchFilter, setDriverDispatchFilter] = useState<DispatchFilter>('all');
+  // Same warning window the Driver Hub chips use, so Overview counts and Driver
+  // Hub counts are derived from one shared definition.
+  const { windowDays: complianceWindowDays } = useComplianceWindow();
   // Target driver whose Inspection Binder should auto-open when navigating into Driver Hub
   // (set by the Dispatch Board Binder button, cleared when leaving Driver Hub).
   const [driverHubBinderTarget, setDriverHubBinderTarget] = useState<{ operatorId: string } | null>(null);
@@ -389,7 +395,7 @@ export default function ManagementPortal() {
     const [{ data }, { data: reminders }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select('id, user_id, is_active, onboarding_status(fully_onboarded, go_live_date, insurance_added_date), applications(first_name, last_name)')
+        .select('id, user_id, is_active, is_demo, onboarding_status(fully_onboarded, go_live_date, insurance_added_date), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
         .not('application_id', 'is', null),
       supabase.from('cert_reminders').select('operator_id, doc_type'),
       // #11: inspection_documents is the sole source of truth for cert expiry
@@ -436,7 +442,6 @@ export default function ManagementPortal() {
           ? (binderDates[op.user_id]?.cdl ?? null)
           : (binderDates[op.user_id]?.med ?? null);
         if (!dateStr) {
-          if (isFullyOnboarded) driverCounts.neverRenewed++;
           return;
         }
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
@@ -447,12 +452,22 @@ export default function ManagementPortal() {
         }
         const key = `${op.id}|${docType}`;
         if (days <= 30 && !remindedKeys.has(key)) noReminder++;
-        if (isFullyOnboarded) {
-          if (days < 0) driverCounts.expired++;
-          else if (days <= 30) driverCounts.critical++;
-          else if (days <= 90) driverCounts.warning++;
-        }
       });
+
+      // Driver-tier counts mirror the Driver Hub roster exactly: one count per
+      // driver (not per document), same population (active + fully onboarded,
+      // demo accounts excluded), same date fallback (binder → application) and
+      // the same tier thresholds via getComplianceTierWithin.
+      const countsForRoster = op.is_active === true && isFullyOnboarded && op.is_demo !== true;
+      if (countsForRoster) {
+        const cdl = binderDates[op.user_id]?.cdl ?? app.cdl_expiration ?? null;
+        const med = binderDates[op.user_id]?.med ?? app.medical_cert_expiration ?? null;
+        if (isNeverRenewed(cdl, med)) driverCounts.neverRenewed++;
+        const tier = getComplianceTierWithin(cdl, med, complianceWindowDays);
+        if (tier === 'expired') driverCounts.expired++;
+        else if (tier === 'critical') driverCounts.critical++;
+        else if (tier === 'warning') driverCounts.warning++;
+      }
     });
     rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
@@ -460,7 +475,7 @@ export default function ManagementPortal() {
     setNoReminderCount(noReminder);
     setComplianceSummary(rows.slice(0, 5));
     setDriverComplianceCounts(driverCounts);
-  }, []);
+  }, [complianceWindowDays]);
 
   // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
   useEffect(() => {
@@ -1083,8 +1098,8 @@ export default function ManagementPortal() {
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => { setDriverComplianceFilter('all'); setView('drivers'); }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setDriverComplianceFilter('all'); setView('drivers'); } }}
+                  onClick={() => { setDriverComplianceFilter('all'); setDriverDispatchFilter('all'); setView('drivers'); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setDriverComplianceFilter('all'); setDriverDispatchFilter('all'); setView('drivers'); } }}
                   className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border flex flex-col items-start"
                 >
                   <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-2 sm:mb-3">
@@ -1095,22 +1110,29 @@ export default function ManagementPortal() {
                   {onboardingStageBreakdown.fully_onboarded > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {([
-                        { key: 'dispatched',     label: 'On Road',   dotClass: 'bg-status-complete' },
-                        { key: 'home',           label: 'Home',      dotClass: 'bg-info' },
-                        { key: 'not_dispatched', label: 'Available', dotClass: 'bg-muted-foreground' },
-                        { key: 'truck_down',     label: 'Down',      dotClass: 'bg-destructive' },
+                        { key: 'dispatched',     label: 'Dispatched',     dotClass: 'bg-status-complete' },
+                        { key: 'home',           label: 'Home',           dotClass: 'bg-status-progress' },
+                        { key: 'not_dispatched', label: 'Not Dispatched', dotClass: 'bg-muted-foreground' },
+                        { key: 'truck_down',     label: 'Truck Down',     dotClass: 'bg-destructive' },
                       ] as const).map(({ key, label, dotClass }) => {
                         const count = dispatchBreakdown[key];
                         if (!count) return null;
                         return (
                           <Tooltip key={key}>
                             <TooltipTrigger asChild>
-                              <span
-                                className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none"
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setDriverComplianceFilter('all');
+                                  setDriverDispatchFilter(key);
+                                  setView('drivers');
+                                }}
+                                className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none hover:bg-secondary/70 transition-colors"
                               >
                                 <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />
                                 {count}
-                              </span>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent side="bottom" className="text-xs">{label}: {count}</TooltipContent>
                           </Tooltip>
@@ -1126,12 +1148,12 @@ export default function ManagementPortal() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('expired'); setView('drivers'); }}
+                              onClick={e => { e.stopPropagation(); setDriverDispatchFilter('all'); setDriverComplianceFilter('expired'); setView('drivers'); }}
                               className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
                               style={{ background: 'hsl(var(--destructive) / 0.12)', borderColor: 'hsl(var(--destructive) / 0.35)', color: 'hsl(var(--destructive))' }}
                             >
                               <AlertCircle className="h-2.5 w-2.5 shrink-0" />
-                              {driverComplianceCounts.expired} exp
+                              Expired {driverComplianceCounts.expired}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.expired} driver{driverComplianceCounts.expired !== 1 ? 's' : ''} with expired CDL or Med Cert</TooltipContent>
@@ -1142,15 +1164,15 @@ export default function ManagementPortal() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('critical'); setView('drivers'); }}
+                              onClick={e => { e.stopPropagation(); setDriverDispatchFilter('all'); setDriverComplianceFilter('critical'); setView('drivers'); }}
                               className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
                               style={{ background: 'hsl(var(--destructive) / 0.12)', borderColor: 'hsl(var(--destructive) / 0.35)', color: 'hsl(var(--destructive))' }}
                             >
                               <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
-                              {driverComplianceCounts.critical} crit
+                              Critical {driverComplianceCounts.critical}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.critical} driver{driverComplianceCounts.critical !== 1 ? 's' : ''} expiring within 30 days</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.critical} driver{driverComplianceCounts.critical !== 1 ? 's' : ''} expiring within 7 days</TooltipContent>
                         </Tooltip>
                       )}
                       {driverComplianceCounts.warning > 0 && (
@@ -1158,15 +1180,15 @@ export default function ManagementPortal() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('warning'); setView('drivers'); }}
+                              onClick={e => { e.stopPropagation(); setDriverDispatchFilter('all'); setDriverComplianceFilter('warning'); setView('drivers'); }}
                               className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
                               style={{ background: 'hsl(var(--warning) / 0.12)', borderColor: 'hsl(var(--warning) / 0.4)', color: 'hsl(var(--warning))' }}
                             >
                               <Clock className="h-2.5 w-2.5 shrink-0" />
-                              {driverComplianceCounts.warning} warn
+                              Warning {driverComplianceCounts.warning}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.warning} driver{driverComplianceCounts.warning !== 1 ? 's' : ''} expiring within 90 days</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.warning} driver{driverComplianceCounts.warning !== 1 ? 's' : ''} expiring within {complianceWindowDays} days</TooltipContent>
                         </Tooltip>
                       )}
                       {driverComplianceCounts.neverRenewed > 0 && (
@@ -1174,12 +1196,12 @@ export default function ManagementPortal() {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('never_renewed'); setView('drivers'); }}
+                              onClick={e => { e.stopPropagation(); setDriverDispatchFilter('all'); setDriverComplianceFilter('never_renewed'); setView('drivers'); }}
                               className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
-                              style={{ background: 'hsl(var(--destructive) / 0.08)', borderColor: 'hsl(var(--destructive) / 0.25)', color: 'hsl(var(--destructive))' }}
+                              style={{ background: 'hsl(var(--destructive) / 0.12)', borderColor: 'hsl(var(--destructive) / 0.35)', color: 'hsl(var(--destructive))' }}
                             >
                               <FileX className="h-2.5 w-2.5 shrink-0" />
-                              {driverComplianceCounts.neverRenewed} miss
+                              Never Renewed {driverComplianceCounts.neverRenewed}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.neverRenewed} driver{driverComplianceCounts.neverRenewed !== 1 ? 's' : ''} missing expiration dates</TooltipContent>
@@ -1947,6 +1969,7 @@ export default function ManagementPortal() {
           <DriverHubView
             canAddDriver={true}
             defaultComplianceFilter={driverComplianceFilter}
+            defaultDispatchFilter={driverDispatchFilter}
             initialSelectedOperatorId={driverHubBinderTarget?.operatorId ?? null}
             scrollToBinderOnOpen={!!driverHubBinderTarget}
             onMessageDriver={() => {
