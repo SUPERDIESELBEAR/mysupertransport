@@ -67,9 +67,11 @@ type RailFilter = 'all' | 'unread';
 
 interface MessagesViewProps {
   initialUserId?: string | null;
+  /** Opens the Bulk Message modal. When omitted, the bulk item is hidden. */
+  onBulkMessage?: () => void;
 }
 
-export default function MessagesView({ initialUserId }: MessagesViewProps = {}) {
+export default function MessagesView({ initialUserId, onBulkMessage }: MessagesViewProps = {}) {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<DMCandidate[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -309,6 +311,11 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
                 <DropdownMenuItem onClick={() => setNewGroupOpen(true)}>
                   <Users className="h-4 w-4 mr-2" /> New group chat
                 </DropdownMenuItem>
+                {onBulkMessage && (
+                  <DropdownMenuItem onClick={onBulkMessage}>
+                    <Send className="h-4 w-4 mr-2" /> Bulk message — 1-on-1 to many
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <Sheet>
