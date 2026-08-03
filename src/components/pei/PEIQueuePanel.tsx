@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText,
@@ -98,6 +98,10 @@ interface ApplicantGroup {
 function isResolved(r: PEIQueueRow) {
   return r.status === 'completed' || r.status === 'gfe_documented';
 }
+
+const FILTER_KEYS: FilterKey[] = [
+  'all', 'pending', 'sent', 'overdue', 'completed', 'gfe', 'archived_hired', 'archived_not_hired',
+];
 
 /** Single source of truth for the filter chips — used by the list AND the chip counts. */
 function rowMatchesFilter(r: PEIQueueRow, f: FilterKey): boolean {
