@@ -565,12 +565,12 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
         </div>
       )}
 
-      {newGroupOpen && (
-        <NewGroupModal
-          open={newGroupOpen}
-          onOpenChange={setNewGroupOpen}
-          callerIsStaff={false}
-          onCreated={(tid) => { void loadGroups().then(() => { setSelectedUserId(null); setSelectedGroupId(tid); }); }}
+      {newChatOpen && (
+        <NewChatChooser
+          open={newChatOpen}
+          onOpenChange={setNewChatOpen}
+          onSelectDirect={(staffId) => { void handleStartDirect(staffId); }}
+          onCreatedGroup={(tid) => { void loadGroups().then(() => { setSelectedUserId(null); setSelectedGroupId(tid); }); }}
         />
       )}
     </div>
