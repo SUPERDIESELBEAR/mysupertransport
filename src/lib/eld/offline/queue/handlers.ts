@@ -355,17 +355,16 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     });
     if (error) throw error;
   },
-};
 
-/**
- * File the server-side divergence record, and write the returned row id back
+  /**
+   * File the server-side divergence record, and write the returned row id back
  * into the local record so a later acknowledgement can name it directly.
  *
  * Cascade-exempt and retried forever for the same reason as `record_unlock`:
  * the office learning late that a certified day disagrees with its copy is
  * recoverable, never learning it is not.
  */
-handlers.record_divergence = async (payload) => {
+  async record_divergence(payload) {
   const logDate = str(payload, 'log_date');
   const { data, error } = await supabase.rpc('record_rods_divergence', {
     p_operator_id: str(payload, 'operator_id'),
@@ -385,8 +384,8 @@ handlers.record_divergence = async (payload) => {
   if (serverId) {
     const local = await roadsideDb.rods_divergences.get(logDate);
     if (local) await roadsideDb.rods_divergences.put({ ...local, server_id: serverId });
-  }
-};
+    }
+  },
 
 /**
  * Propagate a device-side resolution.
@@ -400,7 +399,7 @@ handlers.record_divergence = async (payload) => {
  * `ack_pending` is cleared only once the server has the resolution. Until then
  * hydration treats the local acknowledgement as authoritative.
  */
-handlers.acknowledge_divergence = async (payload) => {
+  async acknowledge_divergence(payload) {
   const logDate = str(payload, 'log_date');
   const operatorId = str(payload, 'operator_id');
   let serverId = optStr(payload, 'divergence_id');
@@ -431,7 +430,8 @@ handlers.acknowledge_divergence = async (payload) => {
     await roadsideDb.rods_divergences.put({
       ...local,
       ack_pending: 0,
-      server_id: serverId ?? local.server_id ?? null,
-    });
-  }
+        server_id: serverId ?? local.server_id ?? null,
+      });
+    }
+  },
 };
