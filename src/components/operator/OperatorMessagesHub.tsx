@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -21,6 +21,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
     initialBroadcastId ? 'announcements' : 'direct'
   );
   const [pendingChatUserId, setPendingChatUserId] = useState<string | undefined>(undefined);
+  const clearPendingChatUser = useCallback(() => setPendingChatUserId(undefined), []);
 
   // Load badge counts for announcements
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
           <div className="flex-1 min-h-0">
             <OperatorMessagesView
               initialUserId={pendingChatUserId}
-              onInitialUserConsumed={() => setPendingChatUserId(undefined)}
+              onInitialUserConsumed={clearPendingChatUser}
             />
           </div>
         </TabsContent>

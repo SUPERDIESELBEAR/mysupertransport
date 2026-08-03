@@ -94,11 +94,21 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
   useEffect(() => { selectedUserIdRef.current = selectedUserId; }, [selectedUserId]);
   /** Auto-select on desktop should happen once per mount, never after a back press. */
   const autoSelectedRef = useRef(false);
+  /** An explicit mobile back action wins over loaders and desktop auto-selection. */
+  const inboxRequestedRef = useRef(false);
+  /** Prevent parent rerenders from consuming the same pending contact twice. */
+  const consumedInitialUserIdRef = useRef<string | null>(null);
 
   // React to a new initialUserId arriving after mount (e.g. from Contacts tab).
   // Consumed immediately so pressing back doesn't re-open the same thread.
   useEffect(() => {
-    if (!initialUserId) return;
+    if (!initialUserId) {
+      consumedInitialUserIdRef.current = null;
+      return;
+    }
+    if (consumedInitialUserIdRef.current === initialUserId) return;
+    consumedInitialUserIdRef.current = initialUserId;
+    inboxRequestedRef.current = false;
     setSelectedUserId(initialUserId);
     setSelectedGroupId(null);
     autoSelectedRef.current = true;
@@ -214,14 +224,6 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
 
     setThreads(built);
     setLoadingThreads(false);
-
-    // Auto-select the first conversation once per mount, desktop only.
-    // Mobile always lands on the list so the back arrow can return to it.
-    const isMobile = window.innerWidth < 768;
-    if (!isMobile && !autoSelectedRef.current && built.length > 0 && !selectedUserIdRef.current) {
-      autoSelectedRef.current = true;
-      setSelectedUserId(built[0].staffUserId);
-    }
   }, [user?.id]);
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -231,6 +233,17 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
     if (staffList.length > 0) buildThreads(staffList);
     else if (!loadingThreads) setLoadingThreads(false);
   }, [staffList, buildThreads]);
+
+  // Preserve the desktop two-pane default without allowing an async loader to
+  // override an explicit request to return to the mobile inbox.
+  useEffect(() => {
+    if (loadingThreads || threads.length === 0) return;
+    if (selectedUserId || selectedGroupId) return;
+    if (autoSelectedRef.current || inboxRequestedRef.current) return;
+    if (window.matchMedia('(max-width: 767px)').matches) return;
+    autoSelectedRef.current = true;
+    setSelectedUserId(threads[0].staffUserId);
+  }, [loadingThreads, threads, selectedUserId, selectedGroupId]);
 
   // ── Realtime: bump thread list for inbound messages in non-active threads
   useEffect(() => {
@@ -274,6 +287,30 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
         : t
     ));
   }, [selectedUserId]);
+
+  const handleBackToInbox = useCallback(() => {
+    inboxRequestedRef.current = true;
+    autoSelectedRef.current = true;
+    selectedUserIdRef.current = null;
+    setSelectedUserId(null);
+    setSelectedGroupId(null);
+  }, []);
+
+  const handleSelectDirect = useCallback((staffUserId: string) => {
+    inboxRequestedRef.current = false;
+    autoSelectedRef.current = true;
+    setSelectedGroupId(null);
+    setSelectedUserId(staffUserId);
+    onThreadSelected?.();
+  }, [onThreadSelected]);
+
+  const handleSelectGroup = useCallback((threadId: string) => {
+    inboxRequestedRef.current = false;
+    autoSelectedRef.current = true;
+    setSelectedUserId(null);
+    setSelectedGroupId(threadId);
+    onThreadSelected?.();
+  }, [onThreadSelected]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -325,7 +362,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                   {filteredGroups.map(g => (
                     <button
                       key={g.thread_id}
-                      onClick={() => { setSelectedUserId(null); setSelectedGroupId(g.thread_id); onThreadSelected?.(); }}
+                      onClick={() => handleSelectGroup(g.thread_id)}
                       className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 ${selectedGroupId === g.thread_id ? 'bg-primary/8 border-l-2 border-l-primary' : ''}`}
                     >
                       <div className="flex items-start gap-3">
@@ -364,7 +401,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                 filteredThreads.map(t => (
                   <button
                     key={t.staffUserId}
-                    onClick={() => { setSelectedGroupId(null); setSelectedUserId(t.staffUserId); onThreadSelected?.(); }}
+                    onClick={() => handleSelectDirect(t.staffUserId)}
                     className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 ${
                       selectedUserId === t.staffUserId ? 'bg-primary/8 border-l-2 border-l-primary' : ''
                     }`}
@@ -428,7 +465,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                 otherSubtitle={`${selectedGroup.participant_count} members`}
                 participantNames={groupParticipants[selectedGroupId]}
                 isStaff={false}
-                onBack={() => setSelectedGroupId(null)}
+                onBack={handleBackToInbox}
                 placeholder={`Message ${selectedGroup.title}…`}
               />
             ) : (
@@ -440,7 +477,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                 otherSubtitle={selectedThread?.roleLabel ?? 'SUPERTRANSPORT Staff'}
                 otherAvatarUrl={selectedThread?.avatarUrl ?? null}
                 isStaff={false}
-                onBack={() => setSelectedUserId(null)}
+                onBack={handleBackToInbox}
                 placeholder={`Reply to ${selectedThread?.name ?? 'your coordinator'}…`}
                 onMessagesChanged={handleMessagesChanged}
               />
