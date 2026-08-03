@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText,
@@ -55,6 +55,16 @@ const STATUS_ORDER: PEIRequestStatus[] = [
 
 type SectionKey = 'overdue' | 'pending' | 'in_progress' | 'completed' | 'archived_hired' | 'archived_not_hired';
 
+type FilterKey =
+  | 'all'
+  | 'pending'
+  | 'sent'
+  | 'overdue'
+  | 'completed'
+  | 'gfe'
+  | 'archived_hired'
+  | 'archived_not_hired';
+
 interface SectionDef {
   key: SectionKey;
   label: string;
@@ -89,6 +99,26 @@ function isResolved(r: PEIQueueRow) {
   return r.status === 'completed' || r.status === 'gfe_documented';
 }
 
+const FILTER_KEYS: FilterKey[] = [
+  'all', 'pending', 'sent', 'overdue', 'completed', 'gfe', 'archived_hired', 'archived_not_hired',
+];
+
+/** Single source of truth for the filter chips — used by the list AND the chip counts. */
+function rowMatchesFilter(r: PEIQueueRow, f: FilterKey): boolean {
+  const archived = !!r.pei_archived_at;
+  if (f === 'archived_hired') return archived && r.pei_archive_category === 'hired';
+  if (f === 'archived_not_hired') return archived && r.pei_archive_category === 'not_hired';
+  if (f === 'all') return true;
+  // Every status chip is an active-queue view: archived applicants are excluded.
+  if (archived) return false;
+  if (f === 'overdue') return r.is_overdue;
+  if (f === 'pending') return r.status === 'pending';
+  if (f === 'sent') return r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent';
+  if (f === 'completed') return r.status === 'completed';
+  if (f === 'gfe') return r.status === 'gfe_documented';
+  return true;
+}
+
 /** Highest-severity rule: Archived > Overdue > Pending/In Progress > Completed. */
 function sectionFor(rows: PEIQueueRow[]): SectionKey {
   const first = rows[0];
@@ -118,7 +148,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [archiveFor, setArchiveFor] = useState<ApplicantGroup | null>(null);
   const [changeCategoryFor, setChangeCategoryFor] = useState<ApplicantGroup | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
@@ -126,6 +156,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
     new Set(SECTIONS.filter((s) => s.defaultOpen).map((s) => s.key))
   );
+  const lastFilterKeyRef = useRef<string>('');
   const [deleteTarget, setDeleteTarget] = useState<PEIQueueRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -201,22 +232,30 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return { applicants, awaiting, overdue, completedThisMonth, archivedHired, archivedNotHired };
   }, [activeRows, rows]);
 
-  const filteredRows = useMemo(() => {
+  const searchedRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = rows;
-    if (q) {
-      list = list.filter((r) => {
-        const name = [r.applicant_first_name, r.applicant_last_name].filter(Boolean).join(' ').toLowerCase();
-        return name.includes(q) || r.employer_name.toLowerCase().includes(q);
-      });
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const name = [r.applicant_first_name, r.applicant_last_name].filter(Boolean).join(' ').toLowerCase();
+      return name.includes(q) || r.employer_name.toLowerCase().includes(q);
+    });
+  }, [rows, search]);
+
+  const filteredRows = useMemo(
+    () => searchedRows.filter((r) => rowMatchesFilter(r, filter)),
+    [searchedRows, filter]
+  );
+
+  /** Applicant count per chip, computed with the exact predicate the list uses. */
+  const chipCounts = useMemo(() => {
+    const out = {} as Record<FilterKey, number>;
+    for (const f of FILTER_KEYS) {
+      const ids = new Set<string>();
+      for (const r of searchedRows) if (rowMatchesFilter(r, f)) ids.add(r.application_id);
+      out[f] = ids.size;
     }
-    if (filter === 'overdue') list = list.filter((r) => r.is_overdue);
-    else if (filter === 'pending') list = list.filter((r) => r.status === 'pending');
-    else if (filter === 'sent') list = list.filter((r) => r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent');
-    else if (filter === 'completed') list = list.filter((r) => r.status === 'completed');
-    else if (filter === 'gfe') list = list.filter((r) => r.status === 'gfe_documented');
-    return list;
-  }, [rows, filter, search]);
+    return out;
+  }, [searchedRows]);
 
   const grouped = useMemo<ApplicantGroup[]>(() => {
     const map = new Map<string, PEIQueueRow[]>();
@@ -246,6 +285,28 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     for (const g of grouped) map.get(g.section)!.push(g);
     return map;
   }, [grouped]);
+
+  /** Sections rendered for the active filter. Empty archive placeholders only under All / that archive chip. */
+  const visibleSections = useMemo(
+    () =>
+      SECTIONS.filter((s) => {
+        const count = bySection.get(s.key)?.length ?? 0;
+        if (count > 0) return true;
+        if (!s.showWhenEmpty) return false;
+        return filter === 'all' || filter === s.key;
+      }),
+    [bySection, filter]
+  );
+
+  /** Changing the filter or search re-opens every section that has matches. */
+  useEffect(() => {
+    const key = `${filter}|${search.trim().toLowerCase()}`;
+    if (lastFilterKeyRef.current === key) return;
+    lastFilterKeyRef.current = key;
+    setOpenSections(
+      new Set(SECTIONS.filter((s) => (bySection.get(s.key)?.length ?? 0) > 0).map((s) => s.key))
+    );
+  }, [filter, search, bySection]);
 
   const selectedGroups = useMemo(
     () => grouped.filter((g) => selected.has(g.applicationId)),
@@ -337,8 +398,15 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     }
   }
 
-  function expandAll() { setOpenGroups(new Set(grouped.map((g) => g.applicationId))); }
-  function collapseAll() { setOpenGroups(new Set()); }
+  function expandAll() {
+    setOpenSections(new Set(visibleSections.map((s) => s.key)));
+    setOpenGroups(new Set(grouped.map((g) => g.applicationId)));
+  }
+
+  function collapseAll() {
+    setOpenSections(new Set());
+    setOpenGroups(new Set());
+  }
 
   async function handleSend(row: PEIQueueRow, kind: 'initial' | 'follow_up' | 'final_notice') {
     setBusy(row.request_id);
@@ -405,13 +473,20 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return { counts, overdue: groupRows.filter((r) => r.is_overdue).length };
   }
 
-  const FILTERS: Array<{ key: typeof filter; label: string }> = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'sent', label: 'Sent' },
-    { key: 'overdue', label: 'Overdue' },
-    { key: 'completed', label: 'Completed' },
-    { key: 'gfe', label: 'GFE' },
+  const allExpanded =
+    visibleSections.every((s) => openSections.has(s.key)) &&
+    grouped.every((g) => openGroups.has(g.applicationId));
+  const allCollapsed = openSections.size === 0 && openGroups.size === 0;
+
+  const FILTERS: Array<{ key: FilterKey; label: string; group: 'active' | 'archive' }> = [
+    { key: 'all', label: 'All', group: 'active' },
+    { key: 'pending', label: 'Pending', group: 'active' },
+    { key: 'sent', label: 'Sent', group: 'active' },
+    { key: 'overdue', label: 'Overdue', group: 'active' },
+    { key: 'completed', label: 'Completed', group: 'active' },
+    { key: 'gfe', label: 'GFE', group: 'active' },
+    { key: 'archived_hired', label: 'Archived (Hired)', group: 'archive' },
+    { key: 'archived_not_hired', label: 'Archived (Not Hired)', group: 'archive' },
   ];
 
   return (
@@ -453,20 +528,31 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-1.5 p-3 border-b bg-muted/20">
-          {FILTERS.map((f) => {
+          {FILTERS.map((f, i) => {
             const active = filter === f.key;
+            const count = chipCounts[f.key] ?? 0;
+            const disabled = count === 0 && !active;
+            const startsArchiveGroup = f.group === 'archive' && FILTERS[i - 1]?.group !== 'archive';
             return (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                  active
-                    ? 'bg-foreground text-background border-foreground'
-                    : 'bg-background text-muted-foreground hover:text-foreground border-border'
-                }`}
-              >
-                {f.label}
-              </button>
+              <div key={f.key} className="flex items-center gap-1.5">
+                {startsArchiveGroup && <span className="h-4 w-px bg-border mx-1" aria-hidden />}
+                <button
+                  onClick={() => setFilter(f.key)}
+                  disabled={disabled}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    active
+                      ? 'bg-foreground text-background border-foreground'
+                      : disabled
+                        ? 'bg-background text-muted-foreground/40 border-border/50 cursor-not-allowed'
+                        : 'bg-background text-muted-foreground hover:text-foreground border-border'
+                  }`}
+                >
+                  {f.label}
+                  {f.key !== 'all' && (
+                    <span className={`text-[10px] font-semibold ${active ? '' : 'opacity-70'}`}>{count}</span>
+                  )}
+                </button>
+              </div>
             );
           })}
           <div className="relative ml-2 min-w-[180px] flex-1 max-w-xs">
@@ -479,10 +565,18 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
             />
           </div>
           <div className="ml-auto flex gap-2">
-            <button onClick={expandAll} className="text-xs text-muted-foreground hover:text-foreground underline">
+            <button
+              onClick={expandAll}
+              disabled={allExpanded}
+              className="text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+            >
               Expand all
             </button>
-            <button onClick={collapseAll} className="text-xs text-muted-foreground hover:text-foreground underline">
+            <button
+              onClick={collapseAll}
+              disabled={allCollapsed}
+              className="text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+            >
               Collapse all
             </button>
           </div>
@@ -553,13 +647,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
             <p className="text-sm text-muted-foreground mt-1">
               {rows.length === 0 ? 'No action needed.' : 'Try a different filter or search.'}
             </p>
+            {rows.length > 0 && (filter !== 'all' || search.trim()) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => { setFilter('all'); setSearch(''); }}
+              >
+                Clear filter
+              </Button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {SECTIONS.map((section) => {
+            {visibleSections.map((section) => {
               const groups = bySection.get(section.key) ?? [];
               const isEmpty = groups.length === 0;
-              if (isEmpty && !section.showWhenEmpty) return null;
               const sectionOpen = openSections.has(section.key);
               const sectionIds = groups.map((g) => g.applicationId);
               const allSelected = sectionIds.length > 0 && sectionIds.every((id) => selected.has(id));
