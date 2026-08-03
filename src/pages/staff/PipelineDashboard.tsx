@@ -2222,8 +2222,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           <div className="flex items-center gap-2 shrink-0">
             {/* Invite Pending quick-filter chip */}
             {(() => {
-              const pendingCount = operators.filter(o => o.never_logged_in).length;
-              if (pendingCount === 0) return null;
+              const pendingCount = facetCount({ invitePending: true });
+              if (pendingCount === 0 && !invitePendingFilter) return null;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -2254,8 +2254,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             })()}
             {/* Exception Active quick-filter chip */}
             {(() => {
-              const exceptionCount = operators.filter(o => o.paper_logbook_approved || o.temp_decal_approved).length;
-              if (exceptionCount === 0) return null;
+              const exceptionCount = facetCount({ exception: true });
+              if (exceptionCount === 0 && !exceptionFilter) return null;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
