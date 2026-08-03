@@ -2021,10 +2021,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
-  const idleCount = operators.filter(op =>
-    op.onboarding_updated_at != null &&
-    differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
-  ).length;
+  const idleCount = facetCount({ idle: true });
 
   const activeFilterCount = [
     stageFilter !== 'all',
@@ -2061,8 +2058,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   ).length;
 
   const stageCounts: Record<string, number> = {};
-  operators.forEach(op => {
-    stageCounts[op.current_stage] = (stageCounts[op.current_stage] ?? 0) + 1;
+  STAGES.forEach(stage => {
+    stageCounts[stage] = facetCount({ stage });
   });
 
   return (
