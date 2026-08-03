@@ -395,7 +395,7 @@ export default function ManagementPortal() {
     const [{ data }, { data: reminders }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select('id, user_id, is_active, onboarding_status(fully_onboarded, go_live_date, insurance_added_date), applications(first_name, last_name)')
+        .select('id, user_id, is_active, is_demo, onboarding_status(fully_onboarded, go_live_date, insurance_added_date), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
         .not('application_id', 'is', null),
       supabase.from('cert_reminders').select('operator_id, doc_type'),
       // #11: inspection_documents is the sole source of truth for cert expiry
@@ -442,7 +442,6 @@ export default function ManagementPortal() {
           ? (binderDates[op.user_id]?.cdl ?? null)
           : (binderDates[op.user_id]?.med ?? null);
         if (!dateStr) {
-          if (isFullyOnboarded) driverCounts.neverRenewed++;
           return;
         }
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
@@ -453,12 +452,22 @@ export default function ManagementPortal() {
         }
         const key = `${op.id}|${docType}`;
         if (days <= 30 && !remindedKeys.has(key)) noReminder++;
-        if (isFullyOnboarded) {
-          if (days < 0) driverCounts.expired++;
-          else if (days <= 30) driverCounts.critical++;
-          else if (days <= 90) driverCounts.warning++;
-        }
       });
+
+      // Driver-tier counts mirror the Driver Hub roster exactly: one count per
+      // driver (not per document), same population (active + fully onboarded,
+      // demo accounts excluded), same date fallback (binder → application) and
+      // the same tier thresholds via getComplianceTierWithin.
+      const countsForRoster = op.is_active === true && isFullyOnboarded && op.is_demo !== true;
+      if (countsForRoster) {
+        const cdl = binderDates[op.user_id]?.cdl ?? app.cdl_expiration ?? null;
+        const med = binderDates[op.user_id]?.med ?? app.medical_cert_expiration ?? null;
+        if (isNeverRenewed(cdl, med)) driverCounts.neverRenewed++;
+        const tier = getComplianceTierWithin(cdl, med, complianceWindowDays);
+        if (tier === 'expired') driverCounts.expired++;
+        else if (tier === 'critical') driverCounts.critical++;
+        else if (tier === 'warning') driverCounts.warning++;
+      }
     });
     rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
@@ -466,7 +475,7 @@ export default function ManagementPortal() {
     setNoReminderCount(noReminder);
     setComplianceSummary(rows.slice(0, 5));
     setDriverComplianceCounts(driverCounts);
-  }, []);
+  }, [complianceWindowDays]);
 
   // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
   useEffect(() => {
