@@ -356,3 +356,82 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
     if (error) throw error;
   },
 };
+
+/**
+ * File the server-side divergence record, and write the returned row id back
+ * into the local record so a later acknowledgement can name it directly.
+ *
+ * Cascade-exempt and retried forever for the same reason as `record_unlock`:
+ * the office learning late that a certified day disagrees with its copy is
+ * recoverable, never learning it is not.
+ */
+handlers.record_divergence = async (payload) => {
+  const logDate = str(payload, 'log_date');
+  const { data, error } = await supabase.rpc('record_rods_divergence', {
+    p_operator_id: str(payload, 'operator_id'),
+    p_log_date: logDate,
+    p_local_row_id: optStr(payload, 'local_row_id'),
+    p_server_row_id: optStr(payload, 'server_row_id'),
+    p_differing_fields: (Array.isArray(payload.differing_fields)
+      ? payload.differing_fields : []) as never,
+    p_local_values: (payload.local_values ?? {}) as never,
+    p_server_values: (payload.server_values ?? {}) as never,
+    p_detected_at: str(payload, 'detected_at'),
+    p_device_info: optStr(payload, 'device_info'),
+    p_idempotency_key: str(payload, 'idempotency_key'),
+  });
+  if (error) throw error;
+  const serverId = typeof data === 'string' ? data : null;
+  if (serverId) {
+    const local = await roadsideDb.rods_divergences.get(logDate);
+    if (local) await roadsideDb.rods_divergences.put({ ...local, server_id: serverId });
+  }
+};
+
+/**
+ * Propagate a device-side resolution.
+ *
+ * The row is named by id when the report has already drained, and resolved by
+ * (operator, date) when it has not — the two entries can drain in either order
+ * on a device that came back online mid-sequence. A row that does not exist
+ * server-side yet is a no-op success, not a failure: the report entry is still
+ * queued and this device will re-issue the acknowledgement after it lands.
+ *
+ * `ack_pending` is cleared only once the server has the resolution. Until then
+ * hydration treats the local acknowledgement as authoritative.
+ */
+handlers.acknowledge_divergence = async (payload) => {
+  const logDate = str(payload, 'log_date');
+  const operatorId = str(payload, 'operator_id');
+  let serverId = optStr(payload, 'divergence_id');
+
+  if (!serverId) {
+    const { data, error } = await supabase
+      .from('rods_divergences')
+      .select('id')
+      .eq('operator_id', operatorId)
+      .eq('log_date', logDate)
+      .eq('acknowledged', false)
+      .order('detected_at', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    serverId = data?.[0]?.id ?? null;
+  }
+
+  if (serverId) {
+    const { error } = await supabase.rpc('acknowledge_rods_divergence', {
+      p_divergence_id: serverId,
+      p_reason: str(payload, 'reason'),
+    });
+    if (error) throw error;
+  }
+
+  const local = await roadsideDb.rods_divergences.get(logDate);
+  if (local) {
+    await roadsideDb.rods_divergences.put({
+      ...local,
+      ack_pending: 0,
+      server_id: serverId ?? local.server_id ?? null,
+    });
+  }
+};
