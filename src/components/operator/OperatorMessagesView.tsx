@@ -481,10 +481,13 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                 </div>
               ) : (
                 filteredThreads.map(t => (
-                  <button
+                  <div
                     key={t.staffUserId}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleSelectDirect(t.staffUserId)}
-                    className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 ${
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectDirect(t.staffUserId); } }}
+                    className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors hover:bg-muted/50 cursor-pointer group ${
                       selectedUserId === t.staffUserId ? 'bg-primary/8 border-l-2 border-l-primary' : ''
                     }`}
                   >
@@ -502,10 +505,13 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected, 
                             {t.unreadCount > 9 ? '9+' : t.unreadCount}
                           </span>
                         )}
+                        {t.unreadCount === 0 && markedUnread.includes(t.staffUserId) && (
+                          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary border border-white" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <p className={`text-xs truncate ${t.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>
+                          <p className={`text-xs truncate ${isThreadUnread(t) ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>
                             {t.name}
                           </p>
                           {t.lastAt && (
