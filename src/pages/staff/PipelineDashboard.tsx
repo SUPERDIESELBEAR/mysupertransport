@@ -2663,9 +2663,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         <div className="flex items-center gap-2 flex-wrap">
             {((['dispatched', 'home'] as DispatchStatus[]).map(status => {
               const badge = DISPATCH_BADGE[status];
-              const count = operators.filter(op => op.dispatch_status === status).length;
-              if (count === 0) return null;
               const isActive = dispatchFilter === status;
+              const count = facetCount({ dispatch: status });
+              if (count === 0 && !isActive) return null;
               return (
                 <button
                   key={status}
@@ -2684,14 +2684,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             }))}
             {/* Compliance filter chips */}
             {(() => {
-              const criticalCount = operators.filter(op => {
-                const a = complianceByOperator[op.id];
-                return a != null && a.days_until <= 30;
-              }).length;
-              const warningCount = operators.filter(op => {
-                const a = complianceByOperator[op.id];
-                return a != null && a.days_until > 30 && a.days_until <= 90;
-              }).length;
+              const criticalCount = facetCount({ compliance: 'critical' });
+              const warningCount = facetCount({ compliance: 'warning' });
               return (
                 <>
                   {(criticalCount > 0 || complianceFilter === 'critical') && (
