@@ -9,6 +9,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { sanitizeText } from '@/lib/sanitize';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -244,6 +248,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
   const [step, setStep] = useState<'select' | 'compose'>('select');
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Templates
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -453,14 +458,14 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
 
     if (failCount > 0) {
       toast({
-        title: `${successCount} messages sent`,
+        title: `${successCount} individual message${successCount !== 1 ? 's' : ''} sent`,
         description: `${failCount} failed to send.`,
         variant: 'destructive',
       });
     } else {
       toast({
-        title: `Message sent to ${successCount} operator${successCount !== 1 ? 's' : ''}`,
-        description: 'All recipients will receive an in-app notification.',
+        title: `Sent ${successCount} individual message${successCount !== 1 ? 's' : ''}`,
+        description: 'Each recipient got their own private 1-on-1 message.',
       });
     }
   };
@@ -471,6 +476,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     setStep('select');
     setSentCount(null);
     setShowSaveForm(false);
+    setConfirmOpen(false);
     onClose();
   };
 
@@ -492,7 +498,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-base font-semibold leading-tight">Bulk Message</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Select operators, then compose and send a message to all at once
+                Sends a separate 1-on-1 message to each person. Recipients cannot see each other, and replies come back to you privately.
               </DialogDescription>
             </div>
             {/* Step pills */}
@@ -516,6 +522,13 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
         {step === 'select' && (
           <>
             <div className="px-5 py-3 border-b border-border shrink-0 space-y-2">
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+                <p className="text-[11px] text-foreground/80 leading-relaxed">
+                  This is <strong>not</strong> a group chat — everyone selected gets their own private
+                  1-on-1 message, and replies come back to you individually.
+                  <span className="text-muted-foreground"> Need everyone in one conversation? Use New group chat instead.</span>
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -752,7 +765,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   />
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] text-muted-foreground">
-                      Each operator receives this as an individual message in their inbox.
+                      Each recipient receives this as a separate 1-on-1 message — they cannot see each other.
                     </p>
                     <span className="text-[11px] text-muted-foreground tabular-nums">
                       {message.length}/2000
@@ -769,7 +782,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                 <div>
                   <p className="font-semibold text-foreground">Messages sent!</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Your message was delivered to <strong>{sentCount}</strong> operator{sentCount !== 1 ? 's' : ''}.
+                    Sent as <strong>{sentCount}</strong> separate 1-on-1 message{sentCount !== 1 ? 's' : ''}.
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleClose} className="text-xs mt-2">Close</Button>
@@ -785,13 +798,13 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                 <Button
                   size="sm"
                   disabled={!message.trim() || sending}
-                  onClick={handleSend}
+                  onClick={() => setConfirmOpen(true)}
                   className="text-xs gap-2"
                 >
                   {sending ? (
                     <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
                   ) : (
-                    <><Send className="h-3.5 w-3.5" />Send to {selectedIds.size} operator{selectedIds.size !== 1 ? 's' : ''}</>
+                    <><Send className="h-3.5 w-3.5" />Send {selectedIds.size} separate message{selectedIds.size !== 1 ? 's' : ''}</>
                   )}
                 </Button>
               </div>
@@ -799,6 +812,27 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
           </>
         )}
       </DialogContent>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Send {selectedIds.size} separate message{selectedIds.size !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This is not a group chat. Each of the {selectedIds.size} recipient
+              {selectedIds.size !== 1 ? 's' : ''} gets their own private 1-on-1 message, they cannot
+              see each other, and replies come back to you individually.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmOpen(false); void handleSend(); }}>
+              Send {selectedIds.size} message{selectedIds.size !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

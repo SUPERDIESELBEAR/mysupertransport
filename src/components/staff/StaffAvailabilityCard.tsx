@@ -183,21 +183,22 @@ export default function StaffAvailabilityCard() {
     <Card className="p-4 space-y-4">
       <div className="flex items-center gap-2">
         <Users className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">Driver Availability</h3>
+        <h3 className="text-sm font-semibold">My Availability to Drivers</h3>
       </div>
       <p className="text-xs text-muted-foreground">
-        Controls whether drivers can start a message thread with you. Existing threads and message
-        history are always preserved — changing settings only affects who can start new conversations.
+        This only limits which drivers can start a new conversation with you. Messages you send always
+        reach the driver, existing threads and history stay open, and other management staff can
+        always reach you.
       </p>
 
       <div className="space-y-1.5">
-        <Label className="text-xs">Who can message you?</Label>
+        <Label className="text-xs">Which drivers can start a conversation with me?</Label>
         <Select value={mode} onValueChange={(v) => setMode(v as Mode)} disabled={loading}>
           <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">No drivers (default)</SelectItem>
-            <SelectItem value="specific_drivers">Specific drivers only</SelectItem>
-            <SelectItem value="all_drivers">All active drivers</SelectItem>
+            <SelectItem value="none">None — I'll start the conversation (default)</SelectItem>
+            <SelectItem value="specific_drivers">Only drivers I choose</SelectItem>
+            <SelectItem value="all_drivers">Any active driver</SelectItem>
           </SelectContent>
         </Select>
       </div>
