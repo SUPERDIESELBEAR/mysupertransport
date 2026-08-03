@@ -522,20 +522,31 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-1.5 p-3 border-b bg-muted/20">
-          {FILTERS.map((f) => {
+          {FILTERS.map((f, i) => {
             const active = filter === f.key;
+            const count = chipCounts[f.key] ?? 0;
+            const disabled = count === 0 && !active;
+            const startsArchiveGroup = f.group === 'archive' && FILTERS[i - 1]?.group !== 'archive';
             return (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                  active
-                    ? 'bg-foreground text-background border-foreground'
-                    : 'bg-background text-muted-foreground hover:text-foreground border-border'
-                }`}
-              >
-                {f.label}
-              </button>
+              <div key={f.key} className="flex items-center gap-1.5">
+                {startsArchiveGroup && <span className="h-4 w-px bg-border mx-1" aria-hidden />}
+                <button
+                  onClick={() => setFilter(f.key)}
+                  disabled={disabled}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    active
+                      ? 'bg-foreground text-background border-foreground'
+                      : disabled
+                        ? 'bg-background text-muted-foreground/40 border-border/50 cursor-not-allowed'
+                        : 'bg-background text-muted-foreground hover:text-foreground border-border'
+                  }`}
+                >
+                  {f.label}
+                  {f.key !== 'all' && (
+                    <span className={`text-[10px] font-semibold ${active ? '' : 'opacity-70'}`}>{count}</span>
+                  )}
+                </button>
+              </div>
             );
           })}
           <div className="relative ml-2 min-w-[180px] flex-1 max-w-xs">
