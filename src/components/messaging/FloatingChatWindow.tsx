@@ -7,6 +7,9 @@ import { initials } from '@/lib/initials';
 import { format, isToday, isYesterday } from 'date-fns';
 import { MessageSquare, X, Search, User, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { playTruckDownChime } from '@/lib/chime';
+import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,9 +37,12 @@ interface Thread {
   oldestUnreadAt: string | null;
 }
 
+type RailFilter = 'unread' | 'chats' | 'all';
+
 interface WindowState {
   open: boolean;
   railCollapsed: boolean;
+  railFilter: RailFilter;
   x: number;
   y: number;
   width: number;
@@ -59,6 +65,7 @@ function getDefaultState(): WindowState {
   return {
     open: false,
     railCollapsed: false,
+    railFilter: 'chats',
     x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
     y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
     width: DEFAULT_WIDTH,
@@ -67,21 +74,38 @@ function getDefaultState(): WindowState {
   };
 }
 
+/**
+ * Force the whole window box inside the current viewport: shrink first
+ * (so a stale oversized size can't push it off-screen), then clamp x/y so
+ * the right/bottom edges stay visible with an 8px margin.
+ */
+function clampToViewport<T extends { x: number; y: number; width: number; height: number }>(s: T): T {
+  const margin = 8;
+  const maxW = Math.max(320, window.innerWidth - margin * 2);
+  const maxH = Math.max(280, window.innerHeight - margin * 2);
+  const width = Math.min(Math.max(Math.min(MIN_WIDTH, maxW), s.width), maxW);
+  const height = Math.min(Math.max(Math.min(MIN_HEIGHT, maxH), s.height), maxH);
+  const x = Math.min(Math.max(margin, s.x), Math.max(margin, window.innerWidth - width - margin));
+  const y = Math.min(Math.max(margin, s.y), Math.max(margin, window.innerHeight - height - margin));
+  return { ...s, x, y, width, height };
+}
+
 function loadState(): WindowState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getDefaultState();
     const parsed = JSON.parse(raw) as Partial<WindowState>;
     const def = getDefaultState();
-    return {
+    return clampToViewport({
       open: parsed.open ?? def.open,
       railCollapsed: parsed.railCollapsed ?? def.railCollapsed,
-      x: Math.max(8, Math.min(parsed.x ?? def.x, window.innerWidth - 200)),
-      y: Math.max(8, Math.min(parsed.y ?? def.y, window.innerHeight - 120)),
-      width: Math.max(MIN_WIDTH, Math.min(parsed.width ?? def.width, window.innerWidth - 32)),
-      height: Math.max(MIN_HEIGHT, Math.min(parsed.height ?? def.height, window.innerHeight - 32)),
+      railFilter: parsed.railFilter ?? def.railFilter,
+      x: parsed.x ?? def.x,
+      y: parsed.y ?? def.y,
+      width: parsed.width ?? def.width,
+      height: parsed.height ?? def.height,
       selectedUserId: parsed.selectedUserId ?? null,
-    };
+    });
   } catch {
     return getDefaultState();
   }
@@ -124,7 +148,12 @@ export default function FloatingChatWindow() {
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; initialW: number; initialH: number } | null>(null);
 
-  const { open, railCollapsed, x, y, width, height, selectedUserId } = state;
+  const { open, railCollapsed, railFilter, x, y, width, height, selectedUserId } = state;
+  const { fireNotification } = useDesktopNotifications();
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
+  const selectedRef = useRef(selectedUserId);
+  useEffect(() => { selectedRef.current = selectedUserId; }, [selectedUserId]);
 
   // Persist state changes
   useEffect(() => { saveState(state); }, [state]);
@@ -132,13 +161,7 @@ export default function FloatingChatWindow() {
   // Clamp to viewport on resize
   useEffect(() => {
     const handleResize = () => {
-      setState(prev => ({
-        ...prev,
-        x: Math.max(8, Math.min(prev.x, window.innerWidth - 200)),
-        y: Math.max(8, Math.min(prev.y, window.innerHeight - 120)),
-        width: Math.max(MIN_WIDTH, Math.min(prev.width, window.innerWidth - 32)),
-        height: Math.max(MIN_HEIGHT, Math.min(prev.height, window.innerHeight - 32)),
-      }));
+      setState(prev => clampToViewport(prev));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -230,6 +253,9 @@ export default function FloatingChatWindow() {
     if (operators.length > 0) buildThreads(operators);
   }, [operators, buildThreads]);
 
+  const threadsRef = useRef<Thread[]>([]);
+  useEffect(() => { threadsRef.current = threads; }, [threads]);
+
   // ── Realtime: bump thread list on inbound messages ──────────────────────────
   useEffect(() => {
     if (!user?.id) return;
@@ -246,10 +272,26 @@ export default function FloatingChatWindow() {
             ? { ...t, lastMessage: previewBody(msg), lastAt: msg.sent_at, unreadCount: t.unreadCount + 1 }
             : t
         ));
+
+        // Alert the recipient: chime + toast + (background) desktop notification
+        const senderName =
+          threadsRef.current.find(t => t.operatorUserId === msg.sender_id)?.name ?? 'New message';
+        const preview = previewBody(msg);
+        try { playTruckDownChime(); } catch { /* audio blocked */ }
+        toast(senderName, {
+          description: preview,
+          action: {
+            label: 'Open',
+            onClick: () => setState(prev => clampToViewport({
+              ...prev, open: true, selectedUserId: msg.sender_id,
+            })),
+          },
+        });
+        fireNotification({ title: senderName, body: preview, type: 'new_message' });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user?.id, selectedUserId]);
+  }, [user?.id, selectedUserId, fireNotification]);
 
   // ── Update preview when active thread messages change ──────────────────────
   const handleMessagesChanged = useCallback((msgs: ChatMessage[]) => {
@@ -286,6 +328,7 @@ export default function FloatingChatWindow() {
 
   const onDragEnd = useCallback((e: React.PointerEvent) => {
     dragRef.current = null;
+    setState(prev => clampToViewport(prev));
     windowRef.current?.releasePointerCapture(e.pointerId);
   }, []);
 
@@ -310,15 +353,28 @@ export default function FloatingChatWindow() {
 
   const onResizeEnd = useCallback((e: React.PointerEvent) => {
     resizeRef.current = null;
+    setState(prev => clampToViewport(prev));
     windowRef.current?.releasePointerCapture(e.pointerId);
   }, []);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  const matchesFilter = (t: Thread) => {
+    if (railFilter === 'unread') return t.unreadCount > 0;
+    if (railFilter === 'chats') return !!t.lastAt;
+    return true;
+  };
   const filteredThreads = threads.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    matchesFilter(t) && t.name.toLowerCase().includes(search.toLowerCase())
   );
   const selectedThread = threads.find(t => t.operatorUserId === selectedUserId);
   const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0);
+
+  // ── Unread count in the browser tab title ─────────────────────────────────
+  useEffect(() => {
+    const original = document.title.replace(/^\(\d+\+?\)\s*/, '');
+    document.title = totalUnread > 0 ? `(${totalUnread > 9 ? '9+' : totalUnread}) ${original}` : original;
+    return () => { document.title = original; };
+  }, [totalUnread]);
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -326,7 +382,7 @@ export default function FloatingChatWindow() {
       {/* Floating bubble — hidden on mobile where bottom nav already has Messages */}
       {!open && (
         <button
-          onClick={() => setState(prev => ({ ...prev, open: true }))}
+          onClick={() => setState(prev => clampToViewport({ ...prev, open: true }))}
           className="hidden lg:flex fixed z-50 bottom-24 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all"
           aria-label="Open chat"
         >
@@ -408,6 +464,23 @@ export default function FloatingChatWindow() {
                   {railCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
                 </button>
               </div>
+              {!railCollapsed && (
+                <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-border">
+                  {(['unread', 'chats', 'all'] as RailFilter[]).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setState(prev => ({ ...prev, railFilter: f }))}
+                      className={`flex-1 h-6 rounded text-[11px] font-medium capitalize transition-colors ${
+                        railFilter === f
+                          ? 'bg-primary/15 text-primary'
+                          : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {f === 'unread' && totalUnread > 0 ? `Unread ${totalUnread > 9 ? '9+' : totalUnread}` : f}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto">
                 {loadingThreads ? (
                   <div className="flex justify-center py-6">
@@ -418,7 +491,13 @@ export default function FloatingChatWindow() {
                     <User className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1.5" />
                     {!railCollapsed && (
                       <p className="text-xs text-muted-foreground">
-                        {search ? 'No operators found' : 'No messages yet'}
+                        {search
+                          ? 'No operators found'
+                          : railFilter === 'unread'
+                            ? 'No unread messages'
+                            : railFilter === 'chats'
+                              ? 'No conversations yet — switch to All to start one'
+                              : 'No operators yet'}
                       </p>
                     )}
                   </div>
