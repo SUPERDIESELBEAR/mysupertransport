@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck, RotateCcw } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
@@ -17,6 +17,17 @@ import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/hooks/use-toast';
 
 import { useAuth } from '@/hooks/useAuth';
 
@@ -50,6 +61,8 @@ interface FleetRow {
   decalPhotoDsUrl: string | null;
   decalPhotoPsUrl: string | null;
   decalPhotosExtra: Array<{ url: string; label?: string }>;
+  deactivatedAt: string | null;
+  insuranceAddedDate: string | null;
 }
 
 interface FleetRosterProps {
@@ -76,6 +89,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [truckPhotoTarget, setTruckPhotoTarget] = useState<FleetRow | null>(null);
   const [decalPhotoTarget, setDecalPhotoTarget] = useState<FleetRow | null>(null);
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
+  const [confirmReactivate, setConfirmReactivate] = useState<FleetRow | null>(null);
+  const [reactivating, setReactivating] = useState(false);
+  const [postReactivate, setPostReactivate] = useState<FleetRow | null>(null);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
   const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
     return (localStorage.getItem('vehicle_hub_dot_filter') as DotFilter) || 'all';
@@ -96,6 +112,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         user_id,
         unit_number,
+        deactivated_at,
         applications(first_name, last_name),
         onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
@@ -198,6 +215,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         decalPhotoDsUrl: os?.decal_photo_ds_url ?? null,
         decalPhotoPsUrl: os?.decal_photo_ps_url ?? null,
         decalPhotosExtra,
+        deactivatedAt: op.deactivated_at ?? null,
+        insuranceAddedDate: os?.insurance_added_date ?? null,
       };
     });
 
@@ -222,6 +241,35 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   }, [buildRows]);
 
   useEffect(() => { fetchFleet(); }, [fetchFleet]);
+
+  const handleReactivate = async () => {
+    if (!confirmReactivate) return;
+    const row = confirmReactivate;
+    setReactivating(true);
+    const { error } = await supabase
+      .from('operators')
+      .update({ is_active: true })
+      .eq('id', row.operatorId);
+
+    if (error) {
+      toast({ title: 'Error', description: 'Could not reactivate this unit.', variant: 'destructive' });
+    } else {
+      await supabase.from('audit_log').insert({
+        entity_type: 'operator',
+        entity_id: row.operatorId,
+        entity_label: `Unit ${row.unitNumber ?? '—'} · ${row.driverName}`,
+        action: 'operator_reactivated',
+      });
+      toast({
+        title: `Unit ${row.unitNumber ?? ''} reactivated`.trim(),
+        description: `${row.driverName} is back on the active roster.`,
+      });
+      setConfirmReactivate(null);
+      if (!row.insuranceAddedDate) setPostReactivate(row);
+      fetchFleet();
+    }
+    setReactivating(false);
+  };
 
   const rows = showDeactivated ? deactivatedRows : activeRows;
 
@@ -568,6 +616,15 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {(isManagement || isOwner) && (
+                        showDeactivated ? (
+                          <DropdownMenuItem
+                            className="text-primary focus:text-primary focus:bg-primary/10"
+                            onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                            Reactivate unit
+                          </DropdownMenuItem>
+                        ) : (
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive focus:bg-destructive/10"
                           onClick={e => { e.stopPropagation(); navigate(`/management/deactivate/${row.operatorId}`); }}
@@ -575,6 +632,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                           <UserX className="h-3.5 w-3.5 mr-2" />
                           Deactivate & Delease
                         </DropdownMenuItem>
+                        )
                       )}
                       <DropdownMenuItem onClick={e => { e.stopPropagation(); onSelectOperator(row.operatorId); }}>
                         Open driver profile
@@ -693,6 +751,15 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {showDeactivated ? (
+                                <DropdownMenuItem
+                                  className="text-primary focus:text-primary focus:bg-primary/10"
+                                  onClick={() => setConfirmReactivate(row)}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                                  Reactivate unit
+                                </DropdownMenuItem>
+                              ) : (
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
                                 onClick={() => navigate(`/management/deactivate/${row.operatorId}`)}
@@ -700,6 +767,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                                 <UserX className="h-3.5 w-3.5 mr-2" />
                                 Deactivate & Delease
                               </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => onSelectOperator(row.operatorId)}>
                                 Open driver profile
                               </DropdownMenuItem>
@@ -767,6 +835,85 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           decalPhotosExtra={decalPhotoTarget.decalPhotosExtra}
         />
       )}
+
+      {/* Reactivate unit confirmation */}
+      <AlertDialog open={!!confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-primary" />
+              Reactivate Unit {confirmReactivate?.unitNumber || ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{confirmReactivate?.driverName}</strong>
+                  {confirmReactivate?.ownerName && confirmReactivate.ownerName !== confirmReactivate.driverName
+                    ? <> (owner: {confirmReactivate.ownerName})</>
+                    : null}
+                  {' '}will be moved back to the active roster and become visible to dispatch.
+                  {confirmReactivate?.deactivatedAt
+                    ? ` Deactivated ${format(parseISO(confirmReactivate.deactivatedAt), 'MMM d, yyyy')}.`
+                    : ''}
+                </p>
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="flex items-center gap-1.5 font-medium text-amber-900">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Reactivation does not restore these — verify or redo each by hand:
+                  </div>
+                  <ul className="mt-1.5 list-disc pl-5 text-amber-900/90 space-y-0.5">
+                    <li>ICA / lease agreement — reissue and sign if it was voided</li>
+                    <li>MO plate assignment — may already be reassigned</li>
+                    <li>Onboard systems: ELD, dash cam, BestPass, fuel card</li>
+                    <li>Compliance docs: CDL, med cert, IRP, 2290, insurance — likely expired</li>
+                    <li>Driver login, if access was revoked at offboarding</li>
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reactivating}
+              onClick={e => { e.preventDefault(); handleReactivate(); }}
+              className="gap-1.5"
+            >
+              {reactivating
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reactivating…</>
+                : <><RotateCcw className="h-3.5 w-3.5" />Reactivate Unit</>}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Missing insurance date follow-up */}
+      <AlertDialog open={!!postReactivate} onOpenChange={open => { if (!open) setPostReactivate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Insurance date missing
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Unit {postReactivate?.unitNumber || '—'} is active again, but it will stay hidden from the Active
+              list until an insurance added date is recorded on {postReactivate?.driverName}&apos;s onboarding record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Later</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = postReactivate?.operatorId;
+                setPostReactivate(null);
+                if (id) onSelectOperator(id);
+              }}
+            >
+              Open driver record
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
