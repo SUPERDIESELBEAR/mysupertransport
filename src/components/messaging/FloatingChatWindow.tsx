@@ -124,7 +124,7 @@ export default function FloatingChatWindow() {
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; initialW: number; initialH: number } | null>(null);
 
-  const { open, minimized, x, y, width, height, selectedUserId } = state;
+  const { open, railCollapsed, x, y, width, height, selectedUserId } = state;
 
   // Persist state changes
   useEffect(() => { saveState(state); }, [state]);
@@ -136,8 +136,8 @@ export default function FloatingChatWindow() {
         ...prev,
         x: Math.max(8, Math.min(prev.x, window.innerWidth - 200)),
         y: Math.max(8, Math.min(prev.y, window.innerHeight - 120)),
-        width: Math.max(280, Math.min(prev.width, window.innerWidth - 32)),
-        height: Math.max(320, Math.min(prev.height, window.innerHeight - 32)),
+        width: Math.max(MIN_WIDTH, Math.min(prev.width, window.innerWidth - 32)),
+        height: Math.max(MIN_HEIGHT, Math.min(prev.height, window.innerHeight - 32)),
       }));
     };
     window.addEventListener('resize', handleResize);
