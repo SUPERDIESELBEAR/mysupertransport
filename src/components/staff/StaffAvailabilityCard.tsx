@@ -10,7 +10,11 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Users, Search, UserCheck } from 'lucide-react';
+import { Users, Search, UserCheck, Bell } from 'lucide-react';
+import { getDesktopNotifPreference, setDesktopNotifPreference } from '@/hooks/useDesktopNotifications';
+
+const SOUND_KEY = 'superdrive_messages_sound_enabled';
+const DEFAULT_VIEW_KEY = 'superdrive_messages_default_view';
 
 type Mode = 'all_drivers' | 'specific_drivers' | 'none';
 
@@ -297,6 +301,76 @@ export default function StaffAvailabilityCard() {
           </ul>
         )}
       </div>
+
+      {/* ── Alerts ─────────────────────────────────────────────────────── */}
+      <AlertsSection />
     </Card>
+  );
+}
+
+/** Local, per-browser message alert preferences. */
+function AlertsSection() {
+  const [sound, setSound] = useState(() => {
+    try { return localStorage.getItem(SOUND_KEY) !== 'false'; } catch { return true; }
+  });
+  const [desktop, setDesktop] = useState(() => getDesktopNotifPreference());
+  const [unreadFirst, setUnreadFirst] = useState(() => {
+    try { return localStorage.getItem(DEFAULT_VIEW_KEY) === 'unread'; } catch { return false; }
+  });
+
+  return (
+    <div className="space-y-3 pt-4 mt-4 border-t border-border">
+      <div className="flex items-center gap-2">
+        <Bell className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold">Alerts</h4>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-foreground">Sound on new message</p>
+          <p className="text-[11px] text-muted-foreground">Plays a short chime when a message arrives.</p>
+        </div>
+        <Switch
+          checked={sound}
+          onCheckedChange={(v) => {
+            setSound(v);
+            try { localStorage.setItem(SOUND_KEY, String(v)); } catch { /* ignore */ }
+            toast.success(v ? 'Message sound on' : 'Message sound off');
+          }}
+          aria-label="Sound on new message"
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-foreground">Desktop notifications</p>
+          <p className="text-[11px] text-muted-foreground">Alerts you when the SUPERDRIVE tab is in the background.</p>
+        </div>
+        <Switch
+          checked={desktop}
+          onCheckedChange={(v) => {
+            setDesktop(v);
+            setDesktopNotifPreference(v);
+            toast.success(v ? 'Desktop notifications on' : 'Desktop notifications off');
+          }}
+          aria-label="Desktop notifications"
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-foreground">Open Messages on Unread</p>
+          <p className="text-[11px] text-muted-foreground">Start with the Unread filter instead of All.</p>
+        </div>
+        <Switch
+          checked={unreadFirst}
+          onCheckedChange={(v) => {
+            setUnreadFirst(v);
+            try { localStorage.setItem(DEFAULT_VIEW_KEY, v ? 'unread' : 'all'); } catch { /* ignore */ }
+          }}
+          aria-label="Open Messages on Unread"
+        />
+      </div>
+    </div>
   );
 }
