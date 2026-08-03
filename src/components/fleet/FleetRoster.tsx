@@ -15,6 +15,7 @@ import TruckPhotoViewerModal from '@/components/fleet/TruckPhotoViewerModal';
 import DecalPhotoViewerModal from './DecalPhotoViewerModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { operatorDisplayName } from '@/lib/profileNames';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
@@ -113,6 +114,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         user_id,
         unit_number,
         deactivated_at,
+        is_demo,
+        demo_label,
         applications(first_name, last_name),
         onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
@@ -185,7 +188,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const ica = Array.isArray(op.ica_contracts) ? op.ica_contracts[0] : op.ica_contracts;
 
-      const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown';
+      const driverName = operatorDisplayName({
+        application: app,
+        is_demo: op.is_demo,
+        demo_label: op.demo_label,
+      });
       const ownerName = ica?.owner_name || ica?.owner_business_name || driverName;
       const equip = equipMap.get(op.id) ?? {};
       const decalExtraRaw = Array.isArray(os?.decal_photos) ? os.decal_photos : [];

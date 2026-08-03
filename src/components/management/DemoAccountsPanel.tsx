@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { useShowDemo } from '@/hooks/useShowDemo';
 import DemoAccountBadge from '@/components/DemoAccountBadge';
 import ShowDemoToggle from '@/components/ShowDemoToggle';
+import { operatorDisplayName } from '@/lib/profileNames';
 
 const SCENARIOS = [
   { value: 'blank', label: 'Blank (nothing started)' },
@@ -186,7 +187,10 @@ export default function DemoAccountsPanel() {
         <div className="grid gap-3 md:grid-cols-2">
           {rows.map((row) => {
             const app = row.applications;
-            const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unnamed demo driver';
+            const name = operatorDisplayName(
+              { application: app, is_demo: true, demo_label: row.demo_label },
+              'Unnamed demo driver',
+            );
             return (
               <Card key={row.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
