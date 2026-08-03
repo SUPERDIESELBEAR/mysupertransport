@@ -2845,30 +2845,32 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             .filter(c => c.is_active)
             .sort((a, b) => a.stage_order - b.stage_order)
             .map(cfg => {
-              const incompleteCount = operators.filter(op =>
-                cfg.items.length > 0 &&
-                !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-              ).length;
-              if (incompleteCount === 0) return null;
+              const isActive = stageNodeFilters.has(cfg.stage_key);
+              const stageNodes = new Set([cfg.stage_key]);
+              // Faceted: counts reflect every OTHER active filter, so the badge
+              // matches the row count you get when you click it.
+              const incompleteCount = facetCount({ stageNodes });
               // Partial = at least one item done but not all (in-progress)
               const partialCount = operators.filter(op =>
-                cfg.items.length > 0 &&
-                cfg.items.some(item => evalItem(op, item.field, item.complete_value)) &&
-                !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                matchesFilters(op, { stageNodes }) &&
+                cfg.items.some(item => evalItem(op, item.field, item.complete_value))
               ).length;
               // Not-started = none done
               const notStartedCount = incompleteCount - partialCount;
-              const isActive = stageNodeFilters.has(cfg.stage_key);
+              const disabled = incompleteCount === 0 && !isActive;
               return (
                 <TooltipProvider key={cfg.stage_key} delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
+                        disabled={disabled}
                         onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                         className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
                           isActive
                             ? 'bg-gold text-white border-gold shadow-sm'
-                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                            : disabled
+                              ? 'bg-muted/40 text-muted-foreground/40 border-border/50 cursor-not-allowed'
+                              : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
                         }`}
                       >
                         {cfg.label}
