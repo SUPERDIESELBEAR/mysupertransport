@@ -3,10 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { format, isToday, isYesterday } from 'date-fns';
-import { MessageSquare, Search, User, Users, Plus } from 'lucide-react';
+import { MessageSquare, Search, User, Users, Plus, Mail, MailOpen } from 'lucide-react';
 import { MessageThread } from '@/components/messaging/MessageThread';
 import type { ChatMessage } from '@/components/messaging/types';
-import { NewGroupModal } from '@/components/messaging/NewGroupModal';
+import { NewChatChooser } from '@/components/messaging/NewChatChooser';
 import { Button } from '@/components/ui/button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -60,12 +60,34 @@ function roleToLabel(role: string | null | undefined): string {
   }
 }
 
-function previewBody(m: { body: string; deleted_at: string | null; attachment_name: string | null } | null): string {
+function previewBody(m: { body: string; deleted_at: string | null; attachment_name: string | null; attachment_mime?: string | null } | null): string {
   if (!m) return 'No messages yet';
   if (m.deleted_at) return '(deleted)';
   if (m.body) return m.body;
-  if (m.attachment_name) return `📎 ${m.attachment_name}`;
+  if (m.attachment_name) {
+    if ((m.attachment_mime ?? '').startsWith('image/')) return '📷 Photo';
+    if ((m.attachment_mime ?? '') === 'application/pdf') return `📄 ${m.attachment_name}`;
+    return `📎 ${m.attachment_name}`;
+  }
   return 'No messages yet';
+}
+
+// ─── Locally "marked unread" conversations (per device) ───────────────────────
+
+const UNREAD_MARKS_KEY = 'driver_msgs_marked_unread';
+
+function readUnreadMarks(): string[] {
+  try {
+    const raw = localStorage.getItem(UNREAD_MARKS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUnreadMarks(ids: string[]) {
+  try { localStorage.setItem(UNREAD_MARKS_KEY, JSON.stringify(ids)); } catch { /* storage unavailable */ }
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
