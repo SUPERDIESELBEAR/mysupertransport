@@ -240,20 +240,27 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
   // ── Mark a DM thread read / unread ────────────────────────────────────────
   const markThread = useCallback(async (otherUserId: string, read: boolean) => {
     if (!user?.id) return;
-    const { error } = await supabase
-      .from('messages')
-      .update({ read_at: read ? new Date().toISOString() : null })
-      .eq('sender_id', otherUserId)
-      .eq('recipient_id', user.id)
-      .is('read_at', read ? null : 'not.null' as never);
-    if (error) {
-      // `.is()` cannot express "not null"; fall back to a plain filtered update
-      const { error: err2 } = await supabase
+    if (read) {
+      const { error } = await supabase
         .from('messages')
-        .update({ read_at: read ? new Date().toISOString() : null })
+        .update({ read_at: new Date().toISOString() })
         .eq('sender_id', otherUserId)
-        .eq('recipient_id', user.id);
-      if (err2) { toast.error('Could not update read status'); return; }
+        .eq('recipient_id', user.id)
+        .is('read_at', null);
+      if (error) { toast.error('Could not mark as read'); return; }
+    } else {
+      // Flag just the most recent inbound message so the thread shows as unread
+      const { data: latest } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('sender_id', otherUserId)
+        .eq('recipient_id', user.id)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!latest) { toast.error('No received messages to flag'); return; }
+      const { error } = await supabase.from('messages').update({ read_at: null }).eq('id', latest.id);
+      if (error) { toast.error('Could not mark as unread'); return; }
     }
     setThreads(prev => prev.map(t => (t.userId === otherUserId ? { ...t, unreadCount: read ? 0 : Math.max(1, t.unreadCount) } : t)));
     toast.success(read ? 'Marked as read' : 'Marked as unread');
