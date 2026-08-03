@@ -633,13 +633,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
             <p className="text-sm text-muted-foreground mt-1">
               {rows.length === 0 ? 'No action needed.' : 'Try a different filter or search.'}
             </p>
+            {rows.length > 0 && (filter !== 'all' || search.trim()) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => { setFilter('all'); setSearch(''); }}
+              >
+                Clear filter
+              </Button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {SECTIONS.map((section) => {
+            {visibleSections.map((section) => {
               const groups = bySection.get(section.key) ?? [];
               const isEmpty = groups.length === 0;
-              if (isEmpty && !section.showWhenEmpty) return null;
               const sectionOpen = openSections.has(section.key);
               const sectionIds = groups.map((g) => g.applicationId);
               const allSelected = sectionIds.length > 0 && sectionIds.every((id) => selected.has(id));
