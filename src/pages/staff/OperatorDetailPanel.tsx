@@ -5479,6 +5479,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
                       </div>
                       <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
+                      {/* heading placed above via Registration Details subtitle */}
                       {status.mo_docs_submitted === 'submitted' && (
                         <StageDatePicker
                           label="MO Docs Submitted Date"
@@ -5503,7 +5504,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </Select>
                       </div>
                       <div className="space-y-1.5 pt-1">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Notes</Label>
+                        <SectionSubtitle>Notes</SectionSubtitle>
+                        <Label className="text-xs font-medium text-muted-foreground">MO Registration Notes</Label>
                         <Textarea
                           value={status.mo_notes ?? ''}
                           onChange={e => updateStatus('mo_notes', e.target.value || null)}
