@@ -5478,8 +5478,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress">
                         ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
                       </div>
+                      <SectionSubtitle>Registration Details</SectionSubtitle>
                       <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
-                      {/* heading placed above via Registration Details subtitle */}
                       {status.mo_docs_submitted === 'submitted' && (
                         <StageDatePicker
                           label="MO Docs Submitted Date"
