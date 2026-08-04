@@ -5526,7 +5526,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Truck Decals section */}
                   <div className="space-y-3">
-                    <SectionSubtitle>Truck Decals</p>
+                    <SectionSubtitle>Truck Decals</SectionSubtitle>
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
@@ -5550,7 +5550,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* ELD section */}
                   <div className="space-y-3">
-                    <SectionSubtitle>ELD</p>
+                    <SectionSubtitle>ELD</SectionSubtitle>
 
                     {/* ELD Exempt toggle (pre-2000 trucks, FMCSA §395.8(a)(1)(iii)) */}
                     <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 space-y-2">
@@ -5656,7 +5656,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Fuel Card */}
                   <div className="space-y-3">
-                    <SectionSubtitle>Fuel Card</p>
+                    <SectionSubtitle>Fuel Card</SectionSubtitle>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Number</Label>
                       <Input
@@ -5687,7 +5687,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Device Numbers */}
                   <div className="space-y-3">
-                    <SectionSubtitle>Assigned Device Numbers</p>
+                    <SectionSubtitle>Assigned Device Numbers</SectionSubtitle>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Serial Number</Label>
@@ -5935,7 +5935,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Physical Damage Insurance */}
                   <div className="space-y-3">
-                    <SectionSubtitle>Physical Damage Insurance</p>
+                    <SectionSubtitle>Physical Damage Insurance</SectionSubtitle>
 
                     {/* Policy type selector */}
                     <div className="space-y-1.5">
@@ -6152,7 +6152,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Email Insurance Company */}
                   <div className="space-y-3 pt-1">
-                    <SectionSubtitle>Email Insurance Company</p>
+                    <SectionSubtitle>Email Insurance Company</SectionSubtitle>
 
                     {/* Recipient email management */}
                     <div className="space-y-2">
@@ -6254,7 +6254,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Added to insurance date */}
                   <div className="space-y-3 pt-1">
-                    <SectionSubtitle>Confirmation</p>
+                    <SectionSubtitle>Confirmation</SectionSubtitle>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
                       <DateInput
@@ -6314,7 +6314,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
-                    <SectionSubtitle>Go-Live</p>
+                    <SectionSubtitle>Go-Live</SectionSubtitle>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Operator Type</Label>
                       <Select value={status.operator_type ?? 'solo'} onValueChange={v => updateStatus('operator_type', v || 'solo')}>
@@ -6374,7 +6374,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SectionSubtitle>
                       <Mail className="h-3 w-3" />
                       Email {dotConsultantLabel} (DOT Consultant)
-                    </p>
+                    </SectionSubtitle>
                     <p className="text-xs text-muted-foreground">
                       Sends driver + truck details, driver's license, and any attached files to the recipients below.
                     </p>
