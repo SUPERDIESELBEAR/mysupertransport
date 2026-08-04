@@ -252,6 +252,7 @@ export default function BinderFlipbook({
   const [emailRecipient, setEmailRecipient] = useState('');
   const [emailNote, setEmailNote] = useState('');
   const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`binder-title-${Math.random().toString(36).slice(2)}`).current;
 
@@ -488,6 +489,7 @@ export default function BinderFlipbook({
     if (!docs.length) return;
     setEmailDocs(docs);
     setEmailNote('');
+    setEmailError(null);
     setEmailOpen(true);
   };
 
@@ -495,9 +497,10 @@ export default function BinderFlipbook({
     if (!emailDocs.length) return;
     const to = emailRecipient.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) {
-      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      setEmailError('Enter a valid recipient email address.');
       return;
     }
+    setEmailError(null);
     setEmailSending(true);
     try {
       const { data, error } = await withTimeout(
@@ -528,11 +531,7 @@ export default function BinderFlipbook({
         err,
         err instanceof Error ? err.message : 'Please try again.',
       );
-      toast({
-        title: 'Could not send the email',
-        description: `${message} You can still use “Use my mail app instead”.`,
-        variant: 'destructive',
-      });
+      setEmailError(`${message} You can still use “Use my mail app instead”.`);
     } finally {
       setEmailSending(false);
     }
@@ -759,7 +758,12 @@ export default function BinderFlipbook({
       )}
 
       {/* Email share */}
-      <Dialog open={emailOpen} onOpenChange={(o) => { if (!emailSending) setEmailOpen(o); }}>
+      <Dialog open={emailOpen} onOpenChange={(o) => {
+        if (!emailSending) {
+          setEmailOpen(o);
+          if (!o) setEmailError(null);
+        }
+      }}>
         <DialogContent className="max-w-md z-[120]">
           <DialogHeader>
             <DialogTitle>Email roadside {emailDocs.length === 1 ? 'document' : 'documents'}</DialogTitle>
@@ -769,6 +773,15 @@ export default function BinderFlipbook({
           </DialogHeader>
 
           <div className="space-y-4">
+            {emailError && (
+              <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">Could not send the email</p>
+                  <p className="mt-0.5 text-xs leading-relaxed">{emailError}</p>
+                </div>
+              </div>
+            )}
             <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-40 overflow-y-auto">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                 Including ({emailDocs.length})
