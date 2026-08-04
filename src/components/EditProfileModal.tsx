@@ -16,7 +16,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw, Check, ChevronsUpDown } from 'lucide-react';
+import {
+  COUNTRIES,
+  DEFAULT_COUNTRY_CODE,
+  NANP_COUNTRY_CODES,
+  getCountryName,
+  getRegionLabel,
+  getRegions,
+  hasRegions,
+} from '@/lib/countryRegions';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -38,6 +56,9 @@ const US_STATES = [
   'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ];
+
+/** Free-form international phone: digits, spaces, +, -, parens, max 25 chars */
+const INTL_PHONE_RE = /^[0-9+\-()\s.]{4,25}$/;
 
 /** Canvas helper — draws the cropped area (with rotation) into a square canvas clipped to a circle, returns a Blob */
 async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string, rotation = 0): Promise<Blob> {
