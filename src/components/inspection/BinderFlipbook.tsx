@@ -11,7 +11,6 @@ import {
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { pdfToImage } from '@/lib/pdfToImage';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import BinderEmailShareDialog from './BinderEmailShareDialog';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
 import { buildShareBodies, resolveShortUrl, type ShareItem } from '@/lib/binderShareFormat';
@@ -241,7 +240,6 @@ export default function BinderFlipbook({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
   const [showQR, setShowQR] = useState(false);
-  const { toast } = useToast();
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailDocs, setEmailDocs] = useState<FlipbookPage[]>([]);
   const dialogRef = useRef<HTMLDivElement>(null);
