@@ -503,17 +503,17 @@ export default function NotificationHistory() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2 min-w-0">
             <BellRing className="h-6 w-6 text-gold shrink-0" />
-            Notifications
+            <span className="truncate">Notifications</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {total} in this view · {inboxUnread} unread in inbox
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {unreadCount > 0 && (
             <Button variant="outline" size="sm" onClick={doMarkAllRead} disabled={markingAll} className="gap-1.5 text-xs">
               {markingAll
