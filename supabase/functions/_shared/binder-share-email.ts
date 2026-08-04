@@ -66,8 +66,7 @@ export function binderShareText(input: BinderShareEmailInput): string {
   if (note) lines.push(note, '');
   lines.push(`Documents (${docs.length}):`, '');
   docs.forEach((d, i) => {
-    lines.push(`${i + 1}. ${d.title}`);
-    lines.push(`   ${d.url}`);
+    lines.push(`${i + 1}. ${d.title} — ${d.url}`);
     lines.push('');
   });
   lines.push(`Shared ${stamp}. Links are secure and time-limited.`);
