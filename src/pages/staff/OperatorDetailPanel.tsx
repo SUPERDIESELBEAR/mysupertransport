@@ -5446,7 +5446,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <FileCheck className={`h-4 w-4 ${isNa ? 'text-muted-foreground' : s4Complete ? 'text-status-complete' : 'text-gold'}`} />
-                    <h3 className={`font-semibold text-sm ${isNa ? 'text-muted-foreground' : 'text-foreground'}`}>Stage 4 — Missouri Registration</h3>
+                    <h3 className={`font-bold text-[15px] tracking-tight ${isNa ? 'text-muted-foreground' : 'text-foreground'}`}>Stage 4 — Missouri Registration</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {isNa && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">N/A — O/O Has Own Registration</span>}
@@ -6805,7 +6805,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <CreditCard className={`h-4 w-4 ${isComplete ? 'text-status-complete' : 'text-muted-foreground'}`} />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Stage 9 — Payroll and Procedures</p>
+                <p className="text-[15px] font-bold tracking-tight text-foreground">Stage 9 — Payroll and Procedures</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {!paySetupLoaded ? 'Loading…' : isComplete ? `Submitted ${new Date(ps.submitted_at).toLocaleDateString()}` : ps ? 'In progress — not yet submitted' : 'Not started'}
                 </p>
