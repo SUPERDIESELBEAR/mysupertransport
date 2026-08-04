@@ -187,6 +187,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
 
 // ── QPassport Uploader sub-component ────────────────────────────────────────
 function QPassportUploader({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   operatorId,
   currentUrl,
   onUploaded,
