@@ -500,7 +500,8 @@ export default function BinderFlipbook({
     }
     setEmailSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-binder-share', {
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('send-binder-share', {
         body: {
           recipientEmail: to,
           driverName,
@@ -512,7 +513,10 @@ export default function BinderFlipbook({
             title: d.title,
           })),
         },
-      });
+        }),
+        45000,
+        'Sending the email',
+      );
       if (error) throw error;
       if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
       toast({ title: 'Documents sent', description: `${emailDocs.length} document${emailDocs.length === 1 ? '' : 's'} emailed to ${to}.` });
@@ -520,8 +524,15 @@ export default function BinderFlipbook({
       setSelectMode(false);
       setSelected(new Set());
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Please try again.';
-      toast({ title: 'Could not send the email', description: message, variant: 'destructive' });
+      const message = await getEdgeFunctionErrorMessage(
+        err,
+        err instanceof Error ? err.message : 'Please try again.',
+      );
+      toast({
+        title: 'Could not send the email',
+        description: `${message} You can still use “Use my mail app instead”.`,
+        variant: 'destructive',
+      });
     } finally {
       setEmailSending(false);
     }
