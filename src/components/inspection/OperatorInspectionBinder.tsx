@@ -19,6 +19,7 @@ import {
 } from './InspectionBinderTypes';
 import { DocRow, ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
+import BinderEmailShareDialog from './BinderEmailShareDialog';
 
 interface Props {
   userId: string;
@@ -209,6 +210,12 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   };
 
   const bulkShareEmail = () => {
+    if (!selectedDocs.length) return;
+    setEmailOpen(true);
+  };
+
+  /** Offline / no-signal escape hatch: hand off to the device mail app. */
+  const bulkShareEmailFallback = () => {
     const body = selectedDocs.map(d => `${d.name}: ${window.location.origin}/inspect/${d.public_share_token}`).join('\n');
     window.open(`mailto:?subject=${encodeURIComponent('Roadside Documents — SuperTransport')}&body=${encodeURIComponent(body)}`);
   };
