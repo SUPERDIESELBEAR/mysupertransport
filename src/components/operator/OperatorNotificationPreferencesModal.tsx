@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { getDesktopNotifPreference, setDesktopNotifPreference } from '@/hooks/useDesktopNotifications';
+import { getDesktopNotifPreference, setDesktopNotifPreference, supportsDesktopNotifications } from '@/hooks/useDesktopNotifications';
 
 interface EventPref {
   event_type: string;
@@ -195,23 +195,20 @@ export default function OperatorNotificationPreferencesModal({ open, onClose }: 
   };
 
   const handleDesktopToggle = async (value: boolean) => {
-    // If turning on and permission hasn't been granted yet, request it
-    if (value && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      const result = await Notification.requestPermission();
-      setBrowserPermission(result);
-      if (result !== 'granted') {
-        toast({
-          title: 'Permission required',
-          description: 'Allow notifications in your browser settings to enable desktop alerts.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-    setDesktopEnabled(value);
+    // Always honor the user's choice immediately — never block the toggle.
     setDesktopNotifPreference(value);
+    setDesktopEnabled(value);
+
+    // Request permission quietly in the background if it's still unresolved.
+    if (value && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      try {
+        const result = await Notification.requestPermission();
+        setBrowserPermission(result);
+      } catch { /* ignore */ }
+    }
   };
 
+  const desktopSupported = supportsDesktopNotifications();
   const permissionDenied = browserPermission === 'denied';
 
   return (
@@ -230,6 +227,7 @@ export default function OperatorNotificationPreferencesModal({ open, onClose }: 
         </DialogHeader>
 
         {/* Desktop push notifications section */}
+        {desktopSupported && (
         <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center gap-4">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
@@ -238,25 +236,23 @@ export default function OperatorNotificationPreferencesModal({ open, onClose }: 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">Desktop Push Alerts</p>
               <p className="text-xs text-muted-foreground">
-                {permissionDenied
-                  ? 'Blocked by browser — enable in your browser\'s site settings'
-                  : 'Truck Down and new message alerts when this tab is in the background'}
+                Truck Down and new message alerts when this tab is in the background
               </p>
-              {permissionDenied && (
-                <p className="text-[11px] text-destructive mt-0.5 font-medium">
-                  Browser permission denied — this cannot be changed from within the app
+              {permissionDenied && desktopEnabled && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Your browser is blocking alerts — allow notifications in site settings to activate this.
                 </p>
               )}
             </div>
             <div className="shrink-0">
               <Switch
-                checked={!permissionDenied && desktopEnabled}
+                checked={desktopEnabled}
                 onCheckedChange={handleDesktopToggle}
-                disabled={permissionDenied}
               />
             </div>
           </div>
         </div>
+        )}
 
         {/* Column headers */}
         <div className="px-6 py-2.5 border-b border-border bg-muted/30">
