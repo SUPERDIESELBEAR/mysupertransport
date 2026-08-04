@@ -56,8 +56,11 @@ function buildEmail({ items, driverName, unitNumber }: BuildShareArgs): ShareBod
     ? `Please find the roadside document for ${driverName}${unitTag(unitNumber)} below. The link opens a secure, time-limited view of the requested document.`
     : `Please find the roadside documents for ${driverName}${unitTag(unitNumber)} below. Each link opens a secure, time-limited view of the requested document.`;
 
+  // One document per line. Mail clients treat plain text as "flowed" and
+  // re-join single newlines, so each item keeps its URL on the same line and
+  // items are separated by a blank line (the only break clients preserve).
   const listLines = items
-    .map((it, i) => `${i + 1}. ${it.title}\n   ${it.url}`)
+    .map((it, i) => `${i + 1}. ${it.title} — ${it.url}`)
     .join('\n\n');
 
   const body = [
@@ -65,14 +68,13 @@ function buildEmail({ items, driverName, unitNumber }: BuildShareArgs): ShareBod
     '',
     intro,
     '',
-    '────────────────────────────',
     `DOCUMENTS (${items.length})`,
-    '────────────────────────────',
     '',
     listLines,
     '',
     `Shared: ${centralTimestamp()}`,
-    'From:   SUPERTRANSPORT — Digital Inspection Binder',
+    '',
+    'From: SUPERTRANSPORT — Digital Inspection Binder',
     '',
     'Powered by SUPERDRIVE',
   ].join('\n');
