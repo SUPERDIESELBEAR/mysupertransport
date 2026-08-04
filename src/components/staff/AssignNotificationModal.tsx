@@ -19,6 +19,8 @@ interface StaffOption {
   avatar_url: string | null;
 }
 
+type Audience = 'staff' | 'drivers';
+
 interface Props {
   open: boolean;
   notificationIds: string[];
@@ -32,6 +34,8 @@ export default function AssignNotificationModal({
 }: Props) {
   const { session } = useAuth();
   const [staff, setStaff] = useState<StaffOption[]>([]);
+  const [drivers, setDrivers] = useState<StaffOption[]>([]);
+  const [audience, setAudience] = useState<Audience>('staff');
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -45,6 +49,7 @@ export default function AssignNotificationModal({
     setSearch('');
     setNote('');
     setSendPopup(true);
+    setAudience('staff');
     setLoadingStaff(true);
     (async () => {
       const { data: roleRows } = await supabase
@@ -78,17 +83,45 @@ export default function AssignNotificationModal({
       }
       list.sort((a, b) => a.name.localeCompare(b.name));
       setStaff(list);
+
+      // ---- Drivers (active operators) ----
+      const { data: ops } = await supabase
+        .from('operators')
+        .select('user_id, unit_number, is_demo')
+        .eq('is_active', true);
+      const opRows = (ops ?? []).filter((o: any) => o.user_id && !o.is_demo && o.user_id !== session?.user?.id);
+      let driverProfiles = new Map<string, any>();
+      if (opRows.length) {
+        const { data: dProfs } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, avatar_url')
+          .in('user_id', opRows.map((o: any) => o.user_id as string));
+        driverProfiles = new Map((dProfs ?? []).map((p: any) => [p.user_id as string, p]));
+      }
+      const driverList: StaffOption[] = opRows.map((o: any) => {
+        const p = driverProfiles.get(o.user_id as string);
+        const name = `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || 'Driver';
+        return {
+          user_id: o.user_id as string,
+          name,
+          role: o.unit_number ? `Unit ${o.unit_number}` : 'Driver',
+          avatar_url: p?.avatar_url ?? null,
+        };
+      });
+      driverList.sort((a, b) => a.name.localeCompare(b.name));
+      setDrivers(driverList);
       setLoadingStaff(false);
     })();
   }, [open, session?.user?.id]);
 
   const filtered = useMemo(() => {
+    const source = audience === 'staff' ? staff : drivers;
     const q = search.trim().toLowerCase();
-    if (!q) return staff;
-    return staff.filter(s => s.name.toLowerCase().includes(q) || s.role.toLowerCase().includes(q));
-  }, [staff, search]);
+    if (!q) return source;
+    return source.filter(s => s.name.toLowerCase().includes(q) || s.role.toLowerCase().includes(q));
+  }, [staff, drivers, audience, search]);
 
-  const roleLabel = (r: string) => r
+  const roleLabel = (r: string) => audience === 'drivers' ? r : r
     .split(',').map(x => x.trim())
     .map(x => x === 'onboarding_staff' ? 'Onboarding' : x === 'dispatcher' ? 'Dispatcher' : x === 'management' ? 'Management' : x === 'owner' ? 'Owner' : x)
     .join(' · ');
@@ -112,7 +145,8 @@ export default function AssignNotificationModal({
         return;
       }
       const target = staff.find(s => s.user_id === assigneeId);
-      toast.success(`${mode === 'reassign' ? 'Re-assigned' : 'Assigned'} to ${target?.name ?? 'teammate'}.`);
+      const targetDriver = drivers.find(d => d.user_id === assigneeId);
+      toast.success(`${mode === 'reassign' ? 'Re-assigned' : 'Assigned'} to ${target?.name ?? targetDriver?.name ?? 'teammate'}.`);
       onDone?.();
       onClose();
     } finally {
@@ -133,21 +167,38 @@ export default function AssignNotificationModal({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Assignee</Label>
+            <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
+              {(['staff', 'drivers'] as Audience[]).map(a => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => { setAudience(a); setAssigneeId(null); }}
+                  disabled={sending}
+                  className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+                    audience === a ? 'bg-gold text-surface-dark' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {a === 'staff' ? `Staff (${staff.length})` : `Drivers (${drivers.length})`}
+                </button>
+              ))}
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search staff by name or role…"
+                placeholder={audience === 'staff' ? 'Search staff by name or role…' : 'Search drivers by name or unit…'}
                 className="pl-9 h-9"
                 disabled={sending}
               />
             </div>
             <div className="border border-border rounded-lg max-h-56 overflow-y-auto divide-y divide-border">
               {loadingStaff ? (
-                <p className="text-xs text-muted-foreground px-3 py-4">Loading staff…</p>
+                <p className="text-xs text-muted-foreground px-3 py-4">Loading…</p>
               ) : filtered.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-3 py-4">No matching staff.</p>
+                <p className="text-xs text-muted-foreground px-3 py-4">
+                  {audience === 'staff' ? 'No matching staff.' : 'No matching drivers.'}
+                </p>
               ) : filtered.map(s => (
                 <button
                   key={s.user_id}
