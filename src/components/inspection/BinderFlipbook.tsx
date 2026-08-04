@@ -244,6 +244,12 @@ export default function BinderFlipbook({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const { toast } = useToast();
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailDocs, setEmailDocs] = useState<FlipbookPage[]>([]);
+  const [emailRecipient, setEmailRecipient] = useState('');
+  const [emailNote, setEmailNote] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`binder-title-${Math.random().toString(36).slice(2)}`).current;
 
