@@ -3763,6 +3763,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+              { label: 'IFTA Decal Issued', done: status.ifta_decal_issued === 'yes' },
             ]},
           { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
               { label: 'PE Scheduled',        done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
@@ -4512,6 +4513,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+              { label: 'IFTA Decal Issued', done: status.ifta_decal_issued === 'yes' },
             ]},
           { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
               { label: 'PE Scheduled',       done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
@@ -5528,7 +5530,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
-                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -5598,7 +5600,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Installed</Label>
-                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -5668,10 +5670,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Issued</Label>
-                       <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                       <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">IFTA Decal Issued</Label>
+                      <Select value={(status.ifta_decal_issued as string) || undefined} onValueChange={v => { updateStatus('ifta_decal_issued' as any, v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground">Ships with the fuel card.</p>
                     </div>
                   </div>
 
