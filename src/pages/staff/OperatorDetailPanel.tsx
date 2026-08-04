@@ -2805,7 +2805,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* ── Top Completion Summary ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 20 } : undefined}>{(() => {
         const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
-        const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes';
+        const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const _moNa = status.registration_status === 'own_registration';
         const _stageStatuses: { key: string; label: string; complete: boolean; exception?: boolean }[] = [
           { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' },
@@ -3764,7 +3764,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {!isQuickView && (() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
-        const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes';
+        const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
@@ -3789,7 +3789,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
-              { label: 'IFTA Decal Issued', done: status.ifta_decal_issued === 'yes' },
             ]},
           { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
               { label: 'PE Scheduled',        done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
@@ -3898,8 +3897,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         },
                         {
                           key: 'stage5', shortLabel: 'Equip',
-                          state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued, status.ifta_decal_issued].some(v => v === 'yes')) ? 'progress' : 'none',
-                          tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued, status.ifta_decal_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/4 done` : 'Not started'; })(),
+                          state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
+                          tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/3 done` : 'Not started'; })(),
                           items: stages.find(s => s.key === 'stage5')?.items ?? [],
                         },
                         {
@@ -4535,11 +4534,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'MO Docs Submitted',        done: status.mo_docs_submitted === 'submitted' },
               { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
             ]},
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes', fullName: 'Equipment', items: [
+          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
               { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
               { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
-              { label: 'IFTA Decal Issued', done: status.ifta_decal_issued === 'yes' },
             ]},
           { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
               { label: 'PE Scheduled',       done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
@@ -4682,11 +4680,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           },
           {
             key: 'stage5', label: 'Equipment', shortLabel: 'Equip',
-            state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes') ? 'complete'
-              : ([status.decal_applied, status.eld_installed, status.fuel_card_issued, status.ifta_decal_issued].some(s => s === 'yes')) ? 'progress'
+            state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') ? 'complete'
+              : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(s => s === 'yes')) ? 'progress'
               : 'none',
             tooltip: (() => {
-              const done = [status.decal_applied, status.eld_installed, status.fuel_card_issued, status.ifta_decal_issued].filter(s => s === 'yes').length;
+              const done = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(s => s === 'yes').length;
               return done === 4 ? 'Complete' : done > 0 ? `${done}/4 done` : 'Not started';
             })(),
           },
@@ -5523,7 +5521,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
         {/* Stage 5 — Equipment */}
         {(() => {
-          const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes';
+          const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
           const exceptionActiveS5 = (status.paper_logbook_approved || status.temp_decal_approved) && !allEquipmentReady;
           const showExceptionBlock = status.decal_method === 'supertransport_shop' || status.eld_method === 'supertransport_shop';
           const s5Collapsed = collapsedStages.has('stage5');
@@ -5546,10 +5544,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             status.decal_applied === 'yes',
                             status.eld_installed === 'yes',
                             status.fuel_card_issued === 'yes',
-                            status.ifta_decal_issued === 'yes',
                           ].filter(Boolean).length;
                           return done > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/3 done</span>
                           ) : null;
                         })()
                     }
@@ -5577,7 +5574,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
-                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -5647,7 +5644,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Installed</Label>
-                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -5709,7 +5706,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <Input
                         value={status.fuel_card_number ?? ''}
                         onChange={e => updateStatus('fuel_card_number' as any, e.target.value || null)}
-                        onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
+                        onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                         placeholder="e.g. 301"
                         maxLength={3}
                         className="h-9 text-sm"
@@ -5717,7 +5714,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Issued</Label>
-                       <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                       <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -5741,7 +5738,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={status.eld_serial_number ?? ''}
                           onChange={e => updateStatus('eld_serial_number' as any, e.target.value || null)}
-                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
+                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                           placeholder="e.g. ELD-12345678"
                           maxLength={15}
                           className="h-9 text-sm font-mono"
@@ -5752,7 +5749,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={status.dash_cam_number ?? ''}
                           onChange={e => updateStatus('dash_cam_number' as any, e.target.value || null)}
-                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
+                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                           placeholder="e.g. CAM-98765432"
                           maxLength={15}
                           className="h-9 text-sm font-mono"
@@ -5763,7 +5760,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={status.bestpass_number ?? ''}
                           onChange={e => updateStatus('bestpass_number' as any, e.target.value || null)}
-                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.ifta_decal_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
+                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                           placeholder="e.g. BP-00112233"
                           maxLength={15}
                           className="h-9 text-sm font-mono"

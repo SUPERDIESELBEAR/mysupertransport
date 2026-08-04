@@ -142,7 +142,7 @@ const STAGE_INFO: Record<number, StageInfo> = {
   5: {
     blockerText: (os) => {
       const eldDone = (os as any).eld_exempt === true || os.eld_installed === 'yes';
-      const done = [os.decal_applied === 'yes', eldDone, os.fuel_card_issued === 'yes', (os as any).ifta_decal_issued === 'yes'];
+      const done = [os.decal_applied === 'yes', eldDone, os.fuel_card_issued === 'yes'];
       const eldLabel = (os as any).eld_exempt === true ? 'ELD (exempt)' : 'ELD Device';
       const remaining = ['Decal', eldLabel, 'Fuel Card'].filter((_, i) => !done[i]);
       if (remaining.length === 0) return 'All equipment is set up.';
@@ -154,7 +154,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
       { label: 'Decal applied to truck', who: 'coordinator', done: (os) => os.decal_applied === 'yes' },
       { label: 'ELD device installed', who: 'coordinator', done: (os) => (os as any).eld_exempt === true || os.eld_installed === 'yes' },
       { label: 'Fuel card issued', who: 'coordinator', done: (os) => os.fuel_card_issued === 'yes' },
-      { label: 'IFTA decal issued', who: 'coordinator', done: (os) => (os as any).ifta_decal_issued === 'yes' },
     ],
   },
   6: {
