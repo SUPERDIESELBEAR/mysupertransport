@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronLeft, ChevronRight, MoreVertical, Mail, MessageSquare,
-  QrCode, Loader2, FileText, AlertTriangle, CheckSquare, Square, ImageOff, List,
+  QrCode, Loader2, FileText, AlertTriangle, CheckSquare, Square, ImageOff, List, CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -253,6 +253,10 @@ export default function BinderFlipbook({
   const [emailNote, setEmailNote] = useState('');
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState<{ to: string; count: number } | null>(null);
+  const emailSentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (emailSentTimer.current) clearTimeout(emailSentTimer.current); }, []);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`binder-title-${Math.random().toString(36).slice(2)}`).current;
 
@@ -490,6 +494,8 @@ export default function BinderFlipbook({
     setEmailDocs(docs);
     setEmailNote('');
     setEmailError(null);
+    setEmailSent(null);
+    if (emailSentTimer.current) { clearTimeout(emailSentTimer.current); emailSentTimer.current = null; }
     setEmailOpen(true);
   };
 
@@ -501,6 +507,7 @@ export default function BinderFlipbook({
       return;
     }
     setEmailError(null);
+    setEmailSent(null);
     setEmailSending(true);
     try {
       const { data, error } = await withTimeout(
@@ -523,9 +530,14 @@ export default function BinderFlipbook({
       if (error) throw error;
       if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
       toast({ title: 'Documents sent', description: `${emailDocs.length} document${emailDocs.length === 1 ? '' : 's'} emailed to ${to}.` });
-      setEmailOpen(false);
-      setSelectMode(false);
-      setSelected(new Set());
+      setEmailSent({ to, count: emailDocs.length });
+      if (emailSentTimer.current) clearTimeout(emailSentTimer.current);
+      emailSentTimer.current = setTimeout(() => {
+        setEmailOpen(false);
+        setEmailSent(null);
+        setSelectMode(false);
+        setSelected(new Set());
+      }, 2000);
     } catch (err) {
       const message = await getEdgeFunctionErrorMessage(
         err,
