@@ -1,24 +1,28 @@
-# Remove the IFTA Decal checklist item (keep the bolder stage titles)
+# Make IFTA Decal a tracking-only field (not a completion requirement)
 
-Roll back the "IFTA Decal Issued" feature added in Stage 5 — Equipment, returning the equipment checklist to its previous three items (Decal Applied / ELD Installed / Fuel Card Issued). All typography work from the stage-ribbon and bold-subtitle pass stays exactly as it is.
+Keep the "IFTA Decal Issued" Yes/No dropdown in Stage 5 — Equipment exactly where it is, next to Fuel Card Issued. Remove it from every place that treats it as a requirement, so it no longer blocks Stage 5, Go Live, or progress percentages.
 
-## What changes for users
+## What changes
 
-1. **Onboarding Pipeline → Stage 5 — Equipment**
-   - The "IFTA Decal Issued" dropdown is removed from the Fuel Card block.
-   - Stage 5 reads complete again when decal, ELD (or ELD-exempt), and fuel card are Yes.
-   - The EQUIP dot returns to a 3-item count, and "IFTA Decal" is removed from the open-items list and the "Incomplete: Equip" chip.
+1. **Stage 5 — Equipment (Onboarding Pipeline)**
+   - The IFTA Decal Issued dropdown stays. Staff can set Yes or No at any time.
+   - Stage 5 counts as complete again when Decal Applied, ELD Installed (or ELD-exempt), and Fuel Card Issued are Yes — IFTA is not part of that check.
+   - The Equip dot goes back to a 3-item count ("2/3 done", not "2/4").
+   - The Stage 5 auto-collapse behavior ignores IFTA.
 
-2. **Driver app**
-   - "IFTA Decal Issued" is removed from the Stage 5 status list and from the Smart Progress coordinator checklist (back to 3 items).
+2. **Pipeline list**
+   - The "Open: IFTA Decal" chip disappears from driver rows. IFTA is removed from the open-items list, the "Incomplete: Equip" filter, and the Active — Open Onboarding Items grouping, so the 42 drivers currently flagged for it drop off that list.
 
-3. **Onboard Systems sign-off sheet**
-   - "IFTA Decal" is removed as a selectable line item and from the sheet preview labels.
+3. **Driver app**
+   - "IFTA Decal Issued" is removed from the driver-facing Stage 5 status list and from the Smart Progress coordinator checklist, so it never shows a driver as incomplete or lowers their progress percentage. (Staff-only tracking.)
 
-4. **Unchanged**
-   - Bold stage titles, constrained stage ribbon width, and the shared bold section subtitles across all stages remain.
+4. **Go Live**
+   - No change needed beyond the above — once IFTA is out of the Stage 5 completion rule, it no longer gates Go Live.
 
 ## Technical notes
 
-- Code: revert IFTA references in `src/pages/staff/OperatorDetailPanel.tsx` (type, defaults, load/sync, save payload, four stage-complete checks, checklist entries, the Select control, and the auto-collapse conditions), `src/pages/staff/PipelineDashboard.tsx` (type fields, equip predicates, select list, mapping, open-items), `src/lib/equipmentCompletion.ts`, `src/pages/operator/OperatorPortal.tsx`, `src/components/operator/SmartProgressWidget.tsx`, `src/components/equipment/SignOffSheetPreviewModal.tsx` (and the create-sheet modal option if present).
-- Database migration: drop `ifta_decal_issued` from `public.onboarding_status`, and remove the IFTA row from `pipeline_config`. The `ifta_decal` value on the `osas_device_type` enum cannot be dropped in Postgres without recreating the type; it will simply be left unused and unselectable in the UI. Any existing sign-off sheet line items of that type would be cleaned up first if present.
+- `src/lib/equipmentCompletion.ts`: drop `ifta_decal_issued` from `isEquipmentInstallComplete` (keep the field on the type so the value can still be read/written).
+- `src/pages/staff/OperatorDetailPanel.tsx`: keep the state field, load, save payload, and the Select control; remove `ifta_decal_issued` from the stage-complete expressions and the equip dot count/tooltip (lines ~2808, 3767, 3792, 3901-3902, 4538-4542, 4685-4689, 5526-5549) and from the auto-collapse conditions.
+- `src/pages/staff/PipelineDashboard.tsx`: remove IFTA from the equip-complete predicates (~146, 176, 507) and the open-items push (~2137); keep the column in the select/mapping so the value is still available.
+- `src/pages/operator/OperatorPortal.tsx` (~805, 900) and `src/components/operator/SmartProgressWidget.tsx` (~145, 157): remove the IFTA entries from driver-facing checklists and counts.
+- No database migration and no data changes — the `ifta_decal_issued` column and existing values stay as-is.
