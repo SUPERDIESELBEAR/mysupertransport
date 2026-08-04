@@ -81,6 +81,7 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   const readyFiredRef = useRef(false);
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
