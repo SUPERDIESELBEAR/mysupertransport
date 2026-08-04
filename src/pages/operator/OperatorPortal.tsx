@@ -1514,8 +1514,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         ref={contentScrollRef}
         className={
           isPreview
-            ? "relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
-            : "relative flex-1 min-h-0 overflow-y-auto overscroll-contain max-w-4xl w-full mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
+            ? "relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6 overflow-x-clip"
+            : "relative flex-1 min-h-0 overflow-y-auto overflow-x-clip overscroll-contain max-w-4xl w-full mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
         }
       >
 
