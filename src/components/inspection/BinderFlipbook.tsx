@@ -773,7 +773,7 @@ export default function BinderFlipbook({
       <Dialog open={emailOpen} onOpenChange={(o) => {
         if (!emailSending) {
           setEmailOpen(o);
-          if (!o) setEmailError(null);
+          if (!o) { setEmailError(null); setEmailSent(null); }
         }
       }}>
         <DialogContent className="max-w-md z-[120]">
@@ -785,6 +785,17 @@ export default function BinderFlipbook({
           </DialogHeader>
 
           <div className="space-y-4">
+            {emailSent && (
+              <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">Email sent</p>
+                  <p className="mt-0.5 text-xs leading-relaxed">
+                    Sent to {emailSent.to} — {emailSent.count} document{emailSent.count === 1 ? '' : 's'}.
+                  </p>
+                </div>
+              </div>
+            )}
             {emailError && (
               <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -836,18 +847,25 @@ export default function BinderFlipbook({
               variant="ghost"
               size="sm"
               className="text-xs"
-              disabled={emailSending}
+              disabled={emailSending || !!emailSent}
               onClick={() => { setEmailOpen(false); emailFallbackMailto(); }}
             >
               Use my mail app instead
             </Button>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={emailSending} onClick={() => setEmailOpen(false)}>
+              <Button variant="outline" size="sm" disabled={emailSending || !!emailSent} onClick={() => setEmailOpen(false)}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={sendEmailShare} disabled={emailSending} className="gap-1.5">
-                {emailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                {emailSending ? 'Sending…' : 'Send email'}
+              <Button
+                size="sm"
+                onClick={sendEmailShare}
+                disabled={emailSending || !!emailSent}
+                className={`gap-1.5 ${emailSent ? 'bg-emerald-600 text-white hover:bg-emerald-600 disabled:opacity-100' : ''}`}
+              >
+                {emailSent
+                  ? <CheckCircle2 className="h-4 w-4" />
+                  : emailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                {emailSent ? 'Sent' : emailSending ? 'Sending…' : 'Send email'}
               </Button>
             </div>
           </DialogFooter>
