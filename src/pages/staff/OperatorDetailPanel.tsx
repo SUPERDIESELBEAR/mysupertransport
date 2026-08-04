@@ -4796,6 +4796,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* MVR */}
                   <div className="space-y-2">
+                    <SectionSubtitle>MVR</SectionSubtitle>
                     <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
                     {(status.mvr_status === 'requested' || status.mvr_status === 'received') && (
                       <StageDatePicker
@@ -4814,6 +4815,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* Clearinghouse */}
                   <div className="space-y-2">
+                    <SectionSubtitle>Clearinghouse</SectionSubtitle>
                     <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
                     {(status.ch_status === 'requested' || status.ch_status === 'received') && (
                       <StageDatePicker
@@ -4832,7 +4834,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* MVR/CH Approval */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MVR/CH Approval</Label>
+                    <SectionSubtitle>MVR / Clearinghouse Approval</SectionSubtitle>
                     <Select
                       value={(status.mvr_ch_approval as string) || undefined}
                       onValueChange={v => {
@@ -4850,6 +4852,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* Notes */}
                   <div className="space-y-1.5">
+                    <SectionSubtitle>Notes</SectionSubtitle>
                     <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
                     <Textarea
                       value={status.bg_check_notes ?? ''}
