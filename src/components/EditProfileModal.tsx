@@ -147,6 +147,11 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const isDark = variant === 'dark';
+  /** North-American 10-digit mask applies to the driver app always, and to US/CA staff */
+  const usesNanpPhone = !allowInternational || NANP_COUNTRY_CODES.has(homeCountry);
+  const regionOptions = allowInternational ? getRegions(homeCountry) : [];
+  const regionIsFreeText = allowInternational && !hasRegions(homeCountry);
+  const regionLabel = allowInternational ? getRegionLabel(homeCountry) : 'Home State';
 
   // Re-seed whenever the modal opens (handles profile updates between opens)
   useEffect(() => {
@@ -186,7 +191,16 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhone(formatPhone(e.target.value));
+    const val = e.target.value;
+    setPhone(usesNanpPhone ? formatPhone(val) : val.replace(/[^0-9+\-()\s.]/g, '').slice(0, 25));
+  };
+
+  const handleCountryChange = (code: string) => {
+    setHomeCountry(code);
+    setHomeState('');
+    setCountryOpen(false);
+    // Re-apply the NANP mask when moving into US/CA so the field stays consistent
+    if (NANP_COUNTRY_CODES.has(code)) setPhone((p) => formatPhone(p));
   };
 
   /** File selected → open the crop step instead of uploading immediately */
