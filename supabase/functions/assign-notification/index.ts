@@ -65,6 +65,30 @@ Deno.serve(async (req) => {
       return json(400, { error: 'assigneeUserId required for assign/reassign' });
     }
 
+    // Assignee must be a real staff member or an active driver.
+    if ((action === 'assign' || action === 'reassign') && assigneeUserId) {
+      const { data: assigneeRoles } = await admin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', assigneeUserId)
+        .limit(10);
+      const assigneeIsStaff = (assigneeRoles ?? []).some((r: { role: string }) => STAFF_ROLES.has(r.role));
+      let assigneeIsDriver = false;
+      if (!assigneeIsStaff) {
+        const { data: opRow } = await admin
+          .from('operators')
+          .select('id')
+          .eq('user_id', assigneeUserId)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+        assigneeIsDriver = !!opRow;
+      }
+      if (!assigneeIsStaff && !assigneeIsDriver) {
+        return json(400, { error: 'Assignee must be a staff member or an active driver' });
+      }
+    }
+
     // Look up caller name for message copy.
     const { data: callerProfile } = await admin
       .from('profiles')
