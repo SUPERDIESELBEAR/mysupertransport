@@ -5355,7 +5355,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* ICA Notes */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Notes</Label>
+              <SectionSubtitle>Notes</SectionSubtitle>
+              <Label className="text-xs font-medium text-muted-foreground">ICA Notes</Label>
               <Textarea
                 value={status.ica_notes ?? ''}
                 onChange={e => updateStatus('ica_notes', e.target.value || null)}
@@ -5365,10 +5366,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
 
             {/* Lease Termination — Appendix C */}
-            <div className="pt-2 border-t border-border/60 space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Lease Termination
-              </Label>
+            <div className="pt-2 space-y-2">
+              <SectionSubtitle>Lease Termination (Appendix C)</SectionSubtitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -5384,15 +5383,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
 
             {/* ICA Amendments — add / replace a leased unit */}
-            <ICAAmendmentList
-              operatorId={operatorId}
-              operatorName={operatorName}
-              parentIcaSigned={status.ica_status === 'complete'}
-            />
+            <div className="pt-2 space-y-2">
+              <SectionSubtitle>ICA Amendments</SectionSubtitle>
+              <ICAAmendmentList
+                operatorId={operatorId}
+                operatorName={operatorName}
+                parentIcaSigned={status.ica_status === 'complete'}
+              />
+            </div>
 
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
-              <div className="pt-1 border-t border-border">
+              <div className="pt-2 space-y-2">
+                <SectionSubtitle accent="gold">Void ICA</SectionSubtitle>
                 {!showVoidConfirm ? (
                   <Button
                     variant="ghost"
