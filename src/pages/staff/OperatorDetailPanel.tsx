@@ -4772,7 +4772,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
-                    <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 1 — Background Check</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {s1Complete
@@ -4878,7 +4878,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
               <div className="flex items-center gap-2">
                 <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
-                <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
+                <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 2 — Documents</h3>
               </div>
               <div className="flex items-center gap-2">
                 {allDocsComplete
@@ -5225,7 +5225,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <FileCheck className={`h-4 w-4 ${s3Complete ? 'text-status-complete' : 'text-gold'}`} />
-                    <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 3 — ICA</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {s3Complete
@@ -5523,7 +5523,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
-                    <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 5 — Equipment Setup</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {allEquipmentReady
@@ -5777,7 +5777,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Shield className={`h-4 w-4 ${spComplete ? 'text-status-complete' : 'text-gold'}`} />
-                    <h3 className="font-semibold text-foreground text-sm">Stage 6 — Pre-Employment Screening</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 6 — Pre-Employment Screening</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {spComplete
@@ -5950,7 +5950,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
-                    <h3 className="font-semibold text-foreground text-sm">Stage 7 — Insurance</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 7 — Insurance</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {s6Complete
@@ -6341,7 +6341,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
-                    <h3 className="font-semibold text-foreground text-sm">Stage 8 — Go Live & Dispatch Readiness</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 8 — Go Live & Dispatch Readiness</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {s7Complete && (
