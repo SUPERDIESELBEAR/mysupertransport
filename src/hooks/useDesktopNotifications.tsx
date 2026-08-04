@@ -20,6 +20,30 @@ export function setDesktopNotifPreference(enabled: boolean) {
   } catch { /* ignore */ }
 }
 
+/**
+ * Whether this browser can actually deliver desktop push alerts.
+ * iOS Safari (outside an installed home-screen app) instantly denies
+ * Notification.requestPermission(), so the toggle is meaningless there.
+ */
+export function supportsDesktopNotifications(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (typeof Notification === 'undefined') return false;
+
+  const ua = navigator.userAgent || '';
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document);
+
+  if (isIOS) {
+    const standalone =
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)').matches === true;
+    return standalone;
+  }
+
+  return true;
+}
+
 interface DesktopNotificationPayload {
   title: string;
   body?: string | null;
