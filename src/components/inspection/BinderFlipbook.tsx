@@ -18,6 +18,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
 import { buildShareBodies, resolveShortUrl, type ShareItem } from '@/lib/binderShareFormat';
+import { withTimeout } from '@/lib/withTimeout';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import logo from '@/assets/supertransport-logo.png';
 
 export interface FlipbookPage {
