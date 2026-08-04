@@ -309,8 +309,14 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     if (firstName.trim().length > 50) { setError('First name must be 50 characters or less.'); return; }
     if (!lastName.trim()) { setError('Last name is required.'); return; }
     if (lastName.trim().length > 50) { setError('Last name must be 50 characters or less.'); return; }
-    const rawPhone = phone.replace(/\D/g, '');
-    if (rawPhone && rawPhone.length !== 10) { setError('Phone number must be 10 digits.'); return; }
+    const trimmedPhone = phone.trim();
+    const rawPhone = trimmedPhone.replace(/\D/g, '');
+    if (usesNanpPhone) {
+      if (rawPhone && rawPhone.length !== 10) { setError('Phone number must be 10 digits.'); return; }
+    } else if (trimmedPhone && !INTL_PHONE_RE.test(trimmedPhone)) {
+      setError('Enter a valid phone number (digits, spaces, and + - ( ) only, max 25 characters).');
+      return;
+    }
 
     if (!user) return;
 
@@ -320,8 +326,9 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       .update({
         first_name: firstName.trim(),
         last_name:  lastName.trim(),
-        phone:      rawPhone ? phone : null,
-        home_state: homeState || null,
+        phone:      rawPhone ? (usesNanpPhone ? phone : trimmedPhone) : null,
+        home_state: homeState.trim() || null,
+        ...(allowInternational ? { home_country: homeCountry || DEFAULT_COUNTRY_CODE } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', user.id);
