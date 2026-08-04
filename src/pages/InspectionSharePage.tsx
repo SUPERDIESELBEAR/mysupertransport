@@ -61,6 +61,13 @@ export default function InspectionSharePage() {
     return /\.pdf(\?|#|$)/i.test(url);
   };
 
+  // Images embedded in an <iframe> render at native pixel size, which looks
+  // cropped/zoomed on desktop. Render them as a fitted <img> instead.
+  const isImageFile = (url: string | null | undefined) => {
+    if (!url) return false;
+    return /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?)(\?|#|$)/i.test(url);
+  };
+
   const expiryBadge = () => {
     if (!doc?.expires_at) return null;
     const days = Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000);
@@ -185,7 +192,20 @@ export default function InspectionSharePage() {
 
                 {/* Inline preview — works on desktop/Android; iOS Safari will show
                     a blank box for PDFs, but the CTA above is the reliable path. */}
-                {!isIOS && (
+                {!isIOS && isImageFile(doc.file_url) && (
+                  <div className="hidden sm:flex bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-3 items-center justify-center">
+                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="block w-full">
+                      <img
+                        src={doc.file_url}
+                        alt={doc.name}
+                        className="w-full object-contain mx-auto"
+                        style={{ maxHeight: 'calc(100dvh - 340px)' }}
+                      />
+                    </a>
+                  </div>
+                )}
+
+                {!isIOS && !isImageFile(doc.file_url) && (
                   <div
                     className="hidden sm:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
                     style={{ height: 'calc(100dvh - 320px)', minHeight: 400 }}
