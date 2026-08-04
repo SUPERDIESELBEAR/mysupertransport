@@ -102,6 +102,8 @@ type OnboardingStatus = {
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
+  /** IFTA decal ships with the fuel card — 'yes' | 'no' */
+  ifta_decal_issued: string;
   // ELD exemption (pre-2000 trucks, FMCSA §395.8(a)(1)(iii))
   eld_exempt: boolean;
   eld_exempt_reason: string | null;
@@ -685,6 +687,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     decal_applied: string;
     eld_installed: string;
     fuel_card_issued: string;
+    ifta_decal_issued: string;
     mo_reg_received: string;
     eld_serial_number: string | null;
     dash_cam_number: string | null;
@@ -693,7 +696,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   }>({
     ica_status: '', mvr_ch_approval: '', pe_screening_result: '', insurance_added_date: null,
     form_2290: '', truck_title: '', truck_photos: '', truck_inspection: '',
-    decal_applied: '', eld_installed: '', fuel_card_issued: '', mo_reg_received: '',
+    decal_applied: '', eld_installed: '', fuel_card_issued: '', ifta_decal_issued: '', mo_reg_received: '',
     eld_serial_number: null, dash_cam_number: null, bestpass_number: null, fuel_card_number: null,
   });
 
@@ -1297,6 +1300,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           decal_applied: os.decal_applied ?? '',
           eld_installed: os.eld_installed ?? '',
           fuel_card_issued: os.fuel_card_issued ?? '',
+          ifta_decal_issued: os.ifta_decal_issued ?? '',
           mo_reg_received: os.mo_reg_received ?? '',
           eld_serial_number: os.eld_serial_number ?? null,
           dash_cam_number: os.dash_cam_number ?? null,
@@ -1630,7 +1634,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       },
       {
         key: 'equipment_ready',
-        label: 'Equipment Setup Complete (Decal, ELD, Fuel Card)',
+        label: 'Equipment Setup Complete (Decal, ELD, Fuel Card, IFTA Decal)',
         triggered: !wasEquipmentReady && equipmentReady,
       },
       {
@@ -1769,6 +1773,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         decal_applied: status.decal_applied ?? prev.decal_applied,
         eld_installed: status.eld_installed ?? prev.eld_installed,
         fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
+        ifta_decal_issued: status.ifta_decal_issued ?? prev.ifta_decal_issued,
         mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
         eld_serial_number: status.eld_serial_number ?? prev.eld_serial_number,
         dash_cam_number: status.dash_cam_number ?? prev.dash_cam_number,
