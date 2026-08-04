@@ -102,7 +102,7 @@ function dayHeader(iso: string): string {
 }
 
 export default function NotificationHistory() {
-  const { session } = useAuth();
+  const { session, isStaff } = useAuth();
   const { toast } = useToast();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -395,13 +395,15 @@ export default function NotificationHistory() {
             ) : (
               <button onClick={() => rowArchive(n.id)} className="p-1.5 rounded hover:bg-black/10" title="Archive"><ArchiveIcon className="h-3.5 w-3.5" /></button>
             )}
-            <button
-              onClick={() => setAssignTarget({ ids: [n.id], mode: n.assigned_to === session?.user?.id ? 'reassign' : 'assign' })}
-              className="p-1.5 rounded hover:bg-black/10"
-              title={n.assigned_to === session?.user?.id ? 'Re-assign to teammate' : 'Assign to teammate'}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-            </button>
+            {isStaff && (
+              <button
+                onClick={() => setAssignTarget({ ids: [n.id], mode: n.assigned_to === session?.user?.id ? 'reassign' : 'assign' })}
+                className="p-1.5 rounded hover:bg-black/10"
+                title={n.assigned_to === session?.user?.id ? 'Re-assign' : 'Assign to staff or driver'}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -585,7 +587,9 @@ export default function NotificationHistory() {
                 <button onClick={bulkMarkRead} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><Check className="h-3 w-3" /> Mark read</button>
                 <button onClick={bulkSnooze} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> Snooze</button>
                 <button onClick={bulkArchive} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><ArchiveIcon className="h-3 w-3" /> Archive</button>
-                <button onClick={bulkAssign} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><UserPlus className="h-3 w-3" /> Assign</button>
+                {isStaff && (
+                  <button onClick={bulkAssign} className="text-xs px-2 py-1 rounded hover:bg-white/10 inline-flex items-center gap-1"><UserPlus className="h-3 w-3" /> Assign</button>
+                )}
                 <button onClick={clearSelection} className="text-xs px-2 py-1 rounded hover:bg-white/10"><X className="h-3 w-3" /></button>
               </div>
             </div>
