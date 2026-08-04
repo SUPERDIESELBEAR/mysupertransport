@@ -31,7 +31,6 @@ export function isEquipmentInstallComplete(s: EquipmentStatusLike): boolean {
   return (
     s.decal_applied === 'yes' &&
     s.fuel_card_issued === 'yes' &&
-    s.ifta_decal_issued === 'yes' &&
     isEldRequirementMet(s)
   );
 }

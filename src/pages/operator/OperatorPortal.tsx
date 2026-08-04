@@ -802,7 +802,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         if (s.registration_status === 'needs_mo_reg') return 'not_started';
         return 'not_started';
       case 5:
-        if (s.decal_applied === 'yes' && ((s as any).eld_exempt === true || s.eld_installed === 'yes') && s.fuel_card_issued === 'yes' && (s as any).ifta_decal_issued === 'yes') return 'complete';
+        if (s.decal_applied === 'yes' && ((s as any).eld_exempt === true || s.eld_installed === 'yes') && s.fuel_card_issued === 'yes') return 'complete';
         // Exception active: operator approved to run while en route to shop
         if ((s.paper_logbook_approved || s.temp_decal_approved) && (s.decal_method === 'supertransport_shop' || s.eld_method === 'supertransport_shop')) return 'in_progress';
         if (s.decal_applied === 'yes' || s.eld_installed === 'yes' || (s as any).eld_exempt === true) return 'in_progress';
@@ -897,7 +897,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           ? [{ label: 'ELD Status', value: 'Exempt — Pre-2000 truck (paper logs)', status: 'complete' as StageStatus }]
           : [{ label: 'ELD Installed', value: fmt(onboardingStatus.eld_installed ?? 'no'), status: onboardingStatus.eld_installed === 'yes' ? 'complete' as StageStatus : (onboardingStatus.paper_logbook_approved && onboardingStatus.eld_method === 'supertransport_shop') ? 'in_progress' as StageStatus : 'not_started' as StageStatus }]),
         { label: 'Fuel Card Issued', value: fmt(onboardingStatus.fuel_card_issued ?? 'no'), status: onboardingStatus.fuel_card_issued === 'yes' ? 'complete' : 'not_started' },
-        { label: 'IFTA Decal Issued', value: fmt((onboardingStatus as any).ifta_decal_issued ?? 'no'), status: (onboardingStatus as any).ifta_decal_issued === 'yes' ? 'complete' : 'not_started' },
         ...((onboardingStatus.paper_logbook_approved || onboardingStatus.temp_decal_approved) && (onboardingStatus.decal_method === 'supertransport_shop' || onboardingStatus.eld_method === 'supertransport_shop') ? [
           { label: 'Exception Status', value: 'Approved — En Route to Shop', status: 'in_progress' as StageStatus },
         ] : []),
