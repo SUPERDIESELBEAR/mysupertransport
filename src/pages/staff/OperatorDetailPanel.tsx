@@ -5205,7 +5205,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* Documents Notes */}
             <div className="space-y-1.5 pt-1">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Documents Notes</Label>
+              <SectionSubtitle>Notes</SectionSubtitle>
+              <Label className="text-xs font-medium text-muted-foreground">Documents Notes</Label>
               <Textarea
                 value={status.doc_notes ?? ''}
                 onChange={e => setStatus(prev => ({ ...prev, doc_notes: e.target.value || null }))}
@@ -5247,7 +5248,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               {!s3Collapsed && (
                 <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Status</Label>
+              <SectionSubtitle>ICA Status</SectionSubtitle>
               <Select
                 value={(status.ica_status as string) || undefined}
                 onValueChange={v => {
@@ -5271,7 +5272,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* Date fields */}
             {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
-              <div className="pl-3 border-l-2 border-gold/30 space-y-2">
+              <div className="space-y-2">
+                <SectionSubtitle>Contract Dates</SectionSubtitle>
                 <StageDatePicker
                   label="ICA Sent Date"
                   value={status.ica_sent_date}
