@@ -320,7 +320,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   return (
     <>
     <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
-    <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} />
+    <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} allowInternational />
     <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>

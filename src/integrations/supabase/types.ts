@@ -5045,6 +5045,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           first_name: string | null
+          home_country: string
           home_state: string | null
           id: string
           invited_by: string | null
@@ -5059,6 +5060,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           first_name?: string | null
+          home_country?: string
           home_state?: string | null
           id?: string
           invited_by?: string | null
@@ -5073,6 +5075,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           first_name?: string | null
+          home_country?: string
           home_state?: string | null
           id?: string
           invited_by?: string | null

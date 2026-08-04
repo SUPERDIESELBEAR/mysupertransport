@@ -16,7 +16,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw, Check, ChevronsUpDown } from 'lucide-react';
+import {
+  COUNTRIES,
+  DEFAULT_COUNTRY_CODE,
+  NANP_COUNTRY_CODES,
+  getCountryName,
+  getRegionLabel,
+  getRegions,
+  hasRegions,
+} from '@/lib/countryRegions';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -38,6 +56,9 @@ const US_STATES = [
   'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ];
+
+/** Free-form international phone: digits, spaces, +, -, parens, max 25 chars */
+const INTL_PHONE_RE = /^[0-9+\-()\s.]{4,25}$/;
 
 /** Canvas helper — draws the cropped area (with rotation) into a square canvas clipped to a circle, returns a Blob */
 async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string, rotation = 0): Promise<Blob> {
@@ -90,9 +111,14 @@ interface EditProfileModalProps {
   onSaved?: () => void;
   /** Pass 'dark' for the operator portal's dark-theme dialog */
   variant?: 'default' | 'dark';
+  /**
+   * Management dashboard only. Adds a Country picker, country-specific regions
+   * and international phone entry. Driver app leaves this off (US-only).
+   */
+  allowInternational?: boolean;
 }
 
-export default function EditProfileModal({ open, onClose, onSaved, variant = 'default' }: EditProfileModalProps) {
+export default function EditProfileModal({ open, onClose, onSaved, variant = 'default', allowInternational = false }: EditProfileModalProps) {
   const { user, profile, refreshProfile } = useAuth();
 
   // Initialize directly from profile so the Save button is never momentarily disabled
@@ -100,6 +126,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [lastName, setLastName]     = useState(() => profile?.last_name ?? '');
   const [phone, setPhone]           = useState(() => profile?.phone ?? '');
   const [homeState, setHomeState]   = useState(() => profile?.home_state ?? '');
+  const [homeCountry, setHomeCountry] = useState(() => profile?.home_country ?? DEFAULT_COUNTRY_CODE);
+  const [countryOpen, setCountryOpen] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [success, setSuccess]       = useState(false);
@@ -119,6 +147,11 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const isDark = variant === 'dark';
+  /** North-American 10-digit mask applies to the driver app always, and to US/CA staff */
+  const usesNanpPhone = !allowInternational || NANP_COUNTRY_CODES.has(homeCountry);
+  const regionOptions = allowInternational ? getRegions(homeCountry) : [];
+  const regionIsFreeText = allowInternational && !hasRegions(homeCountry);
+  const regionLabel = allowInternational ? getRegionLabel(homeCountry) : 'Home State';
 
   // Re-seed whenever the modal opens (handles profile updates between opens)
   useEffect(() => {
@@ -127,6 +160,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       setLastName(profile.last_name ?? '');
       setPhone(profile.phone ?? '');
       setHomeState(profile.home_state ?? '');
+      setHomeCountry(profile.home_country ?? DEFAULT_COUNTRY_CODE);
+      setCountryOpen(false);
       setAvatarUrl(profile.avatar_url ?? null);
       setError(null);
       setAvatarError(null);
@@ -156,7 +191,16 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhone(formatPhone(e.target.value));
+    const val = e.target.value;
+    setPhone(usesNanpPhone ? formatPhone(val) : val.replace(/[^0-9+\-()\s.]/g, '').slice(0, 25));
+  };
+
+  const handleCountryChange = (code: string) => {
+    setHomeCountry(code);
+    setHomeState('');
+    setCountryOpen(false);
+    // Re-apply the NANP mask when moving into US/CA so the field stays consistent
+    if (NANP_COUNTRY_CODES.has(code)) setPhone((p) => formatPhone(p));
   };
 
   /** File selected → open the crop step instead of uploading immediately */
@@ -265,8 +309,14 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     if (firstName.trim().length > 50) { setError('First name must be 50 characters or less.'); return; }
     if (!lastName.trim()) { setError('Last name is required.'); return; }
     if (lastName.trim().length > 50) { setError('Last name must be 50 characters or less.'); return; }
-    const rawPhone = phone.replace(/\D/g, '');
-    if (rawPhone && rawPhone.length !== 10) { setError('Phone number must be 10 digits.'); return; }
+    const trimmedPhone = phone.trim();
+    const rawPhone = trimmedPhone.replace(/\D/g, '');
+    if (usesNanpPhone) {
+      if (rawPhone && rawPhone.length !== 10) { setError('Phone number must be 10 digits.'); return; }
+    } else if (trimmedPhone && !INTL_PHONE_RE.test(trimmedPhone)) {
+      setError('Enter a valid phone number (digits, spaces, and + - ( ) only, max 25 characters).');
+      return;
+    }
 
     if (!user) return;
 
@@ -276,8 +326,9 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       .update({
         first_name: firstName.trim(),
         last_name:  lastName.trim(),
-        phone:      rawPhone ? phone : null,
-        home_state: homeState || null,
+        phone:      rawPhone ? (usesNanpPhone ? phone : trimmedPhone) : null,
+        home_state: homeState.trim() || null,
+        ...(allowInternational ? { home_country: homeCountry || DEFAULT_COUNTRY_CODE } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', user.id);
@@ -424,7 +475,9 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 </DialogTitle>
               </div>
               <DialogDescription className={isDark ? 'text-surface-dark-muted' : ''}>
-                Update your photo, display name, phone number, and home state.
+                {allowInternational
+                  ? 'Update your photo, display name, phone number, and home location.'
+                  : 'Update your photo, display name, phone number, and home state.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -562,26 +615,92 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                     type="tel"
                     value={phone}
                     onChange={handlePhoneChange}
-                    placeholder="(555) 000-0000"
+                    placeholder={usesNanpPhone ? '(555) 000-0000' : '+44 20 7946 0958'}
                     className={inputClass}
                     autoComplete="tel"
-                    inputMode="numeric"
+                    inputMode="tel"
+                    maxLength={usesNanpPhone ? 14 : 25}
                   />
                 </div>
 
-                {/* Home state */}
+                {/* Country (management dashboard only) */}
+                {allowInternational && (
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Country</Label>
+                    <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={countryOpen}
+                          className={`w-full justify-between font-normal ${inputClass}`}
+                        >
+                          {homeCountry ? getCountryName(homeCountry) : 'Select country…'}
+                          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search country…" />
+                          <CommandList>
+                            <CommandEmpty>No country found.</CommandEmpty>
+                            <CommandGroup>
+                              {COUNTRIES.map((c) => (
+                                <CommandItem
+                                  key={c.code}
+                                  value={`${c.name} ${c.code}`}
+                                  onSelect={() => handleCountryChange(c.code)}
+                                >
+                                  <Check className={`h-4 w-4 ${homeCountry === c.code ? 'opacity-100' : 'opacity-0'}`} />
+                                  {c.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {/* Home state / region */}
                 <div className="space-y-1.5">
-                  <Label className={labelClass}>Home State</Label>
-                  <Select value={homeState} onValueChange={setHomeState}>
-                    <SelectTrigger className={inputClass}>
-                      <SelectValue placeholder="Select state…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {US_STATES.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="ep-region" className={labelClass}>{regionLabel}</Label>
+                  {!allowInternational ? (
+                    <Select value={homeState} onValueChange={setHomeState}>
+                      <SelectTrigger className={inputClass}>
+                        <SelectValue placeholder="Select state…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : regionIsFreeText ? (
+                    <Input
+                      id="ep-region"
+                      value={homeState}
+                      onChange={e => setHomeState(e.target.value.slice(0, 60))}
+                      placeholder="Enter region or province"
+                      maxLength={60}
+                      className={inputClass}
+                    />
+                  ) : (
+                    <Select value={homeState} onValueChange={setHomeState}>
+                      <SelectTrigger className={inputClass}>
+                        <SelectValue placeholder={`Select ${regionLabel.toLowerCase()}…`} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {regionOptions.map(r => (
+                          <SelectItem key={r.code} value={r.code}>
+                            {homeCountry === 'US' || homeCountry === 'CA' ? `${r.code} — ${r.name}` : r.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {error && (
