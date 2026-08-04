@@ -26,3 +26,7 @@ Keep the "IFTA Decal Issued" Yes/No dropdown in Stage 5 — Equipment exactly wh
 - `src/pages/staff/PipelineDashboard.tsx`: remove IFTA from the equip-complete predicates (~146, 176, 507) and the open-items push (~2137); keep the column in the select/mapping so the value is still available.
 - `src/pages/operator/OperatorPortal.tsx` (~805, 900) and `src/components/operator/SmartProgressWidget.tsx` (~145, 157): remove the IFTA entries from driver-facing checklists and counts.
 - No database migration and no data changes — the `ifta_decal_issued` column and existing values stay as-is.
+
+## Expected result on the Onboarding Pipeline
+
+The pipeline list returns to exactly how it looked before the IFTA change: no "Open: IFTA Decal" chips, the Active — Open Onboarding Items group back to its prior (much smaller) membership, Equip dots back to 3-item counts, and progress percentages back to their prior values. The only differences from the pre-IFTA build are the intentional ones you asked to keep: the bolder stage titles and section subtitles inside a driver's stage view, plus the IFTA Decal Issued dropdown itself in Stage 5.
