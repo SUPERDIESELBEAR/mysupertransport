@@ -185,6 +185,32 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
+// ── Section subtitle inside a stage card ────────────────────────────────────
+function SectionSubtitle({
+  children,
+  accent = 'default',
+  className = '',
+}: {
+  children: React.ReactNode;
+  accent?: 'default' | 'gold';
+  className?: string;
+}) {
+  const isGold = accent === 'gold';
+  return (
+    <div className={`pt-1 ${className}`}>
+      <p
+        className={`flex items-center gap-2 text-[13px] font-bold uppercase tracking-wider leading-tight ${
+          isGold ? 'text-gold-muted' : 'text-foreground'
+        }`}
+      >
+        <span className={`inline-block h-3.5 w-1 rounded-full shrink-0 ${isGold ? 'bg-gold' : 'bg-gold/70'}`} />
+        <span className="flex items-center gap-1.5 min-w-0">{children}</span>
+      </p>
+      <div className={`mt-1.5 h-px w-full ${isGold ? 'bg-gold/30' : 'bg-border'}`} />
+    </div>
+  );
+}
+
 // ── QPassport Uploader sub-component ────────────────────────────────────────
 function QPassportUploader({
   operatorId,
