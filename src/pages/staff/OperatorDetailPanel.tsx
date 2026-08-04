@@ -5526,7 +5526,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Truck Decals section */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Truck Decals</p>
+                    <SectionSubtitle>Truck Decals</p>
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
@@ -5550,7 +5550,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* ELD section */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">ELD</p>
+                    <SectionSubtitle>ELD</p>
 
                     {/* ELD Exempt toggle (pre-2000 trucks, FMCSA §395.8(a)(1)(iii)) */}
                     <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 space-y-2">
@@ -5612,7 +5612,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Shop Visit Exceptions — shown when either method is supertransport_shop */}
                   {showExceptionBlock && (
                     <div className="space-y-3 rounded-lg border border-gold/40 bg-gold/5 p-3">
-                      <p className="text-[11px] font-semibold text-gold-muted uppercase tracking-wider pb-1 border-b border-gold/30">Shop Visit Exceptions</p>
+                      <SectionSubtitle accent="gold">Shop Visit Exceptions</SectionSubtitle>
                       <p className="text-[11px] text-muted-foreground">Grant dispatch exceptions for operators traveling to the SUPERTRANSPORT shop for installation. The operator may run loads while en route.</p>
                       {status.eld_method === 'supertransport_shop' && (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -5656,7 +5656,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Fuel Card */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Fuel Card</p>
+                    <SectionSubtitle>Fuel Card</p>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Number</Label>
                       <Input
@@ -5687,7 +5687,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Device Numbers */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Assigned Device Numbers</p>
+                    <SectionSubtitle>Assigned Device Numbers</p>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Serial Number</Label>
@@ -5935,7 +5935,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Physical Damage Insurance */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Physical Damage Insurance</p>
+                    <SectionSubtitle>Physical Damage Insurance</p>
 
                     {/* Policy type selector */}
                     <div className="space-y-1.5">
@@ -6152,7 +6152,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Email Insurance Company */}
                   <div className="space-y-3 pt-1">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Email Insurance Company</p>
+                    <SectionSubtitle>Email Insurance Company</p>
 
                     {/* Recipient email management */}
                     <div className="space-y-2">
@@ -6254,7 +6254,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Added to insurance date */}
                   <div className="space-y-3 pt-1">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Confirmation</p>
+                    <SectionSubtitle>Confirmation</p>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
                       <DateInput
@@ -6314,7 +6314,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Go-Live</p>
+                    <SectionSubtitle>Go-Live</p>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Operator Type</Label>
                       <Select value={status.operator_type ?? 'solo'} onValueChange={v => updateStatus('operator_type', v || 'solo')}>
@@ -6371,7 +6371,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                   {/* Email DOT Consultant */}
                   <div className="mt-4 pt-4 border-t border-border space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
+                    <SectionSubtitle>
                       <Mail className="h-3 w-3" />
                       Email {dotConsultantLabel} (DOT Consultant)
                     </p>
