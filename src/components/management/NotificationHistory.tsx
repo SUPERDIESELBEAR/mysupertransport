@@ -504,7 +504,7 @@ export default function NotificationHistory() {
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 w-full sm:w-auto sm:flex-1">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2 min-w-0">
             <BellRing className="h-6 w-6 text-gold shrink-0" />
             <span className="truncate">Notifications</span>
