@@ -173,12 +173,33 @@ Deno.serve(withErrorEnvelope(async (req) => {
   if (docs.length === 0) return fail(400, 'Nothing to share');
   if (!driverName) driverName = 'Driver';
 
+  // ── 4. Bundle link: one URL that pages through every shared document ──────
+  let bundleUrl: string | null = null;
+  if (tokens.length > 1) {
+    const { data: bundle, error: bundleErr } = await supabase
+      .from('binder_share_bundles')
+      .insert({
+        created_by: userId,
+        driver_name: driverName.slice(0, 120),
+        unit_number: (body.unitNumber ?? null)?.toString().slice(0, 32) || null,
+        doc_tokens: tokens,
+      })
+      .select('token')
+      .single();
+    if (bundleErr) {
+      console.error(`[send-binder-share] bundle create failed: ${bundleErr.message}`);
+    } else if (bundle?.token) {
+      bundleUrl = buildAppUrl(`/inspect/all/${bundle.token}`);
+    }
+  }
+
   const input = {
     docs,
     driverName: driverName.slice(0, 120),
     unitNumber: (body.unitNumber ?? null)?.toString().slice(0, 32) || null,
     note,
     sharedAt: new Date(),
+    bundleUrl,
   };
 
   const result = await sendResendDirect({
