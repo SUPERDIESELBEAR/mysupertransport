@@ -479,61 +479,7 @@ export default function BinderFlipbook({
     const docs = emailPagesFor(scope);
     if (!docs.length) return;
     setEmailDocs(docs);
-    setEmailNote('');
-    setEmailError(null);
-    setEmailSent(null);
-    if (emailSentTimer.current) { clearTimeout(emailSentTimer.current); emailSentTimer.current = null; }
     setEmailOpen(true);
-  };
-
-  const sendEmailShare = async () => {
-    if (!emailDocs.length) return;
-    const to = emailRecipient.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) {
-      setEmailError('Enter a valid recipient email address.');
-      return;
-    }
-    setEmailError(null);
-    setEmailSent(null);
-    setEmailSending(true);
-    try {
-      const { data, error } = await withTimeout(
-        supabase.functions.invoke('send-binder-share', {
-        body: {
-          recipientEmail: to,
-          driverName,
-          unitNumber,
-          note: emailNote.trim() || null,
-          items: emailDocs.map(d => ({
-            token: d.shareToken ?? null,
-            url: d.shareToken ? null : d.fileUrl,
-            title: d.title,
-          })),
-        },
-        }),
-        45000,
-        'Sending the email',
-      );
-      if (error) throw error;
-      if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
-      toast({ title: 'Documents sent', description: `${emailDocs.length} document${emailDocs.length === 1 ? '' : 's'} emailed to ${to}.` });
-      setEmailSent({ to, count: emailDocs.length });
-      if (emailSentTimer.current) clearTimeout(emailSentTimer.current);
-      emailSentTimer.current = setTimeout(() => {
-        setEmailOpen(false);
-        setEmailSent(null);
-        setSelectMode(false);
-        setSelected(new Set());
-      }, 2000);
-    } catch (err) {
-      const message = await getEdgeFunctionErrorMessage(
-        err,
-        err instanceof Error ? err.message : 'Please try again.',
-      );
-      setEmailError(`${message} You can still use “Use my mail app instead”.`);
-    } finally {
-      setEmailSending(false);
-    }
   };
 
   /** Offline / no-signal escape hatch: hand off to the device mail app. */
