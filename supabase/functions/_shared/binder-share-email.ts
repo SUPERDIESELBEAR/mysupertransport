@@ -18,6 +18,8 @@ export interface BinderShareEmailInput {
   unitNumber?: string | null;
   note?: string | null;
   sharedAt?: Date;
+  /** Optional "view all documents" flipbook URL (multi-document sends). */
+  bundleUrl?: string | null;
 }
 
 function centralTimestamp(d: Date): string {
@@ -64,6 +66,9 @@ export function binderShareText(input: BinderShareEmailInput): string {
     '',
   ];
   if (note) lines.push(note, '');
+  if (input.bundleUrl && docs.length > 1) {
+    lines.push(`View all ${docs.length} documents in one place — ${input.bundleUrl}`, '');
+  }
   lines.push(`Documents (${docs.length}):`, '');
   docs.forEach((d, i) => {
     lines.push(`${i + 1}. ${d.title} — ${d.url}`);
@@ -117,6 +122,12 @@ export function binderShareHtml(input: BinderShareEmailInput): string {
             <div style="margin-top:18px;font-size:13px;color:#4A4A4A;line-height:1.6;">
               ${docs.length === 1 ? 'The roadside document below' : `The ${docs.length} roadside documents below`} can be opened with the buttons on the right. Each link is secure and time-limited.
             </div>
+            ${input.bundleUrl && docs.length > 1 ? `
+            <div style="margin-top:18px;">
+              <a href="${esc(input.bundleUrl)}" target="_blank" rel="noopener"
+                 style="display:inline-block;background:${GOLD};color:${DARK};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 26px;border-radius:8px;">View all ${docs.length} documents</a>
+              <div style="font-size:12px;color:#8A8A8A;margin-top:8px;">Opens every document in one place — page through them like a binder.</div>
+            </div>` : ''}
           </td>
         </tr>
         <tr>
