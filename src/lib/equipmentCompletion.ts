@@ -10,6 +10,7 @@ export interface EquipmentStatusLike {
   decal_applied?: string | null;
   eld_installed?: string | null;
   fuel_card_issued?: string | null;
+  ifta_decal_issued?: string | null;
   eld_exempt?: boolean | null;
   eld_serial_number?: string | null;
   dash_cam_number?: string | null;
@@ -30,6 +31,7 @@ export function isEquipmentInstallComplete(s: EquipmentStatusLike): boolean {
   return (
     s.decal_applied === 'yes' &&
     s.fuel_card_issued === 'yes' &&
+    s.ifta_decal_issued === 'yes' &&
     isEldRequirementMet(s)
   );
 }

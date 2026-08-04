@@ -134,6 +134,7 @@ function isStage5Open(op: {
   decal_applied: string;
   eld_installed: string;
   fuel_card_issued: string;
+  ifta_decal_issued: string;
   paper_logbook_approved: boolean;
   temp_decal_approved: boolean;
   eld_exempt?: boolean | null;
@@ -141,7 +142,8 @@ function isStage5Open(op: {
   const installComplete =
     op.decal_applied === 'yes' &&
     (op.eld_exempt === true || op.eld_installed === 'yes') &&
-    op.fuel_card_issued === 'yes';
+    op.fuel_card_issued === 'yes' &&
+    op.ifta_decal_issued === 'yes';
   const hasException = op.paper_logbook_approved || op.temp_decal_approved;
   return !installComplete || hasException;
 }
@@ -171,7 +173,7 @@ function StageTrack({
   const nodes = computeStageNodesFromConfig(op, stageConfigs);
   const pct = computeProgressFromConfig(op, stageConfigs);
   // Exception state: equip node is amber 'E' when paper logbook or temp decal is approved but not fully installed
-  const equipFull = op.decal_applied === 'yes' && (op.eld_exempt === true || op.eld_installed === 'yes') && op.fuel_card_issued === 'yes';
+  const equipFull = op.decal_applied === 'yes' && (op.eld_exempt === true || op.eld_installed === 'yes') && op.fuel_card_issued === 'yes' && op.ifta_decal_issued === 'yes';
   const equipException = !equipFull && (op.paper_logbook_approved || op.temp_decal_approved);
   return (
     <div className="flex items-center gap-0 min-w-[200px]">
@@ -368,6 +370,7 @@ interface OperatorRow {
   decal_applied: string;
   eld_installed: string;
   fuel_card_issued: string;
+  ifta_decal_issued: string;
   paper_logbook_approved: boolean;
   temp_decal_approved: boolean;
   eld_exempt: boolean;
@@ -501,7 +504,7 @@ interface PipelineDashboardProps {
 function computeStage(os: Record<string, string | boolean | null>): string {
   if (os.insurance_added_date) return 'Stage 7 — Insurance';
   if (os.pe_screening_result === 'clear') return 'Stage 6 — PE Screening';
-  if (os.decal_applied === 'yes' && (os.eld_exempt === true || os.eld_installed === 'yes') && os.fuel_card_issued === 'yes') return 'Stage 5 — Equipment';
+  if (os.decal_applied === 'yes' && (os.eld_exempt === true || os.eld_installed === 'yes') && os.fuel_card_issued === 'yes' && os.ifta_decal_issued === 'yes') return 'Stage 5 — Equipment';
   if (os.ica_status === 'complete') return 'Stage 4 — MO Registration';
   if (os.ica_status === 'in_progress' || os.ica_status === 'sent_for_signature') return 'Stage 3 — ICA';
   if (os.mvr_ch_approval === 'approved') return 'Stage 2 — Documents';
@@ -1141,6 +1144,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           decal_applied,
           eld_installed,
           fuel_card_issued,
+          ifta_decal_issued,
           paper_logbook_approved,
           temp_decal_approved,
           eld_exempt,
@@ -1300,6 +1304,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         decal_applied: os.decal_applied ?? 'no',
         eld_installed: os.eld_installed ?? 'no',
         fuel_card_issued: os.fuel_card_issued ?? 'no',
+        ifta_decal_issued: os.ifta_decal_issued ?? 'no',
         paper_logbook_approved: os.paper_logbook_approved ?? false,
         temp_decal_approved: os.temp_decal_approved ?? false,
         eld_exempt: os.eld_exempt ?? false,
@@ -2129,6 +2134,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   if (op.decal_applied !== 'yes') openItems.push('Decal');
                   if (op.eld_installed !== 'yes') openItems.push('ELD');
                   if (op.fuel_card_issued !== 'yes') openItems.push('Fuel Card');
+                  if (op.ifta_decal_issued !== 'yes') openItems.push('IFTA Decal');
                   const exceptionParts: string[] = [];
                   if (op.paper_logbook_approved) exceptionParts.push('Paper Logbook');
                   if (op.temp_decal_approved) exceptionParts.push('Temp Decal');
