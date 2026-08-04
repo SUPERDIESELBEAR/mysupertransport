@@ -504,6 +504,16 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
         </div>
       )}
 
+      <BinderEmailShareDialog
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        docs={selectedDocs.map(d => ({ id: d.id, title: d.name, token: d.public_share_token, url: d.file_url }))}
+        driverName={driverName}
+        unitNumber={unitNumber}
+        onSent={() => { setSelectMode(false); setSelected(new Set()); }}
+        onUseMailApp={bulkShareEmailFallback}
+      />
+
       {previewUrl && (
         <FilePreviewModal
           url={previewUrl}
