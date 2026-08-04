@@ -744,6 +744,77 @@ export default function BinderFlipbook({
           </div>
         </div>
       )}
+
+      {/* Email share */}
+      <Dialog open={emailOpen} onOpenChange={(o) => { if (!emailSending) setEmailOpen(o); }}>
+        <DialogContent className="max-w-md z-[120]">
+          <DialogHeader>
+            <DialogTitle>Email roadside {emailDocs.length === 1 ? 'document' : 'documents'}</DialogTitle>
+            <DialogDescription>
+              Sends a clean, branded SUPERTRANSPORT email with a secure View button for each document.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-40 overflow-y-auto">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                Including ({emailDocs.length})
+              </p>
+              <ul className="space-y-1">
+                {emailDocs.map(d => (
+                  <li key={d.id} className="text-xs text-foreground truncate">• {d.title}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="binder-share-email" className="text-xs">Recipient email</Label>
+              <Input
+                id="binder-share-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="officer@example.gov"
+                value={emailRecipient}
+                onChange={(e) => setEmailRecipient(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="binder-share-note" className="text-xs">Note (optional)</Label>
+              <Textarea
+                id="binder-share-note"
+                rows={3}
+                maxLength={600}
+                placeholder="Anything the recipient should know…"
+                value={emailNote}
+                onChange={(e) => setEmailNote(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              disabled={emailSending}
+              onClick={() => { setEmailOpen(false); emailFallbackMailto(); }}
+            >
+              Use my mail app instead
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={emailSending} onClick={() => setEmailOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={sendEmailShare} disabled={emailSending} className="gap-1.5">
+                {emailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                {emailSending ? 'Sending…' : 'Send email'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
