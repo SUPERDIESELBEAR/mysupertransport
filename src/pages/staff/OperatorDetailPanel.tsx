@@ -5544,10 +5544,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             status.decal_applied === 'yes',
                             status.eld_installed === 'yes',
                             status.fuel_card_issued === 'yes',
-                            status.ifta_decal_issued === 'yes',
                           ].filter(Boolean).length;
                           return done > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/3 done</span>
                           ) : null;
                         })()
                     }
