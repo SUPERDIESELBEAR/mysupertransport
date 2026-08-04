@@ -11,6 +11,11 @@ import {
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { pdfToImage } from '@/lib/pdfToImage';
 import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
 import { buildShareBodies, resolveShortUrl, type ShareItem } from '@/lib/binderShareFormat';
 import logo from '@/assets/supertransport-logo.png';
@@ -454,11 +459,76 @@ export default function BinderFlipbook({
     else openSms(body);
   };
 
-  const shareCurrentEmail = () => { void shareVia(currentItems, 'email'); };
   const shareCurrentText = () => { void shareVia(currentItems, 'sms'); };
-  const shareSelectedEmail = () => { void shareVia(selectedItems, 'email'); };
   const shareSelectedText = () => { void shareVia(selectedItems, 'sms'); };
-  const shareAllEmail = () => { void shareVia(allItems, 'email'); };
+
+  /**
+   * Email now goes through the `send-binder-share` edge function so the
+   * recipient gets a branded HTML message with per-document View buttons
+   * instead of a `mailto:` blob of raw URLs.
+   */
+  const emailPagesFor = (scope: 'current' | 'selected' | 'all'): FlipbookPage[] => {
+    if (scope === 'all') return pages.filter(p => p.shareToken);
+    if (scope === 'selected') return pages.filter(p => selected.has(p.id) && p.shareToken);
+    if (!current) return [];
+    if (current.kind === 'cover') return pages.filter(p => p.shareToken);
+    return current.shareToken || current.fileUrl ? [current] : [];
+  };
+
+  const openEmailShare = (scope: 'current' | 'selected' | 'all') => {
+    const docs = emailPagesFor(scope);
+    if (!docs.length) return;
+    setEmailDocs(docs);
+    setEmailNote('');
+    setEmailOpen(true);
+  };
+
+  const sendEmailShare = async () => {
+    if (!emailDocs.length) return;
+    const to = emailRecipient.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) {
+      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    setEmailSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-binder-share', {
+        body: {
+          recipientEmail: to,
+          driverName,
+          unitNumber,
+          note: emailNote.trim() || null,
+          items: emailDocs.map(d => ({
+            token: d.shareToken ?? null,
+            url: d.shareToken ? null : d.fileUrl,
+            title: d.title,
+          })),
+        },
+      });
+      if (error) throw error;
+      if (data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
+      toast({ title: 'Documents sent', description: `${emailDocs.length} document${emailDocs.length === 1 ? '' : 's'} emailed to ${to}.` });
+      setEmailOpen(false);
+      setSelectMode(false);
+      setSelected(new Set());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Please try again.';
+      toast({ title: 'Could not send the email', description: message, variant: 'destructive' });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  /** Offline / no-signal escape hatch: hand off to the device mail app. */
+  const emailFallbackMailto = () => {
+    const scopeLoad = async () => {
+      const docs = emailDocs;
+      if (!docs.length) return null;
+      const urls = await Promise.all(docs.map(shortenPage));
+      return { items: docs.map((d, i) => ({ title: d.title, url: urls[i] })), overflowUrl: null };
+    };
+    void shareVia(scopeLoad, 'email');
+  };
 
   const expiryBadge = useMemo(() => {
     if (!current?.expiresAt) return null;
@@ -519,7 +589,7 @@ export default function BinderFlipbook({
           <DropdownMenuContent align="end" className="w-56 z-[110]">
             {!selectMode ? (
               <>
-                <DropdownMenuItem onClick={shareCurrentEmail} disabled={!currentShare}>
+                <DropdownMenuItem onClick={() => openEmailShare('current')} disabled={!currentShare}>
                   <Mail className="h-4 w-4 mr-2" /> Email this page
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={shareCurrentText} disabled={!currentShare}>
@@ -529,7 +599,7 @@ export default function BinderFlipbook({
                   <QrCode className="h-4 w-4 mr-2" /> Show QR code
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={shareAllEmail}>
+                <DropdownMenuItem onClick={() => openEmailShare('all')}>
                   <Mail className="h-4 w-4 mr-2" /> Email all docs
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelectMode(true); setSelected(new Set()); }}>
@@ -542,7 +612,7 @@ export default function BinderFlipbook({
               </>
             ) : (
               <>
-                <DropdownMenuItem onClick={shareSelectedEmail} disabled={selected.size === 0}>
+                <DropdownMenuItem onClick={() => openEmailShare('selected')} disabled={selected.size === 0}>
                   <Mail className="h-4 w-4 mr-2" /> Email selected ({selected.size})
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={shareSelectedText} disabled={selected.size === 0}>
