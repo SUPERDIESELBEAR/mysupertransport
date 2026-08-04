@@ -4911,7 +4911,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           {!s2Collapsed && (
           <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
+              <SectionSubtitle>Registration Status</SectionSubtitle>
               <Select
                 value={(status.registration_status as string) || undefined}
                 onValueChange={v => {
@@ -4928,6 +4928,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </Select>
             </div>
             {/* Doc fields with inline Request buttons */}
+            <SectionSubtitle>Required Documents</SectionSubtitle>
             {([
               { field: 'form_2290', label: 'Form 2290', showOwnerToggle: true },
               { field: 'truck_title', label: 'Truck Title' },
