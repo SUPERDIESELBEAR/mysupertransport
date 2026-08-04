@@ -27,6 +27,7 @@ const DEVICE_LABELS: Record<string, string> = {
   license_plate: 'License Plate',
   registration: 'Truck Registration',
   bestpass: 'BestPass',
+  ifta_decal: 'IFTA Decal',
 };
 
 const STATUS_META: Record<string, { label: string; icon: JSX.Element; variant: 'default' | 'outline' | 'secondary' }> = {
