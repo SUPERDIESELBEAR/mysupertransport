@@ -11,15 +11,10 @@ import {
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { pdfToImage } from '@/lib/pdfToImage';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import BinderEmailShareDialog from './BinderEmailShareDialog';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
 import { buildShareBodies, resolveShortUrl, type ShareItem } from '@/lib/binderShareFormat';
-import { withTimeout } from '@/lib/withTimeout';
-import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import logo from '@/assets/supertransport-logo.png';
 
 export interface FlipbookPage {
@@ -249,14 +244,6 @@ export default function BinderFlipbook({
   const { toast } = useToast();
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailDocs, setEmailDocs] = useState<FlipbookPage[]>([]);
-  const [emailRecipient, setEmailRecipient] = useState('');
-  const [emailNote, setEmailNote] = useState('');
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [emailSent, setEmailSent] = useState<{ to: string; count: number } | null>(null);
-  const emailSentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => { if (emailSentTimer.current) clearTimeout(emailSentTimer.current); }, []);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`binder-title-${Math.random().toString(36).slice(2)}`).current;
 
