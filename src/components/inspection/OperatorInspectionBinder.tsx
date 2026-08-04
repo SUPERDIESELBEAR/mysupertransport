@@ -19,6 +19,7 @@ import {
 } from './InspectionBinderTypes';
 import { DocRow, ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
+import BinderEmailShareDialog from './BinderEmailShareDialog';
 
 interface Props {
   userId: string;
@@ -80,6 +81,7 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   const readyFiredRef = useRef(false);
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -209,6 +211,12 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   };
 
   const bulkShareEmail = () => {
+    if (!selectedDocs.length) return;
+    setEmailOpen(true);
+  };
+
+  /** Offline / no-signal escape hatch: hand off to the device mail app. */
+  const bulkShareEmailFallback = () => {
     const body = selectedDocs.map(d => `${d.name}: ${window.location.origin}/inspect/${d.public_share_token}`).join('\n');
     window.open(`mailto:?subject=${encodeURIComponent('Roadside Documents — SuperTransport')}&body=${encodeURIComponent(body)}`);
   };
@@ -495,6 +503,16 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
           </button>
         </div>
       )}
+
+      <BinderEmailShareDialog
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        docs={selectedDocs.map(d => ({ id: d.id, title: d.name, token: d.public_share_token, url: d.file_url }))}
+        driverName={driverName}
+        unitNumber={unitNumber}
+        onSent={() => { setSelectMode(false); setSelected(new Set()); }}
+        onUseMailApp={bulkShareEmailFallback}
+      />
 
       {previewUrl && (
         <FilePreviewModal
