@@ -3727,6 +3727,7 @@ export type Database = {
           ica_signed_date: string | null
           ica_status: Database["public"]["Enums"]["ica_status"]
           id: string
+          ifta_decal_issued: string
           insurance_added_date: string | null
           insurance_ai_address: string | null
           insurance_ai_city: string | null
@@ -3858,6 +3859,7 @@ export type Database = {
           ica_signed_date?: string | null
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
+          ifta_decal_issued?: string
           insurance_added_date?: string | null
           insurance_ai_address?: string | null
           insurance_ai_city?: string | null
@@ -3989,6 +3991,7 @@ export type Database = {
           ica_signed_date?: string | null
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
+          ifta_decal_issued?: string
           insurance_added_date?: string | null
           insurance_ai_address?: string | null
           insurance_ai_city?: string | null
@@ -7635,6 +7638,7 @@ export type Database = {
         | "bestpass"
         | "license_plate"
         | "registration"
+        | "ifta_decal"
       osas_status: "draft" | "sent" | "signed" | "void"
       pandadoc_status: "sent" | "viewed" | "completed"
       pei_applicant_status: "not_started" | "in_progress" | "complete"
@@ -7874,6 +7878,7 @@ export const Constants = {
         "bestpass",
         "license_plate",
         "registration",
+        "ifta_decal",
       ],
       osas_status: ["draft", "sent", "signed", "void"],
       pandadoc_status: ["sent", "viewed", "completed"],
