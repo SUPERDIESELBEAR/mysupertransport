@@ -5807,6 +5807,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* PE Screening */}
                   <div className="space-y-2">
+                    <SectionSubtitle>Screening Status</SectionSubtitle>
                     <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
                     {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
                       <StageDatePicker
@@ -5870,7 +5871,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* PE Results Document Upload */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
+                    <SectionSubtitle>Results Documents</SectionSubtitle>
+                    <Label className="text-xs font-medium text-muted-foreground">PE Results Document</Label>
                     <div className="flex items-center gap-2 flex-wrap">
                       {status.pe_results_doc_url && (
                         <PreviewLink url={status.pe_results_doc_url} name="PE Results" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
