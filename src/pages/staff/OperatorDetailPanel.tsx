@@ -4796,6 +4796,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* MVR */}
                   <div className="space-y-2">
+                    <SectionSubtitle>MVR</SectionSubtitle>
                     <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
                     {(status.mvr_status === 'requested' || status.mvr_status === 'received') && (
                       <StageDatePicker
@@ -4814,6 +4815,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* Clearinghouse */}
                   <div className="space-y-2">
+                    <SectionSubtitle>Clearinghouse</SectionSubtitle>
                     <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
                     {(status.ch_status === 'requested' || status.ch_status === 'received') && (
                       <StageDatePicker
@@ -4832,7 +4834,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* MVR/CH Approval */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MVR/CH Approval</Label>
+                    <SectionSubtitle>MVR / Clearinghouse Approval</SectionSubtitle>
                     <Select
                       value={(status.mvr_ch_approval as string) || undefined}
                       onValueChange={v => {
@@ -4850,6 +4852,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* Notes */}
                   <div className="space-y-1.5">
+                    <SectionSubtitle>Notes</SectionSubtitle>
                     <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
                     <Textarea
                       value={status.bg_check_notes ?? ''}
@@ -4908,7 +4911,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           {!s2Collapsed && (
           <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
+              <SectionSubtitle>Registration Status</SectionSubtitle>
               <Select
                 value={(status.registration_status as string) || undefined}
                 onValueChange={v => {
@@ -4925,6 +4928,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </Select>
             </div>
             {/* Doc fields with inline Request buttons */}
+            <SectionSubtitle>Required Documents</SectionSubtitle>
             {([
               { field: 'form_2290', label: 'Form 2290', showOwnerToggle: true },
               { field: 'truck_title', label: 'Truck Title' },
@@ -5201,7 +5205,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* Documents Notes */}
             <div className="space-y-1.5 pt-1">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Documents Notes</Label>
+              <SectionSubtitle>Notes</SectionSubtitle>
+              <Label className="text-xs font-medium text-muted-foreground">Documents Notes</Label>
               <Textarea
                 value={status.doc_notes ?? ''}
                 onChange={e => setStatus(prev => ({ ...prev, doc_notes: e.target.value || null }))}
@@ -5243,7 +5248,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               {!s3Collapsed && (
                 <div className="px-5 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Status</Label>
+              <SectionSubtitle>ICA Status</SectionSubtitle>
               <Select
                 value={(status.ica_status as string) || undefined}
                 onValueChange={v => {
@@ -5267,7 +5272,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* Date fields */}
             {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
-              <div className="pl-3 border-l-2 border-gold/30 space-y-2">
+              <div className="space-y-2">
+                <SectionSubtitle>Contract Dates</SectionSubtitle>
                 <StageDatePicker
                   label="ICA Sent Date"
                   value={status.ica_sent_date}
@@ -5349,7 +5355,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* ICA Notes */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Notes</Label>
+              <SectionSubtitle>Notes</SectionSubtitle>
+              <Label className="text-xs font-medium text-muted-foreground">ICA Notes</Label>
               <Textarea
                 value={status.ica_notes ?? ''}
                 onChange={e => updateStatus('ica_notes', e.target.value || null)}
@@ -5359,10 +5366,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
 
             {/* Lease Termination — Appendix C */}
-            <div className="pt-2 border-t border-border/60 space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Lease Termination
-              </Label>
+            <div className="pt-2 space-y-2">
+              <SectionSubtitle>Lease Termination (Appendix C)</SectionSubtitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -5378,15 +5383,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
 
             {/* ICA Amendments — add / replace a leased unit */}
-            <ICAAmendmentList
-              operatorId={operatorId}
-              operatorName={operatorName}
-              parentIcaSigned={status.ica_status === 'complete'}
-            />
+            <div className="pt-2 space-y-2">
+              <SectionSubtitle>ICA Amendments</SectionSubtitle>
+              <ICAAmendmentList
+                operatorId={operatorId}
+                operatorName={operatorName}
+                parentIcaSigned={status.ica_status === 'complete'}
+              />
+            </div>
 
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
-              <div className="pt-1 border-t border-border">
+              <div className="pt-2 space-y-2">
+                <SectionSubtitle accent="gold">Void ICA</SectionSubtitle>
                 {!showVoidConfirm ? (
                   <Button
                     variant="ghost"
@@ -5469,6 +5478,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress">
                         ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
                       </div>
+                      <SectionSubtitle>Registration Details</SectionSubtitle>
                       <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
                       {status.mo_docs_submitted === 'submitted' && (
                         <StageDatePicker
@@ -5494,7 +5504,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </Select>
                       </div>
                       <div className="space-y-1.5 pt-1">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Notes</Label>
+                        <SectionSubtitle>Notes</SectionSubtitle>
+                        <Label className="text-xs font-medium text-muted-foreground">MO Registration Notes</Label>
                         <Textarea
                           value={status.mo_notes ?? ''}
                           onChange={e => updateStatus('mo_notes', e.target.value || null)}
@@ -5796,6 +5807,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="px-5 pb-5 max-w-4xl space-y-4">
                   {/* PE Screening */}
                   <div className="space-y-2">
+                    <SectionSubtitle>Screening Status</SectionSubtitle>
                     <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
                     {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
                       <StageDatePicker
@@ -5859,7 +5871,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </div>
                   {/* PE Results Document Upload */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
+                    <SectionSubtitle>Results Documents</SectionSubtitle>
+                    <Label className="text-xs font-medium text-muted-foreground">PE Results Document</Label>
                     <div className="flex items-center gap-2 flex-wrap">
                       {status.pe_results_doc_url && (
                         <PreviewLink url={status.pe_results_doc_url} name="PE Results" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
@@ -6066,7 +6079,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           {status.insurance_ai_company && (
                             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Additional Insured on file" />
                           )}
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <p className="text-[13px] font-bold text-foreground uppercase tracking-wider">
                             Additional Insured <span className="normal-case font-normal">(if truck is financed)</span>
                             {status.insurance_ai_company && (
                               <span className="ml-1.5 normal-case font-normal text-foreground/70">— {status.insurance_ai_company}</span>
@@ -6114,7 +6127,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
                             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Certificate Holder on file" />
                           )}
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <p className="text-[13px] font-bold text-foreground uppercase tracking-wider">
                             Certificate Holder
                             {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
                               <span className="ml-1.5 normal-case font-normal text-foreground/70">— {chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company}</span>
@@ -6819,7 +6832,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 {/* ── Payroll Reference Documents (always visible) ── */}
                 <div className="px-5 py-4 space-y-3">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">Payroll Reference Documents</p>
+                    <p className="text-[13px] font-bold text-foreground uppercase tracking-wider">Payroll Reference Documents</p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -6885,7 +6898,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                 {/* ── Operational Procedure Documents (from Document Hub) ── */}
                 <div className="px-5 py-4 space-y-3">
-                  <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1">Operational Procedure Documents</p>
+                  <p className="text-[13px] font-bold text-foreground uppercase tracking-wider mb-1">Operational Procedure Documents</p>
                   {hubDocs.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground italic">Loading…</p>
                   ) : hubDocs.map(doc => {
