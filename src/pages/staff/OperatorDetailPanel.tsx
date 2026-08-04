@@ -4659,7 +4659,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               : 'none',
             tooltip: (() => {
               const done = [status.decal_applied, status.eld_installed, status.fuel_card_issued, status.ifta_decal_issued].filter(s => s === 'yes').length;
-              return done === 3 ? 'Complete' : done > 0 ? `${done}/4 done` : 'Not started';
+              return done === 4 ? 'Complete' : done > 0 ? `${done}/4 done` : 'Not started';
             })(),
           },
           {
@@ -4755,7 +4755,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           status.mvr_ch_approval === 'approved',
                         ].filter(Boolean).length;
                         return done > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/3 done</span>
                         ) : null;
                       })()
                   }
@@ -5498,6 +5498,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           status.decal_applied === 'yes',
                           status.eld_installed === 'yes',
                           status.fuel_card_issued === 'yes',
+                          status.ifta_decal_issued === 'yes',
                         ].filter(Boolean).length;
                         return done > 0 ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
