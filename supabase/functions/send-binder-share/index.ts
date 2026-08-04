@@ -7,6 +7,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { requireAuthedUser, ok, fail, withErrorEnvelope, sendResendDirect, buildAppUrl } from '../_shared/email/index.ts';
 import { binderShareHtml, binderShareText, binderShareSubject, type BinderShareDoc } from '../_shared/binder-share-email.ts';
+import { canShareBinderDocument } from '../_shared/binder-share-auth.ts';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MAX_DOCS = 30;
@@ -67,11 +68,14 @@ Deno.serve(withErrorEnvelope(async (req) => {
     .in('role', ['owner', 'management', 'onboarding_staff', 'dispatcher']);
   const isStaff = (roleRows ?? []).length > 0;
 
-  let callerOperatorIds: string[] = [];
   if (!isStaff) {
-    const { data: ops } = await supabase.from('operators').select('id').eq('user_id', userId);
-    callerOperatorIds = (ops ?? []).map((o) => o.id as string);
-    if (callerOperatorIds.length === 0) {
+    const { data: operator } = await supabase
+      .from('operators')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    if (!operator) {
       return fail(403, 'Forbidden: no binder is associated with this account');
     }
   }
@@ -138,9 +142,12 @@ Deno.serve(withErrorEnvelope(async (req) => {
       const doc = docByToken.get(token);
       if (!doc) return fail(404, 'One of the selected documents could not be found');
 
-      const ownScoped = doc.scope === 'company_wide'
-        || (doc.driver_id && callerOperatorIds.includes(doc.driver_id));
-      if (!isStaff && !ownScoped) {
+      if (!canShareBinderDocument({
+        callerUserId: userId,
+        isStaff,
+        documentScope: doc.scope,
+        documentDriverId: doc.driver_id,
+      })) {
         return fail(403, 'Forbidden: one of the selected documents is not in your binder');
       }
 
