@@ -647,6 +647,39 @@ export type Database = {
         }
         Relationships: []
       }
+      binder_share_bundles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          doc_tokens: string[]
+          driver_name: string | null
+          expires_at: string
+          id: string
+          token: string
+          unit_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          doc_tokens: string[]
+          driver_name?: string | null
+          expires_at?: string
+          id?: string
+          token?: string
+          unit_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          doc_tokens?: string[]
+          driver_name?: string | null
+          expires_at?: string
+          id?: string
+          token?: string
+          unit_number?: string | null
+        }
+        Relationships: []
+      }
       blank_log_acknowledgments: {
         Row: {
           acknowledged_at: string
@@ -6953,6 +6986,14 @@ export type Database = {
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
+      get_share_bundle_meta: {
+        Args: { p_token: string }
+        Returns: {
+          doc_count: number
+          driver_name: string
+          unit_number: string
+        }[]
+      }
       get_staff_contact_info: {
         Args: { _user_ids: string[] }
         Returns: {
@@ -7307,6 +7348,16 @@ export type Database = {
           operator_id: string
           outcome: string
           storage_path: string
+        }[]
+      }
+      resolve_share_bundle: {
+        Args: { p_token: string }
+        Returns: {
+          expires_at: string
+          file_url: string
+          id: string
+          name: string
+          share_token: string
         }[]
       }
       resolve_share_token: {

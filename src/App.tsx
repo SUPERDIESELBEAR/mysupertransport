@@ -26,6 +26,7 @@ import ApplicationStatus from "./pages/ApplicationStatus";
 import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
+import BinderShareBundlePage from "./pages/BinderShareBundlePage";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SubmitSSN from "./pages/SubmitSSN";
 import InstallApp from "./pages/InstallApp";
@@ -159,6 +160,7 @@ function AppRoutes() {
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />
+      <Route path="/inspect/all/:token" element={<BinderShareBundlePage />} />
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
       <Route path="/s/:code" element={<ShortLinkRedirect />} />
       <Route path="/pei/respond/:token" element={<PEIRespond />} />
