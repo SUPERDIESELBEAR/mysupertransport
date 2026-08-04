@@ -475,7 +475,9 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 </DialogTitle>
               </div>
               <DialogDescription className={isDark ? 'text-surface-dark-muted' : ''}>
-                Update your photo, display name, phone number, and home state.
+                {allowInternational
+                  ? 'Update your photo, display name, phone number, and home location.'
+                  : 'Update your photo, display name, phone number, and home state.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -613,26 +615,92 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                     type="tel"
                     value={phone}
                     onChange={handlePhoneChange}
-                    placeholder="(555) 000-0000"
+                    placeholder={usesNanpPhone ? '(555) 000-0000' : '+44 20 7946 0958'}
                     className={inputClass}
                     autoComplete="tel"
-                    inputMode="numeric"
+                    inputMode="tel"
+                    maxLength={usesNanpPhone ? 14 : 25}
                   />
                 </div>
 
-                {/* Home state */}
+                {/* Country (management dashboard only) */}
+                {allowInternational && (
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Country</Label>
+                    <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={countryOpen}
+                          className={`w-full justify-between font-normal ${inputClass}`}
+                        >
+                          {homeCountry ? getCountryName(homeCountry) : 'Select country…'}
+                          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search country…" />
+                          <CommandList>
+                            <CommandEmpty>No country found.</CommandEmpty>
+                            <CommandGroup>
+                              {COUNTRIES.map((c) => (
+                                <CommandItem
+                                  key={c.code}
+                                  value={`${c.name} ${c.code}`}
+                                  onSelect={() => handleCountryChange(c.code)}
+                                >
+                                  <Check className={`h-4 w-4 ${homeCountry === c.code ? 'opacity-100' : 'opacity-0'}`} />
+                                  {c.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {/* Home state / region */}
                 <div className="space-y-1.5">
-                  <Label className={labelClass}>Home State</Label>
-                  <Select value={homeState} onValueChange={setHomeState}>
-                    <SelectTrigger className={inputClass}>
-                      <SelectValue placeholder="Select state…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {US_STATES.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="ep-region" className={labelClass}>{regionLabel}</Label>
+                  {!allowInternational ? (
+                    <Select value={homeState} onValueChange={setHomeState}>
+                      <SelectTrigger className={inputClass}>
+                        <SelectValue placeholder="Select state…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : regionIsFreeText ? (
+                    <Input
+                      id="ep-region"
+                      value={homeState}
+                      onChange={e => setHomeState(e.target.value.slice(0, 60))}
+                      placeholder="Enter region or province"
+                      maxLength={60}
+                      className={inputClass}
+                    />
+                  ) : (
+                    <Select value={homeState} onValueChange={setHomeState}>
+                      <SelectTrigger className={inputClass}>
+                        <SelectValue placeholder={`Select ${regionLabel.toLowerCase()}…`} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {regionOptions.map(r => (
+                          <SelectItem key={r.code} value={r.code}>
+                            {homeCountry === 'US' || homeCountry === 'CA' ? `${r.code} — ${r.name}` : r.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {error && (
