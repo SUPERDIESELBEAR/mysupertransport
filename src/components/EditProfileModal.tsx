@@ -111,9 +111,14 @@ interface EditProfileModalProps {
   onSaved?: () => void;
   /** Pass 'dark' for the operator portal's dark-theme dialog */
   variant?: 'default' | 'dark';
+  /**
+   * Management dashboard only. Adds a Country picker, country-specific regions
+   * and international phone entry. Driver app leaves this off (US-only).
+   */
+  allowInternational?: boolean;
 }
 
-export default function EditProfileModal({ open, onClose, onSaved, variant = 'default' }: EditProfileModalProps) {
+export default function EditProfileModal({ open, onClose, onSaved, variant = 'default', allowInternational = false }: EditProfileModalProps) {
   const { user, profile, refreshProfile } = useAuth();
 
   // Initialize directly from profile so the Save button is never momentarily disabled
@@ -121,6 +126,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [lastName, setLastName]     = useState(() => profile?.last_name ?? '');
   const [phone, setPhone]           = useState(() => profile?.phone ?? '');
   const [homeState, setHomeState]   = useState(() => profile?.home_state ?? '');
+  const [homeCountry, setHomeCountry] = useState(() => profile?.home_country ?? DEFAULT_COUNTRY_CODE);
+  const [countryOpen, setCountryOpen] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [success, setSuccess]       = useState(false);
@@ -148,6 +155,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       setLastName(profile.last_name ?? '');
       setPhone(profile.phone ?? '');
       setHomeState(profile.home_state ?? '');
+      setHomeCountry(profile.home_country ?? DEFAULT_COUNTRY_CODE);
+      setCountryOpen(false);
       setAvatarUrl(profile.avatar_url ?? null);
       setError(null);
       setAvatarError(null);
