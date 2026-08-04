@@ -6079,7 +6079,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           {status.insurance_ai_company && (
                             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Additional Insured on file" />
                           )}
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <p className="text-[13px] font-bold text-foreground uppercase tracking-wider">
                             Additional Insured <span className="normal-case font-normal">(if truck is financed)</span>
                             {status.insurance_ai_company && (
                               <span className="ml-1.5 normal-case font-normal text-foreground/70">— {status.insurance_ai_company}</span>
@@ -6127,7 +6127,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
                             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Certificate Holder on file" />
                           )}
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <p className="text-[13px] font-bold text-foreground uppercase tracking-wider">
                             Certificate Holder
                             {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
                               <span className="ml-1.5 normal-case font-normal text-foreground/70">— {chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company}</span>
@@ -6832,7 +6832,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 {/* ── Payroll Reference Documents (always visible) ── */}
                 <div className="px-5 py-4 space-y-3">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">Payroll Reference Documents</p>
+                    <p className="text-[13px] font-bold text-foreground uppercase tracking-wider">Payroll Reference Documents</p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -6898,7 +6898,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                 {/* ── Operational Procedure Documents (from Document Hub) ── */}
                 <div className="px-5 py-4 space-y-3">
-                  <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1">Operational Procedure Documents</p>
+                  <p className="text-[13px] font-bold text-foreground uppercase tracking-wider mb-1">Operational Procedure Documents</p>
                   {hubDocs.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground italic">Loading…</p>
                   ) : hubDocs.map(doc => {
