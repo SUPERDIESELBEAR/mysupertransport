@@ -102,6 +102,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [search, setSearch] = useState('');
   const [backfilling, setBackfilling] = useState(false);
   const [showDeactivated, setShowDeactivated] = useState(false);
+  // Set when the user explicitly clicks a tab while a search is active — that
+  // narrows the cross-fleet search results back down to the chosen group.
+  const [scopeSearchToTab, setScopeSearchToTab] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [logUpdateTarget, setLogUpdateTarget] = useState<FleetRow | null>(null);
   const [truckPhotoTarget, setTruckPhotoTarget] = useState<FleetRow | null>(null);
@@ -317,7 +320,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     setReactivating(false);
   };
 
-  const searching = search.trim().length > 0;
+  const searching = search.trim().length > 0 && !scopeSearchToTab;
 
   // Searching spans the whole fleet — active AND deactivated — so staff never
   // have to re-run the same query on the other tab to find a unit.
@@ -449,7 +452,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       <div className="flex flex-wrap gap-1.5 items-center justify-between">
         <div className="flex gap-1.5">
         <button
-          onClick={() => { setShowDeactivated(false); setSearch(''); }}
+          onClick={() => { setShowDeactivated(false); setScopeSearchToTab(true); }}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
             !showDeactivated
               ? 'bg-primary text-primary-foreground border-primary'
@@ -462,7 +465,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           </span>
         </button>
         <button
-          onClick={() => { setShowDeactivated(true); setSearch(''); }}
+          onClick={() => { setShowDeactivated(true); setScopeSearchToTab(true); }}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors flex items-center gap-1 ${
             showDeactivated
               ? 'bg-primary text-primary-foreground border-primary'
