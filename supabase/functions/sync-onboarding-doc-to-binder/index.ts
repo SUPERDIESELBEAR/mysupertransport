@@ -178,12 +178,12 @@ async function handler(req: Request): Promise<Response> {
 
     const { data: ops, error: opsErr } = await supabase
       .from('operators')
-      .select('id, user_id, is_demo, account_status')
+      .select('id, user_id, is_demo, is_active, deactivated_at')
       .not('user_id', 'is', null);
     if (opsErr) return fail(500, 'Failed to load operators', opsErr.message);
 
     const eligible = (ops ?? []).filter(
-      (o: any) => !o.is_demo && o.account_status !== 'inactive' && o.account_status !== 'denied',
+      (o: any) => !o.is_demo && o.is_active !== false && !o.deactivated_at,
     );
 
     const results: SyncResult[] = [];
