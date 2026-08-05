@@ -109,14 +109,14 @@ export const STAFF_HELP_INDEX: HelpEntry[] = [
   },
   {
     id: 'stage-5-equipment',
-    title: 'Stage 5 — Equipment Setup',
+    title: 'Stage 5 — Onboard Systems',
     page: 'Onboarding Pipeline',
     surface: 'management',
     route: '/dashboard?view=pipeline',
     breadcrumb: 'Pipeline → Stage 5',
-    keywords: ['stage 5', 'equipment', 'decal', 'eld', 'fuel card', 'truck photos', 'dash cam', 'onboard systems assignment sheet', 'osas', 'verified by staff', 'bestpass'],
+    keywords: ['stage 5', 'onboard systems', 'equipment', 'decal', 'eld', 'fuel card', 'truck photos', 'dash cam', 'onboard systems assignment sheet', 'osas', 'verified by staff', 'bestpass'],
     audience: ALL_STAFF,
-    steps: ['Open the driver in Onboarding Pipeline.', 'Expand Stage 5 — Equipment.', 'Verify equipment assignment on the Onboard Systems Assignment Sheet (OSAS).', 'Confirm truck photos and decal are uploaded.'],
+    steps: ['Open the driver in Onboarding Pipeline.', 'Expand Stage 5 — Onboard Systems.', 'Verify equipment assignment on the Onboard Systems Assignment Sheet (OSAS).', 'Confirm truck photos and decal are uploaded.'],
   },
   {
     id: 'stage-6-pe-screening',
