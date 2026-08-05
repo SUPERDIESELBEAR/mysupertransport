@@ -235,7 +235,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     if (uid) {
       const { data: reg } = await supabase
         .from('inspection_documents')
-        .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by')
+        .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by, pending_review, source')
         .eq('scope', 'per_driver')
         .eq('driver_id', uid)
         .in('name', [REGISTRATION_DOC_NAME, 'Form 2290'])
