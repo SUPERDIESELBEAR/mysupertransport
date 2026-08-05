@@ -83,51 +83,8 @@ Deno.serve(async (req) => {
       ? `Business${setup.business_name ? ` (${setup.business_name})` : ''}`
       : 'Individual';
 
-    // ── Recipient list: owner + management with email_enabled ─────────────
-    const { data: roleRows } = await supabaseAdmin
-      .from('user_roles')
-      .select('user_id, role')
-      .in('role', ['owner', 'management']);
-
-    const candidateUserIds = Array.from(new Set((roleRows ?? []).map(r => r.user_id)));
-    if (!candidateUserIds.length) {
-      return new Response(JSON.stringify({ skipped: true, reason: 'no owner/management users' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Pull preferences for these users
-    const { data: prefRows } = await supabaseAdmin
-      .from('notification_preferences')
-      .select('user_id, email_enabled')
-      .eq('event_type', 'pay_setup_submitted')
-      .in('user_id', candidateUserIds);
-
-    const prefMap = new Map<string, boolean>();
-    (prefRows ?? []).forEach(p => prefMap.set(p.user_id, p.email_enabled));
-
-    // Owner role = default ON, others = default OFF
-    const ownerIds = new Set(
-      (roleRows ?? []).filter(r => r.role === 'owner').map(r => r.user_id)
-    );
-
-    const eligibleUserIds = candidateUserIds.filter(uid => {
-      if (prefMap.has(uid)) return prefMap.get(uid) === true;
-      return ownerIds.has(uid); // default
-    });
-
-    if (!eligibleUserIds.length) {
-      return new Response(JSON.stringify({ skipped: true, reason: 'no recipients with email enabled' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Resolve email addresses via auth.admin
-    const recipientEmails: string[] = [];
-    for (const uid of eligibleUserIds) {
-      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(uid);
-      if (user?.email) recipientEmails.push(user.email);
-    }
+    // ── Recipient list: managed Email Notification Settings ───────────────
+    const recipientEmails = await resolveEmailAddresses(supabaseAdmin, 'onboarding');
 
     if (!recipientEmails.length) {
       return new Response(JSON.stringify({ skipped: true, reason: 'no email addresses found' }), {
@@ -135,8 +92,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = new URL(buildAppUrl('/')).origin;
-    const operatorLink = `${appUrl}/management?view=operator-detail&op=${operator_id}`;
     const submittedDisplay = setup.submitted_at
       ? new Date(setup.submitted_at).toLocaleString('en-US', {
           timeZone: 'America/Chicago',
