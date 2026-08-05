@@ -376,7 +376,8 @@ export default function ManagementPortal() {
       lastChanged[status] = uid ? (nameMap[uid] ?? null) : null;
     }
 
-    setDispatchBreakdown(breakdown);
+    // Counts come from fetchOverviewMetrics (driver-based, includes drivers with
+    // no dispatch row); this fetch only resolves "last changed by" attribution.
     setDispatchLastChanged(lastChanged);
     setDispatchLastChangedAt(latestUpdatedAt);
     setDispatchLiveFlash(true);
@@ -483,15 +484,17 @@ export default function ManagementPortal() {
   useEffect(() => {
     fetchTruckDownCount();
     fetchDispatchBreakdown();
+    fetchMetrics();
     const channel = supabase
       .channel('mgmt-truck-down-banner')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'active_dispatch' }, () => {
         fetchTruckDownCount();
         fetchDispatchBreakdown();
+        fetchMetrics();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchTruckDownCount, fetchDispatchBreakdown]);
+  }, [fetchTruckDownCount, fetchDispatchBreakdown, fetchMetrics]);
 
   // Subscribe to realtime for unread notification count
   useEffect(() => {
