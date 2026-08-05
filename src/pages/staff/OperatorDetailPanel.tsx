@@ -6486,7 +6486,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <div className="mt-4 pt-4 border-t border-border space-y-3">
                     <SectionSubtitle>
                       <Mail className="h-3 w-3" />
-                      Email {dotConsultantLabel} (DOT Consultant)
+                      Email DOT Consultant
                     </SectionSubtitle>
                     <p className="text-xs text-muted-foreground">
                       Sends driver + truck details, driver's license, and any attached files to the recipients below.
@@ -6561,8 +6561,35 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </Button>
                     </div>
 
+                    {/* Consultant identity — who they are and how the email greets them */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Consultant name</Label>
+                        <Input
+                          value={dotConsultantName}
+                          onChange={e => setDotConsultantName(e.target.value)}
+                          placeholder="e.g. Tracey L. McQuilken"
+                          maxLength={80}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email greeting</Label>
+                        <Input
+                          value={dotGreetingName}
+                          onChange={e => setDotGreetingName(e.target.value)}
+                          placeholder="e.g. Tracey"
+                          maxLength={60}
+                          className="h-8 text-xs"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Email opens with “{dotGreetingName.trim() ? `Hi ${dotGreetingName.trim()}` : 'Hello'}, …”. Leave blank for a neutral greeting.
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to {dotConsultantLabel}</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to the DOT Consultant</Label>
                       <Textarea
                         rows={3}
                         placeholder="Anything the consultant should know…"
@@ -6685,7 +6712,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       ) : dotEmailSent ? (
                         <><CheckCircle2 className="h-3.5 w-3.5" /> Email Sent</>
                       ) : (
-                        <><Send className="h-3.5 w-3.5" /> Email {dotConsultantLabel}</>
+                        <><Send className="h-3.5 w-3.5" /> Email DOT Consultant</>
                       )}
                     </Button>
                   </div>
