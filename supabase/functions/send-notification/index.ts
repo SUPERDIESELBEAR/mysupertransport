@@ -3,6 +3,7 @@ import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
 import { buildQPassportDownloadUrl } from '../_shared/qpassport-link.ts';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { resolveEmailAddresses, type EmailCategory } from '../_shared/recipients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
