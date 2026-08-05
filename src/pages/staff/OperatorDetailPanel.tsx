@@ -2965,7 +2965,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           : 'Critical compliance expiry';
 
         return (
-          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`}>
+          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`} style={{ order: isQuickView ? 0 : 8 }}>
             <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-xs font-semibold ${titleColor}`}>{title}</p>
