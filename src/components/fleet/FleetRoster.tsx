@@ -320,7 +320,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     setReactivating(false);
   };
 
-  const searching = search.trim().length > 0 && !scopeSearchToTab;
+  const hasQuery = search.trim().length > 0;
+  const searching = hasQuery && !scopeSearchToTab;
 
   // Searching spans the whole fleet — active AND deactivated — so staff never
   // have to re-run the same query on the other tab to find a unit.
@@ -329,20 +330,20 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     : (showDeactivated ? deactivatedRows : activeRows);
 
   const filtered = useMemo(() => {
-    if (!searching) return rows;
+    if (!hasQuery) return rows;
     const q = search.trim().toLowerCase();
     return rows.filter(r => matchesSearch(r, q));
-  }, [rows, search, searching]);
+  }, [rows, search, hasQuery]);
 
   // Per-tab match counts shown on the Active / Deactivated chips while searching.
   const searchMatchCounts = useMemo(() => {
-    if (!searching) return null;
+    if (!hasQuery) return null;
     const q = search.trim().toLowerCase();
     return {
       active: activeRows.filter(r => matchesSearch(r, q)).length,
       deactivated: deactivatedRows.filter(r => matchesSearch(r, q)).length,
     };
-  }, [activeRows, deactivatedRows, search, searching]);
+  }, [activeRows, deactivatedRows, search, hasQuery]);
 
   const counts = useMemo(() => {
     const c = { all: filtered.length, overdue: 0, due_soon: 0, no_record: 0 };
