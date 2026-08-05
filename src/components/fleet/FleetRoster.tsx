@@ -747,6 +747,18 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
+                </div>
+                {isDeactivated && (isManagement || isOwner) && (
+                  <Button
+                    size="sm"
+                    className="h-8 w-full gap-1.5"
+                    onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
+                    title="Put this unit back on the active roster"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reactivate Unit
+                  </Button>
+                )}
               </div>
             </div>
             );
