@@ -23,6 +23,8 @@ import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
 import { PEIStatusPill, summarizePEIRows, type PEICounts } from '@/components/staff/PEIStatusPill';
 import { PEIQuickDrawer } from '@/components/management/PEIQuickDrawer';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
+import { useStaffUiPreferences } from '@/hooks/useStaffUiPreferences';
+import { PipelineColumnPicker, PIPELINE_COLUMNS, DEFAULT_PIPELINE_COLUMNS } from '@/components/staff/PipelineColumnPicker';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
