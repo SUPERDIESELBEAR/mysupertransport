@@ -23,6 +23,7 @@ import {
   type LadderEvent,
 } from '../_shared/eld/escalationLadder.ts';
 import { reminderText, type StaleModel } from '../_shared/eld/revokedListReminder.ts';
+import { resolveEmailRecipients } from '../_shared/recipients.ts';
 
 const DEFAULT_TZ = 'America/Chicago';
 
