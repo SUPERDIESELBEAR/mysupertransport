@@ -15,7 +15,7 @@ export interface PipelineColumnDef {
 export const PIPELINE_COLUMNS: PipelineColumnDef[] = [
   { key: 'phone', label: 'Phone', responsive: 'hidden md:table-cell' },
   { key: 'state', label: 'State', responsive: 'hidden lg:table-cell' },
-  { key: 'start_date', label: 'Start Date', responsive: 'hidden lg:table-cell' },
+  { key: 'start_date', label: 'Anticipated Start Date', responsive: 'hidden lg:table-cell' },
   { key: 'coordinator', label: 'Coordinator', responsive: 'hidden xl:table-cell' },
   { key: 'msgs', label: 'Msgs', responsive: 'hidden md:table-cell' },
   { key: 'compliance', label: 'CDL / Med Cert', responsive: '' },
