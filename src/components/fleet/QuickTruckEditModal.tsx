@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { saveTruckSpecs } from '@/lib/truckSync';
+import StatePermitsEditor from './StatePermitsEditor';
+import { PERMIT_STATES, emptyPermit, type StatePermit, type PermitStateCode } from '@/lib/statePermits';
 
 interface QuickTruckEditModalProps {
   open: boolean;
@@ -16,6 +19,7 @@ interface QuickTruckEditModalProps {
   onSaved: () => void;
   operatorId: string;
   driverName: string;
+  driverUserId?: string | null;
   initialValues: {
     truck_year: string | null;
     truck_make: string | null;
@@ -28,7 +32,7 @@ interface QuickTruckEditModalProps {
 }
 
 export default function QuickTruckEditModal({
-  open, onClose, onSaved, operatorId, driverName, initialValues,
+  open, onClose, onSaved, operatorId, driverName, driverUserId = null, initialValues,
 }: QuickTruckEditModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
@@ -41,6 +45,7 @@ export default function QuickTruckEditModal({
   const [plateState, setPlateState] = useState('');
   const [unit, setUnit] = useState('');
   const [trailer, setTrailer] = useState('');
+  const [permits, setPermits] = useState<StatePermit[]>(() => PERMIT_STATES.map(emptyPermit));
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +60,32 @@ export default function QuickTruckEditModal({
     setUnit(initialValues.unit_number || '');
     setTrailer(initialValues.trailer_number || '');
   }, [open, initialValues]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('truck_state_permits')
+        .select('id, state_code, registered, permit_number, expires_at, document_id')
+        .eq('operator_id', operatorId);
+      if (cancelled) return;
+      setPermits(PERMIT_STATES.map(code => {
+        const row = (data ?? []).find(r => r.state_code === code);
+        return row
+          ? {
+              id: row.id,
+              stateCode: code,
+              registered: !!row.registered,
+              permitNumber: row.permit_number,
+              expiresAt: row.expires_at,
+              documentId: row.document_id,
+            }
+          : emptyPermit(code);
+      }));
+    })();
+    return () => { cancelled = true; };
+  }, [open, operatorId]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -76,6 +107,21 @@ export default function QuickTruckEditModal({
         { entityLabel: driverName },
       );
       if (!result.ok) throw new Error(result.error || 'Failed to save');
+
+      const permitRows = permits.map(p => ({
+        operator_id: operatorId,
+        state_code: p.stateCode as PermitStateCode,
+        registered: p.registered,
+        permit_number: p.registered ? (p.permitNumber?.trim() || null) : null,
+        expires_at: p.registered ? p.expiresAt : null,
+        document_id: p.registered ? p.documentId : null,
+        updated_by: session?.user?.id ?? null,
+      }));
+      const { error: permitErr } = await supabase
+        .from('truck_state_permits')
+        .upsert(permitRows, { onConflict: 'operator_id,state_code' });
+      if (permitErr) throw permitErr;
+
       toast({ title: 'Truck specs updated' });
       onSaved();
       onClose();
@@ -144,6 +190,13 @@ export default function QuickTruckEditModal({
             <Label className="text-xs">Trailer #</Label>
             <Input className="h-9 text-sm" value={trailer} onChange={e => setTrailer(e.target.value)} placeholder="Optional" />
           </div>
+
+          <StatePermitsEditor
+            permits={permits}
+            onChange={setPermits}
+            driverUserId={driverUserId}
+            uploaderId={session?.user?.id ?? null}
+          />
 
           <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded px-2 py-1.5">
             Empty fields won't overwrite existing values. Changes also sync to any active ICA draft.
