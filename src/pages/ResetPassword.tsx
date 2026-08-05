@@ -51,6 +51,10 @@ export default function ResetPassword() {
     };
   }, []);
 
+  /** Reusing the current password is allowed — treat auth's "same password" rejection as success. */
+  const isSamePasswordError = (err: { code?: string; message?: string } | null) =>
+    !!err && (err.code === 'same_password' || /different from the old password/i.test(err.message ?? ''));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -66,7 +70,7 @@ export default function ResetPassword() {
 
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
+    if (error && !isSamePasswordError(error as { code?: string; message?: string })) {
       setError(error.message);
     } else {
       setSuccess(true);

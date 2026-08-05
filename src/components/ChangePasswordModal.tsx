@@ -30,6 +30,10 @@ export default function ChangePasswordModal({ open, onClose, variant = 'default'
 
   const isDark = variant === 'dark';
 
+  /** Reusing the current password is allowed — treat auth's "same password" rejection as success. */
+  const isSamePasswordError = (err: { code?: string; message?: string } | null) =>
+    !!err && (err.code === 'same_password' || /different from the old password/i.test(err.message ?? ''));
+
   const reset = () => {
     setNewPassword('');
     setConfirmPassword('');
@@ -62,7 +66,7 @@ export default function ChangePasswordModal({ open, onClose, variant = 'default'
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
 
-    if (updateError) {
+    if (updateError && !isSamePasswordError(updateError as { code?: string; message?: string })) {
       setError(updateError.message);
       return;
     }
