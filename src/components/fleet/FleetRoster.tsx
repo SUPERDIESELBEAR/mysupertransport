@@ -570,7 +570,12 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     </div>
                   </div>
                 </div>
-                <div className="shrink-0">{dotStatusBadge(row.dotNextDue)}</div>
+                <div className="shrink-0 flex items-center gap-1.5">
+                  {isDeactivated && (
+                    <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Deactivated</Badge>
+                  )}
+                  {dotStatusBadge(row.dotNextDue)}
+                </div>
               </div>
 
               {/* Driver + Owner */}
@@ -683,7 +688,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {showDeactivated && (isManagement || isOwner) && (
+                  {isDeactivated && (isManagement || isOwner) && (
                     <Button
                       size="sm"
                       className="h-8 gap-1.5"
@@ -728,7 +733,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {(isManagement || isOwner) && (
-                        showDeactivated ? (
+                        isDeactivated ? (
                           <DropdownMenuItem
                             className="text-primary focus:text-primary focus:bg-primary/10"
                             onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
@@ -754,7 +759,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         </>
       ) : (
