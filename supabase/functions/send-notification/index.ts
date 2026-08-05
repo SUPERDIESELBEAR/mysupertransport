@@ -57,7 +57,7 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
       <p>This is a great milestone — we're one step closer to getting you on the road! Log in to your portal to see your updated onboarding progress.</p>`,
   },
   equipment_ready: {
-    heading: '🚛 Equipment Setup Complete',
+    heading: '🚛 Onboard Systems Complete',
     body: (name) => `<p>Hi ${name},</p>
       <p>Your equipment setup has been completed:</p>
       <ul style="padding-left:20px;line-height:2;">
