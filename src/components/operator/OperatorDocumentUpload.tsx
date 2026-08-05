@@ -179,35 +179,43 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       });
       if (insertError) throw insertError;
 
-      // ── Auto-sync to Inspection Binder for select doc types ──────────
-      // Drops a copy into existing per-driver binder sections so it appears
-      // automatically in the operator's Inspection Binder.
-      const binderName =
-        slot.key === 'truck_inspection' ? 'Periodic DOT Inspections' :
-        slot.key === 'registration'     ? 'IRP Registration (cab card)' :
-        null;
+      // ── Auto-sync to Inspection Binder / Vehicle Hub ──────────────────
+      // Form 2290 and Registration go through the server-side sync so the
+      // file is copied into the binder bucket (previews + roadside sharing
+      // sign against it) and the driver's existing slot is updated rather
+      // than duplicated. Periodic DOT inspections keep the direct insert.
+      const syncedSlot = slot.key === 'form_2290' || slot.key === 'registration';
+      const binderName = slot.key === 'truck_inspection' ? 'Periodic DOT Inspections' : null;
 
-      if (binderName) {
+      if (syncedSlot || binderName) {
         try {
-          // Look up the operator's auth user_id (binder is keyed by driver_id = user_id)
-          const { data: opRow, error: opErr } = await supabase
-            .from('operators')
-            .select('user_id')
-            .eq('id', operatorId)
-            .maybeSingle();
-          if (opErr) throw opErr;
+          if (syncedSlot) {
+            const { error: fnErr } = await supabase.functions.invoke(
+              'sync-onboarding-doc-to-binder',
+              { body: { operator_id: operatorId, document_type: slot.key } },
+            );
+            if (fnErr) throw fnErr;
+          } else {
+            // Look up the operator's auth user_id (binder is keyed by driver_id = user_id)
+            const { data: opRow, error: opErr } = await supabase
+              .from('operators')
+              .select('user_id')
+              .eq('id', operatorId)
+              .maybeSingle();
+            if (opErr) throw opErr;
 
-          if (opRow?.user_id) {
-            const { error: binderErr } = await supabase.from('inspection_documents').insert({
-              name: binderName,
-              scope: 'per_driver',
-              driver_id: opRow.user_id,
-              file_url: fileUrl,
-              file_path: path,
-              uploaded_by: opRow.user_id,
-              expires_at: null,
-            });
-            if (binderErr) throw binderErr;
+            if (opRow?.user_id) {
+              const { error: binderErr } = await supabase.from('inspection_documents').insert({
+                name: binderName!,
+                scope: 'per_driver',
+                driver_id: opRow.user_id,
+                file_url: fileUrl,
+                file_path: path,
+                uploaded_by: opRow.user_id,
+                expires_at: null,
+              });
+              if (binderErr) throw binderErr;
+            }
           }
         } catch (binderSyncErr) {
           // Primary upload succeeded; surface binder sync failure so it isn't lost silently.
