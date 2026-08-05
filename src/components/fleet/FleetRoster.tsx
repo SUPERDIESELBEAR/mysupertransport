@@ -82,6 +82,19 @@ function dotStatusBadge(nextDue: string | null) {
   return <Badge variant="outline" className="text-[10px] text-emerald-700">{formatDaysHuman(days)}</Badge>;
 }
 
+/** Shared search predicate — `q` must already be trimmed and lowercased. */
+function matchesSearch(r: FleetRow, q: string): boolean {
+  return (
+    r.driverName.toLowerCase().includes(q) ||
+    r.ownerName.toLowerCase().includes(q) ||
+    (r.unitNumber ?? '').toLowerCase().includes(q) ||
+    (r.truckVin ?? '').toLowerCase().includes(q) ||
+    (r.truckMake ?? '').toLowerCase().includes(q) ||
+    (r.truckPlate ?? '').toLowerCase().includes(q) ||
+    r.statePermits.some(p => p.stateCode.toLowerCase() === q)
+  );
+}
+
 export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [activeRows, setActiveRows] = useState<FleetRow[]>([]);
   const [deactivatedRows, setDeactivatedRows] = useState<FleetRow[]>([]);
