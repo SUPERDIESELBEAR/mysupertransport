@@ -1491,6 +1491,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           attachment_paths: uploadedPaths,
           to_emails: dotToEmails,
           cc_emails: dotCcEmails,
+          greeting_name: dotGreetingName.trim() || null,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
@@ -1499,7 +1500,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDotEmailNotes('');
       setDotAttachments([]);
       setDotCcEmails([]);
-      toast({ title: `Email sent to ${dotConsultantLabel}`, description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      toast({ title: `Email sent to ${dotConsultantName.trim() || 'the DOT Consultant'}`, description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
       setTimeout(() => setDotEmailSent(false), 5000);
     } catch (err: any) {
       toast({ title: 'Failed to send email', description: err.message, variant: 'destructive' });
