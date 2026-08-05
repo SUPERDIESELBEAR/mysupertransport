@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Database } from '@/integrations/supabase/types';
 import { getDesktopNotifPreference, setDesktopNotifPreference, supportsDesktopNotifications } from '@/hooks/useDesktopNotifications';
+import StaffEmailCategoryPrefs from './StaffEmailCategoryPrefs';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -304,6 +305,7 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
 
         {/* Preference rows */}
         <div className="overflow-y-auto flex-1">
+          <StaffEmailCategoryPrefs />
           {loading ? (
             <div className="flex justify-center items-center py-16">
               <Loader2 className="h-5 w-5 animate-spin text-gold" />

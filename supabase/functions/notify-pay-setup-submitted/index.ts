@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail, ONBOARDING_EMAIL } from '../_shared/email-layout.ts';
 
-import { buildAppUrl } from '../_shared/app-url.ts';
+import { resolveEmailAddresses } from '../_shared/recipients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -83,51 +83,8 @@ Deno.serve(async (req) => {
       ? `Business${setup.business_name ? ` (${setup.business_name})` : ''}`
       : 'Individual';
 
-    // ── Recipient list: owner + management with email_enabled ─────────────
-    const { data: roleRows } = await supabaseAdmin
-      .from('user_roles')
-      .select('user_id, role')
-      .in('role', ['owner', 'management']);
-
-    const candidateUserIds = Array.from(new Set((roleRows ?? []).map(r => r.user_id)));
-    if (!candidateUserIds.length) {
-      return new Response(JSON.stringify({ skipped: true, reason: 'no owner/management users' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Pull preferences for these users
-    const { data: prefRows } = await supabaseAdmin
-      .from('notification_preferences')
-      .select('user_id, email_enabled')
-      .eq('event_type', 'pay_setup_submitted')
-      .in('user_id', candidateUserIds);
-
-    const prefMap = new Map<string, boolean>();
-    (prefRows ?? []).forEach(p => prefMap.set(p.user_id, p.email_enabled));
-
-    // Owner role = default ON, others = default OFF
-    const ownerIds = new Set(
-      (roleRows ?? []).filter(r => r.role === 'owner').map(r => r.user_id)
-    );
-
-    const eligibleUserIds = candidateUserIds.filter(uid => {
-      if (prefMap.has(uid)) return prefMap.get(uid) === true;
-      return ownerIds.has(uid); // default
-    });
-
-    if (!eligibleUserIds.length) {
-      return new Response(JSON.stringify({ skipped: true, reason: 'no recipients with email enabled' }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Resolve email addresses via auth.admin
-    const recipientEmails: string[] = [];
-    for (const uid of eligibleUserIds) {
-      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(uid);
-      if (user?.email) recipientEmails.push(user.email);
-    }
+    // ── Recipient list: managed Email Notification Settings ───────────────
+    const recipientEmails = await resolveEmailAddresses(supabaseAdmin, 'onboarding');
 
     if (!recipientEmails.length) {
       return new Response(JSON.stringify({ skipped: true, reason: 'no email addresses found' }), {
@@ -135,8 +92,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = new URL(buildAppUrl('/')).origin;
-    const operatorLink = `${appUrl}/management?view=operator-detail&op=${operator_id}`;
     const submittedDisplay = setup.submitted_at
       ? new Date(setup.submitted_at).toLocaleString('en-US', {
           timeZone: 'America/Chicago',
@@ -168,14 +123,14 @@ Deno.serve(async (req) => {
             <td style="padding:8px 0;color:#222;font-size:14px;">${submittedDisplay}</td></tr>
       </table>
 
-      <p style="margin-top:18px;">Open their detail panel to review the full pay setup and send the Everee payroll link.</p>
+      <p style="margin-top:18px;">Open SUPERDRIVE and go to the driver's detail panel to review the full pay setup and send the Everee payroll link.</p>
     `;
 
     const html = buildEmail(
       subject,
       heading,
       body,
-      { label: 'View Driver →', url: operatorLink },
+      undefined,
       ONBOARDING_EMAIL
     );
 

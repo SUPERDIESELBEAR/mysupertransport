@@ -23,6 +23,7 @@ import {
   type LadderEvent,
 } from '../_shared/eld/escalationLadder.ts';
 import { reminderText, type StaleModel } from '../_shared/eld/revokedListReminder.ts';
+import { resolveEmailRecipients } from '../_shared/recipients.ts';
 
 const DEFAULT_TZ = 'America/Chicago';
 
@@ -100,6 +101,8 @@ async function authorize(
 interface Recipient { userId: string; email: string | null }
 
 async function loadStaffRecipients(admin: SupabaseClient): Promise<Recipient[]> {
+  // In-app notifications still go to all staff; email is gated by the managed
+  // Email Notification Settings (Compliance category).
   const { data: roles } = await admin
     .from('user_roles')
     .select('user_id')
@@ -107,18 +110,10 @@ async function loadStaffRecipients(admin: SupabaseClient): Promise<Recipient[]> 
   const ids = Array.from(new Set((roles ?? []).map((r) => r.user_id as string)));
   if (ids.length === 0) return [];
 
-  const { data: optedOut } = await admin
-    .from('notification_preferences')
-    .select('user_id')
-    .in('user_id', ids)
-    .eq('event_type', 'eld_escalation')
-    .eq('email_enabled', false);
-  const muted = new Set((optedOut ?? []).map((r) => r.user_id as string));
+  const emailRecipients = await resolveEmailRecipients(admin, 'compliance');
+  const emailById = new Map(emailRecipients.map((r) => [r.user_id, r.email]));
 
-  const { data: userList } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const emailById = new Map((userList?.users ?? []).map((u) => [u.id, u.email ?? null]));
-
-  return ids.map((id) => ({ userId: id, email: muted.has(id) ? null : (emailById.get(id) ?? null) }));
+  return ids.map((id) => ({ userId: id, email: emailById.get(id) ?? null }));
 }
 
 function emailHtml(v: {
