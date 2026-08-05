@@ -736,6 +736,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const visibleColumnKeys = storedColumns.filter(k => PIPELINE_COLUMNS.some(c => c.key === k));
   const colVisible = (key: string) => visibleColumnKeys.includes(key);
   const setVisibleColumns = (next: string[]) => updatePrefs({ pipelineColumns: next });
+  // Name + Progress Track + actions column, plus the optional visible ones (+ bulk checkbox)
+  const totalColumnCount = 3 + visibleColumnKeys.length + (onBulkMessage ? 1 : 0);
 
   const [stageFilter, setStageFilter] = useState(initialStageFilter ?? 'all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -3312,7 +3314,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={totalColumnCount} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -3320,7 +3322,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={totalColumnCount} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? (
                       'No operators in the pipeline yet.'
                     ) : (
@@ -3728,7 +3730,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               return (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30">
-                    <td colSpan={11} className="px-4 py-2.5">
+                    <td colSpan={totalColumnCount} className="px-4 py-2.5">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Compliance summary — {filtered.length} visible
