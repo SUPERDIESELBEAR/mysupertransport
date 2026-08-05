@@ -442,7 +442,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
               placeholder="Search vehicles…"
               className="pl-9 text-sm h-9"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setScopeSearchToTab(false); }}
             />
           </div>
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
@@ -542,18 +542,20 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </div>
       ) : viewMode === 'cards' ? (
         <>
-        {showDeactivated && (
+        {(showDeactivated || filteredAndSorted.some(r => !!r.deactivatedAt)) && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
             <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
             These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
           </div>
         )}
-        <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${showDeactivated ? 'opacity-75' : ''}`}>
-          {filteredAndSorted.map(row => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredAndSorted.map(row => {
+            const isDeactivated = !!row.deactivatedAt;
+            return (
             <div
               key={row.operatorId}
               onClick={() => onSelectOperator(row.operatorId)}
-              className="group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3"
+              className={`group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3 ${isDeactivated ? 'opacity-75' : ''}`}
             >
               {/* Header: Unit # + DOT status */}
               <div className="flex items-start justify-between gap-2">
