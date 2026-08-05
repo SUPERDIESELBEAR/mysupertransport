@@ -12,6 +12,7 @@ import {
 import DemoLockIcon from '@/components/DemoLockIcon';
 import StaffInviteModal from './staff-directory/StaffInviteModal';
 import StaffMemberPanel from './staff-directory/StaffMemberPanel';
+import EmailNotificationSettings from './staff-directory/EmailNotificationSettings';
 import {
   ALL_STAFF_ROLES, ROLE_CONFIG, STATUS_CONFIG,
   type AppRole, type StaffMember, type StaffRole,
@@ -28,6 +29,7 @@ export default function StaffDirectory() {
   const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
   const [showInvite, setShowInvite] = useState(false);
   const [managingMember, setManagingMember] = useState<StaffMember | null>(null);
+  const [tab, setTab] = useState<'directory' | 'emails'>('directory');
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
