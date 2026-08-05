@@ -727,6 +727,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
   // Filter state
   const [search, setSearch] = useState('');
+
+  // Per-staff column visibility preferences
+  const { prefs, updatePrefs } = useStaffUiPreferences();
+  const storedColumns = Array.isArray((prefs as { pipelineColumns?: unknown }).pipelineColumns)
+    ? ((prefs as { pipelineColumns?: string[] }).pipelineColumns as string[])
+    : DEFAULT_PIPELINE_COLUMNS;
+  const visibleColumnKeys = storedColumns.filter(k => PIPELINE_COLUMNS.some(c => c.key === k));
+  const colVisible = (key: string) => visibleColumnKeys.includes(key);
+  const setVisibleColumns = (next: string[]) => updatePrefs({ pipelineColumns: next });
+
   const [stageFilter, setStageFilter] = useState(initialStageFilter ?? 'all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState(initialCoordinatorFilter ?? 'all');
