@@ -820,10 +820,10 @@ export function DeactivationWizardContent({
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">From Step 1</span>
                 <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setCurrentStep('reason')}>Edit</Button>
               </div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Driver</span><span className="font-medium">{operatorName}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Unit #</span><span className="font-medium">{unitNumber || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Termination date</span><span className="font-medium">{deactivationDate ? new Date(`${deactivationDate}T12:00:00`).toLocaleDateString('en-US') : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Reason</span><span className="font-medium">{deactivationReason || '—'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Driver</span><span className="font-medium min-w-0 text-right break-words">{operatorName}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Unit #</span><span className="font-medium min-w-0 text-right break-words">{unitNumber || '—'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Termination date</span><span className="font-medium min-w-0 text-right break-words">{deactivationDate ? new Date(`${deactivationDate}T12:00:00`).toLocaleDateString('en-US') : '—'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Reason</span><span className="font-medium min-w-0 text-right break-words">{deactivationReason || '—'}</span></div>
             </div>
             {(!deactivationDate || !deactivationReason) && (
               <Alert className="border-warning/30 bg-warning/5">
@@ -851,7 +851,7 @@ export function DeactivationWizardContent({
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email Greeting</Label>
               <Input value={greetingName} onChange={e => setGreetingName(e.target.value)} maxLength={60} placeholder="First name" className="h-8 text-xs" />
-              <p className="text-[11px] text-muted-foreground">Email opens with “{greetingName.trim() ? `Hi ${greetingName.trim()}` : 'Hello'}, please find the deactivation details below.”</p>
+              <p className="text-[11px] text-muted-foreground break-words">Email opens with “{greetingName.trim() ? `Hi ${greetingName.trim()}` : 'Hello'}, please find the deactivation details below.”</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">To</Label>
@@ -861,9 +861,9 @@ export function DeactivationWizardContent({
               </div>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {toEmails.map(email => (
-                  <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-gold/10 border-gold/40 text-foreground">
-                    {consultantEmails.includes(email) && consultantName.trim() ? `${consultantName.trim()} <${email}>` : email}
-                    <button onClick={() => setToEmails(prev => prev.filter(e => e !== email))} className="text-muted-foreground hover:text-destructive">×</button>
+                  <span key={email} className="inline-flex max-w-full min-w-0 items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-gold/10 border-gold/40 text-foreground">
+                    <span className="min-w-0 break-all">{consultantEmails.includes(email) && consultantName.trim() ? `${consultantName.trim()} <${email}>` : email}</span>
+                    <button onClick={() => setToEmails(prev => prev.filter(e => e !== email))} className="shrink-0 text-muted-foreground hover:text-destructive">×</button>
                   </span>
                 ))}
               </div>
@@ -872,9 +872,9 @@ export function DeactivationWizardContent({
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
               <div className="flex flex-wrap gap-1.5">
                 {ccEmails.map(email => (
-                  <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-muted border-border text-foreground">
-                    {email === OWNER_EMAIL ? OWNER_NAME : email}
-                    {email !== OWNER_EMAIL && <button onClick={() => setCcEmails(prev => prev.filter(e => e !== email))} className="text-muted-foreground hover:text-destructive">×</button>}
+                  <span key={email} className="inline-flex max-w-full min-w-0 items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-muted border-border text-foreground">
+                    <span className="min-w-0 break-all">{email === OWNER_EMAIL ? OWNER_NAME : email}</span>
+                    {email !== OWNER_EMAIL && <button onClick={() => setCcEmails(prev => prev.filter(e => e !== email))} className="shrink-0 text-muted-foreground hover:text-destructive">×</button>}
                   </span>
                 ))}
               </div>
@@ -902,10 +902,10 @@ export function DeactivationWizardContent({
             ) : (
               <>
                 <div className="border border-border rounded-lg p-4 bg-card space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Driver</span><span className="font-medium">{operatorName}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Truck</span><span className="font-medium">{[ica.truck_year, ica.truck_make, ica.truck_model].filter(Boolean).join(' ') || '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">VIN</span><span className="font-mono">{ica.truck_vin || '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Original ICA</span><span className="font-medium">{ica.lease_effective_date ? new Date(ica.lease_effective_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Driver</span><span className="font-medium min-w-0 text-right break-words">{operatorName}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Truck</span><span className="font-medium min-w-0 text-right break-words">{[ica.truck_year, ica.truck_make, ica.truck_model].filter(Boolean).join(' ') || '—'}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">VIN</span><span className="font-mono min-w-0 text-right break-all">{ica.truck_vin || '—'}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Original ICA</span><span className="font-medium min-w-0 text-right break-words">{ica.lease_effective_date ? new Date(ica.lease_effective_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -1150,11 +1150,11 @@ export function DeactivationWizardContent({
         return (
           <div className="space-y-4">
             <div className="border border-border rounded-lg p-4 bg-card space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Driver</span><span className="font-medium">{operatorName}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Unit #</span><span className="font-medium">{unitNumber || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Deactivation Date</span><span className="font-medium">{new Date(deactivationDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Reason</span><span className="font-medium">{deactivationReason}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Login Access</span><span className="font-medium">{keepLoginActive ? 'Retained' : 'Revoked now'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Driver</span><span className="font-medium min-w-0 text-right break-words">{operatorName}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Unit #</span><span className="font-medium min-w-0 text-right break-words">{unitNumber || '—'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Deactivation Date</span><span className="font-medium min-w-0 text-right break-words">{new Date(deactivationDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Reason</span><span className="font-medium min-w-0 text-right break-words">{deactivationReason}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Login Access</span><span className="font-medium min-w-0 text-right break-words">{keepLoginActive ? 'Retained' : 'Revoked now'}</span></div>
             </div>
             <div className="space-y-1">
               {orderedSteps.slice(1, -1).map(key => {
