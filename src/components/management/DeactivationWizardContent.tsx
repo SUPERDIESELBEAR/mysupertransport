@@ -82,8 +82,7 @@ interface IcaContract {
   lease_effective_date: string | null;
 }
 
-const SAFETY_ADVISOR_EMAIL = 'tracey@iondot.net';
-const SAFETY_ADVISOR_NAME = 'Tracey L. McQuilken';
+const DOT_SETTINGS_ROW_ID = '00000000-0000-0000-0000-000000000001';
 const OWNER_EMAIL = 'marc@mysupertransport.com';
 const OWNER_NAME = 'Marcus Mueller';
 const REASON_OPTIONS = ['Resigned', 'Terminated', 'Personal Reasons', 'Truck Down', 'Not Compliant', 'Medical', 'Abandoned', 'Other'];
@@ -116,11 +115,16 @@ export function DeactivationWizardContent({
   const [rehire, setRehire] = useState<'yes' | 'no' | ''>('');
   const [safetyNotes, setSafetyNotes] = useState<string>('');
   const [safetyNotesTouched, setSafetyNotesTouched] = useState(false);
-  const [toEmails, setToEmails] = useState<string[]>([SAFETY_ADVISOR_EMAIL]);
+  const [toEmails, setToEmails] = useState<string[]>([]);
   const [ccEmails, setCcEmails] = useState<string[]>([OWNER_EMAIL]);
   const [toInput, setToInput] = useState('');
   const [ccInput, setCcInput] = useState('');
   const [safetySent, setSafetySent] = useState(false);
+  // Saved DOT Consultant record — recipients, display name, and email greeting.
+  const [consultantEmails, setConsultantEmails] = useState<string[]>([]);
+  const [consultantName, setConsultantName] = useState('');
+  const [greetingName, setGreetingName] = useState('');
+  const consultantLabel = consultantName.trim() || 'the DOT Consultant';
 
   // Step 3: Lease termination
   const [ica, setIca] = useState<IcaContract | null>(null);
@@ -160,7 +164,7 @@ export function DeactivationWizardContent({
   // Step tracking
   const [steps, setSteps] = useState<Record<OffboardingStepKey, StepState>>({
     reason: { key: 'reason', label: 'Reason & Date', description: 'Confirm why and when the driver is leaving', status: 'in_progress' },
-    safety_advisor: { key: 'safety_advisor', label: 'Safety Advisor', description: 'Notify Tracey McQuilken of the deactivation', status: 'pending' },
+    safety_advisor: { key: 'safety_advisor', label: 'DOT Consultant', description: 'Notify the DOT Consultant of the deactivation', status: 'pending' },
     lease_termination: { key: 'lease_termination', label: 'Lease Termination', description: 'Create and sign the Appendix C', status: 'pending' },
     equipment_return: { key: 'equipment_return', label: 'Equipment Return', description: 'Send return instructions and confirm receipt', status: 'pending' },
     fuel_card: { key: 'fuel_card', label: 'Fuel Card', description: 'Deactivate assigned fuel cards', status: 'pending' },
@@ -276,7 +280,7 @@ export function DeactivationWizardContent({
     setKeepLoginActive(true);
     setLoginRetentionReason('');
     setReceiptsUploaded(false);
-    setToEmails([SAFETY_ADVISOR_EMAIL]);
+    setToEmails(consultantEmails);
     setCcEmails([OWNER_EMAIL]);
     if (session?.user?.email && EMAIL_RE.test(session.user.email) && session.user.email !== OWNER_EMAIL) {
       setCcEmails([OWNER_EMAIL, session.user.email.toLowerCase()]);
@@ -348,7 +352,29 @@ export function DeactivationWizardContent({
     setInput('');
   };
 
-  // Pre-fill the Safety Advisor notes from Step 1's internal notes until staff edit them.
+  // Load the saved DOT Consultant and pre-fill the To field with them.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('dot_consultant_email_settings')
+        .select('recipient_emails, consultant_name, greeting_name')
+        .eq('id', DOT_SETTINGS_ROW_ID)
+        .maybeSingle();
+      if (cancelled) return;
+      const emails = (((data as any)?.recipient_emails ?? []) as unknown[])
+        .filter((v): v is string => typeof v === 'string')
+        .map(v => v.trim().toLowerCase())
+        .filter(v => EMAIL_RE.test(v));
+      setConsultantEmails(emails);
+      setConsultantName(((data as any)?.consultant_name ?? '') as string);
+      setGreetingName(((data as any)?.greeting_name ?? '') as string);
+      setToEmails(prev => (prev.length === 0 ? emails : prev));
+    })();
+    return () => { cancelled = true; };
+  }, [operatorId]);
+
+  // Pre-fill the DOT Consultant notes from Step 1's internal notes until staff edit them.
   useEffect(() => {
     if (!safetyNotesTouched) setSafetyNotes(deactivationNotes);
   }, [deactivationNotes, safetyNotesTouched]);
@@ -366,6 +392,7 @@ export function DeactivationWizardContent({
           notes: safetyNotes.trim(),
           to_emails: toEmails,
           cc_emails: ccEmails,
+          greeting_name: greetingName.trim() || null,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
@@ -374,7 +401,7 @@ export function DeactivationWizardContent({
 
       setSafetySent(true);
       updateStepStatus('safety_advisor', 'completed');
-      toast({ title: 'Deactivation notice sent', description: `Sent to ${SAFETY_ADVISOR_NAME}` });
+      toast({ title: 'Deactivation notice sent', description: `Sent to ${consultantLabel}` });
     } catch (err: any) {
       toast({ title: 'Email failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -785,7 +812,7 @@ export function DeactivationWizardContent({
             <Alert className="border-gold/30 bg-gold/5">
               <ShieldAlert className="h-4 w-4 text-gold" />
               <AlertDescription className="text-xs">
-                The Safety Advisor must be notified of every deactivation so DQ files and compliance records stay current.
+                The DOT Consultant must be notified of every deactivation so DQ files and compliance records stay current.
               </AlertDescription>
             </Alert>
             <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
@@ -817,9 +844,14 @@ export function DeactivationWizardContent({
               </div>
             </div>
             <div>
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to the Safety Advisor</Label>
-              <Textarea value={safetyNotes} onChange={e => { setSafetyNotesTouched(true); setSafetyNotes(e.target.value); }} placeholder="Context for the Safety Advisor…" className="text-sm min-h-[60px] resize-none mt-1.5" />
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to the DOT Consultant</Label>
+              <Textarea value={safetyNotes} onChange={e => { setSafetyNotesTouched(true); setSafetyNotes(e.target.value); }} placeholder="Context for the DOT Consultant…" className="text-sm min-h-[60px] resize-none mt-1.5" />
               <p className="text-[11px] text-muted-foreground mt-1">Pre-filled from your Step 1 notes — review before sending, this goes to an outside party.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email Greeting</Label>
+              <Input value={greetingName} onChange={e => setGreetingName(e.target.value)} maxLength={60} placeholder="e.g. Tracey" className="h-8 text-xs" />
+              <p className="text-[11px] text-muted-foreground">Email opens with “{greetingName.trim() ? `Hi ${greetingName.trim()}` : 'Hello'}, please find the deactivation details below.”</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">To</Label>
@@ -830,7 +862,7 @@ export function DeactivationWizardContent({
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {toEmails.map(email => (
                   <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-gold/10 border-gold/40 text-foreground">
-                    {email === SAFETY_ADVISOR_EMAIL ? SAFETY_ADVISOR_NAME : email}
+                    {consultantEmails.includes(email) && consultantName.trim() ? `${consultantName.trim()} <${email}>` : email}
                     <button onClick={() => setToEmails(prev => prev.filter(e => e !== email))} className="text-muted-foreground hover:text-destructive">×</button>
                   </span>
                 ))}
@@ -849,7 +881,7 @@ export function DeactivationWizardContent({
             </div>
             {safetySent ? (
               <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
-                <CheckCircle2 className="h-4 w-4" /> Notice sent to {SAFETY_ADVISOR_NAME}
+                <CheckCircle2 className="h-4 w-4" /> Notice sent to {consultantLabel}
               </div>
             ) : (
               <Button className="w-full bg-gold hover:bg-gold/90 text-black gap-1.5" onClick={handleSendSafetyNotice} disabled={!deactivationDate || !deactivationReason || !rehire || saving}>
