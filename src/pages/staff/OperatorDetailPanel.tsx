@@ -2730,11 +2730,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>
 
       {/* Truck Owner (if this truck is owned by someone other than the driver) */}
-      <TruckOwnerCard operatorId={operatorId} />
+      <div className="empty:hidden" style={{ order: isQuickView ? 0 : 26 }}>
+        <TruckOwnerCard operatorId={operatorId} />
+      </div>
 
       {/* On Hold Banner */}
       {isOnHold && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50" style={{ order: isQuickView ? 0 : 4 }}>
           <PauseCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-blue-800">On Hold</p>
@@ -2746,7 +2748,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Safety Advisor notification banner */}
       {!isActive && !safetyAdvisorNotifiedAt && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5" style={{ order: isQuickView ? 0 : 5 }}>
           <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
@@ -2774,10 +2776,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
-      {!isActive && <OffboardingHistoryPanel operatorId={operatorId} />}
+      {!isActive && (
+        <div style={{ order: isQuickView ? 0 : 6 }}>
+          <OffboardingHistoryPanel operatorId={operatorId} />
+        </div>
+      )}
 
       {/* Status overview */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 empty:hidden" style={{ order: isQuickView ? 0 : 7 }}>
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
         {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
@@ -2789,7 +2795,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Exclude from Dispatch Hub toggle (staff & management only) */}
       {isActive && (
-        <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+        <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3" style={{ order: isQuickView ? 0 : 44 }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
