@@ -3359,58 +3359,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              >
                                {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
                              </button>
-                            {(() => {
-                              const pct = computeProgressFromConfig(op, stageConfigs);
-                              const isComplete = pct === 100;
-                              return (
-                                <span
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold leading-none shrink-0 tabular-nums"
-                                  style={
-                                    isComplete
-                                      ? { background: 'hsl(var(--status-complete) / 0.15)', color: 'hsl(var(--status-complete))' }
-                                      : pct > 0
-                                      ? { background: 'hsl(var(--status-in-progress) / 0.12)', color: 'hsl(var(--status-in-progress))' }
-                                      : { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }
-                                  }
-                                >
-                                  {pct}%
-                                </span>
-                              );
-                            })()}
-                            <OnboardingDaysPill
-                              submittedAt={op.application_submitted_at}
-                              fullyOnboarded={op.fully_onboarded}
-                            />
-                            {op.application_id && (
-                              <PEIStatusPill
-                                counts={peiCountsByApp[op.application_id]}
-                                onClick={() => setPeiDrawerFor({
-                                  applicationId: op.application_id!,
-                                  name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Applicant',
-                                })}
-                              />
-                            )}
-                            {op.unread_count > 0 && (
-                               <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
-                                 <MessageSquare className="h-2.5 w-2.5" />
-                                 {op.unread_count}
-                               </span>
-                             )}
-                            {op.doc_count > 0 && (
-                              <TooltipProvider delayDuration={150}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none shrink-0 bg-muted text-muted-foreground border border-border tabular-nums cursor-default">
-                                      <Paperclip className="h-2.5 w-2.5" />
-                                      {op.doc_count}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-xs">
-                                    {op.doc_count} document{op.doc_count !== 1 ? 's' : ''} uploaded
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                           </div>
                          {op.notes && op.notes.trim() && (
                            <TooltipProvider delayDuration={200}>
