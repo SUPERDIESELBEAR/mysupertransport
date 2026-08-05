@@ -1,7 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
-
-import { buildAppUrl } from '../_shared/app-url.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -10,18 +7,11 @@ const corsHeaders = {
 /**
  * notify-new-message
  *
- * Triggered after a DM is inserted. Always creates an in-app notification
- * for the recipient. Sends an email ONLY if:
- *   - the recipient is "offline" (no presence ping in last 2 minutes), AND
- *   - we have not already emailed them about a message from this same
- *     sender within the last 10 minutes (throttle window).
- *
- * This prevents email-spam during a back-and-forth chat while still
- * surfacing missed messages to absent users.
+ * Triggered after a message is inserted. Creates an in-app notification for
+ * each recipient. Messages NEVER trigger an email at send time — they stay
+ * inside SUPERDRIVE. The only message-related email is the once-per-message
+ * 48-hour unread reminder (see `send-unread-message-reminders`).
  */
-
-const PRESENCE_GRACE_MS    = 2  * 60 * 1000; // user is "online" if seen in last 2 min
-const THROTTLE_WINDOW_MS   = 10 * 60 * 1000; // do not re-email same sender→recipient within 10 min
 const MAX_PREVIEW_LEN      = 140;
 
 interface Payload {
