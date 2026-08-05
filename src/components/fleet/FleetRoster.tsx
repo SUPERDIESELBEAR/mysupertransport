@@ -869,6 +869,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           onSaved={fetchFleet}
           operatorId={editTarget.operatorId}
           driverName={editTarget.driverName}
+          driverUserId={editTarget.driverUserId}
           initialValues={{
             truck_year: editTarget.truckYear,
             truck_make: editTarget.truckMake,
