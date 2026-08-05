@@ -678,8 +678,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
               })()}
 
               {/* Footer: Repair cost + Edit */}
-              <div className="flex items-center justify-between border-t border-border pt-2.5">
-                <div>
+              <div className={`border-t border-border pt-2.5 ${isDeactivated ? 'flex flex-col gap-2' : ''}`}>
+                <div className={isDeactivated ? 'flex items-center justify-between gap-2' : 'flex items-center justify-between'}>
+                <div className="min-w-0">
                   <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Repair Cost</div>
                   <div className="text-sm font-mono font-semibold">
                     {row.totalRepairCost > 0
@@ -687,18 +688,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       : '—'}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {isDeactivated && (isManagement || isOwner) && (
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1.5"
-                      onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
-                      title="Put this unit back on the active roster"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Reactivate Unit
-                    </Button>
-                  )}
+                <div className="flex flex-wrap items-center justify-end gap-1.5 gap-y-2 min-w-0">
                   <Button
                     size="sm"
                     variant="ghost"
