@@ -576,33 +576,29 @@ export default function ManagementPortal() {
     // Fetch all operators with their onboarding_status to compute per-coordinator stage breakdown
     const { data: opsData } = await supabase
       .from('operators')
-      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, eld_exempt, fuel_card_issued, insurance_added_date, fully_onboarded, updated_at)');
+      .select('id, user_id, is_active, is_demo, on_hold, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, eld_exempt, fuel_card_issued, insurance_added_date, fully_onboarded, updated_at)');
+
+    // Only real, current drivers — no archived, sandbox or staff/owner operator rows.
+    const eligibleOps = ((opsData as any[]) ?? []).filter((op: any) =>
+      isEligibleDriver({
+        id: op.id,
+        user_id: op.user_id,
+        is_active: op.is_active,
+        is_demo: op.is_demo,
+        on_hold: op.on_hold,
+        onboarding_status: Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status,
+        active_dispatch: null,
+      })
+    );
 
     // Helper: compute which stage an operator is currently on (first incomplete)
-    const getStage = (os: any): keyof StageBreakdown => {
-      if (!os) return 'stage1_background';
-      if (os.fully_onboarded) return 'fully_onboarded';
-      const docsComplete = os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received';
-      const icaComplete = os.ica_status === 'complete';
-      const moComplete = os.mo_reg_received === 'yes';
-      const equipComplete = os.decal_applied === 'yes' && os.fuel_card_issued === 'yes' && (os.eld_exempt === true || os.eld_installed === 'yes');
-      if (!os.mvr_ch_approval || os.mvr_ch_approval !== 'approved') return 'stage1_background';
-      if (!docsComplete) return 'stage2_documents';
-      if (!icaComplete) return 'stage3_ica';
-      if (!moComplete) return 'stage4_mo_reg';
-      if (!equipComplete) return 'stage5_equipment';
-      return 'stage6_insurance';
-    };
-
-    const emptyBreakdown = (): StageBreakdown => ({
-      stage1_background: 0, stage2_documents: 0, stage3_ica: 0,
-      stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0,
-    });
+    const getStage = getOnboardingStage;
+    const emptyBreakdown = emptyStageCounts;
 
     // Build a map of user_id → stage counts + latest onboarding_status updated_at
     const breakdownMap: Record<string, StageBreakdown> = {};
     const lastUpdatedAtMap: Record<string, string | null> = {};
-    for (const op of (opsData ?? [])) {
+    for (const op of eligibleOps) {
       const uid = op.assigned_onboarding_staff;
       if (!uid) continue;
       if (!breakdownMap[uid]) breakdownMap[uid] = emptyBreakdown();
