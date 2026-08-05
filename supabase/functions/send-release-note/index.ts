@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail, SUPPORT_EMAIL } from '../_shared/email-layout.ts';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { resolveEmailRecipients } from '../_shared/recipients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -34,39 +35,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get all staff user IDs
-    const { data: staffRoles } = await supabaseAdmin
-      .from('user_roles')
-      .select('user_id')
-      .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner']);
-
-    if (!staffRoles?.length) {
+    // Recipients via managed Email Notification Settings (Staff & admin)
+    const staffRecipients = await resolveEmailRecipients(supabaseAdmin, 'staff_admin');
+    if (!staffRecipients.length) {
       return new Response(JSON.stringify({ sent: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const uniqueUserIds = [...new Set(staffRoles.map((r) => r.user_id))];
-
-    // Check email preferences
-    const { data: prefs } = await supabaseAdmin
-      .from('notification_preferences')
-      .select('user_id, email_enabled')
-      .eq('event_type', 'release_note')
-      .in('user_id', uniqueUserIds);
-
-    const disabledSet = new Set(
-      (prefs ?? []).filter((p) => !p.email_enabled).map((p) => p.user_id)
-    );
-
-    const eligibleIds = uniqueUserIds.filter((id) => !disabledSet.has(id));
-
-    // Get emails from auth
-    const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    const emailMap = new Map<string, string>();
-    for (const u of usersData?.users ?? []) {
-      if (u.email) emailMap.set(u.id, u.email);
-    }
+    const eligibleIds = staffRecipients.map((r) => r.user_id);
+    const emailMap = new Map<string, string>(staffRecipients.map((r) => [r.user_id, r.email]));
 
     const appUrl = new URL(buildAppUrl('/')).origin;
 
