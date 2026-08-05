@@ -848,6 +848,18 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               <span className="text-xs text-muted-foreground">({reg2290.length})</span>
             </div>
             {!readOnly && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs gap-1.5"
+                onClick={syncFromOnboarding}
+                disabled={syncingOnboarding}
+                title="Pull this driver's Form 2290 and registration from their onboarding uploads"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncingOnboarding ? 'animate-spin' : ''}`} />
+                {syncingOnboarding ? 'Syncing…' : 'Sync from onboarding'}
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -857,6 +869,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               >
                 <Plus className="h-3.5 w-3.5" /> Add Registration / 2290
               </Button>
+            </div>
             )}
           </div>
 
