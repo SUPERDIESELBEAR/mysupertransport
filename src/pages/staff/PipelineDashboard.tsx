@@ -23,6 +23,8 @@ import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
 import { PEIStatusPill, summarizePEIRows, type PEICounts } from '@/components/staff/PEIStatusPill';
 import { PEIQuickDrawer } from '@/components/management/PEIQuickDrawer';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
+import { useStaffUiPreferences } from '@/hooks/useStaffUiPreferences';
+import { PipelineColumnPicker, PIPELINE_COLUMNS, DEFAULT_PIPELINE_COLUMNS } from '@/components/staff/PipelineColumnPicker';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -725,6 +727,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
   // Filter state
   const [search, setSearch] = useState('');
+
+  // Per-staff column visibility preferences
+  const { prefs, updatePrefs } = useStaffUiPreferences();
+  const storedColumns = Array.isArray((prefs as { pipelineColumns?: unknown }).pipelineColumns)
+    ? ((prefs as { pipelineColumns?: string[] }).pipelineColumns as string[])
+    : DEFAULT_PIPELINE_COLUMNS;
+  const visibleColumnKeys = storedColumns.filter(k => PIPELINE_COLUMNS.some(c => c.key === k));
+  const colVisible = (key: string) => visibleColumnKeys.includes(key);
+  const setVisibleColumns = (next: string[]) => updatePrefs({ pipelineColumns: next });
+  // Name + Progress Track + actions column, plus the optional visible ones (+ bulk checkbox)
+  const totalColumnCount = 3 + visibleColumnKeys.length + (onBulkMessage ? 1 : 0);
+
   const [stageFilter, setStageFilter] = useState(initialStageFilter ?? 'all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState(initialCoordinatorFilter ?? 'all');
@@ -2362,6 +2376,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               )}
             </Button>
 
+            <PipelineColumnPicker visible={visibleColumnKeys} onChange={setVisibleColumns} />
+
             {(activeFilterCount > 0 || search) && (
               <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
                 <X className="h-3 w-3" />
@@ -3021,8 +3037,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
+                {colVisible('phone') && <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>}
+                {colVisible('state') && <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>}
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
                   <div className="flex flex-col gap-1.5">
                     {/* Row 1 — label + sort controls */}
@@ -3137,6 +3153,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     )}
                   </div>
                 </th>
+                {colVisible('start_date') && (
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
@@ -3164,6 +3181,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
+                )}
+                {colVisible('coordinator') && (
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
@@ -3193,6 +3212,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
+                )}
+                {colVisible('msgs') && (
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
                    <div className="inline-flex items-center gap-1">
                      <TooltipProvider>
@@ -3223,6 +3244,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                      </TooltipProvider>
                    </div>
                  </th>
+                )}
+                {colVisible('compliance') && (
                  <th className="px-4 py-3 text-center">
                    <div className="inline-flex items-center justify-center gap-1">
                      <TooltipProvider>
@@ -3253,6 +3276,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                      </TooltipProvider>
                    </div>
                  </th>
+                )}
+                {colVisible('last_activity') && (
                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                    <div className="inline-flex items-center gap-1">
                      <TooltipProvider>
@@ -3282,13 +3307,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </TooltipProvider>
                    </div>
                  </th>
+                )}
                  <th className="text-right px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={totalColumnCount} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -3296,7 +3322,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={totalColumnCount} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? (
                       'No operators in the pipeline yet.'
                     ) : (
@@ -3345,58 +3371,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              >
                                {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
                              </button>
-                            {(() => {
-                              const pct = computeProgressFromConfig(op, stageConfigs);
-                              const isComplete = pct === 100;
-                              return (
-                                <span
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold leading-none shrink-0 tabular-nums"
-                                  style={
-                                    isComplete
-                                      ? { background: 'hsl(var(--status-complete) / 0.15)', color: 'hsl(var(--status-complete))' }
-                                      : pct > 0
-                                      ? { background: 'hsl(var(--status-in-progress) / 0.12)', color: 'hsl(var(--status-in-progress))' }
-                                      : { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }
-                                  }
-                                >
-                                  {pct}%
-                                </span>
-                              );
-                            })()}
-                            <OnboardingDaysPill
-                              submittedAt={op.application_submitted_at}
-                              fullyOnboarded={op.fully_onboarded}
-                            />
-                            {op.application_id && (
-                              <PEIStatusPill
-                                counts={peiCountsByApp[op.application_id]}
-                                onClick={() => setPeiDrawerFor({
-                                  applicationId: op.application_id!,
-                                  name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Applicant',
-                                })}
-                              />
-                            )}
-                            {op.unread_count > 0 && (
-                               <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
-                                 <MessageSquare className="h-2.5 w-2.5" />
-                                 {op.unread_count}
-                               </span>
-                             )}
-                            {op.doc_count > 0 && (
-                              <TooltipProvider delayDuration={150}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none shrink-0 bg-muted text-muted-foreground border border-border tabular-nums cursor-default">
-                                      <Paperclip className="h-2.5 w-2.5" />
-                                      {op.doc_count}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-xs">
-                                    {op.doc_count} document{op.doc_count !== 1 ? 's' : ''} uploaded
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                           </div>
                          {op.notes && op.notes.trim() && (
                            <TooltipProvider delayDuration={200}>
@@ -3458,7 +3432,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            </div>
                          )}
-                          {op.user_id && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {op.user_id && (
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -3495,11 +3470,20 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          )}
+                            )}
+                            <OnboardingDaysPill
+                              submittedAt={op.application_submitted_at}
+                              fullyOnboarded={op.fully_onboarded}
+                            />
+                          </div>
                        </div>
                      </td>
+                    {colVisible('phone') && (
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>
+                    )}
+                    {colVisible('state') && (
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
+                    )}
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1.5">
                          <StageTrack
@@ -3538,6 +3522,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                        </div>
                      </td>
                     {/* Anticipated Start Date — inline editable */}
+                    {colVisible('start_date') && (
                     <td className="px-4 py-3 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
                       {(() => {
                         const dateStr = op.anticipated_start_date;
@@ -3554,6 +3539,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         );
                       })()}
                     </td>
+                    )}
+                    {colVisible('coordinator') && (
                     <td className="px-4 py-3 hidden xl:table-cell">
                       <div className="flex items-center gap-1.5 min-w-[160px]">
                         {assigningMap[op.id] && (
@@ -3585,6 +3572,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         </Select>
                       </div>
                     </td>
+                    )}
+                    {colVisible('msgs') && (
                      <td className="px-4 py-3 hidden md:table-cell">
                        {op.unread_count > 0 ? (
                          op.unread_count >= 3 ? (
@@ -3612,7 +3601,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          <span className="text-muted-foreground/40 text-xs">—</span>
                        )}
                      </td>
+                    )}
                     {/* Compliance icon cell */}
+                    {colVisible('compliance') && (
                     <td className="px-4 py-3 text-center">
                       {(() => {
                         const alert = complianceByOperator[op.id];
@@ -3657,7 +3648,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         );
                       })()}
                      </td>
+                    )}
                      {/* Last Activity cell */}
+                    {colVisible('last_activity') && (
                      <td className="px-4 py-3 hidden xl:table-cell whitespace-nowrap">
                        {op.onboarding_updated_at ? (
                          <TooltipProvider delayDuration={100}>
@@ -3682,6 +3675,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          <span className="text-muted-foreground/40 text-xs">—</span>
                        )}
                      </td>
+                    )}
                      <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                       {op.application_id && (
@@ -3736,7 +3730,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               return (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30">
-                    <td colSpan={11} className="px-4 py-2.5">
+                    <td colSpan={totalColumnCount} className="px-4 py-2.5">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Compliance summary — {filtered.length} visible
