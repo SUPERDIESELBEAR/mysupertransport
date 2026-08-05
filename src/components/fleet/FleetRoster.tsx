@@ -16,6 +16,8 @@ import DecalPhotoViewerModal from './DecalPhotoViewerModal';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { operatorDisplayName } from '@/lib/profileNames';
+import StatePermitChips from './StatePermitChips';
+import { PERMIT_STATES, type StatePermit, type PermitStateCode } from '@/lib/statePermits';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
@@ -64,6 +66,7 @@ interface FleetRow {
   decalPhotosExtra: Array<{ url: string; label?: string }>;
   deactivatedAt: string | null;
   insuranceAddedDate: string | null;
+  statePermits: StatePermit[];
 }
 
 interface FleetRosterProps {
@@ -135,7 +138,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
 
     const opIds = filteredOperators.map(o => o.id);
 
-    const [{ data: maintenance }, { data: dotInspections }, { data: assignments }, { data: truckPhotoDocs }] = await Promise.all([
+    const [{ data: maintenance }, { data: dotInspections }, { data: assignments }, { data: truckPhotoDocs }, { data: statePermitRows }] = await Promise.all([
       supabase.from('truck_maintenance_records').select('operator_id, amount').in('operator_id', opIds),
       supabase.from('truck_dot_inspections').select('operator_id, next_due_date').order('inspection_date', { ascending: false }).in('operator_id', opIds),
       supabase
@@ -151,6 +154,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         .is('deleted_at', null)
         .in('operator_id', opIds)
         .order('uploaded_at', { ascending: false }),
+      supabase
+        .from('truck_state_permits')
+        .select('id, operator_id, state_code, registered, permit_number, expires_at, document_id')
+        .eq('registered', true)
+        .in('operator_id', opIds),
     ]);
 
     const costMap = new Map<string, number>();
@@ -181,6 +189,22 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       const list = photoMap.get(d.operator_id) ?? [];
       list.push({ id: d.id, file_name: d.file_name, file_url: d.file_url, uploaded_at: d.uploaded_at });
       photoMap.set(d.operator_id, list);
+    });
+
+    // Only registered states are fetched — alphabetical order comes from PERMIT_STATES.
+    const permitMap = new Map<string, StatePermit[]>();
+    (statePermitRows ?? []).forEach((p: any) => {
+      if (!PERMIT_STATES.includes(p.state_code)) return;
+      const list = permitMap.get(p.operator_id) ?? [];
+      list.push({
+        id: p.id,
+        stateCode: p.state_code as PermitStateCode,
+        registered: true,
+        permitNumber: p.permit_number,
+        expiresAt: p.expires_at,
+        documentId: p.document_id,
+      });
+      permitMap.set(p.operator_id, list);
     });
 
     const fleet: FleetRow[] = filteredOperators.map(op => {
@@ -224,6 +248,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         decalPhotosExtra,
         deactivatedAt: op.deactivated_at ?? null,
         insuranceAddedDate: os?.insurance_added_date ?? null,
+        statePermits: permitMap.get(op.id) ?? [],
       };
     });
 
