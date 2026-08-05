@@ -13,6 +13,8 @@ Yes, the plan makes sense. Today "Tracey L. McQuilken" and `tracey@iondot.net` a
 | Deactivation confirmation | "Notice sent to Tracey L. McQuilken" | "Notice sent to the DOT Consultant" |
 | Recipient chips in both dialogs | "Tracey L. McQuilken <tracey@iondot.net>" | the saved consultant name, or the raw email if not the saved consultant |
 | Blocking banner on a deactivated driver | "...Tracey McQuilken has not yet been emailed" | "...the DOT Consultant has not yet been emailed" |
+| Stage 8 notes label + send button | "NOTES TO TRACEY MCQUILKEN" / "Email Tracey McQuilken" | "NOTES TO THE DOT CONSULTANT" / "Email DOT Consultant" |
+| Deactivation email greeting | "Hi Tracey, please find the deactivation details below." | "Hi {greeting name}, please find the deactivation details below." from the saved setting |
 | Helper text / toasts / Staff Help article | Tracey by name | DOT Consultant |
 
 **One saved DOT Consultant record.** In the same place staff already edit the recipient list (Stage 8's "To" block, and mirrored in the deactivation notice dialog), two fields are added above the email chips:
