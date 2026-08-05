@@ -305,6 +305,7 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
 
         {/* Preference rows */}
         <div className="overflow-y-auto flex-1">
+          <StaffEmailCategoryPrefs />
           {loading ? (
             <div className="flex justify-center items-center py-16">
               <Loader2 className="h-5 w-5 animate-spin text-gold" />
