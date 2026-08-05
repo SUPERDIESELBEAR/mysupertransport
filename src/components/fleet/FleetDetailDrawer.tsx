@@ -314,6 +314,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   }, [reg2290, reg2290Search]);
 
   const confirmDeleteReg2290 = async () => {
+    // (see saveReg2290Expiry below for the inline expiration editor)
     if (!deletingReg2290) return;
     setDeletingReg2290Busy(true);
     try {
