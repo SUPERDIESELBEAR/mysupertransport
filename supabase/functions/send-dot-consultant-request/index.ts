@@ -259,6 +259,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       extraLinks,
       attachedNames,
       senderName,
+      greeting,
     });
 
     const subject = `DOT Consultant Request — ${driverName}`;
