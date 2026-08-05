@@ -2371,6 +2371,37 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  // ── Internal Notes: standalone save (must stay above the `loading` early
+  // return so hook order is stable across renders) ──
+  const saveNotesOnly = useCallback(async () => {
+    if (!savedSnapshot.current) return;
+    if (guardDemo()) return;
+    const value = sanitizeText(notes);
+    setNotesSaving(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ notes: value })
+        .eq('id', operatorId);
+      if (error) throw error;
+      if (savedSnapshot.current) savedSnapshot.current = { ...savedSnapshot.current, notes };
+      setNotesSavedAt(new Date());
+    } catch (e: any) {
+      toast({ title: 'Failed to save internal notes', description: e?.message, variant: 'destructive' });
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [notes, operatorId, guardDemo]);
+
+  const notesDirty = !loading && savedSnapshot.current !== null && savedSnapshot.current.notes !== notes;
+
+  useEffect(() => {
+    if (!notesDirty) return;
+    const t = window.setTimeout(() => { void saveNotesOnly(); }, 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, notesDirty]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -2445,33 +2476,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
   const isQuickView = !!status.fully_onboarded;
 
-  const saveNotesOnly = useCallback(async () => {
-    if (!savedSnapshot.current) return;
-    if (guardDemo()) return;
-    const value = sanitizeText(notes);
-    setNotesSaving(true);
-    try {
-      const { error } = await supabase
-        .from('operators')
-        .update({ notes: value })
-        .eq('id', operatorId);
-      if (error) throw error;
-      if (savedSnapshot.current) savedSnapshot.current = { ...savedSnapshot.current, notes };
-      setNotesSavedAt(new Date());
-    } catch (e: any) {
-      toast({ title: 'Failed to save internal notes', description: e?.message, variant: 'destructive' });
-    } finally {
-      setNotesSaving(false);
-    }
-  }, [notes, operatorId, guardDemo]);
-
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
     savedSnapshot.current.notes !== notes
   );
 
   // ── Internal Notes: standalone save (debounced auto-save + explicit button) ──
-  const notesDirty = savedSnapshot.current !== null && savedSnapshot.current.notes !== notes;
   const notesStatus: UnsavedStatus = notesSaving
     ? 'saving'
     : notesDirty
@@ -2479,13 +2489,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       : notesSavedAt
         ? 'saved'
         : 'idle';
-
-  useEffect(() => {
-    if (!notesDirty) return;
-    const t = window.setTimeout(() => { void saveNotesOnly(); }, 1500);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, notesDirty]);
 
   const guardedNavigate = (action: () => void) => {
     if (hasUnsavedChanges) {
