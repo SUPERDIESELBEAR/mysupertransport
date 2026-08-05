@@ -3161,7 +3161,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
                     >
                       <CalendarDays className={`h-3.5 w-3.5 ${sortKey === 'start_date' ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/60'}`} />
-                      Start Date
+                      Anticipated Start Date
                       {sortKey === 'start_date'
                         ? sortDir === 'asc'
                           ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
