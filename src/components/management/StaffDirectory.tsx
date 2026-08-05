@@ -132,6 +132,30 @@ export default function StaffDirectory() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {([
+          { key: 'directory', label: 'Directory' },
+          { key: 'emails', label: 'Email Notifications' },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 transition-colors ${
+              tab === t.key
+                ? 'border-gold text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'emails' ? (
+        <EmailNotificationSettings staff={staff} />
+      ) : (
+      <>
       {/* Role stat pills */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -331,6 +355,8 @@ export default function StaffDirectory() {
       <p className="text-xs text-muted-foreground text-right">
         Showing {filteredStaff.length} of {staff.length} staff member{staff.length !== 1 ? 's' : ''}
       </p>
+      </>
+      )}
 
       {/* Manage Access Modal */}
       {managingMember && (
