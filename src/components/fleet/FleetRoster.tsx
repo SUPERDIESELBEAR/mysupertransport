@@ -304,21 +304,29 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     setReactivating(false);
   };
 
-  const rows = showDeactivated ? deactivatedRows : activeRows;
+  const searching = search.trim().length > 0;
+
+  // Searching spans the whole fleet — active AND deactivated — so staff never
+  // have to re-run the same query on the other tab to find a unit.
+  const rows = searching
+    ? [...activeRows, ...deactivatedRows]
+    : (showDeactivated ? deactivatedRows : activeRows);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
-    const q = search.toLowerCase();
-    return rows.filter(r =>
-      r.driverName.toLowerCase().includes(q) ||
-      r.ownerName.toLowerCase().includes(q) ||
-      (r.unitNumber ?? '').toLowerCase().includes(q) ||
-      (r.truckVin ?? '').toLowerCase().includes(q) ||
-      (r.truckMake ?? '').toLowerCase().includes(q) ||
-      (r.truckPlate ?? '').toLowerCase().includes(q) ||
-      r.statePermits.some(p => p.stateCode.toLowerCase() === q)
-    );
-  }, [rows, search]);
+    if (!searching) return rows;
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => matchesSearch(r, q));
+  }, [rows, search, searching]);
+
+  // Per-tab match counts shown on the Active / Deactivated chips while searching.
+  const searchMatchCounts = useMemo(() => {
+    if (!searching) return null;
+    const q = search.trim().toLowerCase();
+    return {
+      active: activeRows.filter(r => matchesSearch(r, q)).length,
+      deactivated: deactivatedRows.filter(r => matchesSearch(r, q)).length,
+    };
+  }, [activeRows, deactivatedRows, search, searching]);
 
   const counts = useMemo(() => {
     const c = { all: filtered.length, overdue: 0, due_soon: 0, no_record: 0 };
@@ -428,7 +436,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       <div className="flex flex-wrap gap-1.5 items-center justify-between">
         <div className="flex gap-1.5">
         <button
-          onClick={() => setShowDeactivated(false)}
+          onClick={() => { setShowDeactivated(false); setSearch(''); }}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
             !showDeactivated
               ? 'bg-primary text-primary-foreground border-primary'
@@ -437,11 +445,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         >
           Active
           <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded-full ${!showDeactivated ? 'bg-white/20' : 'bg-muted'}`}>
-            {activeRows.length}
+            {searchMatchCounts ? searchMatchCounts.active : activeRows.length}
           </span>
         </button>
         <button
-          onClick={() => setShowDeactivated(true)}
+          onClick={() => { setShowDeactivated(true); setSearch(''); }}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors flex items-center gap-1 ${
             showDeactivated
               ? 'bg-primary text-primary-foreground border-primary'
@@ -451,7 +459,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           <Archive className="h-3 w-3" />
           Deactivated
           <span className={`ml-1 text-[10px] px-1 py-0.5 rounded-full ${showDeactivated ? 'bg-white/20' : 'bg-muted'}`}>
-            {deactivatedRows.length}
+            {searchMatchCounts ? searchMatchCounts.deactivated : deactivatedRows.length}
           </span>
         </button>
         </div>
