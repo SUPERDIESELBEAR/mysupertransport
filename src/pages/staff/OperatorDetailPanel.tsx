@@ -2458,7 +2458,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (savedSnapshot.current) savedSnapshot.current = { ...savedSnapshot.current, notes };
       setNotesSavedAt(new Date());
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to save internal notes');
+      toast({ title: 'Failed to save internal notes', description: e?.message, variant: 'destructive' });
     } finally {
       setNotesSaving(false);
     }
