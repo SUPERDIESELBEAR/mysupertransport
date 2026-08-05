@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -176,8 +176,8 @@ export default function EmailNotificationSettings({ staff }: Props) {
                 const list = receivers[cat.key] ?? [];
                 const isOpen = expanded === cat.key;
                 return (
-                  <>
-                    <tr key={cat.key} className="align-top hover:bg-secondary/20">
+                  <Fragment key={cat.key}>
+                    <tr className="align-top hover:bg-secondary/20">
                       <td className="px-5 py-4 max-w-sm">
                         <p className="font-semibold text-foreground">{cat.label}</p>
                         <p className="text-xs text-muted-foreground mt-1">{cat.description}</p>
@@ -217,7 +217,7 @@ export default function EmailNotificationSettings({ staff }: Props) {
                     </tr>
 
                     {isOpen && (
-                      <tr key={`${cat.key}-detail`} className="bg-secondary/20">
+                      <tr className="bg-secondary/20">
                         <td colSpan={EMAIL_ROLES.length + 2} className="px-5 py-4">
                           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
                             Per-staff overrides — {cat.label}
@@ -262,7 +262,7 @@ export default function EmailNotificationSettings({ staff }: Props) {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
