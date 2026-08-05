@@ -153,111 +153,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── Decide whether to send email (offline + throttle) ────────────────
-    const { data: emailPref } = await supabaseAdmin
-      .from('notification_preferences')
-      .select('email_enabled')
-      .eq('user_id', recipientId)
-      .eq('event_type', 'new_message')
-      .maybeSingle();
-    const emailEnabled = emailPref?.email_enabled ?? true;
-
-    if (!emailEnabled) {
-      return { recipient: recipientId, in_app: inAppEnabled, email: 'opted_out' };
-    }
-
-    // Presence: consider user online if they have a notification read or
-    // a sent message within the grace window — a lightweight signal that
-    // avoids requiring a separate presence table.
-    const sinceIso = new Date(Date.now() - PRESENCE_GRACE_MS).toISOString();
-    const [{ data: recentRead }, { data: recentSent }] = await Promise.all([
-      supabaseAdmin
-        .from('notifications')
-        .select('id')
-        .eq('user_id', recipientId)
-        .gte('read_at', sinceIso)
-        .limit(1),
-      supabaseAdmin
-        .from('messages')
-        .select('id')
-        .eq('sender_id', recipientId)
-        .gte('sent_at', sinceIso)
-        .limit(1),
-    ]);
-    const isOnline = (recentRead?.length ?? 0) > 0 || (recentSent?.length ?? 0) > 0;
-
-    if (isOnline) {
-      // Reset throttle so the next offline period starts fresh
-      await supabaseAdmin
-        .from('message_notification_throttle')
-        .delete()
-        .eq('sender_id', msg.sender_id)
-        .eq('recipient_id', recipientId);
-      return { recipient: recipientId, in_app: inAppEnabled, email: 'recipient_online' };
-    }
-
-    // Throttle check
-    const { data: throttle } = await supabaseAdmin
-      .from('message_notification_throttle')
-      .select('last_notified_at, unread_count')
-      .eq('sender_id', msg.sender_id)
-      .eq('recipient_id', recipientId)
-      .maybeSingle();
-
-    const now = Date.now();
-    if (throttle && (now - new Date(throttle.last_notified_at).getTime()) < THROTTLE_WINDOW_MS) {
-      // Within throttle window — increment count, skip email
-      await supabaseAdmin
-        .from('message_notification_throttle')
-        .update({ unread_count: (throttle.unread_count ?? 1) + 1 })
-        .eq('sender_id', msg.sender_id)
-        .eq('recipient_id', recipientId);
-      return { recipient: recipientId, in_app: inAppEnabled, email: 'throttled' };
-    }
-
-    // ─── Send email ───────────────────────────────────────────────────────
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
-
-    const { data: { user: recipUser } } = await supabaseAdmin.auth.admin.getUserById(recipientId);
-    const recipientEmail = recipUser?.email;
-    if (!recipientEmail) {
-      return { recipient: recipientId, email: 'no_address' };
-    }
-
-    const appUrl = new URL(buildAppUrl('/')).origin;
-    const ctaUrl  = `${appUrl}${portalLink}`;
-    const subject = groupTitle ? `New message in ${groupTitle}` : `New message from ${senderName}`;
-    const heading = groupTitle
-      ? `💬 ${senderName} messaged ${groupTitle}`
-      : `💬 ${senderName} sent you a message`;
-    const bodyHtml = `
-      <p>You have a new ${groupTitle ? 'group' : 'direct'} message in SUPERTRANSPORT.</p>
-      <div style="background:#f9f5e9;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="margin:0 0 6px;font-weight:700;color:#0f1117;">${senderName}</p>
-        <p style="margin:0;color:#444;white-space:pre-wrap;">${escapeHtml(preview)}</p>
-      </div>
-      <p style="color:#888;font-size:13px;">You're receiving this because you were offline. We'll wait at least 10 minutes before sending another email about messages from ${escapeHtml(senderName)}.</p>
-    `;
-    const html = buildEmail(subject, heading, bodyHtml, { label: 'Open Messages', url: ctaUrl });
-
-    try {
-      await sendEmail(recipientEmail, subject, html, RESEND_API_KEY);
-    } catch (e) {
-      console.warn('[notify-new-message] email send failed', e);
-    }
-
-    // Upsert throttle row
-    await supabaseAdmin
-      .from('message_notification_throttle')
-      .upsert({
-        sender_id: msg.sender_id,
-        recipient_id: recipientId,
-        last_notified_at: new Date().toISOString(),
-        unread_count: 1,
-      });
-
-    return { recipient: recipientId, in_app: inAppEnabled, email: 'sent' };
+    // Messages stay inside SUPERDRIVE — no email is ever sent at send time.
+    return { recipient: recipientId, in_app: inAppEnabled, email: 'never' };
     }
 
   } catch (err) {
@@ -267,12 +164,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
