@@ -2374,6 +2374,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               )}
             </Button>
 
+            <PipelineColumnPicker visible={visibleColumnKeys} onChange={setVisibleColumns} />
+
             {(activeFilterCount > 0 || search) && (
               <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
                 <X className="h-3 w-3" />
