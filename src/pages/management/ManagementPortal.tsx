@@ -56,6 +56,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
+import { fetchOverviewMetrics, isEligibleDriver, getOnboardingStage, emptyStageCounts } from '@/lib/managementMetrics';
 import PendingInviteAcceptance from '@/components/management/PendingInviteAcceptance';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 import PEIQueuePanel from '@/components/pei/PEIQueuePanel';
@@ -156,6 +157,7 @@ export default function ManagementPortal() {
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [selectedAppInitialTab, setSelectedAppInitialTab] = useState<'overview' | 'documents' | 'pei'>('overview');
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
+  const [onHoldCount, setOnHoldCount] = useState(0);
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [dispatchLastChanged, setDispatchLastChanged] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [dispatchLastChangedAt, setDispatchLastChangedAt] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
@@ -323,6 +325,24 @@ export default function ManagementPortal() {
     setTruckDownCount(count);
   }, []);
 
+  const fetchMetrics = useCallback(async () => {
+    const [appsRes, overview] = await Promise.all([
+      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
+      fetchOverviewMetrics(),
+    ]);
+    setMetrics({
+      pending: appsRes.count ?? 0,
+      onboarding: overview.onboarding,
+      // "Active Dispatch" = drivers whose Driver Hub status is Dispatched
+      active: overview.dispatched,
+      alerts: overview.alerts,
+    });
+    setOnHoldCount(overview.onHold);
+    setOnboardingStageBreakdown(overview.stageBreakdown);
+    setIdleOnboardingCount(overview.idle);
+    setDispatchBreakdown(overview.dispatchBreakdown);
+  }, []);
+
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
@@ -374,7 +394,8 @@ export default function ManagementPortal() {
       lastChanged[status] = uid ? (nameMap[uid] ?? null) : null;
     }
 
-    setDispatchBreakdown(breakdown);
+    // Counts come from fetchOverviewMetrics (driver-based, includes drivers with
+    // no dispatch row); this fetch only resolves "last changed by" attribution.
     setDispatchLastChanged(lastChanged);
     setDispatchLastChangedAt(latestUpdatedAt);
     setDispatchLiveFlash(true);
@@ -481,15 +502,17 @@ export default function ManagementPortal() {
   useEffect(() => {
     fetchTruckDownCount();
     fetchDispatchBreakdown();
+    fetchMetrics();
     const channel = supabase
       .channel('mgmt-truck-down-banner')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'active_dispatch' }, () => {
         fetchTruckDownCount();
         fetchDispatchBreakdown();
+        fetchMetrics();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchTruckDownCount, fetchDispatchBreakdown]);
+  }, [fetchTruckDownCount, fetchDispatchBreakdown, fetchMetrics]);
 
   // Subscribe to realtime for unread notification count
   useEffect(() => {
@@ -574,33 +597,29 @@ export default function ManagementPortal() {
     // Fetch all operators with their onboarding_status to compute per-coordinator stage breakdown
     const { data: opsData } = await supabase
       .from('operators')
-      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, eld_exempt, fuel_card_issued, insurance_added_date, fully_onboarded, updated_at)');
+      .select('id, user_id, is_active, is_demo, on_hold, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, eld_exempt, fuel_card_issued, insurance_added_date, fully_onboarded, updated_at)');
+
+    // Only real, current drivers — no archived, sandbox or staff/owner operator rows.
+    const eligibleOps = ((opsData as any[]) ?? []).filter((op: any) =>
+      isEligibleDriver({
+        id: op.id,
+        user_id: op.user_id,
+        is_active: op.is_active,
+        is_demo: op.is_demo,
+        on_hold: op.on_hold,
+        onboarding_status: Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status,
+        active_dispatch: null,
+      })
+    );
 
     // Helper: compute which stage an operator is currently on (first incomplete)
-    const getStage = (os: any): keyof StageBreakdown => {
-      if (!os) return 'stage1_background';
-      if (os.fully_onboarded) return 'fully_onboarded';
-      const docsComplete = os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received';
-      const icaComplete = os.ica_status === 'complete';
-      const moComplete = os.mo_reg_received === 'yes';
-      const equipComplete = os.decal_applied === 'yes' && os.fuel_card_issued === 'yes' && (os.eld_exempt === true || os.eld_installed === 'yes');
-      if (!os.mvr_ch_approval || os.mvr_ch_approval !== 'approved') return 'stage1_background';
-      if (!docsComplete) return 'stage2_documents';
-      if (!icaComplete) return 'stage3_ica';
-      if (!moComplete) return 'stage4_mo_reg';
-      if (!equipComplete) return 'stage5_equipment';
-      return 'stage6_insurance';
-    };
-
-    const emptyBreakdown = (): StageBreakdown => ({
-      stage1_background: 0, stage2_documents: 0, stage3_ica: 0,
-      stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0,
-    });
+    const getStage = getOnboardingStage;
+    const emptyBreakdown = emptyStageCounts;
 
     // Build a map of user_id → stage counts + latest onboarding_status updated_at
     const breakdownMap: Record<string, StageBreakdown> = {};
     const lastUpdatedAtMap: Record<string, string | null> = {};
-    for (const op of (opsData ?? [])) {
+    for (const op of eligibleOps) {
       const uid = op.assigned_onboarding_staff;
       if (!uid) continue;
       if (!breakdownMap[uid]) breakdownMap[uid] = emptyBreakdown();
@@ -629,7 +648,7 @@ export default function ManagementPortal() {
     setStaffWorkload(onboarders);
     // Compute stage breakdown for unassigned operators
     const unassignedBreakdown = emptyBreakdown();
-    for (const op of (opsData ?? [])) {
+    for (const op of eligibleOps) {
       if (op.assigned_onboarding_staff) continue;
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const stage = getStage(os);
@@ -639,38 +658,11 @@ export default function ManagementPortal() {
     // Count unassigned operators
     const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
     setUnassignedCount(unassignedTotal);
-    // Compute global stage breakdown across all operators + idle count (14+ days)
-    const globalBreakdown = emptyBreakdown();
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-    let idleCount = 0;
-    for (const op of (opsData ?? [])) {
-      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
-      const stage = getStage(os);
-      globalBreakdown[stage]++;
-      if (os?.updated_at && os.updated_at < fourteenDaysAgo && !os.fully_onboarded) idleCount++;
-    }
-    setOnboardingStageBreakdown(globalBreakdown);
-    setIdleOnboardingCount(idleCount);
   }, []);
 
   useEffect(() => {
     if (view === 'overview') fetchStaffWorkload();
   }, [view, fetchStaffWorkload]);
-
-  const fetchMetrics = useCallback(async () => {
-    const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
-      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
-      supabase.from('operators').select('id, onboarding_status!inner(fully_onboarded)', { count: 'exact', head: true }).or('fully_onboarded.is.null,fully_onboarded.eq.false', { referencedTable: 'onboarding_status' }),
-      supabase.from('active_dispatch').select('id, operators!inner(excluded_from_dispatch)', { count: 'exact' }).eq('operators.excluded_from_dispatch', false),
-      supabase.from('onboarding_status').select('id', { count: 'exact' }).or('mvr_ch_approval.eq.denied,pe_screening_result.eq.non_clear'),
-    ]);
-    setMetrics({
-      pending: appsRes.count ?? 0,
-      onboarding: opsRes.count ?? 0,
-      active: dispRes.count ?? 0,
-      alerts: alertsRes.count ?? 0,
-    });
-  }, []);
 
   const fetchApplications = useCallback(async () => {
     // 'invited' tab is handled separately — don't query applications table
@@ -1040,6 +1032,11 @@ export default function ManagementPortal() {
                       </div>
                       <p className="text-2xl sm:text-3xl font-bold text-foreground">{metrics.onboarding}</p>
                       <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">In Onboarding</p>
+                      {onHoldCount > 0 && (
+                        <p className="text-[10px] sm:text-xs text-muted-foreground/70 leading-tight mt-0.5">
+                          {onHoldCount} on hold (not counted)
+                        </p>
+                      )}
                       {stageBadges.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {stageBadges.map(b => (
