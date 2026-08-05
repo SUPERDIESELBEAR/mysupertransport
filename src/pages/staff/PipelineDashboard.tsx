@@ -2761,14 +2761,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
       {/* Incomplete stage-node chip row removed per request — stage-node filtering remains available inside the filter panel. */}
 
-      {/* Multi-stage blocked callout — shows operators incomplete in 2+ stages */}
-      <MultiBlockedCallout
-        operators={operators}
-        stageConfigs={stageConfigs}
-        stageNodeFilters={stageNodeFilters}
-        setStageNodeFilters={setStageNodeFilters}
-        onOpenOperator={onOpenOperator}
-      />
+      {/* Multi-stage blocked callout removed per request. */}
 
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
