@@ -2446,6 +2446,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     savedSnapshot.current.notes !== notes
   );
 
+  // ── Internal Notes: standalone save (debounced auto-save + explicit button) ──
+  const notesDirty = savedSnapshot.current !== null && savedSnapshot.current.notes !== notes;
+  const notesStatus: UnsavedStatus = notesSaving
+    ? 'saving'
+    : notesDirty
+      ? 'dirty'
+      : notesSavedAt
+        ? 'saved'
+        : 'idle';
+
+  useEffect(() => {
+    if (!notesDirty) return;
+    const t = window.setTimeout(() => { void saveNotesOnly(); }, 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, notesDirty]);
+
   const guardedNavigate = (action: () => void) => {
     if (hasUnsavedChanges) {
       setNavGuard({ action });
@@ -2458,7 +2475,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
 
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3" style={{ order: isQuickView ? 0 : 2 }}>
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0">
             <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">{backLabel ?? 'Pipeline'}</span>
