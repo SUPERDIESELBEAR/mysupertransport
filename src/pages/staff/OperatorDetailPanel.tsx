@@ -7,6 +7,8 @@ import { updatePayload } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
+import { UnsavedStatusPill } from '@/components/shared/UnsavedStatusPill';
+import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
@@ -422,6 +424,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dlRearUrl, setDlRearUrl] = useState<string | null>(null);
   const [medCertDocUrl, setMedCertDocUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesSavedAt, setNotesSavedAt] = useState<Date | null>(null);
   const [anticipatedStartDate, setAnticipatedStartDate] = useState<string>('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
@@ -2441,10 +2445,47 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
   const isQuickView = !!status.fully_onboarded;
 
+  const saveNotesOnly = useCallback(async () => {
+    if (!savedSnapshot.current) return;
+    if (guardDemo()) return;
+    const value = sanitizeText(notes);
+    setNotesSaving(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ notes: value })
+        .eq('id', operatorId);
+      if (error) throw error;
+      if (savedSnapshot.current) savedSnapshot.current = { ...savedSnapshot.current, notes };
+      setNotesSavedAt(new Date());
+    } catch (e: any) {
+      toast({ title: 'Failed to save internal notes', description: e?.message, variant: 'destructive' });
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [notes, operatorId, guardDemo]);
+
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
     savedSnapshot.current.notes !== notes
   );
+
+  // ── Internal Notes: standalone save (debounced auto-save + explicit button) ──
+  const notesDirty = savedSnapshot.current !== null && savedSnapshot.current.notes !== notes;
+  const notesStatus: UnsavedStatus = notesSaving
+    ? 'saving'
+    : notesDirty
+      ? 'dirty'
+      : notesSavedAt
+        ? 'saved'
+        : 'idle';
+
+  useEffect(() => {
+    if (!notesDirty) return;
+    const t = window.setTimeout(() => { void saveNotesOnly(); }, 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, notesDirty]);
 
   const guardedNavigate = (action: () => void) => {
     if (hasUnsavedChanges) {
@@ -2458,7 +2499,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
 
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3" style={{ order: isQuickView ? 0 : 2 }}>
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0">
             <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">{backLabel ?? 'Pipeline'}</span>
@@ -2690,11 +2731,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>
 
       {/* Truck Owner (if this truck is owned by someone other than the driver) */}
-      <TruckOwnerCard operatorId={operatorId} />
+      <div className="empty:hidden" style={{ order: isQuickView ? 0 : 26 }}>
+        <TruckOwnerCard operatorId={operatorId} />
+      </div>
 
       {/* On Hold Banner */}
       {isOnHold && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50" style={{ order: isQuickView ? 0 : 4 }}>
           <PauseCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-blue-800">On Hold</p>
@@ -2706,7 +2749,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Safety Advisor notification banner */}
       {!isActive && !safetyAdvisorNotifiedAt && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5" style={{ order: isQuickView ? 0 : 5 }}>
           <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
@@ -2734,10 +2777,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
-      {!isActive && <OffboardingHistoryPanel operatorId={operatorId} />}
+      {!isActive && (
+        <div style={{ order: isQuickView ? 0 : 6 }}>
+          <OffboardingHistoryPanel operatorId={operatorId} />
+        </div>
+      )}
 
       {/* Status overview */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 empty:hidden" style={{ order: isQuickView ? 0 : 7 }}>
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
         {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
@@ -2749,7 +2796,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Exclude from Dispatch Hub toggle (staff & management only) */}
       {isActive && (
-        <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+        <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3" style={{ order: isQuickView ? 0 : 44 }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -2803,7 +2850,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       )}
 
       {/* ── Top Completion Summary ── */}
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 20 } : undefined}>{(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 20 : 10 }}>{(() => {
         const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const _moNa = status.registration_status === 'own_registration';
@@ -2919,7 +2966,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           : 'Critical compliance expiry';
 
         return (
-          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`}>
+          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`} style={{ order: isQuickView ? 0 : 8 }}>
             <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-xs font-semibold ${titleColor}`}>{title}</p>
@@ -3132,7 +3179,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const addressParts = [applicationData.address_street, applicationData.address_city, applicationData.address_state, applicationData.address_zip].filter(Boolean);
 
         return (
-          <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm">
+          <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm" style={{ order: isQuickView ? 0 : 22 }}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
@@ -3348,7 +3395,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Uploaded Application Documents ── */}
       {(dlFrontUrl || dlRearUrl || medCertDocUrl) && (
-        <div className="rounded-xl border border-border bg-card p-4 space-y-2" style={isQuickView ? { order: 5 } : undefined}>
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2" style={{ order: isQuickView ? 5 : 28 }}>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
             Uploaded Documents
@@ -3401,7 +3448,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
-      <div style={isQuickView ? { order: 10 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
+      <div className="empty:hidden" style={{ order: isQuickView ? 10 : 30 }}>{(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
           const expired  = days < 0;
@@ -3535,7 +3582,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>
 
       {/* ── Upfront Costs Card ── staff-only, always visible ── */}
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 21 } : undefined}>{(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 21 : 38 }}>{(() => {
         const ownerProvided2290 = !!status.form_2290_owner_provided;
         const moVal   = status.cost_mo_registration ?? null;
         const f2290   = ownerProvided2290 ? null : (status.cost_form_2290 ?? null);
@@ -3746,7 +3793,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>}
 
       {/* ── Truck & Equipment Card ── */}
-      <div style={isQuickView ? { order: 6 } : undefined}>
+      <div style={{ order: isQuickView ? 6 : 24 }}>
         <TruckInfoCard
           truckInfo={icaTruckInfo}
           deviceInfo={{
@@ -3810,6 +3857,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         return (
           <div
             className="sticky top-0 z-30 -mx-6 px-6"
+            style={{ order: 3 }}
           >
             <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
               <div className="flex items-center gap-3 max-w-4xl">
@@ -4276,7 +4324,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* ── Cert Expiry History Timeline ─────────────────────── */}
-      {(cdlExpiration || medCertExpiration) && (<div style={isQuickView ? { order: 11 } : undefined}>
+      {(cdlExpiration || medCertExpiration) && (<div style={{ order: isQuickView ? 11 : 32 }}>
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
           {/* Header row: title + filter chips */}
           <button
@@ -4513,7 +4561,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>)}
 
 
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 22 } : undefined}>{(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 22 : 12 }}>{(() => {
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
@@ -4630,7 +4678,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>}
 
       {/* Stage Summary Dot Row + Collapse All */}
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 23 } : undefined}>{(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 23 : 14 }}>{(() => {
         const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stagePE', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
@@ -4759,14 +4807,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}</div>}
 
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 24 } : undefined}><div className="space-y-3">
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 24 : 16 }}><div className="space-y-3">
         {/* Stage 1 — Background */}
         {(() => {
           const s1Complete = status.mvr_ch_approval === 'approved';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
             <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage1')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stage1')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -4875,7 +4923,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s2Collapsed = collapsedStages.has('stage2');
           return (
         <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
-          <button onClick={() => toggleStage('stage2')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+          <button onClick={() => toggleStage('stage2')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
             <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
               <div className="flex items-center gap-2">
                 <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5224,7 +5272,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s3Collapsed = collapsedStages.has('stage3');
           return (
             <div ref={el => { stageRefs.current['stage3'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage3')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stage3')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <FileCheck className={`h-4 w-4 ${s3Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5449,7 +5497,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s4Collapsed = collapsedStages.has('stage4');
           return (
             <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl overflow-hidden shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
-              <button onClick={() => toggleStage('stage4')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stage4')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <FileCheck className={`h-4 w-4 ${isNa ? 'text-muted-foreground' : s4Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5528,7 +5576,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const borderCls = allEquipmentReady ? 'border-status-complete' : exceptionActiveS5 ? 'border-gold' : 'border-border';
           return (
             <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${borderCls}`}>
-              <button onClick={() => toggleStage('stage5')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stage5')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
@@ -5781,7 +5829,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const spCollapsed = collapsedStages.has('stagePE');
           return (
             <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stagePE')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stagePE')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Shield className={`h-4 w-4 ${spComplete ? 'text-status-complete' : 'text-gold'}`} />
@@ -5956,7 +6004,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const addToPolicy = status.insurance_policy_type === 'add_to_supertransport' || !status.insurance_policy_type;
           return (
             <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage6')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stage6')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -6347,7 +6395,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s7Collapsed = collapsedStages.has('stage7');
           return (
             <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
-              <button onClick={() => toggleStage('stage7')} className="w-full text-left sticky top-0 z-20 bg-white rounded-t-xl">
+              <button onClick={() => toggleStage('stage7')} className="w-full text-left sticky top-[52px] z-20 bg-white rounded-t-xl">
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
@@ -6637,7 +6685,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div></div>}
 
       {/* Dispatch Status History */}
-      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (<div style={isQuickView ? { order: 12 } : undefined}>{(() => {
+      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (<div style={{ order: isQuickView ? 12 : 42 }}>{(() => {
         const filteredHistory = historyFilter === 'all'
           ? dispatchHistory
           : dispatchHistory.filter(e => e.dispatch_status === historyFilter);
@@ -6800,7 +6848,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* Stage 9 — Payroll and Procedures (read-only, uses component-level state) */}
-      <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
+      <div className="empty:hidden" style={{ order: isQuickView ? 9 : 18 }}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
         const ps = paySetupRecord;
@@ -7012,7 +7060,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         <div
           ref={el => { inspectionBinderRef.current = el; stageRefs.current['inspection_binder'] = el; }}
           className="bg-white border border-border rounded-xl shadow-sm"
-          style={isQuickView ? { order: 7 } : undefined}
+          style={{ order: isQuickView ? 7 : 36 }}
         >
           <button onClick={() => toggleStage('inspection_binder')} className="w-full flex items-center justify-between px-5 py-4 text-left">
             <div className="flex items-center gap-2">
@@ -7029,13 +7077,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Driver Document Vault — personal docs (Form 2290, Truck Photos, etc.) */}
       {operatorUserId && (
-        <div style={isQuickView ? { order: 8 } : undefined}>
+        <div style={{ order: isQuickView ? 8 : 34 }}>
           <DriverVaultCard operatorId={operatorId} operatorName={operatorName} />
         </div>
       )}
 
       {/* Settlement Forecast — read-only mirror of operator's self-service planning tool */}
-      <div ref={el => { stageRefs.current['settlement_forecast'] = el; }} className="bg-white border border-border rounded-xl shadow-sm" style={isQuickView ? { order: 9 } : undefined}>
+      <div ref={el => { stageRefs.current['settlement_forecast'] = el; }} className="bg-white border border-border rounded-xl shadow-sm" style={{ order: isQuickView ? 9 : 40 }}>
         <button
           onClick={() => toggleStage('settlement_forecast')}
           className="w-full flex items-center justify-between px-5 py-4 text-left"
@@ -7056,8 +7104,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* Internal Notes */}
-      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 13 } : undefined}>
-        <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={{ order: isQuickView ? 13 : 20 }}>
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <Label className="text-sm font-semibold text-foreground block">Internal Notes</Label>
+          <div className="flex items-center gap-2">
+            <UnsavedStatusPill status={notesStatus} lastSavedAt={notesSavedAt} onRetry={() => { void saveNotesOnly(); }} />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!notesDirty || notesSaving}
+              onClick={() => { void saveNotesOnly(); }}
+            >
+              Save notes
+            </Button>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground mb-3">These notes are visible to staff only and will not be shown to the operator.</p>
         <Textarea
           value={notes}
@@ -7068,7 +7129,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>
 
       {/* Recently Deleted Documents tray */}
-      <div style={isQuickView ? { order: 14 } : undefined}>
+      <div style={{ order: isQuickView ? 14 : 46 }}>
         <DeletedDocumentsTray
           operatorId={operatorId}
           onChanged={() => { void fetchOperatorDetail(); }}
@@ -7094,7 +7155,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Submitted Application snapshot (inside Onboarding History) ── */}
       {(!isQuickView || onboardingHistoryExpanded) && (
-        <div style={isQuickView ? { order: 19 } : undefined}>
+        <div style={{ order: isQuickView ? 19 : 48 }}>
           <SubmittedApplicationSnapshot
             application={applicationData}
             onPreview={(url, name) => setPreviewDoc({ url, title: name })}
