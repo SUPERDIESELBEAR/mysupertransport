@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail, ONBOARDING_EMAIL } from '../_shared/email-layout.ts';
 
-import { buildAppUrl } from '../_shared/app-url.ts';
+import { resolveEmailAddresses } from '../_shared/recipients.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -123,14 +123,14 @@ Deno.serve(async (req) => {
             <td style="padding:8px 0;color:#222;font-size:14px;">${submittedDisplay}</td></tr>
       </table>
 
-      <p style="margin-top:18px;">Open their detail panel to review the full pay setup and send the Everee payroll link.</p>
+      <p style="margin-top:18px;">Open SUPERDRIVE and go to the driver's detail panel to review the full pay setup and send the Everee payroll link.</p>
     `;
 
     const html = buildEmail(
       subject,
       heading,
       body,
-      { label: 'View Driver →', url: operatorLink },
+      undefined,
       ONBOARDING_EMAIL
     );
 
