@@ -2445,6 +2445,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
   const isQuickView = !!status.fully_onboarded;
 
+  const saveNotesOnly = useCallback(async () => {
+    if (!savedSnapshot.current) return;
+    const value = sanitizeText(notes);
+    setNotesSaving(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ notes: value })
+        .eq('id', operatorId);
+      if (error) throw error;
+      if (savedSnapshot.current) savedSnapshot.current = { ...savedSnapshot.current, notes };
+      setNotesSavedAt(new Date());
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to save internal notes');
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [notes, operatorId]);
+
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
     savedSnapshot.current.notes !== notes
