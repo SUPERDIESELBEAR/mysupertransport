@@ -258,7 +258,7 @@ const WHATS_NEXT_STAGES: WhatsNextStage[] = [
   },
   {
     number: 5,
-    title: 'Equipment Setup',
+    title: 'Onboard Systems',
     icon: 'zap',
     summary: 'Your truck needs three things before dispatch: a company decal, an ELD device, and a fuel card.',
     steps: [

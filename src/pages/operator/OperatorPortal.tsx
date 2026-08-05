@@ -887,7 +887,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     },
     {
       number: 5,
-      title: 'Equipment Setup',
+      title: 'Onboard Systems',
       description: 'Decal, ELD device, and fuel card',
       icon: <Truck className="h-4 w-4" />,
       status: getStageStatus(5),

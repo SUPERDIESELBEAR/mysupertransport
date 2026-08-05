@@ -1660,7 +1660,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       },
       {
         key: 'equipment_ready',
-        label: 'Equipment Setup Complete (Decal, ELD, Fuel Card, IFTA Decal)',
+        label: 'Onboard Systems Complete (Decal, ELD, Fuel Card, IFTA Decal)',
         triggered: !wasEquipmentReady && equipmentReady,
       },
       {
@@ -2812,7 +2812,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           { key: 'stage2', label: 'Docs',  complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
           { key: 'stage3', label: 'ICA',   complete: status.ica_status === 'complete' },
           { key: 'stage4', label: 'MO',    complete: _moNa || status.mo_reg_received === 'yes' },
-          { key: 'stage5', label: 'Equip', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
+          { key: 'stage5', label: 'Systems', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
           { key: 'stagePE', label: 'PE',   complete: status.pe_screening_result === 'clear' },
           { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
           { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
@@ -3896,7 +3896,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           items: stages.find(s => s.key === 'stage4')?.items ?? [],
                         },
                         {
-                          key: 'stage5', shortLabel: 'Equip',
+                          key: 'stage5', shortLabel: 'Systems',
                           state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
                           tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/3 done` : 'Not started'; })(),
                           items: stages.find(s => s.key === 'stage5')?.items ?? [],
@@ -4679,7 +4679,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               : 'Not started',
           },
           {
-            key: 'stage5', label: 'Equipment', shortLabel: 'Equip',
+            key: 'stage5', label: 'Onboard Systems', shortLabel: 'Systems',
             state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') ? 'complete'
               : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(s => s === 'yes')) ? 'progress'
               : 'none',
@@ -5519,7 +5519,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-        {/* Stage 5 — Equipment */}
+        {/* Stage 5 — Onboard Systems */}
         {(() => {
           const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
           const exceptionActiveS5 = (status.paper_logbook_approved || status.temp_decal_approved) && !allEquipmentReady;
@@ -5532,7 +5532,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
-                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 5 — Equipment Setup</h3>
+                    <h3 className="font-bold text-foreground text-[15px] tracking-tight">Stage 5 — Onboard Systems</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {allEquipmentReady
