@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck, RotateCcw } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck, RotateCcw, RefreshCw } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
@@ -87,6 +87,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [deactivatedRows, setDeactivatedRows] = useState<FleetRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [backfilling, setBackfilling] = useState(false);
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [logUpdateTarget, setLogUpdateTarget] = useState<FleetRow | null>(null);
@@ -380,6 +381,36 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs gap-1.5 shrink-0"
+            disabled={backfilling}
+            title="Pull every active driver's onboarding Form 2290 and registration into their vehicle record"
+            onClick={async () => {
+              setBackfilling(true);
+              try {
+                const { data, error } = await supabase.functions.invoke('sync-onboarding-doc-to-binder', {
+                  body: { backfill: true },
+                });
+                if (error) throw error;
+                const synced = (data as any)?.synced ?? 0;
+                toast({
+                  title: synced > 0 ? 'Onboarding documents synced' : 'Everything already in sync',
+                  description: synced > 0
+                    ? `${synced} Form 2290 / registration file${synced === 1 ? '' : 's'} added to vehicle records.`
+                    : 'No new onboarding uploads were found.',
+                });
+              } catch (err: any) {
+                toast({ title: 'Sync failed', description: err?.message ?? 'Unknown error', variant: 'destructive' });
+              } finally {
+                setBackfilling(false);
+              }
+            }}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? 'animate-spin' : ''}`} />
+            {backfilling ? 'Syncing…' : 'Sync onboarding docs'}
+          </Button>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

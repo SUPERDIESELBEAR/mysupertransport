@@ -126,6 +126,8 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
       supabase
         .from('inspection_documents')
         .select('*')
+        // Onboarding uploads still awaiting staff review never reach the roadside binder.
+        .eq('pending_review', false)
         .eq('scope', 'per_driver')
         .eq('driver_id', userId)
         .order('name'),

@@ -27,6 +27,7 @@ import {
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
   Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2, FileBadge,
+  RefreshCw,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -67,6 +68,8 @@ interface Reg2290Record {
   expires_at: string | null;
   uploaded_at: string;
   uploaded_by: string | null;
+  pending_review?: boolean;
+  source?: string | null;
 }
 
 interface FleetDetailDrawerProps {
@@ -233,7 +236,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     if (uid) {
       const { data: reg } = await supabase
         .from('inspection_documents')
-        .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by')
+        .select('id, name, file_url, file_path, expires_at, uploaded_at, uploaded_by, pending_review, source')
         .eq('scope', 'per_driver')
         .eq('driver_id', uid)
         .in('name', [REGISTRATION_DOC_NAME, 'Form 2290'])
@@ -333,7 +336,63 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     }
   };
 
+  /** Inline expiration editor for Registration / Form 2290 rows. */
+  const saveReg2290Expiry = async (id: string, value: string) => {
+    setReg2290(prev => prev.map(r => (r.id === id ? { ...r, expires_at: value || null } : r)));
+    const { error } = await supabase
+      .from('inspection_documents')
+      .update({ expires_at: value || null })
+      .eq('id', id);
+    if (error) {
+      toast({ title: 'Could not save expiration date', description: error.message, variant: 'destructive' });
+      await fetchData();
+    }
+  };
+
+  /** Clear the pending-review flag once staff have verified a synced upload. */
+  const markReg2290Reviewed = async (id: string) => {
+    setReg2290(prev => prev.map(r => (r.id === id ? { ...r, pending_review: false } : r)));
+    const { error } = await supabase
+      .from('inspection_documents')
+      .update({ pending_review: false })
+      .eq('id', id);
+    if (error) {
+      toast({ title: 'Could not mark as reviewed', description: error.message, variant: 'destructive' });
+      await fetchData();
+    }
+  };
+
   const latestDot = dotInspections[0] ?? null;
+
+  /** Pull this driver's onboarding Form 2290 / registration uploads into the binder. */
+  const [syncingOnboarding, setSyncingOnboarding] = useState(false);
+  const syncFromOnboarding = async () => {
+    setSyncingOnboarding(true);
+    try {
+      const results = await Promise.all(
+        (['form_2290', 'registration'] as const).map(document_type =>
+          supabase.functions.invoke('sync-onboarding-doc-to-binder', {
+            body: { operator_id: operatorId, document_type },
+          }),
+        ),
+      );
+      const failed = results.find(r => r.error);
+      if (failed?.error) throw failed.error;
+      const synced = results.filter(r => (r.data as any)?.status === 'synced').length;
+      toast({
+        title: synced > 0 ? 'Onboarding documents synced' : 'Nothing new to sync',
+        description: synced > 0
+          ? `${synced} document${synced === 1 ? '' : 's'} pulled in from onboarding uploads.`
+          : 'No new Form 2290 or registration uploads were found for this driver.',
+      });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Sync failed', description: err?.message ?? 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSyncingOnboarding(false);
+    }
+  };
+
   const dotDaysLeft = latestDot?.next_due_date
     ? differenceInDays(startOfDay(parseISO(latestDot.next_due_date)), startOfDay(new Date()))
     : null;
@@ -820,6 +879,18 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               <span className="text-xs text-muted-foreground">({reg2290.length})</span>
             </div>
             {!readOnly && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs gap-1.5"
+                onClick={syncFromOnboarding}
+                disabled={syncingOnboarding}
+                title="Pull this driver's Form 2290 and registration from their onboarding uploads"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncingOnboarding ? 'animate-spin' : ''}`} />
+                {syncingOnboarding ? 'Syncing…' : 'Sync from onboarding'}
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -829,6 +900,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               >
                 <Plus className="h-3.5 w-3.5" /> Add Registration / 2290
               </Button>
+            </div>
             )}
           </div>
 
@@ -862,11 +934,46 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                     return (
                       <TableRow key={r.id}>
                         <TableCell className="text-xs font-medium whitespace-nowrap">
-                          {r.name === REGISTRATION_DOC_NAME ? REGISTRATION_DOC_LABEL : r.name}
+                          <div className="flex flex-col gap-1">
+                            <span>{r.name === REGISTRATION_DOC_NAME ? REGISTRATION_DOC_LABEL : r.name}</span>
+                            {r.pending_review && (
+                              <button
+                                type="button"
+                                disabled={readOnly}
+                                onClick={() => !readOnly && markReg2290Reviewed(r.id)}
+                                title={readOnly ? 'Synced from the driver\u2019s onboarding upload, not yet verified' : 'Click to mark as reviewed'}
+                                className="self-start rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 disabled:cursor-default"
+                              >
+                                Pending review
+                              </button>
+                            )}
+                            {r.source === 'onboarding_sync' && !r.pending_review && (
+                              <span className="self-start text-[10px] font-normal text-muted-foreground">
+                                From onboarding upload
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.uploaded_at), 'M/d/yy')}</TableCell>
                         <TableCell className={'text-xs whitespace-nowrap ' + expiredCls}>
-                          {r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'}
+                          {readOnly ? (
+                            r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                type="date"
+                                value={r.expires_at ?? ''}
+                                onChange={e => saveReg2290Expiry(r.id, e.target.value)}
+                                className="h-7 w-[8.5rem] text-xs"
+                                aria-label={`Expiration date for ${r.name}`}
+                              />
+                              {!r.expires_at && (
+                                <span className="text-[10px] font-semibold text-amber-600">
+                                  Needs expiration date
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

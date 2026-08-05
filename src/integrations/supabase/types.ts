@@ -2956,9 +2956,11 @@ export type Database = {
           file_url: string | null
           id: string
           name: string
+          pending_review: boolean
           public_share_token: string
           scope: Database["public"]["Enums"]["inspection_doc_scope"]
           shared_with_fleet: boolean
+          source: string
           updated_at: string
           uploaded_at: string
           uploaded_by: string | null
@@ -2970,9 +2972,11 @@ export type Database = {
           file_url?: string | null
           id?: string
           name: string
+          pending_review?: boolean
           public_share_token?: string
           scope?: Database["public"]["Enums"]["inspection_doc_scope"]
           shared_with_fleet?: boolean
+          source?: string
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -2984,9 +2988,11 @@ export type Database = {
           file_url?: string | null
           id?: string
           name?: string
+          pending_review?: boolean
           public_share_token?: string
           scope?: Database["public"]["Enums"]["inspection_doc_scope"]
           shared_with_fleet?: boolean
+          source?: string
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null

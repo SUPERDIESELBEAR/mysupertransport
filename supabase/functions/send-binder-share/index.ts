@@ -96,11 +96,11 @@ Deno.serve(withErrorEnvelope(async (req) => {
     .map((i) => (i.token ?? '').trim())
     .filter((t) => t.length > 0);
 
-  const docByToken = new Map<string, { name: string; scope: string; driver_id: string | null; expires_at: string | null }>();
+  const docByToken = new Map<string, { name: string; scope: string; driver_id: string | null; expires_at: string | null; pending_review: boolean }>();
   if (tokens.length > 0) {
     const { data: rows, error } = await supabase
       .from('inspection_documents')
-      .select('name, scope, driver_id, expires_at, public_share_token')
+      .select('name, scope, driver_id, expires_at, public_share_token, pending_review')
       .in('public_share_token', tokens);
     if (error) return fail(500, 'Failed to look up shared documents', error.message);
     for (const r of rows ?? []) {
@@ -109,6 +109,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
         scope: r.scope as string,
         driver_id: (r.driver_id as string | null) ?? null,
         expires_at: (r.expires_at as string | null) ?? null,
+        pending_review: (r.pending_review as boolean | null) === true,
       });
     }
     console.log(`[send-binder-share] resolved ${docByToken.size}/${tokens.length} documents in ${Date.now() - t0}ms`);
@@ -141,6 +142,11 @@ Deno.serve(withErrorEnvelope(async (req) => {
     if (token) {
       const doc = docByToken.get(token);
       if (!doc) return fail(404, 'One of the selected documents could not be found');
+
+      // Synced-but-unverified uploads must not reach an officer.
+      if (doc.pending_review) {
+        return fail(409, `"${doc.name}" is still pending staff review and cannot be shared yet`);
+      }
 
       if (!canShareBinderDocument({
         callerUserId: userId,
