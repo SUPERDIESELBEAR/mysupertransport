@@ -3178,7 +3178,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const addressParts = [applicationData.address_street, applicationData.address_city, applicationData.address_state, applicationData.address_zip].filter(Boolean);
 
         return (
-          <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm">
+          <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm" style={{ order: isQuickView ? 0 : 22 }}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
