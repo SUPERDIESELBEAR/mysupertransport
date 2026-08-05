@@ -3420,7 +3420,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            </div>
                          )}
-                          {op.user_id && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {op.user_id && (
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -3457,7 +3458,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          )}
+                            )}
+                            <OnboardingDaysPill
+                              submittedAt={op.application_submitted_at}
+                              fullyOnboarded={op.fully_onboarded}
+                            />
+                          </div>
                        </div>
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>
