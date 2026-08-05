@@ -2447,6 +2447,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const saveNotesOnly = useCallback(async () => {
     if (!savedSnapshot.current) return;
+    if (guardDemo()) return;
     const value = sanitizeText(notes);
     setNotesSaving(true);
     try {
@@ -2462,7 +2463,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     } finally {
       setNotesSaving(false);
     }
-  }, [notes, operatorId]);
+  }, [notes, operatorId, guardDemo]);
 
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
