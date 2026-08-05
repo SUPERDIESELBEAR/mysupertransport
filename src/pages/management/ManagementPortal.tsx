@@ -325,6 +325,38 @@ export default function ManagementPortal() {
     setTruckDownCount(count);
   }, []);
 
+  const fetchMetrics = useCallback(async () => {
+    const [appsRes, overview] = await Promise.all([
+      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
+      fetchOverviewMetrics(),
+    ]);
+    setMetrics({
+      pending: appsRes.count ?? 0,
+      onboarding: overview.onboarding,
+      // "Active Dispatch" = drivers whose Driver Hub status is Dispatched
+      active: overview.dispatched,
+      alerts: overview.alerts,
+    });
+    setOnHoldCount(overview.onHold);
+    setOnboardingStageBreakdown(overview.stageBreakdown);
+    setIdleOnboardingCount(overview.idle);
+    setDispatchBreakdown(overview.dispatchBreakdown);
+  }, []);
+
+  const fetchTruckDownCountLegacy = useCallback(async () => {
+    const { data } = await supabase
+      .from('active_dispatch')
+      .select('operator_id, operators!inner(excluded_from_dispatch, onboarding_status(fully_onboarded))')
+      .eq('dispatch_status', 'truck_down');
+    const count = (data ?? []).filter((row: any) => {
+      if (row.operators?.excluded_from_dispatch === true) return false;
+      const os = row.operators?.onboarding_status;
+      const status = Array.isArray(os) ? os[0] : os;
+      return status?.fully_onboarded === true;
+    }).length;
+    setTruckDownCount(count);
+  }, []);
+
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
