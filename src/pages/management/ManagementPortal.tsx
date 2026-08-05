@@ -627,7 +627,7 @@ export default function ManagementPortal() {
     setStaffWorkload(onboarders);
     // Compute stage breakdown for unassigned operators
     const unassignedBreakdown = emptyBreakdown();
-    for (const op of (opsData ?? [])) {
+    for (const op of eligibleOps) {
       if (op.assigned_onboarding_staff) continue;
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const stage = getStage(os);
@@ -637,18 +637,6 @@ export default function ManagementPortal() {
     // Count unassigned operators
     const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
     setUnassignedCount(unassignedTotal);
-    // Compute global stage breakdown across all operators + idle count (14+ days)
-    const globalBreakdown = emptyBreakdown();
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-    let idleCount = 0;
-    for (const op of (opsData ?? [])) {
-      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
-      const stage = getStage(os);
-      globalBreakdown[stage]++;
-      if (os?.updated_at && os.updated_at < fourteenDaysAgo && !os.fully_onboarded) idleCount++;
-    }
-    setOnboardingStageBreakdown(globalBreakdown);
-    setIdleOnboardingCount(idleCount);
   }, []);
 
   useEffect(() => {
@@ -656,18 +644,21 @@ export default function ManagementPortal() {
   }, [view, fetchStaffWorkload]);
 
   const fetchMetrics = useCallback(async () => {
-    const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
+    const [appsRes, overview] = await Promise.all([
       supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
-      supabase.from('operators').select('id, onboarding_status!inner(fully_onboarded)', { count: 'exact', head: true }).or('fully_onboarded.is.null,fully_onboarded.eq.false', { referencedTable: 'onboarding_status' }),
-      supabase.from('active_dispatch').select('id, operators!inner(excluded_from_dispatch)', { count: 'exact' }).eq('operators.excluded_from_dispatch', false),
-      supabase.from('onboarding_status').select('id', { count: 'exact' }).or('mvr_ch_approval.eq.denied,pe_screening_result.eq.non_clear'),
+      fetchOverviewMetrics(),
     ]);
     setMetrics({
       pending: appsRes.count ?? 0,
-      onboarding: opsRes.count ?? 0,
-      active: dispRes.count ?? 0,
-      alerts: alertsRes.count ?? 0,
+      onboarding: overview.onboarding,
+      // "Active Dispatch" = drivers whose Driver Hub status is Dispatched
+      active: overview.dispatched,
+      alerts: overview.alerts,
     });
+    setOnHoldCount(overview.onHold);
+    setOnboardingStageBreakdown(overview.stageBreakdown);
+    setIdleOnboardingCount(overview.idle);
+    setDispatchBreakdown(overview.dispatchBreakdown);
   }, []);
 
   const fetchApplications = useCallback(async () => {
