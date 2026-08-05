@@ -3035,8 +3035,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
+                {colVisible('phone') && <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>}
+                {colVisible('state') && <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>}
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
                   <div className="flex flex-col gap-1.5">
                     {/* Row 1 — label + sort controls */}
