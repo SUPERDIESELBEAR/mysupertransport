@@ -890,11 +890,46 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                     return (
                       <TableRow key={r.id}>
                         <TableCell className="text-xs font-medium whitespace-nowrap">
-                          {r.name === REGISTRATION_DOC_NAME ? REGISTRATION_DOC_LABEL : r.name}
+                          <div className="flex flex-col gap-1">
+                            <span>{r.name === REGISTRATION_DOC_NAME ? REGISTRATION_DOC_LABEL : r.name}</span>
+                            {r.pending_review && (
+                              <button
+                                type="button"
+                                disabled={readOnly}
+                                onClick={() => !readOnly && markReg2290Reviewed(r.id)}
+                                title={readOnly ? 'Synced from the driver\u2019s onboarding upload, not yet verified' : 'Click to mark as reviewed'}
+                                className="self-start rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 disabled:cursor-default"
+                              >
+                                Pending review
+                              </button>
+                            )}
+                            {r.source === 'onboarding_sync' && !r.pending_review && (
+                              <span className="self-start text-[10px] font-normal text-muted-foreground">
+                                From onboarding upload
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.uploaded_at), 'M/d/yy')}</TableCell>
                         <TableCell className={'text-xs whitespace-nowrap ' + expiredCls}>
-                          {r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'}
+                          {readOnly ? (
+                            r.expires_at ? format(parseISO(r.expires_at), 'M/d/yy') : '—'
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <Input
+                                type="date"
+                                value={r.expires_at ?? ''}
+                                onChange={e => saveReg2290Expiry(r.id, e.target.value)}
+                                className="h-7 w-[8.5rem] text-xs"
+                                aria-label={`Expiration date for ${r.name}`}
+                              />
+                              {!r.expires_at && (
+                                <span className="text-[10px] font-semibold text-amber-600">
+                                  Needs expiration date
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
