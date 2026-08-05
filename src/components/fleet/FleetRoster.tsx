@@ -82,6 +82,19 @@ function dotStatusBadge(nextDue: string | null) {
   return <Badge variant="outline" className="text-[10px] text-emerald-700">{formatDaysHuman(days)}</Badge>;
 }
 
+/** Shared search predicate — `q` must already be trimmed and lowercased. */
+function matchesSearch(r: FleetRow, q: string): boolean {
+  return (
+    r.driverName.toLowerCase().includes(q) ||
+    r.ownerName.toLowerCase().includes(q) ||
+    (r.unitNumber ?? '').toLowerCase().includes(q) ||
+    (r.truckVin ?? '').toLowerCase().includes(q) ||
+    (r.truckMake ?? '').toLowerCase().includes(q) ||
+    (r.truckPlate ?? '').toLowerCase().includes(q) ||
+    r.statePermits.some(p => p.stateCode.toLowerCase() === q)
+  );
+}
+
 export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [activeRows, setActiveRows] = useState<FleetRow[]>([]);
   const [deactivatedRows, setDeactivatedRows] = useState<FleetRow[]>([]);
@@ -89,6 +102,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [search, setSearch] = useState('');
   const [backfilling, setBackfilling] = useState(false);
   const [showDeactivated, setShowDeactivated] = useState(false);
+  // Set when the user explicitly clicks a tab while a search is active — that
+  // narrows the cross-fleet search results back down to the chosen group.
+  const [scopeSearchToTab, setScopeSearchToTab] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [logUpdateTarget, setLogUpdateTarget] = useState<FleetRow | null>(null);
   const [truckPhotoTarget, setTruckPhotoTarget] = useState<FleetRow | null>(null);
@@ -304,21 +320,30 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     setReactivating(false);
   };
 
-  const rows = showDeactivated ? deactivatedRows : activeRows;
+  const hasQuery = search.trim().length > 0;
+  const searching = hasQuery && !scopeSearchToTab;
+
+  // Searching spans the whole fleet — active AND deactivated — so staff never
+  // have to re-run the same query on the other tab to find a unit.
+  const rows = searching
+    ? [...activeRows, ...deactivatedRows]
+    : (showDeactivated ? deactivatedRows : activeRows);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
-    const q = search.toLowerCase();
-    return rows.filter(r =>
-      r.driverName.toLowerCase().includes(q) ||
-      r.ownerName.toLowerCase().includes(q) ||
-      (r.unitNumber ?? '').toLowerCase().includes(q) ||
-      (r.truckVin ?? '').toLowerCase().includes(q) ||
-      (r.truckMake ?? '').toLowerCase().includes(q) ||
-      (r.truckPlate ?? '').toLowerCase().includes(q) ||
-      r.statePermits.some(p => p.stateCode.toLowerCase() === q)
-    );
-  }, [rows, search]);
+    if (!hasQuery) return rows;
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => matchesSearch(r, q));
+  }, [rows, search, hasQuery]);
+
+  // Per-tab match counts shown on the Active / Deactivated chips while searching.
+  const searchMatchCounts = useMemo(() => {
+    if (!hasQuery) return null;
+    const q = search.trim().toLowerCase();
+    return {
+      active: activeRows.filter(r => matchesSearch(r, q)).length,
+      deactivated: deactivatedRows.filter(r => matchesSearch(r, q)).length,
+    };
+  }, [activeRows, deactivatedRows, search, hasQuery]);
 
   const counts = useMemo(() => {
     const c = { all: filtered.length, overdue: 0, due_soon: 0, no_record: 0 };
@@ -417,7 +442,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
               placeholder="Search vehicles…"
               className="pl-9 text-sm h-9"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setScopeSearchToTab(false); }}
             />
           </div>
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
@@ -428,7 +453,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       <div className="flex flex-wrap gap-1.5 items-center justify-between">
         <div className="flex gap-1.5">
         <button
-          onClick={() => setShowDeactivated(false)}
+          onClick={() => { setShowDeactivated(false); setScopeSearchToTab(true); }}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
             !showDeactivated
               ? 'bg-primary text-primary-foreground border-primary'
@@ -437,11 +462,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         >
           Active
           <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded-full ${!showDeactivated ? 'bg-white/20' : 'bg-muted'}`}>
-            {activeRows.length}
+            {searchMatchCounts ? searchMatchCounts.active : activeRows.length}
           </span>
         </button>
         <button
-          onClick={() => setShowDeactivated(true)}
+          onClick={() => { setShowDeactivated(true); setScopeSearchToTab(true); }}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors flex items-center gap-1 ${
             showDeactivated
               ? 'bg-primary text-primary-foreground border-primary'
@@ -451,7 +476,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           <Archive className="h-3 w-3" />
           Deactivated
           <span className={`ml-1 text-[10px] px-1 py-0.5 rounded-full ${showDeactivated ? 'bg-white/20' : 'bg-muted'}`}>
-            {deactivatedRows.length}
+            {searchMatchCounts ? searchMatchCounts.deactivated : deactivatedRows.length}
           </span>
         </button>
         </div>
@@ -517,18 +542,20 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </div>
       ) : viewMode === 'cards' ? (
         <>
-        {showDeactivated && (
+        {(showDeactivated || filteredAndSorted.some(r => !!r.deactivatedAt)) && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
             <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
             These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
           </div>
         )}
-        <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${showDeactivated ? 'opacity-75' : ''}`}>
-          {filteredAndSorted.map(row => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredAndSorted.map(row => {
+            const isDeactivated = !!row.deactivatedAt;
+            return (
             <div
               key={row.operatorId}
               onClick={() => onSelectOperator(row.operatorId)}
-              className="group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3"
+              className={`group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3 ${isDeactivated ? 'opacity-75' : ''}`}
             >
               {/* Header: Unit # + DOT status */}
               <div className="flex items-start justify-between gap-2">
@@ -543,7 +570,12 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     </div>
                   </div>
                 </div>
-                <div className="shrink-0">{dotStatusBadge(row.dotNextDue)}</div>
+                <div className="shrink-0 flex items-center gap-1.5">
+                  {isDeactivated && (
+                    <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Deactivated</Badge>
+                  )}
+                  {dotStatusBadge(row.dotNextDue)}
+                </div>
               </div>
 
               {/* Driver + Owner */}
@@ -656,7 +688,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {showDeactivated && (isManagement || isOwner) && (
+                  {isDeactivated && (isManagement || isOwner) && (
                     <Button
                       size="sm"
                       className="h-8 gap-1.5"
@@ -701,7 +733,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {(isManagement || isOwner) && (
-                        showDeactivated ? (
+                        isDeactivated ? (
                           <DropdownMenuItem
                             className="text-primary focus:text-primary focus:bg-primary/10"
                             onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
@@ -727,18 +759,19 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         </>
       ) : (
         <>
-        {showDeactivated && (
+        {(showDeactivated || filteredAndSorted.some(r => !!r.deactivatedAt)) && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
             <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
             These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
           </div>
         )}
-        <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${showDeactivated ? 'opacity-75' : ''}`}>
+        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -756,14 +789,21 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSorted.map(row => (
+                {filteredAndSorted.map(row => {
+                  const isDeactivated = !!row.deactivatedAt;
+                  return (
                   <TableRow
                     key={row.operatorId}
-                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    className={`cursor-pointer hover:bg-muted/30 transition-colors ${isDeactivated ? 'opacity-75' : ''}`}
                     onClick={() => onSelectOperator(row.operatorId)}
                   >
                     <TableCell className="text-sm font-mono font-semibold text-primary">
-                      {row.unitNumber || '—'}
+                      <div className="flex flex-col gap-0.5">
+                        <span>{row.unitNumber || '—'}</span>
+                        {isDeactivated && (
+                          <Badge variant="outline" className="text-[9px] border-primary/40 text-primary w-fit">Deactivated</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm font-medium">{row.driverName}</TableCell>
                     <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
@@ -826,7 +866,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        {showDeactivated && (isManagement || isOwner) && (
+                        {isDeactivated && (isManagement || isOwner) && (
                           <Button
                             size="sm"
                             className="h-7 gap-1.5 text-xs"
@@ -859,7 +899,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {showDeactivated ? (
+                              {isDeactivated ? (
                                 <DropdownMenuItem
                                   className="text-primary focus:text-primary focus:bg-primary/10"
                                   onClick={() => setConfirmReactivate(row)}
@@ -885,7 +925,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
