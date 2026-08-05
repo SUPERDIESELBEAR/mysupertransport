@@ -1365,10 +1365,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // Load persistent DOT consultant email recipients
     const { data: dotSettings } = await supabase
       .from('dot_consultant_email_settings')
-      .select('recipient_emails')
+      .select('recipient_emails, consultant_name, greeting_name')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .maybeSingle();
     setDotToEmails(((dotSettings as any)?.recipient_emails ?? []) as string[]);
+    setDotConsultantName(((dotSettings as any)?.consultant_name ?? '') as string);
+    setDotGreetingName(((dotSettings as any)?.greeting_name ?? '') as string);
 
     // Build truck info: prefer onboarding_status fields, fall back to ICA
     const osTruck = (op as any)?.onboarding_status as any;
@@ -1517,12 +1519,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .from('dot_consultant_email_settings')
         .update({
           recipient_emails: dotToEmails,
+          consultant_name: dotConsultantName.trim() || null,
+          greeting_name: dotGreetingName.trim() || null,
           updated_at: new Date().toISOString(),
           updated_by: session?.user?.id ?? null,
         })
         .eq('id', '00000000-0000-0000-0000-000000000001');
       if (error) throw error;
-      toast({ title: 'Default recipients saved', description: `${dotToEmails.length} recipient(s) will be pre-filled next time.` });
+      toast({ title: 'DOT Consultant saved', description: `${dotToEmails.length} recipient(s) and greeting will be pre-filled next time.` });
     } catch (err: any) {
       toast({ title: 'Failed to save recipients', description: err.message, variant: 'destructive' });
     } finally {
@@ -2768,7 +2772,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
             <p className="text-xs text-destructive/80 mt-0.5">
-              {operatorName} was deactivated but Tracey McQuilken has not yet been emailed. Complete the notification before continuing.
+              {operatorName} was deactivated but the DOT Consultant has not yet been emailed. Complete the notification before continuing.
             </p>
           </div>
           <Button
