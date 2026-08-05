@@ -1032,6 +1032,11 @@ export default function ManagementPortal() {
                       </div>
                       <p className="text-2xl sm:text-3xl font-bold text-foreground">{metrics.onboarding}</p>
                       <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">In Onboarding</p>
+                      {onHoldCount > 0 && (
+                        <p className="text-[10px] sm:text-xs text-muted-foreground/70 leading-tight mt-0.5">
+                          {onHoldCount} on hold (not counted)
+                        </p>
+                      )}
                       {stageBadges.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {stageBadges.map(b => (
