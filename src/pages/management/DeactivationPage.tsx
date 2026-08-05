@@ -207,13 +207,13 @@ export default function DeactivationPage() {
         </Button>
       }
     >
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col min-w-0 overflow-x-clip">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" onClick={handleCancel} className="gap-1">
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
         </div>
-        <div className="flex-1 min-h-0 border border-border rounded-xl bg-card p-4 lg:p-6 shadow-sm">
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden border border-border rounded-xl bg-card p-4 lg:p-6 shadow-sm">
           <DeactivationWizardContent
             operatorId={operator.id}
             operatorName={operatorName}
