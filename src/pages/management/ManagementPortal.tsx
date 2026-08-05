@@ -56,6 +56,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
+import { fetchOverviewMetrics, isEligibleDriver, getOnboardingStage, emptyStageCounts, OWNER_USER_IDS } from '@/lib/managementMetrics';
 import PendingInviteAcceptance from '@/components/management/PendingInviteAcceptance';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 import PEIQueuePanel from '@/components/pei/PEIQueuePanel';
@@ -156,6 +157,7 @@ export default function ManagementPortal() {
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [selectedAppInitialTab, setSelectedAppInitialTab] = useState<'overview' | 'documents' | 'pei'>('overview');
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
+  const [onHoldCount, setOnHoldCount] = useState(0);
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [dispatchLastChanged, setDispatchLastChanged] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [dispatchLastChangedAt, setDispatchLastChangedAt] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
