@@ -422,6 +422,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dlRearUrl, setDlRearUrl] = useState<string | null>(null);
   const [medCertDocUrl, setMedCertDocUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesSavedAt, setNotesSavedAt] = useState<Date | null>(null);
   const [anticipatedStartDate, setAnticipatedStartDate] = useState<string>('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
