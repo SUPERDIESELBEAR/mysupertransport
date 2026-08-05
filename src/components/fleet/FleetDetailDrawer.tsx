@@ -363,6 +363,36 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   };
 
   const latestDot = dotInspections[0] ?? null;
+
+  /** Pull this driver's onboarding Form 2290 / registration uploads into the binder. */
+  const [syncingOnboarding, setSyncingOnboarding] = useState(false);
+  const syncFromOnboarding = async () => {
+    setSyncingOnboarding(true);
+    try {
+      const results = await Promise.all(
+        (['form_2290', 'registration'] as const).map(document_type =>
+          supabase.functions.invoke('sync-onboarding-doc-to-binder', {
+            body: { operator_id: operatorId, document_type },
+          }),
+        ),
+      );
+      const failed = results.find(r => r.error);
+      if (failed?.error) throw failed.error;
+      const synced = results.filter(r => (r.data as any)?.results?.[0]?.status === 'synced').length;
+      toast({
+        title: synced > 0 ? 'Onboarding documents synced' : 'Nothing new to sync',
+        description: synced > 0
+          ? `${synced} document${synced === 1 ? '' : 's'} pulled in from onboarding uploads.`
+          : 'No new Form 2290 or registration uploads were found for this driver.',
+      });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Sync failed', description: err?.message ?? 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSyncingOnboarding(false);
+    }
+  };
+
   const dotDaysLeft = latestDot?.next_due_date
     ? differenceInDays(startOfDay(parseISO(latestDot.next_due_date)), startOfDay(new Date()))
     : null;
