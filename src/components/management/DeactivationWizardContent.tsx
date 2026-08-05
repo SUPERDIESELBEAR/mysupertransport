@@ -850,7 +850,7 @@ export function DeactivationWizardContent({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email Greeting</Label>
-              <Input value={greetingName} onChange={e => setGreetingName(e.target.value)} maxLength={60} placeholder="e.g. Tracey" className="h-8 text-xs" />
+              <Input value={greetingName} onChange={e => setGreetingName(e.target.value)} maxLength={60} placeholder="First name" className="h-8 text-xs" />
               <p className="text-[11px] text-muted-foreground">Email opens with “{greetingName.trim() ? `Hi ${greetingName.trim()}` : 'Hello'}, please find the deactivation details below.”</p>
             </div>
             <div className="space-y-1.5">

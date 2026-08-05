@@ -378,7 +378,7 @@ export default function NotifySafetyAdvisorDialog({
               value={greetingName}
               onChange={e => setGreetingName(e.target.value)}
               maxLength={60}
-              placeholder="e.g. Tracey"
+              placeholder="First name"
               className="h-9 text-sm"
               disabled={sending}
             />

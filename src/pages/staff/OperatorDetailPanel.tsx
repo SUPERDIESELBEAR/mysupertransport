@@ -550,7 +550,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const [deactivateNotes, setDeactivateNotes] = useState<string>('');
-  // Safety Advisor (Tracey McQuilken) mandatory notification state
+  // DOT Consultant mandatory notification state
   const [safetyAdvisorNotifiedAt, setSafetyAdvisorNotifiedAt] = useState<string | null>(null);
   const [showNotifyAdvisorDialog, setShowNotifyAdvisorDialog] = useState(false);
   const [lastDeactivateReason, setLastDeactivateReason] = useState<string>('');
@@ -2017,7 +2017,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
 
       setIsActive(newActive);
-      // Snapshot the reason/notes for the mandatory Safety Advisor email dialog
+      // Snapshot the reason/notes for the mandatory DOT Consultant email dialog
       const snapshotReason = deactivateReason;
       const snapshotNotes = deactivateNotes;
       setDeactivateReason('');
@@ -2026,7 +2026,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (!newActive) {
         setLastDeactivateReason(snapshotReason);
         setLastDeactivateNotes(snapshotNotes);
-        // Force the mandatory Safety Advisor notification dialog
+        // Force the mandatory DOT Consultant notification dialog
         setSafetyAdvisorNotifiedAt(null);
         setShowNotifyAdvisorDialog(true);
       } else {
@@ -2765,12 +2765,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
-      {/* Safety Advisor notification banner */}
+      {/* DOT Consultant notification banner */}
       {!isActive && !safetyAdvisorNotifiedAt && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5" style={{ order: isQuickView ? 0 : 5 }}>
           <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
+            <p className="text-sm font-semibold text-destructive">DOT Consultant notification required</p>
             <p className="text-xs text-destructive/80 mt-0.5">
               {operatorName} was deactivated but the DOT Consultant has not yet been emailed. Complete the notification before continuing.
             </p>
@@ -2790,7 +2790,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-status-complete/40 bg-status-complete/5">
           <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
           <p className="text-xs text-status-complete font-medium">
-            Safety Advisor notified {new Date(safetyAdvisorNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            DOT Consultant notified {new Date(safetyAdvisorNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
       )}
@@ -4254,7 +4254,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Mandatory Safety Advisor notification dialog */}
+      {/* Mandatory DOT Consultant notification dialog */}
       <NotifySafetyAdvisorDialog
         open={showNotifyAdvisorDialog}
         operatorId={operatorId}
@@ -6573,7 +6573,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={dotConsultantName}
                           onChange={e => setDotConsultantName(e.target.value)}
-                          placeholder="e.g. Tracey L. McQuilken"
+                          placeholder="Consultant full name"
                           maxLength={80}
                           className="h-8 text-xs"
                         />
@@ -6583,7 +6583,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={dotGreetingName}
                           onChange={e => setDotGreetingName(e.target.value)}
-                          placeholder="e.g. Tracey"
+                          placeholder="First name"
                           maxLength={60}
                           className="h-8 text-xs"
                         />

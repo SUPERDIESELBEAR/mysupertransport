@@ -4,7 +4,7 @@ import { CheckCircle2, MinusCircle, Circle, History, Loader2 } from 'lucide-reac
 
 const STEP_LABELS: Record<string, string> = {
   reason: 'Reason & Date',
-  safety_advisor: 'Safety Advisor Notified',
+  safety_advisor: 'DOT Consultant Notified',
   lease_termination: 'Lease Termination (Appendix C)',
   equipment_return: 'Equipment Return',
   fuel_card: 'Fuel Card Deactivation',
