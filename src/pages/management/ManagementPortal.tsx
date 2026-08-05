@@ -646,24 +646,6 @@ export default function ManagementPortal() {
     if (view === 'overview') fetchStaffWorkload();
   }, [view, fetchStaffWorkload]);
 
-  const fetchMetrics = useCallback(async () => {
-    const [appsRes, overview] = await Promise.all([
-      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
-      fetchOverviewMetrics(),
-    ]);
-    setMetrics({
-      pending: appsRes.count ?? 0,
-      onboarding: overview.onboarding,
-      // "Active Dispatch" = drivers whose Driver Hub status is Dispatched
-      active: overview.dispatched,
-      alerts: overview.alerts,
-    });
-    setOnHoldCount(overview.onHold);
-    setOnboardingStageBreakdown(overview.stageBreakdown);
-    setIdleOnboardingCount(overview.idle);
-    setDispatchBreakdown(overview.dispatchBreakdown);
-  }, []);
-
   const fetchApplications = useCallback(async () => {
     // 'invited' tab is handled separately — don't query applications table
     if (statusFilter === 'invited') return;
