@@ -6514,6 +6514,60 @@ export type Database = {
           },
         ]
       }
+      truck_state_permits: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          expires_at: string | null
+          id: string
+          operator_id: string
+          permit_number: string | null
+          registered: boolean
+          state_code: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          expires_at?: string | null
+          id?: string
+          operator_id: string
+          permit_number?: string | null
+          registered?: boolean
+          state_code: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          expires_at?: string | null
+          id?: string
+          operator_id?: string
+          permit_number?: string | null
+          registered?: boolean
+          state_code?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_state_permits_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "truck_state_permits_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
