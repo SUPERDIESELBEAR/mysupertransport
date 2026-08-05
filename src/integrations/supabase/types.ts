@@ -3426,6 +3426,30 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_role_defaults: {
+        Row: {
+          category: string
+          email_enabled: boolean
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          email_enabled?: boolean
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          email_enabled?: boolean
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           archived_at: string | null
@@ -6035,6 +6059,30 @@ export type Database = {
           revoked_at?: string | null
           scope?: string
           token?: string
+        }
+        Relationships: []
+      }
+      staff_email_overrides: {
+        Row: {
+          category: string
+          email_enabled: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          email_enabled: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          email_enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
