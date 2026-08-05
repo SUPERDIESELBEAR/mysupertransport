@@ -3476,8 +3476,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                           </div>
                        </div>
                      </td>
+                    {colVisible('phone') && (
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>
+                    )}
+                    {colVisible('state') && (
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
+                    )}
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1.5">
                          <StageTrack
@@ -3516,6 +3520,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                        </div>
                      </td>
                     {/* Anticipated Start Date — inline editable */}
+                    {colVisible('start_date') && (
                     <td className="px-4 py-3 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
                       {(() => {
                         const dateStr = op.anticipated_start_date;
@@ -3532,6 +3537,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         );
                       })()}
                     </td>
+                    )}
+                    {colVisible('coordinator') && (
                     <td className="px-4 py-3 hidden xl:table-cell">
                       <div className="flex items-center gap-1.5 min-w-[160px]">
                         {assigningMap[op.id] && (
@@ -3563,6 +3570,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         </Select>
                       </div>
                     </td>
+                    )}
+                    {colVisible('msgs') && (
                      <td className="px-4 py-3 hidden md:table-cell">
                        {op.unread_count > 0 ? (
                          op.unread_count >= 3 ? (
@@ -3590,7 +3599,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          <span className="text-muted-foreground/40 text-xs">—</span>
                        )}
                      </td>
+                    )}
                     {/* Compliance icon cell */}
+                    {colVisible('compliance') && (
                     <td className="px-4 py-3 text-center">
                       {(() => {
                         const alert = complianceByOperator[op.id];
@@ -3635,7 +3646,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         );
                       })()}
                      </td>
+                    )}
                      {/* Last Activity cell */}
+                    {colVisible('last_activity') && (
                      <td className="px-4 py-3 hidden xl:table-cell whitespace-nowrap">
                        {op.onboarding_updated_at ? (
                          <TooltipProvider delayDuration={100}>
@@ -3660,6 +3673,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          <span className="text-muted-foreground/40 text-xs">—</span>
                        )}
                      </td>
+                    )}
                      <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                       {op.application_id && (
