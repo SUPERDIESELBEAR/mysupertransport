@@ -3,7 +3,6 @@ import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
 
-const DEFAULT_RECIPIENT_EMAIL = 'tracey@iondot.net';
 const SETTINGS_ROW_ID = '00000000-0000-0000-0000-000000000001';
 // Resend hard cap on total email payload ~40MB base64; keep attachments <20MB raw combined
 const MAX_ATTACHED_BYTES = 20 * 1024 * 1024;
@@ -40,6 +39,7 @@ function buildDotEmail(data: {
   extraLinks: { name: string; url: string }[];
   attachedNames: string[];
   senderName: string;
+  greeting: string;
 }): string {
   const notesSection = data.notes
     ? `<div style="margin-top:20px;padding:12px 16px;background:#f9f8f4;border-left:4px solid #C9A84C;border-radius:4px;">
@@ -74,7 +74,7 @@ function buildDotEmail(data: {
         ${emailHeader('DOT CONSULTANT REQUEST')}
         <tr><td style="padding:36px 40px;">
           <h1 style="margin:0 0 6px;font-size:20px;color:#0f1117;font-weight:700;">DOT Consultant Request — ${data.driverName}</h1>
-          <p style="margin:0 0 24px;color:#666;font-size:14px;">Hello, please review the following owner-operator details.</p>
+          <p style="margin:0 0 24px;color:#666;font-size:14px;">${escapeHtml(data.greeting)}, please review the following owner-operator details.</p>
 
           <p style="margin:0 0 10px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;">Driver Information</p>
           <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:20px;font-size:14px;">
@@ -116,7 +116,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) return fail(500, 'Email provider not configured (RESEND_API_KEY missing)');
 
-    const body = await req.json() as { operator_id?: string; notes?: string; attachment_paths?: string[]; to_emails?: unknown; cc_emails?: unknown };
+    const body = await req.json() as { operator_id?: string; notes?: string; attachment_paths?: string[]; to_emails?: unknown; cc_emails?: unknown; greeting_name?: unknown };
     const operator_id = body.operator_id;
     if (!operator_id) return fail(400, 'operator_id required');
 
@@ -129,17 +129,27 @@ Deno.serve(withErrorEnvelope(async (req) => {
           .filter(v => EMAIL_RE.test(v)),
       )).slice(0, cap);
 
-    // Resolve To recipients: per-send override, else saved defaults, else built-in default.
+    // Saved DOT Consultant record (recipients + greeting fallback).
+    const { data: settings } = await supabase
+      .from('dot_consultant_email_settings')
+      .select('recipient_emails, greeting_name')
+      .eq('id', SETTINGS_ROW_ID)
+      .maybeSingle();
+
+    // Resolve To recipients: per-send override, else saved defaults.
     let toEmails = normalizeList(body.to_emails, 15);
     if (toEmails.length === 0) {
-      const { data: settings } = await supabase
-        .from('dot_consultant_email_settings')
-        .select('recipient_emails')
-        .eq('id', SETTINGS_ROW_ID)
-        .maybeSingle();
       toEmails = normalizeList((settings as any)?.recipient_emails, 15);
     }
-    if (toEmails.length === 0) toEmails = [DEFAULT_RECIPIENT_EMAIL];
+    if (toEmails.length === 0) return fail(400, 'At least one To recipient is required');
+
+    // Greeting: per-send override wins, else the saved name, else a neutral "Hello".
+    const rawGreeting = typeof body.greeting_name === 'string' ? body.greeting_name.trim().slice(0, 60) : '';
+    const savedGreeting = typeof (settings as any)?.greeting_name === 'string'
+      ? ((settings as any).greeting_name as string).trim().slice(0, 60)
+      : '';
+    const greetingName = rawGreeting || savedGreeting;
+    const greeting = greetingName ? `Hi ${greetingName}` : 'Hello';
 
     const notes = typeof body.notes === 'string' ? body.notes.slice(0, 5000) : null;
     const attachmentPaths = Array.isArray(body.attachment_paths)
@@ -249,6 +259,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       extraLinks,
       attachedNames,
       senderName,
+      greeting,
     });
 
     const subject = `DOT Consultant Request — ${driverName}`;

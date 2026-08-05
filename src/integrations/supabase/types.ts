@@ -1160,18 +1160,24 @@ export type Database = {
       }
       dot_consultant_email_settings: {
         Row: {
+          consultant_name: string | null
+          greeting_name: string | null
           id: string
           recipient_emails: string[]
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          consultant_name?: string | null
+          greeting_name?: string | null
           id?: string
           recipient_emails?: string[]
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          consultant_name?: string | null
+          greeting_name?: string | null
           id?: string
           recipient_emails?: string[]
           updated_at?: string

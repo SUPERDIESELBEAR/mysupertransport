@@ -12,8 +12,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Send, ShieldAlert, Mail } from 'lucide-react';
 
-const RECIPIENT_EMAIL = 'tracey@iondot.net';
-const RECIPIENT_NAME = 'Tracey L. McQuilken';
+const SETTINGS_ROW_ID = '00000000-0000-0000-0000-000000000001';
 const OWNER_EMAIL = 'marc@mysupertransport.com';
 const OWNER_NAME = 'Marcus Mueller';
 const REASON_OPTIONS = [
@@ -34,7 +33,7 @@ interface Props {
 
 /**
  * Mandatory dialog shown after a driver is deactivated. Staff MUST send the
- * email to the Safety Advisor (Tracey McQuilken) before this dialog can close.
+ * email to the DOT Consultant before this dialog can close.
  */
 export default function NotifySafetyAdvisorDialog({
   open, operatorId, operatorName, unitNumber,
@@ -55,6 +54,10 @@ export default function NotifySafetyAdvisorDialog({
   const [sentAndClosing, setSentAndClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
+  // Saved DOT Consultant record (email + display name + greeting).
+  const [consultantEmails, setConsultantEmails] = useState<string[]>([]);
+  const [consultantName, setConsultantName] = useState('');
+  const [greetingName, setGreetingName] = useState('');
 
   const senderEmail = (session?.user?.email ?? '').toLowerCase();
 
@@ -71,8 +74,7 @@ export default function NotifySafetyAdvisorDialog({
     setCcInput('');
     setToInput('');
     setInputError(null);
-    // Pre-fill To with Tracey; staff can remove her for test sends.
-    setToEmails([RECIPIENT_EMAIL]);
+    setToEmails([]);
 
     // Pre-fill CC with the owner (locked) and the sender. The edge function
     // also auto-adds owner(s) server-side as a safety net.
@@ -82,6 +84,29 @@ export default function NotifySafetyAdvisorDialog({
     setCcEmails(Array.from(defaults));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, operatorId, senderEmail]);
+
+  // Load the saved DOT Consultant and pre-fill the To field with them.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('dot_consultant_email_settings')
+        .select('recipient_emails, consultant_name, greeting_name')
+        .eq('id', SETTINGS_ROW_ID)
+        .maybeSingle();
+      if (cancelled) return;
+      const emails = (((data as any)?.recipient_emails ?? []) as unknown[])
+        .filter((v): v is string => typeof v === 'string')
+        .map(v => v.trim().toLowerCase())
+        .filter(v => EMAIL_RE.test(v));
+      setConsultantEmails(emails);
+      setConsultantName(((data as any)?.consultant_name ?? '') as string);
+      setGreetingName(((data as any)?.greeting_name ?? '') as string);
+      setToEmails(emails);
+    })();
+    return () => { cancelled = true; };
+  }, [open, operatorId]);
 
   const addCc = () => {
     const email = ccInput.trim().toLowerCase();
@@ -124,22 +149,25 @@ export default function NotifySafetyAdvisorDialog({
           notes: notes.trim(),
           to_emails: toEmails,
           cc_emails: ccEmails,
+          greeting_name: greetingName.trim() || null,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
       if (fnErr) throw new Error(fnErr.message || 'Failed to send email');
       if (!data?.success) throw new Error(data?.error || 'Failed to send email');
 
-      const primary = toEmails[0] === RECIPIENT_EMAIL ? RECIPIENT_NAME : toEmails[0];
+      const primary = consultantEmails.includes(toEmails[0]) && consultantName.trim()
+        ? consultantName.trim()
+        : toEmails[0];
       const extras = toEmails.length - 1;
       setSentAndClosing(true);
       toast({
         title: 'Deactivation email sent',
         description: `Sent to ${primary}${extras > 0 ? ` and ${extras} other${extras === 1 ? '' : 's'}` : ''}${ccEmails.length ? `, ${ccEmails.length} CC${ccEmails.length === 1 ? '' : 's'}` : ''}.`,
       });
-      // Always close the dialog; only pass a timestamp when Tracey actually
+      // Always close the dialog; only pass a timestamp when the consultant actually
       // received the email so the parent knows to clear the notification banner.
-      onSent(data?.tracey_included && data?.notified_at ? data.notified_at : null);
+      onSent(data?.consultant_included && data?.notified_at ? data.notified_at : null);
 
     } catch (err: any) {
       const msg = err?.message ?? String(err);
@@ -163,11 +191,11 @@ export default function NotifySafetyAdvisorDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-gold" />
-            Notify Safety Advisor
+            Notify DOT Consultant
           </DialogTitle>
           <DialogDescription>
             <strong className="text-foreground">{operatorName}</strong> has been deactivated.
-            Send the required notice to the Safety Advisor so DQ files and compliance records stay current.
+            Send the required notice to the DOT Consultant so DQ files and compliance records stay current.
           </DialogDescription>
         </DialogHeader>
 
@@ -195,18 +223,18 @@ export default function NotifySafetyAdvisorDialog({
             {toEmails.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {toEmails.map(email => {
-                  const isTracey = email === RECIPIENT_EMAIL;
+                  const isConsultant = consultantEmails.includes(email);
                   return (
                     <span
                       key={email}
                       className={
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ' +
-                        (isTracey
+                        (isConsultant
                           ? 'bg-gold/10 border-gold/40 text-foreground'
                           : 'bg-muted border-border text-foreground')
                       }
                     >
-                      {isTracey ? `${RECIPIENT_NAME} <${email}>` : email}
+                      {isConsultant && consultantName.trim() ? `${consultantName.trim()} <${email}>` : email}
                       <button
                         type="button"
                         onClick={() => setToEmails(prev => prev.filter(e => e !== email))}
@@ -343,6 +371,22 @@ export default function NotifySafetyAdvisorDialog({
             </div>
           </div>
 
+          {/* Greeting */}
+          <div>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email Greeting</Label>
+            <Input
+              value={greetingName}
+              onChange={e => setGreetingName(e.target.value)}
+              maxLength={60}
+              placeholder="First name"
+              className="h-9 text-sm"
+              disabled={sending}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Email opens with “{greetingName.trim() ? `Hi ${greetingName.trim()}` : 'Hello'}, please find the deactivation details below.”
+            </p>
+          </div>
+
           {/* Notes */}
           <div>
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</Label>
@@ -351,7 +395,7 @@ export default function NotifySafetyAdvisorDialog({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               maxLength={5000}
-              placeholder="Add any context Tracey should know…"
+              placeholder="Add any context the DOT Consultant should know…"
               className="text-sm"
               disabled={sending}
             />
@@ -364,7 +408,7 @@ export default function NotifySafetyAdvisorDialog({
           )}
 
           <p className="text-[11px] text-muted-foreground">
-            Tracey can reply to this email; her reply will reach you and everyone copied on the thread.
+            The recipient can reply to this email; their reply will reach you and everyone copied on the thread.
           </p>
 
           <Button

@@ -493,7 +493,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [chExpanded, setChExpanded] = useState(false);
   const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
-  // Stage 8 — Email Tracey McQuilken (DOT Consultant)
+  // Stage 8 — Email DOT Consultant
   const [sendingDotEmail, setSendingDotEmail] = useState(false);
   const [dotEmailSent, setDotEmailSent] = useState(false);
   const [dotEmailNotes, setDotEmailNotes] = useState('');
@@ -504,10 +504,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotToEmails, setDotToEmails] = useState<string[]>([]);
   const [dotToInput, setDotToInput] = useState('');
   const [savingDotRecipients, setSavingDotRecipients] = useState(false);
-  // Friendly label: keep Tracey's name when she's the primary recipient, otherwise generic.
-  const dotConsultantLabel = dotToEmails.some(e => e.toLowerCase() === 'tracey@iondot.net')
-    ? 'Tracey McQuilken'
-    : 'DOT Consultant';
+  // Saved DOT Consultant identity — name shown beside their email, greeting used in the email.
+  const [dotConsultantName, setDotConsultantName] = useState('');
+  const [dotGreetingName, setDotGreetingName] = useState('');
 
   // Cert history timeline
   type CertHistoryEntry = {
@@ -551,7 +550,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const [deactivateNotes, setDeactivateNotes] = useState<string>('');
-  // Safety Advisor (Tracey McQuilken) mandatory notification state
+  // DOT Consultant mandatory notification state
   const [safetyAdvisorNotifiedAt, setSafetyAdvisorNotifiedAt] = useState<string | null>(null);
   const [showNotifyAdvisorDialog, setShowNotifyAdvisorDialog] = useState(false);
   const [lastDeactivateReason, setLastDeactivateReason] = useState<string>('');
@@ -1366,10 +1365,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // Load persistent DOT consultant email recipients
     const { data: dotSettings } = await supabase
       .from('dot_consultant_email_settings')
-      .select('recipient_emails')
+      .select('recipient_emails, consultant_name, greeting_name')
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .maybeSingle();
     setDotToEmails(((dotSettings as any)?.recipient_emails ?? []) as string[]);
+    setDotConsultantName(((dotSettings as any)?.consultant_name ?? '') as string);
+    setDotGreetingName(((dotSettings as any)?.greeting_name ?? '') as string);
 
     // Build truck info: prefer onboarding_status fields, fall back to ICA
     const osTruck = (op as any)?.onboarding_status as any;
@@ -1492,6 +1493,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           attachment_paths: uploadedPaths,
           to_emails: dotToEmails,
           cc_emails: dotCcEmails,
+          greeting_name: dotGreetingName.trim() || null,
         },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
@@ -1500,7 +1502,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDotEmailNotes('');
       setDotAttachments([]);
       setDotCcEmails([]);
-      toast({ title: `Email sent to ${dotConsultantLabel}`, description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      toast({ title: `Email sent to ${dotConsultantName.trim() || 'the DOT Consultant'}`, description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
       setTimeout(() => setDotEmailSent(false), 5000);
     } catch (err: any) {
       toast({ title: 'Failed to send email', description: err.message, variant: 'destructive' });
@@ -1517,12 +1519,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .from('dot_consultant_email_settings')
         .update({
           recipient_emails: dotToEmails,
+          consultant_name: dotConsultantName.trim() || null,
+          greeting_name: dotGreetingName.trim() || null,
           updated_at: new Date().toISOString(),
           updated_by: session?.user?.id ?? null,
         })
         .eq('id', '00000000-0000-0000-0000-000000000001');
       if (error) throw error;
-      toast({ title: 'Default recipients saved', description: `${dotToEmails.length} recipient(s) will be pre-filled next time.` });
+      toast({ title: 'DOT Consultant saved', description: `${dotToEmails.length} recipient(s) and greeting will be pre-filled next time.` });
     } catch (err: any) {
       toast({ title: 'Failed to save recipients', description: err.message, variant: 'destructive' });
     } finally {
@@ -2013,7 +2017,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
 
       setIsActive(newActive);
-      // Snapshot the reason/notes for the mandatory Safety Advisor email dialog
+      // Snapshot the reason/notes for the mandatory DOT Consultant email dialog
       const snapshotReason = deactivateReason;
       const snapshotNotes = deactivateNotes;
       setDeactivateReason('');
@@ -2022,7 +2026,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (!newActive) {
         setLastDeactivateReason(snapshotReason);
         setLastDeactivateNotes(snapshotNotes);
-        // Force the mandatory Safety Advisor notification dialog
+        // Force the mandatory DOT Consultant notification dialog
         setSafetyAdvisorNotifiedAt(null);
         setShowNotifyAdvisorDialog(true);
       } else {
@@ -2761,14 +2765,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
-      {/* Safety Advisor notification banner */}
+      {/* DOT Consultant notification banner */}
       {!isActive && !safetyAdvisorNotifiedAt && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-destructive/40 bg-destructive/5" style={{ order: isQuickView ? 0 : 5 }}>
           <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-destructive">Safety Advisor notification required</p>
+            <p className="text-sm font-semibold text-destructive">DOT Consultant notification required</p>
             <p className="text-xs text-destructive/80 mt-0.5">
-              {operatorName} was deactivated but Tracey McQuilken has not yet been emailed. Complete the notification before continuing.
+              {operatorName} was deactivated but the DOT Consultant has not yet been emailed. Complete the notification before continuing.
             </p>
           </div>
           <Button
@@ -2786,7 +2790,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-status-complete/40 bg-status-complete/5">
           <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
           <p className="text-xs text-status-complete font-medium">
-            Safety Advisor notified {new Date(safetyAdvisorNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            DOT Consultant notified {new Date(safetyAdvisorNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
       )}
@@ -4250,7 +4254,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Mandatory Safety Advisor notification dialog */}
+      {/* Mandatory DOT Consultant notification dialog */}
       <NotifySafetyAdvisorDialog
         open={showNotifyAdvisorDialog}
         operatorId={operatorId}
@@ -6487,7 +6491,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <div className="mt-4 pt-4 border-t border-border space-y-3">
                     <SectionSubtitle>
                       <Mail className="h-3 w-3" />
-                      Email {dotConsultantLabel} (DOT Consultant)
+                      Email DOT Consultant
                     </SectionSubtitle>
                     <p className="text-xs text-muted-foreground">
                       Sends driver + truck details, driver's license, and any attached files to the recipients below.
@@ -6562,8 +6566,35 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </Button>
                     </div>
 
+                    {/* Consultant identity — who they are and how the email greets them */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Consultant name</Label>
+                        <Input
+                          value={dotConsultantName}
+                          onChange={e => setDotConsultantName(e.target.value)}
+                          placeholder="Consultant full name"
+                          maxLength={80}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email greeting</Label>
+                        <Input
+                          value={dotGreetingName}
+                          onChange={e => setDotGreetingName(e.target.value)}
+                          placeholder="First name"
+                          maxLength={60}
+                          className="h-8 text-xs"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Email opens with “{dotGreetingName.trim() ? `Hi ${dotGreetingName.trim()}` : 'Hello'}, …”. Leave blank for a neutral greeting.
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to {dotConsultantLabel}</Label>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes to the DOT Consultant</Label>
                       <Textarea
                         rows={3}
                         placeholder="Anything the consultant should know…"
@@ -6686,7 +6717,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       ) : dotEmailSent ? (
                         <><CheckCircle2 className="h-3.5 w-3.5" /> Email Sent</>
                       ) : (
-                        <><Send className="h-3.5 w-3.5" /> Email {dotConsultantLabel}</>
+                        <><Send className="h-3.5 w-3.5" /> Email DOT Consultant</>
                       )}
                     </Button>
                   </div>

@@ -2,8 +2,7 @@ import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-const RECIPIENT_EMAIL = 'tracey@iondot.net';
-const RECIPIENT_NAME = 'Tracey L. McQuilken';
+const SETTINGS_ROW_ID = '00000000-0000-0000-0000-000000000001';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function escapeHtml(s: string): string {
@@ -33,6 +32,7 @@ function buildHtml(d: {
   rehire: 'yes' | 'no';
   notes: string;
   senderName: string;
+  greeting: string;
 }): string {
   const rehireBadge = d.rehire === 'yes'
     ? '<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#e7f7ec;color:#1e7c3a;font-weight:700;font-size:12px;letter-spacing:0.5px;">YES</span>'
@@ -53,7 +53,7 @@ function buildHtml(d: {
         ${emailHeader('DRIVER DEACTIVATION NOTICE')}
         <tr><td style="padding:36px 40px;">
           <h1 style="margin:0 0 6px;font-size:20px;color:#0f1117;font-weight:700;">Driver Deactivation — ${escapeHtml(d.driverName)}</h1>
-          <p style="margin:0 0 24px;color:#666;font-size:14px;">Hi Tracey, please find the deactivation details below.</p>
+          <p style="margin:0 0 24px;color:#666;font-size:14px;">${escapeHtml(d.greeting)}, please find the deactivation details below.</p>
 
           <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:20px;font-size:14px;">
             <tr><td style="padding:10px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;width:40%;">Driver Name</td><td style="padding:10px 12px;border-bottom:1px solid #eee;">${escapeHtml(d.driverName)}</td></tr>
@@ -91,6 +91,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       notes?: string;
       to_emails?: unknown;
       cc_emails?: unknown;
+      greeting_name?: unknown;
     };
 
     const operator_id = body.operator_id;
@@ -109,7 +110,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return fail(400, 'termination_date, reason, and rehire (yes|no) are required');
     }
 
-    // Normalize To recipients (Tracey pre-filled client-side but removable).
+    // Normalize To recipients (the DOT Consultant is pre-filled client-side but removable).
     const rawTos = Array.isArray(body.to_emails) ? body.to_emails as unknown[] : [];
     const toEmails = Array.from(new Set(
       rawTos
@@ -120,7 +121,27 @@ Deno.serve(withErrorEnvelope(async (req) => {
     if (toEmails.length === 0) {
       return fail(400, 'At least one To recipient is required');
     }
-    const includesTracey = toEmails.includes(RECIPIENT_EMAIL.toLowerCase());
+
+    // Saved DOT Consultant record: primary email + greeting fallback.
+    const { data: settings } = await supabase
+      .from('dot_consultant_email_settings')
+      .select('recipient_emails, greeting_name')
+      .eq('id', SETTINGS_ROW_ID)
+      .maybeSingle();
+    const consultantEmails = ((settings as any)?.recipient_emails ?? [])
+      .filter((v: unknown): v is string => typeof v === 'string')
+      .map((v: string) => v.trim().toLowerCase());
+    const consultantIncluded = consultantEmails.length === 0
+      ? false
+      : toEmails.some(e => consultantEmails.includes(e));
+
+    // Greeting: per-send override wins, else the saved name, else a neutral "Hello".
+    const rawGreeting = typeof body.greeting_name === 'string' ? body.greeting_name.trim().slice(0, 60) : '';
+    const savedGreeting = typeof (settings as any)?.greeting_name === 'string'
+      ? ((settings as any).greeting_name as string).trim().slice(0, 60)
+      : '';
+    const greetingName = rawGreeting || savedGreeting;
+    const greeting = greetingName ? `Hi ${greetingName}` : 'Hello';
 
     // Fetch driver context
     const [opResult, callerProfileResult] = await Promise.all([
@@ -182,6 +203,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       rehire,
       notes,
       senderName,
+      greeting,
     });
 
     const subject = `Driver Deactivation — ${driverName}${op.unit_number ? ` (Unit ${op.unit_number})` : ''} — ${fmtDate(terminationDate)}`;
@@ -207,10 +229,10 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return fail(502, `Email delivery failed (Resend ${res.status})`, errText);
     }
 
-    // Stamp operator notification timestamp only when Tracey actually received it.
-    // Test sends (Tracey removed) should not clear the "notification required" banner.
+    // Stamp operator notification timestamp only when the DOT Consultant actually received it.
+    // Test sends (consultant removed) should not clear the "notification required" banner.
     const notifiedAt = new Date().toISOString();
-    if (includesTracey) {
+    if (consultantIncluded) {
       const { error: stampErr } = await supabase
         .from('operators')
         .update({ safety_advisor_notified_at: notifiedAt } as any)
@@ -222,13 +244,14 @@ Deno.serve(withErrorEnvelope(async (req) => {
     await supabase.from('audit_log').insert({
       actor_id: caller.id,
       actor_name: senderName,
-      action: includesTracey ? 'driver_deactivation_email_sent' : 'driver_deactivation_email_test_sent',
+      action: consultantIncluded ? 'driver_deactivation_email_sent' : 'driver_deactivation_email_test_sent',
       entity_type: 'operator',
       entity_id: operator_id,
       entity_label: driverName,
       metadata: {
         to: toEmails,
-        tracey_included: includesTracey,
+        consultant_included: consultantIncluded,
+        greeting_name: greetingName || null,
         cc: ccEmails,
         reply_to: replyToList,
         termination_date: terminationDate,
@@ -241,7 +264,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     return ok({
       success: true,
       sent_to: [...toEmails, ...ccEmails],
-      notified_at: includesTracey ? notifiedAt : null,
-      tracey_included: includesTracey,
+      notified_at: consultantIncluded ? notifiedAt : null,
+      consultant_included: consultantIncluded,
     });
 }, 'send-deactivation-notice'));
