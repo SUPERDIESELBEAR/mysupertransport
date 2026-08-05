@@ -46,13 +46,13 @@ export default function EmailNotificationSettings({ staff }: Props) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const logChange = async (action: string, label: string, metadata: Record<string, unknown>) => {
+  const logChange = async (action: string, label: string, metadata: Record<string, string | boolean>) => {
     await supabase.from('audit_log').insert({
       actor_id: user?.id ?? null,
       action,
       entity_type: 'email_notification_settings',
       entity_label: label,
-      metadata,
+      metadata: metadata as unknown as never,
     });
   };
 
