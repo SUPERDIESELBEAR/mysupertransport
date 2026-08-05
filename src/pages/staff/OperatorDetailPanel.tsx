@@ -7103,8 +7103,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* Internal Notes */}
-      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 13 } : undefined}>
-        <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={{ order: isQuickView ? 13 : 20 }}>
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <Label className="text-sm font-semibold text-foreground block">Internal Notes</Label>
+          <div className="flex items-center gap-2">
+            <UnsavedStatusPill status={notesStatus} lastSavedAt={notesSavedAt} onRetry={() => { void saveNotesOnly(); }} />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!notesDirty || notesSaving}
+              onClick={() => { void saveNotesOnly(); }}
+            >
+              Save notes
+            </Button>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground mb-3">These notes are visible to staff only and will not be shown to the operator.</p>
         <Textarea
           value={notes}
