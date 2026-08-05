@@ -3151,6 +3151,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     )}
                   </div>
                 </th>
+                {colVisible('start_date') && (
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
@@ -3178,6 +3179,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
+                )}
+                {colVisible('coordinator') && (
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
@@ -3207,6 +3210,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
+                )}
+                {colVisible('msgs') && (
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
                    <div className="inline-flex items-center gap-1">
                      <TooltipProvider>
@@ -3237,6 +3242,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                      </TooltipProvider>
                    </div>
                  </th>
+                )}
+                {colVisible('compliance') && (
                  <th className="px-4 py-3 text-center">
                    <div className="inline-flex items-center justify-center gap-1">
                      <TooltipProvider>
@@ -3267,6 +3274,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                      </TooltipProvider>
                    </div>
                  </th>
+                )}
+                {colVisible('last_activity') && (
                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                    <div className="inline-flex items-center gap-1">
                      <TooltipProvider>
@@ -3296,6 +3305,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </TooltipProvider>
                    </div>
                  </th>
+                )}
                  <th className="text-right px-4 py-3" />
               </tr>
             </thead>
