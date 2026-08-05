@@ -42,7 +42,7 @@ const OPERATOR_EVENT_TYPES: EventTypeDef[] = [
   {
     type: 'new_message',
     label: 'New Message',
-    description: 'When you receive a new message from your coordinator or dispatcher',
+    description: 'In-app alerts for new messages. Email is only used for a one-time reminder if a message stays unread for 48 hours.',
     icon: MessageCircle,
     iconBg: 'bg-blue-100',
     iconColor: 'text-blue-500',
