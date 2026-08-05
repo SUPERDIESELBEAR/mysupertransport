@@ -314,7 +314,6 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   }, [reg2290, reg2290Search]);
 
   const confirmDeleteReg2290 = async () => {
-    // (see saveReg2290Expiry below for the inline expiration editor)
     if (!deletingReg2290) return;
     setDeletingReg2290Busy(true);
     try {
@@ -333,6 +332,32 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
     } finally {
       setDeletingReg2290Busy(false);
+    }
+  };
+
+  /** Inline expiration editor for Registration / Form 2290 rows. */
+  const saveReg2290Expiry = async (id: string, value: string) => {
+    setReg2290(prev => prev.map(r => (r.id === id ? { ...r, expires_at: value || null } : r)));
+    const { error } = await supabase
+      .from('inspection_documents')
+      .update({ expires_at: value || null })
+      .eq('id', id);
+    if (error) {
+      toast({ title: 'Could not save expiration date', description: error.message, variant: 'destructive' });
+      await fetchData();
+    }
+  };
+
+  /** Clear the pending-review flag once staff have verified a synced upload. */
+  const markReg2290Reviewed = async (id: string) => {
+    setReg2290(prev => prev.map(r => (r.id === id ? { ...r, pending_review: false } : r)));
+    const { error } = await supabase
+      .from('inspection_documents')
+      .update({ pending_review: false })
+      .eq('id', id);
+    if (error) {
+      toast({ title: 'Could not mark as reviewed', description: error.message, variant: 'destructive' });
+      await fetchData();
     }
   };
 
