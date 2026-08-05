@@ -343,20 +343,6 @@ export default function ManagementPortal() {
     setDispatchBreakdown(overview.dispatchBreakdown);
   }, []);
 
-  const fetchTruckDownCountLegacy = useCallback(async () => {
-    const { data } = await supabase
-      .from('active_dispatch')
-      .select('operator_id, operators!inner(excluded_from_dispatch, onboarding_status(fully_onboarded))')
-      .eq('dispatch_status', 'truck_down');
-    const count = (data ?? []).filter((row: any) => {
-      if (row.operators?.excluded_from_dispatch === true) return false;
-      const os = row.operators?.onboarding_status;
-      const status = Array.isArray(os) ? os[0] : os;
-      return status?.fully_onboarded === true;
-    }).length;
-    setTruckDownCount(count);
-  }, []);
-
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
