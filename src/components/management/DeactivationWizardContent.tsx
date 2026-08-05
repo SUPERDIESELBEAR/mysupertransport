@@ -1215,8 +1215,8 @@ export function DeactivationWizardContent({
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
-      <div className="lg:w-72 xl:w-80 shrink-0 overflow-y-auto">
+    <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0 min-w-0 overflow-x-clip">
+      <div className="lg:w-72 xl:w-80 shrink-0 min-w-0 overflow-y-auto">
         <div className="mb-4">
           {backToDriverButton}
           <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -1230,10 +1230,10 @@ export function DeactivationWizardContent({
         {stepperVertical}
       </div>
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
-        <div className="flex-1 overflow-y-auto lg:overflow-visible">
+        <div className="flex-1 min-w-0 overflow-y-auto overflow-x-clip pr-1">
           {renderStep()}
         </div>
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-4 mt-4 border-t border-border">
           {actionButtons}
         </div>
       </div>
