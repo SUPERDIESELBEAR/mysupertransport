@@ -363,6 +363,17 @@ function Stage2DocUploader({
         if (row) added.push(row as any);
       }
       onFilesAdded(added);
+      // Form 2290 / registration mirror into the driver's Vehicle Hub record
+      // so staff never have to upload the same file a second time.
+      if (docType === 'form_2290' || docType === 'registration') {
+        try {
+          await supabase.functions.invoke('sync-onboarding-doc-to-binder', {
+            body: { operator_id: operatorId, document_type: docType },
+          });
+        } catch (syncErr) {
+          console.warn('[OperatorDetailPanel/doc] Vehicle Hub sync failed', syncErr);
+        }
+      }
       toast({ title: `${files.length} ${files.length === 1 ? 'file' : 'files'} uploaded`, description: `${label} document${files.length > 1 ? 's' : ''} saved.` });
     } catch (err: unknown) {
       const msg = err instanceof Error
