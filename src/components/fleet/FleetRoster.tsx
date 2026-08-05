@@ -765,13 +765,13 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </>
       ) : (
         <>
-        {showDeactivated && (
+        {(showDeactivated || filteredAndSorted.some(r => !!r.deactivatedAt)) && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
             <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
             These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
           </div>
         )}
-        <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${showDeactivated ? 'opacity-75' : ''}`}>
+        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -789,14 +789,21 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSorted.map(row => (
+                {filteredAndSorted.map(row => {
+                  const isDeactivated = !!row.deactivatedAt;
+                  return (
                   <TableRow
                     key={row.operatorId}
-                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    className={`cursor-pointer hover:bg-muted/30 transition-colors ${isDeactivated ? 'opacity-75' : ''}`}
                     onClick={() => onSelectOperator(row.operatorId)}
                   >
                     <TableCell className="text-sm font-mono font-semibold text-primary">
-                      {row.unitNumber || '—'}
+                      <div className="flex flex-col gap-0.5">
+                        <span>{row.unitNumber || '—'}</span>
+                        {isDeactivated && (
+                          <Badge variant="outline" className="text-[9px] border-primary/40 text-primary w-fit">Deactivated</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm font-medium">{row.driverName}</TableCell>
                     <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
