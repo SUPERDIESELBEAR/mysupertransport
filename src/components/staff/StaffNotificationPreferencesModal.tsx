@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Database } from '@/integrations/supabase/types';
 import { getDesktopNotifPreference, setDesktopNotifPreference, supportsDesktopNotifications } from '@/hooks/useDesktopNotifications';
+import StaffEmailCategoryPrefs from './StaffEmailCategoryPrefs';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
