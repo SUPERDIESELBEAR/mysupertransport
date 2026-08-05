@@ -378,7 +378,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       );
       const failed = results.find(r => r.error);
       if (failed?.error) throw failed.error;
-      const synced = results.filter(r => (r.data as any)?.results?.[0]?.status === 'synced').length;
+      const synced = results.filter(r => (r.data as any)?.status === 'synced').length;
       toast({
         title: synced > 0 ? 'Onboarding documents synced' : 'Nothing new to sync',
         description: synced > 0
