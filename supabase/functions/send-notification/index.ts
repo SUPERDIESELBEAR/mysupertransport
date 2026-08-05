@@ -98,29 +98,11 @@ Deno.serve(async (req) => {
     const payload: NotificationPayload = await req.json();
     const { type } = payload;
 
-    // ── Helper: get all management/staff emails filtered by email pref ──
+    // ── Helper: staff recipients via managed Email Notification Settings ──
     const getManagementEmails = async (eventType: string): Promise<string[]> => {
-      const { data: mgmtRoles } = await supabaseAdmin
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['management', 'onboarding_staff']);
-
-      if (!mgmtRoles?.length) return [];
-
-      // Filter out users who have explicitly disabled email for this event type
-      const userIds = mgmtRoles.map(r => r.user_id);
-      const { data: optedOut } = await supabaseAdmin
-        .from('notification_preferences')
-        .select('user_id')
-        .in('user_id', userIds)
-        .eq('event_type', eventType)
-        .eq('email_enabled', false);
-      const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
-      const filteredIds = userIds.filter(id => !optedOutIds.has(id));
-
-      if (!filteredIds.length) return [];
-      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      return users?.filter(u => filteredIds.includes(u.id) && u.email).map(u => u.email!) ?? [];
+      const category: EmailCategory =
+        eventType === 'new_application' ? 'applications' : 'onboarding';
+      return await resolveEmailAddresses(supabaseAdmin, category);
     };
 
     // ── Helper: check if a specific user has email enabled for an event ──
