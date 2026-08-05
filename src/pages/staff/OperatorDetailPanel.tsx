@@ -493,7 +493,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [chExpanded, setChExpanded] = useState(false);
   const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
-  // Stage 8 — Email Tracey McQuilken (DOT Consultant)
+  // Stage 8 — Email DOT Consultant
   const [sendingDotEmail, setSendingDotEmail] = useState(false);
   const [dotEmailSent, setDotEmailSent] = useState(false);
   const [dotEmailNotes, setDotEmailNotes] = useState('');
@@ -504,10 +504,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dotToEmails, setDotToEmails] = useState<string[]>([]);
   const [dotToInput, setDotToInput] = useState('');
   const [savingDotRecipients, setSavingDotRecipients] = useState(false);
-  // Friendly label: keep Tracey's name when she's the primary recipient, otherwise generic.
-  const dotConsultantLabel = dotToEmails.some(e => e.toLowerCase() === 'tracey@iondot.net')
-    ? 'Tracey McQuilken'
-    : 'DOT Consultant';
+  // Saved DOT Consultant identity — name shown beside their email, greeting used in the email.
+  const [dotConsultantName, setDotConsultantName] = useState('');
+  const [dotGreetingName, setDotGreetingName] = useState('');
 
   // Cert history timeline
   type CertHistoryEntry = {
