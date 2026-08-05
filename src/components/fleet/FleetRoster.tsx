@@ -314,7 +314,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       (r.unitNumber ?? '').toLowerCase().includes(q) ||
       (r.truckVin ?? '').toLowerCase().includes(q) ||
       (r.truckMake ?? '').toLowerCase().includes(q) ||
-      (r.truckPlate ?? '').toLowerCase().includes(q)
+      (r.truckPlate ?? '').toLowerCase().includes(q) ||
+      r.statePermits.some(p => p.stateCode.toLowerCase() === q)
     );
   }, [rows, search]);
 
@@ -521,6 +522,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <div className="text-xs text-muted-foreground truncate">Owner: {row.ownerName}</div>
                 )}
               </div>
+
+              {/* State permit chips — renders nothing when no states are enabled */}
+              <StatePermitChips permits={row.statePermits} />
 
               {/* Specs */}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-border pt-2.5">
