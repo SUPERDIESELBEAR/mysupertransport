@@ -67,6 +67,8 @@ interface Reg2290Record {
   expires_at: string | null;
   uploaded_at: string;
   uploaded_by: string | null;
+  pending_review?: boolean;
+  source?: string | null;
 }
 
 interface FleetDetailDrawerProps {
