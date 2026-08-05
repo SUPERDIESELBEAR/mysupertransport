@@ -899,7 +899,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {showDeactivated ? (
+                              {isDeactivated ? (
                                 <DropdownMenuItem
                                   className="text-primary focus:text-primary focus:bg-primary/10"
                                   onClick={() => setConfirmReactivate(row)}
@@ -925,7 +925,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
