@@ -3247,6 +3247,7 @@ export type Database = {
           pinned_by: string | null
           read_at: string | null
           recipient_id: string | null
+          reminder_sent_at: string | null
           reply_to_id: string | null
           sender_id: string
           sent_at: string
@@ -3266,6 +3267,7 @@ export type Database = {
           pinned_by?: string | null
           read_at?: string | null
           recipient_id?: string | null
+          reminder_sent_at?: string | null
           reply_to_id?: string | null
           sender_id: string
           sent_at?: string
@@ -3285,6 +3287,7 @@ export type Database = {
           pinned_by?: string | null
           read_at?: string | null
           recipient_id?: string | null
+          reminder_sent_at?: string | null
           reply_to_id?: string | null
           sender_id?: string
           sent_at?: string

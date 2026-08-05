@@ -1,0 +1,2 @@
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS reminder_sent_at timestamptz;
+CREATE INDEX IF NOT EXISTS idx_messages_unread_reminder ON public.messages (sent_at) WHERE reminder_sent_at IS NULL AND deleted_at IS NULL AND is_system = false;
