@@ -7,6 +7,8 @@ import { updatePayload } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
+import { UnsavedStatusPill } from '@/components/shared/UnsavedStatusPill';
+import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
