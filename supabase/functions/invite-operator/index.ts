@@ -71,17 +71,22 @@ Deno.serve(async (req) => {
     }
 
     // Update application to approved
+    const approvalPatch: Record<string, unknown> = {
+      review_status: 'approved',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: callerUser.id,
+      reviewer_notes: reviewer_notes ?? null,
+      is_draft: false,
+      pre_revision_status: null,
+      revision_request_message: null,
+    };
+    // Durable, write-once approval stamp (reviewed_at gets overwritten by later
+    // review actions such as archive/deny).
+    if (!app.approved_at) approvalPatch.approved_at = new Date().toISOString();
+
     const { error: updateAppError } = await supabaseAdmin
       .from('applications')
-      .update({
-        review_status: 'approved',
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: callerUser.id,
-        reviewer_notes: reviewer_notes ?? null,
-        is_draft: false,
-        pre_revision_status: null,
-        revision_request_message: null,
-      })
+      .update(approvalPatch)
       .eq('id', application_id);
 
     if (updateAppError) {
