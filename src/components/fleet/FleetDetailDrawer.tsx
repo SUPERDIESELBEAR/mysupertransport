@@ -401,20 +401,26 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     filePath: string,
     fileName: string,
     maintenanceRecordId?: string,
-    opts?: { bucket?: string; fallbackUrl?: string | null },
+    opts?: { bucket?: string; buckets?: string[]; fallbackUrl?: string | null; missingMessage?: string },
   ) => {
-    const bucket = opts?.bucket ?? 'fleet-documents';
+    const buckets = opts?.buckets ?? [opts?.bucket ?? 'fleet-documents'];
+    const bucket = buckets[0];
     try {
       // Maintenance receipts and DOT inspection certs attached to fleet records
       // all live in the 'fleet-documents' bucket (see MaintenanceRecordModal upload path).
       // Registration / Form 2290 files live in 'inspection-documents' (see Registration2290Modal).
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
-      if (error) throw error;
-      if (data?.signedUrl) {
-        setPreviewDoc({ url: data.signedUrl, name: fileName });
-      } else {
-        throw new Error('No signed URL returned');
+      // Some records (e.g. DOT certs synced from onboarding) live in other buckets,
+      // so try each candidate bucket in order before failing.
+      let lastErr: any = null;
+      for (const b of buckets) {
+        const { data, error } = await supabase.storage.from(b).createSignedUrl(filePath, 3600);
+        if (!error && data?.signedUrl) {
+          setPreviewDoc({ url: data.signedUrl, name: fileName });
+          return;
+        }
+        lastErr = error ?? new Error('No signed URL returned');
       }
+      throw lastErr;
     } catch (err: any) {
       // Fall back to a stored long-lived URL when signing the path fails.
       if (opts?.fallbackUrl) {
@@ -424,6 +430,10 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       const msg = String(err?.message ?? '').toLowerCase();
       const isMissing = msg.includes('not found') || msg.includes('object not found') || msg.includes('404');
       if (isMissing) {
+        if (opts?.missingMessage) {
+          toast({ title: opts.missingMessage, variant: 'destructive' });
+          return;
+        }
         if (bucket !== 'fleet-documents') {
           toast({ title: 'File not found in storage.', variant: 'destructive' });
           return;
