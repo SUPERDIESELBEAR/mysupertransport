@@ -860,6 +860,23 @@ function EquipmentCard({
         </div>
       )}
 
+      {(item.status === 'damaged' || item.status === 'lost') && item.last_operator_name && (
+        <div className={`text-xs rounded px-2 py-1.5 flex items-start gap-1.5 border ${
+          item.status === 'damaged'
+            ? 'bg-warning/5 border-warning/20 text-foreground'
+            : 'bg-destructive/5 border-destructive/20 text-foreground'
+        }`}>
+          <History className={`h-3 w-3 shrink-0 mt-0.5 ${item.status === 'damaged' ? 'text-warning' : 'text-destructive'}`} />
+          <span className="min-w-0">
+            <span className="text-muted-foreground">Last held by: </span>
+            {item.last_unit_number ? `Unit ${item.last_unit_number} · ` : ''}{item.last_operator_name}
+            {formatReturnedAt(item.last_returned_at) && (
+              <span className="text-muted-foreground"> · returned {formatReturnedAt(item.last_returned_at)}</span>
+            )}
+          </span>
+        </div>
+      )}
+
       {item.notes && (
         <p className="text-xs text-muted-foreground italic line-clamp-2">{item.notes}</p>
       )}
