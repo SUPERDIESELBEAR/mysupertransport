@@ -2449,6 +2449,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes, notesDirty]);
 
+  // ── Per-stage notes: debounced auto-save (shared across all staff) ──
+  const autoSaveReady = !loading && savedSnapshot.current !== null;
+  const autoSaveBase = { statusId, operatorId, ready: autoSaveReady, canSave: !isDemo };
+  const bgNotesAuto = useAutoSaveStatusField({ field: 'bg_check_notes', value: status.bg_check_notes ?? null, ...autoSaveBase });
+  const docNotesAuto = useAutoSaveStatusField({ field: 'doc_notes', value: status.doc_notes ?? null, ...autoSaveBase });
+  const icaNotesAuto = useAutoSaveStatusField({ field: 'ica_notes', value: status.ica_notes ?? null, ...autoSaveBase });
+  const moNotesAuto = useAutoSaveStatusField({ field: 'mo_notes', value: status.mo_notes ?? null, ...autoSaveBase });
+  const exceptionNotesAuto = useAutoSaveStatusField({ field: 'exception_notes', value: status.exception_notes ?? null, ...autoSaveBase });
+  const costNotesAuto = useAutoSaveStatusField({ field: 'cost_notes', value: status.cost_notes ?? null, ...autoSaveBase });
+  const insuranceNotesAuto = useAutoSaveStatusField({ field: 'insurance_notes', value: status.insurance_notes ?? null, ...autoSaveBase });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
