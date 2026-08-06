@@ -3839,11 +3839,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             )}
             {/* Cost notes */}
             <div>
-              <Label className="text-xs text-gray-700 mb-1 block">Cost Notes</Label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <Label className="text-xs text-gray-700 block">Cost Notes</Label>
+                <UnsavedStatusPill status={costNotesAuto.status} lastSavedAt={costNotesAuto.savedAt} onRetry={costNotesAuto.retry} />
+              </div>
               <Textarea
                 placeholder="Vendor details, payment date, receipts reference…"
                 value={status.cost_notes ?? ''}
                 onChange={e => setStatus(prev => ({ ...prev, cost_notes: e.target.value }))}
+                onBlur={costNotesAuto.flush}
                 className="text-sm min-h-[60px] bg-white border-amber-200 focus:border-amber-400 resize-none"
               />
             </div>
@@ -4881,10 +4885,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Notes */}
                   <div className="space-y-1.5">
                     <SectionSubtitle>Notes</SectionSubtitle>
-                    <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
+                      <UnsavedStatusPill status={bgNotesAuto.status} lastSavedAt={bgNotesAuto.savedAt} onRetry={bgNotesAuto.retry} />
+                    </div>
                     <Textarea
                       value={status.bg_check_notes ?? ''}
                       onChange={e => setStatus(prev => ({ ...prev, bg_check_notes: e.target.value || null }))}
+                      onBlur={bgNotesAuto.flush}
                       placeholder="e.g. vendor name, order date, any issues…"
                       className="text-sm min-h-[72px] resize-none"
                     />
@@ -5234,10 +5242,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* Documents Notes */}
             <div className="space-y-1.5 pt-1">
               <SectionSubtitle>Notes</SectionSubtitle>
-              <Label className="text-xs font-medium text-muted-foreground">Documents Notes</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-medium text-muted-foreground">Documents Notes</Label>
+                <UnsavedStatusPill status={docNotesAuto.status} lastSavedAt={docNotesAuto.savedAt} onRetry={docNotesAuto.retry} />
+              </div>
               <Textarea
                 value={status.doc_notes ?? ''}
                 onChange={e => setStatus(prev => ({ ...prev, doc_notes: e.target.value || null }))}
+                onBlur={docNotesAuto.flush}
                 placeholder="e.g. registration type clarification, inspection notes, any follow-up…"
                 className="text-sm min-h-[72px] resize-none"
               />
@@ -5384,10 +5396,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* ICA Notes */}
             <div className="space-y-1.5">
               <SectionSubtitle>Notes</SectionSubtitle>
-              <Label className="text-xs font-medium text-muted-foreground">ICA Notes</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-medium text-muted-foreground">ICA Notes</Label>
+                <UnsavedStatusPill status={icaNotesAuto.status} lastSavedAt={icaNotesAuto.savedAt} onRetry={icaNotesAuto.retry} />
+              </div>
               <Textarea
                 value={status.ica_notes ?? ''}
                 onChange={e => updateStatus('ica_notes', e.target.value || null)}
+                onBlur={icaNotesAuto.flush}
                 placeholder="e.g. negotiated terms, signing issues, follow-up needed…"
                 className="text-sm min-h-[72px] resize-none"
               />
@@ -5533,10 +5549,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </div>
                       <div className="space-y-1.5 pt-1">
                         <SectionSubtitle>Notes</SectionSubtitle>
-                        <Label className="text-xs font-medium text-muted-foreground">MO Registration Notes</Label>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium text-muted-foreground">MO Registration Notes</Label>
+                          <UnsavedStatusPill status={moNotesAuto.status} lastSavedAt={moNotesAuto.savedAt} onRetry={moNotesAuto.retry} />
+                        </div>
                         <Textarea
                           value={status.mo_notes ?? ''}
                           onChange={e => updateStatus('mo_notes', e.target.value || null)}
+                          onBlur={moNotesAuto.flush}
                           placeholder="e.g. submission date, vendor, tracking number, any issues…"
                           className="text-sm min-h-[80px] resize-none"
                         />
@@ -5711,10 +5731,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </label>
                       )}
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exception Notes</Label>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exception Notes</Label>
+                          <UnsavedStatusPill status={exceptionNotesAuto.status} lastSavedAt={exceptionNotesAuto.savedAt} onRetry={exceptionNotesAuto.retry} />
+                        </div>
                         <Textarea
                           value={status.exception_notes ?? ''}
                           onChange={e => updateStatus('exception_notes', e.target.value || null)}
+                          onBlur={exceptionNotesAuto.flush}
                           placeholder="e.g. Coming from Tennessee, ~800 miles. Cleared to run 2 loads before arriving at shop."
                           className="text-sm min-h-[64px] resize-none"
                         />
@@ -6298,10 +6322,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                     {/* Insurance notes */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Insurance Notes</Label>
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Insurance Notes</Label>
+                        <UnsavedStatusPill status={insuranceNotesAuto.status} lastSavedAt={insuranceNotesAuto.savedAt} onRetry={insuranceNotesAuto.retry} />
+                      </div>
                       <Textarea
                         value={status.insurance_notes ?? ''}
                         onChange={e => updateStatus('insurance_notes', e.target.value || null)}
+                        onBlur={insuranceNotesAuto.flush}
                         placeholder="e.g. policy number, agent contact, additional instructions…"
                         className="text-sm min-h-[72px] resize-none"
                       />
