@@ -41,6 +41,7 @@ export interface EquipmentItem {
   current_operator_name?: string | null;
   current_assignment_id?: string | null;
   current_operator_id?: string | null;
+  current_unit_number?: string | null;
 }
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -57,6 +58,40 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
   deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
+
+/** Assigned → Available → Damaged → Lost → Deactivated. */
+const STATUS_RANK: Record<EquipmentStatus, number> = {
+  assigned: 0,
+  available: 1,
+  damaged: 2,
+  lost: 3,
+  deactivated: 4,
+};
+
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+export function sortEquipment(list: EquipmentItem[]): EquipmentItem[] {
+  return [...list].sort((a, b) => {
+    const rank = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+    if (rank !== 0) return rank;
+    if (a.status === 'assigned') {
+      const byName = collator.compare(a.current_operator_name ?? '', b.current_operator_name ?? '');
+      if (byName !== 0) return byName;
+      const byUnit = collator.compare(a.current_unit_number ?? '', b.current_unit_number ?? '');
+      if (byUnit !== 0) return byUnit;
+    }
+    return collator.compare(a.serial_number ?? '', b.serial_number ?? '');
+  });
+}
+
+function matchesQuery(item: EquipmentItem, q: string) {
+  if (!q) return true;
+  const needle = q.toLowerCase();
+  return item.serial_number.toLowerCase().includes(needle)
+    || (item.current_operator_name ?? '').toLowerCase().includes(needle)
+    || (item.current_unit_number ?? '').toLowerCase().includes(needle)
+    || (item.notes ?? '').toLowerCase().includes(needle);
+}
 
 export default function EquipmentInventory({
   isManagement = false,
