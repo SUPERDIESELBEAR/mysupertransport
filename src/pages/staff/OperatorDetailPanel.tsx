@@ -915,7 +915,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Notify parent of unsaved changes state
   useEffect(() => {
     const hasChanges = savedSnapshot.current !== null && (
-      JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+      JSON.stringify(stripAutoSavedNotes(savedSnapshot.current.status)) !== JSON.stringify(stripAutoSavedNotes(status)) ||
       savedSnapshot.current.notes !== notes
     );
     onUnsavedChangesChange?.(hasChanges);
@@ -2536,7 +2536,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const isQuickView = !!status.fully_onboarded;
 
   const hasUnsavedChanges = savedSnapshot.current !== null && (
-    JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+    JSON.stringify(stripAutoSavedNotes(savedSnapshot.current.status)) !== JSON.stringify(stripAutoSavedNotes(status)) ||
     savedSnapshot.current.notes !== notes
   );
 
