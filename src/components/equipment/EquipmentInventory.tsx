@@ -44,6 +44,9 @@ export interface EquipmentItem {
   current_assignment_id?: string | null;
   current_operator_id?: string | null;
   current_unit_number?: string | null;
+  last_operator_name?: string | null;
+  last_unit_number?: string | null;
+  last_returned_at?: string | null;
 }
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -56,7 +59,7 @@ const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; icon: React.ReactNode }> = {
   available: { label: 'Available',      color: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-3 w-3" /> },
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
-  damaged:   { label: 'Damaged / Needs Repair', color: 'bg-warning/15 text-warning border-warning/30',              icon: <AlertTriangle className="h-3 w-3" /> },
+  damaged:   { label: 'Damaged / Needs Replacement', color: 'bg-warning/15 text-warning border-warning/30',        icon: <AlertTriangle className="h-3 w-3" /> },
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
   deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
@@ -92,7 +95,22 @@ function matchesQuery(item: EquipmentItem, q: string) {
   return item.serial_number.toLowerCase().includes(needle)
     || (item.current_operator_name ?? '').toLowerCase().includes(needle)
     || (item.current_unit_number ?? '').toLowerCase().includes(needle)
+    || (item.last_operator_name ?? '').toLowerCase().includes(needle)
+    || (item.last_unit_number ?? '').toLowerCase().includes(needle)
     || (item.notes ?? '').toLowerCase().includes(needle);
+}
+
+/** Formats a returned_at timestamp in US Central time. */
+export function formatReturnedAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function EquipmentInventory({
@@ -256,11 +274,45 @@ export default function EquipmentInventory({
       assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: onbUnit ?? a.operators?.unit_number ?? null };
     }
 
+    // Most recent closed assignment per device (for damaged / lost devices)
+    const { data: pastAssignments } = await supabase
+      .from('equipment_assignments')
+      .select(`
+        id,
+        equipment_id,
+        returned_at,
+        operators!inner(
+          unit_number,
+          application_id,
+          applications(first_name, last_name),
+          onboarding_status(unit_number)
+        )
+      `)
+      .not('returned_at', 'is', null)
+      .order('returned_at', { ascending: false });
+
+    const lastAssignmentMap: Record<string, { name: string; unitNumber: string | null; returnedAt: string | null }> = {};
+    for (const a of (pastAssignments ?? []) as any[]) {
+      if (lastAssignmentMap[a.equipment_id]) continue;
+      const app = a.operators?.applications;
+      const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
+      const onb = a.operators?.onboarding_status;
+      const onbUnit = Array.isArray(onb) ? onb[0]?.unit_number : onb?.unit_number;
+      lastAssignmentMap[a.equipment_id] = {
+        name,
+        unitNumber: onbUnit ?? a.operators?.unit_number ?? null,
+        returnedAt: a.returned_at ?? null,
+      };
+    }
+
     const enriched: EquipmentItem[] = (itemsData ?? []).map((item: any) => ({
       ...item,
       current_operator_name: assignmentMap[item.id]?.name ?? null,
       current_assignment_id: assignmentMap[item.id]?.assignmentId ?? null,
       current_unit_number: assignmentMap[item.id]?.unitNumber ?? null,
+      last_operator_name: lastAssignmentMap[item.id]?.name ?? null,
+      last_unit_number: lastAssignmentMap[item.id]?.unitNumber ?? null,
+      last_returned_at: lastAssignmentMap[item.id]?.returnedAt ?? null,
     }));
 
     setItems(enriched);
@@ -703,6 +755,13 @@ function EquipmentRow({
             {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
           </p>
         )}
+        {(item.status === 'damaged' || item.status === 'lost') && item.last_operator_name && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            <History className="h-3 w-3 inline mr-1" />
+            Last held by: {item.last_unit_number ? `Unit ${item.last_unit_number} · ` : ''}{item.last_operator_name}
+            {formatReturnedAt(item.last_returned_at) ? ` · returned ${formatReturnedAt(item.last_returned_at)}` : ''}
+          </p>
+        )}
         {item.notes && (
           <p className="text-xs text-muted-foreground mt-0.5 truncate italic">{item.notes}</p>
         )}
@@ -797,6 +856,23 @@ function EquipmentCard({
           <UserCheck className="h-3 w-3 text-primary shrink-0" />
           <span className="truncate">
             {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
+          </span>
+        </div>
+      )}
+
+      {(item.status === 'damaged' || item.status === 'lost') && item.last_operator_name && (
+        <div className={`text-xs rounded px-2 py-1.5 flex items-start gap-1.5 border ${
+          item.status === 'damaged'
+            ? 'bg-warning/5 border-warning/20 text-foreground'
+            : 'bg-destructive/5 border-destructive/20 text-foreground'
+        }`}>
+          <History className={`h-3 w-3 shrink-0 mt-0.5 ${item.status === 'damaged' ? 'text-warning' : 'text-destructive'}`} />
+          <span className="min-w-0">
+            <span className="text-muted-foreground">Last held by: </span>
+            {item.last_unit_number ? `Unit ${item.last_unit_number} · ` : ''}{item.last_operator_name}
+            {formatReturnedAt(item.last_returned_at) && (
+              <span className="text-muted-foreground"> · returned {formatReturnedAt(item.last_returned_at)}</span>
+            )}
           </span>
         </div>
       )}

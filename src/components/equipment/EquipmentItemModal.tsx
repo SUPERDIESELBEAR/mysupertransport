@@ -31,7 +31,7 @@ const DEVICE_TYPES: { value: DeviceType; label: string }[] = [
 const STATUSES: { value: EquipmentStatus; label: string; mgmtOnly?: boolean }[] = [
   { value: 'available', label: 'Available' },
   { value: 'assigned',  label: 'Assigned' },
-  { value: 'damaged',   label: 'Damaged / Needs Repair', mgmtOnly: true },
+  { value: 'damaged',   label: 'Damaged / Needs Replacement', mgmtOnly: true },
   { value: 'lost',      label: 'Lost / Not Returned',    mgmtOnly: true },
 ];
 
