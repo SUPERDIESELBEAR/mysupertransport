@@ -108,6 +108,9 @@ export default function EquipmentInventory({
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
   const [expandedTypes, setExpandedTypes] = useState<Set<DeviceType>>(new Set());
+  const [sectionSearch, setSectionSearch] = useState<Record<DeviceType, string>>({
+    eld: '', dash_cam: '', bestpass: '', fuel_card: '',
+  });
   const [lastOpened, setLastOpened] = useState<DeviceType | null>(null);
   const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
   const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
@@ -152,6 +155,7 @@ export default function EquipmentInventory({
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addType, setAddType] = useState<DeviceType | null>(null);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
   const [assignItem, setAssignItem] = useState<EquipmentItem | null>(null);
@@ -181,23 +185,25 @@ export default function EquipmentInventory({
         equipment_id,
         operator_id,
         operators!inner(
+          unit_number,
           application_id,
           applications(first_name, last_name)
         )
       `)
       .is('returned_at', null);
 
-    const assignmentMap: Record<string, { name: string; assignmentId: string }> = {};
+    const assignmentMap: Record<string, { name: string; assignmentId: string; unitNumber: string | null }> = {};
     for (const a of (assignments ?? []) as any[]) {
       const app = a.operators?.applications;
       const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
-      assignmentMap[a.equipment_id] = { name, assignmentId: a.id };
+      assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: a.operators?.unit_number ?? null };
     }
 
     const enriched: EquipmentItem[] = (itemsData ?? []).map((item: any) => ({
       ...item,
       current_operator_name: assignmentMap[item.id]?.name ?? null,
       current_assignment_id: assignmentMap[item.id]?.assignmentId ?? null,
+      current_unit_number: assignmentMap[item.id]?.unitNumber ?? null,
     }));
 
     setItems(enriched);
@@ -209,11 +215,9 @@ export default function EquipmentInventory({
   const filtered = items.filter(item => {
     const matchType = typeFilter === 'all' || item.device_type === typeFilter;
     const matchStatus = statusFilter === 'all' || item.status === statusFilter;
-    const q = search.toLowerCase();
-    const matchSearch = !q || item.serial_number.toLowerCase().includes(q)
-      || (item.current_operator_name ?? '').toLowerCase().includes(q)
-      || (item.notes ?? '').toLowerCase().includes(q);
-    return matchType && matchStatus && matchSearch;
+    return matchType && matchStatus
+      && matchesQuery(item, search.trim())
+      && matchesQuery(item, (sectionSearch[item.device_type] ?? '').trim());
   });
 
   // Group by device_type for the card view
@@ -221,6 +225,7 @@ export default function EquipmentInventory({
     eld: [], dash_cam: [], bestpass: [], fuel_card: [],
   };
   for (const item of filtered) grouped[item.device_type].push(item);
+  for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key]);
 
   // Summary counts
   const counts = {
