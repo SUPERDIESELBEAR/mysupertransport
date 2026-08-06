@@ -4555,6 +4555,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>)}
 
 
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 22 : 12 }}>{(() => {
         const { stages, completedCount, pct } = getOnboardingProgress(status, paySetupRecord);
         return (
           <div ref={progressBarRef} className="bg-white border border-border rounded-xl p-4 shadow-sm">
