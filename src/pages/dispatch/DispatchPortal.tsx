@@ -1589,8 +1589,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         : 'border-border'
                     }`}
                   >
-                    {/* Card header — status strip: wraps on mobile */}
-                    <div className={`px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${
+                    {/* Card header — status strip: primary row + secondary chip row */}
+                    <div className={`px-3 py-2 flex flex-col gap-1 ${
                       row.dispatch_status === 'truck_down'
                         ? 'bg-destructive/8'
                         : row.dispatch_status === 'dispatched'
@@ -1599,56 +1599,24 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         ? 'bg-status-progress/8'
                         : 'bg-muted/40'
                     }`}>
-                      {/* Bulk-mode checkbox */}
-                      {bulkMode && (
-                        <Checkbox
-                          checked={selectedIds.has(row.operator_id)}
-                          onCheckedChange={() => toggleSelect(row.operator_id)}
-                          className="shrink-0"
-                          aria-label={`Select ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
-                        />
-                      )}
-                      <Badge className={`${cfg.badgeClass} text-xs gap-1 shrink-0`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
-                        {cfg.label}
-                      </Badge>
-                      {(row.dispatch_status === 'truck_down' || row.dispatch_status === 'home' || row.dispatch_status === 'not_dispatched') && (() => {
-                        const streak = formatStreak(streakMap[row.operator_id]);
-                        if (!streak) return null;
-                        return (
-                          <span
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${cfg.badgeClass}`}
-                            title={streak.tooltip}
-                          >
-                            {streak.short}
-                          </span>
-                        );
-                      })()}
-                      {/* Unlogged-days rollup chip — last 7 days, hidden when 0 */}
-                      {!!unloggedCountMap[row.operator_id] && (
-                        <span
-                          className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 shrink-0"
-                          title={`${unloggedCountMap[row.operator_id]} unlogged day${unloggedCountMap[row.operator_id] !== 1 ? 's' : ''} in the last ${UNLOGGED_WINDOW_DAYS} days`}
-                        >
-                          <HelpCircle className="h-2.5 w-2.5" />
-                          {unloggedCountMap[row.operator_id]} unlogged
-                        </span>
-                      )}
-                      {/* Operator-acknowledged badge — only on truck_down cards */}
-                      {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
-                        <span
-                          className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                          title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
-                        >
-                          <CheckCheck className="h-3 w-3 shrink-0" />
-                          <span className="hidden sm:inline">Acknowledged</span>
-                          <span className="sm:hidden">Ack'd</span>
-                        </span>
-                      )}
-                      <div className="flex items-center gap-2 ml-auto">
+                      {/* Row 1 — status pill + timestamp (always on one line) */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {/* Bulk-mode checkbox */}
+                        {bulkMode && (
+                          <Checkbox
+                            checked={selectedIds.has(row.operator_id)}
+                            onCheckedChange={() => toggleSelect(row.operator_id)}
+                            className="shrink-0"
+                            aria-label={`Select ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                          />
+                        )}
+                        <Badge className={`${cfg.badgeClass} text-xs gap-1 shrink-0`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
+                          {cfg.label}
+                        </Badge>
                         {row.updated_at && (
                           <span
-                            className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground ml-auto shrink-0"
                             title={new Date(row.updated_at).toLocaleString()}
                           >
                             <Clock className="h-3 w-3 shrink-0" />
@@ -1657,6 +1625,47 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           </span>
                         )}
                       </div>
+
+                      {/* Row 2 — secondary chips, only when at least one exists */}
+                      {(() => {
+                        const streak = formatStreak(streakMap[row.operator_id]);
+                        const showStreak =
+                          (row.dispatch_status === 'truck_down' || row.dispatch_status === 'home' || row.dispatch_status === 'not_dispatched') && !!streak;
+                        const showUnlogged = !!unloggedCountMap[row.operator_id];
+                        const showAck = row.dispatch_status === 'truck_down' && !!ackMap[row.operator_id];
+                        if (!showStreak && !showUnlogged && !showAck) return null;
+                        return (
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            {showStreak && (
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${cfg.badgeClass}`}
+                                title={streak!.tooltip}
+                              >
+                                {streak!.short}
+                              </span>
+                            )}
+                            {showUnlogged && (
+                              <span
+                                className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 shrink-0"
+                                title={`${unloggedCountMap[row.operator_id]} unlogged day${unloggedCountMap[row.operator_id] !== 1 ? 's' : ''} in the last ${UNLOGGED_WINDOW_DAYS} days`}
+                              >
+                                <HelpCircle className="h-2.5 w-2.5" />
+                                {unloggedCountMap[row.operator_id]} unlogged
+                              </span>
+                            )}
+                            {showAck && (
+                              <span
+                                className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                                title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
+                              >
+                                <CheckCheck className="h-3 w-3 shrink-0" />
+                                <span className="hidden sm:inline">Acknowledged</span>
+                                <span className="sm:hidden">Ack'd</span>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Dispatcher label */}
@@ -1911,10 +1920,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         </span>
                         Message
                       </Button>
-                      {/* Edit / Save / Cancel — pushed to right */}
-                      <div className="flex gap-1 ml-auto">
-                        {isEditing ? (
-                          <>
+                      {/* Edit — inline with the other actions; Save/Cancel right-aligned while editing */}
+                      {isEditing ? (
+                        <div className="flex gap-1 ml-auto">
                             <Button
                               size="sm"
                               onClick={() => saveEdit(row)}
@@ -1927,19 +1935,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
                               <X className="h-3.5 w-3.5" />
                             </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEdit(row)}
-                            className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            Edit
-                          </Button>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(row)}
+                          className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10"
+                          title="Edit dispatch details"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
