@@ -21,14 +21,10 @@ Create one shared stage-progress calculator and have every indicator on the page
 1. Add `src/lib/onboardingProgress.ts` exporting a single `getOnboardingStages(status, paySetupRecord)` returning an ordered array of `{ key, label, shortLabel, complete, notApplicable, exception }`.
 2. Canonical stage set: the 9 stages (Background, Documents, ICA, MO Reg, Onboard Systems, PE Screening, Insurance, Go Live, Pay Setup).
 3. Canonical rules, applied everywhere:
-   - MO Reg is marked **N/A** when the driver is on their own registration, and N/A stages are excluded from the denominator rather than counted as complete.
+   - MO Reg counts as **complete** when the driver is on their own registration (nothing further is needed), so the denominator stays at 9 stages.
    - Onboard Systems keeps the temp-decal / paper-logbook exception flag for styling, but completion stays the strict decal + ELD + fuel card check.
    - Pay Setup is included in all three readouts.
 4. Rewrite the three blocks in `OperatorDetailPanel.tsx` (sticky header, top completion summary, Onboarding Progress card) plus the small dot strip to render from that one array, so the percentage and the "X of Y" count are always identical.
-
-## Decision needed
-
-For a driver on their own registration, should MO Reg be **excluded from the total** (8 stages, cleanest) or **counted as complete** (9 stages, matches today's middle card)? The plan currently assumes excluded — say the word and I'll switch it.
 
 ## Technical notes
 
