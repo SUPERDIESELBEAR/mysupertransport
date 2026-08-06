@@ -685,7 +685,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (!el) return;
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
-    const offset = 80;
+    // Offset = sticky driver bar height + this stage's sticky title bar height
+    // + a small gap, so the first field of the stage clears both pinned bars.
+    const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
+    const stageHeader = el.querySelector('button') as HTMLElement | null;
+    const offset =
+      (driverBar?.getBoundingClientRect().height ?? 52) +
+      (stageHeader?.getBoundingClientRect().height ?? 46) +
+      12;
 
     let node: HTMLElement | null = el.parentElement;
     let scrollParent: HTMLElement | null = null;
@@ -3874,6 +3881,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const pct = Math.round((completedCount / stages.length) * 100);
         return (
           <div
+            data-sticky-driver-bar
             className="sticky top-0 z-30 -mx-6 px-6"
             style={{ order: 3 }}
           >
@@ -4857,7 +4865,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s1Collapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-4">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-4">
                   {/* MVR */}
                   <div className="space-y-2">
                     <SectionSubtitle>MVR</SectionSubtitle>
@@ -4973,7 +4981,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </button>
           {!s2Collapsed && (
-          <div className="px-5 pb-5 max-w-4xl space-y-3">
+          <div className="px-5 pt-2 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <SectionSubtitle>Registration Status</SectionSubtitle>
               <Select
@@ -5310,7 +5318,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s3Collapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-3">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <SectionSubtitle>ICA Status</SectionSubtitle>
               <Select
@@ -5534,7 +5542,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s4Collapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-3">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-3">
                   {isNa ? (
                     <p className="text-xs text-muted-foreground italic">This operator uses their own registration — Missouri registration is not required.</p>
                   ) : (
@@ -5621,7 +5629,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s5Collapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-4">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-4">
 
                   {/* Assigned Unit Number — placed above Truck Decals */}
                   <div className="space-y-1.5">
@@ -5867,7 +5875,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!spCollapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-4">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-4">
                   {/* PE Screening */}
                   <div className="space-y-2">
                     <SectionSubtitle>Screening Status</SectionSubtitle>
@@ -6047,7 +6055,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s6Collapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-4">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-4">
 
                   {/* Physical Damage Insurance */}
                   <div className="space-y-3">
@@ -6428,7 +6436,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s7Collapsed && (
-                <div className="px-5 pb-5 max-w-4xl space-y-4">
+                <div className="px-5 pt-2 pb-5 max-w-4xl space-y-4">
 
                   {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
