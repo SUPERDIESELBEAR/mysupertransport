@@ -415,7 +415,7 @@ function Stage2DocUploader({
 export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey, backLabel }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
-  const { guardDemo } = useDemoMode();
+  const { guardDemo, isDemo } = useDemoMode();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [voidingICA, setVoidingICA] = useState(false);
