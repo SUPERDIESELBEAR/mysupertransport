@@ -102,7 +102,7 @@ export default function EquipmentByDriver() {
         unit_number,
         is_demo,
         applications(first_name, last_name),
-        onboarding_status(unit_number, eld_serial_number, dash_cam_number, bestpass_number, fuel_card_number)
+        onboarding_status(unit_number, eld_serial_number, dash_cam_number, bestpass_number, fuel_card_number, go_live_date, insurance_added_date)
       `)
       .eq('is_active', true);
 
@@ -130,7 +130,11 @@ export default function EquipmentByDriver() {
     }
 
     const built: DriverRow[] = ((ops ?? []) as any[])
-      .filter(o => showDemo || !o.is_demo)
+      .filter(o => {
+        if (!showDemo && o.is_demo) return false;
+        const onb = Array.isArray(o.onboarding_status) ? o.onboarding_status[0] : o.onboarding_status;
+        return !!onb?.go_live_date && !!onb?.insurance_added_date;
+      })
       .map(o => {
         const app = Array.isArray(o.applications) ? o.applications[0] : o.applications;
         const onb = Array.isArray(o.onboarding_status) ? o.onboarding_status[0] : o.onboarding_status;
@@ -218,7 +222,7 @@ export default function EquipmentByDriver() {
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-border bg-card py-12 text-center">
           <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground">No drivers match this view.</p>
+          <p className="text-sm text-muted-foreground">No fully onboarded drivers match this view.</p>
         </div>
       ) : viewMode === 'cards' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
