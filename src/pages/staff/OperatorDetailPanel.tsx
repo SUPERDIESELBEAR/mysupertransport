@@ -8,6 +8,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
 import { UnsavedStatusPill } from '@/components/shared/UnsavedStatusPill';
+import { useAutoSaveStatusField } from '@/hooks/useAutoSaveStatusField';
 import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
