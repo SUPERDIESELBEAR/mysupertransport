@@ -500,13 +500,11 @@ export default function EquipmentInventory({
 
         </TabsContent>
 
-        <TabsContent value="sheets" className="mt-0">
-          <SignOffSheetList
-            key={sheetListKey}
-            onCreate={() => setSignOffSheetOpen(true)}
-            onPreview={sheet => setPreviewSheet(sheet)}
-          />
+        <TabsContent value="by_driver" className="mt-0">
+          <EquipmentByDriver />
         </TabsContent>
+
+        <TabsContent value="sheets" className="mt-0">
           <SignOffSheetList
             key={sheetListKey}
             onCreate={() => setSignOffSheetOpen(true)}
