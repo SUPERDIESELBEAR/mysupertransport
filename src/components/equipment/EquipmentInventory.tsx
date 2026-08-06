@@ -110,6 +110,8 @@ export default function EquipmentInventory({
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
   const [expandedTypes, setExpandedTypes] = useState<Set<DeviceType>>(new Set());
+  const [byDriverExpanded, setByDriverExpanded] = useState(false);
+  const [byDriverMounted, setByDriverMounted] = useState(false);
   const [sectionSearch, setSectionSearch] = useState<Record<DeviceType, string>>({
     eld: '', dash_cam: '', bestpass: '', fuel_card: '',
   });
@@ -441,6 +443,33 @@ export default function EquipmentInventory({
         </div>
       ) : (
         <div className="space-y-3">
+          {/* By Driver expandable section */}
+          <div className="border border-border rounded-xl bg-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => { setByDriverExpanded(v => !v); setByDriverMounted(true); }}
+              aria-expanded={byDriverExpanded}
+              className={`w-full text-left px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors flex items-center gap-2 ${byDriverExpanded ? 'border-b border-border' : ''}`}
+            >
+              <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${byDriverExpanded ? '' : '-rotate-90'}`} />
+              <span className="text-primary"><Users className="h-4 w-4" /></span>
+              <span className="font-semibold text-foreground text-sm">By Driver</span>
+              <span className="text-xs text-muted-foreground ml-1">
+                {byDriverCount} driver{byDriverCount !== 1 ? 's' : ''}
+              </span>
+              <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={byDriverGapCount > 0 ? 'text-warning font-medium' : 'text-status-complete font-medium'}>
+                  {byDriverGapCount} missing ELD or Dash Cam
+                </span>
+              </span>
+            </button>
+            {byDriverMounted && (
+              <div className={byDriverExpanded ? 'p-4' : 'hidden'}>
+                <EquipmentByDriver />
+              </div>
+            )}
+          </div>
+
           {activeTypes.map(type => {
             const cfg = DEVICE_CONFIG[type];
             const typeItems = grouped[type];
