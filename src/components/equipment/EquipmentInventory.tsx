@@ -44,6 +44,9 @@ export interface EquipmentItem {
   current_assignment_id?: string | null;
   current_operator_id?: string | null;
   current_unit_number?: string | null;
+  last_operator_name?: string | null;
+  last_unit_number?: string | null;
+  last_returned_at?: string | null;
 }
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -56,7 +59,7 @@ const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; icon: React.ReactNode }> = {
   available: { label: 'Available',      color: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-3 w-3" /> },
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
-  damaged:   { label: 'Damaged / Needs Repair', color: 'bg-warning/15 text-warning border-warning/30',              icon: <AlertTriangle className="h-3 w-3" /> },
+  damaged:   { label: 'Damaged / Needs Replacement', color: 'bg-warning/15 text-warning border-warning/30',        icon: <AlertTriangle className="h-3 w-3" /> },
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
   deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
@@ -92,7 +95,22 @@ function matchesQuery(item: EquipmentItem, q: string) {
   return item.serial_number.toLowerCase().includes(needle)
     || (item.current_operator_name ?? '').toLowerCase().includes(needle)
     || (item.current_unit_number ?? '').toLowerCase().includes(needle)
+    || (item.last_operator_name ?? '').toLowerCase().includes(needle)
+    || (item.last_unit_number ?? '').toLowerCase().includes(needle)
     || (item.notes ?? '').toLowerCase().includes(needle);
+}
+
+/** Formats a returned_at timestamp in US Central time. */
+export function formatReturnedAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function EquipmentInventory({
