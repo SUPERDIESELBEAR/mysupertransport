@@ -61,6 +61,7 @@ import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDia
 
 import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { getOnboardingProgress } from '@/lib/onboardingProgress';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -2936,7 +2937,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       ? <span className="font-bold text-[10px] leading-none">E</span>
                       : <span className="h-2 w-2 rounded-full bg-muted-foreground/30 inline-block" />
                   }
-                  {s.label}
+                  {s.shortLabel}
                 </button>
               ))}
             </div>
@@ -4572,7 +4573,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 }}
               />
             </div>
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-9 gap-1">
               <TooltipProvider delayDuration={150}>
               {stages.map((s, i) => (
                 <Tooltip key={s.key}>
