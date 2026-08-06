@@ -313,6 +313,19 @@ function QPassportUploader({
 }
 
 // ── Stage 2 Doc Uploader sub-component (multi-file) ─────────────────────────
+// Note columns that auto-save on their own — excluded from the global
+// unsaved-changes comparison so they never trigger the nav guard.
+const AUTO_SAVED_NOTE_FIELDS = [
+  'bg_check_notes', 'doc_notes', 'ica_notes', 'mo_notes',
+  'exception_notes', 'cost_notes', 'insurance_notes',
+] as const;
+
+function stripAutoSavedNotes<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const copy: Record<string, unknown> = { ...obj };
+  for (const f of AUTO_SAVED_NOTE_FIELDS) delete copy[f];
+  return copy as Partial<T>;
+}
+
 function Stage2DocUploader({
   operatorId,
   docType,
