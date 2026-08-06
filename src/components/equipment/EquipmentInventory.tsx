@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useShowDemo } from '@/hooks/useShowDemo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -167,6 +168,56 @@ export default function EquipmentInventory({
   const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
   const [previewSheet, setPreviewSheet] = useState<SheetWithItems | null>(null);
   const [sheetListKey, setSheetListKey] = useState(0);
+  const [byDriverCount, setByDriverCount] = useState(0);
+  const [byDriverGapCount, setByDriverGapCount] = useState(0);
+  const { showDemo } = useShowDemo();
+
+  const fetchByDriverCounts = useCallback(async () => {
+    const { data: ops, error } = await supabase
+      .from('operators')
+      .select(`
+        id,
+        is_demo,
+        onboarding_status(eld_serial_number, dash_cam_number, go_live_date, insurance_added_date)
+      `)
+      .eq('is_active', true);
+
+    if (error) return;
+
+    const { data: assignments } = await supabase
+      .from('equipment_assignments')
+      .select('operator_id, equipment_items(device_type, serial_number)')
+      .is('returned_at', null);
+
+    const assignedByOperator: Record<string, Partial<Record<DeviceType, string>>> = {};
+    for (const a of (assignments ?? []) as any[]) {
+      const item = Array.isArray(a.equipment_items) ? a.equipment_items[0] : a.equipment_items;
+      if (!item || !a.operator_id) continue;
+      const slot = item.device_type as DeviceType;
+      if (!assignedByOperator[a.operator_id]) assignedByOperator[a.operator_id] = {};
+      if (!assignedByOperator[a.operator_id][slot]) {
+        assignedByOperator[a.operator_id][slot] = item.serial_number;
+      }
+    }
+
+    let total = 0;
+    let gaps = 0;
+    for (const o of (ops ?? []) as any[]) {
+      if (!showDemo && o.is_demo) continue;
+      const onb = Array.isArray(o.onboarding_status) ? o.onboarding_status[0] : o.onboarding_status;
+      if (!onb?.go_live_date || !onb?.insurance_added_date) continue;
+      total++;
+      const inv = assignedByOperator[o.id] ?? {};
+      const eld = inv.eld ?? onb.eld_serial_number ?? null;
+      const dashCam = inv.dash_cam ?? onb.dash_cam_number ?? null;
+      if (!eld || !dashCam) gaps++;
+    }
+
+    setByDriverCount(total);
+    setByDriverGapCount(gaps);
+  }, [showDemo]);
+
+  useEffect(() => { fetchByDriverCounts(); }, [fetchByDriverCounts]);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -300,8 +351,23 @@ export default function EquipmentInventory({
             </Button>
           </div>
 
-      {/* Per-type quick summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* Per-type quick summary + By Driver shortcut */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('by_driver')}
+          className="rounded-xl border p-3 text-left transition-all hover:shadow-sm bg-card border-border hover:border-primary/20"
+        >
+          <div className="flex items-center gap-1.5 mb-1 text-primary">
+            <Users className="h-4 w-4" />
+            <span className="text-xs font-medium">By Driver</span>
+          </div>
+          <p className="text-lg font-bold text-foreground">{byDriverCount}</p>
+          <p className="text-xs text-muted-foreground">
+            {byDriverGapCount} missing ELD or Dash Cam
+          </p>
+        </button>
+
         {(Object.keys(perType) as DeviceType[]).map(type => {
           const cfg = DEVICE_CONFIG[type];
           const t = perType[type];
