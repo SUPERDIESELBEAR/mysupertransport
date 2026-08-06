@@ -6022,6 +6022,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </Button>
                     </div>
                   </div>
+                  {docFiles['pe_receipt']?.[0] && (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const raw = docFiles['pe_receipt'][0].file_url ?? '';
+                          const storagePath = raw.startsWith('http')
+                            ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
+                            : raw;
+                          const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
+                          if (data?.signedUrl) setStage2Preview({ url: data.signedUrl, name: docFiles['pe_receipt'][0].file_name ?? 'PE Receipt', docType: 'pe_receipt' });
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                      >
+                        <Eye className="h-3 w-3" /> View Receipt
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
