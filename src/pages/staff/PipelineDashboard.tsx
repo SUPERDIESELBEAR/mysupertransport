@@ -20,6 +20,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
 import { OnboardingDaysPill } from '@/components/staff/OnboardingDaysPill';
+import { HiringWindowDates } from '@/components/staff/HiringWindowDates';
 import { PEIStatusPill, summarizePEIRows, type PEICounts } from '@/components/staff/PEIStatusPill';
 import { PEIQuickDrawer } from '@/components/management/PEIQuickDrawer';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
