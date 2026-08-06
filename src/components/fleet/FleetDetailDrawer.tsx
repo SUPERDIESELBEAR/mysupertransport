@@ -674,7 +674,23 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                       {dot.result}
                     </Badge>
                     {dot.certificate_file_path && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(dot.certificate_file_path!, dot.certificate_file_name || 'Certificate')}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        title="View inspection certificate"
+                        onClick={() =>
+                          handlePreviewFile(
+                            dot.certificate_file_path!,
+                            dot.certificate_file_name || 'DOT Inspection Certificate',
+                            undefined,
+                            {
+                              buckets: dotCertBuckets(dot.certificate_file_path!),
+                              missingMessage: 'Inspection certificate file not found.',
+                            },
+                          )
+                        }
+                      >
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
                     )}
