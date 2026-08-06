@@ -167,7 +167,10 @@ export default function EquipmentInventory({
   const [activeTab, setActiveTab] = useState<'inventory' | 'by_driver' | 'sheets'>('inventory');
   const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
   const [previewSheet, setPreviewSheet] = useState<SheetWithItems | null>(null);
+  const [sheetListKey, setSheetListKey] = useState(0);
   const [byDriverCount, setByDriverCount] = useState(0);
+  const [byDriverGapCount, setByDriverGapCount] = useState(0);
+  const { showDemo } = useShowDemo();
   const [byDriverGapCount, setByDriverGapCount] = useState(0);
   const { showDemo } = useShowDemo();
 
