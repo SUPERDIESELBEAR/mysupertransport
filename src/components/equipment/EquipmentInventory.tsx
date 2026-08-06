@@ -41,6 +41,7 @@ export interface EquipmentItem {
   current_operator_name?: string | null;
   current_assignment_id?: string | null;
   current_operator_id?: string | null;
+  current_unit_number?: string | null;
 }
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -58,6 +59,40 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
 
+/** Assigned → Available → Damaged → Lost → Deactivated. */
+const STATUS_RANK: Record<EquipmentStatus, number> = {
+  assigned: 0,
+  available: 1,
+  damaged: 2,
+  lost: 3,
+  deactivated: 4,
+};
+
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+export function sortEquipment(list: EquipmentItem[]): EquipmentItem[] {
+  return [...list].sort((a, b) => {
+    const rank = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+    if (rank !== 0) return rank;
+    if (a.status === 'assigned') {
+      const byName = collator.compare(a.current_operator_name ?? '', b.current_operator_name ?? '');
+      if (byName !== 0) return byName;
+      const byUnit = collator.compare(a.current_unit_number ?? '', b.current_unit_number ?? '');
+      if (byUnit !== 0) return byUnit;
+    }
+    return collator.compare(a.serial_number ?? '', b.serial_number ?? '');
+  });
+}
+
+function matchesQuery(item: EquipmentItem, q: string) {
+  if (!q) return true;
+  const needle = q.toLowerCase();
+  return item.serial_number.toLowerCase().includes(needle)
+    || (item.current_operator_name ?? '').toLowerCase().includes(needle)
+    || (item.current_unit_number ?? '').toLowerCase().includes(needle)
+    || (item.notes ?? '').toLowerCase().includes(needle);
+}
+
 export default function EquipmentInventory({
   isManagement = false,
   section,
@@ -73,6 +108,9 @@ export default function EquipmentInventory({
   const [typeFilter, setTypeFilter] = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all');
   const [expandedTypes, setExpandedTypes] = useState<Set<DeviceType>>(new Set());
+  const [sectionSearch, setSectionSearch] = useState<Record<DeviceType, string>>({
+    eld: '', dash_cam: '', bestpass: '', fuel_card: '',
+  });
   const [lastOpened, setLastOpened] = useState<DeviceType | null>(null);
   const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
   const [viewMode, setViewMode] = useViewMode('equipment_inventory_view', 'mode', 'table');
@@ -117,6 +155,7 @@ export default function EquipmentInventory({
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addType, setAddType] = useState<DeviceType | null>(null);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
   const [assignItem, setAssignItem] = useState<EquipmentItem | null>(null);
@@ -146,23 +185,25 @@ export default function EquipmentInventory({
         equipment_id,
         operator_id,
         operators!inner(
+          unit_number,
           application_id,
           applications(first_name, last_name)
         )
       `)
       .is('returned_at', null);
 
-    const assignmentMap: Record<string, { name: string; assignmentId: string }> = {};
+    const assignmentMap: Record<string, { name: string; assignmentId: string; unitNumber: string | null }> = {};
     for (const a of (assignments ?? []) as any[]) {
       const app = a.operators?.applications;
       const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
-      assignmentMap[a.equipment_id] = { name, assignmentId: a.id };
+      assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: a.operators?.unit_number ?? null };
     }
 
     const enriched: EquipmentItem[] = (itemsData ?? []).map((item: any) => ({
       ...item,
       current_operator_name: assignmentMap[item.id]?.name ?? null,
       current_assignment_id: assignmentMap[item.id]?.assignmentId ?? null,
+      current_unit_number: assignmentMap[item.id]?.unitNumber ?? null,
     }));
 
     setItems(enriched);
@@ -174,11 +215,9 @@ export default function EquipmentInventory({
   const filtered = items.filter(item => {
     const matchType = typeFilter === 'all' || item.device_type === typeFilter;
     const matchStatus = statusFilter === 'all' || item.status === statusFilter;
-    const q = search.toLowerCase();
-    const matchSearch = !q || item.serial_number.toLowerCase().includes(q)
-      || (item.current_operator_name ?? '').toLowerCase().includes(q)
-      || (item.notes ?? '').toLowerCase().includes(q);
-    return matchType && matchStatus && matchSearch;
+    return matchType && matchStatus
+      && matchesQuery(item, search.trim())
+      && matchesQuery(item, (sectionSearch[item.device_type] ?? '').trim());
   });
 
   // Group by device_type for the card view
@@ -186,6 +225,7 @@ export default function EquipmentInventory({
     eld: [], dash_cam: [], bestpass: [], fuel_card: [],
   };
   for (const item of filtered) grouped[item.device_type].push(item);
+  for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key]);
 
   // Summary counts
   const counts = {
@@ -246,7 +286,7 @@ export default function EquipmentInventory({
               <Download className="h-4 w-4" />
               Download
             </Button>
-            <Button onClick={() => setAddModalOpen(true)} className="gap-2 flex-1 sm:flex-none">
+            <Button onClick={() => { setAddType(null); setAddModalOpen(true); }} className="gap-2 flex-1 sm:flex-none">
               <Plus className="h-4 w-4" />
               Add Device
             </Button>
@@ -363,6 +403,29 @@ export default function EquipmentInventory({
                   </span>
                 </button>
 
+                {!isExpanded ? null : (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 border-b border-border bg-background">
+                    <div className="relative w-full sm:flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        value={sectionSearch[type]}
+                        onChange={e => setSectionSearch(prev => ({ ...prev, [type]: e.target.value }))}
+                        placeholder={`Search ${cfg.label} — serial, driver, unit #...`}
+                        className="pl-8 h-8 text-sm"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 h-8 shrink-0"
+                      onClick={() => { setAddType(type); setAddModalOpen(true); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add {cfg.label}
+                    </Button>
+                  </div>
+                )}
+
                 {!isExpanded ? null : typeItems.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-sm">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -451,7 +514,8 @@ export default function EquipmentInventory({
         open={addModalOpen || !!editItem}
         item={editItem}
         isManagement={isManagement}
-        onClose={() => { setAddModalOpen(false); setEditItem(null); }}
+        defaultDeviceType={editItem ? null : addType}
+        onClose={() => { setAddModalOpen(false); setAddType(null); setEditItem(null); }}
         onSaved={fetchItems}
       />
       <EquipmentAssignModal
@@ -530,7 +594,7 @@ function EquipmentRow({
         {item.status === 'assigned' && item.current_operator_name && (
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
             <UserCheck className="h-3 w-3 inline mr-1 text-primary" />
-            {item.current_operator_name}
+            {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
           </p>
         )}
         {item.notes && (
@@ -625,7 +689,9 @@ function EquipmentCard({
       {item.status === 'assigned' && item.current_operator_name && (
         <div className="text-xs text-foreground bg-primary/5 border border-primary/15 rounded px-2 py-1.5 flex items-center gap-1.5">
           <UserCheck className="h-3 w-3 text-primary shrink-0" />
-          <span className="truncate">{item.current_operator_name}</span>
+          <span className="truncate">
+            {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
+          </span>
         </div>
       )}
 
@@ -681,10 +747,10 @@ function FuelCardSections({
   onDeactivate: (item: EquipmentItem) => void;
   onHistory: (item: EquipmentItem) => void;
 }) {
-  const assigned = items.filter(i => i.status === 'assigned');
-  const available = items.filter(i => i.status === 'available' || i.status === 'damaged');
-  const lost = items.filter(i => i.status === 'lost');
-  const deactivated = items.filter(i => i.status === 'deactivated');
+  const assigned = sortEquipment(items.filter(i => i.status === 'assigned'));
+  const available = sortEquipment(items.filter(i => i.status === 'available' || i.status === 'damaged'));
+  const lost = sortEquipment(items.filter(i => i.status === 'lost'));
+  const deactivated = sortEquipment(items.filter(i => i.status === 'deactivated'));
 
   const allSections: { key: EquipmentStatus | 'available_group'; title: string; subtitle: string; items: EquipmentItem[] }[] = [
     { key: 'assigned', title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },

@@ -15,6 +15,8 @@ interface Props {
   open: boolean;
   item?: EquipmentItem | null;
   isManagement: boolean;
+  /** When adding from a device-type section, lock the type to that section. */
+  defaultDeviceType?: DeviceType | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -33,7 +35,7 @@ const STATUSES: { value: EquipmentStatus; label: string; mgmtOnly?: boolean }[] 
   { value: 'lost',      label: 'Lost / Not Returned',    mgmtOnly: true },
 ];
 
-export default function EquipmentItemModal({ open, item, isManagement, onClose, onSaved }: Props) {
+export default function EquipmentItemModal({ open, item, isManagement, defaultDeviceType, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -49,12 +51,12 @@ export default function EquipmentItemModal({ open, item, isManagement, onClose, 
       setStatus(item.status);
       setNotes(item.notes ?? '');
     } else {
-      setDeviceType('eld');
+      setDeviceType(defaultDeviceType ?? 'eld');
       setSerialNumber('');
       setStatus('available');
       setNotes('');
     }
-  }, [item, open]);
+  }, [item, open, defaultDeviceType]);
 
   const handleSave = async () => {
     if (!serialNumber.trim()) {
@@ -117,7 +119,11 @@ export default function EquipmentItemModal({ open, item, isManagement, onClose, 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>Device Type</Label>
-            <Select value={deviceType} onValueChange={v => setDeviceType(v as DeviceType)}>
+            <Select
+              value={deviceType}
+              onValueChange={v => setDeviceType(v as DeviceType)}
+              disabled={!item && !!defaultDeviceType}
+            >
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
