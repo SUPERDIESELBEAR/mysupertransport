@@ -403,6 +403,29 @@ export default function EquipmentInventory({
                   </span>
                 </button>
 
+                {!isExpanded ? null : (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 border-b border-border bg-background">
+                    <div className="relative w-full sm:flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        value={sectionSearch[type]}
+                        onChange={e => setSectionSearch(prev => ({ ...prev, [type]: e.target.value }))}
+                        placeholder={`Search ${cfg.label} — serial, driver, unit #...`}
+                        className="pl-8 h-8 text-sm"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 h-8 shrink-0"
+                      onClick={() => { setAddType(type); setAddModalOpen(true); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add {cfg.label}
+                    </Button>
+                  </div>
+                )}
+
                 {!isExpanded ? null : typeItems.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-sm">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -491,7 +514,8 @@ export default function EquipmentInventory({
         open={addModalOpen || !!editItem}
         item={editItem}
         isManagement={isManagement}
-        onClose={() => { setAddModalOpen(false); setEditItem(null); }}
+        defaultDeviceType={editItem ? null : addType}
+        onClose={() => { setAddModalOpen(false); setAddType(null); setEditItem(null); }}
         onSaved={fetchItems}
       />
       <EquipmentAssignModal
