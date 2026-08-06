@@ -10,6 +10,7 @@ import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
 import { resolveDecalUrl } from '@/lib/decalUrl';
+import TruckInspectionDetailsDialog, { type TruckInspectionDetails } from '@/components/operator/TruckInspectionDetailsDialog';
 interface DocumentSlot {
   key: string;
   label: string;
