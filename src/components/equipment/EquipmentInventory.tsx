@@ -162,7 +162,7 @@ export default function EquipmentInventory({
   const [returnItem, setReturnItem] = useState<EquipmentItem | null>(null);
   const [deactivateItem, setDeactivateItem] = useState<EquipmentItem | null>(null);
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'sheets'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'by_driver' | 'sheets'>('inventory');
   const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
   const [previewSheet, setPreviewSheet] = useState<SheetWithItems | null>(null);
   const [sheetListKey, setSheetListKey] = useState(0);
@@ -271,11 +271,15 @@ export default function EquipmentInventory({
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'inventory' | 'sheets')} className="w-full">
+      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'inventory' | 'by_driver' | 'sheets')} className="w-full">
         <TabsList className="w-full sm:w-auto mb-3">
           <TabsTrigger value="inventory" className="gap-1.5">
             <HardDrive className="h-3.5 w-3.5" />
             Inventory
+          </TabsTrigger>
+          <TabsTrigger value="by_driver" className="gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            By Driver
           </TabsTrigger>
           <TabsTrigger value="sheets" className="gap-1.5">
             <FileSignature className="h-3.5 w-3.5" />
