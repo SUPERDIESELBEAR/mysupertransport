@@ -361,6 +361,7 @@ export type Database = {
           address_state: string | null
           address_street: string | null
           address_zip: string | null
+          approved_at: string | null
           auth_drug_alcohol: boolean | null
           auth_previous_employers: boolean | null
           auth_safety_history: boolean | null
@@ -446,6 +447,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zip?: string | null
+          approved_at?: string | null
           auth_drug_alcohol?: boolean | null
           auth_previous_employers?: boolean | null
           auth_safety_history?: boolean | null
@@ -531,6 +533,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zip?: string | null
+          approved_at?: string | null
           auth_drug_alcohol?: boolean | null
           auth_previous_employers?: boolean | null
           auth_safety_history?: boolean | null
@@ -6901,6 +6904,7 @@ export type Database = {
           address_state: string | null
           address_street: string | null
           address_zip: string | null
+          approved_at: string | null
           auth_drug_alcohol: boolean | null
           auth_previous_employers: boolean | null
           auth_safety_history: boolean | null
