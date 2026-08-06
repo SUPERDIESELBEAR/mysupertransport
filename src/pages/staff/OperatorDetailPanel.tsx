@@ -703,8 +703,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // Offset = sticky driver bar height + this stage's sticky title bar height
     // + a small gap, so the first field of the stage clears both pinned bars.
     const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
-    const stageHeader = el.querySelector('button') as HTMLElement | null;
-    void stageHeader;
     const offset = (driverBar?.getBoundingClientRect().height ?? 52) + 12;
 
     let node: HTMLElement | null = el.parentElement;
@@ -727,7 +725,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         scrollParent.getBoundingClientRect().top +
         scrollParent.scrollTop -
         offset;
-      scrollParent.scrollTo({ top: Math.max(0, top), behavior });
+      const target = Math.max(0, top);
+      scrollParent.scrollTo({ top: target, behavior });
+      // Re-correct once the smooth scroll settles, in case expanded content
+      // shifted layout mid-animation.
+      window.setTimeout(() => {
+        const settled =
+          el.getBoundingClientRect().top -
+          scrollParent!.getBoundingClientRect().top +
+          scrollParent!.scrollTop -
+          offset;
+        if (Math.abs(settled - scrollParent!.scrollTop) > 4) {
+          scrollParent!.scrollTo({ top: Math.max(0, settled), behavior: 'auto' });
+        }
+      }, 400);
     } else {
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top: Math.max(0, top), behavior });
