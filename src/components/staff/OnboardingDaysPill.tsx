@@ -1,44 +1,60 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+type DayPillMode = 'pe_results' | 'application_submitted';
+
 interface OnboardingDaysPillProps {
-  /** Date the pre-employment drug test results were received (YYYY-MM-DD or ISO). */
-  peResultsDate: string | null;
+  /** Date to count days from (YYYY-MM-DD or ISO). */
+  date: string | null;
+  /** Which day counter this pill represents. */
+  mode: DayPillMode;
+  /** Hide when the driver is fully onboarded. */
   fullyOnboarded: boolean;
   size?: 'sm' | 'md';
 }
 
 /**
- * Staff-only pill tracking the FMCSA 30-day hiring window, counted from the
- * date the pre-employment drug test results were received (day 0).
- * Hidden once the driver is fully onboarded or if no results date exists.
+ * Staff-only day counter pill.
  *
- * Color thresholds:
- *   0–10 days  → green
- *   11–20 days → yellow
- *   21–30 days → red
- *   31+ days   → window expired (destructive, explicit label)
+ * Modes:
+ *   - pe_results: tracks the FMCSA 30-day hiring window from the date the
+ *     pre-employment drug test results were received (day 0). Uses dynamic
+ *     color thresholds and shows "Window Expired" after 30 days.
+ *   - application_submitted: tracks days since the application was submitted.
+ *     Static gray styling; never shows "Window Expired".
+ *
+ * The pill is hidden once the driver is fully onboarded or if no source date
+ * exists.
  */
 export function OnboardingDaysPill({
-  peResultsDate,
+  date,
+  mode,
   fullyOnboarded,
   size = 'sm',
 }: OnboardingDaysPillProps) {
-  if (fullyOnboarded || !peResultsDate) return null;
+  if (fullyOnboarded || !date) return null;
 
   // Anchor date-only values at local noon so timezone never shifts the day count.
-  const submitted = new Date(
-    /^\d{4}-\d{2}-\d{2}$/.test(peResultsDate) ? `${peResultsDate}T12:00:00` : peResultsDate
+  const anchor = new Date(
+    /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T12:00:00` : date
   );
-  if (Number.isNaN(submitted.getTime())) return null;
+  if (Number.isNaN(anchor.getTime())) return null;
 
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
-  const diffMs = Date.now() - submitted.getTime();
-  // Day 0 = the day results were received.
+  const diffMs = Date.now() - anchor.getTime();
+  // Day 0 = the day the source date occurred.
   const day = Math.max(0, Math.floor(diffMs / MS_PER_DAY));
-  const expired = day > 30;
+
+  const isPeResults = mode === 'pe_results';
+  const expired = isPeResults && day > 30;
 
   let styleVars: { background: string; color: string; borderColor: string };
-  if (day <= 10) {
+  if (!isPeResults) {
+    styleVars = {
+      background: 'hsl(var(--muted) / 0.4)',
+      color: 'hsl(var(--muted-foreground))',
+      borderColor: 'hsl(var(--border))',
+    };
+  } else if (day <= 10) {
     styleVars = {
       background: 'hsl(var(--status-complete) / 0.12)',
       color: 'hsl(var(--status-complete))',
@@ -69,32 +85,44 @@ export function OnboardingDaysPill({
       ? 'px-2 py-0.5 text-[11px]'
       : 'px-1.5 py-0.5 text-[10px]';
 
-  const resultsLabel = submitted.toLocaleDateString('en-US', {
+  const dateLabel = anchor.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+
+  const labelText = isPeResults
+    ? expired
+      ? `Window Expired · Day ${day}`
+      : `Day ${day}`
+    : `Day ${day}`;
+
+  const ariaLabel = isPeResults
+    ? expired
+      ? `FMCSA hiring window expired, day ${day} since PE drug test results received ${dateLabel}`
+      : `Day ${day} of the FMCSA 30-day hiring window, PE drug test results received ${dateLabel}`
+    : `Day ${day} since application submitted ${dateLabel}`;
+
+  const tooltipText = isPeResults
+    ? expired
+      ? `FMCSA 30-day hiring window expired — PE drug test results received ${dateLabel}`
+      : `Day ${day} of the FMCSA 30-day hiring window — PE drug test results received ${dateLabel}`
+    : `Day ${day} since application was submitted — ${dateLabel}`;
 
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className={`inline-flex items-center rounded-full font-semibold leading-none border shrink-0 tabular-nums cursor-default ${sizeClass}`}
+            className={`inline-flex items-center rounded font-semibold leading-none border shrink-0 tabular-nums cursor-default ${sizeClass}`}
             style={styleVars}
-            aria-label={
-              expired
-                ? `FMCSA hiring window expired, day ${day} since PE drug test results received ${resultsLabel}`
-                : `Day ${day} of the FMCSA 30-day hiring window, PE drug test results received ${resultsLabel}`
-            }
+            aria-label={ariaLabel}
           >
-            {expired ? `Window Expired · Day ${day}` : `Day ${day}`}
+            {labelText}
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          {expired
-            ? `FMCSA 30-day hiring window expired — PE drug test results received ${resultsLabel}`
-            : `Day ${day} of the FMCSA 30-day hiring window — PE drug test results received ${resultsLabel}`}
+          {tooltipText}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
