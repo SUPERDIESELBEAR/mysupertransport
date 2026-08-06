@@ -3483,14 +3483,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         {name}
                       </button>
 
-                      <OnboardingDaysPill
-                        peResultsDate={op.pe_results_date}
-                        fullyOnboarded={op.fully_onboarded}
-                      />
-                      <HiringWindowDates
-                        approvedAt={op.application_approved_at}
-                        peResultsDate={op.pe_results_date}
-                      />
+                       <HiringWindowDates
+                         applicationSubmittedAt={op.application_submitted_at}
+                         approvedAt={op.application_approved_at}
+                         peResultsDate={op.pe_results_date}
+                         fullyOnboarded={op.fully_onboarded}
+                       />
 
                       {/* Hold date */}
                       {op.on_hold_date && (
