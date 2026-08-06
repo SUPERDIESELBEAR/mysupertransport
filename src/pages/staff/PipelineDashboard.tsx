@@ -1169,6 +1169,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         invited_at: op.created_at ?? null,
         pwa_installed_at: op.pwa_installed_at ?? null,
         application_submitted_at: appRecord?.submitted_at ?? null,
+        application_approved_at: appRecord?.approved_at ?? null,
+        pe_results_date: os.pe_results_date ?? null,
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_status: os.mvr_status ?? 'not_started',
@@ -3137,10 +3139,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               </Tooltip>
                             </TooltipProvider>
                             )}
-                            <OnboardingDaysPill
-                              submittedAt={op.application_submitted_at}
-                              fullyOnboarded={op.fully_onboarded}
-                            />
+                             <OnboardingDaysPill
+                               peResultsDate={op.pe_results_date}
+                               fullyOnboarded={op.fully_onboarded}
+                             />
+                             <HiringWindowDates
+                               approvedAt={op.application_approved_at}
+                               peResultsDate={op.pe_results_date}
+                             />
                           </div>
                        </div>
                      </td>
@@ -3475,8 +3481,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </button>
 
                       <OnboardingDaysPill
-                        submittedAt={op.application_submitted_at}
+                        peResultsDate={op.pe_results_date}
                         fullyOnboarded={op.fully_onboarded}
+                      />
+                      <HiringWindowDates
+                        approvedAt={op.application_approved_at}
+                        peResultsDate={op.pe_results_date}
                       />
 
                       {/* Hold date */}
