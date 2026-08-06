@@ -61,6 +61,7 @@ import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDia
 
 import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { getOnboardingProgress } from '@/lib/onboardingProgress';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -2900,23 +2901,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Top Completion Summary ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 20 : 10 }}>{(() => {
-        const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
-        const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
-        const _moNa = status.registration_status === 'own_registration';
-        const _stageStatuses: { key: string; label: string; complete: boolean; exception?: boolean }[] = [
-          { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' },
-          { key: 'stage2', label: 'Docs',  complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
-          { key: 'stage3', label: 'ICA',   complete: status.ica_status === 'complete' },
-          { key: 'stage4', label: 'MO',    complete: _moNa || status.mo_reg_received === 'yes' },
-          { key: 'stage5', label: 'Systems', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
-          { key: 'stagePE', label: 'PE',   complete: status.pe_screening_result === 'clear' },
-          { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
-          { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
-          { key: 'stage8', label: 'Pay',   complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
-        ];
-        const _completedCount = _stageStatuses.filter(s => s.complete).length;
-        const _pct = Math.round((_completedCount / _stageStatuses.length) * 100);
-        const _allDone = _completedCount === _stageStatuses.length;
+        const { stages: _stageStatuses, completedCount: _completedCount, pct: _pct, allDone: _allDone } = getOnboardingProgress(status, paySetupRecord);
         return (
           <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
@@ -2952,7 +2937,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       ? <span className="font-bold text-[10px] leading-none">E</span>
                       : <span className="h-2 w-2 rounded-full bg-muted-foreground/30 inline-block" />
                   }
-                  {s.label}
+                  {s.shortLabel}
                 </button>
               ))}
             </div>
@@ -3861,48 +3846,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {!isQuickView && (() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
-        const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
-              { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
-              { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
-              { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
-            ]},
-          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
-              { label: 'Form 2290',      done: status.form_2290 === 'received' },
-              { label: 'Truck Title',    done: status.truck_title === 'received' },
-              { label: 'Truck Photos',   done: status.truck_photos === 'received' },
-              { label: 'Truck Inspection', done: status.truck_inspection === 'received' },
-            ]},
-          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete', fullName: 'ICA Contract', items: [
-              { label: 'ICA Issued',        done: status.ica_status !== 'not_issued' },
-              { label: 'ICA Signed',        done: status.ica_status === 'complete' },
-            ]},
-          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes', fullName: 'MO Registration', items: [
-              { label: 'MO Docs Submitted',      done: status.mo_docs_submitted === 'submitted' },
-              { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
-            ]},
-          { label: 'Equipment',  key: 'stage5', complete: allEquipFull, fullName: 'Equipment', exception: exceptionActive && !allEquipFull, items: [
-              { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
-              { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
-              { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
-            ]},
-          { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
-              { label: 'PE Scheduled',        done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
-              { label: 'PE Screening Clear',  done: status.pe_screening_result === 'clear' },
-            ]},
-          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
-              { label: 'Insurance Added', done: !!status.insurance_added_date },
-            ]},
-          { label: 'Go Live',    key: 'stage7', complete: !!status.go_live_date, fullName: 'Go Live & Dispatch Readiness', items: [
-              { label: 'Go-Live Date Set',       done: !!status.go_live_date },
-            ]},
-          { label: 'Pay',        key: 'stage8', complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted), fullName: 'Contractor Pay Setup', items: [
-              { label: 'Docs Acknowledged',     done: !!(paySetupRecord?.deposit_overview_acknowledged && paySetupRecord?.payroll_calendar_acknowledged) },
-              { label: 'Pay Setup Submitted',   done: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
-            ]},
-        ];
-        const completedCount = stages.filter(s => s.complete).length;
-        const pct = Math.round((completedCount / stages.length) * 100);
+        const { stages, completedCount, pct } = getOnboardingProgress(status, paySetupRecord);
         return (
           <div
             data-sticky-driver-bar
@@ -4611,45 +4555,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>)}
 
 
-      {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 22 : 12 }}>{(() => {
-        const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
-              { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
-              { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
-              { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
-            ]},
-          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
-              { label: 'Form 2290',      done: status.form_2290 === 'received' },
-              { label: 'Truck Title',    done: status.truck_title === 'received' },
-              { label: 'Truck Photos',   done: status.truck_photos === 'received' },
-              { label: 'Truck Inspection', done: status.truck_inspection === 'received' },
-            ]},
-          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete', fullName: 'ICA Contract', items: [
-              { label: 'ICA Issued',  done: status.ica_status !== 'not_issued' },
-              { label: 'ICA Signed',  done: status.ica_status === 'complete' },
-            ]},
-          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes', fullName: 'MO Registration', items: [
-              { label: 'MO Docs Submitted',        done: status.mo_docs_submitted === 'submitted' },
-              { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
-            ]},
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
-              { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
-              { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
-              { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
-            ]},
-          { label: 'PE',         key: 'stagePE', complete: status.pe_screening_result === 'clear', fullName: 'Pre-Employment Screening', items: [
-              { label: 'PE Scheduled',       done: status.pe_screening === 'scheduled' || status.pe_screening === 'results_in' },
-              { label: 'PE Screening Clear', done: status.pe_screening_result === 'clear' },
-            ]},
-          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
-              { label: 'Insurance Added', done: !!status.insurance_added_date },
-            ]},
-          { label: 'Go Live',    key: 'stage7', complete: !!status.go_live_date, fullName: 'Go Live & Dispatch Readiness', items: [
-              { label: 'Go-Live Date Set',        done: !!status.go_live_date },
-            ]},
-        ];
-        const completedCount = stages.filter(s => s.complete).length;
-        const pct = Math.round((completedCount / stages.length) * 100);
+        const { stages, completedCount, pct } = getOnboardingProgress(status, paySetupRecord);
         return (
           <div ref={progressBarRef} className="bg-white border border-border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
@@ -4667,7 +4573,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 }}
               />
             </div>
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-9 gap-1">
               <TooltipProvider delayDuration={150}>
               {stages.map((s, i) => (
                 <Tooltip key={s.key}>
