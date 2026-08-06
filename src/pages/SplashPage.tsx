@@ -120,43 +120,45 @@ export default function SplashPage() {
         </p>
 
         {/* Resume application banner */}
-        <button
-          type="button"
-          onClick={() => setResumeOpen(true)}
-          className="mt-6 group inline-flex items-center gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-left transition-colors hover:border-gold/60 hover:bg-gold/10"
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
-            <RotateCcw className="h-4 w-4" />
-          </span>
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold text-surface-dark-foreground">
-              Started an application?
+        <div className="mt-6 w-full max-w-lg flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setResumeOpen(true)}
+            className="group flex w-full items-center gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-left transition-colors hover:border-gold/60 hover:bg-gold/10"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
+              <RotateCcw className="h-4 w-4" />
             </span>
-            <span className="text-xs text-surface-dark-muted">
-              Pick up where you left off — we'll email you a secure resume link.
+            <span className="flex flex-col">
+              <span className="text-sm font-semibold text-surface-dark-foreground">
+                Started an application?
+              </span>
+              <span className="text-xs text-surface-dark-muted">
+                Pick up where you left off — we'll email you a secure resume link.
+              </span>
             </span>
-          </span>
-          <ArrowRight className="ml-1 h-4 w-4 text-gold transition-transform group-hover:translate-x-0.5" />
-        </button>
+            <ArrowRight className="ml-1 h-4 w-4 text-gold transition-transform group-hover:translate-x-0.5" />
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setResendOpen(true)}
-          className="mt-3 group inline-flex items-center gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-left transition-colors hover:border-gold/60 hover:bg-gold/10"
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
-            <KeyRound className="h-4 w-4" />
-          </span>
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold text-surface-dark-foreground">
-              Invited as a driver or truck owner?
+          <button
+            type="button"
+            onClick={() => setResendOpen(true)}
+            className="group flex w-full items-center gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-left transition-colors hover:border-gold/60 hover:bg-gold/10"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
+              <KeyRound className="h-4 w-4" />
             </span>
-            <span className="text-xs text-surface-dark-muted">
-              You don't need to apply — we'll email you a fresh sign-in link.
+            <span className="flex flex-col">
+              <span className="text-sm font-semibold text-surface-dark-foreground">
+                Invited as a driver or truck owner?
+              </span>
+              <span className="text-xs text-surface-dark-muted">
+                You don't need to apply — we'll email you a fresh sign-in link.
+              </span>
             </span>
-          </span>
-          <ArrowRight className="ml-1 h-4 w-4 text-gold transition-transform group-hover:translate-x-0.5" />
-        </button>
+            <ArrowRight className="ml-1 h-4 w-4 text-gold transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
       </section>
 
       {/* QUICK CHECKLIST */}
