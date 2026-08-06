@@ -351,8 +351,23 @@ export default function EquipmentInventory({
             </Button>
           </div>
 
-      {/* Per-type quick summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* Per-type quick summary + By Driver shortcut */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('by_driver')}
+          className="rounded-xl border p-3 text-left transition-all hover:shadow-sm bg-card border-border hover:border-primary/20"
+        >
+          <div className="flex items-center gap-1.5 mb-1 text-primary">
+            <Users className="h-4 w-4" />
+            <span className="text-xs font-medium">By Driver</span>
+          </div>
+          <p className="text-lg font-bold text-foreground">{byDriverCount}</p>
+          <p className="text-xs text-muted-foreground">
+            {byDriverGapCount} missing ELD or Dash Cam
+          </p>
+        </button>
+
         {(Object.keys(perType) as DeviceType[]).map(type => {
           const cfg = DEVICE_CONFIG[type];
           const t = perType[type];
