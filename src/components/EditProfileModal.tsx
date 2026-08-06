@@ -105,6 +105,13 @@ async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: strin
   });
 }
 
+const BIRTH_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 interface EditProfileModalProps {
   open: boolean;
   onClose: () => void;
@@ -127,6 +134,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [phone, setPhone]           = useState(() => profile?.phone ?? '');
   const [homeState, setHomeState]   = useState(() => profile?.home_state ?? '');
   const [homeCountry, setHomeCountry] = useState(() => profile?.home_country ?? DEFAULT_COUNTRY_CODE);
+  const [birthMonth, setBirthMonth] = useState<string>(() => profile?.birth_month ? String(profile.birth_month) : '');
+  const [birthDay, setBirthDay]     = useState<string>(() => profile?.birth_day ? String(profile.birth_day) : '');
   const [countryOpen, setCountryOpen] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -161,6 +170,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       setPhone(profile.phone ?? '');
       setHomeState(profile.home_state ?? '');
       setHomeCountry(profile.home_country ?? DEFAULT_COUNTRY_CODE);
+      setBirthMonth(profile.birth_month ? String(profile.birth_month) : '');
+      setBirthDay(profile.birth_day ? String(profile.birth_day) : '');
       setCountryOpen(false);
       setAvatarUrl(profile.avatar_url ?? null);
       setError(null);
@@ -328,6 +339,12 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
         last_name:  lastName.trim(),
         phone:      rawPhone ? (usesNanpPhone ? phone : trimmedPhone) : null,
         home_state: homeState.trim() || null,
+        ...(allowInternational
+          ? {
+              birth_month: birthMonth ? Number(birthMonth) : null,
+              birth_day: birthMonth && birthDay ? Number(birthDay) : null,
+            }
+          : {}),
         ...(allowInternational ? { home_country: homeCountry || DEFAULT_COUNTRY_CODE } : {}),
         updated_at: new Date().toISOString(),
       })
@@ -622,6 +639,49 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                     maxLength={usesNanpPhone ? 14 : 25}
                   />
                 </div>
+
+                {/* Country (management dashboard only) */}
+                {allowInternational && (
+                  <div className="space-y-1.5">
+                    <Label className={labelClass}>Birthday <span className="text-xs text-muted-foreground font-normal">(month and day only)</span></Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select
+                        value={birthMonth || 'none'}
+                        onValueChange={(v) => {
+                          const next = v === 'none' ? '' : v;
+                          setBirthMonth(next);
+                          if (!next) setBirthDay('');
+                          else if (birthDay && Number(birthDay) > DAYS_IN_MONTH[Number(next) - 1]) setBirthDay('');
+                        }}
+                      >
+                        <SelectTrigger className={inputClass}>
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          <SelectItem value="none">— Not set —</SelectItem>
+                          {BIRTH_MONTHS.map((m, i) => (
+                            <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={birthDay || 'none'}
+                        onValueChange={(v) => setBirthDay(v === 'none' ? '' : v)}
+                        disabled={!birthMonth}
+                      >
+                        <SelectTrigger className={inputClass}>
+                          <SelectValue placeholder="Day" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          <SelectItem value="none">— Not set —</SelectItem>
+                          {Array.from({ length: birthMonth ? DAYS_IN_MONTH[Number(birthMonth) - 1] : 31 }, (_, i) => i + 1).map((d) => (
+                            <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
 
                 {/* Country (management dashboard only) */}
                 {allowInternational && (

@@ -60,10 +60,11 @@ Deno.serve(async (req) => {
 
     const payload = await req.json().catch(() => ({}));
     const {
-      operatorId, kind, subject, body,
+      operatorId, staffUserId, kind, subject, body,
       sendEmail = true, sendInApp = true, years,
     } = payload as {
       operatorId?: string;
+      staffUserId?: string;
       kind?: 'birthday' | 'anniversary';
       subject?: string;
       body?: string;
@@ -72,8 +73,8 @@ Deno.serve(async (req) => {
       years?: number | null;
     };
 
-    if (!operatorId || typeof operatorId !== 'string') {
-      return new Response(JSON.stringify({ error: 'operatorId is required' }), {
+    if ((!operatorId || typeof operatorId !== 'string') && (!staffUserId || typeof staffUserId !== 'string')) {
+      return new Response(JSON.stringify({ error: 'operatorId or staffUserId is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -88,20 +89,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Load operator + applicant context.
-    const { data: op, error: opErr } = await supabase
-      .from('operators')
-      .select('id, user_id, applications ( email, first_name )')
-      .eq('id', operatorId)
-      .maybeSingle();
-    if (opErr || !op) {
-      return new Response(JSON.stringify({ error: 'Operator not found' }), {
-        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    let recipientEmail: string | null = null;
+    let recipientUserId: string | null = null;
+    let firstName = 'Driver';
+
+    if (staffUserId) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('user_id, first_name')
+        .eq('user_id', staffUserId)
+        .maybeSingle();
+      if (!prof) {
+        return new Response(JSON.stringify({ error: 'Staff member not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      recipientUserId = staffUserId;
+      firstName = ((prof as any).first_name ?? 'Teammate').toString();
+      const { data: authUser } = await supabase.auth.admin.getUserById(staffUserId);
+      recipientEmail = authUser?.user?.email ?? null;
+    } else {
+      // Load operator + applicant context.
+      const { data: op, error: opErr } = await supabase
+        .from('operators')
+        .select('id, user_id, applications ( email, first_name )')
+        .eq('id', operatorId!)
+        .maybeSingle();
+      if (opErr || !op) {
+        return new Response(JSON.stringify({ error: 'Operator not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const app = (op as any).applications ?? null;
+      recipientEmail = app?.email ?? null;
+      recipientUserId = (op as any).user_id ?? null;
+      firstName = (app?.first_name ?? 'Driver').toString();
     }
-    const app = (op as any).applications ?? null;
-    const recipientEmail: string | null = app?.email ?? null;
-    const firstName: string = (app?.first_name ?? 'Driver').toString();
 
     // Send email.
     if (sendEmail && recipientEmail) {
@@ -120,9 +143,9 @@ Deno.serve(async (req) => {
     }
 
     // In-app notification.
-    if (sendInApp && (op as any).user_id) {
+    if (sendInApp && recipientUserId) {
       await supabase.from('notifications').insert({
-        user_id: (op as any).user_id,
+        user_id: recipientUserId,
         type: 'birthday_anniversary',
         title: subject,
         body,
@@ -130,7 +153,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, emailed: !!(sendEmail && recipientEmail), notified: !!(sendInApp && (op as any).user_id) }),
+      JSON.stringify({ success: true, emailed: !!(sendEmail && recipientEmail), notified: !!(sendInApp && recipientUserId) }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

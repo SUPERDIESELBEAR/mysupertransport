@@ -5085,6 +5085,8 @@ export type Database = {
         Row: {
           account_status: Database["public"]["Enums"]["account_status"]
           avatar_url: string | null
+          birth_day: number | null
+          birth_month: number | null
           created_at: string
           first_name: string | null
           home_country: string
@@ -5100,6 +5102,8 @@ export type Database = {
         Insert: {
           account_status?: Database["public"]["Enums"]["account_status"]
           avatar_url?: string | null
+          birth_day?: number | null
+          birth_month?: number | null
           created_at?: string
           first_name?: string | null
           home_country?: string
@@ -5115,6 +5119,8 @@ export type Database = {
         Update: {
           account_status?: Database["public"]["Enums"]["account_status"]
           avatar_url?: string | null
+          birth_day?: number | null
+          birth_month?: number | null
           created_at?: string
           first_name?: string | null
           home_country?: string
@@ -6098,7 +6104,8 @@ export type Database = {
           event_date: string
           event_type: string
           id: string
-          operator_id: string
+          operator_id: string | null
+          subject_user_id: string | null
           user_id: string
         }
         Insert: {
@@ -6106,7 +6113,8 @@ export type Database = {
           event_date: string
           event_type: string
           id?: string
-          operator_id: string
+          operator_id?: string | null
+          subject_user_id?: string | null
           user_id: string
         }
         Update: {
@@ -6114,7 +6122,8 @@ export type Database = {
           event_date?: string
           event_type?: string
           id?: string
-          operator_id?: string
+          operator_id?: string | null
+          subject_user_id?: string | null
           user_id?: string
         }
         Relationships: [

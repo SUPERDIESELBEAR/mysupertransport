@@ -8,7 +8,12 @@ export type EventKind = 'birthday' | 'anniversary';
 export interface BdayAnnivEvent {
   id: string;                 // stable key: operatorId:kind:YYYY-MM-DD
   kind: EventKind;
+  /** Empty string for staff-subject events. */
   operatorId: string;
+  /** 'operator' for drivers, 'staff' for staff birthdays. */
+  subjectKind: 'operator' | 'staff';
+  /** Auth user id of the celebrated staff member (staff events only). */
+  subjectUserId: string | null;
   userId: string | null;      // driver's auth user id (for in-app notification)
   firstName: string;
   lastName: string;
@@ -98,7 +103,7 @@ export function useStaffBirthdayAnniversaryEvents() {
         .gte('event_date', `${currentYear}-01-01`)
         .lte('event_date', `${currentYear}-12-31`);
       const ackKey = new Set(
-        (acks ?? []).map((a: any) => `${a.operator_id}:${a.event_type}:${a.event_date}`),
+        (acks ?? []).map((a: any) => `${a.operator_id ?? a.subject_user_id}:${a.event_type}:${a.event_date}`),
       );
 
       const list: BdayAnnivEvent[] = [];
@@ -121,6 +126,8 @@ export function useStaffBirthdayAnniversaryEvents() {
             id: `${op.id}:${kind}:${iso}`,
             kind,
             operatorId: op.id,
+            subjectKind: 'operator',
+            subjectUserId: null,
             userId: op.user_id,
             firstName,
             lastName,
@@ -139,6 +146,52 @@ export function useStaffBirthdayAnniversaryEvents() {
         const goLive = parseDateOnly(op.onboarding_status?.go_live_date);
         if (goLive && goLive.getFullYear() < currentYear) {
           pushEvent('anniversary', goLive, currentYear - goLive.getFullYear());
+        }
+      }
+
+      // ── Staff birthdays (month/day stored on profiles) ──────────────────
+      const { data: staffRoleRows } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner']);
+      const staffIds = Array.from(
+        new Set((staffRoleRows ?? []).map((r: any) => r.user_id as string)),
+      ).filter((id) => id !== user.id);
+
+      if (staffIds.length) {
+        const { data: staffProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, avatar_url, birth_month, birth_day, account_status')
+          .in('user_id', staffIds)
+          .not('birth_month', 'is', null)
+          .not('birth_day', 'is', null);
+
+        for (const p of (staffProfiles ?? []) as any[]) {
+          if (p.account_status === 'inactive' || p.account_status === 'denied') continue;
+          const month = Number(p.birth_month);
+          const day = Number(p.birth_day);
+          if (!month || !day) continue;
+          const actual = new Date(currentYear, month - 1, day, 12, 0, 0);
+          if (actual.getMonth() !== month - 1) continue; // e.g. Feb 29 in a non-leap year
+          const warn = earlyWarnDateFor(actual);
+          if (today < warn || today > actual) continue;
+          const iso = ymd(actual);
+          if (ackKey.has(`${p.user_id}:birthday:${iso}`)) continue;
+          list.push({
+            id: `staff:${p.user_id}:birthday:${iso}`,
+            kind: 'birthday',
+            operatorId: '',
+            subjectKind: 'staff',
+            subjectUserId: p.user_id,
+            userId: p.user_id,
+            firstName: (p.first_name ?? '').trim() || 'Teammate',
+            lastName: (p.last_name ?? '').trim(),
+            email: null,
+            avatarUrl: p.avatar_url ?? null,
+            actualDate: actual,
+            actualDateISO: iso,
+            isEarly: !isSameYMD(today, actual),
+          });
         }
       }
 
@@ -163,10 +216,11 @@ export function useStaffBirthdayAnniversaryEvents() {
     setEvents((prev) => prev.filter((e) => e.id !== ev.id));
     await supabase.from('staff_event_acknowledgments').insert({
       user_id: user.id,
-      operator_id: ev.operatorId,
+      operator_id: ev.subjectKind === 'operator' ? ev.operatorId : null,
+      subject_user_id: ev.subjectKind === 'staff' ? ev.subjectUserId : null,
       event_type: ev.kind,
       event_date: ev.actualDateISO,
-    });
+    } as any);
   }, [user]);
 
   return useMemo(() => ({ events, loading, refetch: load, acknowledge }), [events, loading, load, acknowledge]);
