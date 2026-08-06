@@ -349,6 +349,8 @@ interface OperatorRow {
   invited_at: string | null;
   pwa_installed_at: string | null;
   application_submitted_at: string | null;
+  application_approved_at: string | null;
+  pe_results_date: string | null;
   current_stage: string;
   fully_onboarded: boolean;
   mvr_status: string;
@@ -1017,12 +1019,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         pwa_installed_at,
         notes,
         anticipated_start_date,
-        applications ( email, phone, address_state, submitted_at ),
+        applications ( email, phone, address_state, submitted_at, approved_at ),
         onboarding_status (
           mvr_status,
           ch_status,
           mvr_ch_approval,
           pe_screening_result,
+          pe_results_date,
           ica_status,
           decal_applied,
           eld_installed,
