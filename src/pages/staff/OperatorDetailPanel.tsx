@@ -2478,6 +2478,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const costNotesAuto = useAutoSaveStatusField({ field: 'cost_notes', value: status.cost_notes ?? null, ...autoSaveBase });
   const insuranceNotesAuto = useAutoSaveStatusField({ field: 'insurance_notes', value: status.insurance_notes ?? null, ...autoSaveBase });
 
+  flushNotesRef.current = () => {
+    bgNotesAuto.flush(); docNotesAuto.flush(); icaNotesAuto.flush(); moNotesAuto.flush();
+    exceptionNotesAuto.flush(); costNotesAuto.flush(); insuranceNotesAuto.flush();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
