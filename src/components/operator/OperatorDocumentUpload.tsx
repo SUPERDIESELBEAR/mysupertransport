@@ -139,6 +139,16 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     return null;
   };
 
+  const [pendingInspection, setPendingInspection] = useState<{ slot: DocumentSlot; file: File } | null>(null);
+
+  const startUpload = (slot: DocumentSlot, file: File) => {
+    if (slot.key === 'truck_inspection') {
+      setPendingInspection({ slot, file });
+      return;
+    }
+    handleUpload(slot, file);
+  };
+
   const handleUpload = async (
     slot: DocumentSlot,
     file: File,
@@ -524,7 +534,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                             className="hidden"
                             onChange={e => {
                               const file = e.target.files?.[0];
-                              if (file) handleUpload(slot, file);
+                              if (file) startUpload(slot, file);
                               e.target.value = '';
                             }}
                           />
@@ -694,7 +704,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           className="hidden"
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
+                            if (file) startUpload(slot, file);
                             e.target.value = '';
                           }}
                         />
@@ -799,7 +809,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           className="hidden"
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
+                            if (file) startUpload(slot, file);
                             e.target.value = '';
                           }}
                         />
@@ -886,7 +896,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           className="hidden"
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
+                            if (file) startUpload(slot, file);
                             e.target.value = '';
                           }}
                         />
@@ -1100,6 +1110,17 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       <p className="text-xs text-muted-foreground text-center">
         Accepted formats: PDF, JPG, PNG · Max 10 MB per file
       </p>
+
+      <TruckInspectionDetailsDialog
+        open={!!pendingInspection}
+        fileName={pendingInspection?.file.name}
+        onCancel={() => setPendingInspection(null)}
+        onConfirm={details => {
+          const pending = pendingInspection;
+          setPendingInspection(null);
+          if (pending) handleUpload(pending.slot, pending.file, details);
+        }}
+      />
 
       <TruckPhotoGuideModal
         open={showPhotoGuide}
