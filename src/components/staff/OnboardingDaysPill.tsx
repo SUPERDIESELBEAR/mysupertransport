@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-type DayPillMode = 'pe_results' | 'application_submitted';
+type DayPillMode = 'pe_results' | 'application_submitted' | 'application_approved';
 
 interface OnboardingDaysPillProps {
   /** Date to count days from (YYYY-MM-DD or ISO). */
@@ -91,6 +91,9 @@ export function OnboardingDaysPill({
     year: 'numeric',
   });
 
+  const staticSourceLabel =
+    mode === 'application_approved' ? 'application was approved' : 'application was submitted';
+
   const labelText = isPeResults
     ? expired
       ? `Window Expired · Day ${day}`
@@ -101,13 +104,13 @@ export function OnboardingDaysPill({
     ? expired
       ? `FMCSA hiring window expired, day ${day} since PE drug test results received ${dateLabel}`
       : `Day ${day} of the FMCSA 30-day hiring window, PE drug test results received ${dateLabel}`
-    : `Day ${day} since application submitted ${dateLabel}`;
+    : `Day ${day} since ${staticSourceLabel} ${dateLabel}`;
 
   const tooltipText = isPeResults
     ? expired
       ? `FMCSA 30-day hiring window expired — PE drug test results received ${dateLabel}`
       : `Day ${day} of the FMCSA 30-day hiring window — PE drug test results received ${dateLabel}`
-    : `Day ${day} since application was submitted — ${dateLabel}`;
+    : `Day ${day} since ${staticSourceLabel} — ${dateLabel}`;
 
   return (
     <TooltipProvider delayDuration={150}>

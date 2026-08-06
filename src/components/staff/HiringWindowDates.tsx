@@ -50,6 +50,11 @@ export function HiringWindowDates({
       >
         <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
         Approved {fmt(approvedAt)}
+        <OnboardingDaysPill
+          date={approvedAt}
+          mode="application_approved"
+          fullyOnboarded={fullyOnboarded}
+        />
       </span>
       <span
         className={`${chipBase} bg-muted/40 text-muted-foreground border-border`}
