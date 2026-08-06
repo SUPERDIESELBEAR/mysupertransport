@@ -12,7 +12,7 @@ const TYPE_LABEL: Record<DeviceType, string> = {
 const STATUS_LABEL: Record<string, string> = {
   available: 'Available',
   assigned: 'Assigned',
-  damaged: 'Damaged / Needs Repair',
+  damaged: 'Damaged / Needs Replacement',
   lost: 'Lost / Missing',
 };
 
