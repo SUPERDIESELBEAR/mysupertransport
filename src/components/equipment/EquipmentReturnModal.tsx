@@ -25,7 +25,7 @@ interface Props {
 
 const CONDITIONS: { value: ReturnCondition; label: string; description: string; mgmtOnly?: boolean }[] = [
   { value: 'available', label: 'Good — Available to Reissue', description: 'Device returned in working condition, ready for the next operator.' },
-  { value: 'damaged',   label: 'Damaged / Needs Repair',       description: 'Device returned but requires inspection or repair before reissue.', mgmtOnly: true },
+  { value: 'damaged',   label: 'Damaged / Needs Replacement',  description: 'Device returned but requires inspection or replacement before reissue.', mgmtOnly: true },
   { value: 'lost',      label: 'Lost / Not Returned',          description: 'Device was not returned by the operator.', mgmtOnly: true },
 ];
 
