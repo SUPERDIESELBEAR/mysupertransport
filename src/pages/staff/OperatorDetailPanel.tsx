@@ -464,6 +464,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(() => new Set(ALL_COLLAPSIBLE_KEYS));
+  // Set below once the per-stage note auto-savers exist; flushes pending note writes.
+  const flushNotesRef = useRef<() => void>(() => {});
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
