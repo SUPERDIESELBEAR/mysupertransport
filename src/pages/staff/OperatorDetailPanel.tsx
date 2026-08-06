@@ -8,6 +8,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
 import { UnsavedStatusPill } from '@/components/shared/UnsavedStatusPill';
+import { useAutoSaveStatusField } from '@/hooks/useAutoSaveStatusField';
 import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
 import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
@@ -312,6 +313,19 @@ function QPassportUploader({
 }
 
 // ── Stage 2 Doc Uploader sub-component (multi-file) ─────────────────────────
+// Note columns that auto-save on their own — excluded from the global
+// unsaved-changes comparison so they never trigger the nav guard.
+const AUTO_SAVED_NOTE_FIELDS = [
+  'bg_check_notes', 'doc_notes', 'ica_notes', 'mo_notes',
+  'exception_notes', 'cost_notes', 'insurance_notes',
+] as const;
+
+function stripAutoSavedNotes<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const copy: Record<string, unknown> = { ...obj };
+  for (const f of AUTO_SAVED_NOTE_FIELDS) delete copy[f];
+  return copy as Partial<T>;
+}
+
 function Stage2DocUploader({
   operatorId,
   docType,
@@ -414,7 +428,7 @@ function Stage2DocUploader({
 export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey, backLabel }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
-  const { guardDemo } = useDemoMode();
+  const { guardDemo, isDemo } = useDemoMode();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [voidingICA, setVoidingICA] = useState(false);
@@ -450,6 +464,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(() => new Set(ALL_COLLAPSIBLE_KEYS));
+  // Set below once the per-stage note auto-savers exist; flushes pending note writes.
+  const flushNotesRef = useRef<() => void>(() => {});
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -646,6 +662,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
   const toggleStage = (stageKey: string) => {
+    // Persist any pending stage notes before the section closes.
+    flushNotesRef.current();
     let wasCollapsed = false;
     setCollapsedStages(prev => {
       const next = new Set(prev);
@@ -914,7 +932,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Notify parent of unsaved changes state
   useEffect(() => {
     const hasChanges = savedSnapshot.current !== null && (
-      JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+      JSON.stringify(stripAutoSavedNotes(savedSnapshot.current.status)) !== JSON.stringify(stripAutoSavedNotes(status)) ||
       savedSnapshot.current.notes !== notes
     );
     onUnsavedChangesChange?.(hasChanges);
@@ -2449,6 +2467,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes, notesDirty]);
 
+  // ── Per-stage notes: debounced auto-save (shared across all staff) ──
+  const autoSaveReady = !loading && savedSnapshot.current !== null;
+  const autoSaveBase = { statusId, operatorId, ready: autoSaveReady, canSave: !isDemo };
+  const bgNotesAuto = useAutoSaveStatusField({ field: 'bg_check_notes', value: status.bg_check_notes ?? null, ...autoSaveBase });
+  const docNotesAuto = useAutoSaveStatusField({ field: 'doc_notes', value: status.doc_notes ?? null, ...autoSaveBase });
+  const icaNotesAuto = useAutoSaveStatusField({ field: 'ica_notes', value: status.ica_notes ?? null, ...autoSaveBase });
+  const moNotesAuto = useAutoSaveStatusField({ field: 'mo_notes', value: status.mo_notes ?? null, ...autoSaveBase });
+  const exceptionNotesAuto = useAutoSaveStatusField({ field: 'exception_notes', value: status.exception_notes ?? null, ...autoSaveBase });
+  const costNotesAuto = useAutoSaveStatusField({ field: 'cost_notes', value: status.cost_notes ?? null, ...autoSaveBase });
+  const insuranceNotesAuto = useAutoSaveStatusField({ field: 'insurance_notes', value: status.insurance_notes ?? null, ...autoSaveBase });
+
+  flushNotesRef.current = () => {
+    bgNotesAuto.flush(); docNotesAuto.flush(); icaNotesAuto.flush(); moNotesAuto.flush();
+    exceptionNotesAuto.flush(); costNotesAuto.flush(); insuranceNotesAuto.flush();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -2524,7 +2558,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const isQuickView = !!status.fully_onboarded;
 
   const hasUnsavedChanges = savedSnapshot.current !== null && (
-    JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+    JSON.stringify(stripAutoSavedNotes(savedSnapshot.current.status)) !== JSON.stringify(stripAutoSavedNotes(status)) ||
     savedSnapshot.current.notes !== notes
   );
 
@@ -3814,11 +3848,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             )}
             {/* Cost notes */}
             <div>
-              <Label className="text-xs text-gray-700 mb-1 block">Cost Notes</Label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <Label className="text-xs text-gray-700 block">Cost Notes</Label>
+                <UnsavedStatusPill status={costNotesAuto.status} lastSavedAt={costNotesAuto.savedAt} onRetry={costNotesAuto.retry} />
+              </div>
               <Textarea
                 placeholder="Vendor details, payment date, receipts reference…"
                 value={status.cost_notes ?? ''}
                 onChange={e => setStatus(prev => ({ ...prev, cost_notes: e.target.value }))}
+                onBlur={costNotesAuto.flush}
                 className="text-sm min-h-[60px] bg-white border-amber-200 focus:border-amber-400 resize-none"
               />
             </div>
@@ -4856,10 +4894,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Notes */}
                   <div className="space-y-1.5">
                     <SectionSubtitle>Notes</SectionSubtitle>
-                    <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
+                      <UnsavedStatusPill status={bgNotesAuto.status} lastSavedAt={bgNotesAuto.savedAt} onRetry={bgNotesAuto.retry} />
+                    </div>
                     <Textarea
                       value={status.bg_check_notes ?? ''}
                       onChange={e => setStatus(prev => ({ ...prev, bg_check_notes: e.target.value || null }))}
+                      onBlur={bgNotesAuto.flush}
                       placeholder="e.g. vendor name, order date, any issues…"
                       className="text-sm min-h-[72px] resize-none"
                     />
@@ -5209,10 +5251,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* Documents Notes */}
             <div className="space-y-1.5 pt-1">
               <SectionSubtitle>Notes</SectionSubtitle>
-              <Label className="text-xs font-medium text-muted-foreground">Documents Notes</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-medium text-muted-foreground">Documents Notes</Label>
+                <UnsavedStatusPill status={docNotesAuto.status} lastSavedAt={docNotesAuto.savedAt} onRetry={docNotesAuto.retry} />
+              </div>
               <Textarea
                 value={status.doc_notes ?? ''}
                 onChange={e => setStatus(prev => ({ ...prev, doc_notes: e.target.value || null }))}
+                onBlur={docNotesAuto.flush}
                 placeholder="e.g. registration type clarification, inspection notes, any follow-up…"
                 className="text-sm min-h-[72px] resize-none"
               />
@@ -5359,10 +5405,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* ICA Notes */}
             <div className="space-y-1.5">
               <SectionSubtitle>Notes</SectionSubtitle>
-              <Label className="text-xs font-medium text-muted-foreground">ICA Notes</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-medium text-muted-foreground">ICA Notes</Label>
+                <UnsavedStatusPill status={icaNotesAuto.status} lastSavedAt={icaNotesAuto.savedAt} onRetry={icaNotesAuto.retry} />
+              </div>
               <Textarea
                 value={status.ica_notes ?? ''}
                 onChange={e => updateStatus('ica_notes', e.target.value || null)}
+                onBlur={icaNotesAuto.flush}
                 placeholder="e.g. negotiated terms, signing issues, follow-up needed…"
                 className="text-sm min-h-[72px] resize-none"
               />
@@ -5508,10 +5558,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </div>
                       <div className="space-y-1.5 pt-1">
                         <SectionSubtitle>Notes</SectionSubtitle>
-                        <Label className="text-xs font-medium text-muted-foreground">MO Registration Notes</Label>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium text-muted-foreground">MO Registration Notes</Label>
+                          <UnsavedStatusPill status={moNotesAuto.status} lastSavedAt={moNotesAuto.savedAt} onRetry={moNotesAuto.retry} />
+                        </div>
                         <Textarea
                           value={status.mo_notes ?? ''}
                           onChange={e => updateStatus('mo_notes', e.target.value || null)}
+                          onBlur={moNotesAuto.flush}
                           placeholder="e.g. submission date, vendor, tracking number, any issues…"
                           className="text-sm min-h-[80px] resize-none"
                         />
@@ -5686,10 +5740,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </label>
                       )}
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exception Notes</Label>
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exception Notes</Label>
+                          <UnsavedStatusPill status={exceptionNotesAuto.status} lastSavedAt={exceptionNotesAuto.savedAt} onRetry={exceptionNotesAuto.retry} />
+                        </div>
                         <Textarea
                           value={status.exception_notes ?? ''}
                           onChange={e => updateStatus('exception_notes', e.target.value || null)}
+                          onBlur={exceptionNotesAuto.flush}
                           placeholder="e.g. Coming from Tennessee, ~800 miles. Cleared to run 2 loads before arriving at shop."
                           className="text-sm min-h-[64px] resize-none"
                         />
@@ -6273,10 +6331,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                     {/* Insurance notes */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Insurance Notes</Label>
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Insurance Notes</Label>
+                        <UnsavedStatusPill status={insuranceNotesAuto.status} lastSavedAt={insuranceNotesAuto.savedAt} onRetry={insuranceNotesAuto.retry} />
+                      </div>
                       <Textarea
                         value={status.insurance_notes ?? ''}
                         onChange={e => updateStatus('insurance_notes', e.target.value || null)}
+                        onBlur={insuranceNotesAuto.flush}
                         placeholder="e.g. policy number, agent contact, additional instructions…"
                         className="text-sm min-h-[72px] resize-none"
                       />
