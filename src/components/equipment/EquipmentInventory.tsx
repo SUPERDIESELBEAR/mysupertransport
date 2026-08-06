@@ -9,7 +9,7 @@ import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
   ChevronDown, History, UserCheck, RotateCcw,
-  Pencil, Loader2, Download, Archive, HardDrive, FileSignature
+  Pencil, Loader2, Download, Archive, HardDrive, FileSignature, Users
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import EquipmentItemModal from './EquipmentItemModal';
@@ -22,6 +22,7 @@ import CreateSignOffSheetModal from './CreateSignOffSheetModal';
 import SignOffSheetList from './SignOffSheetList';
 import type { SheetWithItems } from './SignOffSheetList';
 import SignOffSheetPreviewModal from './SignOffSheetPreviewModal';
+import EquipmentByDriver from './EquipmentByDriver';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
