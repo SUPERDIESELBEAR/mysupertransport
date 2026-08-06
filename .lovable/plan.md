@@ -24,3 +24,14 @@ Assigned devices keep their existing "currently assigned to" line unchanged. Ava
 - Render in both `EquipmentRow` (under the serial/badge block) and `EquipmentCard` (below the assigned block): show only when `status === 'damaged' || status === 'lost'` and `last_operator_name` exists. Use muted styling for the row line; for the card use a warning-toned box for damaged and destructive-toned for lost, matching existing status tokens.
 - Include `last_operator_name` and `last_unit_number` in `matchesQuery` so section search finds damaged/lost devices by the last holder.
 - Format the date with the existing Central-time / noon-anchor convention used elsewhere in the app.
+
+## Rename: "Damaged / Needs Repair" → "Damaged / Needs Replacement"
+
+Update the label everywhere it appears in Onboard Systems (status badges, dropdowns, return modal, CSV export):
+
+- `src/components/equipment/EquipmentInventory.tsx` (status badge label)
+- `src/components/equipment/EquipmentItemModal.tsx` (status dropdown)
+- `src/components/equipment/EquipmentReturnModal.tsx` (return condition option; its description also changes to reference replacement instead of repair)
+- `src/lib/equipmentExport.ts` (CSV status label)
+
+The underlying `damaged` status value is unchanged — display text only.
