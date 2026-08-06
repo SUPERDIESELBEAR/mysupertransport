@@ -139,7 +139,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     return null;
   };
 
-  const handleUpload = async (slot: DocumentSlot, file: File) => {
+  const handleUpload = async (
+    slot: DocumentSlot,
+    file: File,
+    inspectionDetails?: TruckInspectionDetails,
+  ) => {
     if (!file) return;
 
     const allowDocs = slot.key === 'other';
@@ -214,6 +218,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 file_path: path,
                 uploaded_by: opRow.user_id,
                 expires_at: null,
+                inspection_date: inspectionDetails?.inspection_date ?? null,
+                inspection_result: inspectionDetails?.inspection_result ?? null,
+                inspector_name: inspectionDetails?.inspector_name ?? null,
               });
               if (binderErr) throw binderErr;
             }
