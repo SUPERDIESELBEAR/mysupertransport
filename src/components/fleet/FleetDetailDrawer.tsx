@@ -397,6 +397,16 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     ? differenceInDays(startOfDay(parseISO(latestDot.next_due_date)), startOfDay(new Date()))
     : null;
 
+  /**
+   * DOT certificates live in different buckets depending on origin:
+   * manual uploads -> fleet-documents (`<operator>/dot/...`),
+   * onboarding-synced -> inspection-documents / operator-documents (`driver/...`, `.../truck_inspection/...`).
+   */
+  const dotCertBuckets = (path: string): string[] => {
+    if (path.includes('/dot/')) return ['fleet-documents', 'inspection-documents', 'operator-documents'];
+    return ['inspection-documents', 'operator-documents', 'fleet-documents'];
+  };
+
   const handlePreviewFile = async (
     filePath: string,
     fileName: string,
