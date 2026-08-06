@@ -3101,53 +3101,57 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            </div>
                          )}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {op.user_id && (
-                            <TooltipProvider delayDuration={100}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  {op.pwa_installed_at ? (
-                                    <span
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit bg-status-complete/10 text-status-complete border-status-complete/30 cursor-default"
-                                    >
-                                      <Smartphone className="h-2.5 w-2.5 shrink-0" />
-                                      App Installed
-                                    </span>
-                                  ) : (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); handleSendInstallInvite(op); }}
-                                    disabled={installInviteSending[op.id] || installInviteSent[op.id]}
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit transition-colors disabled:opacity-60 disabled:cursor-not-allowed bg-gold/10 text-gold-muted border-gold/40 hover:bg-gold/20"
-                                  >
-                                    {installInviteSending[op.id] ? (
-                                      <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
-                                    ) : installInviteSent[op.id] ? (
-                                      <CheckCheck className="h-2.5 w-2.5 shrink-0 text-status-complete" />
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {op.user_id && (
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    {op.pwa_installed_at ? (
+                                      <span
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit bg-status-complete/10 text-status-complete border-status-complete/30 cursor-default"
+                                      >
+                                        <Smartphone className="h-2.5 w-2.5 shrink-0" />
+                                        App Installed
+                                      </span>
                                     ) : (
-                                      <Smartphone className="h-2.5 w-2.5 shrink-0" />
+                                    <button
+                                      onClick={e => { e.stopPropagation(); handleSendInstallInvite(op); }}
+                                      disabled={installInviteSending[op.id] || installInviteSent[op.id]}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit transition-colors disabled:opacity-60 disabled:cursor-not-allowed bg-gold/10 text-gold-muted border-gold/40 hover:bg-gold/20"
+                                    >
+                                      {installInviteSending[op.id] ? (
+                                        <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                      ) : installInviteSent[op.id] ? (
+                                        <CheckCheck className="h-2.5 w-2.5 shrink-0 text-status-complete" />
+                                      ) : (
+                                        <Smartphone className="h-2.5 w-2.5 shrink-0" />
+                                      )}
+                                      {installInviteSent[op.id] ? 'Sent' : 'Send App Install'}
+                                    </button>
                                     )}
-                                    {installInviteSent[op.id] ? 'Sent' : 'Send App Install'}
-                                  </button>
-                                  )}
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">
-                                  {op.pwa_installed_at
-                                    ? `App installed ${format(parseISO(op.pwa_installed_at), 'MMM d, yyyy')}`
-                                    : installInviteSent[op.id]
-                                    ? 'SUPERDRIVE install email sent!'
-                                    : `Send SUPERDRIVE install + welcome email to ${op.email ?? 'this operator'} (24h cooldown)`}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            )}
-                             <OnboardingDaysPill
-                               peResultsDate={op.pe_results_date}
-                               fullyOnboarded={op.fully_onboarded}
-                             />
-                             <HiringWindowDates
-                               approvedAt={op.application_approved_at}
-                               peResultsDate={op.pe_results_date}
-                             />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {op.pwa_installed_at
+                                      ? `App installed ${format(parseISO(op.pwa_installed_at), 'MMM d, yyyy')}`
+                                      : installInviteSent[op.id]
+                                      ? 'SUPERDRIVE install email sent!'
+                                      : `Send SUPERDRIVE install + welcome email to ${op.email ?? 'this operator'} (24h cooldown)`}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              )}
+                              <OnboardingDaysPill
+                                peResultsDate={op.pe_results_date}
+                                fullyOnboarded={op.fully_onboarded}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <HiringWindowDates
+                                approvedAt={op.application_approved_at}
+                                peResultsDate={op.pe_results_date}
+                              />
+                            </div>
                           </div>
                        </div>
                      </td>
