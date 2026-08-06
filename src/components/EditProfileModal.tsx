@@ -127,6 +127,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [phone, setPhone]           = useState(() => profile?.phone ?? '');
   const [homeState, setHomeState]   = useState(() => profile?.home_state ?? '');
   const [homeCountry, setHomeCountry] = useState(() => profile?.home_country ?? DEFAULT_COUNTRY_CODE);
+  const [birthMonth, setBirthMonth] = useState<string>(() => profile?.birth_month ? String(profile.birth_month) : '');
+  const [birthDay, setBirthDay]     = useState<string>(() => profile?.birth_day ? String(profile.birth_day) : '');
   const [countryOpen, setCountryOpen] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -161,6 +163,8 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       setPhone(profile.phone ?? '');
       setHomeState(profile.home_state ?? '');
       setHomeCountry(profile.home_country ?? DEFAULT_COUNTRY_CODE);
+      setBirthMonth(profile.birth_month ? String(profile.birth_month) : '');
+      setBirthDay(profile.birth_day ? String(profile.birth_day) : '');
       setCountryOpen(false);
       setAvatarUrl(profile.avatar_url ?? null);
       setError(null);
@@ -328,6 +332,12 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
         last_name:  lastName.trim(),
         phone:      rawPhone ? (usesNanpPhone ? phone : trimmedPhone) : null,
         home_state: homeState.trim() || null,
+        ...(allowInternational
+          ? {
+              birth_month: birthMonth ? Number(birthMonth) : null,
+              birth_day: birthMonth && birthDay ? Number(birthDay) : null,
+            }
+          : {}),
         ...(allowInternational ? { home_country: homeCountry || DEFAULT_COUNTRY_CODE } : {}),
         updated_at: new Date().toISOString(),
       })
