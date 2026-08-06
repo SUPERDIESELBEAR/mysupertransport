@@ -171,8 +171,6 @@ export default function EquipmentInventory({
   const [byDriverCount, setByDriverCount] = useState(0);
   const [byDriverGapCount, setByDriverGapCount] = useState(0);
   const { showDemo } = useShowDemo();
-  const [byDriverGapCount, setByDriverGapCount] = useState(0);
-  const { showDemo } = useShowDemo();
 
   const fetchByDriverCounts = useCallback(async () => {
     const { data: ops, error } = await supabase
