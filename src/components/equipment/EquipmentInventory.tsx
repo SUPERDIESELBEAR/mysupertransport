@@ -187,7 +187,8 @@ export default function EquipmentInventory({
         operators!inner(
           unit_number,
           application_id,
-          applications(first_name, last_name)
+          applications(first_name, last_name),
+          onboarding_status(unit_number)
         )
       `)
       .is('returned_at', null);
@@ -196,7 +197,9 @@ export default function EquipmentInventory({
     for (const a of (assignments ?? []) as any[]) {
       const app = a.operators?.applications;
       const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
-      assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: a.operators?.unit_number ?? null };
+      const onb = a.operators?.onboarding_status;
+      const onbUnit = Array.isArray(onb) ? onb[0]?.unit_number : onb?.unit_number;
+      assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: onbUnit ?? a.operators?.unit_number ?? null };
     }
 
     const enriched: EquipmentItem[] = (itemsData ?? []).map((item: any) => ({
