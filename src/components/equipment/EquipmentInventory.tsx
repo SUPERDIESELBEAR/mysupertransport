@@ -128,22 +128,22 @@ export default function EquipmentInventory({
     });
   }, []);
 
+  const childRafRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!lastOpened) return;
     const el = sectionRefs.current[lastOpened];
     if (!el) return;
 
     const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
+      childRafRef.current = requestAnimationFrame(() => {
         scrollElementIntoViewWithOffset(el);
       });
-      (raf1 as unknown as { _child?: number })._child = raf2;
     });
 
     return () => {
       cancelAnimationFrame(raf1);
-      const child = (raf1 as unknown as { _child?: number })._child;
-      if (child) cancelAnimationFrame(child);
+      if (childRafRef.current) cancelAnimationFrame(childRafRef.current);
     };
   }, [lastOpened, expandedTypes]);
 
@@ -419,7 +419,6 @@ export default function EquipmentInventory({
                     </div>
                     <Button
                       size="sm"
-                      variant="outline"
                       className="gap-1.5 h-8 shrink-0"
                       onClick={() => { setAddType(type); setAddModalOpen(true); }}
                     >
