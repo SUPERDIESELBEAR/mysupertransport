@@ -1,6 +1,6 @@
 # By Driver as an expandable section above ELD
 
-Replace the By Driver summary card with a real collapsible section row that sits directly above the ELD section on the Inventory tab (where the red arrow points).
+Add a collapsible By Driver section row directly above the ELD section on the Inventory tab (where the red arrow points).
 
 ## What it looks like
 
@@ -8,15 +8,14 @@ Replace the By Driver summary card with a real collapsible section row that sits
 - Collapsed by default. Clicking the header expands it in place and renders the full By Driver pairing view (cards/table toggle, search, "Missing ELD or Dash Cam" filter) inside the section body.
 - The top-level tab (Inventory | By Driver | Assignment Sheets) stays exactly as it is.
 
-## What gets removed
+## What stays
 
-- The "By Driver" card added to the summary grid in the previous change. The grid returns to four device-type cards only.
+- The existing By Driver summary card in the top grid stays as-is (it still switches to the By Driver tab).
 
 ## Technical details
 
 - `src/components/equipment/EquipmentInventory.tsx`
-  - Drop the By Driver button from the summary grid and restore the original `grid-cols-2 sm:grid-cols-4` classes.
-  - Keep `byDriverCount` / `byDriverGapCount` and `fetchByDriverCounts` — they now feed the section header.
+  - Reuse the existing `byDriverCount` / `byDriverGapCount` and `fetchByDriverCounts` for the section header counts; the summary grid and its By Driver card are unchanged.
   - Add `byDriverExpanded` state (default false) and render the new section as the first child of the device-groups container, before `activeTypes.map(...)`, reusing the same header markup pattern (`border border-border rounded-xl bg-card`, `bg-muted/30` header, rotating `ChevronDown`).
   - When expanded, render `<EquipmentByDriver />` in a padded body. Mount it lazily so its queries only run on first expand.
 - No changes to `EquipmentByDriver.tsx`, no data model or query changes.
