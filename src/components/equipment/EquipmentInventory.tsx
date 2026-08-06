@@ -755,6 +755,13 @@ function EquipmentRow({
             {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
           </p>
         )}
+        {(item.status === 'damaged' || item.status === 'lost') && item.last_operator_name && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            <History className="h-3 w-3 inline mr-1" />
+            Last held by: {item.last_unit_number ? `Unit ${item.last_unit_number} · ` : ''}{item.last_operator_name}
+            {formatReturnedAt(item.last_returned_at) ? ` · returned ${formatReturnedAt(item.last_returned_at)}` : ''}
+          </p>
+        )}
         {item.notes && (
           <p className="text-xs text-muted-foreground mt-0.5 truncate italic">{item.notes}</p>
         )}
