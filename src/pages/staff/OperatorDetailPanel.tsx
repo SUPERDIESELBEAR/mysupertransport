@@ -660,6 +660,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
   const toggleStage = (stageKey: string) => {
+    // Persist any pending stage notes before the section closes.
+    flushNotesRef.current();
     let wasCollapsed = false;
     setCollapsedStages(prev => {
       const next = new Set(prev);
