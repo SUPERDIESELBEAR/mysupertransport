@@ -3152,9 +3152,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                            </div>
                        </div>
                      </td>
-                    {colVisible('phone') && (
-                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>
-                    )}
+                     {colVisible('phone') && (
+                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground min-w-[160px] whitespace-nowrap">{formatPhoneDisplay(op.phone) || '—'}</td>
+                     )}
                     {colVisible('state') && (
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                     )}
