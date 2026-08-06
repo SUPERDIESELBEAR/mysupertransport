@@ -507,6 +507,12 @@ export default function EquipmentInventory({
             onPreview={sheet => setPreviewSheet(sheet)}
           />
         </TabsContent>
+          <SignOffSheetList
+            key={sheetListKey}
+            onCreate={() => setSignOffSheetOpen(true)}
+            onPreview={sheet => setPreviewSheet(sheet)}
+          />
+        </TabsContent>
       </Tabs>
 
       <SignOffSheetPreviewModal
