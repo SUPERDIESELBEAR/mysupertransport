@@ -286,7 +286,7 @@ export default function EquipmentInventory({
               <Download className="h-4 w-4" />
               Download
             </Button>
-            <Button onClick={() => setAddModalOpen(true)} className="gap-2 flex-1 sm:flex-none">
+            <Button onClick={() => { setAddType(null); setAddModalOpen(true); }} className="gap-2 flex-1 sm:flex-none">
               <Plus className="h-4 w-4" />
               Add Device
             </Button>
@@ -594,7 +594,7 @@ function EquipmentRow({
         {item.status === 'assigned' && item.current_operator_name && (
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
             <UserCheck className="h-3 w-3 inline mr-1 text-primary" />
-            {item.current_operator_name}
+            {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
           </p>
         )}
         {item.notes && (
@@ -689,7 +689,9 @@ function EquipmentCard({
       {item.status === 'assigned' && item.current_operator_name && (
         <div className="text-xs text-foreground bg-primary/5 border border-primary/15 rounded px-2 py-1.5 flex items-center gap-1.5">
           <UserCheck className="h-3 w-3 text-primary shrink-0" />
-          <span className="truncate">{item.current_operator_name}</span>
+          <span className="truncate">
+            {item.current_unit_number ? `Unit ${item.current_unit_number} · ` : ''}{item.current_operator_name}
+          </span>
         </div>
       )}
 
@@ -745,10 +747,10 @@ function FuelCardSections({
   onDeactivate: (item: EquipmentItem) => void;
   onHistory: (item: EquipmentItem) => void;
 }) {
-  const assigned = items.filter(i => i.status === 'assigned');
-  const available = items.filter(i => i.status === 'available' || i.status === 'damaged');
-  const lost = items.filter(i => i.status === 'lost');
-  const deactivated = items.filter(i => i.status === 'deactivated');
+  const assigned = sortEquipment(items.filter(i => i.status === 'assigned'));
+  const available = sortEquipment(items.filter(i => i.status === 'available' || i.status === 'damaged'));
+  const lost = sortEquipment(items.filter(i => i.status === 'lost'));
+  const deactivated = sortEquipment(items.filter(i => i.status === 'deactivated'));
 
   const allSections: { key: EquipmentStatus | 'available_group'; title: string; subtitle: string; items: EquipmentItem[] }[] = [
     { key: 'assigned', title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
