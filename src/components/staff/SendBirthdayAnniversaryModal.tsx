@@ -61,7 +61,11 @@ export default function SendBirthdayAnniversaryModal({ event, onClose, onSent }:
 
   if (!event) return null;
 
-  const canSend = (sendEmail && !!event.email) || sendInApp && !!event.userId;
+  const isStaffEvent = event.subjectKind === 'staff';
+  // Staff recipients have no email on the profile row — the edge function
+  // resolves it from the account, so treat email as available.
+  const emailAvailable = isStaffEvent || !!event.email;
+  const canSend = (sendEmail && emailAvailable) || (sendInApp && !!event.userId);
 
   const handleSend = async () => {
     if (!canSend || sending) return;
@@ -69,11 +73,13 @@ export default function SendBirthdayAnniversaryModal({ event, onClose, onSent }:
     try {
       const { error } = await supabase.functions.invoke('send-staff-birthday-message', {
         body: {
-          operatorId: event.operatorId,
+          ...(isStaffEvent
+            ? { staffUserId: event.subjectUserId }
+            : { operatorId: event.operatorId }),
           kind: event.kind,
           subject: subject.trim(),
           body: body.trim(),
-          sendEmail: sendEmail && !!event.email,
+          sendEmail: sendEmail && emailAvailable,
           sendInApp: sendInApp && !!event.userId,
           years: event.years ?? null,
         },
@@ -130,10 +136,17 @@ export default function SendBirthdayAnniversaryModal({ event, onClose, onSent }:
               <Checkbox
                 checked={sendEmail}
                 onCheckedChange={(v) => setSendEmail(!!v)}
-                disabled={sending || !event.email || prefsBlocked.email}
+                disabled={sending || !emailAvailable || prefsBlocked.email}
               />
-              <span>Email {event.email ? <span className="text-muted-foreground">({event.email})</span> : <span className="text-destructive">— no email on file</span>}</span>
-              {prefsBlocked.email && <span className="text-[11px] text-muted-foreground">— driver opted out</span>}
+              <span>
+                Email{' '}
+                {event.email
+                  ? <span className="text-muted-foreground">({event.email})</span>
+                  : isStaffEvent
+                    ? <span className="text-muted-foreground">(account email)</span>
+                    : <span className="text-destructive">— no email on file</span>}
+              </span>
+              {prefsBlocked.email && <span className="text-[11px] text-muted-foreground">— recipient opted out</span>}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
