@@ -274,6 +274,37 @@ export default function EquipmentInventory({
       assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: onbUnit ?? a.operators?.unit_number ?? null };
     }
 
+    // Most recent closed assignment per device (for damaged / lost devices)
+    const { data: pastAssignments } = await supabase
+      .from('equipment_assignments')
+      .select(`
+        id,
+        equipment_id,
+        returned_at,
+        operators!inner(
+          unit_number,
+          application_id,
+          applications(first_name, last_name),
+          onboarding_status(unit_number)
+        )
+      `)
+      .not('returned_at', 'is', null)
+      .order('returned_at', { ascending: false });
+
+    const lastAssignmentMap: Record<string, { name: string; unitNumber: string | null; returnedAt: string | null }> = {};
+    for (const a of (pastAssignments ?? []) as any[]) {
+      if (lastAssignmentMap[a.equipment_id]) continue;
+      const app = a.operators?.applications;
+      const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
+      const onb = a.operators?.onboarding_status;
+      const onbUnit = Array.isArray(onb) ? onb[0]?.unit_number : onb?.unit_number;
+      lastAssignmentMap[a.equipment_id] = {
+        name,
+        unitNumber: onbUnit ?? a.operators?.unit_number ?? null,
+        returnedAt: a.returned_at ?? null,
+      };
+    }
+
     const enriched: EquipmentItem[] = (itemsData ?? []).map((item: any) => ({
       ...item,
       current_operator_name: assignmentMap[item.id]?.name ?? null,
