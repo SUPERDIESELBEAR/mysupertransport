@@ -279,6 +279,9 @@ export default function EquipmentInventory({
       current_operator_name: assignmentMap[item.id]?.name ?? null,
       current_assignment_id: assignmentMap[item.id]?.assignmentId ?? null,
       current_unit_number: assignmentMap[item.id]?.unitNumber ?? null,
+      last_operator_name: lastAssignmentMap[item.id]?.name ?? null,
+      last_unit_number: lastAssignmentMap[item.id]?.unitNumber ?? null,
+      last_returned_at: lastAssignmentMap[item.id]?.returnedAt ?? null,
     }));
 
     setItems(enriched);
