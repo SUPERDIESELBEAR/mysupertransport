@@ -1,8 +1,11 @@
-import { CheckCircle2, FlaskConical } from 'lucide-react';
+import { CheckCircle2, FlaskConical, Send } from 'lucide-react';
+import { OnboardingDaysPill } from './OnboardingDaysPill';
 
 interface HiringWindowDatesProps {
+  applicationSubmittedAt: string | null;
   approvedAt: string | null;
   peResultsDate: string | null;
+  fullyOnboarded: boolean;
 }
 
 function fmt(value: string | null): string {
@@ -12,26 +15,53 @@ function fmt(value: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+const chipBase =
+  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none border shrink-0 w-fit';
+
 /**
- * At-a-glance ribbon chips: application approval date and the date the
- * pre-employment drug test results were received (start of the FMCSA window).
+ * At-a-glance ribbon chips for the onboarding pipeline:
+ *   - Application submitted date + static gray day pill
+ *   - Application approved date
+ *   - Pre-employment drug test results date + dynamic FMCSA day pill
  */
-export function HiringWindowDates({ approvedAt, peResultsDate }: HiringWindowDatesProps) {
+export function HiringWindowDates({
+  applicationSubmittedAt,
+  approvedAt,
+  peResultsDate,
+  fullyOnboarded,
+}: HiringWindowDatesProps) {
   return (
     <>
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none border shrink-0 w-fit bg-muted/40 text-muted-foreground border-border"
+        className={`${chipBase} bg-muted/40 text-muted-foreground border-border`}
+        title="Application submitted"
+      >
+        <Send className="h-2.5 w-2.5 shrink-0" />
+        Submitted {fmt(applicationSubmittedAt)}
+        <OnboardingDaysPill
+          date={applicationSubmittedAt}
+          mode="application_submitted"
+          fullyOnboarded={fullyOnboarded}
+        />
+      </span>
+      <span
+        className={`${chipBase} bg-muted/40 text-muted-foreground border-border`}
         title="Application approved"
       >
         <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
         Approved {fmt(approvedAt)}
       </span>
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none border shrink-0 w-fit bg-muted/40 text-muted-foreground border-border"
+        className={`${chipBase} bg-muted/40 text-muted-foreground border-border`}
         title="Pre-employment drug test results received"
       >
         <FlaskConical className="h-2.5 w-2.5 shrink-0" />
         PE Results {fmt(peResultsDate)}
+        <OnboardingDaysPill
+          date={peResultsDate}
+          mode="pe_results"
+          fullyOnboarded={fullyOnboarded}
+        />
       </span>
     </>
   );
