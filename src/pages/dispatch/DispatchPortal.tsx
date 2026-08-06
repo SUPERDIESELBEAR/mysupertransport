@@ -1920,10 +1920,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         </span>
                         Message
                       </Button>
-                      {/* Edit / Save / Cancel — pushed to right */}
-                      <div className="flex gap-1 ml-auto">
-                        {isEditing ? (
-                          <>
+                      {/* Edit — inline with the other actions; Save/Cancel right-aligned while editing */}
+                      {isEditing ? (
+                        <div className="flex gap-1 ml-auto">
                             <Button
                               size="sm"
                               onClick={() => saveEdit(row)}
@@ -1936,19 +1935,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
                               <X className="h-3.5 w-3.5" />
                             </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEdit(row)}
-                            className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            Edit
-                          </Button>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(row)}
+                          className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10"
+                          title="Edit dispatch details"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
