@@ -2964,6 +2964,9 @@ export type Database = {
           file_path: string | null
           file_url: string | null
           id: string
+          inspection_date: string | null
+          inspection_result: string | null
+          inspector_name: string | null
           name: string
           pending_review: boolean
           public_share_token: string
@@ -2980,6 +2983,9 @@ export type Database = {
           file_path?: string | null
           file_url?: string | null
           id?: string
+          inspection_date?: string | null
+          inspection_result?: string | null
+          inspector_name?: string | null
           name: string
           pending_review?: boolean
           public_share_token?: string
@@ -2996,6 +3002,9 @@ export type Database = {
           file_path?: string | null
           file_url?: string | null
           id?: string
+          inspection_date?: string | null
+          inspection_result?: string | null
+          inspector_name?: string | null
           name?: string
           pending_review?: boolean
           public_share_token?: string
