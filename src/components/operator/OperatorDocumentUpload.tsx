@@ -10,6 +10,7 @@ import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
 import { resolveDecalUrl } from '@/lib/decalUrl';
+import TruckInspectionDetailsDialog, { type TruckInspectionDetails } from '@/components/operator/TruckInspectionDetailsDialog';
 interface DocumentSlot {
   key: string;
   label: string;
@@ -138,7 +139,21 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
     return null;
   };
 
-  const handleUpload = async (slot: DocumentSlot, file: File) => {
+  const [pendingInspection, setPendingInspection] = useState<{ slot: DocumentSlot; file: File } | null>(null);
+
+  const startUpload = (slot: DocumentSlot, file: File) => {
+    if (slot.key === 'truck_inspection') {
+      setPendingInspection({ slot, file });
+      return;
+    }
+    handleUpload(slot, file);
+  };
+
+  const handleUpload = async (
+    slot: DocumentSlot,
+    file: File,
+    inspectionDetails?: TruckInspectionDetails,
+  ) => {
     if (!file) return;
 
     const allowDocs = slot.key === 'other';
@@ -213,6 +228,9 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 file_path: path,
                 uploaded_by: opRow.user_id,
                 expires_at: null,
+                inspection_date: inspectionDetails?.inspection_date ?? null,
+                inspection_result: inspectionDetails?.inspection_result ?? null,
+                inspector_name: inspectionDetails?.inspector_name ?? null,
               });
               if (binderErr) throw binderErr;
             }
@@ -516,7 +534,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                             className="hidden"
                             onChange={e => {
                               const file = e.target.files?.[0];
-                              if (file) handleUpload(slot, file);
+                              if (file) startUpload(slot, file);
                               e.target.value = '';
                             }}
                           />
@@ -686,7 +704,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           className="hidden"
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
+                            if (file) startUpload(slot, file);
                             e.target.value = '';
                           }}
                         />
@@ -791,7 +809,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           className="hidden"
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
+                            if (file) startUpload(slot, file);
                             e.target.value = '';
                           }}
                         />
@@ -878,7 +896,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           className="hidden"
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
+                            if (file) startUpload(slot, file);
                             e.target.value = '';
                           }}
                         />
@@ -1092,6 +1110,17 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       <p className="text-xs text-muted-foreground text-center">
         Accepted formats: PDF, JPG, PNG · Max 10 MB per file
       </p>
+
+      <TruckInspectionDetailsDialog
+        open={!!pendingInspection}
+        fileName={pendingInspection?.file.name}
+        onCancel={() => setPendingInspection(null)}
+        onConfirm={details => {
+          const pending = pendingInspection;
+          setPendingInspection(null);
+          if (pending) handleUpload(pending.slot, pending.file, details);
+        }}
+      />
 
       <TruckPhotoGuideModal
         open={showPhotoGuide}
