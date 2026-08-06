@@ -643,6 +643,49 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 {/* Country (management dashboard only) */}
                 {allowInternational && (
                   <div className="space-y-1.5">
+                    <Label className={labelClass}>Birthday <span className="text-xs text-muted-foreground font-normal">(month and day only)</span></Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select
+                        value={birthMonth || 'none'}
+                        onValueChange={(v) => {
+                          const next = v === 'none' ? '' : v;
+                          setBirthMonth(next);
+                          if (!next) setBirthDay('');
+                          else if (birthDay && Number(birthDay) > DAYS_IN_MONTH[Number(next) - 1]) setBirthDay('');
+                        }}
+                      >
+                        <SelectTrigger className={inputClass}>
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          <SelectItem value="none">— Not set —</SelectItem>
+                          {BIRTH_MONTHS.map((m, i) => (
+                            <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={birthDay || 'none'}
+                        onValueChange={(v) => setBirthDay(v === 'none' ? '' : v)}
+                        disabled={!birthMonth}
+                      >
+                        <SelectTrigger className={inputClass}>
+                          <SelectValue placeholder="Day" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          <SelectItem value="none">— Not set —</SelectItem>
+                          {Array.from({ length: birthMonth ? DAYS_IN_MONTH[Number(birthMonth) - 1] : 31 }, (_, i) => i + 1).map((d) => (
+                            <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Country (management dashboard only) */}
+                {allowInternational && (
+                  <div className="space-y-1.5">
                     <Label className={labelClass}>Country</Label>
                     <Popover open={countryOpen} onOpenChange={setCountryOpen}>
                       <PopoverTrigger asChild>
