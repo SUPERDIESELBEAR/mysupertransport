@@ -2300,7 +2300,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                     {/* Status history expansion row */}
                     {isHistoryExpanded && (
                       <tr key={`${row.operator_id}-history`} className="bg-muted/20">
-                        <td colSpan={5} className="px-6 py-3">
+                        <td colSpan={bulkMode ? 7 : 6} className="px-6 py-3">
                           <div className="flex items-start gap-2 mb-2">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Last 3 Status Changes</p>
