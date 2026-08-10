@@ -817,6 +817,9 @@ export default function ApplicationForm() {
         >
           <div
             key={step}
+            ref={stepContentRef}
+            tabIndex={-1}
+            aria-label={`Step ${step} of 9: ${STEP_LABELS[step - 1]}`}
             className={`bg-white border border-border rounded-2xl p-6 select-none ${
               slideDir === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left'
             }`}
