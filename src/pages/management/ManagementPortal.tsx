@@ -842,6 +842,9 @@ export default function ManagementPortal() {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
       if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
+      // Driver Hub opened from the sidebar always shows every driver — the
+      // compliance/dispatch filters are only for Overview chip deep links.
+      if (path === 'drivers') { setDriverComplianceFilter('all'); setDriverDispatchFilter('all'); }
       // Defensive: synchronously strip any stale ?view= from the URL so a
       // refresh during the React render flush can never land on the prior
       // section (e.g., Broadcast Email). The writer effect will reconcile
