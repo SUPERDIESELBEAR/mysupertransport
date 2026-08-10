@@ -2208,7 +2208,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex gap-1 justify-end">
+                          <div className="flex gap-1 justify-end flex-nowrap">
                             {row.phone && (
                               <Button
                                 variant="ghost"
