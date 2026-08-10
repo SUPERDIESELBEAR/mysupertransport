@@ -75,6 +75,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const { windowDays } = useComplianceWindow();
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [archivedCount, setArchivedCount] = useState<number | null>(null);
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+
 
   const fetchArchivedCount = useCallback(async () => {
     const { count } = await supabase
