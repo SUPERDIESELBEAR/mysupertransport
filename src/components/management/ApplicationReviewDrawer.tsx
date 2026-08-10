@@ -1029,7 +1029,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     onSave={saveCdlExpiration}
                   />
                 </div>
-                <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
+                <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} positive />} />
                 <Field label="Endorsements" value={app.endorsements?.join(', ')} />
                 <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
                 <Field label="Years Experience" value={app.years_experience} />
@@ -1136,16 +1136,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 <Field label="Moving Violations (3yr)" value={<YesNoBadge value={app.moving_violations} />} />
                 {app.moving_violations_description && <Field label="Violation Details" value={app.moving_violations_description} />}
                 <Field label="Positive Drug Test (2yr)" value={<YesNoBadge value={app.dot_positive_test_past_2yr} />} />
-                {app.dot_return_to_duty_docs && <Field label="Return to Duty Docs" value={<YesNoBadge value={app.dot_return_to_duty_docs} />} />}
+                {app.dot_return_to_duty_docs && <Field label="Return to Duty Docs" value={<YesNoBadge value={app.dot_return_to_duty_docs} positive />} />}
                 <Field label="SAP Process" value={<YesNoBadge value={app.sap_process} />} />
               </Section>
 
               {/* Authorizations */}
               <Section title="Authorizations & Signature" icon={<FileText className="h-4 w-4" />}>
-                <Field label="Auth: Safety History" value={<YesNoBadge value={app.auth_safety_history} />} />
-                <Field label="Auth: Drug/Alcohol" value={<YesNoBadge value={app.auth_drug_alcohol} />} />
-                <Field label="Auth: Previous Employers" value={<YesNoBadge value={app.auth_previous_employers} />} />
-                <Field label="Testing Policy Accepted" value={<YesNoBadge value={app.testing_policy_accepted} />} />
+                <Field label="Auth: Safety History" value={<YesNoBadge value={app.auth_safety_history} positive />} />
+                <Field label="Auth: Drug/Alcohol" value={<YesNoBadge value={app.auth_drug_alcohol} positive />} />
+                <Field label="Auth: Previous Employers" value={<YesNoBadge value={app.auth_previous_employers} positive />} />
+                <Field label="Testing Policy Accepted" value={<YesNoBadge value={app.testing_policy_accepted} positive />} />
                 <Field label="Signed By" value={app.typed_full_name} />
                 <Field label="Signed Date" value={app.signed_date ? new Date(app.signed_date).toLocaleDateString() : null} />
                 {(app.signature_image_url || signedUrls.signature_image_url) && (
