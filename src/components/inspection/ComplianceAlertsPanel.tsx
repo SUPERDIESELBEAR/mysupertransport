@@ -76,7 +76,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (min 180px) | doc | expires (sm+) | status | last-action (md+) | last-reminded (xl+) | last-renewed (xl+) | actions
-  const gridCols = "grid-cols-[auto_minmax(180px,1fr)_76px_100px_auto] sm:grid-cols-[auto_minmax(180px,1fr)_76px_88px_100px_auto] md:grid-cols-[auto_minmax(180px,1fr)_76px_88px_100px_84px_auto] xl:grid-cols-[auto_minmax(180px,1fr)_76px_88px_100px_84px_68px_68px_auto]";
+  // Fixed first/last tracks so every row resolves identical column widths.
+  const gridCols = "grid-cols-[12px_minmax(120px,1fr)_76px_100px_180px] sm:grid-cols-[12px_minmax(140px,1fr)_76px_88px_100px_180px] md:grid-cols-[12px_minmax(160px,1fr)_76px_88px_100px_84px_180px] lg:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_300px] xl:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_68px_68px_300px]";
+  const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
