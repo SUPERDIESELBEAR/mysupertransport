@@ -329,6 +329,20 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     return app?.medical_cert_url ?? null;
   }, [app?.dl_front_url, app?.dl_rear_url, app?.medical_cert_url, editedDocPaths]);
 
+  const previewableDocs = useMemo(() => {
+    const entries: { key: EditableDocumentKey; label: string; shortLabel: string }[] = [
+      { key: 'dl_front_url', label: RETAKE_DOCUMENT_LABELS.dl_front_url, shortLabel: RETAKE_DOCUMENT_SHORT_LABELS.dl_front_url },
+      { key: 'dl_rear_url', label: RETAKE_DOCUMENT_LABELS.dl_rear_url, shortLabel: RETAKE_DOCUMENT_SHORT_LABELS.dl_rear_url },
+      { key: 'medical_cert_url', label: RETAKE_DOCUMENT_LABELS.medical_cert_url, shortLabel: RETAKE_DOCUMENT_SHORT_LABELS.medical_cert_url },
+    ];
+    return entries
+      .map(e => ({ ...e, path: getCurrentDocumentPath(e.key), signedUrl: signedUrls[e.key] }))
+      .filter(e => e.path);
+  }, [getCurrentDocumentPath, signedUrls]);
+
+  const activePreview = previewIndex !== null ? previewableDocs[previewIndex] : null;
+
+
   useEffect(() => {
     setEditedDocPaths({});
     setReasonOverride(undefined);
