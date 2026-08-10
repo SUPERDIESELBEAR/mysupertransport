@@ -1906,8 +1906,9 @@ export default function ManagementPortal() {
             defaultDispatchFilter={driverDispatchFilter}
             initialSelectedOperatorId={driverHubBinderTarget?.operatorId ?? null}
             scrollToBinderOnOpen={!!driverHubBinderTarget}
-            onMessageDriver={() => {
-              setView('dispatch');
+            onMessageDriver={userId => {
+              setMessageInitialUserId(userId);
+              setView('messages');
             }}
           />
         )}
