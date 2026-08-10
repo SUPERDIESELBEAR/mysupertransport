@@ -1995,7 +1995,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-16">
+                  <td colSpan={bulkMode ? 7 : 6} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                       <p className="text-sm text-muted-foreground">Loading operators…</p>
