@@ -92,6 +92,12 @@ export default function ApplicationForm() {
   // duplicate-email pre-check failures, etc.) instead of getting stuck.
   const [stepError, setStepError] = useState<string | null>(null);
 
+  // Container for the active step's content — focused after a step change so
+  // keyboard/screen-reader users land on the new step instead of the old one.
+  const stepContentRef = useRef<HTMLDivElement>(null);
+  // Skips the top-scroll on first mount and on draft-resume restore.
+  const skipStepScrollRef = useRef(true);
+
   // Furthest step the applicant has validated past (persisted server-side
   // as `current_step`). Tracked separately from `formData` so it isn't a
   // form field the user can edit.
