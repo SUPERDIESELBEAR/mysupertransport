@@ -1265,7 +1265,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         currentPath={currentPath}
                         signedUrl={signedUrls[key]}
                         retake={retakeMap[key]}
-                        onPreview={() => setPreviewDoc({ url: signedUrls[key] || currentPath || '', name: shortName, key })}
+                        onPreview={() => {
+                          const idx = previewableDocs.findIndex(d => d.key === key);
+                          setPreviewIndex(idx >= 0 ? idx : null);
+                        }}
+
                         onRequestRetake={() => setRetakeModalKey(key)}
                         onReplaced={async (path) => {
                           setEditedDocPaths(prev => ({ ...prev, [key]: path }));
