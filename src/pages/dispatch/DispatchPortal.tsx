@@ -2004,7 +2004,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-16">
+                  <td colSpan={bulkMode ? 7 : 6} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <Truck className="h-8 w-8 text-muted-foreground/30" />
                       <p className="text-sm text-muted-foreground">
