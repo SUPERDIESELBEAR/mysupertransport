@@ -138,11 +138,15 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function YesNoBadge({ value }: { value: boolean | null }) {
+function YesNoBadge({ value, positive = false }: { value: boolean | null; positive?: boolean }) {
   if (value === null || value === undefined) return <span className="text-muted-foreground italic text-sm">—</span>;
+  const good = 'bg-status-complete/15 text-status-complete border-0 text-xs';
+  const bad = 'bg-destructive/15 text-destructive border-0 text-xs';
+  const yesClass = positive ? good : bad;
+  const noClass = positive ? bad : good;
   return value
-    ? <Badge className="bg-destructive/15 text-destructive border-0 text-xs">YES</Badge>
-    : <Badge className="bg-status-complete/15 text-status-complete border-0 text-xs">NO</Badge>;
+    ? <Badge className={yesClass}>YES</Badge>
+    : <Badge className={noClass}>NO</Badge>;
 }
 
 function EmployerBlock({ employer, label }: { employer: Record<string, string> | null; label: string }) {
