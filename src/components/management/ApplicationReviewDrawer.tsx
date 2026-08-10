@@ -348,7 +348,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     setReasonOverride(undefined);
     setReasonEditing(false);
     setReasonDraft('');
+    setPreviewIndex(null);
   }, [app?.id]);
+
 
   // Outstanding retake requests for this application's document slots
   useEffect(() => {
