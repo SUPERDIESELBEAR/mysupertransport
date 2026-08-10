@@ -1,24 +1,40 @@
-# Applications list: show a real date instead of a dash
+# Fill in the missing Submitted dates on the Applications page
 
 ## What's happening
 
-The dash you see isn't a strike-through — it's the "no date" placeholder. Two things combine:
+The dash isn't a strike-through — it's the "no date" placeholder, and 43 visible applications genuinely have no submitted date stored:
 
-- 39 of the 96 approved applications have no submitted date stored at all (older records from Mar–Jun, plus staff-added ones). Those rows render a dash.
-- The list is sorted by submitted date, newest first. In Postgres, rows with no date sort to the **top** with that ordering, so the entire first screen of the Approved tab is exactly the rows that have no date. That's why it looks like dates suddenly stopped displaying.
+- 39 approved, 3 in revisions, 1 denied
 
-Rows further down the list still show their dates.
+Two causes, confirmed in the data and the code:
+
+1. **Revision requests wipe the date.** When staff send an application back for revisions (and when a document retake is requested), the backend sets the submitted date back to empty. If the applicant resubmits, the date is written again — but any record that went through that path and never fully resubmitted lost its original date permanently.
+2. **Older records (Mar 27 – Jun 15) never had one written**, from before the submitted date was consistently captured.
+
+They also all sort to the top of the list, which is why the Approved tab looks like every date vanished.
 
 ## The fix
 
-1. Sort so the missing-date rows fall to the bottom instead of the top, keeping the newest real submissions first.
-2. When there's no submitted date, fall back to the record's created date and label it so it's clearly not a submission timestamp (e.g. "Jun 15, 2026" with a muted "created" tag). Only show a dash when neither date exists.
+**1. Backfill the missing dates (one-time data update)**
 
-Applies to the table view, the compact/mobile row, and the card list so all three read the same.
+For every non-draft application with no submitted date, fill it in using the best evidence we have, in this order:
+- the applicant's signature date on the application, if present
+- otherwise the date the application record was created
+
+Every one of the 43 rows has at least a created date, so no row is left with a dash.
+
+**2. Stop clearing the date going forward**
+
+Requesting revisions or a document retake will no longer erase the submitted date. The original submission date stays, and it gets updated when the applicant resubmits — so Pending, Revisions, Approved, and Denied tabs all show a date at all times.
+
+**3. Sorting**
+
+With every row populated, the newest-first sort works as expected and nothing bunches at the top.
 
 ## Technical detail
 
-- `src/pages/management/ManagementPortal.tsx`, `fetchApplications`: change `.order('submitted_at', { ascending: false })` to include `nullsFirst: false`, with `.order('created_at', { ascending: false })` as a secondary sort.
-- Same file, the three places that render the submitted date (table cell ~line 1737, compact row ~line 1763, card ~line 1489): use a small shared helper that returns the submitted date, else the created date flagged as a fallback.
+- Data update on `applications`: `submitted_at = coalesce(signed_date::timestamptz, created_at)` where `submitted_at is null and is_draft = false`, plus the three `revisions_requested` rows still flagged as drafts.
+- `supabase/functions/request-application-revisions/index.ts` (line ~115) and `supabase/functions/request-document-retake/index.ts` (line ~157): remove `submitted_at: null` from the update payload.
+- `src/pages/management/ManagementPortal.tsx` `fetchApplications`: add `nullsFirst: false` to the `submitted_at` order as a safety net for any future gap.
 
-No database or backend changes — this is display and ordering only. Historical submitted dates that were never captured can't be recovered.
+Note: backfilled dates are approximations from the record's creation/signature date, not recovered original timestamps.
