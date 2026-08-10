@@ -1989,7 +1989,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[220px]">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Dispatcher</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
-                <th className="w-24" />
+                <th className="w-40 min-w-[10rem] sticky right-0 bg-muted/40 z-10 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.05)]" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
