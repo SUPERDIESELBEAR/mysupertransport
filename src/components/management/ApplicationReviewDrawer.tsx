@@ -38,7 +38,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { DocumentSlotRow } from '@/components/management/DocumentSlotRow';
 import { RequestRetakeModal } from '@/components/management/RequestRetakeModal';
 import { DocumentHistoryList } from '@/components/management/DocumentHistoryList';
-import { parseRetakeRequests, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
+import { parseRetakeRequests, RETAKE_DOCUMENT_LABELS, RETAKE_DOCUMENT_SHORT_LABELS, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -290,8 +290,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
-  // In-app document preview & edit state
-  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: EditableDocumentKey } | null>(null);
+  // In-app document preview state — index into the ordered list of uploaded docs
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
   const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: EditableDocumentKey } | null>(null);
   const [editedDocPaths, setEditedDocPaths] = useState<Partial<Record<EditableDocumentKey, string>>>({});
   const [retakeModalKey, setRetakeModalKey] = useState<RetakeDocumentKey | null | undefined>(undefined);
@@ -328,12 +329,28 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     return app?.medical_cert_url ?? null;
   }, [app?.dl_front_url, app?.dl_rear_url, app?.medical_cert_url, editedDocPaths]);
 
+  const previewableDocs = useMemo(() => {
+    const entries: { key: EditableDocumentKey; label: string; shortLabel: string }[] = [
+      { key: 'dl_front_url', label: RETAKE_DOCUMENT_LABELS.dl_front_url, shortLabel: RETAKE_DOCUMENT_SHORT_LABELS.dl_front_url },
+      { key: 'dl_rear_url', label: RETAKE_DOCUMENT_LABELS.dl_rear_url, shortLabel: RETAKE_DOCUMENT_SHORT_LABELS.dl_rear_url },
+      { key: 'medical_cert_url', label: RETAKE_DOCUMENT_LABELS.medical_cert_url, shortLabel: RETAKE_DOCUMENT_SHORT_LABELS.medical_cert_url },
+    ];
+    return entries
+      .map(e => ({ ...e, path: getCurrentDocumentPath(e.key), signedUrl: signedUrls[e.key] }))
+      .filter(e => e.path);
+  }, [getCurrentDocumentPath, signedUrls]);
+
+  const activePreview = previewIndex !== null ? previewableDocs[previewIndex] : null;
+
+
   useEffect(() => {
     setEditedDocPaths({});
     setReasonOverride(undefined);
     setReasonEditing(false);
     setReasonDraft('');
+    setPreviewIndex(null);
   }, [app?.id]);
+
 
   // Outstanding retake requests for this application's document slots
   useEffect(() => {
@@ -1248,7 +1265,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         currentPath={currentPath}
                         signedUrl={signedUrls[key]}
                         retake={retakeMap[key]}
-                        onPreview={() => setPreviewDoc({ url: signedUrls[key] || currentPath || '', name: shortName, key })}
+                        onPreview={() => {
+                          const idx = previewableDocs.findIndex(d => d.key === key);
+                          setPreviewIndex(idx >= 0 ? idx : null);
+                        }}
+
                         onRequestRetake={() => setRetakeModalKey(key)}
                         onReplaced={async (path) => {
                           setEditedDocPaths(prev => ({ ...prev, [key]: path }));
@@ -1559,26 +1580,32 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         />
       )}
 
-      {/* In-app document preview modal */}
-      {previewDoc && (
+      {/* In-app document preview modal with carousel navigation */}
+      {activePreview && (
         <FilePreviewModal
-          url={previewDoc.url}
-          name={previewDoc.name}
-          onClose={() => setPreviewDoc(null)}
+          url={activePreview.signedUrl || activePreview.path || ''}
+          name={activePreview.label}
+          onClose={() => setPreviewIndex(null)}
           onEdit={() => {
-            const rawUrl = getCurrentDocumentPath(previewDoc.key);
+            const rawUrl = getCurrentDocumentPath(activePreview.key);
             const path = extractStoragePath(rawUrl, 'application-documents') ?? rawUrl ?? '';
             setEditingDoc({
-              url: previewDoc.url,
-              name: previewDoc.name,
+              url: activePreview.signedUrl || activePreview.path || '',
+              name: activePreview.label,
               bucket: 'application-documents',
               path,
-              key: previewDoc.key,
+              key: activePreview.key,
             });
-            setPreviewDoc(null);
+            setPreviewIndex(null);
           }}
+          onPrev={previewIndex! > 0 ? () => setPreviewIndex(previewIndex! - 1) : undefined}
+          onNext={previewIndex! < previewableDocs.length - 1 ? () => setPreviewIndex(previewIndex! + 1) : undefined}
+          counter={`${(previewIndex ?? 0) + 1} of ${previewableDocs.length}`}
+          index={previewIndex ?? 0}
+          total={previewableDocs.length}
         />
       )}
+
 
       {/* In-app document editor */}
       {editingDoc && (
