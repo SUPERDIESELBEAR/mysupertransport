@@ -412,6 +412,20 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   const noActionCount = alerts.filter(a => { const key = `${a.operator_id}|${a.doc_type}`; return !lastReminded[key] && !lastRenewed[key]; }).length;
 
+  if (loading && !hasLoadedRef.current) return (
+    <div className="border border-border/60 bg-muted/20 rounded-xl shadow-sm px-5 py-6 space-y-3">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-3 w-72" />
+        </div>
+      </div>
+      <Skeleton className="h-3 w-full" />
+      <Skeleton className="h-3 w-5/6" />
+    </div>
+  );
+
   if (alerts.length === 0) return (
     <div className="border border-status-complete/30 bg-status-complete/5 rounded-xl shadow-sm px-5 py-6 flex items-center gap-4">
       <div className="h-10 w-10 rounded-full bg-status-complete/15 flex items-center justify-center shrink-0">
