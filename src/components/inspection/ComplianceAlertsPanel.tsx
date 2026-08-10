@@ -76,7 +76,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (min 180px) | doc | expires (sm+) | status | last-action (md+) | last-reminded (xl+) | last-renewed (xl+) | actions
-  const gridCols = "grid-cols-[auto_minmax(180px,1fr)_76px_100px_auto] sm:grid-cols-[auto_minmax(180px,1fr)_76px_88px_100px_auto] md:grid-cols-[auto_minmax(180px,1fr)_76px_88px_100px_84px_auto] xl:grid-cols-[auto_minmax(180px,1fr)_76px_88px_100px_84px_68px_68px_auto]";
+  // Fixed first/last tracks so every row resolves identical column widths.
+  const gridCols = "grid-cols-[12px_minmax(120px,1fr)_76px_100px_180px] sm:grid-cols-[12px_minmax(140px,1fr)_76px_88px_100px_180px] md:grid-cols-[12px_minmax(160px,1fr)_76px_88px_100px_84px_180px] lg:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_300px] xl:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_68px_68px_300px]";
+  const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -616,9 +618,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
       {/* Alert rows */}
       {expanded && (
-        <div className="border-t border-destructive/20 divide-y divide-destructive/10">
+        <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 ${gridCols}`}>
           {/* Column headers */}
-          <div className={`grid gap-2 items-start px-4 py-1.5 bg-destructive/5 ${gridCols}`}>
+          <div className={`${subgridRow} gap-2 items-start px-4 py-1.5 bg-destructive/5`}>
             <span className="h-2 w-2" aria-hidden="true" />
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
             <span aria-hidden="true" />
@@ -651,7 +653,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             const renewedByName = lastRenewedBy[rowKey];
             return (
               <div key={`${alert.operator_id}-${alert.doc_type}`}
-                className={`grid gap-2 items-start px-4 py-2.5 transition-colors ${gridCols} ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
+                className={`${subgridRow} gap-2 items-start px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
                 {/* Urgency dot */}
                 <span className={`h-2 w-2 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
                 {/* Name + doc type */}
@@ -792,7 +794,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           })}
 
           {visibleAlerts.length === 0 && (
-            <div className="flex items-center justify-center gap-2 py-5 text-muted-foreground">
+            <div className="col-span-full flex items-center justify-center gap-2 py-5 text-muted-foreground">
               <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
               <span className="text-xs">{noActionOnly ? 'All operators have at least one reminder or renewal recorded' : docFilter === 'all' ? 'No compliance alerts within 90 days' : `No ${docFilter} alerts found`}</span>
             </div>
