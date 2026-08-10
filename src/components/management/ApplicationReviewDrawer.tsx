@@ -1580,26 +1580,32 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         />
       )}
 
-      {/* In-app document preview modal */}
-      {previewDoc && (
+      {/* In-app document preview modal with carousel navigation */}
+      {activePreview && (
         <FilePreviewModal
-          url={previewDoc.url}
-          name={previewDoc.name}
-          onClose={() => setPreviewDoc(null)}
+          url={activePreview.signedUrl || activePreview.path || ''}
+          name={activePreview.label}
+          onClose={() => setPreviewIndex(null)}
           onEdit={() => {
-            const rawUrl = getCurrentDocumentPath(previewDoc.key);
+            const rawUrl = getCurrentDocumentPath(activePreview.key);
             const path = extractStoragePath(rawUrl, 'application-documents') ?? rawUrl ?? '';
             setEditingDoc({
-              url: previewDoc.url,
-              name: previewDoc.name,
+              url: activePreview.signedUrl || activePreview.path || '',
+              name: activePreview.label,
               bucket: 'application-documents',
               path,
-              key: previewDoc.key,
+              key: activePreview.key,
             });
-            setPreviewDoc(null);
+            setPreviewIndex(null);
           }}
+          onPrev={previewIndex! > 0 ? () => setPreviewIndex(previewIndex! - 1) : undefined}
+          onNext={previewIndex! < previewableDocs.length - 1 ? () => setPreviewIndex(previewIndex! + 1) : undefined}
+          counter={`${(previewIndex ?? 0) + 1} of ${previewableDocs.length}`}
+          index={previewIndex ?? 0}
+          total={previewableDocs.length}
         />
       )}
+
 
       {/* In-app document editor */}
       {editingDoc && (
