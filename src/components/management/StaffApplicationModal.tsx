@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,28 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
   const [formData, setFormData] = useState<ApplicationFormData>({ ...defaultFormData });
   const [errors, setErrors] = useState<Partial<Record<keyof ApplicationFormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // The drawer panel is the scroll container here (not the window), so step
+  // changes must reset its scrollTop after the new step has painted.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const skipStepScrollRef = useRef(true);
+
+  useEffect(() => {
+    if (skipStepScrollRef.current) {
+      skipStepScrollRef.current = false;
+      return;
+    }
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [step]);
 
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -177,7 +199,7 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
+      <SheetContent ref={scrollRef} side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
         <div className="p-6">
           <SheetHeader className="mb-4">
             <SheetTitle className="text-lg font-bold">Staff-Assisted Application</SheetTitle>

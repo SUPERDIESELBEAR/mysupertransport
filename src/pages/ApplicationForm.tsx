@@ -92,6 +92,12 @@ export default function ApplicationForm() {
   // duplicate-email pre-check failures, etc.) instead of getting stuck.
   const [stepError, setStepError] = useState<string | null>(null);
 
+  // Container for the active step's content — focused after a step change so
+  // keyboard/screen-reader users land on the new step instead of the old one.
+  const stepContentRef = useRef<HTMLDivElement>(null);
+  // Skips the top-scroll on first mount and on draft-resume restore.
+  const skipStepScrollRef = useRef(true);
+
   // Furthest step the applicant has validated past (persisted server-side
   // as `current_step`). Tracked separately from `formData` so it isn't a
   // form field the user can edit.
@@ -172,6 +178,9 @@ export default function ApplicationForm() {
             signed_date: data.signed_date ?? defaultFormData.signed_date,
           };
           setFormData(restored);
+          // Restoring a draft jumps straight to a saved step — don't treat
+          // that as a Continue/Back navigation.
+          skipStepScrollRef.current = true;
           setStep(restoredStep);
           if (restoredStep > 1) setResumedStep(restoredStep);
           const savedAtIso = (data as any).updated_at ?? (data as any).created_at;
@@ -483,6 +492,28 @@ export default function ApplicationForm() {
   };
 
   // ── Step navigation ─────────────────────────────────────────────────────
+  // Jump the page back to the top after the new step has actually painted.
+  // Doing it inside the click handler scrolls before the lazy-loaded step
+  // renders, and the resulting layout shift (plus touch input on mobile)
+  // cancels an in-flight smooth scroll — leaving applicants mid-page.
+  useEffect(() => {
+    if (skipStepScrollRef.current) {
+      skipStepScrollRef.current = false;
+      return;
+    }
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        stepContentRef.current?.focus({ preventScroll: true });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [step]);
+
   const goNext = () => {
     const errs = validateStep(step, formData);
     if (Object.keys(errs).length > 0) {
@@ -525,7 +556,6 @@ export default function ApplicationForm() {
             furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
             setStep(nextStep);
             void saveDraft({ silent: true });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         });
       return; // wait for async result
@@ -536,7 +566,6 @@ export default function ApplicationForm() {
     furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
     setStep(nextStep);
     void saveDraft({ silent: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goBack = () => {
@@ -545,7 +574,6 @@ export default function ApplicationForm() {
     setSlideDir('back');
     setStep(s => s - 1);
     void saveDraft({ silent: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const isLastStep = step === 9;
@@ -789,7 +817,10 @@ export default function ApplicationForm() {
         >
           <div
             key={step}
-            className={`bg-white border border-border rounded-2xl p-6 select-none ${
+            ref={stepContentRef}
+            tabIndex={-1}
+            aria-label={`Step ${step} of 9: ${STEP_LABELS[step - 1]}`}
+            className={`bg-white border border-border rounded-2xl p-6 select-none focus:outline-none ${
               slideDir === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left'
             }`}
           >
