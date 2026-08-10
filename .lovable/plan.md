@@ -12,12 +12,15 @@ Nothing is miscounted — the big numbers still come from the driver-based metri
 
 ## Proposed fix
 
-1. Prefix the attribution so it can't be mistaken for a driver: show `by Daniel Brown` instead of `Daniel Brown`.
-2. Use the same wording when the name is unknown: `Updated <relative time>` becomes `by Staff` only when a name exists; otherwise keep "Updated".
-3. Keep the tooltip as-is (name + full timestamp), but reword to `Last changed by Daniel Brown - Aug 10, 9:12 AM` so hover confirms the meaning.
-4. Optional (say the word if wanted): drop the attribution line entirely and move it into the tooltip only, keeping the tiles to just number + label.
+Remove the "last changed by" / "Updated" attribution line entirely from all four Fleet Status tiles. Each tile should only display:
+
+- The large number.
+- The status label.
+- For Truck Down with a value > 0, the existing red pulse indicator.
+
+The tooltip on the tile will still show the full "Last changed by <name> · <timestamp>" on hover, so the attribution is not lost — it just doesn't occupy a permanent line under the label.
 
 ## Technical notes
 
-- `src/pages/management/ManagementPortal.tsx`, Fleet Status tile map (~line 1275-1323): `triggerText` becomes `by ${changedByName}`; tooltip string standardized to "Last changed by X - <timestamp>".
-- No change to `fetchDispatchBreakdown` or `fetchOverviewMetrics` — counts are already correct.
+- `src/pages/management/ManagementPortal.tsx`, Fleet Status tile map (~line 1275-1323): remove the conditional `Tooltip` block and the `changedByName` / `triggerText` usage; keep the outer `TooltipProvider` wrapping in case we decide to add a simple tile-level tooltip later, but no tooltip content is needed if we remove it completely. If we keep the tile tooltip, set `title` attribute on the button instead of the hover line.
+- No change to `fetchDispatchBreakdown` or `fetchOverviewMetrics` — counts are already correct. The `dispatchLastChanged` and `dispatchLastChangedAt` state can be removed if it is no longer used elsewhere; otherwise leave it for any other consumer.
