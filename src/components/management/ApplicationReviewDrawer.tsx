@@ -290,8 +290,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
-  // In-app document preview & edit state
-  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: EditableDocumentKey } | null>(null);
+  // In-app document preview state — index into the ordered list of uploaded docs
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
   const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: EditableDocumentKey } | null>(null);
   const [editedDocPaths, setEditedDocPaths] = useState<Partial<Record<EditableDocumentKey, string>>>({});
   const [retakeModalKey, setRetakeModalKey] = useState<RetakeDocumentKey | null | undefined>(undefined);
