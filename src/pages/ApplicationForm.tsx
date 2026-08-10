@@ -492,6 +492,28 @@ export default function ApplicationForm() {
   };
 
   // ── Step navigation ─────────────────────────────────────────────────────
+  // Jump the page back to the top after the new step has actually painted.
+  // Doing it inside the click handler scrolls before the lazy-loaded step
+  // renders, and the resulting layout shift (plus touch input on mobile)
+  // cancels an in-flight smooth scroll — leaving applicants mid-page.
+  useEffect(() => {
+    if (skipStepScrollRef.current) {
+      skipStepScrollRef.current = false;
+      return;
+    }
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        stepContentRef.current?.focus({ preventScroll: true });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [step]);
+
   const goNext = () => {
     const errs = validateStep(step, formData);
     if (Object.keys(errs).length > 0) {
@@ -534,7 +556,6 @@ export default function ApplicationForm() {
             furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
             setStep(nextStep);
             void saveDraft({ silent: true });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         });
       return; // wait for async result
@@ -545,7 +566,6 @@ export default function ApplicationForm() {
     furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
     setStep(nextStep);
     void saveDraft({ silent: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goBack = () => {
@@ -554,7 +574,6 @@ export default function ApplicationForm() {
     setSlideDir('back');
     setStep(s => s - 1);
     void saveDraft({ silent: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const isLastStep = step === 9;
