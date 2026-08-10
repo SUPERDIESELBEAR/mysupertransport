@@ -2026,7 +2026,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   if (op.paper_logbook_approved) exceptionParts.push('Paper Logbook');
                   if (op.temp_decal_approved) exceptionParts.push('Temp Decal');
                   return (
-                    <div key={op.id} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
+                    <div key={op.id} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors min-w-0">
                       <button
                         onClick={() => onOpenOperator(op.id)}
                         className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
@@ -2068,8 +2068,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         </span>
                       )}
 
-                      <div className="ml-auto shrink-0 hidden lg:block">
-                        <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                      <div className="ml-auto max-w-full overflow-x-auto overflow-y-hidden">
+                        <div className="w-max">
+                          <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                        </div>
                       </div>
 
                       <Button
@@ -3470,7 +3472,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 {onHoldOps.map(op => {
                   const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown Operator';
                   return (
-                    <div key={op.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
+                    <div key={op.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-muted/20 transition-colors min-w-0">
                       {/* Pause icon */}
                       <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
 
@@ -3513,8 +3515,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       )}
 
                       {/* Progress track */}
-                      <div className="ml-auto shrink-0 hidden lg:block">
-                        <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                      <div className="ml-auto max-w-full overflow-x-auto overflow-y-hidden">
+                        <div className="w-max">
+                          <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                        </div>
                       </div>
 
                       {/* Archive button */}
