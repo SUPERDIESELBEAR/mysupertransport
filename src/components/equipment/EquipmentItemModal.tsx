@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import type { EquipmentItem, DeviceType, EquipmentStatus } from './EquipmentInventory';
+import { normalizeSerial, SERIAL_DASH_MESSAGE, serialHasDash } from '@/lib/equipmentSync';
 
 interface Props {
   open: boolean;
@@ -59,6 +60,10 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
   }, [item, open, defaultDeviceType]);
 
   const handleSave = async () => {
+    if (serialHasDash(serialNumber)) {
+      toast({ title: SERIAL_DASH_MESSAGE, variant: 'destructive' });
+      return;
+    }
     if (!serialNumber.trim()) {
       toast({ title: 'Serial number is required', variant: 'destructive' });
       return;
@@ -71,7 +76,7 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
     setSaving(true);
 
     // Duplicate serial+type guard
-    const normalizedSerial = serialNumber.trim().replace(/[-.\s]/g, '').toUpperCase();
+    const normalizedSerial = normalizeSerial(serialNumber) as string;
     let dupQuery = supabase
       .from('equipment_items')
       .select('id')
@@ -145,10 +150,13 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
             <Input
               value={serialNumber}
               onChange={e => setSerialNumber(e.target.value)}
-              placeholder={deviceType === 'fuel_card' ? 'e.g. 123' : 'e.g. ELD-A1B2C3D4'}
+              placeholder={deviceType === 'fuel_card' ? 'e.g. 123' : 'e.g. A1B2C3D4'}
               maxLength={deviceType === 'fuel_card' ? 3 : 20}
               className="font-mono"
             />
+            {serialHasDash(serialNumber) && (
+              <p className="text-xs text-destructive">{SERIAL_DASH_MESSAGE}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">

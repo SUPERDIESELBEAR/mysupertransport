@@ -35,6 +35,9 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
   const [condition, setCondition] = useState<ReturnCondition>('available');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const closeAll = () => { setConfirming(false); onClose(); };
 
   const handleReturn = async () => {
     if (guardDemo()) return;
@@ -44,6 +47,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
       toast({ title: 'Only management can mark as Damaged or Lost', variant: 'destructive' });
       return;
     }
+    if (!confirming) { setConfirming(true); return; }
     setSaving(true);
     try {
       // 1. Close the current open assignment
@@ -89,7 +93,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
       const conditionLabel = CONDITIONS.find(c => c.value === condition)?.label ?? condition;
       toast({ title: '✅ Return recorded', description: `${DEVICE_CONFIG_LABELS[item.device_type]} ${item.serial_number} — ${conditionLabel}` });
       onSaved();
-      onClose();
+      closeAll();
     } catch (err: unknown) {
       toast({ title: 'Return failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
@@ -100,7 +104,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
   const availableConditions = CONDITIONS.filter(c => isManagement || !c.mgmtOnly);
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+    <Dialog open={open} onOpenChange={v => { if (!v) closeAll(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -162,12 +166,21 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
               className="min-h-[60px] resize-none text-sm"
             />
           </div>
+          {confirming && item && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm text-foreground">
+              This will return <span className="font-mono font-semibold">{item.serial_number}</span> to inventory
+              {condition === 'available' ? ' as Available' : ` as ${condition === 'damaged' ? 'Damaged' : 'Lost'}`}
+              {item.current_operator_name ? <> and clear it from <span className="font-semibold">{item.current_operator_name}</span>'s record</> : ''}. Continue?
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={confirming ? () => setConfirming(false) : onClose} disabled={saving}>
+            {confirming ? 'Go Back' : 'Cancel'}
+          </Button>
           <Button onClick={handleReturn} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DemoLockIcon />}
-            Record Return
+            {confirming ? 'Yes, Record Return' : 'Record Return'}
           </Button>
         </div>
       </DialogContent>

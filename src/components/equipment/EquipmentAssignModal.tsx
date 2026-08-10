@@ -18,6 +18,7 @@ import type { EquipmentItem } from './EquipmentInventory';
 import { DEVICE_CONFIG_LABELS } from './equipmentUtils';
 import { SHIPPING_CARRIERS } from './equipmentTracking';
 import { validateFile } from '@/lib/validateFile';
+import { assertAssignable, DuplicateAssignmentError, normalizeSerial } from '@/lib/equipmentSync';
 
 interface Operator {
   id: string;
@@ -131,36 +132,25 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
 
     setSaving(true);
 
-    // Block if item is lost / deactivated
-    if (item.status === 'lost' || item.status === 'deactivated') {
-      toast({
-        title: `Cannot assign — item is ${item.status}`,
-        description: `Restore ${item.serial_number} to Available before assigning.`,
-        variant: 'destructive',
+    // Shared guard: blocks lost / deactivated items and double-assignment
+    try {
+      const outcome = await assertAssignable({
+        equipmentId: item.id,
+        deviceType: item.device_type as any,
+        serial: item.serial_number,
+        status: item.status,
+        operatorId: selectedOperator,
       });
-      setSaving(false);
-      return;
-    }
-
-    // Check for active assignment (prevent double-assign) — resolve holder's name
-    const { data: activeAssign } = await supabase
-      .from('equipment_assignments')
-      .select('id, operator_id')
-      .eq('equipment_id', item.id)
-      .is('returned_at', null)
-      .limit(1);
-    if (activeAssign && activeAssign.length > 0) {
-      const holderId = (activeAssign[0] as any).operator_id as string;
-      const { data: opRow } = await supabase
-        .from('operators')
-        .select('applications(first_name, last_name)')
-        .eq('id', holderId)
-        .maybeSingle();
-      const app = (opRow as any)?.applications;
-      const holderName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'another driver';
+      if (outcome === 'already_assigned') {
+        toast({ title: 'Already assigned to this operator' });
+        setSaving(false);
+        onClose();
+        return;
+      }
+    } catch (err) {
       toast({
-        title: 'Duplicate assignment blocked',
-        description: `Serial ${item.serial_number} is already assigned to ${holderName}. Return or deactivate it from that driver before reassigning.`,
+        title: err instanceof DuplicateAssignmentError ? 'Assignment blocked' : 'Assignment failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
         variant: 'destructive',
       });
       setSaving(false);
@@ -231,7 +221,7 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
       if (os) {
         await supabase
           .from('onboarding_status')
-          .update(updatePayload('onboarding_status', { [field]: item.serial_number }))
+          .update(updatePayload('onboarding_status', { [field]: normalizeSerial(item.serial_number) }))
           .eq('operator_id', selectedOperator);
       }
     }
