@@ -33,15 +33,8 @@ export interface DeviceInfo {
   fuel_card_number?: string | null;
 }
 
-export interface TruckInfoCardEditPayload {
-  unit_number: string | null;
-  eld_serial_number: string | null;
-  dash_cam_number: string | null;
-  bestpass_number: string | null;
-  fuel_card_number: string | null;
-}
-
 export interface TruckFieldsEditPayload {
+  unit_number: string | null;
   truck_year: string | null;
   truck_make: string | null;
   truck_vin: string | null;
@@ -62,9 +55,7 @@ export interface EquipmentShippingInfo {
 interface TruckInfoCardProps {
   truckInfo?: TruckInfo | null;
   deviceInfo?: DeviceInfo | null;
-  /** If provided, an Edit button appears for staff/management to edit device numbers */
-  onEdit?: (payload: TruckInfoCardEditPayload) => Promise<void>;
-  /** If provided, truck fields (year/make/model/VIN/plate) become editable */
+  /** If provided, truck fields (unit #, year/make/model/VIN/plate) become editable */
   onTruckEdit?: (payload: TruckFieldsEditPayload) => Promise<void>;
   /** Optional shipping info per device — when set, shows tracking badges next to serial numbers */
   shippingInfo?: EquipmentShippingInfo[] | null;
@@ -169,15 +160,8 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     if (!shippingByDevice[s.device_type]) shippingByDevice[s.device_type] = s;
   }
 
-  const [draft, setDraft] = useState<TruckInfoCardEditPayload>({
-    unit_number: deviceInfo?.unit_number ?? null,
-    eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-    dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-    bestpass_number: deviceInfo?.bestpass_number ?? null,
-    fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-  });
-
   const [truckDraft, setTruckDraft] = useState<TruckFieldsEditPayload>({
+    unit_number: deviceInfo?.unit_number ?? null,
     truck_year: truckInfo?.truck_year ?? null,
     truck_make: truckInfo?.truck_make ?? null,
     truck_vin: truckInfo?.truck_vin ?? null,
@@ -186,21 +170,11 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     trailer_number: truckInfo?.trailer_number ?? null,
   });
 
-  // Re-sync drafts when props update
-  useEffect(() => {
-    if (editOpen) return;
-    setDraft({
-      unit_number: deviceInfo?.unit_number ?? null,
-      eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-      dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-      bestpass_number: deviceInfo?.bestpass_number ?? null,
-      fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-    });
-  }, [deviceInfo]);
-
+  // Re-sync draft when props update
   useEffect(() => {
     if (truckEditOpen) return;
     setTruckDraft({
+      unit_number: deviceInfo?.unit_number ?? null,
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
@@ -210,7 +184,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     });
     // Auto-expand trailer section if trailer_number has a value
     if (truckInfo?.trailer_number) setTrailerOpen(true);
-  }, [truckInfo]);
+  }, [truckInfo, deviceInfo]);
 
   // Build display name for the truck
   const truckYearMake = [truckInfo?.truck_year, truckInfo?.truck_make]
@@ -223,22 +197,12 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   const hasDeviceInfo = !!(deviceInfo?.unit_number || deviceInfo?.eld_serial_number ||
     deviceInfo?.dash_cam_number || deviceInfo?.bestpass_number || deviceInfo?.fuel_card_number);
 
-  // Don't render if nothing to show (and no onEdit/onTruckEdit to allow adding)
-  if (!hasTruckInfo && !hasDeviceInfo && !onEdit && !onTruckEdit) return null;
-
-  const handleOpenEdit = () => {
-    setDraft({
-      unit_number: deviceInfo?.unit_number ?? null,
-      eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-      dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-      bestpass_number: deviceInfo?.bestpass_number ?? null,
-      fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-    });
-    setEditOpen(true);
-  };
+  // Don't render if nothing to show (and no onTruckEdit to allow adding)
+  if (!hasTruckInfo && !hasDeviceInfo && !onTruckEdit) return null;
 
   const handleOpenTruckEdit = () => {
     setTruckDraft({
+      unit_number: deviceInfo?.unit_number ?? null,
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
@@ -248,17 +212,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     });
     if (truckInfo?.trailer_number) setTrailerOpen(true);
     setTruckEditOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!onEdit) return;
-    setSaving(true);
-    try {
-      await onEdit(draft);
-      setEditOpen(false);
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleTruckSave = async () => {
