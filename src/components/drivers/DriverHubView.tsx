@@ -75,6 +75,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const { windowDays } = useComplianceWindow();
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [archivedCount, setArchivedCount] = useState<number | null>(null);
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+
 
   const fetchArchivedCount = useCallback(async () => {
     const { count } = await supabase
@@ -540,7 +542,13 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             <TabsTrigger value="active" className="gap-2">
               <Users2 className="h-3.5 w-3.5" />
               Active Drivers
+              {activeCount !== null && activeCount > 0 && (
+                <span className="inline-flex items-center justify-center h-4.5 min-w-[1.125rem] px-1 rounded-full bg-muted-foreground/20 text-muted-foreground text-[10px] font-semibold leading-none tabular-nums">
+                  {activeCount}
+                </span>
+              )}
             </TabsTrigger>
+
             <TabsTrigger value="archived" className="gap-2">
               <Archive className="h-3.5 w-3.5" />
               Archived
@@ -564,9 +572,10 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               onComplianceFilterChange={setComplianceFilter}
               onComplianceCountsChange={setComplianceCounts}
               onUpdateCompliance={handleUpdateCompliance}
-              onDriversChange={drivers => { allDriversRef.current = drivers; }}
+              onDriversChange={drivers => { allDriversRef.current = drivers; setActiveCount(drivers.length); }}
               defaultStatusFilter={defaultDispatchFilter}
             />
+
           </TabsContent>
 
           <TabsContent value="archived" className="mt-4">
