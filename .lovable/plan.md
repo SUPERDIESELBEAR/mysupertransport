@@ -1,42 +1,32 @@
-# Clean up Vehicle Hub list-view action buttons
+# Fix hidden Save / Cancel buttons in Dispatch Board table-edit mode
 
-## Goal
-Restyle the **Actions** column in the Vehicle Hub list view so the current five buttons (Truck photos, Decal photos, Edit truck specs, Log update, More actions) read as one clean, consistent toolbar instead of a scattered mix of icon-only and text controls.
+## Bug
+In the Dispatch Board table view, when a row enters inline edit mode, the **Save** and **X** (Cancel) buttons are pushed to the far right of the actions column and can be hidden off-screen. The user can only see a clipped Save button; the Cancel button is not visible.
 
-## Current state
-- List view renders actions as a `flex-wrap` row of `h-7 w-7` ghost/outline icon buttons.
-- For deactivated rows, a labeled **Reactivate** button is inserted mid-row, breaking the icon-only rhythm and adding variable width.
-- The row has no visual grouping, so disabled photo icons and active icons sit at the same visual weight.
-- The column currently wraps on narrow viewports.
+## Root cause (verified)
+- The table wrapper uses `overflow-x-auto`, so the row can scroll horizontally.
+- The actions column header is fixed to `w-24` (6 rem), but the non-edit row fills it with 5 labeled actions (Call, Message, Binder, Decals, Edit) which already overflow that width.
+- When a row enters edit mode, the Status, Dispatcher, and Notes columns become wider inputs, increasing the total row width and pushing the rightmost actions further off-screen.
+- The Save/Cancel controls are not given a guaranteed visible area, so they render outside the viewport and are effectively hidden.
 
-## Proposed changes
+## Fix
+1. **Make the actions column sticky on the right**
+   - Apply `sticky right-0` to the last `<th>` and every last `<td>` in the table body.
+   - Add a background (white for normal rows, muted/gold for hover/edit states) so the sticky column visually overlays the scrolling content.
+   - Add a left border/shadow to separate the sticky column from the scrolling row.
 
-1. **Unified icon toolbar**
-   - Wrap all actions in a single compact container with equal spacing and a shared hover/background treatment.
-   - Use the same icon size, button height, and border radius for every action.
-   - Keep the existing order: Photos → Edit → Log Update → More.
+2. **Right-size the actions column**
+   - Change the header from `w-24` to `w-40 min-w-[10rem]` to comfortably hold the Save + Cancel buttons.
+   - Prevent the action buttons from wrapping: keep the action group as `flex-nowrap`.
 
-2. **Combine truck and decal photos into one Photos button**
-   - Replace the separate Truck and Decal icons with a single **Camera/Photos** icon that opens a combined photo viewer.
-   - The combined viewer keeps the existing Truck and Decal photo viewing functionality (no new data flow), just surfaced from one entry point.
-   - If either photo set exists, the icon uses the gold active state; if neither exists, it is muted/disabled with a tooltip.
-
-3. **Icon-only Reactivate for deactivated rows**
-   - Replace the labeled Reactivate text button with a consistent `RotateCcw` icon in the same toolbar, using the primary gold color and a tooltip.
-   - This keeps deactivated rows at the same column width as active rows and avoids mid-row size jumps.
-
-4. **Tooltips / title attributes**
-   - Add explicit `title` attributes to every icon so hover reveals the action name: "Photos", "Edit truck specs", "Log update", "More actions", "Reactivate unit".
-
-5. **Responsive guardrails**
-   - Keep the actions column from wrapping: `flex-nowrap` inside the toolbar, with the column allowed to stay at its natural width.
-   - Do not change the table layout outside the Actions column.
+3. **Make edit controls compact**
+   - Keep the existing Save and Cancel button sizes but ensure they sit inside the sticky column without overflow.
+   - If needed, replace the Cancel label with just the `X` icon during edit to save horizontal space.
 
 ## Scope
-- Single file: `src/components/fleet/FleetRoster.tsx`
-- Only the list/table view branch (`viewMode !== 'cards'`), around lines 832–927.
-- No database, auth, or business-logic changes.
-- The card view remains untouched.
+- Single file: `src/pages/dispatch/DispatchPortal.tsx`
+- Table view branch only (`viewMode === 'table'`), around the header (lines 1974–1993) and the last data cell (lines 2187–2289).
+- No card view, no data logic, no API changes.
 
 ## Verification
-After the change, verify the list view renders a single compact icon toolbar per row, that deactivated rows no longer show a text Reactivate button, and that clicking Photos opens the existing truck/decal photo modals.
+After the change, open Dispatch Board in table view, click Edit on any row, and confirm both the Save and X (Cancel) buttons remain fully visible even on narrower viewports, without requiring horizontal scrolling.
