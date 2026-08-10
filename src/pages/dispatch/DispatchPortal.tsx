@@ -1989,13 +1989,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[220px]">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Dispatcher</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
-                <th className="w-24" />
+                <th className="w-40 min-w-[10rem] sticky right-0 bg-muted/40 z-10 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.05)]" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-16">
+                  <td colSpan={bulkMode ? 7 : 6} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                       <p className="text-sm text-muted-foreground">Loading operators…</p>
@@ -2004,7 +2004,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-16">
+                  <td colSpan={bulkMode ? 7 : 6} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <Truck className="h-8 w-8 text-muted-foreground/30" />
                       <p className="text-sm text-muted-foreground">
@@ -2019,6 +2019,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 const isHistoryExpanded = expandedHistory.has(row.operator_id);
                 const history = historyMap[row.operator_id] ?? [];
                 const fullName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—';
+                const stickyCellBg = isEditing
+                  ? 'bg-gold/[0.04]'
+                  : bulkMode && selectedIds.has(row.operator_id)
+                  ? 'bg-primary/[0.06]'
+                  : flashedCards.has(row.operator_id)
+                  ? 'bg-primary/[0.04]'
+                  : cfg.rowClass || 'bg-white';
 
                 return (
                   <>
@@ -2184,9 +2191,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right align-middle">
+                      <td className={`px-3 py-3 text-right align-middle sticky right-0 z-10 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.05)] ${stickyCellBg}`}>
                         {isEditing ? (
-                          <div className="flex gap-1 justify-end items-center">
+                          <div className="flex gap-1 justify-end items-center flex-nowrap">
                             <Button
                               size="sm"
                               onClick={() => saveEdit(row)}
@@ -2201,7 +2208,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex gap-1 justify-end">
+                          <div className="flex gap-1 justify-end flex-nowrap">
                             {row.phone && (
                               <Button
                                 variant="ghost"
@@ -2293,7 +2300,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                     {/* Status history expansion row */}
                     {isHistoryExpanded && (
                       <tr key={`${row.operator_id}-history`} className="bg-muted/20">
-                        <td colSpan={5} className="px-6 py-3">
+                        <td colSpan={bulkMode ? 7 : 6} className="px-6 py-3">
                           <div className="flex items-start gap-2 mb-2">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Last 3 Status Changes</p>
