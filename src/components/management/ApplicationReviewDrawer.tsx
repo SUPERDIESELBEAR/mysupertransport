@@ -38,7 +38,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { DocumentSlotRow } from '@/components/management/DocumentSlotRow';
 import { RequestRetakeModal } from '@/components/management/RequestRetakeModal';
 import { DocumentHistoryList } from '@/components/management/DocumentHistoryList';
-import { parseRetakeRequests, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
+import { parseRetakeRequests, RETAKE_DOCUMENT_LABELS, RETAKE_DOCUMENT_SHORT_LABELS, type RetakeDocumentKey } from '@/lib/applicationDocumentRetake';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
