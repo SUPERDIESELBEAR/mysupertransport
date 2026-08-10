@@ -3472,47 +3472,54 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 {onHoldOps.map(op => {
                   const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown Operator';
                   return (
-                    <div key={op.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-muted/20 transition-colors min-w-0">
-                      {/* Pause icon */}
-                      <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div key={op.id} className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3 hover:bg-muted/20 transition-colors min-w-0">
+                      {/* Name + date chips stacked like the main pipeline name cell */}
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <div className="flex items-center gap-3">
+                          {/* Pause icon */}
+                          <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
 
-                      {/* Name */}
-                      <button
-                        onClick={() => onOpenOperator(op.id)}
-                        className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
-                      >
-                        {name}
-                      </button>
+                          {/* Name */}
+                          <button
+                            onClick={() => onOpenOperator(op.id)}
+                            className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
+                          >
+                            {name}
+                          </button>
+                        </div>
 
-                       <HiringWindowDates
-                         applicationSubmittedAt={op.application_submitted_at}
-                         approvedAt={op.application_approved_at}
-                         peResultsDate={op.pe_results_date}
-                         fullyOnboarded={op.fully_onboarded}
-                       />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <HiringWindowDates
+                            applicationSubmittedAt={op.application_submitted_at}
+                            approvedAt={op.application_approved_at}
+                            peResultsDate={op.pe_results_date}
+                            fullyOnboarded={op.fully_onboarded}
+                          />
 
-                      {/* Hold date */}
-                      {op.on_hold_date && (
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          Since {format(parseISO(op.on_hold_date), 'MMM d, yyyy')}
-                        </span>
-                      )}
+                          {/* Hold date */}
+                          {op.on_hold_date && (
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              Since {format(parseISO(op.on_hold_date), 'MMM d, yyyy')}
+                            </span>
+                          )}
 
-                      {/* Reason */}
-                      {op.on_hold_reason && (
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-xs text-muted-foreground italic truncate max-w-xs cursor-help">
-                                "{op.on_hold_reason}"
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-wrap break-words">
-                              {op.on_hold_reason}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                          {/* Reason */}
+                          {op.on_hold_reason && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-xs text-muted-foreground italic truncate max-w-xs cursor-help">
+                                    "{op.on_hold_reason}"
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-wrap break-words">
+                                  {op.on_hold_reason}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Progress track */}
                       <div className="ml-auto max-w-full overflow-x-auto overflow-y-hidden">
