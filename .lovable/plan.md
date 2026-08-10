@@ -1,40 +1,41 @@
-# Fill in the missing Submitted dates on the Applications page
+# Reset Emma Mueller so she can re-apply with the same email
 
-## What's happening
+Yes, this is possible. Emma is currently a fully live, active driver record (application approved June 11, operator account active, 18 onboarding documents, 12 binder documents, 3 ICA contracts, 4 assigned devices, 3 inspection documents, 8 messages). Nothing about her is flagged as a test/demo record today, so the app has no built-in way to wipe her — the existing reset tool refuses any driver not marked as a demo driver.
 
-The dash isn't a strike-through — it's the "no date" placeholder, and 43 visible applications genuinely have no submitted date stored:
+Based on your answers, the redo is a **full teardown and fresh public application** using `emmafmueller@gmail.com`, with real emails going to that inbox and a brand-new login.
 
-- 39 approved, 3 in revisions, 1 denied
+## What has to happen
 
-Two causes, confirmed in the data and the code:
+**1. Release her equipment first**
+Her 4 assigned devices (ELD, dash cam, etc.) are returned to Onboard Systems inventory as unassigned, so the serials aren't orphaned and can be reissued.
 
-1. **Revision requests wipe the date.** When staff send an application back for revisions (and when a document retake is requested), the backend sets the submitted date back to empty. If the applicant resubmits, the date is written again — but any record that went through that path and never fully resubmitted lost its original date permanently.
-2. **Older records (Mar 27 – Jun 15) never had one written**, from before the submitted date was consistently captured.
+**2. Purge the record**
+A new staff tool ("Purge driver record", owner-only) removes, in order:
+- All onboarding data, documents, ICA contracts, pay setup, dispatch history, equipment receipts, binder/vault documents, inspection documents, messages, and notifications
+- The stored files behind those documents in secure storage, so nothing is left orphaned
+- Her operator record and onboarding status
+- Her **application record** — this is the key step: the app blocks re-applying with an email that already has a submitted application, so the old application must be gone before the email is free again
+- Her profile, roles, and login account
 
-They also all sort to the top of the list, which is why the Approved tab looks like every date vanished.
+Every purge is written to the audit log (who ran it, which driver, what was removed) and requires typing the driver's name to confirm.
 
-## The fix
+**3. She re-applies**
+Once purged, `emmafmueller@gmail.com` is treated as brand new. She fills out the public job application from scratch, receives the real confirmation email, appears in the Pending tab of the Applications page, and goes through review → approval → the invite email → setting a new password → Stage 1 onboarding, exactly like any new applicant.
 
-**1. Backfill the missing dates (one-time data update)**
+## What this looks like day to day
 
-For every non-draft application with no submitted date, fill it in using the best evidence we have, in this order:
-- the applicant's signature date on the application, if present
-- otherwise the date the application record was created
-
-Every one of the 43 rows has at least a created date, so no row is left with a dash.
-
-**2. Stop clearing the date going forward**
-
-Requesting revisions or a document retake will no longer erase the submitted date. The original submission date stays, and it gets updated when the applicant resubmits — so Pending, Revisions, Approved, and Denied tabs all show a date at all times.
-
-**3. Sorting**
-
-With every row populated, the newest-first sort works as expected and nothing bunches at the top.
+- She loses her current login immediately; the new one comes from the approval invite email after her new application is approved.
+- Nothing she previously uploaded carries over — CDL, med card, truck photos, ICA all have to be redone. That is the point of the exercise, but it's irreversible.
+- Historical references to her in staff audit logs stay (they're name-based), but she disappears from the Driver Hub, Vehicle Hub assignments, Dispatch Board, and compliance counts right away.
+- Her old ICA contracts are deleted rather than archived. If you'd rather keep a PDF copy for the record, download them before the purge.
 
 ## Technical detail
 
-- Data update on `applications`: `submitted_at = coalesce(signed_date::timestamptz, created_at)` where `submitted_at is null and is_draft = false`, plus the three `revisions_requested` rows still flagged as drafts.
-- `supabase/functions/request-application-revisions/index.ts` (line ~115) and `supabase/functions/request-document-retake/index.ts` (line ~157): remove `submitted_at: null` from the update payload.
-- `src/pages/management/ManagementPortal.tsx` `fetchApplications`: add `nullsFirst: false` to the `submitted_at` order as a safety net for any future gap.
+- New edge function `purge-driver-record` (owner role only, service role): unassigns `equipment_assignments`, then deletes operator-scoped rows across the same table set used by `reset-demo-driver` plus `driver_vault_documents`, `inspection_documents`, `driver_uploads`, `document_acknowledgments`, `application_*` child rows, `pei_requests`/`pei_responses`, `operators`, `onboarding_status`, `applications`, `profiles`, `user_roles`, then `auth.admin.deleteUser`.
+- Storage cleanup for the object paths recorded on each deleted document row.
+- Guard: refuses if the operator has any certified `rods_days` (duty-status logs can't be deleted outside the `purge-rods-day` path). Emma currently has 0, so she is clear.
+- Guard: refuses unless the caller confirms the driver's full name in the request body; writes an `audit_log` entry with a manifest of deleted row counts.
+- UI entry point: "Purge driver record (permanent)" in the driver's Driver Hub overflow menu, visible to the owner role only, behind a typed-name confirmation dialog.
+- `check_application_email_taken` needs no change — deleting the application row frees the email naturally.
 
-Note: backfilled dates are approximations from the record's creation/signature date, not recovered original timestamps.
+This tool is reusable for any future test driver, not one-off scripting.
