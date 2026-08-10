@@ -2193,7 +2193,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                       </td>
                       <td className={`px-3 py-3 text-right align-middle sticky right-0 z-10 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.05)] ${stickyCellBg}`}>
                         {isEditing ? (
-                          <div className="flex gap-1 justify-end items-center">
+                          <div className="flex gap-1 justify-end items-center flex-nowrap">
                             <Button
                               size="sm"
                               onClick={() => saveEdit(row)}
