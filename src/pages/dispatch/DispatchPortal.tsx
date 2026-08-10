@@ -2019,6 +2019,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 const isHistoryExpanded = expandedHistory.has(row.operator_id);
                 const history = historyMap[row.operator_id] ?? [];
                 const fullName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—';
+                const stickyCellBg = isEditing
+                  ? 'bg-gold/[0.04]'
+                  : bulkMode && selectedIds.has(row.operator_id)
+                  ? 'bg-primary/[0.06]'
+                  : flashedCards.has(row.operator_id)
+                  ? 'bg-primary/[0.04]'
+                  : cfg.rowClass || 'bg-white';
 
                 return (
                   <>
