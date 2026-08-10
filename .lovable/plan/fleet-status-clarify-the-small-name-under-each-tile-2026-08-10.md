@@ -18,7 +18,15 @@ Remove the "last changed by" / "Updated" attribution line entirely from all four
 - The status label.
 - For Truck Down with a value > 0, the existing red pulse indicator.
 
-The tooltip on the tile will still show the full "Last changed by <name> · <timestamp>" on hover, so the attribution is not lost — it just doesn't occupy a permanent line under the label.
+The tooltip on the tile will still show the full "Last changed by 
+
+&nbsp;
+
+ · 
+
+&nbsp;
+
+" on hover, so the attribution is not lost — it just doesn't occupy a permanent line under the label.
 
 ## Technical notes
 

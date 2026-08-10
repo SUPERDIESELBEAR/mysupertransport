@@ -159,8 +159,6 @@ export default function ManagementPortal() {
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [onHoldCount, setOnHoldCount] = useState(0);
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
-  const [dispatchLastChanged, setDispatchLastChanged] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
-  const [dispatchLastChangedAt, setDispatchLastChangedAt] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [complianceRefreshKey, setComplianceRefreshKey] = useState(0);
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [dispatchDefaultFilter, setDispatchDefaultFilter] = useState<'all' | 'dispatched' | 'not_dispatched' | 'home' | 'truck_down'>('all');
@@ -346,15 +344,11 @@ export default function ManagementPortal() {
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
-      .select('dispatch_status, updated_by, updated_at, operators!inner(excluded_from_dispatch, onboarding_status(fully_onboarded))')
+      .select('dispatch_status, operators!inner(excluded_from_dispatch, onboarding_status(fully_onboarded))')
       .order('updated_at', { ascending: false });
     if (!data) return;
 
     const breakdown = { not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 };
-    // Track the most-recently-updated row per status
-    const latestUpdatedBy: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
-    const latestUpdatedAt: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
-    const seenStatus = new Set<string>();
 
     for (const row of data) {
       // Skip operators excluded from the Dispatch Hub
@@ -365,39 +359,9 @@ export default function ManagementPortal() {
       if (!onboardingStatus?.fully_onboarded) continue;
 
       const s = row.dispatch_status as keyof typeof breakdown;
-      if (s in breakdown) {
-        breakdown[s]++;
-        if (!seenStatus.has(s)) {
-          latestUpdatedBy[s] = row.updated_by ?? null;
-          latestUpdatedAt[s] = row.updated_at ?? null;
-          seenStatus.add(s);
-        }
-      }
+      if (s in breakdown) breakdown[s]++;
     }
 
-    // Resolve profile names for each unique updated_by uuid
-    const uniqueIds = [...new Set(Object.values(latestUpdatedBy).filter(Boolean))] as string[];
-    const nameMap: Record<string, string> = {};
-    if (uniqueIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name')
-        .in('user_id', uniqueIds);
-      for (const p of profiles ?? []) {
-        const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
-        if (name) nameMap[p.user_id] = name;
-      }
-    }
-
-    const lastChanged: Record<string, string | null> = {};
-    for (const [status, uid] of Object.entries(latestUpdatedBy)) {
-      lastChanged[status] = uid ? (nameMap[uid] ?? null) : null;
-    }
-
-    // Counts come from fetchOverviewMetrics (driver-based, includes drivers with
-    // no dispatch row); this fetch only resolves "last changed by" attribution.
-    setDispatchLastChanged(lastChanged);
-    setDispatchLastChangedAt(latestUpdatedAt);
     setDispatchLiveFlash(true);
     setTimeout(() => setDispatchLiveFlash(false), 800);
   }, []);
@@ -1277,15 +1241,7 @@ export default function ManagementPortal() {
                   { label: 'Not Dispatched', key: 'not_dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
                   { label: 'Home', key: 'home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
                   { label: 'Truck Down', key: 'truck_down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
-                ].map((s) => {
-                  const changedAt = dispatchLastChangedAt[s.key];
-                  const changedByName = dispatchLastChanged[s.key];
-                  const tooltipLabel = changedAt
-                    ? new Date(changedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                    : null;
-                  const hasTooltipData = !!(changedByName || tooltipLabel);
-                  const triggerText = changedByName ?? (tooltipLabel ? 'Updated' : null);
-                  return (
+                ].map((s) => (
                     <button
                       key={s.label}
                       onClick={() => {
@@ -1300,27 +1256,8 @@ export default function ManagementPortal() {
                       {s.label === 'Truck Down' && s.value > 0 && (
                         <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
                       )}
-                      {hasTooltipData && triggerText && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[80px] text-center cursor-default underline decoration-dotted underline-offset-2">
-                              {triggerText}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">
-                            {changedByName && tooltipLabel
-                              ? `${changedByName} · ${tooltipLabel}`
-                              : changedByName
-                              ? changedByName
-                              : tooltipLabel
-                              ? `Last changed ${tooltipLabel}`
-                              : 'No details available'}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
                     </button>
-                  );
-                })}
+                  ))}
               </div>
               </TooltipProvider>
             </div>
