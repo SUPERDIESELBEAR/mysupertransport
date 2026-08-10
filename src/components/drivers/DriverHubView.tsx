@@ -566,9 +566,10 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               onComplianceFilterChange={setComplianceFilter}
               onComplianceCountsChange={setComplianceCounts}
               onUpdateCompliance={handleUpdateCompliance}
-              onDriversChange={drivers => { allDriversRef.current = drivers; }}
+              onDriversChange={drivers => { allDriversRef.current = drivers; setActiveCount(drivers.length); }}
               defaultStatusFilter={defaultDispatchFilter}
             />
+
           </TabsContent>
 
           <TabsContent value="archived" className="mt-4">
