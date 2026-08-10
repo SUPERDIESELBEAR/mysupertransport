@@ -145,10 +145,8 @@ function DeviceCell({ icon, label, value, shipping, onPreviewReceipt }: DeviceCe
   );
 }
 
-export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
-  const [editOpen, setEditOpen] = useState(false);
+export default function TruckInfoCard({ truckInfo, deviceInfo, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
   const [truckEditOpen, setTruckEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [truckSaving, setTruckSaving] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -259,6 +257,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                     </Button>
                   </div>
                   {[
+                    { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
                     { key: 'truck_year' as const, label: 'Year', placeholder: 'e.g. 2022' },
                     { key: 'truck_vin' as const, label: 'VIN', placeholder: '17-character VIN' },
                     { key: 'truck_plate' as const, label: 'License Plate', placeholder: 'Plate number' },
@@ -328,54 +327,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                       Save
                     </Button>
                     <Button variant="outline" size="sm" className="h-8" onClick={() => setTruckEditOpen(false)}>Cancel</Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-          {/* Device number edit popover */}
-          {onEdit && (
-            <Popover open={editOpen} onOpenChange={setEditOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit Unit #
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">Edit Unit Number</p>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditOpen(false)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  {[
-                    { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-xs">{label}</Label>
-                      <Input
-                        value={draft[key] ?? ''}
-                        onChange={e => setDraft(prev => ({ ...prev, [key]: e.target.value || null }))}
-                        placeholder={placeholder}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-muted-foreground">
-                    Device numbers are managed in Onboard Systems.
-                  </p>
-                  <div className="flex gap-2 pt-1">
-                    <Button onClick={handleSave} disabled={saving} size="sm" className="flex-1 h-8 gap-1.5">
-                      {saving ? (
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Save className="h-3.5 w-3.5" />
-                      )}
-                      Save
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => setEditOpen(false)}>Cancel</Button>
                   </div>
                 </div>
               </PopoverContent>
