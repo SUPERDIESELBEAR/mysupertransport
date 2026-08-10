@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface ComplianceAlert {
@@ -38,6 +39,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const { windowDays } = useComplianceWindow();
 
   const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
   const [expanded, setExpanded] = useState(true);
   const panelRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
@@ -78,6 +81,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // ── Data fetching ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     const today = new Date();
+    try {
     const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
@@ -178,6 +182,10 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setNoActionOnly(false);
     setSort('urgency');
     setNoActionBulkSentCount(null);
+    } finally {
+      hasLoadedRef.current = true;
+      setLoading(false);
+    }
   }, [windowDays]);
 
   useEffect(() => {
