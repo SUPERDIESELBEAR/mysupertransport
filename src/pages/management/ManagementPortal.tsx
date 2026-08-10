@@ -191,6 +191,15 @@ export default function ManagementPortal() {
   useEffect(() => {
     if (view !== 'drivers' && driverHubBinderTarget) setDriverHubBinderTarget(null);
   }, [view, driverHubBinderTarget]);
+  // Deep-link filters from the Overview compliance chips are consumed once:
+  // as soon as the user leaves the Driver Hub they reset, so returning later
+  // (via sidebar, back nav, etc.) shows all drivers again.
+  useEffect(() => {
+    if (view !== 'drivers') {
+      setDriverComplianceFilter(prev => (prev === 'all' ? prev : 'all'));
+      setDriverDispatchFilter(prev => (prev === 'all' ? prev : 'all'));
+    }
+  }, [view]);
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
@@ -842,6 +851,9 @@ export default function ManagementPortal() {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
       if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
+      // Driver Hub opened from the sidebar always shows every driver — the
+      // compliance/dispatch filters are only for Overview chip deep links.
+      if (path === 'drivers') { setDriverComplianceFilter('all'); setDriverDispatchFilter('all'); }
       // Defensive: synchronously strip any stale ?view= from the URL so a
       // refresh during the React render flush can never land on the prior
       // section (e.g., Broadcast Email). The writer effect will reconcile
