@@ -357,7 +357,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onTruckEdit, ship
         )}
 
         {/* Devices & Cards Section */}
-        {(hasDeviceInfo || onEdit) && (
+        {(hasDeviceInfo || onTruckEdit) && (
           <div className="px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Devices & Cards</p>
             {hasDeviceInfo ? (
@@ -410,8 +410,8 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onTruckEdit, ship
                   />
                 )}
               </div>
-            ) : onEdit ? (
-              <p className="text-xs text-muted-foreground italic">No device numbers assigned yet. Click the edit icon to add them.</p>
+            ) : onTruckEdit ? (
+              <p className="text-xs text-muted-foreground italic">No device numbers assigned yet. Assign devices in Onboard Systems.</p>
             ) : null}
           </div>
         )}
