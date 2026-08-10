@@ -178,6 +178,9 @@ export default function ApplicationForm() {
             signed_date: data.signed_date ?? defaultFormData.signed_date,
           };
           setFormData(restored);
+          // Restoring a draft jumps straight to a saved step — don't treat
+          // that as a Continue/Back navigation.
+          skipStepScrollRef.current = true;
           setStep(restoredStep);
           if (restoredStep > 1) setResumedStep(restoredStep);
           const savedAtIso = (data as any).updated_at ?? (data as any).created_at;
