@@ -1241,15 +1241,7 @@ export default function ManagementPortal() {
                   { label: 'Not Dispatched', key: 'not_dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
                   { label: 'Home', key: 'home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
                   { label: 'Truck Down', key: 'truck_down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
-                ].map((s) => {
-                  const changedAt = dispatchLastChangedAt[s.key];
-                  const changedByName = dispatchLastChanged[s.key];
-                  const tooltipLabel = changedAt
-                    ? new Date(changedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-                    : null;
-                  const hasTooltipData = !!(changedByName || tooltipLabel);
-                  const triggerText = changedByName ?? (tooltipLabel ? 'Updated' : null);
-                  return (
+                ].map((s) => (
                     <button
                       key={s.label}
                       onClick={() => {
@@ -1264,27 +1256,8 @@ export default function ManagementPortal() {
                       {s.label === 'Truck Down' && s.value > 0 && (
                         <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
                       )}
-                      {hasTooltipData && triggerText && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[80px] text-center cursor-default underline decoration-dotted underline-offset-2">
-                              {triggerText}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">
-                            {changedByName && tooltipLabel
-                              ? `${changedByName} · ${tooltipLabel}`
-                              : changedByName
-                              ? changedByName
-                              : tooltipLabel
-                              ? `Last changed ${tooltipLabel}`
-                              : 'No details available'}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
                     </button>
-                  );
-                })}
+                  ))}
               </div>
               </TooltipProvider>
             </div>
