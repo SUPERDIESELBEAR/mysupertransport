@@ -33,15 +33,8 @@ export interface DeviceInfo {
   fuel_card_number?: string | null;
 }
 
-export interface TruckInfoCardEditPayload {
-  unit_number: string | null;
-  eld_serial_number: string | null;
-  dash_cam_number: string | null;
-  bestpass_number: string | null;
-  fuel_card_number: string | null;
-}
-
 export interface TruckFieldsEditPayload {
+  unit_number: string | null;
   truck_year: string | null;
   truck_make: string | null;
   truck_vin: string | null;
@@ -62,9 +55,7 @@ export interface EquipmentShippingInfo {
 interface TruckInfoCardProps {
   truckInfo?: TruckInfo | null;
   deviceInfo?: DeviceInfo | null;
-  /** If provided, an Edit button appears for staff/management to edit device numbers */
-  onEdit?: (payload: TruckInfoCardEditPayload) => Promise<void>;
-  /** If provided, truck fields (year/make/model/VIN/plate) become editable */
+  /** If provided, truck fields (unit #, year/make/model/VIN/plate) become editable */
   onTruckEdit?: (payload: TruckFieldsEditPayload) => Promise<void>;
   /** Optional shipping info per device — when set, shows tracking badges next to serial numbers */
   shippingInfo?: EquipmentShippingInfo[] | null;
@@ -154,10 +145,8 @@ function DeviceCell({ icon, label, value, shipping, onPreviewReceipt }: DeviceCe
   );
 }
 
-export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
-  const [editOpen, setEditOpen] = useState(false);
+export default function TruckInfoCard({ truckInfo, deviceInfo, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
   const [truckEditOpen, setTruckEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [truckSaving, setTruckSaving] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -169,15 +158,8 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     if (!shippingByDevice[s.device_type]) shippingByDevice[s.device_type] = s;
   }
 
-  const [draft, setDraft] = useState<TruckInfoCardEditPayload>({
-    unit_number: deviceInfo?.unit_number ?? null,
-    eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-    dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-    bestpass_number: deviceInfo?.bestpass_number ?? null,
-    fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-  });
-
   const [truckDraft, setTruckDraft] = useState<TruckFieldsEditPayload>({
+    unit_number: deviceInfo?.unit_number ?? null,
     truck_year: truckInfo?.truck_year ?? null,
     truck_make: truckInfo?.truck_make ?? null,
     truck_vin: truckInfo?.truck_vin ?? null,
@@ -186,21 +168,11 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     trailer_number: truckInfo?.trailer_number ?? null,
   });
 
-  // Re-sync drafts when props update
-  useEffect(() => {
-    if (editOpen) return;
-    setDraft({
-      unit_number: deviceInfo?.unit_number ?? null,
-      eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-      dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-      bestpass_number: deviceInfo?.bestpass_number ?? null,
-      fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-    });
-  }, [deviceInfo]);
-
+  // Re-sync draft when props update
   useEffect(() => {
     if (truckEditOpen) return;
     setTruckDraft({
+      unit_number: deviceInfo?.unit_number ?? null,
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
@@ -210,7 +182,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     });
     // Auto-expand trailer section if trailer_number has a value
     if (truckInfo?.trailer_number) setTrailerOpen(true);
-  }, [truckInfo]);
+  }, [truckInfo, deviceInfo]);
 
   // Build display name for the truck
   const truckYearMake = [truckInfo?.truck_year, truckInfo?.truck_make]
@@ -223,22 +195,12 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   const hasDeviceInfo = !!(deviceInfo?.unit_number || deviceInfo?.eld_serial_number ||
     deviceInfo?.dash_cam_number || deviceInfo?.bestpass_number || deviceInfo?.fuel_card_number);
 
-  // Don't render if nothing to show (and no onEdit/onTruckEdit to allow adding)
-  if (!hasTruckInfo && !hasDeviceInfo && !onEdit && !onTruckEdit) return null;
-
-  const handleOpenEdit = () => {
-    setDraft({
-      unit_number: deviceInfo?.unit_number ?? null,
-      eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-      dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-      bestpass_number: deviceInfo?.bestpass_number ?? null,
-      fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-    });
-    setEditOpen(true);
-  };
+  // Don't render if nothing to show (and no onTruckEdit to allow adding)
+  if (!hasTruckInfo && !hasDeviceInfo && !onTruckEdit) return null;
 
   const handleOpenTruckEdit = () => {
     setTruckDraft({
+      unit_number: deviceInfo?.unit_number ?? null,
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
@@ -248,17 +210,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     });
     if (truckInfo?.trailer_number) setTrailerOpen(true);
     setTruckEditOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!onEdit) return;
-    setSaving(true);
-    try {
-      await onEdit(draft);
-      setEditOpen(false);
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleTruckSave = async () => {
@@ -306,6 +257,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                     </Button>
                   </div>
                   {[
+                    { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
                     { key: 'truck_year' as const, label: 'Year', placeholder: 'e.g. 2022' },
                     { key: 'truck_vin' as const, label: 'VIN', placeholder: '17-character VIN' },
                     { key: 'truck_plate' as const, label: 'License Plate', placeholder: 'Plate number' },
@@ -380,54 +332,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
               </PopoverContent>
             </Popover>
           )}
-          {/* Device number edit popover */}
-          {onEdit && (
-            <Popover open={editOpen} onOpenChange={setEditOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit Unit #
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">Edit Unit Number</p>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditOpen(false)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  {[
-                    { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-xs">{label}</Label>
-                      <Input
-                        value={draft[key] ?? ''}
-                        onChange={e => setDraft(prev => ({ ...prev, [key]: e.target.value || null }))}
-                        placeholder={placeholder}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-muted-foreground">
-                    Device numbers are managed in Onboard Systems.
-                  </p>
-                  <div className="flex gap-2 pt-1">
-                    <Button onClick={handleSave} disabled={saving} size="sm" className="flex-1 h-8 gap-1.5">
-                      {saving ? (
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Save className="h-3.5 w-3.5" />
-                      )}
-                      Save
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => setEditOpen(false)}>Cancel</Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
         </div>
       </div>
 
@@ -453,7 +357,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
         )}
 
         {/* Devices & Cards Section */}
-        {(hasDeviceInfo || onEdit) && (
+        {(hasDeviceInfo || onTruckEdit) && (
           <div className="px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Devices & Cards</p>
             {hasDeviceInfo ? (
@@ -506,8 +410,8 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                   />
                 )}
               </div>
-            ) : onEdit ? (
-              <p className="text-xs text-muted-foreground italic">No device numbers assigned yet. Click the edit icon to add them.</p>
+            ) : onTruckEdit ? (
+              <p className="text-xs text-muted-foreground italic">No device numbers assigned yet. Assign devices in Onboard Systems.</p>
             ) : null}
           </div>
         )}

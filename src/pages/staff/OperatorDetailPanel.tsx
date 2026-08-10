@@ -39,7 +39,7 @@ import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
-import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
+import TruckInfoCard, { TruckInfo, TruckFieldsEditPayload, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
 
@@ -2279,41 +2279,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
-  // Handle editing the unit number from TruckInfoCard.
+  // Handle editing unit # + truck info fields from TruckInfoCard.
   // Device serials are read-only here — Onboard Systems owns them.
-  const handleTruckDeviceEdit = async (payload: TruckInfoCardEditPayload) => {
-    if (!statusId) return;
-    const { error } = await supabase
-      .from('onboarding_status')
-      .update({
-        unit_number: payload.unit_number,
-      })
-      .eq('id', statusId);
-    if (error) throw error;
-
-    setStatus(prev => ({
-      ...prev,
-      unit_number: payload.unit_number,
-    }));
-    // Keep milestone snapshot in sync so the main Save button doesn't re-fire
-    // the "Equipment Setup Complete" milestone after a popover-only device edit.
-    savedMilestones.current = {
-      ...savedMilestones.current,
-      eld_serial_number: status.eld_serial_number,
-      dash_cam_number: status.dash_cam_number,
-      bestpass_number: status.bestpass_number,
-      fuel_card_number: status.fuel_card_number,
-    };
-    if (savedSnapshot.current) {
-      savedSnapshot.current = {
-        ...savedSnapshot.current,
-        status: { ...savedSnapshot.current.status, unit_number: payload.unit_number },
-      };
-    }
-    toast({ title: 'Unit number saved' });
-  };
-
-  // Handle editing truck info fields from TruckInfoCard
   const handleTruckInfoEdit = async (payload: TruckFieldsEditPayload) => {
     if (!statusId) return;
     const truckFields = {
@@ -2334,16 +2301,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     );
     if (!result.ok) throw new Error(result.error || 'Failed to save truck info');
 
+    // Unit number lives on the onboarding record, not the truck specs payload
+    if ((payload.unit_number ?? null) !== (status.unit_number ?? null)) {
+      const { error: unitErr } = await supabase
+        .from('onboarding_status')
+        .update({ unit_number: payload.unit_number })
+        .eq('id', statusId);
+      if (unitErr) throw unitErr;
+    }
+
     // Update local truck info state + main status state
-    setStatus(prev => ({ ...prev, ...truckFields }));
+    setStatus(prev => ({ ...prev, ...truckFields, unit_number: payload.unit_number }));
     setIcaTruckInfo(prev => ({
       ...prev,
-      ...payload,
+      ...truckFields,
     }));
     if (savedSnapshot.current) {
       savedSnapshot.current = {
         ...savedSnapshot.current,
-        status: { ...savedSnapshot.current.status, ...truckFields },
+        status: { ...savedSnapshot.current.status, ...truckFields, unit_number: payload.unit_number },
       };
     }
     toast({ title: 'Truck info saved' });
@@ -3833,7 +3809,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             fuel_card_number: status.fuel_card_number,
           }}
           shippingInfo={equipmentShipping}
-          onEdit={handleTruckDeviceEdit}
           onTruckEdit={handleTruckInfoEdit}
         />
       </div>
