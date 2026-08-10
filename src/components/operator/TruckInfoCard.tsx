@@ -386,23 +386,19 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
                   <Pencil className="h-3.5 w-3.5" />
-                  Edit Devices
+                  Edit Unit #
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80" align="end">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">Edit Device Numbers</p>
+                    <p className="text-sm font-semibold text-foreground">Edit Unit Number</p>
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditOpen(false)}>
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                   {[
                     { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
-                    { key: 'eld_serial_number' as const, label: 'ELD Serial #', placeholder: 'Serial number' },
-                    { key: 'dash_cam_number' as const, label: 'Dash Camera #', placeholder: 'Device number' },
-                    { key: 'bestpass_number' as const, label: 'BestPass #', placeholder: 'Account number' },
-                    { key: 'fuel_card_number' as const, label: 'Fuel Card #', placeholder: 'Card number' },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key} className="space-y-1">
                       <Label className="text-xs">{label}</Label>
@@ -414,6 +410,9 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                       />
                     </div>
                   ))}
+                  <p className="text-[11px] text-muted-foreground">
+                    Device numbers are managed in Onboard Systems.
+                  </p>
                   <div className="flex gap-2 pt-1">
                     <Button onClick={handleSave} disabled={saving} size="sm" className="flex-1 h-8 gap-1.5">
                       {saving ? (
