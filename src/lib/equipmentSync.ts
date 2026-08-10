@@ -3,6 +3,68 @@ import { supabase } from '@/integrations/supabase/client';
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 
 /**
+ * Canonical serial format used everywhere: uppercase, no dashes / spaces / dots.
+ * Onboard Systems is the single source of truth for device numbers, so every
+ * write and every comparison must run through this.
+ */
+export function normalizeSerial(value: string | null | undefined): string | null {
+  const cleaned = (value ?? '').trim().replace(/[-.\s]/g, '').toUpperCase();
+  return cleaned || null;
+}
+
+/** Dashes are not allowed in serials — surfaced inline on entry forms. */
+export const SERIAL_DASH_MESSAGE = 'Serial numbers cannot contain dashes';
+
+export function serialHasDash(value: string): boolean {
+  return value.includes('-');
+}
+
+/**
+ * Throws DuplicateAssignmentError when the item cannot be assigned to
+ * `operatorId` — already open-assigned to someone else, lost, or deactivated.
+ * Shared by the assign modal and the onboarding sync path so both enforce the
+ * same rule with the same wording.
+ */
+export async function assertAssignable(opts: {
+  equipmentId: string;
+  deviceType: DeviceType;
+  serial: string;
+  status: string | null | undefined;
+  operatorId: string;
+}): Promise<'already_assigned' | 'ok'> {
+  const { equipmentId, deviceType, serial, status, operatorId } = opts;
+
+  const { data: open } = await supabase
+    .from('equipment_assignments')
+    .select('operator_id')
+    .eq('equipment_id', equipmentId)
+    .is('returned_at', null)
+    .limit(1);
+
+  if (open && open.length > 0) {
+    const holderId = (open[0] as any).operator_id as string;
+    if (holderId === operatorId) return 'already_assigned';
+    throw new DuplicateAssignmentError({
+      deviceType,
+      serial,
+      currentHolderName: await resolveOperatorName(holderId),
+      reason: 'assigned_elsewhere',
+    });
+  }
+
+  if (status === 'lost' || status === 'deactivated') {
+    throw new DuplicateAssignmentError({
+      deviceType,
+      serial,
+      currentHolderName: null,
+      reason: status,
+    });
+  }
+
+  return 'ok';
+}
+
+/**
  * Thrown when the requested serial+device is already actively assigned to
  * another driver, or the underlying inventory item is not in an assignable
  * state (lost / deactivated). Callers should catch this and surface a
@@ -58,7 +120,7 @@ export async function syncDeviceToInventory(
   serialNumber: string | null | undefined,
   assignedBy: string | null,
 ): Promise<void> {
-  const serial = serialNumber?.trim().replace(/[-.\s]/g, '').toUpperCase() || null;
+  const serial = normalizeSerial(serialNumber);
 
   if (!serial) {
     // Return any active assignment for this operator + device type
@@ -97,44 +159,14 @@ export async function syncDeviceToInventory(
   if (existingDevice) {
     equipmentId = existingDevice.id;
 
-    // Check if already assigned to this operator
-    const { data: existingAssignment } = await supabase
-      .from('equipment_assignments')
-      .select('id')
-      .eq('equipment_id', equipmentId)
-      .eq('operator_id', operatorId)
-      .is('returned_at', null)
-      .maybeSingle();
-
-    if (existingAssignment) return; // Already assigned — no-op
-
-    // Block if assigned to a different active driver
-    const { data: activeElsewhere } = await supabase
-      .from('equipment_assignments')
-      .select('operator_id')
-      .eq('equipment_id', equipmentId)
-      .is('returned_at', null)
-      .limit(1);
-    if (activeElsewhere && activeElsewhere.length > 0) {
-      const holderId = (activeElsewhere[0] as any).operator_id as string;
-      const holderName = await resolveOperatorName(holderId);
-      throw new DuplicateAssignmentError({
-        deviceType,
-        serial,
-        currentHolderName: holderName,
-        reason: 'assigned_elsewhere',
-      });
-    }
-
-    // Block lost / deactivated items
-    if (existingDevice.status === 'lost' || existingDevice.status === 'deactivated') {
-      throw new DuplicateAssignmentError({
-        deviceType,
-        serial,
-        currentHolderName: null,
-        reason: existingDevice.status as 'lost' | 'deactivated',
-      });
-    }
+    const outcome = await assertAssignable({
+      equipmentId,
+      deviceType,
+      serial,
+      status: existingDevice.status,
+      operatorId,
+    });
+    if (outcome === 'already_assigned') return; // no-op
 
     // Set device to assigned
     await supabase

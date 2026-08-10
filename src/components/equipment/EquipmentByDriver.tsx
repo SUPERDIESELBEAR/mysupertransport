@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Cpu, Camera, CreditCard, Tag, Search, Loader2, AlertTriangle, Users } from 'lucide-react';
+import { normalizeSerial } from '@/lib/equipmentSync';
 
 type Slot = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 
@@ -46,7 +47,7 @@ function makeDevice(inventory: string | null, onboarding: string | null, status:
 }
 
 function mismatch(d: DeviceValue) {
-  return !!(d.inventory && d.onboarding && d.inventory.trim().toLowerCase() !== d.onboarding.trim().toLowerCase());
+  return !!(d.inventory && d.onboarding && normalizeSerial(d.inventory) !== normalizeSerial(d.onboarding));
 }
 
 function sourceNote(d: DeviceValue): string | null {

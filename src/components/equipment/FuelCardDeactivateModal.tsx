@@ -22,14 +22,16 @@ export default function FuelCardDeactivateModal({ open, item, onClose, onSaved }
   const { guardDemo } = useDemoMode();
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    if (open) setNotes('');
+    if (open) { setNotes(''); setConfirming(false); }
   }, [open]);
 
   const handleDeactivate = async () => {
     if (guardDemo()) return;
     if (!item) return;
+    if (!confirming) { setConfirming(true); return; }
     setSaving(true);
     try {
       // 1. If assigned, close the open assignment row and clear the operator's fuel_card_number
@@ -119,12 +121,20 @@ export default function FuelCardDeactivateModal({ open, item, onClose, onSaved }
               className="min-h-[60px] resize-none text-sm"
             />
           </div>
+          {confirming && item && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm text-foreground">
+              This will archive card <span className="font-mono font-semibold">{item.serial_number}</span>
+              {item.current_operator_name ? <> and clear it from <span className="font-semibold">{item.current_operator_name}</span>'s record</> : ''}. Continue?
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={confirming ? () => setConfirming(false) : onClose} disabled={saving}>
+            {confirming ? 'Go Back' : 'Cancel'}
+          </Button>
           <Button onClick={handleDeactivate} disabled={saving} variant="destructive" className="gap-1.5">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DemoLockIcon />}
-            Deactivate Card
+            {confirming ? 'Yes, Deactivate' : 'Deactivate Card'}
           </Button>
         </div>
       </DialogContent>

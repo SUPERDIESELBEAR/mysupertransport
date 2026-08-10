@@ -10,7 +10,6 @@ import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
 import { UnsavedStatusPill } from '@/components/shared/UnsavedStatusPill';
 import { useAutoSaveStatusField } from '@/hooks/useAutoSaveStatusField';
 import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
-import { syncAllDeviceFields, DuplicateAssignmentError } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { reminderErrorToast } from '@/lib/reminderError';
@@ -190,6 +189,25 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
 };
 
 // ── Section subtitle inside a stage card ────────────────────────────────────
+/**
+ * Device numbers are owned by Onboard Systems — shown read-only here.
+ */
+function DeviceNumberReadOnly({ value }: { value: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-2 h-9 px-3 rounded-md border border-border bg-muted/40">
+      <span className={`text-sm font-mono ${value ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+        {value || 'Not assigned'}
+      </span>
+      <a
+        href="/dashboard?view=equipment"
+        className="text-[11px] font-semibold text-gold-muted hover:underline whitespace-nowrap"
+      >
+        Manage in Onboard Systems
+      </a>
+    </div>
+  );
+}
+
 function SectionSubtitle({
   children,
   accent = 'default',
@@ -1780,36 +1798,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         setStatus(prev => ({ ...prev, fully_onboarded: true }));
       }
 
-      // Two-way sync: if any device serial changed via the main save, mirror to Equipment Inventory
-      if (!stErr && operatorId) {
-        const oldDevices = {
-          eld_serial_number: prev.eld_serial_number,
-          dash_cam_number: prev.dash_cam_number,
-          bestpass_number: prev.bestpass_number,
-          fuel_card_number: prev.fuel_card_number,
-        };
-        const newDevices = {
-          eld_serial_number: status.eld_serial_number,
-          dash_cam_number: status.dash_cam_number,
-          bestpass_number: status.bestpass_number,
-          fuel_card_number: status.fuel_card_number,
-        };
-        const changed = Object.keys(oldDevices).some(
-          k => (oldDevices as any)[k] !== (newDevices as any)[k],
-        );
-        if (changed) {
-          try {
-            await syncAllDeviceFields(operatorId, oldDevices, newDevices, session?.user?.id ?? null);
-          } catch (syncErr) {
-            console.error('[OperatorDetailPanel] Equipment Inventory sync failed:', syncErr);
-            if (syncErr instanceof DuplicateAssignmentError) {
-              toast({ title: 'Duplicate equipment blocked', description: syncErr.message, variant: 'destructive' });
-              // Revert the offending field in local state so the UI matches DB reality.
-              setStatus(prev => ({ ...prev, ...oldDevices }));
-            }
-          }
-        }
-      }
+      // Device serials are owned by Onboard Systems — nothing to mirror from here.
     }
 
     if (error || statusError) {
@@ -2290,70 +2279,38 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
-  // Handle editing device numbers from TruckInfoCard
+  // Handle editing the unit number from TruckInfoCard.
+  // Device serials are read-only here — Onboard Systems owns them.
   const handleTruckDeviceEdit = async (payload: TruckInfoCardEditPayload) => {
     if (!statusId) return;
     const { error } = await supabase
       .from('onboarding_status')
       .update({
         unit_number: payload.unit_number,
-        eld_serial_number: payload.eld_serial_number,
-        dash_cam_number: payload.dash_cam_number,
-        bestpass_number: payload.bestpass_number,
-        fuel_card_number: payload.fuel_card_number,
       })
       .eq('id', statusId);
     if (error) throw error;
 
-    // Two-way sync: update Equipment Inventory
-    if (operatorId) {
-      const oldValues = {
-        eld_serial_number: status.eld_serial_number,
-        dash_cam_number: status.dash_cam_number,
-        bestpass_number: status.bestpass_number,
-        fuel_card_number: status.fuel_card_number,
-      };
-      const newValues = {
-        eld_serial_number: payload.eld_serial_number,
-        dash_cam_number: payload.dash_cam_number,
-        bestpass_number: payload.bestpass_number,
-        fuel_card_number: payload.fuel_card_number,
-      };
-      try {
-        await syncAllDeviceFields(operatorId, oldValues, newValues, session?.user?.id ?? null);
-      } catch (syncErr) {
-        if (syncErr instanceof DuplicateAssignmentError) {
-          toast({ title: 'Duplicate equipment blocked', description: syncErr.message, variant: 'destructive' });
-          throw syncErr;
-        }
-        throw syncErr;
-      }
-    }
-
     setStatus(prev => ({
       ...prev,
       unit_number: payload.unit_number,
-      eld_serial_number: payload.eld_serial_number,
-      dash_cam_number: payload.dash_cam_number,
-      bestpass_number: payload.bestpass_number,
-      fuel_card_number: payload.fuel_card_number,
     }));
     // Keep milestone snapshot in sync so the main Save button doesn't re-fire
     // the "Equipment Setup Complete" milestone after a popover-only device edit.
     savedMilestones.current = {
       ...savedMilestones.current,
-      eld_serial_number: payload.eld_serial_number,
-      dash_cam_number: payload.dash_cam_number,
-      bestpass_number: payload.bestpass_number,
-      fuel_card_number: payload.fuel_card_number,
+      eld_serial_number: status.eld_serial_number,
+      dash_cam_number: status.dash_cam_number,
+      bestpass_number: status.bestpass_number,
+      fuel_card_number: status.fuel_card_number,
     };
     if (savedSnapshot.current) {
       savedSnapshot.current = {
         ...savedSnapshot.current,
-        status: { ...savedSnapshot.current.status, ...payload },
+        status: { ...savedSnapshot.current.status, unit_number: payload.unit_number },
       };
     }
-    toast({ title: 'Device numbers saved' });
+    toast({ title: 'Unit number saved' });
   };
 
   // Handle editing truck info fields from TruckInfoCard
@@ -5766,14 +5723,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SectionSubtitle>Fuel Card</SectionSubtitle>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Number</Label>
-                      <Input
-                        value={status.fuel_card_number ?? ''}
-                        onChange={e => updateStatus('fuel_card_number' as any, e.target.value || null)}
-                        onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
-                        placeholder="e.g. 301"
-                        maxLength={3}
-                        className="h-9 text-sm"
-                      />
+                      <DeviceNumberReadOnly value={status.fuel_card_number as string | null} />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Issued</Label>
@@ -5795,39 +5745,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Device Numbers */}
                   <div className="space-y-3">
                     <SectionSubtitle>Assigned Device Numbers</SectionSubtitle>
+                    <p className="text-[11px] text-muted-foreground -mt-1">
+                      Device numbers are managed in Onboard Systems. Assign, return, or replace a device there and it updates here automatically.
+                    </p>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Serial Number</Label>
-                        <Input
-                          value={status.eld_serial_number ?? ''}
-                          onChange={e => updateStatus('eld_serial_number' as any, e.target.value || null)}
-                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
-                          placeholder="e.g. ELD-12345678"
-                          maxLength={15}
-                          className="h-9 text-sm font-mono"
-                        />
+                        <DeviceNumberReadOnly value={status.eld_serial_number as string | null} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dash Camera Number</Label>
-                        <Input
-                          value={status.dash_cam_number ?? ''}
-                          onChange={e => updateStatus('dash_cam_number' as any, e.target.value || null)}
-                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
-                          placeholder="e.g. CAM-98765432"
-                          maxLength={15}
-                          className="h-9 text-sm font-mono"
-                        />
+                        <DeviceNumberReadOnly value={status.dash_cam_number as string | null} />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">BestPass Number</Label>
-                        <Input
-                          value={status.bestpass_number ?? ''}
-                          onChange={e => updateStatus('bestpass_number' as any, e.target.value || null)}
-                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
-                          placeholder="e.g. BP-00112233"
-                          maxLength={15}
-                          className="h-9 text-sm font-mono"
-                        />
+                        <DeviceNumberReadOnly value={status.bestpass_number as string | null} />
                       </div>
                     </div>
                   </div>
