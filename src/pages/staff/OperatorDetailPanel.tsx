@@ -737,17 +737,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (!el) return;
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
-    // Offset = sticky driver bar height + this stage's sticky title bar height
-    // + a small gap, so the first field of the stage clears both pinned bars.
-    const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
-    // The stage's own title bar pins under the driver bar, so clear both plus a
-    // small gap — otherwise the stage's first field lands under its own title.
+    // The element we actually need visible is the stage BODY (first field),
+    // not the card wrapper — the card's own sticky title bar sits between them
+    // and pins under the sticky driver bar, covering whatever lands beneath it.
     const stageTitleBar = el.firstElementChild as HTMLElement | null;
-    const offset =
-      (driverBar?.getBoundingClientRect().height ?? 52) +
-      (stageTitleBar?.getBoundingClientRect().height ?? 0) +
-      12;
-
+    const stageBody = (el.children[1] as HTMLElement | undefined) ?? null;
+    const target: HTMLElement = stageBody ?? el;
+    const measureOffset = () => {
+      const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
+      const driverH = driverBar?.getBoundingClientRect().height ?? 52;
+      const titleH = stageBody
+        ? (stageTitleBar?.getBoundingClientRect().height ?? 0)
+        : 0; // no body → align the card itself under the driver bar
+      return driverH + titleH + 12;
+    };
     let node: HTMLElement | null = el.parentElement;
     let scrollParent: HTMLElement | null = null;
     while (node && node !== document.body) {
@@ -762,30 +765,51 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       node = node.parentElement;
     }
 
-    if (scrollParent) {
-      const top =
-        el.getBoundingClientRect().top -
-        scrollParent.getBoundingClientRect().top +
-        scrollParent.scrollTop -
-        offset;
-      const target = Math.max(0, top);
-      scrollParent.scrollTo({ top: target, behavior });
-      // Re-correct once the smooth scroll settles, in case expanded content
-      // shifted layout mid-animation.
-      window.setTimeout(() => {
-        const settled =
-          el.getBoundingClientRect().top -
-          scrollParent!.getBoundingClientRect().top +
-          scrollParent!.scrollTop -
-          offset;
-        if (Math.abs(settled - scrollParent!.scrollTop) > 4) {
-          scrollParent!.scrollTo({ top: Math.max(0, settled), behavior: 'auto' });
-        }
-      }, 400);
-    } else {
-      const top = el.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top: Math.max(0, top), behavior });
-    }
+    const desiredScrollTop = () => {
+      const offset = measureOffset();
+      if (scrollParent) {
+        return Math.max(
+          0,
+          target.getBoundingClientRect().top -
+            scrollParent.getBoundingClientRect().top +
+            scrollParent.scrollTop -
+            offset,
+        );
+      }
+      return Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset);
+    };
+    const currentScrollTop = () => (scrollParent ? scrollParent.scrollTop : window.scrollY);
+    const applyScroll = (top: number, b: ScrollBehavior) => {
+      if (scrollParent) scrollParent.scrollTo({ top, behavior: b });
+      else window.scrollTo({ top, behavior: b });
+    };
+
+    applyScroll(desiredScrollTop(), behavior);
+
+    // Settle loop: late layout (async status chips, images, banners) can shift
+    // the stage after the smooth scroll starts. Keep re-measuring for a short
+    // window and snap-correct until the first field clears both pinned bars.
+    const start = performance.now();
+    let aborted = false;
+    const abort = () => { aborted = true; cleanup(); };
+    const cleanup = () => {
+      window.removeEventListener('wheel', abort);
+      window.removeEventListener('touchstart', abort);
+      window.removeEventListener('keydown', abort);
+    };
+    window.addEventListener('wheel', abort, { passive: true });
+    window.addEventListener('touchstart', abort, { passive: true });
+    window.addEventListener('keydown', abort);
+    const settle = () => {
+      if (aborted) return;
+      const wanted = desiredScrollTop();
+      if (Math.abs(wanted - currentScrollTop()) > 2) {
+        applyScroll(wanted, 'auto');
+      }
+      if (performance.now() - start < 900) requestAnimationFrame(settle);
+      else cleanup();
+    };
+    window.setTimeout(() => requestAnimationFrame(settle), prefersReduced ? 0 : 350);
   };
 
   // Track the last-saved values of milestone fields to detect transitions
