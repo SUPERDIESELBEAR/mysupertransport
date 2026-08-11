@@ -364,7 +364,8 @@ export default function EquipmentInventory({
     bestpass:  { total: 0, available: 0, assigned: 0 },
     fuel_card: { total: 0, available: 0, assigned: 0 },
   };
-  for (const item of items) {
+  for (const item of liveItems) {
+    if (item.status === 'deactivated') continue;
     perType[item.device_type].total++;
     if (item.status === 'available') perType[item.device_type].available++;
     if (item.status === 'assigned') perType[item.device_type].assigned++;
