@@ -271,15 +271,23 @@ export default function ManagementPortal() {
 
   const prevSearchParamsRef = useRef(searchParams);
   const skipNextUrlSyncRef = useRef(false);
+  // Tracks the last search string this portal intentionally wrote. Prevents
+  // the reader effect from treating our own writes as external navigation and
+  // bouncing the view back (the root cause of the Firefox pipeline click bug).
+  const lastWrittenSearchRef = useRef<string>(window.location.search.replace(/^\?/, ''));
 
   // When external navigation changes the URL view param (e.g., Staff Help
   // typeahead), sync the active view so the portal reflects the new URL. Also
   // set a flag so the state-to-URL writer below does not clobber the
   // externally-driven URL on the same render cycle.
   useEffect(() => {
+    const currentSearch = window.location.search.replace(/^\?/, '');
     const currentUrlView = (searchParams.get('view') ?? searchParams.get('tab')) as ManagementView | null;
     const prevUrlView = prevSearchParamsRef.current.get('view') as ManagementView | null;
-    if (currentUrlView !== prevUrlView) {
+    // Ignore our own writes: if the URL matches what we last authored, the
+    // reader has nothing to say about it.
+    const isOwnWrite = currentSearch === lastWrittenSearchRef.current;
+    if (!isOwnWrite && currentUrlView !== prevUrlView) {
       if (currentUrlView && ALLOWED_VIEWS.includes(currentUrlView) && currentUrlView !== view) {
         setView(currentUrlView);
       }
