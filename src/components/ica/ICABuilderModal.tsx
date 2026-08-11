@@ -461,11 +461,20 @@ export default function ICABuilderModal({
       // Update onboarding status to sent_for_signature
       const { data: os } = await supabase
         .from('onboarding_status')
-        .select('id')
+        .select('id, ica_sent_date')
         .eq('operator_id', operatorId)
         .maybeSingle();
       if (os?.id) {
-        const { error: sendStatusErr } = await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
+        // Stamp the sent date automatically so it's on the record permanently;
+        // never overwrite a date staff entered themselves.
+        const todayCentral = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
+        const { error: sendStatusErr } = await supabase
+          .from('onboarding_status')
+          .update({
+            ica_status: 'sent_for_signature',
+            ica_sent_date: (os as { ica_sent_date?: string | null }).ica_sent_date ?? todayCentral,
+          })
+          .eq('id', os.id);
         if (sendStatusErr) throw sendStatusErr;
       }
 
