@@ -774,11 +774,20 @@ export default function ApplicationForm() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Our team asked you to update a few things</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Please review the message below, make the requested changes, then re-submit your application.
+                Make the requested changes below, then tap “Done — send my corrections.” You don’t have to go through every step again.
               </p>
               <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-sm text-foreground whitespace-pre-wrap">
                 {revisionMessage}
               </div>
+              <button
+                type="button"
+                onClick={() => { void handleQuickResubmit(); }}
+                disabled={submitting}
+                className="mt-3 inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors disabled:opacity-60"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Done — send my corrections
+              </button>
             </div>
             <button
               type="button"
