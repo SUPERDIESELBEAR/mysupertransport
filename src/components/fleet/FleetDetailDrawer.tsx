@@ -14,6 +14,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
@@ -27,7 +28,7 @@ import {
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
   Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2, FileBadge,
-  RefreshCw,
+  RefreshCw, UserX, RotateCcw,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -100,7 +101,8 @@ function categoryBadge(cat: string) {
 
 export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, hideBack = false, onReady }: FleetDetailDrawerProps) {
   const readyFiredRef = useRef(false);
-  const { session } = useAuth();
+  const { session, isManagement, isOwner } = useAuth();
+  const navigate = useNavigate();
   const [truckInfo, setTruckInfo] = useState<any>(null);
   const [driverName, setDriverName] = useState('');
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
@@ -112,6 +114,9 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [deletingReg2290, setDeletingReg2290] = useState<Reg2290Record | null>(null);
   const [deletingReg2290Busy, setDeletingReg2290Busy] = useState(false);
   const [driverUserId, setDriverUserId] = useState<string | null>(null);
+  const [isActiveUnit, setIsActiveUnit] = useState(true);
+  const [confirmReactivate, setConfirmReactivate] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | null>(null);
@@ -192,7 +197,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       supabase
         .from('operators')
         .select(`
-          id, user_id, unit_number,
+          id, user_id, unit_number, is_active,
           applications(first_name, last_name),
       onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
           ica_contracts(owner_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
@@ -219,6 +224,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       setDriverName([app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown');
       setUnitNumber(os?.unit_number || op.unit_number || null);
       setDriverUserId(op.user_id ?? null);
+      setIsActiveUnit(op.is_active !== false);
       setTruckInfo({
         year: os?.truck_year || ica?.truck_year,
         make: os?.truck_make || ica?.truck_make,
@@ -517,6 +523,30 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               {truckInfo?.vin && <span className="ml-2 text-xs font-mono">VIN: {truckInfo.vin}</span>}
             </p>
           </div>
+          {!readOnly && (isManagement || isOwner) && (
+            isActiveUnit ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="gap-1.5 shrink-0"
+                onClick={() => navigate(`/management/deactivate/${operatorId}`)}
+                title="Deactivate this driver and delease the unit"
+              >
+                <UserX className="h-3.5 w-3.5" />
+                Deactivate &amp; Delease
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={() => setConfirmReactivate(true)}
+                title="Put this unit back on the active roster"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reactivate Unit
+              </Button>
+            )
+          )}
         </div>
 
         {/* Truck Specs Card */}
@@ -1255,6 +1285,44 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reactivate Unit {unitNumber || ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              This puts <strong>{driverName}</strong> back on the active roster. Verify insurance and equipment before dispatching.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reactivating}
+              onClick={async e => {
+                e.preventDefault();
+                setReactivating(true);
+                const { error } = await supabase.from('operators').update({ is_active: true }).eq('id', operatorId);
+                if (error) {
+                  toast({ title: 'Error', description: 'Could not reactivate this unit.', variant: 'destructive' });
+                } else {
+                  await supabase.from('audit_log').insert({
+                    entity_type: 'operator',
+                    entity_id: operatorId,
+                    entity_label: `Unit ${unitNumber ?? '—'} · ${driverName}`,
+                    action: 'operator_reactivated',
+                  });
+                  toast({ title: `Unit ${unitNumber ?? ''} reactivated`.trim(), description: `${driverName} is back on the active roster.` });
+                  setConfirmReactivate(false);
+                  setIsActiveUnit(true);
+                }
+                setReactivating(false);
+              }}
+            >
+              {reactivating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reactivate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

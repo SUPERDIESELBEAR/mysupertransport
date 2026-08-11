@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, MoreHorizontal, UserX, UserCheck, RotateCcw, RefreshCw } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, UserCheck, RotateCcw, RefreshCw } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
@@ -19,7 +19,6 @@ import { operatorDisplayName } from '@/lib/profileNames';
 import StatePermitChips from './StatePermitChips';
 import { PERMIT_STATES, type StatePermit, type PermitStateCode } from '@/lib/statePermits';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -640,10 +639,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     {/* Truck photos */}
                     <button
                       type="button"
-                      onClick={e => { e.stopPropagation(); setTruckPhotoTarget(row); }}
-                      disabled={truckCount === 0}
-                      className="flex items-center gap-2 text-left hover:bg-muted/30 disabled:hover:bg-transparent disabled:cursor-not-allowed rounded-md px-1 py-1 transition-colors"
-                      title={truckCount === 0 ? 'No truck photos yet' : 'View truck photos'}
+                      onClick={e => { e.stopPropagation(); if (truckCount === 0) return; setTruckPhotoTarget(row); }}
+                      aria-disabled={truckCount === 0}
+                      className={`flex items-center gap-2 text-left rounded-md px-1 py-1 transition-colors ${truckCount === 0 ? 'cursor-default' : 'hover:bg-muted/30'}`}
+                      title={truckCount === 0 ? 'No truck photos' : 'View truck photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
                         <Truck className={`h-5 w-5 ${truckCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
@@ -658,10 +657,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     {/* Decal photos */}
                     <button
                       type="button"
-                      onClick={e => { e.stopPropagation(); setDecalPhotoTarget(row); }}
-                      disabled={decalCount === 0}
-                      className="flex items-center gap-2 text-left hover:bg-muted/30 disabled:hover:bg-transparent disabled:cursor-not-allowed rounded-md px-1 py-1 transition-colors"
-                      title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
+                      onClick={e => { e.stopPropagation(); if (decalCount === 0) return; setDecalPhotoTarget(row); }}
+                      aria-disabled={decalCount === 0}
+                      className={`flex items-center gap-2 text-left rounded-md px-1 py-1 transition-colors ${decalCount === 0 ? 'cursor-default' : 'hover:bg-muted/30'}`}
+                      title={decalCount === 0 ? 'No decal photos' : 'View decal photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
                         <BadgeIcon className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
@@ -709,43 +708,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <Plus className="h-3.5 w-3.5" />
                     Log Update
                   </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={e => e.stopPropagation()}
-                        title="More actions"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {(isManagement || isOwner) && (
-                        isDeactivated ? (
-                          <DropdownMenuItem
-                            className="text-primary focus:text-primary focus:bg-primary/10"
-                            onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
-                          >
-                            <RotateCcw className="h-3.5 w-3.5 mr-2" />
-                            Reactivate unit
-                          </DropdownMenuItem>
-                        ) : (
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                          onClick={e => { e.stopPropagation(); navigate(`/management/deactivate/${row.operatorId}`); }}
-                        >
-                          <UserX className="h-3.5 w-3.5 mr-2" />
-                          Deactivate & Delease
-                        </DropdownMenuItem>
-                        )
-                      )}
-                      <DropdownMenuItem onClick={e => { e.stopPropagation(); onSelectOperator(row.operatorId); }}>
-                        Open driver profile
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
                 </div>
                 {isDeactivated && (isManagement || isOwner) && (
@@ -838,21 +800,21 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                             <>
                               <Button
                                 size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => setTruckPhotoTarget(row)}
-                                disabled={truckCount === 0}
-                                title={truckCount === 0 ? 'No truck photos yet' : 'View truck photos'}
+                                variant="outline"
+                                className={`h-7 w-7 ${truckCount === 0 ? 'cursor-default opacity-60' : ''}`}
+                                onClick={() => { if (truckCount === 0) return; setTruckPhotoTarget(row); }}
+                                aria-disabled={truckCount === 0}
+                                title={truckCount === 0 ? 'No truck photos' : 'View truck photos'}
                               >
                                 <Truck className={`h-3.5 w-3.5 ${truckCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
                               </Button>
                               <Button
                                 size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => setDecalPhotoTarget(row)}
-                                disabled={decalCount === 0}
-                                title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
+                                variant="outline"
+                                className={`h-7 w-7 ${decalCount === 0 ? 'cursor-default opacity-60' : ''}`}
+                                onClick={() => { if (decalCount === 0) return; setDecalPhotoTarget(row); }}
+                                aria-disabled={decalCount === 0}
+                                title={decalCount === 0 ? 'No decal photos' : 'View decal photos'}
                               >
                                 <BadgeIcon className={`h-3.5 w-3.5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
                               </Button>
@@ -861,7 +823,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                         })()}
                         <Button
                           size="icon"
-                          variant="ghost"
+                          variant="outline"
                           className="h-7 w-7"
                           onClick={() => setEditTarget(row)}
                           title="Edit truck specs"
@@ -888,42 +850,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </Button>
-                        {(isManagement || isOwner) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                title="More actions"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {isDeactivated ? (
-                                <DropdownMenuItem
-                                  className="text-primary focus:text-primary focus:bg-primary/10"
-                                  onClick={() => setConfirmReactivate(row)}
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5 mr-2" />
-                                  Reactivate unit
-                                </DropdownMenuItem>
-                              ) : (
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                onClick={() => navigate(`/management/deactivate/${row.operatorId}`)}
-                              >
-                                <UserX className="h-3.5 w-3.5 mr-2" />
-                                Deactivate & Delease
-                              </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem onClick={() => onSelectOperator(row.operatorId)}>
-                                Open driver profile
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
                       </div>
                     </TableCell>
                   </TableRow>
