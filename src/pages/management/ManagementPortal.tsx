@@ -312,9 +312,12 @@ export default function ManagementPortal() {
     else if (view !== 'eld-logs') next.delete('op');
     if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
     const current = window.location.search.replace(/^\?/, '');
-    if (next.toString() !== current) {
+    const nextSearch = next.toString();
+    if (nextSearch !== current) {
       setSearchParams(next, { replace: true });
     }
+    // Remember what we wrote so the reader effect doesn't treat it as external.
+    lastWrittenSearchRef.current = nextSearch;
     // Persist the current top-level section to sessionStorage so a refresh
     // restores the last viewed page, independent of URL state. Skip transient
     // detail views that need a selected record to render correctly.
