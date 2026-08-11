@@ -2509,6 +2509,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     </div>
   );
 
+  /**
+   * Read-only hint shown when a contract date field was never filled in by
+   * staff but the executed contract itself carries the timestamp. Staff can
+   * adopt it with one click; it never overwrites a value they typed.
+   */
+  const ContractDateFallback = ({ iso, onUse }: { iso: string; onUse: (v: string) => void }) => {
+    const d = new Date(iso);
+    const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(d);
+    const pretty = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',
+    }).format(d);
+    return (
+      <div className="pl-2 -mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+        <span>From executed contract: <span className="font-medium text-foreground">{pretty}</span></span>
+        <button
+          type="button"
+          className="underline underline-offset-2 hover:text-foreground"
+          onClick={() => onUse(ymd)}
+        >
+          Use this date
+        </button>
+      </div>
+    );
+  };
+
   const StageDatePicker = ({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) => {
     const [open, setOpen] = useState(false);
     const parsed = value ? new Date(value + 'T12:00:00') : undefined;
