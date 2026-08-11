@@ -491,6 +491,79 @@ export default function ApplicationForm() {
     }
   };
 
+  // ── Quick resubmit (revision cycle) ─────────────────────────────────────
+  // An applicant sent back for corrections should not have to walk all nine
+  // steps again. Once the requested item is fixed they can send the whole
+  // application back from the revision banner. The SSN stays encrypted on the
+  // row (save_application_draft coalesces it), so it is never re-entered.
+  const handleQuickResubmit = async () => {
+    const missingDocs =
+      !formData.dl_front_url || !formData.dl_rear_url || !formData.medical_cert_url;
+    if (missingDocs) {
+      toast.error('Please upload the requested document before sending your corrections');
+      skipStepScrollRef.current = false;
+      setStep(7);
+      return;
+    }
+
+    setSubmitting(true);
+    setStepError(null);
+    try {
+      const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
+      const payload = {
+        ...buildPayload(formData, token, false),
+        submitted_at: new Date().toISOString(),
+        review_status: 'pending',
+      };
+      delete (payload as Record<string, unknown>).ssn_encrypted;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rpcId, error } = await (supabase.rpc as any)('submit_application_draft', {
+        p_token: token,
+        p_payload: payload,
+        p_ssn_encrypted: null,
+      });
+      if (error) throw error;
+      if (!rpcId) throw new Error('Submission did not return an application id');
+      localStorage.removeItem(DRAFT_TOKEN_KEY);
+      isDirtyRef.current = false;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          type: 'revision_resubmitted',
+          applicant_name: `${formData.first_name} ${formData.last_name}`.trim() || formData.email,
+          applicant_email: formData.email,
+          application_id: rpcId,
+        }),
+      }).catch(() => {/* non-critical */});
+
+      setSubmitted(true);
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = err as any;
+      const errMessage = e?.message ?? (err instanceof Error ? err.message : String(err));
+      console.error('Quick resubmit failed:', err);
+      logApplicationError({
+        stage: 'update_application',
+        email: formData.email,
+        error_code: e?.code ?? 'resubmit_failed',
+        error_message: errMessage,
+        application_id: applicationId,
+      });
+      toast.error(`We couldn't send your corrections: ${errMessage}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ── Step navigation ─────────────────────────────────────────────────────
   // Jump the page back to the top after the new step has actually painted.
   // Doing it inside the click handler scrolls before the lazy-loaded step
@@ -701,11 +774,20 @@ export default function ApplicationForm() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Our team asked you to update a few things</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Please review the message below, make the requested changes, then re-submit your application.
+                Make the requested changes below, then tap “Done — send my corrections.” You don’t have to go through every step again.
               </p>
               <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-sm text-foreground whitespace-pre-wrap">
                 {revisionMessage}
               </div>
+              <button
+                type="button"
+                onClick={() => { void handleQuickResubmit(); }}
+                disabled={submitting}
+                className="mt-3 inline-flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors disabled:opacity-60"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Done — send my corrections
+              </button>
             </div>
             <button
               type="button"

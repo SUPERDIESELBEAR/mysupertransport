@@ -102,7 +102,9 @@ Deno.serve(async (req) => {
     // ── Helper: staff recipients via managed Email Notification Settings ──
     const getManagementEmails = async (eventType: string): Promise<string[]> => {
       const category: EmailCategory =
-        eventType === 'new_application' ? 'applications' : 'onboarding';
+        (eventType === 'new_application' || eventType === 'revision_resubmitted')
+          ? 'applications'
+          : 'onboarding';
       return await resolveEmailAddresses(supabaseAdmin, category);
     };
 
@@ -172,6 +174,30 @@ Deno.serve(async (req) => {
           `<p>A new driver application has been submitted and is ready for review.</p>
            <p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}</p>
            <p>Please log in to the Management Portal to review and take action.</p>`,
+          { label: 'Review Application', url: payload.application_id
+              ? `${appUrl}/management?view=applications&app=${encodeURIComponent(payload.application_id)}`
+              : `${appUrl}/management?view=applications` }
+        );
+
+        await Promise.all(mgmtEmails.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+        break;
+      }
+
+      case 'revision_resubmitted': {
+        // The applicant sent back the corrections staff asked for. The
+        // application is back in Pending — nudge the applications recipients.
+        const name = payload.applicant_name || 'An applicant';
+        const email = payload.applicant_email || '';
+        const mgmtEmails = await getManagementEmails('revision_resubmitted');
+        if (mgmtEmails.length === 0) break;
+
+        const subject = `Corrections received: ${name}`;
+        const html = buildEmail(
+          subject,
+          '🔄 Requested Corrections Received',
+          `<p>${name} has sent back the corrections your team requested. The application is back in <strong>Pending</strong> review.</p>
+           <p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}</p>
+           <p>Open the application to review the updated information and approve or deny it.</p>`,
           { label: 'Review Application', url: payload.application_id
               ? `${appUrl}/management?view=applications&app=${encodeURIComponent(payload.application_id)}`
               : `${appUrl}/management?view=applications` }

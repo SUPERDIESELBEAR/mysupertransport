@@ -527,6 +527,15 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
 
+  // An applicant who was sent back for corrections and has since re-submitted
+  // is ready for review again, even on legacy rows where the status never
+  // flipped back to `pending`. Treat those as pending so staff keep the
+  // Approve / Deny actions instead of a dead-end banner.
+  const correctionsReceived = !!app.revision_requested_at
+    && !!app.submitted_at
+    && new Date(app.submitted_at) > new Date(app.revision_requested_at);
+  const awaitingDecision = app.review_status === 'pending' || correctionsReceived;
+
   const revealSSN = async () => {
     setSsnLoading(true);
     setSsnError(null);
@@ -826,6 +835,34 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
               {!!app.revision_requested_at && !justReverted && (() => {
                 const stillRequested = app.review_status === 'revisions_requested';
+                if (correctionsReceived && !stillRequested) {
+                  const receivedStr = app.submitted_at
+                    ? new Date(app.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '';
+                  return (
+                    <div className="rounded-lg border border-status-complete/30 bg-status-complete/10 p-4">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-status-complete shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            Corrections received{receivedStr ? ` on ${receivedStr}` : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            The applicant resubmitted after your revision request. This application is back in review — approve or deny it below.
+                          </p>
+                          {app.revision_request_message && (
+                            <div className="mt-2 p-3 bg-white border border-border rounded-lg text-xs text-foreground whitespace-pre-wrap">
+                              <span className="block text-[11px] font-semibold text-muted-foreground mb-1">What you asked for</span>
+                              {app.revision_request_message}
+                            </div>
+                          )}
+                          <RevisionReplyAttachments applicationId={app.id} onChanged={() => setCorrectionRefreshKey((k) => k + 1)} />
+                          <RevisionAuditLog applicationId={app.id} refreshKey={correctionRefreshKey + revertBannerKey} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 const handledAt = app.revisions_handled_by_staff_at;
                 const dateStr = app.revision_requested_at
                   ? new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1065,7 +1102,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               </Section>
 
               {/* Background Verification */}
-              {app.review_status === 'pending' && (
+              {awaitingDecision && (
                 <Section title="Background Verification" icon={<ShieldCheck className="h-4 w-4" />}>
                   <div className="space-y-3">
                     <div className="grid grid-cols-5 gap-2 text-sm">
@@ -1391,7 +1428,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         />
 
         {/* Action Footer — pending (full actions) or approved (revisions only) */}
-        {(app.review_status === 'pending' || app.review_status === 'approved') && (
+        {(awaitingDecision || app.review_status === 'approved') && (
           <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
             {!confirmAction ? (
               <>
@@ -1428,7 +1465,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     />
                     <p className="text-[11px] text-muted-foreground px-1">Applicant e-signs the changes you propose.</p>
                   </div>
-                  {app.review_status === 'pending' && (
+                  {awaitingDecision && (
                   <>
                   <ReviewActionButton
                     tone="deny"
