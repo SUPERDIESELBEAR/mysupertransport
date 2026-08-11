@@ -740,7 +740,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // Offset = sticky driver bar height + this stage's sticky title bar height
     // + a small gap, so the first field of the stage clears both pinned bars.
     const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
-    const offset = (driverBar?.getBoundingClientRect().height ?? 52) + 12;
+    // The stage's own title bar pins under the driver bar, so clear both plus a
+    // small gap — otherwise the stage's first field lands under its own title.
+    const stageTitleBar = el.firstElementChild as HTMLElement | null;
+    const offset =
+      (driverBar?.getBoundingClientRect().height ?? 52) +
+      (stageTitleBar?.getBoundingClientRect().height ?? 0) +
+      12;
 
     let node: HTMLElement | null = el.parentElement;
     let scrollParent: HTMLElement | null = null;
