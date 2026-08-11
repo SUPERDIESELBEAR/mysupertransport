@@ -493,6 +493,7 @@ export default function ApplicationForm() {
 
   // ── Step navigation ─────────────────────────────────────────────────────
   // (see quick resubmit above)
+
   // Jump the page back to the top after the new step has actually painted.
   // Doing it inside the click handler scrolls before the lazy-loaded step
   // renders, and the resulting layout shift (plus touch input on mobile)
