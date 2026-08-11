@@ -2182,7 +2182,7 @@ export default function ManagementPortal() {
             </div>
             <InspectionComplianceSummary
               defaultExpanded={true}
-              onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenOperator={(id) => openOperatorDetail(id)}
               onOpenOperatorAtBinder={async (id) => {
                 const { data } = await supabase
                   .from('operators')
