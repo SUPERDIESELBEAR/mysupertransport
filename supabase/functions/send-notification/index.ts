@@ -102,7 +102,9 @@ Deno.serve(async (req) => {
     // ── Helper: staff recipients via managed Email Notification Settings ──
     const getManagementEmails = async (eventType: string): Promise<string[]> => {
       const category: EmailCategory =
-        eventType === 'new_application' ? 'applications' : 'onboarding';
+        (eventType === 'new_application' || eventType === 'revision_resubmitted')
+          ? 'applications'
+          : 'onboarding';
       return await resolveEmailAddresses(supabaseAdmin, category);
     };
 
