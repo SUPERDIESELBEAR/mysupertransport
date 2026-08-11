@@ -835,6 +835,34 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
               {!!app.revision_requested_at && !justReverted && (() => {
                 const stillRequested = app.review_status === 'revisions_requested';
+                if (correctionsReceived && !stillRequested) {
+                  const receivedStr = app.submitted_at
+                    ? new Date(app.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '';
+                  return (
+                    <div className="rounded-lg border border-status-complete/30 bg-status-complete/10 p-4">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-status-complete shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            Corrections received{receivedStr ? ` on ${receivedStr}` : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            The applicant resubmitted after your revision request. This application is back in review — approve or deny it below.
+                          </p>
+                          {app.revision_request_message && (
+                            <div className="mt-2 p-3 bg-white border border-border rounded-lg text-xs text-foreground whitespace-pre-wrap">
+                              <span className="block text-[11px] font-semibold text-muted-foreground mb-1">What you asked for</span>
+                              {app.revision_request_message}
+                            </div>
+                          )}
+                          <RevisionReplyAttachments applicationId={app.id} onChanged={() => setCorrectionRefreshKey((k) => k + 1)} />
+                          <RevisionAuditLog applicationId={app.id} refreshKey={correctionRefreshKey + revertBannerKey} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 const handledAt = app.revisions_handled_by_staff_at;
                 const dateStr = app.revision_requested_at
                   ? new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
