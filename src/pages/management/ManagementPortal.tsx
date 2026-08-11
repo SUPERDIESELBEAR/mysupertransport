@@ -2165,10 +2165,9 @@ export default function ManagementPortal() {
               <ComplianceAlertsPanel
                 key={alertsPanelNoAction ? 'no-action' : 'default'}
                 defaultNoActionOnly={alertsPanelNoAction}
-                onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+                onOpenOperator={(id) => openOperatorDetail(id)}
                 onOpenOperatorWithFocus={async (operatorId, focusField) => {
-                  setSelectedOperatorId(operatorId);
-                  setView('operator-detail');
+                  openOperatorDetail(operatorId, { focusField });
                   const { data: op } = await supabase
                     .from('operators')
                     .select('application_id, applications(*)')
