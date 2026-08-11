@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
       }
 
       case 'application_submitted': {
+        // (revision_resubmitted handled below)
         // Applicant-facing confirmation that we received their submission.
         // No password CTA, no install nudge — those come after approval.
         const fullName = (payload.applicant_name || '').trim();
