@@ -1345,7 +1345,7 @@ export default function ManagementPortal() {
                           </div>
                         </div>
                         <button
-                          onClick={() => { setSelectedOperatorId(row.operatorId); setView('operator-detail'); }}
+                          onClick={() => openOperatorDetail(row.operatorId)}
                           className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 transition-colors"
                         >
                           Open <ChevronRight className="h-3.5 w-3.5" />
