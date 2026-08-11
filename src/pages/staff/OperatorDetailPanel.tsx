@@ -492,6 +492,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [openTerminationId, setOpenTerminationId] = useState<string | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
+  // Fallback contract timestamps so Stage 3 can show the real record even when
+  // the staff-entered date fields were never filled in.
+  const [icaContractDates, setIcaContractDates] = useState<{ sent: string | null; signed: string | null }>({ sent: null, signed: null });
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medCertExpiration, setMedCertExpiration] = useState<string | null>(null);
   const [dlFrontUrl, setDlFrontUrl] = useState<string | null>(null);
@@ -890,6 +893,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .limit(1)
       .maybeSingle()
       .then(({ data }) => setIcaDraftUpdatedAt((data as any)?.updated_at ?? null));
+  }, [operatorId, status.ica_status]);
+
+  // Fetch the contract's own timestamps as a read-only fallback for the date fields
+  useEffect(() => {
+    if (status.ica_status !== 'sent_for_signature' && status.ica_status !== 'complete') {
+      setIcaContractDates({ sent: null, signed: null });
+      return;
+    }
+    supabase
+      .from('ica_contracts')
+      .select('created_at, contractor_signed_at, carrier_signed_at')
+      .eq('operator_id', operatorId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        const row = data as { created_at?: string | null; contractor_signed_at?: string | null; carrier_signed_at?: string | null } | null;
+        setIcaContractDates({
+          sent: row?.created_at ?? null,
+          signed: row?.contractor_signed_at ?? row?.carrier_signed_at ?? null,
+        });
+      });
   }, [operatorId, status.ica_status]);
 
   // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
@@ -2483,6 +2508,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </Select>
     </div>
   );
+
+  /**
+   * Read-only hint shown when a contract date field was never filled in by
+   * staff but the executed contract itself carries the timestamp. Staff can
+   * adopt it with one click; it never overwrites a value they typed.
+   */
+  const ContractDateFallback = ({ iso, onUse }: { iso: string; onUse: (v: string) => void }) => {
+    const d = new Date(iso);
+    const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(d);
+    const pretty = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',
+    }).format(d);
+    return (
+      <div className="pl-2 -mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+        <span>From executed contract: <span className="font-medium text-foreground">{pretty}</span></span>
+        <button
+          type="button"
+          className="underline underline-offset-2 hover:text-foreground"
+          onClick={() => onUse(ymd)}
+        >
+          Use this date
+        </button>
+      </div>
+    );
+  };
 
   const StageDatePicker = ({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) => {
     const [open, setOpen] = useState(false);
@@ -5306,12 +5356,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   value={status.ica_sent_date}
                   onChange={v => updateStatus('ica_sent_date', v)}
                 />
+                {!status.ica_sent_date && icaContractDates.sent && (
+                  <ContractDateFallback
+                    iso={icaContractDates.sent}
+                    onUse={v => updateStatus('ica_sent_date', v)}
+                  />
+                )}
                 {status.ica_status === 'complete' && (
+                  <>
                   <StageDatePicker
                     label="ICA Signed Date"
                     value={status.ica_signed_date}
                     onChange={v => updateStatus('ica_signed_date', v)}
                   />
+                  {!status.ica_signed_date && icaContractDates.signed && (
+                    <ContractDateFallback
+                      iso={icaContractDates.signed}
+                      onUse={v => updateStatus('ica_signed_date', v)}
+                    />
+                  )}
+                  </>
                 )}
               </div>
             )}
