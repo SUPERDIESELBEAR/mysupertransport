@@ -5331,12 +5331,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   value={status.ica_sent_date}
                   onChange={v => updateStatus('ica_sent_date', v)}
                 />
+                {!status.ica_sent_date && icaContractDates.sent && (
+                  <ContractDateFallback
+                    iso={icaContractDates.sent}
+                    onUse={v => updateStatus('ica_sent_date', v)}
+                  />
+                )}
                 {status.ica_status === 'complete' && (
+                  <>
                   <StageDatePicker
                     label="ICA Signed Date"
                     value={status.ica_signed_date}
                     onChange={v => updateStatus('ica_signed_date', v)}
                   />
+                  {!status.ica_signed_date && icaContractDates.signed && (
+                    <ContractDateFallback
+                      iso={icaContractDates.signed}
+                      onUse={v => updateStatus('ica_signed_date', v)}
+                    />
+                  )}
+                  </>
                 )}
               </div>
             )}
