@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Archive, AlertTriangle } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { archiveEquipmentItem } from '@/lib/equipmentSync';
 import type { EquipmentItem } from './EquipmentInventory';
 
 interface Props {
@@ -34,38 +35,8 @@ export default function FuelCardDeactivateModal({ open, item, onClose, onSaved }
     if (!confirming) { setConfirming(true); return; }
     setSaving(true);
     try {
-      // 1. If assigned, close the open assignment row and clear the operator's fuel_card_number
-      if (item.current_assignment_id) {
-        const { error: assignErr } = await supabase
-          .from('equipment_assignments')
-          .update({
-            returned_at: new Date().toISOString(),
-            return_condition: 'deactivated',
-            notes: notes.trim() || null,
-          })
-          .eq('id', item.current_assignment_id);
-        if (assignErr) throw assignErr;
-
-        const { data: assignment } = await supabase
-          .from('equipment_assignments')
-          .select('operator_id')
-          .eq('id', item.current_assignment_id)
-          .single();
-        if (assignment) {
-          const { error: clearErr } = await supabase
-            .from('onboarding_status')
-            .update({ fuel_card_number: null })
-            .eq('operator_id', assignment.operator_id);
-          if (clearErr) throw clearErr;
-        }
-      }
-
-      // 2. Mark the item deactivated
-      const { error: itemErr } = await supabase
-        .from('equipment_items')
-        .update({ status: 'deactivated' })
-        .eq('id', item.id);
-      if (itemErr) throw itemErr;
+      // Shared with the Edit Device danger zone so both behave identically.
+      await archiveEquipmentItem(item, notes);
 
       toast({ title: '✅ Fuel card deactivated', description: `Card ${item.serial_number} archived.` });
       onSaved();
