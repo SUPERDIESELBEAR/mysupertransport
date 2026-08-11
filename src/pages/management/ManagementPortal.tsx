@@ -897,7 +897,7 @@ export default function ManagementPortal() {
     { label: 'ELD Device Models', icon: <HardDrive className="h-4 w-4" />, path: 'eld-device-models' },
     { label: 'Driver Logs (RODS)', icon: <FileText className="h-4 w-4" />, path: 'eld-logs' },
     { label: 'Retention Archive', icon: <Library className="h-4 w-4" />, path: 'eld-retention' },
-    { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
+    { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />,        path: 'mo-plates' },
     { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
     { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
