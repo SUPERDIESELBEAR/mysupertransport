@@ -192,7 +192,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       supabase
         .from('operators')
         .select(`
-          id, user_id, unit_number,
+          id, user_id, unit_number, is_active,
           applications(first_name, last_name),
       onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
           ica_contracts(owner_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
@@ -219,6 +219,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       setDriverName([app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown');
       setUnitNumber(os?.unit_number || op.unit_number || null);
       setDriverUserId(op.user_id ?? null);
+      setIsActiveUnit(op.is_active !== false);
       setTruckInfo({
         year: os?.truck_year || ica?.truck_year,
         make: os?.truck_make || ica?.truck_make,
