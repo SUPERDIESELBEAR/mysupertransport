@@ -2,6 +2,148 @@ import { supabase } from '@/integrations/supabase/client';
 
 type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 
+/** Map from device type back to the onboarding_status column holding its serial. */
+const DEVICE_TYPE_FIELD: Record<DeviceType, string> = {
+  eld: 'eld_serial_number',
+  dash_cam: 'dash_cam_number',
+  bestpass: 'bestpass_number',
+  fuel_card: 'fuel_card_number',
+};
+
+async function auditEquipment(
+  action: 'equipment_archived' | 'equipment_restored' | 'equipment_deleted',
+  item: { id: string; device_type: DeviceType; serial_number: string },
+  metadata: Record<string, unknown> = {},
+): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+  const actorId = userData?.user?.id ?? null;
+  let actorName: string | null = null;
+  if (actorId) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('user_id', actorId)
+      .maybeSingle();
+    if (prof) actorName = [prof.first_name, prof.last_name].filter(Boolean).join(' ').trim() || null;
+  }
+  await supabase.from('audit_log').insert({
+    actor_id: actorId,
+    actor_name: actorName,
+    action,
+    entity_type: 'equipment_item',
+    entity_id: item.id,
+    entity_label: `${item.device_type} • ${item.serial_number}`,
+    metadata: { device_type: item.device_type, serial_number: item.serial_number, ...metadata },
+  });
+}
+
+/**
+ * Closes any open assignment, clears the serial from that driver's onboarding
+ * record, and marks the device Archived. Shared by the fuel-card deactivate
+ * modal and the Edit Device danger zone so both behave identically.
+ */
+export async function archiveEquipmentItem(
+  item: { id: string; device_type: DeviceType; serial_number: string; current_assignment_id?: string | null },
+  reason?: string | null,
+): Promise<void> {
+  await releaseOpenAssignments(item, 'deactivated', reason ?? null);
+
+  const { error } = await supabase
+    .from('equipment_items')
+    .update({ status: 'deactivated' })
+    .eq('id', item.id);
+  if (error) throw error;
+
+  await auditEquipment('equipment_archived', item, { reason: reason?.trim() || null });
+}
+
+/** Puts an archived device back into circulation as Available. */
+export async function restoreEquipmentItem(
+  item: { id: string; device_type: DeviceType; serial_number: string },
+): Promise<void> {
+  const { error } = await supabase
+    .from('equipment_items')
+    .update({ status: 'available' })
+    .eq('id', item.id);
+  if (error) throw error;
+  await auditEquipment('equipment_restored', item);
+}
+
+export type DeleteEligibility =
+  | { allowed: true; reason: 'no_history' | 'demo_only' }
+  | { allowed: false; reason: 'real_history' };
+
+/**
+ * A device may only be permanently deleted when it was never assigned, or when
+ * every driver that ever held it is a demo/test account. Anything else keeps
+ * its history and must be archived instead.
+ */
+export async function getDeleteEligibility(equipmentId: string): Promise<DeleteEligibility> {
+  const { data, error } = await supabase
+    .from('equipment_assignments')
+    .select('id, operators(is_demo)')
+    .eq('equipment_id', equipmentId);
+  if (error) throw error;
+
+  const rows = (data ?? []) as any[];
+  if (rows.length === 0) return { allowed: true, reason: 'no_history' };
+
+  const allDemo = rows.every(r => {
+    const op = Array.isArray(r.operators) ? r.operators[0] : r.operators;
+    return op?.is_demo === true;
+  });
+  return allDemo ? { allowed: true, reason: 'demo_only' } : { allowed: false, reason: 'real_history' };
+}
+
+/** Permanently removes a device. Caller must have confirmed eligibility. */
+export async function deleteEquipmentItem(
+  item: { id: string; device_type: DeviceType; serial_number: string; current_assignment_id?: string | null },
+): Promise<void> {
+  // Clear the serial off any driver still holding it so onboarding doesn't
+  // point at a device that no longer exists.
+  await releaseOpenAssignments(item, null, null);
+
+  const { error } = await supabase.from('equipment_items').delete().eq('id', item.id);
+  if (error) throw error;
+
+  await auditEquipment('equipment_deleted', item);
+}
+
+/** Closes open assignment rows for a device and nulls the driver's serial field. */
+async function releaseOpenAssignments(
+  item: { id: string; device_type: DeviceType },
+  returnCondition: string | null,
+  notes: string | null,
+): Promise<void> {
+  const { data: open, error: openErr } = await supabase
+    .from('equipment_assignments')
+    .select('id, operator_id')
+    .eq('equipment_id', item.id)
+    .is('returned_at', null);
+  if (openErr) throw openErr;
+
+  for (const row of (open ?? []) as any[]) {
+    const { error: updErr } = await supabase
+      .from('equipment_assignments')
+      .update({
+        returned_at: new Date().toISOString(),
+        ...(returnCondition ? { return_condition: returnCondition } : {}),
+        ...(notes ? { notes } : {}),
+      })
+      .eq('id', row.id);
+    if (updErr) throw updErr;
+
+    if (row.operator_id) {
+      const field = DEVICE_TYPE_FIELD[item.device_type];
+      const { error: clearErr } = await supabase
+        .from('onboarding_status')
+        .update({ [field]: null } as never)
+        .eq('operator_id', row.operator_id);
+      if (clearErr) throw clearErr;
+    }
+  }
+}
+
 /**
  * Canonical serial format used everywhere: uppercase, no dashes / spaces / dots.
  * Onboard Systems is the single source of truth for device numbers, so every
