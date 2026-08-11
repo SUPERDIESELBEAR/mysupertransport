@@ -284,6 +284,9 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                     {sheet.bestpass_included && (
                       <div className="text-xs text-muted-foreground">BestPass fee acknowledged: $60.00</div>
                     )}
+                    {sheet.sent_at && (
+                      <div className="text-xs text-muted-foreground">Sent: {format(new Date(sheet.sent_at), 'MM/dd/yyyy h:mm a')}</div>
+                    )}
                     {sheet.signed_at && (
                       <div className="text-xs text-muted-foreground">Signed: {format(new Date(sheet.signed_at), 'MM/dd/yyyy h:mm a')}</div>
                     )}
@@ -342,14 +345,14 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                       variant="outline"
                       className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 ml-auto"
                       onClick={() => setConfirmDelete(sheet)}
-                      disabled={deletingId === sheet.id}
+                      disabled={deletingId === sheet.id || status === 'void'}
                     >
                       {deletingId === sheet.id ? (
                         <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                       ) : (
                         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      Delete
+                      {status === 'draft' && !sheet.sent_at ? 'Delete' : 'Void'}
                     </Button>
                   </div>
                 </CardContent>
