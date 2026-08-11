@@ -502,7 +502,7 @@ export function ApplicationPEITab({ applicationId }: Props) {
                         className="h-8 text-sm"
                       />
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-3">
                       <label className="text-[11px] uppercase tracking-wide text-muted-foreground">State</label>
                       <select
                         value={edit.state}
@@ -513,7 +513,7 @@ export function ApplicationPEITab({ applicationId }: Props) {
                         {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
-                    <div className="sm:col-span-1 flex gap-1 justify-end">
+                    <div className="sm:col-span-12 flex gap-2 justify-end pt-1">
                       <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={savingEdit}>
                         <X className="h-3.5 w-3.5" />
                       </Button>
