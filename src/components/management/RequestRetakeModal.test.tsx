@@ -22,6 +22,7 @@ describe('RequestRetakeModal', () => {
     const listbox = screen.getByRole('listbox');
     const options = within(listbox).getAllByRole('option');
 
+    expect(listbox.closest('[data-radix-select-content]')).toHaveClass('z-[140]');
     expect(options).toHaveLength(RETAKE_REASONS.length);
     for (const { label } of RETAKE_REASONS) {
       expect(within(listbox).getByRole('option', { name: label })).toBeInTheDocument();
