@@ -145,7 +145,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
               <DialogTitle className="text-lg">Onboard Systems Assignment Sheet</DialogTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{driverName}</p>
             </div>
-            <Badge variant={meta.variant} className="shrink-0">
+            <Badge variant={meta.variant} className="shrink-0 mr-7">
               <span className="flex items-center gap-1.5">{meta.icon}{meta.label}</span>
             </Badge>
           </div>
