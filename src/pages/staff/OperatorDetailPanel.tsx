@@ -737,20 +737,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (!el) return;
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
-    // The element we actually need visible is the stage BODY (first field),
-    // not the card wrapper — the card's own sticky title bar sits between them
-    // and pins under the sticky driver bar, covering whatever lands beneath it.
-    const stageTitleBar = el.firstElementChild as HTMLElement | null;
-    const stageBody = (el.children[1] as HTMLElement | undefined) ?? null;
-    const target: HTMLElement = stageBody ?? el;
-    const measureOffset = () => {
-      const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
-      const driverH = driverBar?.getBoundingClientRect().height ?? 52;
-      const titleH = stageBody
-        ? (stageTitleBar?.getBoundingClientRect().height ?? 0)
-        : 0; // no body → align the card itself under the driver bar
-      return driverH + titleH + 12;
-    };
+
+    const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
+    const offset = (driverBar?.getBoundingClientRect().height ?? 52) + 8;
+
     let node: HTMLElement | null = el.parentElement;
     let scrollParent: HTMLElement | null = null;
     while (node && node !== document.body) {
@@ -766,19 +756,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
 
     const desiredScrollTop = () => {
-      const offset = measureOffset();
       if (scrollParent) {
         return Math.max(
           0,
-          target.getBoundingClientRect().top -
+          el.getBoundingClientRect().top -
             scrollParent.getBoundingClientRect().top +
             scrollParent.scrollTop -
             offset,
         );
       }
-      return Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset);
+      return Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset);
     };
-    const currentScrollTop = () => (scrollParent ? scrollParent.scrollTop : window.scrollY);
+
     const applyScroll = (top: number, b: ScrollBehavior) => {
       if (scrollParent) scrollParent.scrollTo({ top, behavior: b });
       else window.scrollTo({ top, behavior: b });
@@ -786,9 +775,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     applyScroll(desiredScrollTop(), behavior);
 
-    // Settle loop: late layout (async status chips, images, banners) can shift
-    // the stage after the smooth scroll starts. Keep re-measuring for a short
-    // window and snap-correct until the first field clears both pinned bars.
+    // Re-check once to correct for any late layout shifts (banners, images, etc.)
     const start = performance.now();
     let aborted = false;
     const abort = () => { aborted = true; cleanup(); };
@@ -803,13 +790,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const settle = () => {
       if (aborted) return;
       const wanted = desiredScrollTop();
-      if (Math.abs(wanted - currentScrollTop()) > 2) {
-        applyScroll(wanted, 'auto');
-      }
-      if (performance.now() - start < 900) requestAnimationFrame(settle);
+      const current = scrollParent ? scrollParent.scrollTop : window.scrollY;
+      if (Math.abs(wanted - current) > 2) applyScroll(wanted, 'auto');
+      if (performance.now() - start < 500) requestAnimationFrame(settle);
       else cleanup();
     };
-    window.setTimeout(() => requestAnimationFrame(settle), prefersReduced ? 0 : 350);
+    window.setTimeout(() => requestAnimationFrame(settle), prefersReduced ? 0 : 200);
   };
 
   // Track the last-saved values of milestone fields to detect transitions
@@ -4770,7 +4756,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s1Complete = status.mvr_ch_approval === 'approved';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
-            <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage1')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -4796,7 +4782,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s1Collapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-4">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-4">
                   {/* MVR */}
                   <div className="space-y-2">
                     <SectionSubtitle>MVR</SectionSubtitle>
@@ -4883,7 +4869,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             status.truck_inspection === 'received';
           const s2Collapsed = collapsedStages.has('stage2');
           return (
-        <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
+        <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
           <button onClick={() => toggleStage('stage2')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
             <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
               <div className="flex items-center gap-2">
@@ -4916,7 +4902,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </button>
           {!s2Collapsed && (
-          <div className="px-5 pt-4 pb-5 max-w-4xl space-y-3">
+          <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <SectionSubtitle>Registration Status</SectionSubtitle>
               <Select
@@ -5236,7 +5222,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s3Complete = status.ica_status === 'complete';
           const s3Collapsed = collapsedStages.has('stage3');
           return (
-            <div ref={el => { stageRefs.current['stage3'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage3'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage3')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -5257,7 +5243,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s3Collapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-3">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-3">
             <div className="space-y-1.5">
               <SectionSubtitle>ICA Status</SectionSubtitle>
               <Select
@@ -5465,7 +5451,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s4Complete = status.mo_reg_received === 'yes';
           const s4Collapsed = collapsedStages.has('stage4');
           return (
-            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl overflow-hidden shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
+            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
               <button onClick={() => toggleStage('stage4')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -5485,7 +5471,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s4Collapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-3">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-3">
                   {isNa ? (
                     <p className="text-xs text-muted-foreground italic">This operator uses their own registration — Missouri registration is not required.</p>
                   ) : (
@@ -5548,7 +5534,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s5Collapsed = collapsedStages.has('stage5');
           const borderCls = allEquipmentReady ? 'border-status-complete' : exceptionActiveS5 ? 'border-gold' : 'border-border';
           return (
-            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${borderCls}`}>
+            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${borderCls}`}>
               <button onClick={() => toggleStage('stage5')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -5576,7 +5562,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s5Collapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-4">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-4">
 
                   {/* Assigned Unit Number — placed above Truck Decals */}
                   <div className="space-y-1.5">
@@ -5780,7 +5766,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const spComplete = status.pe_screening_result === 'clear';
           const spCollapsed = collapsedStages.has('stagePE');
           return (
-            <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stagePE'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${spComplete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stagePE')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -5801,7 +5787,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!spCollapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-4">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-4">
                   {/* PE Screening */}
                   <div className="space-y-2">
                     <SectionSubtitle>Screening Status</SectionSubtitle>
@@ -5955,7 +5941,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s6Collapsed = collapsedStages.has('stage6');
           const addToPolicy = status.insurance_policy_type === 'add_to_supertransport' || !status.insurance_policy_type;
           return (
-            <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage6')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -5981,7 +5967,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s6Collapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-4">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-4">
 
                   {/* Physical Damage Insurance */}
                   <div className="space-y-3">
@@ -6350,7 +6336,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const s7Complete = !!status.go_live_date;
           const s7Collapsed = collapsedStages.has('stage7');
           return (
-            <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage7')} className="w-full text-left sticky z-20 bg-white rounded-t-xl border-b border-border/70 shadow-sm" style={{ top: stickyBarHeight }}>
                 <div className="flex items-center justify-between gap-3 max-w-4xl px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -6366,7 +6352,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s7Collapsed && (
-                <div className="px-5 pt-4 pb-5 max-w-4xl space-y-4">
+                <div className="rounded-b-xl overflow-hidden px-5 pt-4 pb-5 max-w-4xl space-y-4">
 
                   {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
@@ -6837,7 +6823,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const ps = paySetupRecord;
         const isComplete = ps?.submitted_at && ps?.terms_accepted;
         return (
-          <div ref={el => { stageRefs.current[stageKey] = el; }} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+          <div ref={el => { stageRefs.current[stageKey] = el; }} className="bg-white border border-border rounded-xl shadow-sm">
             <button
               onClick={() => toggleStage(stageKey)}
               className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
@@ -6855,7 +6841,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               {isCollapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />}
             </button>
             {!isCollapsed && (
-              <div className="border-t border-border divide-y divide-border/60">
+              <div className="rounded-b-xl overflow-hidden border-t border-border divide-y divide-border/60">
 
                 {/* ── Payroll Reference Documents (always visible) ── */}
                 <div className="px-5 py-4 space-y-3">
