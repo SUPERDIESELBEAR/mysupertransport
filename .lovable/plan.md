@@ -36,6 +36,7 @@ Drive the app in a headless browser signed in as staff:
 - Reload on that URL and confirm the same driver profile reopens.
 - Confirm the profile shell appears immediately on click.
 - Press browser Back once and confirm it returns to the pipeline.
+- Repeat the above in Firefox specifically, because the reported failure only happens there.
 
 ## Technical notes
 
