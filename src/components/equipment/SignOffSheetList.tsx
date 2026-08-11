@@ -366,9 +366,15 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         {/* delete confirmation */}
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this assignment sheet?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmDelete && ((confirmDelete.status ?? 'draft') !== 'draft' || confirmDelete.sent_at)
+                ? 'Void this assignment sheet?'
+                : 'Delete this draft assignment sheet?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Any devices assigned on this sheet will be released back to inventory. This cannot be undone.
+              {confirmDelete && ((confirmDelete.status ?? 'draft') !== 'draft' || confirmDelete.sent_at)
+                ? 'This sheet was already sent to the driver, so the record is kept for compliance and marked Void. Any devices assigned on this sheet will be released back to inventory.'
+                : 'This draft was never sent, so it will be removed. Any devices assigned on this sheet will be released back to inventory. This cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -382,7 +388,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deletingId ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
-              Delete
+              {confirmDelete && ((confirmDelete.status ?? 'draft') !== 'draft' || confirmDelete.sent_at) ? 'Void' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
