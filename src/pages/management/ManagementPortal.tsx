@@ -1883,8 +1883,7 @@ export default function ManagementPortal() {
         {view === 'activity' && (
           <ActivityLog onNavigate={async (action) => {
             if (action.type === 'operator' && action.operatorId) {
-              setSelectedOperatorId(action.operatorId);
-              setView('operator-detail');
+              openOperatorDetail(action.operatorId);
             } else if (action.type === 'application' && action.applicationId) {
               const { data } = await supabase.from('applications').select('*').eq('id', action.applicationId).single();
               if (data) setSelectedApp(data as FullApplication);
