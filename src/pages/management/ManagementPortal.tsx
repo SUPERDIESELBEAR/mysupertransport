@@ -286,12 +286,6 @@ export default function ManagementPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const prevSearchParamsRef = useRef(searchParams);
-  const skipNextUrlSyncRef = useRef(false);
-  // Tracks the last search string this portal intentionally wrote. Prevents
-  // the reader effect from treating our own writes as external navigation and
-  // bouncing the view back (the root cause of the Firefox pipeline click bug).
-  const lastWrittenSearchRef = useRef<string>(window.location.search.replace(/^\?/, ''));
 
   // When external navigation changes the URL view param (e.g., Staff Help
   // typeahead), sync the active view so the portal reflects the new URL. Also
