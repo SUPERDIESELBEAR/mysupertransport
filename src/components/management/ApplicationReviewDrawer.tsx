@@ -1074,7 +1074,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               </Section>
 
               {/* Background Verification */}
-              {app.review_status === 'pending' && (
+              {awaitingDecision && (
                 <Section title="Background Verification" icon={<ShieldCheck className="h-4 w-4" />}>
                   <div className="space-y-3">
                     <div className="grid grid-cols-5 gap-2 text-sm">
