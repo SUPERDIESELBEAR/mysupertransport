@@ -138,7 +138,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
 
   return (
     <Dialog open={!!sheet} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90dvh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -151,8 +151,8 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 text-sm">
-          <section className="grid grid-cols-2 gap-3 rounded-md border border-border bg-muted/30 p-3">
+        <div className="space-y-4 text-sm min-w-0">
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border border-border bg-muted/30 p-3 min-w-0">
             <Field label="Unit Number" value={sheet.unit_number || sheet.operator?.unit_number || '—'} />
             <Field
               label="Assignment Date"
@@ -178,8 +178,8 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
                   <tbody>
                     {sheet.items.map((it) => (
                       <tr key={it.id} className="border-t border-border">
-                        <td className="px-3 py-2 font-medium">{DEVICE_LABELS[it.device_type] ?? it.device_type}</td>
-                        <td className="px-3 py-2 font-mono">{it.serial_snapshot}</td>
+                        <td className="px-3 py-2 font-medium break-words">{DEVICE_LABELS[it.device_type] ?? it.device_type}</td>
+                        <td className="px-3 py-2 font-mono break-all">{it.serial_snapshot}</td>
                       </tr>
                     ))}
                     {sheet.bestpass_included && (
@@ -273,7 +273,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
           </section>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="flex-row flex-wrap items-center justify-end gap-2 sm:space-x-0">
           <Button
             variant="outline"
             size="sm"
@@ -330,9 +330,9 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="font-medium">{value}</div>
+      <div className="font-medium break-words">{value}</div>
     </div>
   );
 }
