@@ -136,7 +136,12 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         toast({ title: 'Resend failed', description: details, variant: 'destructive' });
         return;
       }
-      toast({ title: '✅ Reminder sent', description: 'The operator has been emailed again.' });
+      toast({
+        title: sheet.status === 'draft' ? '✅ Assignment sheet sent' : '✅ Reminder sent',
+        description: sheet.status === 'draft'
+          ? 'The sheet is now recorded as Sent and the operator has been emailed.'
+          : 'The operator has been emailed again.',
+      });
       fetchSheets();
     } catch (err: any) {
       console.error('[SignOffSheetList] resend exception', err);
@@ -158,7 +163,13 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         toast({ title: 'Delete failed', description: details, variant: 'destructive' });
         return;
       }
-      toast({ title: 'Assignment sheet deleted', description: 'Any assigned devices were released back to inventory.' });
+      const wasSent = (sheet.status ?? 'draft') !== 'draft' || !!sheet.sent_at;
+      toast({
+        title: wasSent ? 'Assignment sheet voided' : 'Draft deleted',
+        description: wasSent
+          ? 'The record is kept and marked Void. Any assigned devices were released back to inventory.'
+          : 'Any assigned devices were released back to inventory.',
+      });
       setConfirmDelete(null);
       fetchSheets();
     } catch (err: any) {
