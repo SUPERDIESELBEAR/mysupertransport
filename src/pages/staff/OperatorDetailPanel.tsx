@@ -737,20 +737,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (!el) return;
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const behavior: ScrollBehavior = prefersReduced ? 'auto' : 'smooth';
-    // The element we actually need visible is the stage BODY (first field),
-    // not the card wrapper — the card's own sticky title bar sits between them
-    // and pins under the sticky driver bar, covering whatever lands beneath it.
-    const stageTitleBar = el.firstElementChild as HTMLElement | null;
-    const stageBody = (el.children[1] as HTMLElement | undefined) ?? null;
-    const target: HTMLElement = stageBody ?? el;
-    const measureOffset = () => {
-      const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
-      const driverH = driverBar?.getBoundingClientRect().height ?? 52;
-      const titleH = stageBody
-        ? (stageTitleBar?.getBoundingClientRect().height ?? 0)
-        : 0; // no body → align the card itself under the driver bar
-      return driverH + titleH + 12;
-    };
+
+    const driverBar = document.querySelector('[data-sticky-driver-bar]') as HTMLElement | null;
+    const offset = (driverBar?.getBoundingClientRect().height ?? 52) + 8;
+
     let node: HTMLElement | null = el.parentElement;
     let scrollParent: HTMLElement | null = null;
     while (node && node !== document.body) {
@@ -766,19 +756,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
 
     const desiredScrollTop = () => {
-      const offset = measureOffset();
       if (scrollParent) {
         return Math.max(
           0,
-          target.getBoundingClientRect().top -
+          el.getBoundingClientRect().top -
             scrollParent.getBoundingClientRect().top +
             scrollParent.scrollTop -
             offset,
         );
       }
-      return Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset);
+      return Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset);
     };
-    const currentScrollTop = () => (scrollParent ? scrollParent.scrollTop : window.scrollY);
+
     const applyScroll = (top: number, b: ScrollBehavior) => {
       if (scrollParent) scrollParent.scrollTo({ top, behavior: b });
       else window.scrollTo({ top, behavior: b });
@@ -786,9 +775,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     applyScroll(desiredScrollTop(), behavior);
 
-    // Settle loop: late layout (async status chips, images, banners) can shift
-    // the stage after the smooth scroll starts. Keep re-measuring for a short
-    // window and snap-correct until the first field clears both pinned bars.
+    // Re-check once to correct for any late layout shifts (banners, images, etc.)
     const start = performance.now();
     let aborted = false;
     const abort = () => { aborted = true; cleanup(); };
@@ -803,13 +790,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const settle = () => {
       if (aborted) return;
       const wanted = desiredScrollTop();
-      if (Math.abs(wanted - currentScrollTop()) > 2) {
-        applyScroll(wanted, 'auto');
-      }
-      if (performance.now() - start < 900) requestAnimationFrame(settle);
+      const current = scrollParent ? scrollParent.scrollTop : window.scrollY;
+      if (Math.abs(wanted - current) > 2) applyScroll(wanted, 'auto');
+      if (performance.now() - start < 500) requestAnimationFrame(settle);
       else cleanup();
     };
-    window.setTimeout(() => requestAnimationFrame(settle), prefersReduced ? 0 : 350);
+    window.setTimeout(() => requestAnimationFrame(settle), prefersReduced ? 0 : 200);
   };
 
   // Track the last-saved values of milestone fields to detect transitions
