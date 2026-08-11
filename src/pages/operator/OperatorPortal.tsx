@@ -13,7 +13,7 @@ import {
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
   ClipboardList,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
-  HardDrive,
+  HardDrive, Container,
 } from 'lucide-react';
 // Heavy view-gated panels are lazy-loaded so the initial portal mount and
 // switches between unrelated views don't pay the full bundle/render cost
@@ -1199,7 +1199,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) || icaComplete, icaDot: icaActionDot },
-    { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
+    { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Container className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
     { view: 'notifications' as OperatorView, label: 'Notifications', shortLabel: 'Alerts', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
@@ -1217,7 +1217,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract)
         ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
-        ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
+        ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Container className="h-5 w-5" /> }
         : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
     const firstSlot = isFullyOnboarded
       ? { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" /> }
