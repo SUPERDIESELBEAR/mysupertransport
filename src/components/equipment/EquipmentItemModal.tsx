@@ -1,16 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Archive, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
 import type { EquipmentItem, DeviceType, EquipmentStatus } from './EquipmentInventory';
-import { normalizeSerial, SERIAL_DASH_MESSAGE, serialHasDash } from '@/lib/equipmentSync';
+import {
+  normalizeSerial, SERIAL_DASH_MESSAGE, serialHasDash,
+  archiveEquipmentItem, restoreEquipmentItem, deleteEquipmentItem,
+  getDeleteEligibility, type DeleteEligibility,
+} from '@/lib/equipmentSync';
 
 interface Props {
   open: boolean;
@@ -34,16 +39,24 @@ const STATUSES: { value: EquipmentStatus; label: string; mgmtOnly?: boolean }[] 
   { value: 'assigned',  label: 'Assigned' },
   { value: 'damaged',   label: 'Damaged / Needs Replacement', mgmtOnly: true },
   { value: 'lost',      label: 'Lost / Not Returned',    mgmtOnly: true },
+  { value: 'deactivated', label: 'Archived', mgmtOnly: true },
 ];
 
 export default function EquipmentItemModal({ open, item, isManagement, defaultDeviceType, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType>('eld');
   const [serialNumber, setSerialNumber] = useState('');
   const [status, setStatus] = useState<EquipmentStatus>('available');
   const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState<null | 'archive' | 'restore' | 'delete'>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteSerialInput, setDeleteSerialInput] = useState('');
+  const [eligibility, setEligibility] = useState<DeleteEligibility | null>(null);
 
   useEffect(() => {
     if (item) {
@@ -57,7 +70,44 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
       setStatus('available');
       setNotes('');
     }
+    setArchiveConfirm(false);
+    setArchiveReason('');
+    setDeleteConfirm(false);
+    setDeleteSerialInput('');
+    setEligibility(null);
   }, [item, open, defaultDeviceType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !item || !isManagement) return;
+    getDeleteEligibility(item.id)
+      .then(e => { if (!cancelled) setEligibility(e); })
+      .catch(() => { if (!cancelled) setEligibility({ allowed: false, reason: 'real_history' }); });
+    return () => { cancelled = true; };
+  }, [open, item, isManagement]);
+
+  const runDanger = useCallback(async (
+    kind: 'archive' | 'restore' | 'delete',
+    fn: () => Promise<void>,
+    successTitle: string,
+  ) => {
+    if (guardDemo()) return;
+    setBusy(kind);
+    try {
+      await fn();
+      toast({ title: successTitle });
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      toast({
+        title: 'Action failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(null);
+    }
+  }, [guardDemo, onClose, onSaved, toast]);
 
   const handleSave = async () => {
     if (serialHasDash(serialNumber)) {
@@ -114,6 +164,11 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
   };
 
   const availableStatuses = STATUSES.filter(s => isManagement || !s.mgmtOnly);
+  const isArchived = item?.status === 'deactivated';
+  const canDelete = isManagement && eligibility?.allowed === true;
+  const deleteBlockedNote = eligibility && !eligibility.allowed
+    ? 'This device has assignment history — archive it instead.'
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -196,6 +251,94 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
             {item ? 'Save Changes' : 'Add Device'}
           </Button>
         </div>
+
+        {item && isManagement && (
+          <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" /> Danger zone
+            </div>
+
+            {isArchived ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  This device is archived and cannot be assigned. Restoring puts it back as Available.
+                </p>
+                <Button
+                  variant="outline" size="sm" className="gap-1.5"
+                  disabled={busy !== null}
+                  onClick={() => runDanger('restore', () => restoreEquipmentItem(item), '✅ Device restored')}
+                >
+                  {busy === 'restore' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                  Restore device
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Archiving keeps the device and its full assignment history but removes it from the working
+                  list. Use it for hardware that is lost, damaged beyond use, or returned to the vendor.
+                </p>
+                {archiveConfirm && (
+                  <Textarea
+                    value={archiveReason}
+                    onChange={e => setArchiveReason(e.target.value)}
+                    placeholder="Reason (optional) — e.g. written off, returned to vendor"
+                    className="min-h-[56px] resize-none text-sm"
+                  />
+                )}
+                <Button
+                  variant="outline" size="sm" className="gap-1.5"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    if (!archiveConfirm) { setArchiveConfirm(true); return; }
+                    void runDanger('archive', () => archiveEquipmentItem(item, archiveReason), '✅ Device archived');
+                  }}
+                >
+                  {busy === 'archive' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+                  {archiveConfirm ? 'Confirm archive' : 'Archive device'}
+                </Button>
+              </div>
+            )}
+
+            <div className="border-t border-destructive/20 pt-3 space-y-2">
+              {eligibility === null ? (
+                <p className="text-xs text-muted-foreground">Checking assignment history…</p>
+              ) : !canDelete ? (
+                <p className="text-xs text-muted-foreground">{deleteBlockedNote}</p>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {eligibility.reason === 'demo_only'
+                      ? 'This device was only ever held by demo/test drivers, so it can be removed completely. Any open assignment is released first.'
+                      : 'This device was never assigned to anyone, so it can be removed completely.'}
+                  </p>
+                  {deleteConfirm && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Type <span className="font-mono">{item.serial_number}</span> to confirm</Label>
+                      <Input
+                        value={deleteSerialInput}
+                        onChange={e => setDeleteSerialInput(e.target.value)}
+                        className="h-8 font-mono text-sm"
+                        placeholder={item.serial_number}
+                      />
+                    </div>
+                  )}
+                  <Button
+                    variant="destructive" size="sm" className="gap-1.5"
+                    disabled={busy !== null || (deleteConfirm && deleteSerialInput.trim().toUpperCase() !== item.serial_number.toUpperCase())}
+                    onClick={() => {
+                      if (!deleteConfirm) { setDeleteConfirm(true); return; }
+                      void runDanger('delete', () => deleteEquipmentItem(item), '🗑️ Device deleted');
+                    }}
+                  >
+                    {busy === 'delete' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    {deleteConfirm ? 'Confirm permanent delete' : 'Delete permanently'}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
