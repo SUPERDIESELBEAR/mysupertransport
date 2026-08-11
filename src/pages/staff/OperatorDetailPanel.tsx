@@ -12,6 +12,7 @@ import { useAutoSaveStatusField } from '@/hooks/useAutoSaveStatusField';
 import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
+import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature, Rocket } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature, Rocket, Camera } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { PreviewLink } from '@/components/documents/PreviewLink';
@@ -250,20 +251,30 @@ function QPassportUploader({
   const { toast } = useToast();
   const [uploading, setUploading] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const cameraRef = React.useRef<HTMLInputElement | null>(null);
+  const [canCapture, setCanCapture] = React.useState(false);
 
-  const handleFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-      toast({ title: 'PDF only', description: 'QPassport must be a PDF file.', variant: 'destructive' });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
+  // Only offer "Take Photo" on touch devices with a real camera-first input
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    setCanCapture(window.matchMedia('(pointer: coarse)').matches);
+  }, []);
+
+  const handleFile = async (raw: File) => {
+    const file = normalizeMobileCaptureFile(raw);
+    const { valid, error: validationError } = validateFile(file);
+    if (!valid) {
+      toast({ title: 'Upload not allowed', description: validationError, variant: 'destructive' });
       return;
     }
     setUploading(true);
     try {
-      const path = `${operatorId}/qpassport/${Date.now()}.pdf`;
-      const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, { upsert: true });
+      const ext = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+      const path = `${operatorId}/qpassport/${Date.now()}.${ext}`;
+      const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, {
+        upsert: true,
+        contentType: file.type || undefined,
+      });
       if (upErr) { console.error('[OperatorDetailPanel/qpassport] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
@@ -299,20 +310,38 @@ function QPassportUploader({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport PDF</Label>
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport</Label>
       <div className="flex items-center gap-2 flex-wrap">
         {currentUrl && (
-          <PreviewLink url={currentUrl} name="QPassport.pdf" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
-            <ExternalLink className="h-3 w-3" /> View QPassport PDF
+          <PreviewLink url={currentUrl} name="QPassport" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+            <ExternalLink className="h-3 w-3" /> View QPassport
           </PreviewLink>
         )}
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept="image/*,application/pdf"
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
         />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+        />
+        {canCapture && !uploading && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => cameraRef.current?.click()}
+            className="text-xs gap-1 h-7 px-2.5"
+          >
+            <Camera className="h-3 w-3" /> Take Photo
+          </Button>
+        )}
         <Button
           size="sm"
           variant={currentUrl ? 'outline' : 'default'}
@@ -322,10 +351,11 @@ function QPassportUploader({
         >
           {uploading
             ? <><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</>
-            : <><Upload className="h-3 w-3" /> {currentUrl ? 'Replace PDF' : 'Upload QPassport'}</>
+            : <><Upload className="h-3 w-3" /> {currentUrl ? 'Replace' : (canCapture ? 'Choose File' : 'Upload QPassport')}</>
           }
         </Button>
       </div>
+      <p className="text-[11px] text-muted-foreground">PDF, JPG, or PNG · Max 10 MB</p>
     </div>
   );
 }
