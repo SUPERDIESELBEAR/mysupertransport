@@ -523,6 +523,30 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               {truckInfo?.vin && <span className="ml-2 text-xs font-mono">VIN: {truckInfo.vin}</span>}
             </p>
           </div>
+          {!readOnly && (isManagement || isOwner) && (
+            isActiveUnit ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="gap-1.5 shrink-0"
+                onClick={() => navigate(`/management/deactivate/${operatorId}`)}
+                title="Deactivate this driver and delease the unit"
+              >
+                <UserX className="h-3.5 w-3.5" />
+                Deactivate &amp; Delease
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={() => setConfirmReactivate(true)}
+                title="Put this unit back on the active roster"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reactivate Unit
+              </Button>
+            )
+          )}
         </div>
 
         {/* Truck Specs Card */}
