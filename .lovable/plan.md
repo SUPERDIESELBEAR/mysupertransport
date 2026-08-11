@@ -8,6 +8,8 @@ The problem: on re-submit the application is marked as submitted again, but its 
 
 ## What to build
 
+0. **Let the applicant finish in one step.** Today, after clicking the link the applicant must page through all 9 steps and press "Submit Application" for the correction to count. "Save Progress" writes the new file straight away (that is why the drawer already shows "Retake received — new file uploaded"), but it does not tell anyone the applicant is done. Add a clear "Done — send my corrections" action on the revision/retake screen so that fixing the one requested item and confirming is enough: no re-walking the whole application.
+
 1. **Auto-return to review on re-submit.** When an applicant re-submits an application that was in the revisions state, put it back to **Pending** (keeping the record of the original status, so an application that was already approved before the correction still offers "Re-approve corrections" rather than a fresh invite).
 
 2. **Fix the applications already stuck**, including Emma Mueller — move any application that was re-submitted after its revision request back to Pending so staff can act on it.
@@ -28,3 +30,4 @@ Applicant fixes the document -> application returns to Pending automatically -> 
 - Data fix: `applications` where `review_status = 'revisions_requested'` and `submitted_at > revision_requested_at` and `is_draft = false`.
 - UI: `ApplicationReviewDrawer.tsx` — resubmitted panel + widen the footer condition; `ManagementPortal.tsx` status filter counts follow automatically.
 - Notification: reuse the `send-notification` `new_application` path with a `revision_resubmitted` variant.
+- The one-step finish reuses `submit_application_draft` (validation is already satisfied by the previously submitted data), surfaced from the revision banner in `ApplicationForm.tsx`.
