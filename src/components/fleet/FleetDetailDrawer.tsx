@@ -14,6 +14,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
@@ -27,7 +28,7 @@ import {
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
   Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2, FileBadge,
-  RefreshCw,
+  RefreshCw, UserX, RotateCcw,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -100,7 +101,8 @@ function categoryBadge(cat: string) {
 
 export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, hideBack = false, onReady }: FleetDetailDrawerProps) {
   const readyFiredRef = useRef(false);
-  const { session } = useAuth();
+  const { session, isManagement, isOwner } = useAuth();
+  const navigate = useNavigate();
   const [truckInfo, setTruckInfo] = useState<any>(null);
   const [driverName, setDriverName] = useState('');
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
