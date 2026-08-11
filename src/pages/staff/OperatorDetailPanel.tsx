@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -2487,10 +2488,34 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     exceptionNotesAuto.flush(); costNotesAuto.flush(); insuranceNotesAuto.flush();
   };
 
+  const isQuickView = !!status.fully_onboarded;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+      <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
+        {/* Header shell */}
+        <div className="flex flex-wrap items-start justify-between gap-3" style={{ order: isQuickView ? 0 : 2 }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="sm" disabled className="gap-1.5 text-muted-foreground shrink-0">
+              <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Pipeline</span>
+            </Button>
+            <div className="min-w-0 space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+
+        {/* Body shell */}
+        <div className="space-y-6" style={{ order: isQuickView ? 2 : 0 }}>
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -2584,7 +2609,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const yesNoOptions = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }];
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
-  const isQuickView = !!status.fully_onboarded;
 
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(stripAutoSavedNotes(savedSnapshot.current.status)) !== JSON.stringify(stripAutoSavedNotes(status)) ||

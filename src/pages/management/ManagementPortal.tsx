@@ -235,6 +235,33 @@ export default function ManagementPortal() {
   const [installSending, setInstallSending] = useState(false);
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
 
+  const prevSearchParamsRef = useRef(searchParams);
+  const skipNextUrlSyncRef = useRef(false);
+  // Tracks the last search string this portal intentionally wrote. Prevents
+  // the reader effect from treating our own writes as external navigation and
+  // bouncing the view back (the root cause of the Firefox pipeline click bug).
+  const lastWrittenSearchRef = useRef<string>(window.location.search.replace(/^\?/, ''));
+
+
+
+  // Authoritative driver-profile opener. Writes the URL immediately so the
+  // address bar reflects the selection and Firefox (which handles the history
+  // stack more strictly than Chrome) cannot lose the navigation.
+  const openOperatorDetail = useCallback((operatorId: string, options?: { stageKey?: string; focusField?: 'cdl' | 'medcert' }) => {
+    setSelectedOperatorId(operatorId);
+    setScrollToStageKeyMgmt(options?.stageKey);
+    setView('operator-detail');
+    const next = new URLSearchParams(window.location.search);
+    next.set('view', 'operator-detail');
+    next.set('op', operatorId);
+    next.delete('status');
+    const nextSearch = next.toString();
+    lastWrittenSearchRef.current = nextSearch;
+    skipNextUrlSyncRef.current = true;
+    setSearchParams(next, { replace: true });
+    if (options?.focusField) setDrawerFocusField(options.focusField);
+  }, [setSearchParams]);
+
   // One-shot deep-link migration on mount (e.g. notification ?op=... links).
   // Initial state was already seeded from the URL by the lazy useState above.
   useEffect(() => {
@@ -248,8 +275,7 @@ export default function ManagementPortal() {
     // operator id is left for that screen to consume. Without this guard every
     // eld-logs deep link that named a driver landed on the profile instead.
     if (op && !hasExplicitView) {
-      setSelectedOperatorId(op);
-      setView('operator-detail');
+      openOperatorDetail(op);
     }
     // Notification deep-link: ?view=applications&app=<id> opens the review drawer
     // for that specific application. Used by application_denied / application_revised
@@ -269,17 +295,19 @@ export default function ManagementPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const prevSearchParamsRef = useRef(searchParams);
-  const skipNextUrlSyncRef = useRef(false);
 
   // When external navigation changes the URL view param (e.g., Staff Help
   // typeahead), sync the active view so the portal reflects the new URL. Also
   // set a flag so the state-to-URL writer below does not clobber the
   // externally-driven URL on the same render cycle.
   useEffect(() => {
+    const currentSearch = window.location.search.replace(/^\?/, '');
     const currentUrlView = (searchParams.get('view') ?? searchParams.get('tab')) as ManagementView | null;
     const prevUrlView = prevSearchParamsRef.current.get('view') as ManagementView | null;
-    if (currentUrlView !== prevUrlView) {
+    // Ignore our own writes: if the URL matches what we last authored, the
+    // reader has nothing to say about it.
+    const isOwnWrite = currentSearch === lastWrittenSearchRef.current;
+    if (!isOwnWrite && currentUrlView !== prevUrlView) {
       if (currentUrlView && ALLOWED_VIEWS.includes(currentUrlView) && currentUrlView !== view) {
         setView(currentUrlView);
       }
@@ -304,9 +332,12 @@ export default function ManagementPortal() {
     else if (view !== 'eld-logs') next.delete('op');
     if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
     const current = window.location.search.replace(/^\?/, '');
-    if (next.toString() !== current) {
+    const nextSearch = next.toString();
+    if (nextSearch !== current) {
       setSearchParams(next, { replace: true });
     }
+    // Remember what we wrote so the reader effect doesn't treat it as external.
+    lastWrittenSearchRef.current = nextSearch;
     // Persist the current top-level section to sessionStorage so a refresh
     // restores the last viewed page, independent of URL state. Skip transient
     // detail views that need a selected record to render correctly.
@@ -316,7 +347,6 @@ export default function ManagementPortal() {
       }
     } catch { /* ignore */ }
   }, [view, selectedOperatorId, statusFilter, setSearchParams]);
-
 
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
@@ -1315,7 +1345,7 @@ export default function ManagementPortal() {
                           </div>
                         </div>
                         <button
-                          onClick={() => { setSelectedOperatorId(row.operatorId); setView('operator-detail'); }}
+                          onClick={() => openOperatorDetail(row.operatorId)}
                           className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 transition-colors"
                         >
                           Open <ChevronRight className="h-3.5 w-3.5" />
@@ -1433,7 +1463,7 @@ export default function ManagementPortal() {
                                   <button
                                     key={d.id}
                                     type="button"
-                                    onClick={() => { setSelectedOperatorId(d.id); setView('operator-detail'); }}
+                                    onClick={() => openOperatorDetail(d.id)}
                                     className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary/40 transition-colors"
                                   >
                                     {d.name}
@@ -1786,11 +1816,9 @@ export default function ManagementPortal() {
         {/* ── PIPELINE ── */}
         {view === 'pipeline' && (
           <PipelineDashboard
-            onOpenOperator={(id) => { setSelectedOperatorId(id); setScrollToStageKeyMgmt(undefined); setView('operator-detail'); }}
+            onOpenOperator={(id) => openOperatorDetail(id)}
             onOpenOperatorWithFocus={async (operatorId, focusField) => {
-              setSelectedOperatorId(operatorId);
-              setScrollToStageKeyMgmt(undefined);
-              setView('operator-detail');
+              openOperatorDetail(operatorId, { focusField });
               const { data: op } = await supabase
                 .from('operators')
                 .select('application_id, applications(*)')
@@ -1801,11 +1829,7 @@ export default function ManagementPortal() {
                 setDrawerFocusField(focusField);
               }
             }}
-            onOpenOperatorAtStage={(operatorId, stageKey) => {
-              setSelectedOperatorId(operatorId);
-              setScrollToStageKeyMgmt(stageKey);
-              setView('operator-detail');
-            }}
+            onOpenOperatorAtStage={(operatorId, stageKey) => openOperatorDetail(operatorId, { stageKey })}
             complianceRefreshKey={complianceRefreshKey}
             initialCoordinatorFilter={pipelineCoordinatorFilter}
             initialCoordinatorName={pipelineCoordinatorName ?? undefined}
@@ -1859,8 +1883,7 @@ export default function ManagementPortal() {
         {view === 'activity' && (
           <ActivityLog onNavigate={async (action) => {
             if (action.type === 'operator' && action.operatorId) {
-              setSelectedOperatorId(action.operatorId);
-              setView('operator-detail');
+              openOperatorDetail(action.operatorId);
             } else if (action.type === 'application' && action.applicationId) {
               const { data } = await supabase.from('applications').select('*').eq('id', action.applicationId).single();
               if (data) setSelectedApp(data as FullApplication);
@@ -2142,10 +2165,9 @@ export default function ManagementPortal() {
               <ComplianceAlertsPanel
                 key={alertsPanelNoAction ? 'no-action' : 'default'}
                 defaultNoActionOnly={alertsPanelNoAction}
-                onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+                onOpenOperator={(id) => openOperatorDetail(id)}
                 onOpenOperatorWithFocus={async (operatorId, focusField) => {
-                  setSelectedOperatorId(operatorId);
-                  setView('operator-detail');
+                  openOperatorDetail(operatorId, { focusField });
                   const { data: op } = await supabase
                     .from('operators')
                     .select('application_id, applications(*)')
@@ -2160,7 +2182,7 @@ export default function ManagementPortal() {
             </div>
             <InspectionComplianceSummary
               defaultExpanded={true}
-              onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenOperator={(id) => openOperatorDetail(id)}
               onOpenOperatorAtBinder={async (id) => {
                 const { data } = await supabase
                   .from('operators')

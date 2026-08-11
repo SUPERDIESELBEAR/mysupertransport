@@ -51,6 +51,11 @@ export function useBackButton(isOpen: boolean, onClose: () => void) {
       return;
     }
 
+    // Guard against duplicate pushes when the component re-renders or multiple
+    // nested consumers mount while already open. Without this, Firefox ends up
+    // with several virtual entries and the hardware/browser back button breaks.
+    if (pushedRef.current) return;
+
     // Push a virtual history entry
     window.history.pushState({ modalOpen: true }, "");
     pushedRef.current = true;
