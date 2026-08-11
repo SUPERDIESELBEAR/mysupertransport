@@ -126,7 +126,7 @@ export default function DeactivationPage() {
     { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
     { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
-    { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />, path: 'mo-plates' },
+    { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />, path: 'mo-plates' },
     { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
     { label: 'Staff Directory', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },

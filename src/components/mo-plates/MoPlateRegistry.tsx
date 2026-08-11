@@ -368,7 +368,7 @@ export default function MoPlateRegistry() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <Car className="h-6 w-6 text-gold shrink-0" />
-            MO Plate Registry
+            License Plate Registry
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Track Missouri-issued registrations and plates as they move between drivers.
