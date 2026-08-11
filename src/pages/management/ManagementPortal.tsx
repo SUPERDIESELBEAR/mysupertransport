@@ -1814,11 +1814,9 @@ export default function ManagementPortal() {
         {/* ── PIPELINE ── */}
         {view === 'pipeline' && (
           <PipelineDashboard
-            onOpenOperator={(id) => { setSelectedOperatorId(id); setScrollToStageKeyMgmt(undefined); setView('operator-detail'); }}
+            onOpenOperator={(id) => openOperatorDetail(id)}
             onOpenOperatorWithFocus={async (operatorId, focusField) => {
-              setSelectedOperatorId(operatorId);
-              setScrollToStageKeyMgmt(undefined);
-              setView('operator-detail');
+              openOperatorDetail(operatorId, { focusField });
               const { data: op } = await supabase
                 .from('operators')
                 .select('application_id, applications(*)')
@@ -1829,11 +1827,7 @@ export default function ManagementPortal() {
                 setDrawerFocusField(focusField);
               }
             }}
-            onOpenOperatorAtStage={(operatorId, stageKey) => {
-              setSelectedOperatorId(operatorId);
-              setScrollToStageKeyMgmt(stageKey);
-              setView('operator-detail');
-            }}
+            onOpenOperatorAtStage={(operatorId, stageKey) => openOperatorDetail(operatorId, { stageKey })}
             complianceRefreshKey={complianceRefreshKey}
             initialCoordinatorFilter={pipelineCoordinatorFilter}
             initialCoordinatorName={pipelineCoordinatorName ?? undefined}
