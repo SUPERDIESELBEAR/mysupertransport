@@ -527,6 +527,15 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
 
+  // An applicant who was sent back for corrections and has since re-submitted
+  // is ready for review again, even on legacy rows where the status never
+  // flipped back to `pending`. Treat those as pending so staff keep the
+  // Approve / Deny actions instead of a dead-end banner.
+  const correctionsReceived = !!app.revision_requested_at
+    && !!app.submitted_at
+    && new Date(app.submitted_at) > new Date(app.revision_requested_at);
+  const awaitingDecision = app.review_status === 'pending' || correctionsReceived;
+
   const revealSSN = async () => {
     setSsnLoading(true);
     setSsnError(null);
