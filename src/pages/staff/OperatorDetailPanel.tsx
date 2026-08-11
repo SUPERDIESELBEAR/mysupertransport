@@ -310,20 +310,38 @@ function QPassportUploader({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport PDF</Label>
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport</Label>
       <div className="flex items-center gap-2 flex-wrap">
         {currentUrl && (
-          <PreviewLink url={currentUrl} name="QPassport.pdf" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
-            <ExternalLink className="h-3 w-3" /> View QPassport PDF
+          <PreviewLink url={currentUrl} name="QPassport" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+            <ExternalLink className="h-3 w-3" /> View QPassport
           </PreviewLink>
         )}
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept="image/*,application/pdf"
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
         />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+        />
+        {canCapture && !uploading && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => cameraRef.current?.click()}
+            className="text-xs gap-1 h-7 px-2.5"
+          >
+            <Camera className="h-3 w-3" /> Take Photo
+          </Button>
+        )}
         <Button
           size="sm"
           variant={currentUrl ? 'outline' : 'default'}
@@ -333,10 +351,11 @@ function QPassportUploader({
         >
           {uploading
             ? <><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</>
-            : <><Upload className="h-3 w-3" /> {currentUrl ? 'Replace PDF' : 'Upload QPassport'}</>
+            : <><Upload className="h-3 w-3" /> {currentUrl ? 'Replace' : (canCapture ? 'Choose File' : 'Upload QPassport')}</>
           }
         </Button>
       </div>
+      <p className="text-[11px] text-muted-foreground">PDF, JPG, or PNG · Max 10 MB</p>
     </div>
   );
 }
