@@ -790,12 +790,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     // the stage after the smooth scroll starts. Keep re-measuring for a short
     // window and snap-correct until the first field clears both pinned bars.
     const start = performance.now();
+    let aborted = false;
+    const abort = () => { aborted = true; cleanup(); };
+    const cleanup = () => {
+      window.removeEventListener('wheel', abort);
+      window.removeEventListener('touchstart', abort);
+      window.removeEventListener('keydown', abort);
+    };
+    window.addEventListener('wheel', abort, { passive: true });
+    window.addEventListener('touchstart', abort, { passive: true });
+    window.addEventListener('keydown', abort);
     const settle = () => {
+      if (aborted) return;
       const wanted = desiredScrollTop();
       if (Math.abs(wanted - currentScrollTop()) > 2) {
         applyScroll(wanted, 'auto');
       }
       if (performance.now() - start < 900) requestAnimationFrame(settle);
+      else cleanup();
     };
     window.setTimeout(() => requestAnimationFrame(settle), prefersReduced ? 0 : 350);
   };
