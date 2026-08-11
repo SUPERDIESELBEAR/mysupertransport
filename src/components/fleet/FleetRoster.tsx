@@ -709,43 +709,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <Plus className="h-3.5 w-3.5" />
                     Log Update
                   </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={e => e.stopPropagation()}
-                        title="More actions"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {(isManagement || isOwner) && (
-                        isDeactivated ? (
-                          <DropdownMenuItem
-                            className="text-primary focus:text-primary focus:bg-primary/10"
-                            onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
-                          >
-                            <RotateCcw className="h-3.5 w-3.5 mr-2" />
-                            Reactivate unit
-                          </DropdownMenuItem>
-                        ) : (
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                          onClick={e => { e.stopPropagation(); navigate(`/management/deactivate/${row.operatorId}`); }}
-                        >
-                          <UserX className="h-3.5 w-3.5 mr-2" />
-                          Deactivate & Delease
-                        </DropdownMenuItem>
-                        )
-                      )}
-                      <DropdownMenuItem onClick={e => { e.stopPropagation(); onSelectOperator(row.operatorId); }}>
-                        Open driver profile
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
                 </div>
                 {isDeactivated && (isManagement || isOwner) && (
