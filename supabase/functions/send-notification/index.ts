@@ -183,8 +183,31 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'revision_resubmitted': {
+        // The applicant sent back the corrections staff asked for. The
+        // application is back in Pending — nudge the applications recipients.
+        const name = payload.applicant_name || 'An applicant';
+        const email = payload.applicant_email || '';
+        const mgmtEmails = await getManagementEmails('revision_resubmitted');
+        if (mgmtEmails.length === 0) break;
+
+        const subject = `Corrections received: ${name}`;
+        const html = buildEmail(
+          subject,
+          '🔄 Requested Corrections Received',
+          `<p>${name} has sent back the corrections your team requested. The application is back in <strong>Pending</strong> review.</p>
+           <p><strong>Name:</strong> ${name}<br><strong>Email:</strong> ${email}</p>
+           <p>Open the application to review the updated information and approve or deny it.</p>`,
+          { label: 'Review Application', url: payload.application_id
+              ? `${appUrl}/management?view=applications&app=${encodeURIComponent(payload.application_id)}`
+              : `${appUrl}/management?view=applications` }
+        );
+
+        await Promise.all(mgmtEmails.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+        break;
+      }
+
       case 'application_submitted': {
-        // (revision_resubmitted handled below)
         // Applicant-facing confirmation that we received their submission.
         // No password CTA, no install nudge — those come after approval.
         const fullName = (payload.applicant_name || '').trim();
