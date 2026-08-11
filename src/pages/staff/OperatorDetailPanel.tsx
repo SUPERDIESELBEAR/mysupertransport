@@ -2488,6 +2488,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     exceptionNotesAuto.flush(); costNotesAuto.flush(); insuranceNotesAuto.flush();
   };
 
+  const isQuickView = !!status.fully_onboarded;
+
   if (loading) {
     return (
       <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
