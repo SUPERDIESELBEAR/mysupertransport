@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
@@ -8,6 +8,59 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Upload, Loader2, Plus, Trash2 } from 'lucide-react';
 import { PreviewLink } from '@/components/documents/PreviewLink';
+import { resolveDecalUrl } from '@/lib/decalUrl';
+
+/**
+ * Decal photos are stored as bare private-bucket paths. Resolve each stored
+ * value into a fresh signed URL before rendering, otherwise the <img> points
+ * at a non-URL and shows a broken image.
+ */
+function useResolvedDecalUrls(stored: string[]) {
+  const key = stored.join('|');
+  const [resolved, setResolved] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const list = key ? key.split('|').filter(Boolean) : [];
+    if (list.length === 0) { setResolved({}); return; }
+    (async () => {
+      const entries = await Promise.all(
+        list.map(async (u) => [u, await resolveDecalUrl(u)] as const),
+      );
+      if (!cancelled) setResolved(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [key]);
+
+  return resolved;
+}
+
+function PhotoTile({
+  stored, resolved, name, alt,
+}: { stored: string; resolved: Record<string, string | null>; name: string; alt: string }) {
+  const pending = !(stored in resolved);
+  const url = resolved[stored] ?? null;
+
+  if (pending) {
+    return (
+      <div className="w-full aspect-video rounded-lg border border-border bg-muted/40 flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!url) {
+    return (
+      <div className="w-full aspect-video rounded-lg border border-dashed border-destructive/40 bg-muted/40 flex items-center justify-center">
+        <span className="text-[11px] text-muted-foreground">Photo unavailable</span>
+      </div>
+    );
+  }
+  return (
+    <PreviewLink url={url} name={name} className="block">
+      <img src={url} alt={alt} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+    </PreviewLink>
+  );
+}
 
 export interface DecalPhotoExtra {
   url: string;
@@ -53,6 +106,12 @@ export default function StaffDecalPhotoEditor({
   const psRef = useRef<HTMLInputElement | null>(null);
   const extraRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+
+  const storedUrls = useMemo(
+    () => [decalPhotoDsUrl, decalPhotoPsUrl, ...decalPhotosExtra.map(p => p.url)].filter(Boolean) as string[],
+    [decalPhotoDsUrl, decalPhotoPsUrl, decalPhotosExtra],
+  );
+  const resolved = useResolvedDecalUrls(storedUrls);
 
   const persistOnboarding = async (patch: Record<string, unknown>) => {
     const { error } = await supabase.from('onboarding_status').update(updatePayload('onboarding_status', patch)).eq('operator_id', operatorId);
@@ -134,9 +193,7 @@ export default function StaffDecalPhotoEditor({
             <div key={side} className="space-y-1.5">
               <p className="text-xs text-muted-foreground font-medium">{label}</p>
               {url ? (
-                <PreviewLink url={url} name={`Decal — ${label}`} className="block">
-                  <img src={url} alt={`Decal — ${label}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-                </PreviewLink>
+                <PhotoTile stored={url} resolved={resolved} name={`Decal — ${label}`} alt={`Decal — ${label}`} />
               ) : (
                 <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center">
                   <span className="text-[11px] text-muted-foreground">No photo yet</span>
@@ -179,9 +236,12 @@ export default function StaffDecalPhotoEditor({
                 placeholder={`Angle ${idx + 1}`}
                 className="h-7 text-[11px]"
               />
-              <PreviewLink url={p.url} name={p.label ?? `Angle ${idx + 1}`} className="block">
-                <img src={p.url} alt={p.label ?? `Angle ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-              </PreviewLink>
+              <PhotoTile
+                stored={p.url}
+                resolved={resolved}
+                name={p.label ?? `Angle ${idx + 1}`}
+                alt={p.label ?? `Angle ${idx + 1}`}
+              />
               <Button
                 size="sm"
                 variant="ghost"
