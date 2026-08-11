@@ -266,7 +266,7 @@ export default function ManagementPortal() {
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openOperatorDetail]);
+  }, []);
 
   const prevSearchParamsRef = useRef(searchParams);
   const skipNextUrlSyncRef = useRef(false);
