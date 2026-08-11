@@ -640,10 +640,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     {/* Truck photos */}
                     <button
                       type="button"
-                      onClick={e => { e.stopPropagation(); setTruckPhotoTarget(row); }}
-                      disabled={truckCount === 0}
-                      className="flex items-center gap-2 text-left hover:bg-muted/30 disabled:hover:bg-transparent disabled:cursor-not-allowed rounded-md px-1 py-1 transition-colors"
-                      title={truckCount === 0 ? 'No truck photos yet' : 'View truck photos'}
+                      onClick={e => { e.stopPropagation(); if (truckCount === 0) return; setTruckPhotoTarget(row); }}
+                      aria-disabled={truckCount === 0}
+                      className={`flex items-center gap-2 text-left rounded-md px-1 py-1 transition-colors ${truckCount === 0 ? 'cursor-default' : 'hover:bg-muted/30'}`}
+                      title={truckCount === 0 ? 'No truck photos' : 'View truck photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
                         <Truck className={`h-5 w-5 ${truckCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
@@ -658,10 +658,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     {/* Decal photos */}
                     <button
                       type="button"
-                      onClick={e => { e.stopPropagation(); setDecalPhotoTarget(row); }}
-                      disabled={decalCount === 0}
-                      className="flex items-center gap-2 text-left hover:bg-muted/30 disabled:hover:bg-transparent disabled:cursor-not-allowed rounded-md px-1 py-1 transition-colors"
-                      title={decalCount === 0 ? 'No decal photos yet' : 'View decal photos'}
+                      onClick={e => { e.stopPropagation(); if (decalCount === 0) return; setDecalPhotoTarget(row); }}
+                      aria-disabled={decalCount === 0}
+                      className={`flex items-center gap-2 text-left rounded-md px-1 py-1 transition-colors ${decalCount === 0 ? 'cursor-default' : 'hover:bg-muted/30'}`}
+                      title={decalCount === 0 ? 'No decal photos' : 'View decal photos'}
                     >
                       <div className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted overflow-hidden flex items-center justify-center">
                         <BadgeIcon className={`h-5 w-5 ${decalCount === 0 ? 'text-muted-foreground/40' : 'text-gold'}`} />
