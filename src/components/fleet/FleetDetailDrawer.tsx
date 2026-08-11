@@ -1285,6 +1285,44 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reactivate Unit {unitNumber || ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              This puts <strong>{driverName}</strong> back on the active roster. Verify insurance and equipment before dispatching.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reactivating}
+              onClick={async e => {
+                e.preventDefault();
+                setReactivating(true);
+                const { error } = await supabase.from('operators').update({ is_active: true }).eq('id', operatorId);
+                if (error) {
+                  toast({ title: 'Error', description: 'Could not reactivate this unit.', variant: 'destructive' });
+                } else {
+                  await supabase.from('audit_log').insert({
+                    entity_type: 'operator',
+                    entity_id: operatorId,
+                    entity_label: `Unit ${unitNumber ?? '—'} · ${driverName}`,
+                    action: 'operator_reactivated',
+                  });
+                  toast({ title: `Unit ${unitNumber ?? ''} reactivated`.trim(), description: `${driverName} is back on the active roster.` });
+                  setConfirmReactivate(false);
+                  setIsActiveUnit(true);
+                }
+                setReactivating(false);
+              }}
+            >
+              {reactivating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reactivate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
