@@ -330,9 +330,9 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="font-medium">{value}</div>
+      <div className="font-medium break-words">{value}</div>
     </div>
   );
 }
