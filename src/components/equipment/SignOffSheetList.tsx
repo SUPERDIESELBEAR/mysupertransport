@@ -136,7 +136,12 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         toast({ title: 'Resend failed', description: details, variant: 'destructive' });
         return;
       }
-      toast({ title: '✅ Reminder sent', description: 'The operator has been emailed again.' });
+      toast({
+        title: sheet.status === 'draft' ? '✅ Assignment sheet sent' : '✅ Reminder sent',
+        description: sheet.status === 'draft'
+          ? 'The sheet is now recorded as Sent and the operator has been emailed.'
+          : 'The operator has been emailed again.',
+      });
       fetchSheets();
     } catch (err: any) {
       console.error('[SignOffSheetList] resend exception', err);
@@ -158,7 +163,13 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         toast({ title: 'Delete failed', description: details, variant: 'destructive' });
         return;
       }
-      toast({ title: 'Assignment sheet deleted', description: 'Any assigned devices were released back to inventory.' });
+      const wasSent = (sheet.status ?? 'draft') !== 'draft' || !!sheet.sent_at;
+      toast({
+        title: wasSent ? 'Assignment sheet voided' : 'Draft deleted',
+        description: wasSent
+          ? 'The record is kept and marked Void. Any assigned devices were released back to inventory.'
+          : 'Any assigned devices were released back to inventory.',
+      });
       setConfirmDelete(null);
       fetchSheets();
     } catch (err: any) {
@@ -273,6 +284,9 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                     {sheet.bestpass_included && (
                       <div className="text-xs text-muted-foreground">BestPass fee acknowledged: $60.00</div>
                     )}
+                    {sheet.sent_at && (
+                      <div className="text-xs text-muted-foreground">Sent: {format(new Date(sheet.sent_at), 'MM/dd/yyyy h:mm a')}</div>
+                    )}
                     {sheet.signed_at && (
                       <div className="text-xs text-muted-foreground">Signed: {format(new Date(sheet.signed_at), 'MM/dd/yyyy h:mm a')}</div>
                     )}
@@ -331,14 +345,14 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                       variant="outline"
                       className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 ml-auto"
                       onClick={() => setConfirmDelete(sheet)}
-                      disabled={deletingId === sheet.id}
+                      disabled={deletingId === sheet.id || status === 'void'}
                     >
                       {deletingId === sheet.id ? (
                         <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                       ) : (
                         <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      Delete
+                      {status === 'draft' && !sheet.sent_at ? 'Delete' : 'Void'}
                     </Button>
                   </div>
                 </CardContent>
@@ -352,9 +366,15 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         {/* delete confirmation */}
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this assignment sheet?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmDelete && ((confirmDelete.status ?? 'draft') !== 'draft' || confirmDelete.sent_at)
+                ? 'Void this assignment sheet?'
+                : 'Delete this draft assignment sheet?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Any devices assigned on this sheet will be released back to inventory. This cannot be undone.
+              {confirmDelete && ((confirmDelete.status ?? 'draft') !== 'draft' || confirmDelete.sent_at)
+                ? 'This sheet was already sent to the driver, so the record is kept for compliance and marked Void. Any devices assigned on this sheet will be released back to inventory.'
+                : 'This draft was never sent, so it will be removed. Any devices assigned on this sheet will be released back to inventory. This cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -368,7 +388,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deletingId ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
-              Delete
+              {confirmDelete && ((confirmDelete.status ?? 'draft') !== 'draft' || confirmDelete.sent_at) ? 'Void' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
