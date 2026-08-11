@@ -94,7 +94,7 @@ export function RequestRetakeModal({ applicationId, applicantEmail, initialKey, 
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue placeholder="Reason" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[140]">
                       {RETAKE_REASONS.map(r => (
                         <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>
                       ))}
