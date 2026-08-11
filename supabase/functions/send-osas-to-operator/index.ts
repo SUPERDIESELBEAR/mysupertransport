@@ -50,7 +50,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
   // Single, correct staff auth check.
   const auth = await requireStaff(req, { roles: ['management', 'onboarding_staff', 'owner'] })
   if (auth instanceof Response) return auth
-  const { supabase, authHeader, userId } = auth
+  const { supabase, authHeader, userId, email: actorEmail } = auth
 
   let body: any
   try {
@@ -77,7 +77,29 @@ Deno.serve(withErrorEnvelope(async (req) => {
         return fail(404, 'Sheet not found', sheetError?.message)
       }
       await sendSheetEmail(supabase, authHeader, sheet, { resend: true })
-      await supabase.from('onboard_assignment_sheets').update({ sent_at: new Date().toISOString() }).eq('id', payload.sheetId)
+      const prevStatus = (sheet as any).status ?? 'draft'
+      const nowIso = new Date().toISOString()
+      // A draft becomes a permanent "Sent" record the moment it is emailed.
+      // Signed/void sheets keep their status; we only refresh the send time.
+      const statusUpdate: Record<string, unknown> = { sent_at: nowIso, updated_at: nowIso }
+      if (prevStatus === 'draft') statusUpdate.status = 'sent'
+      const { error: markSentError } = await supabase
+        .from('onboard_assignment_sheets')
+        .update(statusUpdate)
+        .eq('id', payload.sheetId)
+      if (markSentError) {
+        console.error('[send-osas-to-operator] failed to mark sheet sent', markSentError)
+        return fail(500, 'Sheet emailed but could not be marked as sent', markSentError.message)
+      }
+      await supabase.from('audit_log').insert({
+        actor_id: userId,
+        actor_name: actorEmail,
+        action: prevStatus === 'draft' ? 'osas_sheet_sent' : 'osas_sheet_resent',
+        entity_type: 'operator',
+        entity_id: (sheet as any).operator_id,
+        entity_label: `Assignment sheet • Unit ${(sheet as any).unit_number ?? '—'}`,
+        metadata: { sheet_id: payload.sheetId, previous_status: prevStatus, sent_at: nowIso },
+      })
       return ok({ success: true, sheetId: sheet.id })
     }
 
@@ -188,6 +210,15 @@ Deno.serve(withErrorEnvelope(async (req) => {
     if (body.sendToOperator) {
       const fullSheet = { ...sheet, items: sheetItems, operator }
       await sendSheetEmail(supabase, authHeader, fullSheet as any)
+      await supabase.from('audit_log').insert({
+        actor_id: userId,
+        actor_name: actorEmail,
+        action: 'osas_sheet_sent',
+        entity_type: 'operator',
+        entity_id: payload.operatorId,
+        entity_label: `Assignment sheet • Unit ${sheet.unit_number ?? '—'}`,
+        metadata: { sheet_id: sheet.id, previous_status: 'draft', sent_at: sentAt },
+      })
     }
 
     return ok({ success: true, sheetId: sheet.id })
