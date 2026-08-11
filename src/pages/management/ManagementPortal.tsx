@@ -1463,7 +1463,7 @@ export default function ManagementPortal() {
                                   <button
                                     key={d.id}
                                     type="button"
-                                    onClick={() => { setSelectedOperatorId(d.id); setView('operator-detail'); }}
+                                    onClick={() => openOperatorDetail(d.id)}
                                     className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary/40 transition-colors"
                                   >
                                     {d.name}
