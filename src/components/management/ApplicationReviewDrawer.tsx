@@ -1400,7 +1400,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         />
 
         {/* Action Footer — pending (full actions) or approved (revisions only) */}
-        {(app.review_status === 'pending' || app.review_status === 'approved') && (
+        {(awaitingDecision || app.review_status === 'approved') && (
           <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
             {!confirmAction ? (
               <>
@@ -1437,7 +1437,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     />
                     <p className="text-[11px] text-muted-foreground px-1">Applicant e-signs the changes you propose.</p>
                   </div>
-                  {app.review_status === 'pending' && (
+                  {awaitingDecision && (
                   <>
                   <ReviewActionButton
                     tone="deny"
