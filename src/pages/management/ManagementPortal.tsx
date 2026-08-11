@@ -328,6 +328,23 @@ export default function ManagementPortal() {
     } catch { /* ignore */ }
   }, [view, selectedOperatorId, statusFilter, setSearchParams]);
 
+  // Authoritative driver-profile opener. Writes the URL immediately so the
+  // address bar reflects the selection and Firefox (which handles the history
+  // stack more strictly than Chrome) cannot lose the navigation.
+  const openOperatorDetail = useCallback((operatorId: string, options?: { stageKey?: string; focusField?: 'cdl' | 'medcert' }) => {
+    setSelectedOperatorId(operatorId);
+    setScrollToStageKeyMgmt(options?.stageKey);
+    setView('operator-detail');
+    const next = new URLSearchParams(window.location.search);
+    next.set('view', 'operator-detail');
+    next.set('op', operatorId);
+    next.delete('status');
+    const nextSearch = next.toString();
+    lastWrittenSearchRef.current = nextSearch;
+    skipNextUrlSyncRef.current = true;
+    setSearchParams(next, { replace: true });
+    if (options?.focusField) setDrawerFocusField(options.focusField);
+  }, [setSearchParams]);
 
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
