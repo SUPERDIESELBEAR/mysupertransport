@@ -44,6 +44,7 @@ export interface EquipmentItem {
   current_assignment_id?: string | null;
   current_operator_id?: string | null;
   current_unit_number?: string | null;
+  current_operator_is_demo?: boolean;
   last_operator_name?: string | null;
   last_unit_number?: string | null;
   last_returned_at?: string | null;
@@ -61,7 +62,7 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
   damaged:   { label: 'Damaged / Needs Replacement', color: 'bg-warning/15 text-warning border-warning/30',        icon: <AlertTriangle className="h-3 w-3" /> },
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
-  deactivated: { label: 'Deactivated',  color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
+  deactivated: { label: 'Archived',     color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
 
 /** Assigned → Available → Damaged → Lost → Deactivated. */
@@ -258,6 +259,7 @@ export default function EquipmentInventory({
         operator_id,
         operators!inner(
           unit_number,
+          is_demo,
           application_id,
           applications(first_name, last_name),
           onboarding_status(unit_number)
@@ -265,13 +267,18 @@ export default function EquipmentInventory({
       `)
       .is('returned_at', null);
 
-    const assignmentMap: Record<string, { name: string; assignmentId: string; unitNumber: string | null }> = {};
+    const assignmentMap: Record<string, { name: string; assignmentId: string; unitNumber: string | null; isDemo: boolean }> = {};
     for (const a of (assignments ?? []) as any[]) {
       const app = a.operators?.applications;
       const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
       const onb = a.operators?.onboarding_status;
       const onbUnit = Array.isArray(onb) ? onb[0]?.unit_number : onb?.unit_number;
-      assignmentMap[a.equipment_id] = { name, assignmentId: a.id, unitNumber: onbUnit ?? a.operators?.unit_number ?? null };
+      assignmentMap[a.equipment_id] = {
+        name,
+        assignmentId: a.id,
+        unitNumber: onbUnit ?? a.operators?.unit_number ?? null,
+        isDemo: a.operators?.is_demo === true,
+      };
     }
 
     // Most recent closed assignment per device (for damaged / lost devices)
@@ -310,6 +317,7 @@ export default function EquipmentInventory({
       current_operator_name: assignmentMap[item.id]?.name ?? null,
       current_assignment_id: assignmentMap[item.id]?.assignmentId ?? null,
       current_unit_number: assignmentMap[item.id]?.unitNumber ?? null,
+      current_operator_is_demo: assignmentMap[item.id]?.isDemo ?? false,
       last_operator_name: lastAssignmentMap[item.id]?.name ?? null,
       last_unit_number: lastAssignmentMap[item.id]?.unitNumber ?? null,
       last_returned_at: lastAssignmentMap[item.id]?.returnedAt ?? null,
@@ -323,7 +331,10 @@ export default function EquipmentInventory({
 
   const filtered = items.filter(item => {
     const matchType = typeFilter === 'all' || item.device_type === typeFilter;
-    const matchStatus = statusFilter === 'all' || item.status === statusFilter;
+    // Archived devices stay out of the default view — reachable via the chip.
+    const matchStatus = statusFilter === 'all'
+      ? item.status !== 'deactivated'
+      : item.status === statusFilter;
     return matchType && matchStatus
       && matchesQuery(item, search.trim())
       && matchesQuery(item, (sectionSearch[item.device_type] ?? '').trim());
@@ -336,14 +347,15 @@ export default function EquipmentInventory({
   for (const item of filtered) grouped[item.device_type].push(item);
   for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key]);
 
-  // Summary counts
+  // Summary counts — devices held by demo/test drivers don't count as live stock.
+  const liveItems = showDemo ? items : items.filter(i => !i.current_operator_is_demo);
   const counts = {
-    total: items.length,
-    available: items.filter(i => i.status === 'available').length,
-    assigned: items.filter(i => i.status === 'assigned').length,
-    damaged: items.filter(i => i.status === 'damaged').length,
-    lost: items.filter(i => i.status === 'lost').length,
-    deactivated: items.filter(i => i.status === 'deactivated').length,
+    total: liveItems.filter(i => i.status !== 'deactivated').length,
+    available: liveItems.filter(i => i.status === 'available').length,
+    assigned: liveItems.filter(i => i.status === 'assigned').length,
+    damaged: liveItems.filter(i => i.status === 'damaged').length,
+    lost: liveItems.filter(i => i.status === 'lost').length,
+    deactivated: liveItems.filter(i => i.status === 'deactivated').length,
   };
 
   const perType: Record<DeviceType, { total: number; available: number; assigned: number }> = {
@@ -462,7 +474,7 @@ export default function EquipmentInventory({
           <div className="flex gap-1 overflow-x-auto flex-nowrap min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {(['all', 'available', 'assigned', 'damaged', 'lost', 'deactivated'] as const).map(s => {
               const count = s === 'all'
-                ? items.length
+                ? counts.total
                 : counts[s as EquipmentStatus];
               const isActive = statusFilter === s;
               return (
