@@ -235,6 +235,15 @@ export default function ManagementPortal() {
   const [installSending, setInstallSending] = useState(false);
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
 
+  const prevSearchParamsRef = useRef(searchParams);
+  const skipNextUrlSyncRef = useRef(false);
+  // Tracks the last search string this portal intentionally wrote. Prevents
+  // the reader effect from treating our own writes as external navigation and
+  // bouncing the view back (the root cause of the Firefox pipeline click bug).
+  const lastWrittenSearchRef = useRef<string>(window.location.search.replace(/^\?/, ''));
+
+
+
   // Authoritative driver-profile opener. Writes the URL immediately so the
   // address bar reflects the selection and Firefox (which handles the history
   // stack more strictly than Chrome) cannot lose the navigation.
