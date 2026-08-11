@@ -2,7 +2,7 @@
 
 ## What I found
 
-I reproduced this in a signed-in browser session against the live app.
+I reproduced this in a signed-in browser session against the live app. The user reports the bug occurs in Firefox but not in Chrome, so the fix must be verified in Firefox specifically.
 
 Clicking a driver name (both in the "Active — Open Onboarding Items" list and in the main pipeline table) does set the app to the driver profile view — after about 2 seconds of a blank/spinner area the profile does render. Two concrete problems make it look like "nothing happened, the page just refreshed":
 
