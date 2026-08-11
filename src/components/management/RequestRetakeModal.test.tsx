@@ -1,17 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { RequestRetakeModal } from './RequestRetakeModal';
 import { RETAKE_REASONS } from '@/lib/applicationDocumentRetake';
 
-// Minimal portal container helper so the modal renders in jsdom
 const Wrapper = ({ children }: { children: React.ReactNode }) => {
   return <div data-testid="portal-root">{children}</div>;
 };
 
 describe('RequestRetakeModal', () => {
-  it('renders all retake reasons in the dropdown', async () => {
-    const user = userEvent.setup();
+  it('renders all retake reasons in the dropdown', () => {
     render(
       <Wrapper>
         <RequestRetakeModal
@@ -24,11 +21,11 @@ describe('RequestRetakeModal', () => {
       </Wrapper>
     );
 
-    // Open the reason dropdown for Medical Certificate
+    // Open the reason dropdown for the initially selected document
     const trigger = screen.getByRole('combobox', { name: /reason/i });
-    await user.click(trigger);
+    fireEvent.click(trigger);
 
-    const listbox = await screen.findByRole('listbox');
+    const listbox = screen.getByRole('listbox');
     const options = within(listbox).getAllByRole('option');
 
     expect(options).toHaveLength(RETAKE_REASONS.length);
@@ -37,3 +34,4 @@ describe('RequestRetakeModal', () => {
     }
   });
 });
+
