@@ -251,20 +251,30 @@ function QPassportUploader({
   const { toast } = useToast();
   const [uploading, setUploading] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const cameraRef = React.useRef<HTMLInputElement | null>(null);
+  const [canCapture, setCanCapture] = React.useState(false);
 
-  const handleFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-      toast({ title: 'PDF only', description: 'QPassport must be a PDF file.', variant: 'destructive' });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
+  // Only offer "Take Photo" on touch devices with a real camera-first input
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    setCanCapture(window.matchMedia('(pointer: coarse)').matches);
+  }, []);
+
+  const handleFile = async (raw: File) => {
+    const file = normalizeMobileCaptureFile(raw);
+    const { valid, error: validationError } = validateFile(file);
+    if (!valid) {
+      toast({ title: 'Upload not allowed', description: validationError, variant: 'destructive' });
       return;
     }
     setUploading(true);
     try {
-      const path = `${operatorId}/qpassport/${Date.now()}.pdf`;
-      const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, { upsert: true });
+      const ext = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+      const path = `${operatorId}/qpassport/${Date.now()}.${ext}`;
+      const { error: upErr, authUid, sessionExpired } = await uploadToBucket('operator-documents', path, file, {
+        upsert: true,
+        contentType: file.type || undefined,
+      });
       if (upErr) { console.error('[OperatorDetailPanel/qpassport] upload failed', { authUid, sessionExpired, message: upErr.message }); throw upErr; }
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
