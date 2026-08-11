@@ -401,10 +401,20 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [bgChStatus, setBgChStatus] = useState(app?.ch_status ?? 'not_started');
   const [bgNotes, setBgNotes] = useState(app?.background_verification_notes ?? '');
   const [savingBg, setSavingBg] = useState(false);
+  // Re-seed local state whenever the loaded applicant changes so we never
+  // show stale values from a previously opened application.
+  useEffect(() => {
+    if (!app) return;
+    setBgMvrStatus(app.mvr_status ?? 'not_started');
+    setBgChStatus(app.ch_status ?? 'not_started');
+    setBgNotes(app.background_verification_notes ?? '');
+  }, [app?.id]);
   const bgIsDirty = bgMvrStatus !== (app?.mvr_status ?? 'not_started')
     || bgChStatus !== (app?.ch_status ?? 'not_started')
     || bgNotes !== (app?.background_verification_notes ?? '');
-  const bgVerificationComplete = bgMvrStatus === 'received' && bgChStatus === 'received';
+  // Approval must be based on the saved record, not on-screen dropdowns,
+  // and there must be no unsaved background-verification changes.
+  const bgVerificationComplete = (app?.mvr_status === 'received' && app?.ch_status === 'received') && !bgIsDirty;
 
   const cdlFieldRef = useRef<HTMLDivElement>(null);
   const medCertFieldRef = useRef<HTMLDivElement>(null);
@@ -499,25 +509,38 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
-  const saveBgVerification = async () => {
-    if (!app) return;
+  const saveBgVerification = async (): Promise<boolean> => {
+    if (!app) return false;
     setSavingBg(true);
     try {
+      const patch = {
+        mvr_status: bgMvrStatus as any,
+        ch_status: bgChStatus as any,
+        background_verification_notes: bgNotes || null,
+      };
       const { error } = await supabase
         .from('applications')
-        .update({
-          mvr_status: bgMvrStatus as any,
-          ch_status: bgChStatus as any,
-          background_verification_notes: bgNotes || null,
-        })
+        .update(patch)
         .eq('id', app.id);
       if (error) throw error;
+      onApplicationUpdated?.({ id: app.id, ...patch });
       toast.success('Background verification saved.');
+      return true;
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
+      return false;
     } finally {
       setSavingBg(false);
     }
+  };
+
+  const handleApproveClick = async () => {
+    if (!app) return;
+    if (bgIsDirty) {
+      const saved = await saveBgVerification();
+      if (!saved) return;
+    }
+    setConfirmAction('approve');
   };
 
   const handlePrint = () => {
@@ -1475,12 +1498,12 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     className="flex-1 min-w-[140px]"
                     data-testid="review-action-deny"
                   />
-                  <TooltipProvider>
+                      <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex-1 min-w-[140px]">
                           <Button
-                            onClick={() => setConfirmAction('approve')}
+                            onClick={handleApproveClick}
                             disabled={!bgVerificationComplete}
                             className="w-full bg-status-complete text-white hover:bg-status-complete/90 disabled:opacity-50"
                           >
@@ -1491,7 +1514,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       </TooltipTrigger>
                       {!bgVerificationComplete && (
                         <TooltipContent>
-                          <p>MVR and Clearinghouse must both be "Received" before approving.</p>
+                          {bgIsDirty ? (
+                            <p>Save the Background Verification changes before approving.</p>
+                          ) : (
+                            <p>MVR and Clearinghouse must both be "Received" before approving.</p>
+                          )}
                         </TooltipContent>
                       )}
                     </Tooltip>
