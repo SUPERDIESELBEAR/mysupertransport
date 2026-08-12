@@ -79,7 +79,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
-  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_330px]";
+  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_104px_104px_330px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // Right-edge fade: only show while there is more table to scroll to.
