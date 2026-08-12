@@ -1616,6 +1616,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                               <TableCertCell entry={g.med} label="Med Cert" />
                               <TableCertCell entry={g.irp} label="Registration (IRP)" />
                               <TableCertCell entry={g.form2290} label="2290" />
+                              <TableCertCell entry={g.dot} label="DOT" />
                               <td className="px-3 py-2 whitespace-nowrap text-right align-top">
                                 <div className="inline-flex items-center gap-1">
                                   <TooltipProvider delayDuration={250}>
