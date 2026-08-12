@@ -870,6 +870,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           )}
           </div>
         </div>
+        <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent" />
+        </div>
       )}
     </div>
 
