@@ -47,7 +47,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const panelRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
-  const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
+  const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert' | 'DOT Inspection'>('all');
 
   // Outreach tracking
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
