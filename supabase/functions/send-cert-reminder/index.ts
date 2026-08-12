@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
         body: `Your coordinator sent you a reminder about your ${doc_type} ${expired ? 'expiration' : `expiring in ${days_until} day${days_until !== 1 ? 's' : ''}`}.`,
         type: 'cert_expiry_reminder',
         channel: 'in_app',
-        link: '/operator/progress',
+        link: isDotInspection ? '/operator?tab=my-truck' : '/operator/progress',
         entity_type: 'operator',
         entity_id: operator_id,
       }),
