@@ -992,7 +992,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       || location.pathname.startsWith(`${base}/`)
       || location.pathname === '/dashboard';
     if (!isDriverBase) return;
-    if (params.has('tab')) {
+    // Emails and database-generated notification links spell the destination
+    // `view=` rather than the portal's legacy `tab=`. Both must resolve to the
+    // real route, otherwise the driver is bounced to Home and deep-link params
+    // (like an assignment-sheet token) are never read.
+    if (params.has('tab') || params.has('view')) {
       const legacyState = getViewStateFromSearch(location.search);
       const next = buildOperatorViewUrl(location.pathname, location.search, legacyState.view, { binderView: legacyState.binderView });
       appendNavTrace({
