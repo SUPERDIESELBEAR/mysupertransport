@@ -386,8 +386,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     }
   };
 
-  // ── Inline date save for per-driver certs (CDL / Med Cert) ───────────────
-  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, inspectionDocId: string | undefined, date: Date | undefined) => {
+  // ── Inline date save for per-driver certs (CDL / Med Cert / DOT) ─────────
+  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, inspectionDocId: string | undefined, dotInspectionId: string | undefined, date: Date | undefined) => {
     if (!date) return;
     const key = `${operatorId}|${docKey}`;
     setDriverPicker(null);
@@ -405,7 +405,19 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       : docKey;
 
     let error: any = null;
-    if (inspectionDocId) {
+    if (docKey === 'DOT Inspection') {
+      if (dotInspectionId) {
+        ({ error } = await supabase
+          .from('truck_dot_inspections')
+          .update({ next_due_date: isoDate, updated_at: new Date().toISOString() })
+          .eq('id', dotInspectionId));
+      } else {
+        // No DOT row yet — create one for this operator.
+        ({ error } = await supabase
+          .from('truck_dot_inspections')
+          .insert({ operator_id: operatorId, next_due_date: isoDate, inspection_date: isoDate }));
+      }
+    } else if (inspectionDocId) {
       ({ error } = await supabase
         .from('inspection_documents')
         .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
