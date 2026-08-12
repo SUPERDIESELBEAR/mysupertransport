@@ -151,6 +151,22 @@ export default function EquipmentInventory({
     });
   }, []);
 
+  const selectTypeBox = useCallback((type: DeviceType) => {
+    let selecting = false;
+    setTypeFilter(prev => {
+      selecting = prev !== type;
+      return selecting ? type : 'all';
+    });
+    if (selecting) {
+      setExpandedTypes(prev => {
+        const next = new Set(prev);
+        next.add(type);
+        return next;
+      });
+      setLastOpened(type);
+    }
+  }, []);
+
   const childRafRef = useRef<number | null>(null);
 
   useEffect(() => {
