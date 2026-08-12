@@ -273,7 +273,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
           </section>
         </div>
 
-        <DialogFooter className="flex flex-col gap-3 sm:space-x-0">
+        <DialogFooter className="flex flex-col gap-3 sm:flex-col sm:space-x-0">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
