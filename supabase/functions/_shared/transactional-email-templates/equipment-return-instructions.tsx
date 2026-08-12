@@ -108,7 +108,7 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
                     <div style={addressTitle}>OPTION 1 — THE UPS STORE #4564</div>
                     608 W. Parkway Dr.<br />
                     Russellville, AR 72801<br />
-                    <span style={{ color: '#5A5A5A' }}>
+                    <span style={{ color: '#5A5A5A', whiteSpace: 'nowrap' }}>
                       P: (479) 498-2041
                     </span>
                   </div>
