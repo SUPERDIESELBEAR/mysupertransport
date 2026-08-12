@@ -1565,6 +1565,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Med Cert</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration (IRP)</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">2290</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">DOT</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
