@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
@@ -87,6 +88,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [confirmReturn, setConfirmReturn] = useState<SheetWithItems | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
@@ -241,6 +243,39 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     );
   }
 
+  const counts = {
+    all: sheets.length,
+    draft: sheets.filter(s => (s.status ?? 'draft') === 'draft').length,
+    sent: sheets.filter(s => (s.status ?? 'draft') === 'sent').length,
+    signed: sheets.filter(s => (s.status ?? 'draft') === 'signed').length,
+    void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
+  };
+
+  const visibleSheets = statusFilter === 'all'
+    ? sheets
+    : sheets.filter(s => (s.status ?? 'draft') === statusFilter);
+
+  const TAB_DEFS: { value: typeof statusFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'draft', label: 'Drafts' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'signed', label: 'Signed' },
+    { value: 'void', label: 'Void' },
+  ];
+
+  const tabBar = (
+    <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+      <TabsList className="flex-wrap h-auto">
+        {TAB_DEFS.map(t => (
+          <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
+            {t.label}
+            <span className="text-xs text-muted-foreground">{counts[t.value]}</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -270,9 +305,20 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
             </Button>
           </CardContent>
         </Card>
+      ) : visibleSheets.length === 0 ? (
+        <>
+          {tabBar}
+          <Card className="border-dashed">
+            <CardContent className="py-10 text-center">
+              <p className="text-sm text-muted-foreground">No sheets in this view.</p>
+            </CardContent>
+          </Card>
+        </>
       ) : (
+        <>
+        {tabBar}
         <div className="grid gap-3">
-          {sheets.map(sheet => {
+          {visibleSheets.map(sheet => {
             const status = sheet.status ?? 'draft';
             const app = sheet.operator?.applications;
             const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || '—';
@@ -433,6 +479,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
             );
           })}
         </div>
+        </>
       )}
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(v) => { if (!v && !deletingId) setConfirmDelete(null); }}>
