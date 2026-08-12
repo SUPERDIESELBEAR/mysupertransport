@@ -74,7 +74,7 @@ export default function StaffPortal() {
   const [alertsPanelNoAction, setAlertsPanelNoAction] = useState(false);
 
   // Helper: resolve or create application record for an operator, then open review drawer
-  const resolveAndOpenAppReview = useCallback(async (operatorId: string, focusField?: 'cdl' | 'medcert') => {
+  const resolveAndOpenAppReview = useCallback(async (operatorId: string, focusField?: 'cdl' | 'medcert' | 'dot') => {
     const { data: op } = await supabase
       .from('operators')
       .select('application_id, applications(*), user_id')
