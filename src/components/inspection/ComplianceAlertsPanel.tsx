@@ -794,7 +794,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] cursor-default rounded px-1 py-0.5 transition-colors ${renewedAt ? `${pillClass} justify-end` : 'text-muted-foreground/40 justify-center w-full'}`}>
+                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default rounded px-1 py-0.5 transition-colors ${renewedAt ? `${pillClass} justify-end` : 'text-muted-foreground/40 justify-center w-full'}`}>
                           {renewedAt ? <><RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />{format(new Date(renewedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
                         </span>
                       </TooltipTrigger>
