@@ -30,6 +30,8 @@ interface DocEntry {
   status: Status;
   /** Only set for fleet-wide (IRP/Insurance/IFTA) rows */
   inspectionDocId?: string;
+  /** Only set for DOT Inspection rows */
+  dotInspectionId?: string;
   /** True when expiry was edited but no new file was uploaded (>24h) */
   isStale?: boolean;
 }
