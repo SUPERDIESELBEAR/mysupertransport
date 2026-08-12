@@ -1,4 +1,4 @@
-# Compliance Alerts: readable rows, DOT Inspection tracking
+# Compliance Alerts: readable rows, DOT Inspection tracking, non-overlapping urgency dots
 
 ## Answers to your questions first
 
@@ -22,6 +22,7 @@ Reasoning: this is a scannable comparison table — staff scan down the Status a
 1. **Scrollable aligned table (`ComplianceAlertsPanel.tsx`)**
    - Wrap the header + rows in a horizontally scrollable container with a comfortable fixed minimum width (all columns visible at their natural size — no more squeezing).
    - Replace the responsive column-hiding breakpoints with one fixed column set so nothing is dropped on a laptop.
+   - Move the urgency dot into its own dedicated column (separate from the Operator column) so it no longer overlaps or crowds the driver name.
    - Make the Operator column sticky to the left edge while scrolling.
    - Add a subtle right-edge fade so it is obvious there is more content sideways.
 2. **Fix the dashed-line alignment** in Last Reminded / Last Renewed: the em dash placeholder currently sits inside a right-aligned inline pill of a different width than the date pill. It gets a fixed-width centered placeholder so empty cells line up under the column header.
@@ -45,6 +46,6 @@ Reasoning: this is a scannable comparison table — staff scan down the Status a
 - All colors stay on existing semantic tokens; no new hardcoded utilities.
 
 ## Verification
-- Fleet Compliance at laptop width: all columns readable, no squeezing, name column stays visible while scrolling right, dashes centered in their columns.
+- Fleet Compliance at laptop width: all columns readable, no squeezing, urgency dot sits in its own column without touching the driver name, name column stays visible while scrolling right, dashes centered in their columns.
 - DOT Inspection rows appear in alerts and filter correctly; DOT Inspection chip appears and counts add up in the Compliance Summary.
 - Tooltips on the dot and the Never Renewed pill explain both.
