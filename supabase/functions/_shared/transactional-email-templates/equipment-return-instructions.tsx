@@ -105,7 +105,7 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
           <table cellPadding={0} cellSpacing={0} style={{ width: '100%', margin: '0 0 12px' }}>
             <tbody>
               <tr>
-                <td style={twoColRow}>
+                <td style={twoColRow} height="280">
                   <div style={addressCard}>
                     <div style={addressTitle}>OPTION 1 — THE UPS STORE #4564</div>
                     608 W. Parkway Dr.<br />
@@ -115,7 +115,7 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
                     </span>
                   </div>
                 </td>
-                <td style={twoColRow}>
+                <td style={twoColRow} height="280">
                   <div style={addressCard}>
                     <div style={addressTitle}>OPTION 2 — USPS (P.O. BOX)</div>
                     SuperTransport<br />
