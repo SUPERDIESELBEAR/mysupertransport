@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PreviewLink } from '@/components/documents/PreviewLink';
 
 type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
@@ -426,6 +427,14 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                           <div key={r.id} className="text-muted-foreground">
                             Tracking <span className="font-mono text-foreground">{r.tracking_number ?? '—'}</span>
                             {r.carrier ? ` • ${r.carrier}` : ''} • {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
+                            {' • '}
+                            <PreviewLink
+                              url={r.file_url}
+                              name={`Return Receipt — ${r.tracking_number ?? format(new Date(r.uploaded_at), 'MM/dd/yyyy')}`}
+                              className="text-primary underline underline-offset-2"
+                            >
+                              View receipt
+                            </PreviewLink>
                           </div>
                         ))}
                       </div>
