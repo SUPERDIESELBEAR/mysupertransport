@@ -648,7 +648,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Form 2290'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Form 2290', 'DOT Inspection'];
 
   // ── CSV export ─────────────────────────────────────────────────────────
   const exportCsv = () => {
