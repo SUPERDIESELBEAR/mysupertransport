@@ -359,7 +359,17 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           {tabBar}
           <Card className="border-dashed">
             <CardContent className="py-10 text-center">
-              <p className="text-sm text-muted-foreground">No sheets in this view.</p>
+              <p className="text-sm text-muted-foreground">
+                {searchQuery.trim()
+                  ? 'No sheets match your search.'
+                  : 'No sheets in this view.'}
+              </p>
+              {searchQuery.trim() && (
+                <Button className="mt-3" size="sm" variant="outline" onClick={() => setSearchQuery('')}>
+                  <X className="h-3.5 w-3.5 mr-1.5" />
+                  Clear Search
+                </Button>
+              )}
             </CardContent>
           </Card>
         </>
