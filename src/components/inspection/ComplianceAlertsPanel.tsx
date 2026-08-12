@@ -86,7 +86,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const fetchData = useCallback(async () => {
     const today = new Date();
     try {
-    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }] = await Promise.all([
+    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }, { data: dotInspections }] = await Promise.all([
       supabase
         .from('operators')
         .select('id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
@@ -107,6 +107,12 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         .select('driver_id, name, expires_at')
         .eq('scope', 'per_driver')
         .in('name', ['CDL (Front)', 'Medical Certificate']),
+      supabase
+        .from('truck_dot_inspections')
+        .select('id, operator_id, next_due_date, inspection_date')
+        .not('operator_id', 'is', null)
+        .not('next_due_date', 'is', null)
+        .order('inspection_date', { ascending: false }),
     ]);
     if (!ops) return;
 
