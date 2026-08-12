@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
@@ -89,6 +90,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
+  const [receiptPreview, setReceiptPreview] = useState<{ url: string; name: string } | null>(null);
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
@@ -423,9 +425,22 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                           Return receipt received
                         </div>
                         {returnReceipts.map(r => (
-                          <div key={r.id} className="text-muted-foreground">
-                            Tracking <span className="font-mono text-foreground">{r.tracking_number ?? '—'}</span>
-                            {r.carrier ? ` • ${r.carrier}` : ''} • {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
+                          <div key={r.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+                            <span>
+                              Tracking <span className="font-mono text-foreground">{r.tracking_number ?? '—'}</span>
+                              {r.carrier ? ` • ${r.carrier}` : ''} • {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
+                            </span>
+                            {r.file_url && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setReceiptPreview({ url: r.file_url, name: r.file_name ?? 'Shipping receipt' })}
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                View
+                              </Button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -544,6 +559,15 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {receiptPreview && (
+        <FilePreviewModal
+          url={receiptPreview.url}
+          name={receiptPreview.name}
+          bucketName="operator-documents"
+          onClose={() => setReceiptPreview(null)}
+        />
+      )}
     </div>
   );
 }
