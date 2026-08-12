@@ -409,7 +409,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       if (dotInspectionId) {
         ({ error } = await supabase
           .from('truck_dot_inspections')
-          .update({ next_due_date: isoDate, updated_at: new Date().toISOString() })
+          .update({ next_due_date: isoDate })
           .eq('id', dotInspectionId));
       } else {
         // No DOT row yet — create one for this operator.
