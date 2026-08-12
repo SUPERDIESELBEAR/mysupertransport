@@ -91,6 +91,16 @@ Deno.serve(withErrorEnvelope(async (req) => {
         console.error('[send-osas-to-operator] failed to mark sheet sent', markSentError)
         return fail(500, 'Sheet emailed but could not be marked as sent', markSentError.message)
       }
+      // Append-only send history: every send/resend is logged, never overwritten.
+      const { error: sendLogError } = await supabase.from('onboard_assignment_sheet_sends').insert({
+        sheet_id: payload.sheetId,
+        sent_at: nowIso,
+        sent_by: userId,
+        sent_by_name: actorEmail,
+        recipient_email: (sheet as any).operator?.applications?.email ?? null,
+        kind: prevStatus === 'draft' ? 'initial' : 'resend',
+      })
+      if (sendLogError) console.error('[send-osas-to-operator] failed to log send', sendLogError)
       await supabase.from('audit_log').insert({
         actor_id: userId,
         actor_name: actorEmail,
