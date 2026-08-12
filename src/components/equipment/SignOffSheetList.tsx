@@ -4,7 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2, Package } from 'lucide-react';
+import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2, Package, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +82,22 @@ const DEVICE_LABELS: Record<string, string> = {
   bestpass: 'BestPass',
 };
 
+function matchesSheetSearch(sheet: SheetWithItems, q: string): boolean {
+  if (!q) return true;
+  const app = sheet?.operator?.applications ?? null;
+  const parts = [
+    app?.first_name,
+    app?.last_name,
+    app?.email,
+    app?.phone,
+    sheet?.unit_number,
+    sheet?.operator?.unit_number,
+    ...(Array.isArray(sheet?.items) ? sheet.items.map(i => i?.serial_snapshot) : []),
+  ];
+  const haystack = parts.filter(Boolean).map(v => String(v)).join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
 export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const { toast } = useToast();
   const [sheets, setSheets] = useState<SheetWithItems[]>([]);
@@ -90,6 +108,8 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const [receiptPreview, setReceiptPreview] = useState<{ url: string; name: string } | null>(null);
 
   const fetchSheets = useCallback(async () => {
