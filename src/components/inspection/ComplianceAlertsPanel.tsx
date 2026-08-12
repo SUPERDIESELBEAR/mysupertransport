@@ -79,7 +79,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
-  const gridCols = "grid-cols-[20px_minmax(180px,1fr)_88px_100px_120px_100px_90px_90px_220px]";
+  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_236px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // ── Data fetching ──────────────────────────────────────────────────────
@@ -676,12 +676,13 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
       {/* Alert rows */}
       {expanded && (
-        <div className="overflow-x-auto -mx-4 px-4">
-          <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1000px] ${gridCols}`}>
+        <div className="relative">
+        <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
+          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1240px] ${gridCols}`}>
           {/* Column headers */}
-          <div className={`${subgridRow} gap-2 items-start px-4 py-1.5 bg-destructive/5`}>
+          <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span className="sr-only">Urgency</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 pl-1">Operator</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Doc</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Expires</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Status</span>
@@ -712,11 +713,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             const renewedByName = lastRenewedBy[rowKey];
             return (
               <div key={`${alert.operator_id}-${alert.doc_type}`}
-                className={`${subgridRow} gap-2 items-start px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
+                className={`${subgridRow} gap-x-5 items-center px-4 py-3.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
                 {/* Urgency dot */}
                 <TooltipProvider delayDuration={100}><Tooltip>
                   <TooltipTrigger asChild>
-                    <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${expired ? 'bg-destructive/15' : critical ? 'bg-destructive/10' : 'bg-yellow-500/15'}`}>
+                    <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full justify-self-center ${expired ? 'bg-destructive/15' : critical ? 'bg-destructive/10' : 'bg-yellow-500/15'}`}>
                       <span className={`h-2 w-2 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
                     </span>
                   </TooltipTrigger>
@@ -724,14 +725,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                     {expired ? 'Expired — action required immediately' : critical ? 'Expires within 30 days' : `Expires in ${alert.days_until} days`}
                   </TooltipContent>
                 </Tooltip></TooltipProvider>
-                {/* Name + never-renewed pill */}
-                <div className="min-w-0 flex flex-col items-start gap-y-1">
-                  <span className="font-medium text-sm text-foreground break-words leading-tight">{alert.operator_name}</span>
-                  {!renewedAt && (
-                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none uppercase tracking-wide">
-                      <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
-                    </span>
-                  )}
+                {/* Name */}
+                <div className="min-w-0 pl-1">
+                  <span className="font-medium text-sm text-foreground truncate block leading-tight">{alert.operator_name}</span>
                 </div>
                 {/* Doc-type badge */}
                 <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : alert.doc_type === 'DOT Inspection' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type === 'DOT Inspection' ? 'DOT' : alert.doc_type}</span>
@@ -868,6 +864,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             </div>
           )}
           </div>
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent" />
         </div>
       )}
     </div>

@@ -187,3 +187,10 @@
 ::-webkit-scrollbar-thumb { background: hsl(var(--gold-muted)); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--gold-main)); }
 
+/* Always-visible horizontal scrollbar for the Compliance Alerts table */
+.compliance-alerts-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--gold-muted)) hsl(var(--muted)); }
+.compliance-alerts-scroll::-webkit-scrollbar { height: 10px; -webkit-appearance: none; }
+.compliance-alerts-scroll::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 5px; }
+.compliance-alerts-scroll::-webkit-scrollbar-thumb { background: hsl(var(--gold-muted)); border-radius: 5px; }
+.compliance-alerts-scroll::-webkit-scrollbar-thumb:hover { background: hsl(var(--gold-main)); }
+
