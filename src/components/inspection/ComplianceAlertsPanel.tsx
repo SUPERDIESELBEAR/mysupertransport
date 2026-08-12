@@ -238,7 +238,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       .channel('compliance-alerts-panel-reminders')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => fetchData())
       .subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+    const ch3 = supabase
+      .channel('compliance-alerts-panel-dot')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'truck_dot_inspections' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); };
   }, [fetchData]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
