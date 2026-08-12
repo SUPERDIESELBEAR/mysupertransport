@@ -1,25 +1,24 @@
-# Simplify Compliance Alerts columns
+# Fix Compliance Alerts column alignment + remove redundant columns
 
-## What you circled
-The circled column is **Last Renewed**. It shows a dash with the tooltip "Not yet renewed" for every row, because a row only appears in Compliance Alerts when the document is expiring or expired — i.e. not renewed yet. Once staff mark it renewed and the new expiry date is saved, the row drops out of the alerts list. So the column can only ever show a dash here.
+## What's wrong
+You're right: every data cell sits one column to the left of its header. The document badge lands under "Expires", the expiry date under "Status", the status pill under "Last Action", and so on — which also explains why the circled column at the far right looks like an unlabeled column of dashes.
 
-The column immediately to its left is **Last Action**, which shows whichever happened most recently — a reminder or a renewal. In practice that is always the reminder, so it duplicates the **Last Reminded** column (same date, just a green/blue pill with "Reminded ... by ...").
+Cause: the first header cell (the invisible label for the urgency-dot column) uses a screen-reader-only style that removes it from the grid entirely, so every remaining header label shifts one track left while the data rows stay correct.
 
-## Proposed change
-Keep one outreach column and drop the two redundant ones:
+## Changes
+1. **Fix the header offset** — make the urgency header an actual empty grid cell so headers line up with their data: Operator, Doc, Expires, Status, Last Reminded, and the action buttons.
 
-- Remove the **Last Renewed** column (header + cell).
-- Remove the **Last Action** column (header + cell), and move its sort control onto the **Last Reminded** header so you can still sort by oldest/newest outreach.
-- Keep **Last Reminded** as the single source of truth: date pill, freshness color (green recent, yellow stale), email delivered/failed state, and "by <staff name>" in the tooltip.
-- Reclaim the freed width: reduce the table's minimum width so less horizontal scrolling is needed and each row breathes more.
+2. **Remove the redundant columns** (as discussed):
+   - **Last Renewed** — always a dash here, because a row leaves Compliance Alerts once the doc is renewed with a new expiry date.
+   - **Last Action** — duplicates Last Reminded in practice (same date, same staff name).
+   - Keep **Last Reminded** as the single outreach column, with its freshness colors, delivered/failed state, and "by <staff>" tooltip. Move the existing sort control onto that header.
 
-Nothing changes about the Remind or Mark as Renewed buttons, or about how rows enter/leave the alerts list.
+3. **Reclaim the space** — reduce the table's minimum width so there's less horizontal scrolling and more breathing room per row.
 
 ## Technical notes
 File: `src/components/inspection/ComplianceAlertsPanel.tsx`
-
-- Drop the two grid tracks from `gridCols` (currently `...120px_104px_104px_280px`) leaving one outreach track, and lower `min-w-[1284px]` accordingly (~`1060px`).
-- Delete the "Last Action" header button and the "Last Renewed" header span; attach the existing `sort` toggle (`urgency` → `last_action_desc` → `last_action_asc`) to the Last Reminded header.
-- Delete the Last Action IIFE cell block and the Last Renewed IIFE cell block in the row body.
-- Keep the `lastRenewed` / `lastRenewedBy` state — it is still used for row highlighting, the "no action" filter, counts, and sort ordering.
-- Remove now-unused icon imports only if nothing else references them.
+- Replace the `sr-only` urgency header span with a rendered empty cell (`<span aria-hidden="true" />`), keeping any accessible label inside a nested absolutely-positioned element rather than on the grid child itself.
+- Drop two tracks from `gridCols` (`28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_280px` → remove the `120px` Last Action and one `104px` track) and lower `min-w-[1284px]` to roughly `1060px`.
+- Delete the Last Action header button and the Last Renewed header span; attach the `sort` toggle to the Last Reminded header.
+- Delete the Last Action and Last Renewed IIFE cell blocks in the row body.
+- Retain `lastRenewed` / `lastRenewedBy` state — still used for row highlighting, the "No Action" filter, counts, and sorting.
