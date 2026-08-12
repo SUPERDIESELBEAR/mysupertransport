@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
@@ -25,9 +26,19 @@ type Operator = Database['public']['Tables']['operators']['Row'];
 export type SheetWithItems = Sheet & {
   items: SheetItem[];
   return_receipts?: ReturnReceipt[];
+  sends?: SheetSend[];
   operator: (Operator & {
     applications: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null;
   }) | null;
+};
+
+export type SheetSend = {
+  id: string;
+  sheet_id: string;
+  sent_at: string;
+  sent_by_name: string | null;
+  recipient_email: string | null;
+  kind: string;
 };
 
 export type ReturnReceipt = {
@@ -113,7 +124,24 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
       arr.push(r);
       bySheet.set(r.sheet_id, arr);
     }
-    setSheets(list.map(s => ({ ...s, return_receipts: bySheet.get(s.id) ?? [] })));
+
+    // Append-only send history (every send + resend).
+    const { data: sendRows } = await supabase
+      .from('onboard_assignment_sheet_sends')
+      .select('id, sheet_id, sent_at, sent_by_name, recipient_email, kind')
+      .order('sent_at', { ascending: false });
+    const sendsBySheet = new Map<string, SheetSend[]>();
+    for (const s of (sendRows ?? []) as SheetSend[]) {
+      const arr = sendsBySheet.get(s.sheet_id) ?? [];
+      arr.push(s);
+      sendsBySheet.set(s.sheet_id, arr);
+    }
+
+    setSheets(list.map(s => ({
+      ...s,
+      return_receipts: bySheet.get(s.id) ?? [],
+      sends: sendsBySheet.get(s.id) ?? [],
+    })));
     setLoading(false);
   }, [toast]);
 
