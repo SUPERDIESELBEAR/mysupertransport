@@ -1,4 +1,4 @@
-# Compliance Alerts: readable rows, DOT Inspection tracking
+# Compliance Alerts: readable rows, DOT Inspection tracking, non-overlapping urgency dots
 
 ## Answers to your questions first
 
