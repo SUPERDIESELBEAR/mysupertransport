@@ -146,11 +146,18 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const fetchData = useCallback(async () => {
     setLoading(true);
 
-    // Single server-side query: v_compliance_items unifies fleet + driver certs
+    // Server-side query: v_compliance_items unifies fleet + driver certs
     // with days_until already calculated against US Central Time in the database.
     const { data: rows } = await supabase
       .from('v_compliance_items')
       .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until, file_path, uploaded_at, expires_updated_at');
+
+    // DOT inspections live in a separate table; merge them client-side so the
+    // view definition can stay unchanged.
+    const { data: dotRows } = await supabase
+      .from('truck_dot_inspections')
+      .select('id, operator_id, next_due_date, inspection_date, operators(id, application_id, first_name, last_name)')
+      .order('next_due_date', { ascending: true });
 
     if (!rows) { setLoading(false); return; }
 
@@ -178,6 +185,23 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         inspectionDocId: r.inspection_doc_id ?? undefined,
         isStale,
       };
+    });
+
+    // Merge DOT inspections into the same list.
+    (dotRows ?? []).forEach((r: any) => {
+      const op = r.operators;
+      const operatorName = op ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown' : 'Unknown';
+      const nextDue = r.next_due_date ? String(r.next_due_date) : null;
+      const daysUntil = nextDue ? differenceInDays(parseLocalDate(nextDue), new Date()) : null;
+      result.push({
+        docKey: 'DOT Inspection',
+        operatorId: r.operator_id ?? '',
+        operatorName,
+        expiresAt: nextDue,
+        daysUntil,
+        status: getStatus(daysUntil, windowDays),
+        dotInspectionId: r.id,
+      });
     });
 
     // Sort: fleet rows first, then group by operator (worst status first), within operator CDL before Med Cert
