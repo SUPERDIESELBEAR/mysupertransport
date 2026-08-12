@@ -682,7 +682,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           {/* Column headers */}
           <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span className="sr-only">Urgency</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 pl-1">Operator</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Doc</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Expires</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Status</span>
