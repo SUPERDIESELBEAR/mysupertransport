@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
@@ -25,9 +26,19 @@ type Operator = Database['public']['Tables']['operators']['Row'];
 export type SheetWithItems = Sheet & {
   items: SheetItem[];
   return_receipts?: ReturnReceipt[];
+  sends?: SheetSend[];
   operator: (Operator & {
     applications: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null;
   }) | null;
+};
+
+export type SheetSend = {
+  id: string;
+  sheet_id: string;
+  sent_at: string;
+  sent_by_name: string | null;
+  recipient_email: string | null;
+  kind: string;
 };
 
 export type ReturnReceipt = {
@@ -113,7 +124,24 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
       arr.push(r);
       bySheet.set(r.sheet_id, arr);
     }
-    setSheets(list.map(s => ({ ...s, return_receipts: bySheet.get(s.id) ?? [] })));
+
+    // Append-only send history (every send + resend).
+    const { data: sendRows } = await supabase
+      .from('onboard_assignment_sheet_sends')
+      .select('id, sheet_id, sent_at, sent_by_name, recipient_email, kind')
+      .order('sent_at', { ascending: false });
+    const sendsBySheet = new Map<string, SheetSend[]>();
+    for (const s of (sendRows ?? []) as SheetSend[]) {
+      const arr = sendsBySheet.get(s.sheet_id) ?? [];
+      arr.push(s);
+      sendsBySheet.set(s.sheet_id, arr);
+    }
+
+    setSheets(list.map(s => ({
+      ...s,
+      return_receipts: bySheet.get(s.id) ?? [],
+      sends: sendsBySheet.get(s.id) ?? [],
+    })));
     setLoading(false);
   }, [toast]);
 
@@ -284,9 +312,54 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                     {sheet.bestpass_included && (
                       <div className="text-xs text-muted-foreground">BestPass fee acknowledged: $60.00</div>
                     )}
-                    {sheet.sent_at && (
-                      <div className="text-xs text-muted-foreground">Sent: {format(new Date(sheet.sent_at), 'MM/dd/yyyy h:mm a')}</div>
-                    )}
+                    {sheet.sent_at && (() => {
+                      const sends = sheet.sends ?? [];
+                      const first = sends.length > 0 ? sends[sends.length - 1] : null;
+                      const firstAt = first?.sent_at ?? sheet.sent_at;
+                      const resendCount = Math.max(sends.length - 1, 0);
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>Sent: {format(new Date(firstAt), 'MM/dd/yyyy h:mm a')}</span>
+                          {resendCount > 0 && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted"
+                                >
+                                  Resent {resendCount}x
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-72 p-3">
+                                <div className="mb-2 text-xs font-semibold">Send history</div>
+                                <ul className="space-y-2 max-h-56 overflow-y-auto">
+                                  {sends.map(s => (
+                                    <li key={s.id} className="text-xs">
+                                      <div className="font-medium text-foreground">
+                                        {format(new Date(s.sent_at), 'MM/dd/yyyy h:mm a')}
+                                        <span className="ml-1.5 font-normal text-muted-foreground">
+                                          {s.kind === 'initial' ? 'Initial send' : 'Resend'}
+                                        </span>
+                                      </div>
+                                      {(s.sent_by_name || s.recipient_email) && (
+                                        <div className="text-muted-foreground">
+                                          {s.sent_by_name ? `by ${s.sent_by_name}` : ''}
+                                          {s.sent_by_name && s.recipient_email ? ' → ' : ''}
+                                          {s.recipient_email ?? ''}
+                                        </div>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                          {resendCount > 0 && (
+                            <span>Last: {format(new Date(sends[0].sent_at), 'MM/dd/yyyy h:mm a')}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {sheet.signed_at && (
                       <div className="text-xs text-muted-foreground">Signed: {format(new Date(sheet.signed_at), 'MM/dd/yyyy h:mm a')}</div>
                     )}

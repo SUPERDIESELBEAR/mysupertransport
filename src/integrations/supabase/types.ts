@@ -3616,6 +3616,47 @@ export type Database = {
           },
         ]
       }
+      onboard_assignment_sheet_sends: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          recipient_email: string | null
+          sent_at: string
+          sent_by: string | null
+          sent_by_name: string | null
+          sheet_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          recipient_email?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          sent_by_name?: string | null
+          sheet_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          recipient_email?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          sent_by_name?: string | null
+          sheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboard_assignment_sheet_sends_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "onboard_assignment_sheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboard_assignment_sheets: {
         Row: {
           access_token: string | null
