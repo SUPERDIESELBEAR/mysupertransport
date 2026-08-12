@@ -152,19 +152,18 @@ export default function EquipmentInventory({
   }, []);
 
   const selectTypeBox = useCallback((type: DeviceType) => {
-    let selecting = false;
     setTypeFilter(prev => {
-      selecting = prev !== type;
-      return selecting ? type : 'all';
-    });
-    if (selecting) {
-      setExpandedTypes(prev => {
-        const next = new Set(prev);
-        next.add(type);
+      const selecting = prev !== type;
+      setExpandedTypes(cur => {
+        const next = new Set(cur);
+        if (prev !== 'all') next.delete(prev as DeviceType);
+        if (selecting) next.add(type);
+        else next.delete(type);
         return next;
       });
-      setLastOpened(type);
-    }
+      setLastOpened(selecting ? type : null);
+      return selecting ? type : 'all';
+    });
   }, []);
 
   const childRafRef = useRef<number | null>(null);
