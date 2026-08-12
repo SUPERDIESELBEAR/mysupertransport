@@ -423,15 +423,24 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     const actorName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
     const newDate = new Date(); newDate.setFullYear(newDate.getFullYear() + 1);
     const newDateStr = newDate.toISOString().split('T')[0];
-    const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
     try {
-      const { data: opRow } = await supabase.from('operators').select('application_id').eq('id', alert.operator_id).single();
-      const appId = (opRow as any)?.application_id;
-      if (!appId) throw new Error('No application found');
-      const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
-      const oldDateStr = (appData as any)?.[col] ?? null;
-      const { error } = await supabase.from('applications').update(updatePayload('applications', { [col]: newDateStr })).eq('id', appId);
-      if (error) throw error;
+      let oldDateStr: string | null = null;
+      if (alert.doc_type === 'DOT Inspection') {
+        if (!alert.dotInspectionId) throw new Error('No DOT inspection record found');
+        const { data: dotRow } = await supabase.from('truck_dot_inspections').select('next_due_date').eq('id', alert.dotInspectionId).single();
+        oldDateStr = (dotRow as any)?.next_due_date ?? null;
+        const { error } = await supabase.from('truck_dot_inspections').update({ next_due_date: newDateStr }).eq('id', alert.dotInspectionId);
+        if (error) throw error;
+      } else {
+        const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
+        const { data: opRow } = await supabase.from('operators').select('application_id').eq('id', alert.operator_id).single();
+        const appId = (opRow as any)?.application_id;
+        if (!appId) throw new Error('No application found');
+        const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
+        oldDateStr = (appData as any)?.[col] ?? null;
+        const { error } = await supabase.from('applications').update(updatePayload('applications', { [col]: newDateStr })).eq('id', appId);
+        if (error) throw error;
+      }
       await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: alert.operator_id, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name } });
       const renewedNow = new Date().toISOString();
       setRowRenewing(prev => ({ ...prev, [key]: false }));
