@@ -20,7 +20,6 @@ import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import type { SheetWithItems } from './SignOffSheetList';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 import AssignmentSheetTerms from './AssignmentSheetTerms';
-import { PreviewLink } from '@/components/documents/PreviewLink';
 
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD Unit',
@@ -255,13 +254,9 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
                     Tracking <span className="font-mono text-foreground">{r.tracking_number ?? '—'}</span>
                     {r.carrier ? ` • ${r.carrier}` : ''} • uploaded {format(new Date(r.uploaded_at), 'MM/dd/yyyy')}
                     {' • '}
-                    <PreviewLink
-                      url={r.file_url}
-                      name={`Return Receipt — ${r.tracking_number ?? format(new Date(r.uploaded_at), 'MM/dd/yyyy')}`}
-                      className="text-primary underline underline-offset-2"
-                    >
+                    <a href={r.file_url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
                       View receipt
-                    </PreviewLink>
+                    </a>
                   </div>
                 ))}
               </div>
