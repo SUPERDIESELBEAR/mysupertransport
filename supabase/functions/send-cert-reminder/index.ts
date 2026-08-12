@@ -128,6 +128,11 @@ Deno.serve(async (req) => {
       </p>`;
     }
 
+    const uploadInstructions = isDotInspection
+      ? `Log in to your operator portal → My Truck → upload your renewed DOT Periodic Inspection certificate.`
+      : `Log in to your operator portal → Progress tab → Upload your renewed ${doc_type}.`;
+    const portalLink = isDotInspection ? `${appUrl}/operator?tab=my-truck` : `${appUrl}/operator/progress`;
+
     const html = buildEmail(
       subject,
       heading,
@@ -136,9 +141,9 @@ Deno.serve(async (req) => {
        <p>Your ${doc_type} ${expired ? 'expired' : 'is set to expire'} on <strong>${expiryStr}</strong>${expired ? '' : ` — ${days_until} day${days_until !== 1 ? 's' : ''} from now`}.</p>
        ${urgencyBlock}
        <p style="background:#fff8e6;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin-top:16px;">
-         <strong>How to upload:</strong> Log in to your operator portal → Progress tab → Upload your renewed ${doc_type}.
+         <strong>How to upload:</strong> ${uploadInstructions}
        </p>`,
-      { label: 'View My Portal', url: `${appUrl}/operator/progress` }
+      { label: 'View My Portal', url: portalLink }
     );
 
     // Get caller profile name (needed for audit log + reminder record)
