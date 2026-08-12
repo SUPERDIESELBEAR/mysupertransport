@@ -54,7 +54,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const [lastRemindedBy, setLastRemindedBy] = useState<Record<string, string>>({});
   const [lastReminderOutcome, setLastReminderOutcome] = useState<Record<string, { sent: boolean; error?: string }>>({});
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
-  const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
 
   // Row-level action state
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
@@ -77,9 +76,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown('bulk-reminder-compliance-tab-noaction');
 
   // Shared grid layout for header and rows. Responsive columns:
-  // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
+  // dot | operator (sticky, min 180px) | doc | expires | status | last-reminded | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
-  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_104px_104px_330px]";
+  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_104px_330px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // Right-edge fade: only show while there is more table to scroll to.
@@ -155,18 +154,15 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setLastReminderOutcome(outcomeMap);
 
     const renewedMap: Record<string, string> = {};
-    const renewedByMap: Record<string, string> = {};
     (renewals ?? []).forEach((r: any) => {
       const docType = r.metadata?.document_type as string | undefined;
       if (!r.entity_id || !docType) return;
       const key = `${r.entity_id}|${docType}`;
       if (!renewedMap[key]) {
         renewedMap[key] = r.created_at;
-        if (r.actor_name) renewedByMap[key] = r.actor_name;
       }
     });
     setLastRenewed(renewedMap);
-    setLastRenewedBy(renewedByMap);
 
     const newAlerts: ComplianceAlert[] = [];
 
@@ -460,7 +456,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       setRowRenewing(prev => ({ ...prev, [key]: false }));
       setRowRenewed(prev => ({ ...prev, [key]: true }));
       setLastRenewed(prev => ({ ...prev, [key]: renewedNow }));
-      if (actorName) setLastRenewedBy(prev => ({ ...prev, [key]: actorName }));
       toast({ title: `${alert.doc_type} marked as renewed`, description: `${alert.operator_name}'s expiry extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
       setTimeout(() => setRowRenewed(prev => { const n = { ...prev }; delete n[key]; return n; }), 8000);
     } catch {
@@ -692,7 +687,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       {expanded && (
         <div className="relative">
         <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
-          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1200px] ${gridCols}`}>
+          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1096px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span aria-hidden="true" />
@@ -706,7 +701,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Reminded</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Renewed</span>
+            
             <span aria-hidden="true" />
           </div>
 
@@ -723,7 +718,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             const isRowRenewing = rowRenewing[rowKey];
             const isRowRenewed = rowRenewed[rowKey];
             const renewedAt = lastRenewed[rowKey];
-            const renewedByName = lastRenewedBy[rowKey];
             return (
               <div key={`${alert.operator_id}-${alert.doc_type}`}
                 className={`${subgridRow} gap-x-5 items-center px-4 py-3.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
@@ -768,22 +762,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-xs max-w-[240px]">
                         {remindedAt ? <span className="flex flex-col gap-0.5"><span>Last reminder {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>{remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}{emailFailed ? <span className="text-destructive font-medium">✗ Email failed{reminderOutcome?.error ? ` — ${reminderOutcome.error.replace(/^Error:\s*/i, '').slice(0, 80)}` : ''}</span> : <span className="text-status-complete font-medium">✓ Email delivered</span>}</span> : 'No reminder sent yet'}
-                      </TooltipContent>
-                    </Tooltip></TooltipProvider>
-                  );
-                })()}
-                {/* Last Renewed column */}
-                {(() => {
-                  const pillClass = renewedAt ? 'bg-status-complete/10 text-status-complete border border-status-complete/25' : '';
-                  return (
-                    <TooltipProvider delayDuration={100}><Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default rounded px-1 py-0.5 transition-colors ${renewedAt ? `${pillClass} justify-end` : 'text-muted-foreground/40 justify-center w-full'}`}>
-                          {renewedAt ? <><RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />{format(new Date(renewedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[220px]">
-                        {renewedAt ? <span className="flex flex-col gap-0.5"><span>Last renewed {format(new Date(renewedAt), "MMM d, yyyy 'at' h:mm a")}</span>{renewedByName && <span className="text-muted-foreground">by {renewedByName}</span>}</span> : 'Not yet renewed'}
                       </TooltipContent>
                     </Tooltip></TooltipProvider>
                   );
