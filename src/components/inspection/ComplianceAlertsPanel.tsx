@@ -54,7 +54,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const [lastRemindedBy, setLastRemindedBy] = useState<Record<string, string>>({});
   const [lastReminderOutcome, setLastReminderOutcome] = useState<Record<string, { sent: boolean; error?: string }>>({});
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
-  const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
 
   // Row-level action state
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
@@ -155,18 +154,15 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setLastReminderOutcome(outcomeMap);
 
     const renewedMap: Record<string, string> = {};
-    const renewedByMap: Record<string, string> = {};
     (renewals ?? []).forEach((r: any) => {
       const docType = r.metadata?.document_type as string | undefined;
       if (!r.entity_id || !docType) return;
       const key = `${r.entity_id}|${docType}`;
       if (!renewedMap[key]) {
         renewedMap[key] = r.created_at;
-        if (r.actor_name) renewedByMap[key] = r.actor_name;
       }
     });
     setLastRenewed(renewedMap);
-    setLastRenewedBy(renewedByMap);
 
     const newAlerts: ComplianceAlert[] = [];
 
@@ -460,7 +456,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       setRowRenewing(prev => ({ ...prev, [key]: false }));
       setRowRenewed(prev => ({ ...prev, [key]: true }));
       setLastRenewed(prev => ({ ...prev, [key]: renewedNow }));
-      if (actorName) setLastRenewedBy(prev => ({ ...prev, [key]: actorName }));
       toast({ title: `${alert.doc_type} marked as renewed`, description: `${alert.operator_name}'s expiry extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
       setTimeout(() => setRowRenewed(prev => { const n = { ...prev }; delete n[key]; return n; }), 8000);
     } catch {
