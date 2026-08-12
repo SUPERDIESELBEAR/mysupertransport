@@ -155,6 +155,15 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setLastRenewedBy(renewedByMap);
 
     const newAlerts: ComplianceAlert[] = [];
+
+    // Latest DOT inspection per operator
+    const latestDotByOperator: Record<string, { id: string; nextDueDate: string }> = {};
+    (dotInspections ?? []).forEach((row: any) => {
+      if (!latestDotByOperator[row.operator_id]) {
+        latestDotByOperator[row.operator_id] = { id: row.id, nextDueDate: row.next_due_date };
+      }
+    });
+
     (ops as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       if (!app) return;
@@ -177,6 +186,22 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           });
         }
       });
+
+      // DOT Periodic Inspection alert
+      const dot = latestDotByOperator[op.id];
+      if (dot) {
+        const days = differenceInDays(parseLocalDate(dot.nextDueDate), today);
+        if (days <= windowDays) {
+          newAlerts.push({
+            operator_id: op.id,
+            operator_name: name,
+            doc_type: 'DOT Inspection',
+            expiration_date: dot.nextDueDate,
+            days_until: days,
+            dotInspectionId: dot.id,
+          });
+        }
+      }
     });
 
     const urgencyTier = (days: number) => days < 0 ? 0 : days <= 30 ? 1 : 2;
