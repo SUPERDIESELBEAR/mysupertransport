@@ -706,7 +706,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Reminded</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Renewed</span>
+            
             <span aria-hidden="true" />
           </div>
 
