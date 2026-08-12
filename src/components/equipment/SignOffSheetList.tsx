@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Sheet = Database['public']['Tables']['onboard_assignment_sheets']['Row'];
 type SheetItem = Database['public']['Tables']['onboard_assignment_sheet_items']['Row'];
@@ -87,6 +88,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [confirmReturn, setConfirmReturn] = useState<SheetWithItems | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
