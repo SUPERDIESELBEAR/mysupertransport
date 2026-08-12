@@ -133,6 +133,9 @@ export const buildOperatorViewUrl = (
 ) => {
   const params = new URLSearchParams(search);
   params.delete('tab');
+  // `view` is a legacy/inbound alias for `tab`; the route path is canonical, so
+  // drop it to avoid re-triggering the normalizer on the redirected URL.
+  params.delete('view');
   params.delete('binderView');
   const nextSearch = params.toString();
   const base = getOperatorBasePath(pathname);
