@@ -758,7 +758,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden md:inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
                           {hasAction && lastActionDate ? <><Icon className="h-3 w-3 shrink-0" />{format(lastActionDate, 'MMM d')}</> : <span className="text-muted-foreground/40">No action</span>}
                         </span>
                       </TooltipTrigger>
