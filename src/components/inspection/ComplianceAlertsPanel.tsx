@@ -851,7 +851,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   </Tooltip></TooltipProvider>
                   {/* Open button */}
                   {(onOpenOperator || onOpenOperatorWithFocus) && (
-                    <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
+                    <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : alert.doc_type === 'DOT Inspection' ? 'dot' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
                       className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-1.5">
                       Open →
                     </Button>
