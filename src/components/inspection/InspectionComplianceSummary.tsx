@@ -529,11 +529,13 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           ? 'Medical Certificate'
           : entry.docKey === 'IRP Registration (cab card)'
           ? 'IRP Registration (cab card)'
+          : entry.docKey === 'DOT Inspection'
+          ? 'DOT Inspection'
           : entry.docKey; // fleet docs: Insurance / IFTA License
 
         // Resolve driver_id (auth user_id) for per-driver rows we may need to insert
         let driverUserId: string | null = null;
-        if (entry.operatorId !== '__fleet__' && !entry.inspectionDocId) {
+        if (entry.operatorId !== '__fleet__' && !entry.inspectionDocId && entry.docKey !== 'DOT Inspection') {
           const opLookup = await supabase.from('operators')
             .select('user_id').eq('id', entry.operatorId).maybeSingle();
           driverUserId = opLookup.data?.user_id ?? null;
@@ -542,6 +544,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
         const folder = entry.operatorId === '__fleet__'
           ? 'company'
+          : entry.docKey === 'DOT Inspection'
+          ? `driver/${entry.operatorId}/dot-inspection`
           : `driver/${driverUserId ?? entry.operatorId}`;
         const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
         const safeSlug = docName.replace(/\s+/g, '-').toLowerCase();
@@ -559,7 +563,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         const nowIso = new Date().toISOString();
 
         let dbErr: any = null;
-        if (entry.inspectionDocId) {
+        if (entry.docKey === 'DOT Inspection') {
+          if (entry.dotInspectionId) {
+            ({ error: dbErr } = await supabase
+              .from('truck_dot_inspections')
+              .update({
+                certificate_file_url: fileUrl,
+                certificate_file_path: path,
+                certificate_file_name: file.name,
+              })
+              .eq('id', entry.dotInspectionId));
+          } else {
+            ({ error: dbErr } = await supabase
+              .from('truck_dot_inspections')
+              .insert({
+                operator_id: entry.operatorId,
+                inspection_date: nowIso.split('T')[0],
+                next_due_date: entry.expiresAt ?? nowIso.split('T')[0],
+                certificate_file_url: fileUrl,
+                certificate_file_path: path,
+                certificate_file_name: file.name,
+                created_by: user?.id ?? null,
+              }));
+          }
+        } else if (entry.inspectionDocId) {
           ({ error: dbErr } = await supabase
             .from('inspection_documents')
             .update({
