@@ -692,7 +692,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       {expanded && (
         <div className="relative">
         <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
-          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1340px] ${gridCols}`}>
+          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1200px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span aria-hidden="true" />
@@ -703,10 +703,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
               className="inline-flex items-center gap-1 justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group"
               style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
-              <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
+              <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Reminded</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Reminded</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Renewed</span>
             <span aria-hidden="true" />
           </div>
