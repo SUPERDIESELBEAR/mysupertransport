@@ -736,7 +736,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 {/* Doc-type badge */}
                 <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : alert.doc_type === 'DOT Inspection' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type === 'DOT Inspection' ? 'DOT' : alert.doc_type}</span>
                 {/* Expiry date */}
-                <span className="text-xs text-muted-foreground hidden sm:block text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
+                <span className="text-xs text-muted-foreground text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Status */}
                 <div className="flex items-center justify-end">
                   <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border whitespace-nowrap ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
