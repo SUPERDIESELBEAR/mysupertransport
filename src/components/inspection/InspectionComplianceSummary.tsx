@@ -17,7 +17,7 @@ import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import ComplianceHistoryModal from './ComplianceHistoryModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Form 2290';
+type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Form 2290' | 'DOT Inspection';
 
 type Status = 'expired' | 'critical' | 'warning' | 'valid' | 'missing';
 
