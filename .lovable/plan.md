@@ -46,6 +46,6 @@ Reasoning: this is a scannable comparison table — staff scan down the Status a
 - All colors stay on existing semantic tokens; no new hardcoded utilities.
 
 ## Verification
-- Fleet Compliance at laptop width: all columns readable, no squeezing, name column stays visible while scrolling right, dashes centered in their columns.
+- Fleet Compliance at laptop width: all columns readable, no squeezing, urgency dot sits in its own column without touching the driver name, name column stays visible while scrolling right, dashes centered in their columns.
 - DOT Inspection rows appear in alerts and filter correctly; DOT Inspection chip appears and counts add up in the Compliance Summary.
 - Tooltips on the dot and the Never Renewed pill explain both.
