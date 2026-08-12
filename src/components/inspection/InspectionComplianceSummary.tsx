@@ -299,10 +299,18 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         scheduleRefetch)
       .subscribe();
 
+    const dotChannel = supabase
+      .channel('compliance-summary-dot')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'truck_dot_inspections' },
+        scheduleRefetch)
+      .subscribe();
+
     return () => {
       if (pending) clearTimeout(pending);
       supabase.removeChannel(perDriverChannel);
       supabase.removeChannel(fleetChannel);
+      supabase.removeChannel(dotChannel);
     };
   }, [fetchData]);
 
