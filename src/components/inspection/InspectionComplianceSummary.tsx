@@ -464,7 +464,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const handleSendReminder = async (operatorId: string, operatorName: string, entry: DocEntry) => {
     if (!entry.expiresAt || entry.daysUntil === null) return;
     const key = `${operatorId}|${entry.docKey}`;
-    const docType = entry.docKey === 'CDL' ? 'CDL' : 'Medical Cert';
+    const docType = entry.docKey === 'CDL' ? 'CDL' : entry.docKey === 'DOT Inspection' ? 'DOT Inspection' : 'Medical Cert';
     setRemindSending(prev => ({ ...prev, [key]: true }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
