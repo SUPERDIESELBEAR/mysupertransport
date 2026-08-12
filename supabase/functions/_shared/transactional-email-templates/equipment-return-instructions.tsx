@@ -17,7 +17,7 @@ export interface EquipmentReturnProps {
   unitNumber?: string | null
 }
 
-const twoColRow = { verticalAlign: 'top' as const, width: '50%', height: '100%', padding: '0 8px' }
+const twoColRow = { verticalAlign: 'top' as const, width: '50%', height: '280px', padding: '0 8px' }
 const addressCard = {
   backgroundColor: '#FAF8F2',
   border: '1px solid #EDE6CF',
@@ -27,7 +27,9 @@ const addressCard = {
   color: '#0F0F0F',
   lineHeight: '1.55',
   height: '100%',
+  minHeight: '280px',
   boxSizing: 'border-box' as const,
+  'mso-line-height-rule': 'exactly',
 }
 const addressTitle = {
   fontSize: '13px',
