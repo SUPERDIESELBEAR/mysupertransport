@@ -176,7 +176,7 @@ export default function ManagementPortal() {
   const [staffAppModalOpen, setStaffAppModalOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
-  const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | 'dot' | undefined>(undefined);
   type ComplianceRow = { operatorId: string; name: string; daysUntil: number; docType: 'CDL' | 'Med Cert'; expiryDate: string };
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
@@ -247,7 +247,7 @@ export default function ManagementPortal() {
   // Authoritative driver-profile opener. Writes the URL immediately so the
   // address bar reflects the selection and Firefox (which handles the history
   // stack more strictly than Chrome) cannot lose the navigation.
-  const openOperatorDetail = useCallback((operatorId: string, options?: { stageKey?: string; focusField?: 'cdl' | 'medcert' }) => {
+  const openOperatorDetail = useCallback((operatorId: string, options?: { stageKey?: string; focusField?: 'cdl' | 'medcert' | 'dot' }) => {
     setSelectedOperatorId(operatorId);
     setScrollToStageKeyMgmt(options?.stageKey);
     setView('operator-detail');

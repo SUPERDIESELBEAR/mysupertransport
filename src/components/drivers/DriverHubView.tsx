@@ -90,7 +90,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
-  const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | 'dot' | undefined>(undefined);
   const [reviewLoading, setReviewLoading] = useState(false);
 
   // Bulk reminder state
