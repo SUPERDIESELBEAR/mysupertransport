@@ -79,7 +79,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
-  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_330px]";
+  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_104px_104px_330px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // Right-edge fade: only show while there is more table to scroll to.
@@ -692,7 +692,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       {expanded && (
         <div className="relative">
         <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
-          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1340px] ${gridCols}`}>
+          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1200px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span aria-hidden="true" />
@@ -703,10 +703,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
               className="inline-flex items-center gap-1 justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group"
               style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
-              <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
+              <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Reminded</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Reminded</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Renewed</span>
             <span aria-hidden="true" />
           </div>
@@ -753,31 +752,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                     {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
                   </span>
                 </div>
-                {/* Last Action column */}
-                {(() => {
-                  const remindedTs = remindedAt ? new Date(remindedAt).getTime() : 0;
-                  const renewedTs = renewedAt ? new Date(renewedAt).getTime() : 0;
-                  const hasAction = remindedTs > 0 || renewedTs > 0;
-                  const lastActionTs = Math.max(remindedTs, renewedTs);
-                  const lastActionDate = hasAction ? new Date(lastActionTs) : null;
-                  const isRenewal = renewedTs >= remindedTs && renewedTs > 0;
-                  const actionBy = isRenewal ? renewedByName : remindedBy;
-                  const actionLabel = isRenewal ? 'Renewed' : 'Reminded';
-                  const pillClass = isRenewal ? 'bg-status-complete/10 text-status-complete border border-status-complete/25' : 'bg-primary/10 text-primary border border-primary/25';
-                  const Icon = isRenewal ? RotateCcw : CheckCheck;
-                  return (
-                    <TooltipProvider delayDuration={100}><Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
-                          {hasAction && lastActionDate ? <><Icon className="h-3 w-3 shrink-0" />{format(lastActionDate, 'MMM d')}</> : <span className="text-muted-foreground/40">No action</span>}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[220px]">
-                        {hasAction && lastActionDate ? <span className="flex flex-col gap-0.5"><span className="font-medium">{actionLabel}</span><span>{format(lastActionDate, "MMM d, yyyy 'at' h:mm a")}</span>{actionBy && <span className="text-muted-foreground">by {actionBy}</span>}</span> : 'No reminder or renewal recorded yet'}
-                      </TooltipContent>
-                    </Tooltip></TooltipProvider>
-                  );
-                })()}
                 {/* Last Reminded column */}
                 {(() => {
                   let freshness: 'recent' | 'stale' | 'none' = 'none';
