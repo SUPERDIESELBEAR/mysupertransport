@@ -447,6 +447,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
             );
           })}
         </div>
+        </>
       )}
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(v) => { if (!v && !deletingId) setConfirmDelete(null); }}>
