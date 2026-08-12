@@ -720,9 +720,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       else if (e.docKey === 'Medical Certificate') g.med = e;
       else if (e.docKey === 'IRP Registration (cab card)') g.irp = e;
       else if (e.docKey === 'Form 2290') g.form2290 = e;
+      else if (e.docKey === 'DOT Inspection') g.dot = e;
     });
     byDriver.forEach(g => {
-      const certs = [g.cdl, g.med, g.irp, g.form2290].filter(Boolean) as DocEntry[];
+      const certs = [g.cdl, g.med, g.irp, g.form2290, g.dot].filter(Boolean) as DocEntry[];
       let worst: Status = 'valid';
       let worstDays: number | null = null;
       certs.forEach(c => {
