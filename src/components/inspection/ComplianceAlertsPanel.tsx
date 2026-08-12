@@ -714,18 +714,27 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <div key={`${alert.operator_id}-${alert.doc_type}`}
                 className={`${subgridRow} gap-2 items-start px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
                 {/* Urgency dot */}
-                <span className={`h-2 w-2 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
-                {/* Name + doc type */}
-                <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="font-medium text-sm text-foreground break-words">{alert.operator_name}</span>
+                <TooltipProvider delayDuration={100}><Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${expired ? 'bg-destructive/15' : critical ? 'bg-destructive/10' : 'bg-yellow-500/15'}`}>
+                      <span className={`h-2 w-2 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {expired ? 'Expired — action required immediately' : critical ? 'Expires within 30 days' : `Expires in ${alert.days_until} days`}
+                  </TooltipContent>
+                </Tooltip></TooltipProvider>
+                {/* Name + never-renewed pill */}
+                <div className="min-w-0 flex flex-col items-start gap-y-1">
+                  <span className="font-medium text-sm text-foreground break-words leading-tight">{alert.operator_name}</span>
                   {!renewedAt && (
-                    <span className="hidden md:inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none uppercase tracking-wide">
+                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none uppercase tracking-wide">
                       <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
                     </span>
                   )}
                 </div>
                 {/* Doc-type badge */}
-                <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type}</span>
+                <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : alert.doc_type === 'DOT Inspection' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type === 'DOT Inspection' ? 'DOT' : alert.doc_type}</span>
                 {/* Expiry date */}
                 <span className="text-xs text-muted-foreground hidden sm:block text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Status */}
