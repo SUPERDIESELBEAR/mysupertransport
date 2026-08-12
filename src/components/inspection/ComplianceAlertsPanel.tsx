@@ -79,8 +79,22 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
-  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_236px]";
+  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_280px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
+
+  // Right-edge fade: only show while there is more table to scroll to.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [atScrollEnd, setAtScrollEnd] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => setAtScrollEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', update); ro.disconnect(); };
+  }, [expanded]);
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -677,7 +691,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       {/* Alert rows */}
       {expanded && (
         <div className="relative">
-        <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
+        <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
           <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1240px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
@@ -843,7 +857,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           )}
           </div>
         </div>
-        <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent" />
+        {!atScrollEnd && (
+          <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent" />
+        )}
         </div>
       )}
     </div>
