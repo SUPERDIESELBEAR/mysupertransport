@@ -76,7 +76,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown('bulk-reminder-compliance-tab-noaction');
 
   // Shared grid layout for header and rows. Responsive columns:
-  // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
+  // dot | operator (sticky, min 180px) | doc | expires | status | last-reminded | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
   const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_104px_330px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
