@@ -1,31 +1,25 @@
-# Compliance Alerts: remove the duplicated "last reminder" displays
+# Compliance Alerts: remove the duplicated reminder pill
 
-## What you're seeing today (confirmed in the code)
+## Answering your question first
 
-There are four surfaces showing overlapping data on every row:
+**Last Reminded and Last Renewed do not hold the same data.** Last Reminded is the date staff last emailed the driver; Last Renewed is the date the document was actually marked renewed. They only *look* alike because both render as a small green pill when recent.
 
-1. **Last Action** column — shows whichever happened most recently, a reminder *or* a renewal. Its pill turns green with a "Renewed" tooltip when the renewal is newer, blue when the reminder is newer. This is why the green pill also mentions a reminder: it is a merged column, not a renewal column.
-2. **Last Reminded** column — the reminder date, colored green if within 7 days, yellow if 30+ days old, red if the email failed.
-3. **Last Renewed** column — the renewal date.
-4. **"3d ago" pill next to the Remind button** — the same reminder date as #2, expressed relatively, with an identical tooltip.
+The green pill you hovered that said "reminder" is the **Last Action** pill, not Last Renewed. Last Action shows whichever happened most recently — reminder or renewal — and turns green when a renewal is the newest event, so its tooltip text and its color can appear to disagree. Last Action stays untouched in this plan.
 
-So #1 is a computed duplicate of #2 and #3, and #4 is a second copy of #2. Two of the four can go.
+**The genuine duplicate is the "Xd ago" pill next to the Remind button.** It shows the same reminder date as the Last Reminded column, with the same staff name and the same delivered/failed tooltip. Nothing in it is unique.
 
 ## Proposed change
 
-Keep **Last Action** as the at-a-glance column and drop the two displays that duplicate it:
-
-- **Keep the "Last Action" column.** It stays the sortable, most-recent-touch column, and it keeps its sort toggle (urgency / newest action / oldest action).
-- **Make Last Action clearer.** Label the pill with what actually happened instead of relying on color alone — e.g. `Reminded Aug 9 · 3d` or `Renewed Aug 2`. That removes the confusion where a green pill's tooltip talked about a reminder.
-- **Remove the "Last Reminded" column.** Its date, staff name, freshness color, and email-delivery result all fold into the Last Action cell and its tooltip.
-- **Remove the "Xd ago" pill next to the Remind button.** It is a third copy of the same reminder date.
-- **Keep the "Last Renewed" column.** Renewal history is genuinely separate information and stays its own column.
-- **Reclaim the space.** Dropping one column and one pill frees roughly 200px per row; the table minimum width comes down accordingly and the remaining columns get wider tracks, so rows feel less crowded and need less horizontal scrolling.
+- **Remove the "Xd ago" pill next to the Remind button.** Its date, author, and delivery status all already live in the Last Reminded cell.
+- **Add the relative age to the Last Reminded pill** so you keep the "how long ago" signal in one place — e.g. `Aug 9 · 3d`. Existing color coding stays (green recent, yellow stale, red email failed), as does the full tooltip with timestamp, staff name, and delivery result.
+- **Make the two columns visually distinct** so they stop reading as twins: keep the check icon and reminder colors on Last Reminded, and give Last Renewed a single neutral-green treatment with the rotate icon, no relative age.
+- **Reclaim the space.** Dropping the pill frees roughly 90px per row in the action group; the freed width goes to the Operator, Last Reminded, and Last Renewed tracks and lowers the table minimum width, so rows breathe and need less horizontal scroll.
+- **Last Action column: unchanged.** No edits to its content, colors, tooltip, or sort toggle.
 
 ## Resulting row
 
 ```text
-[dot]  Operator        Doc     Expires       Status         Last Action ▾   Last Renewed   [Remind] [Renew] [Open →]
+[dot]  Operator     Doc   Expires    Status    Last Action ▾   Last Reminded   Last Renewed   [Remind] [Renew] [Open →]
 ```
 
 ## Unchanged
@@ -35,11 +29,11 @@ Data loading, filters, the "No action yet" filter, bulk reminders, renew logic, 
 ## Technical notes
 
 - File: `src/components/inspection/ComplianceAlertsPanel.tsx`.
-- Remove the Last Reminded header cell and its row cell IIFE; remove the reminder-age pill block inside the action-buttons div.
-- Extend the Last Action cell: prefix the pill with `Reminded` / `Renewed`, append relative age via the existing `differenceInDays` import, and carry over the email-failure red state plus the `✗ Email failed` / `✓ Email delivered` tooltip line from the removed Last Reminded cell.
-- Sort toggle stays on the Last Action header; comparator unchanged (`max(lastReminded, lastRenewed)`).
-- Update `gridCols` / `subgridRow` track strings: drop one track, widen Operator, Last Action, Last Renewed, and lower `min-w-[1240px]`.
+- Remove the reminder-age pill block (the `remindedAt && !isSent` IIFE) inside the action-buttons div.
+- Last Reminded cell: append relative age using the already-imported `differenceInDays`. All other logic untouched.
+- Last Action cell and its header sort button: no changes.
+- Update `gridCols` / `subgridRow` track strings: widen Operator, Last Reminded, Last Renewed, narrow the actions track, and lower `min-w-[1240px]` accordingly.
 
 ## Verification
 
-At laptop width: one reminder display per row, Last Action still present and sortable with an explicit Reminded/Renewed label, email-failure state still visible, and the table needs noticeably less horizontal scroll.
+At laptop width: no "Xd ago" pill beside Remind, Last Reminded shows date plus age with its color coding and failure state intact, Last Action behaves exactly as before, and the table needs less horizontal scroll.
