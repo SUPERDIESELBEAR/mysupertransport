@@ -723,7 +723,6 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             const isRowRenewing = rowRenewing[rowKey];
             const isRowRenewed = rowRenewed[rowKey];
             const renewedAt = lastRenewed[rowKey];
-            const renewedByName = lastRenewedBy[rowKey];
             return (
               <div key={`${alert.operator_id}-${alert.doc_type}`}
                 className={`${subgridRow} gap-x-5 items-center px-4 py-3.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
