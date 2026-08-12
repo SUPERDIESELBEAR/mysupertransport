@@ -676,10 +676,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
       {/* Alert rows */}
       {expanded && (
-        <div className="overflow-x-auto -mx-4 px-4">
-          <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1000px] ${gridCols}`}>
+        <div className="relative">
+        <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
+          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1240px] ${gridCols}`}>
           {/* Column headers */}
-          <div className={`${subgridRow} gap-2 items-start px-4 py-1.5 bg-destructive/5`}>
+          <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span className="sr-only">Urgency</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Doc</span>
