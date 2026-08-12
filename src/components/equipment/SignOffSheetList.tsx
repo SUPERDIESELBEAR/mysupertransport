@@ -236,24 +236,8 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     }
   };
 
-
-  if (loading) {
-    return (
-      <div className="py-12 flex items-center justify-center text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        Loading assignment sheets…
-      </div>
-    );
-  }
-
-  const counts = {
-    all: sheets.length,
-    draft: sheets.filter(s => (s.status ?? 'draft') === 'draft').length,
-    sent: sheets.filter(s => (s.status ?? 'draft') === 'sent').length,
-    signed: sheets.filter(s => (s.status ?? 'draft') === 'signed').length,
-    void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
-  };
-
+  // Must stay above the `loading` early return — a hook below it changes the
+  // hook count between renders and crashes the page.
   const matchesSearch = useCallback((sheet: SheetWithItems, query: string) => {
     if (!query.trim()) return true;
     const needle = query.toLowerCase().trim();
@@ -274,6 +258,23 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
 
     return false;
   }, []);
+
+  if (loading) {
+    return (
+      <div className="py-12 flex items-center justify-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+        Loading assignment sheets…
+      </div>
+    );
+  }
+
+  const counts = {
+    all: sheets.length,
+    draft: sheets.filter(s => (s.status ?? 'draft') === 'draft').length,
+    sent: sheets.filter(s => (s.status ?? 'draft') === 'sent').length,
+    signed: sheets.filter(s => (s.status ?? 'draft') === 'signed').length,
+    void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
+  };
 
   const statusFilteredSheets = statusFilter === 'all'
     ? sheets
