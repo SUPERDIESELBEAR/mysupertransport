@@ -2,10 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2, Package, Search, X } from 'lucide-react';
+import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2, Package } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,7 +90,6 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
@@ -236,28 +234,6 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     }
   };
 
-  // Must stay above the `loading` early return — a hook below it changes the
-  // hook count between renders and crashes the page.
-  const matchesSearch = useCallback((sheet: SheetWithItems, query: string) => {
-    if (!query.trim()) return true;
-    const needle = query.toLowerCase().trim();
-    const app = sheet.operator?.applications;
-    const operatorName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').toLowerCase();
-    const unitNumber = (sheet.unit_number ?? sheet.operator?.unit_number ?? '').toLowerCase();
-    const email = (app?.email ?? '').toLowerCase();
-
-    if (operatorName.includes(needle)) return true;
-    if (email.includes(needle)) return true;
-    if (unitNumber.includes(needle)) return true;
-
-    for (const item of sheet.items) {
-      const deviceLabel = (DEVICE_LABELS[item.device_type] ?? item.device_type).toLowerCase();
-      const serial = (item.serial_snapshot ?? '').toLowerCase();
-      if (deviceLabel.includes(needle) || serial.includes(needle)) return true;
-    }
-
-    return false;
-  }, []);
 
   if (loading) {
     return (
@@ -276,13 +252,9 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
   };
 
-  const statusFilteredSheets = statusFilter === 'all'
+  const visibleSheets = statusFilter === 'all'
     ? sheets
     : sheets.filter(s => (s.status ?? 'draft') === statusFilter);
-
-  const visibleSheets = searchQuery.trim()
-    ? statusFilteredSheets.filter(s => matchesSearch(s, searchQuery))
-    : statusFilteredSheets;
 
   const TAB_DEFS: { value: typeof statusFilter; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -324,27 +296,6 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          type="text"
-          placeholder="Search by operator, unit, device, or serial number"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 pr-9"
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Clear search"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
       {sheets.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center">
@@ -360,17 +311,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           {tabBar}
           <Card className="border-dashed">
             <CardContent className="py-10 text-center">
-              <p className="text-sm text-muted-foreground">
-                {searchQuery.trim()
-                  ? 'No sheets match your search.'
-                  : 'No sheets in this view.'}
-              </p>
-              {searchQuery.trim() && (
-                <Button className="mt-3" size="sm" variant="outline" onClick={() => setSearchQuery('')}>
-                  <X className="h-3.5 w-3.5 mr-1.5" />
-                  Clear Search
-                </Button>
-              )}
+              <p className="text-sm text-muted-foreground">No sheets in this view.</p>
             </CardContent>
           </Card>
         </>
