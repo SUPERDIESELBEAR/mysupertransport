@@ -20,14 +20,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 export interface ComplianceAlert {
   operator_id: string;
   operator_name: string;
-  doc_type: 'CDL' | 'Medical Cert';
+  doc_type: 'CDL' | 'Medical Cert' | 'DOT Inspection';
   expiration_date: string;
   days_until: number;
+  /** Present for DOT Inspection rows; references the source truck_dot_inspections row */
+  dotInspectionId?: string;
 }
 
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
-  onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert' | 'dot') => void;
   /** When true the panel mounts with the "No Action" filter pre-applied */
   defaultNoActionOnly?: boolean;
 }
