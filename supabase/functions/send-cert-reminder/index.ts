@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { operator_id, doc_type, days_until, expiration_date } = await req.json() as {
       operator_id: string;
-      doc_type: 'CDL' | 'Medical Cert';
+      doc_type: 'CDL' | 'Medical Cert' | 'DOT Inspection';
       days_until: number;
       expiration_date: string;
     };
@@ -63,6 +63,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const isDotInspection = doc_type === 'DOT Inspection';
 
     // Fetch operator with application data
     const { data: op, error: opErr } = await supabase
