@@ -284,7 +284,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Delete
           </Button>
-          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
             {signUrl && (
               <Button variant="outline" size="sm" onClick={handleCopy} className="shrink-0">
                 <Copy className="h-3.5 w-3.5 mr-1.5" />
