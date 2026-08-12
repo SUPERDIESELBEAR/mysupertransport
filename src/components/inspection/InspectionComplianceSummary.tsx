@@ -687,6 +687,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     med?: DocEntry;
     irp?: DocEntry;
     form2290?: DocEntry;
+    dot?: DocEntry;
     worstStatus: Status;
     worstDays: number | null;
   };
