@@ -220,6 +220,15 @@ Deno.serve(withErrorEnvelope(async (req) => {
     if (body.sendToOperator) {
       const fullSheet = { ...sheet, items: sheetItems, operator }
       await sendSheetEmail(supabase, authHeader, fullSheet as any)
+      const { error: sendLogError } = await supabase.from('onboard_assignment_sheet_sends').insert({
+        sheet_id: sheet.id,
+        sent_at: sentAt,
+        sent_by: userId,
+        sent_by_name: actorEmail,
+        recipient_email: (operator as any)?.applications?.email ?? null,
+        kind: 'initial',
+      })
+      if (sendLogError) console.error('[send-osas-to-operator] failed to log send', sendLogError)
       await supabase.from('audit_log').insert({
         actor_id: userId,
         actor_name: actorEmail,
