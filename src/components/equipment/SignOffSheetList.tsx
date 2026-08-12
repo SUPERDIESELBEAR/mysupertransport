@@ -295,7 +295,6 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         </div>
       </div>
 
-      {(() => null)()}
       {sheets.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center">
