@@ -676,7 +676,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
       {/* Alert rows */}
       {expanded && (
-        <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 ${gridCols}`}>
+        <div className="overflow-x-auto -mx-4 px-4">
+          <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1000px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-2 items-start px-4 py-1.5 bg-destructive/5`}>
             <span className="h-2 w-2" aria-hidden="true" />
