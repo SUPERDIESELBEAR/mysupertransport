@@ -243,6 +243,39 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     );
   }
 
+  const counts = {
+    all: sheets.length,
+    draft: sheets.filter(s => (s.status ?? 'draft') === 'draft').length,
+    sent: sheets.filter(s => (s.status ?? 'draft') === 'sent').length,
+    signed: sheets.filter(s => (s.status ?? 'draft') === 'signed').length,
+    void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
+  };
+
+  const visibleSheets = statusFilter === 'all'
+    ? sheets
+    : sheets.filter(s => (s.status ?? 'draft') === statusFilter);
+
+  const TAB_DEFS: { value: typeof statusFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'draft', label: 'Drafts' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'signed', label: 'Signed' },
+    { value: 'void', label: 'Void' },
+  ];
+
+  const tabBar = (
+    <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+      <TabsList className="flex-wrap h-auto">
+        {TAB_DEFS.map(t => (
+          <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
+            {t.label}
+            <span className="text-xs text-muted-foreground">{counts[t.value]}</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
