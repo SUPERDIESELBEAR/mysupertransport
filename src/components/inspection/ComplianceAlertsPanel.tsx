@@ -77,9 +77,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown('bulk-reminder-compliance-tab-noaction');
 
   // Shared grid layout for header and rows. Responsive columns:
-  // dot | operator (min 180px) | doc | expires (sm+) | status | last-action (md+) | last-reminded (xl+) | last-renewed (xl+) | actions
-  // Fixed first/last tracks so every row resolves identical column widths.
-  const gridCols = "grid-cols-[12px_minmax(120px,1fr)_76px_100px_180px] sm:grid-cols-[12px_minmax(140px,1fr)_76px_88px_100px_180px] md:grid-cols-[12px_minmax(160px,1fr)_76px_88px_100px_84px_180px] lg:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_300px] xl:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_68px_68px_300px]";
+  // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
+  // The operator column is sticky so it stays visible during horizontal scroll.
+  const gridCols = "grid-cols-[20px_minmax(180px,1fr)_88px_100px_120px_100px_90px_90px_220px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // ── Data fetching ──────────────────────────────────────────────────────
