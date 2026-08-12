@@ -4,7 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2, Package } from 'lucide-react';
+import { Loader2, FilePlus, Send, CheckCircle2, Clock, AlertTriangle, RefreshCw, Eye, Trash2, Package, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +82,22 @@ const DEVICE_LABELS: Record<string, string> = {
   bestpass: 'BestPass',
 };
 
+function matchesSheetSearch(sheet: SheetWithItems, q: string): boolean {
+  if (!q) return true;
+  const app = sheet?.operator?.applications ?? null;
+  const parts = [
+    app?.first_name,
+    app?.last_name,
+    app?.email,
+    app?.phone,
+    sheet?.unit_number,
+    sheet?.operator?.unit_number,
+    ...(Array.isArray(sheet?.items) ? sheet.items.map(i => i?.serial_snapshot) : []),
+  ];
+  const haystack = parts.filter(Boolean).map(v => String(v)).join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
 export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const { toast } = useToast();
   const [sheets, setSheets] = useState<SheetWithItems[]>([]);
@@ -90,6 +108,8 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const [receiptPreview, setReceiptPreview] = useState<{ url: string; name: string } | null>(null);
 
   const fetchSheets = useCallback(async () => {
@@ -253,9 +273,10 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
   };
 
-  const visibleSheets = statusFilter === 'all'
-    ? sheets
-    : sheets.filter(s => (s.status ?? 'draft') === statusFilter);
+  const query = debouncedSearch.trim().toLowerCase();
+  const visibleSheets = sheets
+    .filter(s => (statusFilter === 'all' ? true : (s.status ?? 'draft') === statusFilter))
+    .filter(s => matchesSheetSearch(s, query));
 
   const TAB_DEFS: { value: typeof statusFilter; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -266,16 +287,27 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   ];
 
   const tabBar = (
-    <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-      <TabsList className="flex-wrap h-auto">
-        {TAB_DEFS.map(t => (
-          <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
-            {t.label}
-            <span className="text-xs text-muted-foreground">{counts[t.value]}</span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <div className="space-y-3">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search driver, unit #, serial…"
+          className="pl-9 h-9"
+        />
+      </div>
+      <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+        <TabsList className="flex-wrap h-auto">
+          {TAB_DEFS.map(t => (
+            <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
+              {t.label}
+              <span className="text-xs text-muted-foreground">{counts[t.value]}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+    </div>
   );
 
   return (
@@ -312,7 +344,14 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           {tabBar}
           <Card className="border-dashed">
             <CardContent className="py-10 text-center">
-              <p className="text-sm text-muted-foreground">No sheets in this view.</p>
+              <p className="text-sm text-muted-foreground">
+                {query ? 'No sheets match your search.' : 'No sheets in this view.'}
+              </p>
+              {query && (
+                <Button className="mt-3" size="sm" variant="outline" onClick={() => setSearch('')}>
+                  Clear search
+                </Button>
+              )}
             </CardContent>
           </Card>
         </>
