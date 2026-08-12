@@ -273,34 +273,35 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
           </section>
         </div>
 
-        <DialogFooter className="flex-row flex-wrap items-center justify-end gap-2 sm:space-x-0">
+        <DialogFooter className="flex flex-nowrap items-center justify-between gap-2 sm:space-x-0">
           <Button
             variant="outline"
             size="sm"
-            className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 mr-auto"
+            className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 shrink-0"
             onClick={() => setConfirmOpen(true)}
             disabled={deleting}
           >
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Delete
           </Button>
-          {signUrl && (
-            <Button variant="outline" size="sm" onClick={handleCopy}>
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
-              Copy sign link
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+            {signUrl && (
+              <Button variant="outline" size="sm" onClick={handleCopy} className="shrink-0">
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Copy sign link
+              </Button>
+            )}
+            {canResend && (
+              <Button size="sm" onClick={handleResend} disabled={resending} className="shrink-0">
+                {resending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+                {status === 'draft' ? 'Send to Operator' : 'Resend'}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleSendReturn} disabled={sendingReturn} className="shrink-0">
+              {sendingReturn ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
+              {sheet.return_requested_at ? 'Resend Return Instructions' : 'Send Return Instructions'}
             </Button>
-          )}
-          {canResend && (
-            <Button size="sm" onClick={handleResend} disabled={resending}>
-              {resending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
-              {status === 'draft' ? 'Send to Operator' : 'Resend'}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={handleSendReturn} disabled={sendingReturn}>
-            {sendingReturn ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
-            {sheet.return_requested_at ? 'Resend Return Instructions' : 'Send Return Instructions'}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
       <AlertDialog open={confirmOpen} onOpenChange={(v) => { if (!deleting) setConfirmOpen(v); }}>
