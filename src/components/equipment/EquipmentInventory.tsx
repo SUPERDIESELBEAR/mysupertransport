@@ -151,6 +151,22 @@ export default function EquipmentInventory({
     });
   }, []);
 
+  const selectTypeBox = useCallback((type: DeviceType) => {
+    let selecting = false;
+    setTypeFilter(prev => {
+      selecting = prev !== type;
+      return selecting ? type : 'all';
+    });
+    if (selecting) {
+      setExpandedTypes(prev => {
+        const next = new Set(prev);
+        next.add(type);
+        return next;
+      });
+      setLastOpened(type);
+    }
+  }, []);
+
   const childRafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -442,7 +458,7 @@ export default function EquipmentInventory({
           return (
             <button
               key={type}
-              onClick={() => setTypeFilter(prev => prev === type ? 'all' : type)}
+              onClick={() => selectTypeBox(type)}
               className={`rounded-xl border p-3 text-left transition-all hover:shadow-sm ${
                 isActive ? 'bg-primary/5 border-primary/40 shadow-sm' : 'bg-card border-border hover:border-primary/20'
               }`}
