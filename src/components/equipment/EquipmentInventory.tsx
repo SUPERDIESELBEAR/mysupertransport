@@ -458,7 +458,7 @@ export default function EquipmentInventory({
           return (
             <button
               key={type}
-              onClick={() => setTypeFilter(prev => prev === type ? 'all' : type)}
+              onClick={() => selectTypeBox(type)}
               className={`rounded-xl border p-3 text-left transition-all hover:shadow-sm ${
                 isActive ? 'bg-primary/5 border-primary/40 shadow-sm' : 'bg-card border-border hover:border-primary/20'
               }`}
