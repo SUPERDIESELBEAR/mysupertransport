@@ -574,13 +574,14 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             CDL or medical cert expiring within {windowDays} days
           </p>
           <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/60 w-fit">
-            {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
+            {(['all', 'CDL', 'Medical Cert', 'DOT Inspection'] as const).map(f => {
               const count = f === 'all' ? alerts.length : alerts.filter(a => a.doc_type === f).length;
               const active = docFilter === f && !noActionOnly;
+              const label = f === 'DOT Inspection' ? 'DOT' : f === 'Medical Cert' ? 'Med Cert' : f;
               return (
                 <button key={f} onClick={() => { setDocFilter(f); setNoActionOnly(false); }}
                   className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-semibold border transition-all ${active ? 'bg-destructive/15 border-destructive/40 text-destructive shadow-sm' : 'bg-transparent border-transparent text-muted-foreground hover:bg-background hover:text-destructive/80'}`}>
-                  {f === 'all' ? 'All' : f}
+                  {f === 'all' ? 'All' : label}
                   <span className={`text-[10px] font-bold ${active ? 'text-destructive' : 'text-muted-foreground'}`}>{count}</span>
                 </button>
               );
