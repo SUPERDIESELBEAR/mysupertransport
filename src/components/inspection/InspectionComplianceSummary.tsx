@@ -67,6 +67,7 @@ const DOC_BADGE: Record<DocKey, string> = {
   'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
   'Medical Certificate': 'bg-purple-50 text-purple-700 border-purple-200',
   'Form 2290':         'bg-amber-50 text-amber-700 border-amber-200',
+  'DOT Inspection':    'bg-orange-50 text-orange-700 border-orange-200',
 };
 
 const DOC_DISPLAY: Record<DocKey, string> = {
@@ -76,6 +77,7 @@ const DOC_DISPLAY: Record<DocKey, string> = {
   'CDL':               'CDL',
   'Medical Certificate': 'Med Cert',
   'Form 2290':         '2290',
+  'DOT Inspection':    'DOT',
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
