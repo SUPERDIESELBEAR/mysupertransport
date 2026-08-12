@@ -254,9 +254,34 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     void: sheets.filter(s => (s.status ?? 'draft') === 'void').length,
   };
 
-  const visibleSheets = statusFilter === 'all'
+  const matchesSearch = useCallback((sheet: SheetWithItems, query: string) => {
+    if (!query.trim()) return true;
+    const needle = query.toLowerCase().trim();
+    const app = sheet.operator?.applications;
+    const operatorName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').toLowerCase();
+    const unitNumber = (sheet.unit_number ?? sheet.operator?.unit_number ?? '').toLowerCase();
+    const email = (app?.email ?? '').toLowerCase();
+
+    if (operatorName.includes(needle)) return true;
+    if (email.includes(needle)) return true;
+    if (unitNumber.includes(needle)) return true;
+
+    for (const item of sheet.items) {
+      const deviceLabel = (DEVICE_LABELS[item.device_type] ?? item.device_type).toLowerCase();
+      const serial = (item.serial_snapshot ?? '').toLowerCase();
+      if (deviceLabel.includes(needle) || serial.includes(needle)) return true;
+    }
+
+    return false;
+  }, []);
+
+  const statusFilteredSheets = statusFilter === 'all'
     ? sheets
     : sheets.filter(s => (s.status ?? 'draft') === statusFilter);
+
+  const visibleSheets = searchQuery.trim()
+    ? statusFilteredSheets.filter(s => matchesSearch(s, searchQuery))
+    : statusFilteredSheets;
 
   const TAB_DEFS: { value: typeof statusFilter; label: string }[] = [
     { value: 'all', label: 'All' },
