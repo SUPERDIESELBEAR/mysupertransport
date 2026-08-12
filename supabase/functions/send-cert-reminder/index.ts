@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { operator_id, doc_type, days_until, expiration_date } = await req.json() as {
       operator_id: string;
-      doc_type: 'CDL' | 'Medical Cert';
+      doc_type: 'CDL' | 'Medical Cert' | 'DOT Inspection';
       days_until: number;
       expiration_date: string;
     };
@@ -63,6 +63,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const isDotInspection = doc_type === 'DOT Inspection';
 
     // Fetch operator with application data
     const { data: op, error: opErr } = await supabase
@@ -126,6 +128,11 @@ Deno.serve(async (req) => {
       </p>`;
     }
 
+    const uploadInstructions = isDotInspection
+      ? `Log in to your operator portal → My Truck → upload your renewed DOT Periodic Inspection certificate.`
+      : `Log in to your operator portal → Progress tab → Upload your renewed ${doc_type}.`;
+    const portalLink = isDotInspection ? `${appUrl}/operator?tab=my-truck` : `${appUrl}/operator/progress`;
+
     const html = buildEmail(
       subject,
       heading,
@@ -134,9 +141,9 @@ Deno.serve(async (req) => {
        <p>Your ${doc_type} ${expired ? 'expired' : 'is set to expire'} on <strong>${expiryStr}</strong>${expired ? '' : ` — ${days_until} day${days_until !== 1 ? 's' : ''} from now`}.</p>
        ${urgencyBlock}
        <p style="background:#fff8e6;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin-top:16px;">
-         <strong>How to upload:</strong> Log in to your operator portal → Progress tab → Upload your renewed ${doc_type}.
+         <strong>How to upload:</strong> ${uploadInstructions}
        </p>`,
-      { label: 'View My Portal', url: `${appUrl}/operator/progress` }
+      { label: 'View My Portal', url: portalLink }
     );
 
     // Get caller profile name (needed for audit log + reminder record)
@@ -179,7 +186,7 @@ Deno.serve(async (req) => {
         body: `Your coordinator sent you a reminder about your ${doc_type} ${expired ? 'expiration' : `expiring in ${days_until} day${days_until !== 1 ? 's' : ''}`}.`,
         type: 'cert_expiry_reminder',
         channel: 'in_app',
-        link: '/operator/progress',
+        link: isDotInspection ? '/operator?tab=my-truck' : '/operator/progress',
         entity_type: 'operator',
         entity_id: operator_id,
       }),

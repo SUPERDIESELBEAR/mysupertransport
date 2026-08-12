@@ -49,7 +49,7 @@ interface ApplicationReviewDrawerProps {
   onDeny: (appId: string, notes: string) => Promise<void>;
   onExpiryUpdated?: () => void;
   /** Auto-open and scroll to this expiry field when the drawer mounts */
-  focusField?: 'cdl' | 'medcert';
+  focusField?: 'cdl' | 'medcert' | 'dot';
   /** Tab to show when the drawer opens. Defaults to 'overview'. */
   initialTab?: 'overview' | 'documents' | 'pei';
   /** Notify parent of an in-drawer change so list/selectedApp stay in sync. */

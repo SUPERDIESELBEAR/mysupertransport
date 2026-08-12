@@ -17,7 +17,7 @@ import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
 import ComplianceHistoryModal from './ComplianceHistoryModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Form 2290';
+type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate' | 'Form 2290' | 'DOT Inspection';
 
 type Status = 'expired' | 'critical' | 'warning' | 'valid' | 'missing';
 
@@ -30,6 +30,8 @@ interface DocEntry {
   status: Status;
   /** Only set for fleet-wide (IRP/Insurance/IFTA) rows */
   inspectionDocId?: string;
+  /** Only set for DOT Inspection rows */
+  dotInspectionId?: string;
   /** True when expiry was edited but no new file was uploaded (>24h) */
   isStale?: boolean;
 }
@@ -67,6 +69,7 @@ const DOC_BADGE: Record<DocKey, string> = {
   'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
   'Medical Certificate': 'bg-purple-50 text-purple-700 border-purple-200',
   'Form 2290':         'bg-amber-50 text-amber-700 border-amber-200',
+  'DOT Inspection':    'bg-orange-50 text-orange-700 border-orange-200',
 };
 
 const DOC_DISPLAY: Record<DocKey, string> = {
@@ -76,6 +79,7 @@ const DOC_DISPLAY: Record<DocKey, string> = {
   'CDL':               'CDL',
   'Medical Certificate': 'Med Cert',
   'Form 2290':         '2290',
+  'DOT Inspection':    'DOT',
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -142,11 +146,18 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const fetchData = useCallback(async () => {
     setLoading(true);
 
-    // Single server-side query: v_compliance_items unifies fleet + driver certs
+    // Server-side query: v_compliance_items unifies fleet + driver certs
     // with days_until already calculated against US Central Time in the database.
     const { data: rows } = await supabase
       .from('v_compliance_items')
       .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until, file_path, uploaded_at, expires_updated_at');
+
+    // DOT inspections live in a separate table; merge them client-side so the
+    // view definition can stay unchanged.
+    const { data: dotRows } = await supabase
+      .from('truck_dot_inspections')
+      .select('id, operator_id, next_due_date, inspection_date, operators(id, application_id, first_name, last_name)')
+      .order('next_due_date', { ascending: true });
 
     if (!rows) { setLoading(false); return; }
 
@@ -176,6 +187,23 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       };
     });
 
+    // Merge DOT inspections into the same list.
+    (dotRows ?? []).forEach((r: any) => {
+      const op = r.operators;
+      const operatorName = op ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown' : 'Unknown';
+      const nextDue = r.next_due_date ? String(r.next_due_date) : null;
+      const daysUntil = nextDue ? differenceInDays(parseLocalDate(nextDue), new Date()) : null;
+      result.push({
+        docKey: 'DOT Inspection',
+        operatorId: r.operator_id ?? '',
+        operatorName,
+        expiresAt: nextDue,
+        daysUntil,
+        status: getStatus(daysUntil, windowDays),
+        dotInspectionId: r.id,
+      });
+    });
+
     // Sort: fleet rows first, then group by operator (worst status first), within operator CDL before Med Cert
     const tierOrder: Record<Status, number> = { expired: 0, critical: 1, warning: 2, valid: 3, missing: 4 };
 
@@ -190,7 +218,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     const docOrder: Record<DocKey, number> = {
-      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Form 2290': 5,
+      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Form 2290': 5, 'DOT Inspection': 6,
     };
 
     result.sort((a, b) => {
@@ -271,10 +299,18 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         scheduleRefetch)
       .subscribe();
 
+    const dotChannel = supabase
+      .channel('compliance-summary-dot')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'truck_dot_inspections' },
+        scheduleRefetch)
+      .subscribe();
+
     return () => {
       if (pending) clearTimeout(pending);
       supabase.removeChannel(perDriverChannel);
       supabase.removeChannel(fleetChannel);
+      supabase.removeChannel(dotChannel);
     };
   }, [fetchData]);
 
@@ -350,8 +386,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     }
   };
 
-  // ── Inline date save for per-driver certs (CDL / Med Cert) ───────────────
-  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, inspectionDocId: string | undefined, date: Date | undefined) => {
+  // ── Inline date save for per-driver certs (CDL / Med Cert / DOT) ─────────
+  const handleDriverDateChange = async (operatorId: string, docKey: DocKey, inspectionDocId: string | undefined, dotInspectionId: string | undefined, date: Date | undefined) => {
     if (!date) return;
     const key = `${operatorId}|${docKey}`;
     setDriverPicker(null);
@@ -369,7 +405,19 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       : docKey;
 
     let error: any = null;
-    if (inspectionDocId) {
+    if (docKey === 'DOT Inspection') {
+      if (dotInspectionId) {
+        ({ error } = await supabase
+          .from('truck_dot_inspections')
+          .update({ next_due_date: isoDate })
+          .eq('id', dotInspectionId));
+      } else {
+        // No DOT row yet — create one for this operator.
+        ({ error } = await supabase
+          .from('truck_dot_inspections')
+          .insert({ operator_id: operatorId, next_due_date: isoDate, inspection_date: isoDate }));
+      }
+    } else if (inspectionDocId) {
       ({ error } = await supabase
         .from('inspection_documents')
         .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
@@ -416,7 +464,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const handleSendReminder = async (operatorId: string, operatorName: string, entry: DocEntry) => {
     if (!entry.expiresAt || entry.daysUntil === null) return;
     const key = `${operatorId}|${entry.docKey}`;
-    const docType = entry.docKey === 'CDL' ? 'CDL' : 'Medical Cert';
+    const docType = entry.docKey === 'CDL' ? 'CDL' : entry.docKey === 'DOT Inspection' ? 'DOT Inspection' : 'Medical Cert';
     setRemindSending(prev => ({ ...prev, [key]: true }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -481,11 +529,13 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           ? 'Medical Certificate'
           : entry.docKey === 'IRP Registration (cab card)'
           ? 'IRP Registration (cab card)'
+          : entry.docKey === 'DOT Inspection'
+          ? 'DOT Inspection'
           : entry.docKey; // fleet docs: Insurance / IFTA License
 
         // Resolve driver_id (auth user_id) for per-driver rows we may need to insert
         let driverUserId: string | null = null;
-        if (entry.operatorId !== '__fleet__' && !entry.inspectionDocId) {
+        if (entry.operatorId !== '__fleet__' && !entry.inspectionDocId && entry.docKey !== 'DOT Inspection') {
           const opLookup = await supabase.from('operators')
             .select('user_id').eq('id', entry.operatorId).maybeSingle();
           driverUserId = opLookup.data?.user_id ?? null;
@@ -494,6 +544,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
         const folder = entry.operatorId === '__fleet__'
           ? 'company'
+          : entry.docKey === 'DOT Inspection'
+          ? `driver/${entry.operatorId}/dot-inspection`
           : `driver/${driverUserId ?? entry.operatorId}`;
         const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
         const safeSlug = docName.replace(/\s+/g, '-').toLowerCase();
@@ -511,7 +563,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         const nowIso = new Date().toISOString();
 
         let dbErr: any = null;
-        if (entry.inspectionDocId) {
+        if (entry.docKey === 'DOT Inspection') {
+          if (entry.dotInspectionId) {
+            ({ error: dbErr } = await supabase
+              .from('truck_dot_inspections')
+              .update({
+                certificate_file_url: fileUrl,
+                certificate_file_path: path,
+                certificate_file_name: file.name,
+              })
+              .eq('id', entry.dotInspectionId));
+          } else {
+            ({ error: dbErr } = await supabase
+              .from('truck_dot_inspections')
+              .insert({
+                operator_id: entry.operatorId,
+                inspection_date: nowIso.split('T')[0],
+                next_due_date: entry.expiresAt ?? nowIso.split('T')[0],
+                certificate_file_url: fileUrl,
+                certificate_file_path: path,
+                certificate_file_name: file.name,
+                created_by: user?.id ?? null,
+              }));
+          }
+        } else if (entry.inspectionDocId) {
           ({ error: dbErr } = await supabase
             .from('inspection_documents')
             .update({
@@ -573,7 +648,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Form 2290'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate', 'Form 2290', 'DOT Inspection'];
 
   // ── CSV export ─────────────────────────────────────────────────────────
   const exportCsv = () => {
@@ -612,6 +687,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     med?: DocEntry;
     irp?: DocEntry;
     form2290?: DocEntry;
+    dot?: DocEntry;
     worstStatus: Status;
     worstDays: number | null;
   };
@@ -644,9 +720,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       else if (e.docKey === 'Medical Certificate') g.med = e;
       else if (e.docKey === 'IRP Registration (cab card)') g.irp = e;
       else if (e.docKey === 'Form 2290') g.form2290 = e;
+      else if (e.docKey === 'DOT Inspection') g.dot = e;
     });
     byDriver.forEach(g => {
-      const certs = [g.cdl, g.med, g.irp, g.form2290].filter(Boolean) as DocEntry[];
+      const certs = [g.cdl, g.med, g.irp, g.form2290, g.dot].filter(Boolean) as DocEntry[];
       let worst: Status = 'valid';
       let worstDays: number | null = null;
       certs.forEach(c => {
@@ -787,7 +864,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <Calendar
             mode="single"
             selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
-            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, entry.inspectionDocId, date)}
+            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, entry.inspectionDocId, entry.dotInspectionId, date)}
             disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
             initialFocus
             className={cn('p-3 pointer-events-auto')}
@@ -1107,7 +1184,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           </div>
 
           <span className="text-xs text-muted-foreground hidden lg:inline truncate">
-            Insurance · IFTA · IRP (cab card) · CDL · Med Cert
+            Insurance · IFTA · IRP (cab card) · CDL · Med Cert · DOT Inspection
           </span>
         </button>
 
@@ -1356,7 +1433,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           {g.operatorName}
                         </p>
                         <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                          {[g.cdl, g.med, g.irp, g.form2290].filter(Boolean).length} certifications
+                          {[g.cdl, g.med, g.irp, g.form2290, g.dot].filter(Boolean).length} certifications
                         </p>
                       </div>
                       <span
@@ -1376,6 +1453,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       {g.med && <CertSubRow entry={g.med} />}
                       {g.irp && <CertSubRow entry={g.irp} />}
                       {g.form2290 && <CertSubRow entry={g.form2290} />}
+                      {g.dot && <CertSubRow entry={g.dot} />}
                     </div>
 
                     {/* Footer */}
@@ -1487,6 +1565,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Med Cert</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">Registration (IRP)</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">2290</th>
+                          <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold">DOT</th>
                           <th className="sticky top-0 z-30 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 px-3 py-2 font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
@@ -1537,6 +1616,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                               <TableCertCell entry={g.med} label="Med Cert" />
                               <TableCertCell entry={g.irp} label="Registration (IRP)" />
                               <TableCertCell entry={g.form2290} label="2290" />
+                              <TableCertCell entry={g.dot} label="DOT" />
                               <td className="px-3 py-2 whitespace-nowrap text-right align-top">
                                 <div className="inline-flex items-center gap-1">
                                   <TooltipProvider delayDuration={250}>

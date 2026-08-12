@@ -20,14 +20,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 export interface ComplianceAlert {
   operator_id: string;
   operator_name: string;
-  doc_type: 'CDL' | 'Medical Cert';
+  doc_type: 'CDL' | 'Medical Cert' | 'DOT Inspection';
   expiration_date: string;
   days_until: number;
+  /** Present for DOT Inspection rows; references the source truck_dot_inspections row */
+  dotInspectionId?: string;
 }
 
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
-  onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert' | 'dot') => void;
   /** When true the panel mounts with the "No Action" filter pre-applied */
   defaultNoActionOnly?: boolean;
 }
@@ -45,7 +47,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const panelRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
-  const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
+  const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert' | 'DOT Inspection'>('all');
 
   // Outreach tracking
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
@@ -75,16 +77,16 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown('bulk-reminder-compliance-tab-noaction');
 
   // Shared grid layout for header and rows. Responsive columns:
-  // dot | operator (min 180px) | doc | expires (sm+) | status | last-action (md+) | last-reminded (xl+) | last-renewed (xl+) | actions
-  // Fixed first/last tracks so every row resolves identical column widths.
-  const gridCols = "grid-cols-[12px_minmax(120px,1fr)_76px_100px_180px] sm:grid-cols-[12px_minmax(140px,1fr)_76px_88px_100px_180px] md:grid-cols-[12px_minmax(160px,1fr)_76px_88px_100px_84px_180px] lg:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_300px] xl:grid-cols-[12px_minmax(180px,1fr)_76px_88px_100px_84px_68px_68px_300px]";
+  // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
+  // The operator column is sticky so it stays visible during horizontal scroll.
+  const gridCols = "grid-cols-[20px_minmax(180px,1fr)_88px_100px_120px_100px_90px_90px_220px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // ── Data fetching ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     const today = new Date();
     try {
-    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }] = await Promise.all([
+    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }, { data: dotInspections }] = await Promise.all([
       supabase
         .from('operators')
         .select('id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
@@ -105,6 +107,12 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         .select('driver_id, name, expires_at')
         .eq('scope', 'per_driver')
         .in('name', ['CDL (Front)', 'Medical Certificate']),
+      supabase
+        .from('truck_dot_inspections')
+        .select('id, operator_id, next_due_date, inspection_date')
+        .not('operator_id', 'is', null)
+        .not('next_due_date', 'is', null)
+        .order('inspection_date', { ascending: false }),
     ]);
     if (!ops) return;
 
@@ -147,6 +155,15 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setLastRenewedBy(renewedByMap);
 
     const newAlerts: ComplianceAlert[] = [];
+
+    // Latest DOT inspection per operator
+    const latestDotByOperator: Record<string, { id: string; nextDueDate: string }> = {};
+    (dotInspections ?? []).forEach((row: any) => {
+      if (!latestDotByOperator[row.operator_id]) {
+        latestDotByOperator[row.operator_id] = { id: row.id, nextDueDate: row.next_due_date };
+      }
+    });
+
     (ops as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       if (!app) return;
@@ -169,6 +186,22 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           });
         }
       });
+
+      // DOT Periodic Inspection alert
+      const dot = latestDotByOperator[op.id];
+      if (dot) {
+        const days = differenceInDays(parseLocalDate(dot.nextDueDate), today);
+        if (days <= windowDays) {
+          newAlerts.push({
+            operator_id: op.id,
+            operator_name: name,
+            doc_type: 'DOT Inspection',
+            expiration_date: dot.nextDueDate,
+            days_until: days,
+            dotInspectionId: dot.id,
+          });
+        }
+      }
     });
 
     const urgencyTier = (days: number) => days < 0 ? 0 : days <= 30 ? 1 : 2;
@@ -205,7 +238,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       .channel('compliance-alerts-panel-reminders')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => fetchData())
       .subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+    const ch3 = supabase
+      .channel('compliance-alerts-panel-dot')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'truck_dot_inspections' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); };
   }, [fetchData]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
@@ -348,8 +385,19 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     const { data: opRows } = await supabase.from('operators').select('id, application_id').in('id', operatorIds);
     (opRows ?? []).forEach((o: any) => { if (byOperator[o.id]) byOperator[o.id].appId = o.application_id; });
     await Promise.all(Object.values(byOperator).map(async ({ operatorId, appId, alerts: opAlerts }) => {
-      if (!appId) { failCount += opAlerts.length; return; }
       for (const alert of opAlerts) {
+        if (alert.doc_type === 'DOT Inspection') {
+          try {
+            const { data: dotRow } = await supabase.from('truck_dot_inspections').select('next_due_date').eq('id', alert.dotInspectionId).single();
+            const oldDateStr = (dotRow as any)?.next_due_date ?? null;
+            const { error } = await supabase.from('truck_dot_inspections').update({ next_due_date: newDateStr }).eq('id', alert.dotInspectionId);
+            if (error) throw error;
+            await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: operatorId, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name, bulk: true } });
+            successCount++;
+          } catch { failCount++; }
+          continue;
+        }
+        if (!appId) { failCount++; continue; }
         const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
         try {
           const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
@@ -375,15 +423,24 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     const actorName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
     const newDate = new Date(); newDate.setFullYear(newDate.getFullYear() + 1);
     const newDateStr = newDate.toISOString().split('T')[0];
-    const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
     try {
-      const { data: opRow } = await supabase.from('operators').select('application_id').eq('id', alert.operator_id).single();
-      const appId = (opRow as any)?.application_id;
-      if (!appId) throw new Error('No application found');
-      const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
-      const oldDateStr = (appData as any)?.[col] ?? null;
-      const { error } = await supabase.from('applications').update(updatePayload('applications', { [col]: newDateStr })).eq('id', appId);
-      if (error) throw error;
+      let oldDateStr: string | null = null;
+      if (alert.doc_type === 'DOT Inspection') {
+        if (!alert.dotInspectionId) throw new Error('No DOT inspection record found');
+        const { data: dotRow } = await supabase.from('truck_dot_inspections').select('next_due_date').eq('id', alert.dotInspectionId).single();
+        oldDateStr = (dotRow as any)?.next_due_date ?? null;
+        const { error } = await supabase.from('truck_dot_inspections').update({ next_due_date: newDateStr }).eq('id', alert.dotInspectionId);
+        if (error) throw error;
+      } else {
+        const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
+        const { data: opRow } = await supabase.from('operators').select('application_id').eq('id', alert.operator_id).single();
+        const appId = (opRow as any)?.application_id;
+        if (!appId) throw new Error('No application found');
+        const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
+        oldDateStr = (appData as any)?.[col] ?? null;
+        const { error } = await supabase.from('applications').update(updatePayload('applications', { [col]: newDateStr })).eq('id', appId);
+        if (error) throw error;
+      }
       await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: alert.operator_id, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name } });
       const renewedNow = new Date().toISOString();
       setRowRenewing(prev => ({ ...prev, [key]: false }));
@@ -517,13 +574,14 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             CDL or medical cert expiring within {windowDays} days
           </p>
           <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-lg bg-muted/40 border border-border/60 w-fit">
-            {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
+            {(['all', 'CDL', 'Medical Cert', 'DOT Inspection'] as const).map(f => {
               const count = f === 'all' ? alerts.length : alerts.filter(a => a.doc_type === f).length;
               const active = docFilter === f && !noActionOnly;
+              const label = f === 'DOT Inspection' ? 'DOT' : f === 'Medical Cert' ? 'Med Cert' : f;
               return (
                 <button key={f} onClick={() => { setDocFilter(f); setNoActionOnly(false); }}
                   className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-semibold border transition-all ${active ? 'bg-destructive/15 border-destructive/40 text-destructive shadow-sm' : 'bg-transparent border-transparent text-muted-foreground hover:bg-background hover:text-destructive/80'}`}>
-                  {f === 'all' ? 'All' : f}
+                  {f === 'all' ? 'All' : label}
                   <span className={`text-[10px] font-bold ${active ? 'text-destructive' : 'text-muted-foreground'}`}>{count}</span>
                 </button>
               );
@@ -618,22 +676,23 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
       {/* Alert rows */}
       {expanded && (
-        <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 ${gridCols}`}>
+        <div className="overflow-x-auto -mx-4 px-4">
+          <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1000px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-2 items-start px-4 py-1.5 bg-destructive/5`}>
-            <span className="h-2 w-2" aria-hidden="true" />
+            <span className="sr-only">Urgency</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
-            <span aria-hidden="true" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block text-right">Expires</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Doc</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Expires</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Status</span>
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
-              className="hidden md:inline-flex items-center gap-1 justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group"
+              className="inline-flex items-center gap-1 justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group"
               style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
               <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block text-right">Last Reminded</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block text-right">Last Renewed</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Reminded</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Renewed</span>
             <span aria-hidden="true" />
           </div>
 
@@ -655,20 +714,29 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <div key={`${alert.operator_id}-${alert.doc_type}`}
                 className={`${subgridRow} gap-2 items-start px-4 py-2.5 transition-colors ${!renewedAt ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40' : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'}`}>
                 {/* Urgency dot */}
-                <span className={`h-2 w-2 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
-                {/* Name + doc type */}
-                <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="font-medium text-sm text-foreground break-words">{alert.operator_name}</span>
+                <TooltipProvider delayDuration={100}><Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${expired ? 'bg-destructive/15' : critical ? 'bg-destructive/10' : 'bg-yellow-500/15'}`}>
+                      <span className={`h-2 w-2 rounded-full ${expired ? 'bg-destructive animate-pulse' : critical ? 'bg-destructive' : 'bg-yellow-500'}`} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {expired ? 'Expired — action required immediately' : critical ? 'Expires within 30 days' : `Expires in ${alert.days_until} days`}
+                  </TooltipContent>
+                </Tooltip></TooltipProvider>
+                {/* Name + never-renewed pill */}
+                <div className="min-w-0 flex flex-col items-start gap-y-1">
+                  <span className="font-medium text-sm text-foreground break-words leading-tight">{alert.operator_name}</span>
                   {!renewedAt && (
-                    <span className="hidden md:inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none uppercase tracking-wide">
+                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 leading-none uppercase tracking-wide">
                       <span className="h-1 w-1 rounded-full bg-destructive inline-block" />Never Renewed
                     </span>
                   )}
                 </div>
                 {/* Doc-type badge */}
-                <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type}</span>
+                <span className={`inline-flex items-center justify-start whitespace-nowrap text-[11px] px-1.5 py-0.5 rounded font-medium border ${alert.doc_type === 'CDL' ? 'bg-blue-50 text-blue-700 border-blue-200' : alert.doc_type === 'DOT Inspection' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>{alert.doc_type === 'Medical Cert' ? 'Med Cert' : alert.doc_type === 'DOT Inspection' ? 'DOT' : alert.doc_type}</span>
                 {/* Expiry date */}
-                <span className="text-xs text-muted-foreground hidden sm:block text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
+                <span className="text-xs text-muted-foreground text-right">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Status */}
                 <div className="flex items-center justify-end">
                   <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border whitespace-nowrap ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
@@ -690,7 +758,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden md:inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1.5 py-0.5 transition-colors ${hasAction ? pillClass : 'text-muted-foreground/40'}`}>
                           {hasAction && lastActionDate ? <><Icon className="h-3 w-3 shrink-0" />{format(lastActionDate, 'MMM d')}</> : <span className="text-muted-foreground/40">No action</span>}
                         </span>
                       </TooltipTrigger>
@@ -710,7 +778,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1 py-0.5 transition-colors ${remindedAt ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default rounded px-1 py-0.5 transition-colors ${remindedAt ? `${pillClass} justify-end` : 'text-muted-foreground/40 justify-center w-full'}`}>
                           {remindedAt ? <><CheckCheck className={`h-3 w-3 shrink-0 ${iconClass}`} />{format(new Date(remindedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
                         </span>
                       </TooltipTrigger>
@@ -726,7 +794,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   return (
                     <TooltipProvider delayDuration={100}><Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] cursor-default justify-end rounded px-1 py-0.5 transition-colors ${renewedAt ? pillClass : 'text-muted-foreground/40'}`}>
+                        <span className={`inline-flex items-center gap-1 text-[11px] cursor-default rounded px-1 py-0.5 transition-colors ${renewedAt ? `${pillClass} justify-end` : 'text-muted-foreground/40 justify-center w-full'}`}>
                           {renewedAt ? <><RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />{format(new Date(renewedAt), 'MMM d')}</> : <span className="text-muted-foreground/40">—</span>}
                         </span>
                       </TooltipTrigger>
@@ -783,7 +851,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   </Tooltip></TooltipProvider>
                   {/* Open button */}
                   {(onOpenOperator || onOpenOperatorWithFocus) && (
-                    <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
+                    <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : alert.doc_type === 'DOT Inspection' ? 'dot' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
                       className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-1.5">
                       Open →
                     </Button>
@@ -799,6 +867,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <span className="text-xs">{noActionOnly ? 'All operators have at least one reminder or renewal recorded' : docFilter === 'all' ? 'No compliance alerts within 90 days' : `No ${docFilter} alerts found`}</span>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
