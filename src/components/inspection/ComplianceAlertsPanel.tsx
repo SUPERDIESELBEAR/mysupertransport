@@ -385,8 +385,19 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     const { data: opRows } = await supabase.from('operators').select('id, application_id').in('id', operatorIds);
     (opRows ?? []).forEach((o: any) => { if (byOperator[o.id]) byOperator[o.id].appId = o.application_id; });
     await Promise.all(Object.values(byOperator).map(async ({ operatorId, appId, alerts: opAlerts }) => {
-      if (!appId) { failCount += opAlerts.length; return; }
       for (const alert of opAlerts) {
+        if (alert.doc_type === 'DOT Inspection') {
+          try {
+            const { data: dotRow } = await supabase.from('truck_dot_inspections').select('next_due_date').eq('id', alert.dotInspectionId).single();
+            const oldDateStr = (dotRow as any)?.next_due_date ?? null;
+            const { error } = await supabase.from('truck_dot_inspections').update({ next_due_date: newDateStr }).eq('id', alert.dotInspectionId);
+            if (error) throw error;
+            await supabase.from('audit_log').insert({ actor_id: actorId, actor_name: actorName, action: 'cert_renewed', entity_type: 'operator', entity_id: operatorId, entity_label: alert.operator_name, metadata: { document_type: alert.doc_type, old_expiry: oldDateStr, new_expiry: newDateStr, operator_name: alert.operator_name, bulk: true } });
+            successCount++;
+          } catch { failCount++; }
+          continue;
+        }
+        if (!appId) { failCount++; continue; }
         const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
         try {
           const { data: appData } = await supabase.from('applications').select(col).eq('id', appId).single();
