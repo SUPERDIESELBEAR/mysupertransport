@@ -858,6 +858,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
               <span className="text-xs">{noActionOnly ? 'All operators have at least one reminder or renewal recorded' : docFilter === 'all' ? 'No compliance alerts within 90 days' : `No ${docFilter} alerts found`}</span>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
