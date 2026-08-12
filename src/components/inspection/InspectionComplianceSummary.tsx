@@ -1433,7 +1433,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           {g.operatorName}
                         </p>
                         <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                          {[g.cdl, g.med, g.irp, g.form2290].filter(Boolean).length} certifications
+                          {[g.cdl, g.med, g.irp, g.form2290, g.dot].filter(Boolean).length} certifications
                         </p>
                       </div>
                       <span
@@ -1453,6 +1453,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       {g.med && <CertSubRow entry={g.med} />}
                       {g.irp && <CertSubRow entry={g.irp} />}
                       {g.form2290 && <CertSubRow entry={g.form2290} />}
+                      {g.dot && <CertSubRow entry={g.dot} />}
                     </div>
 
                     {/* Footer */}
