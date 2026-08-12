@@ -680,19 +680,19 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           <div className={`grid gap-x-2 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1000px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-2 items-start px-4 py-1.5 bg-destructive/5`}>
-            <span className="h-2 w-2" aria-hidden="true" />
+            <span className="sr-only">Urgency</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
-            <span aria-hidden="true" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block text-right">Expires</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Doc</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Expires</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Status</span>
             <button onClick={() => setSort(s => s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency')}
-              className="hidden md:inline-flex items-center gap-1 justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group"
+              className="inline-flex items-center gap-1 justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group"
               style={{ color: sort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}>
               <span className={sort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
               {sort === 'urgency' ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" /> : sort === 'last_action_desc' ? <ArrowDown className="h-3 w-3 text-gold" /> : <ArrowUp className="h-3 w-3 text-gold" />}
             </button>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block text-right">Last Reminded</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block text-right">Last Renewed</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Reminded</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 text-right">Last Renewed</span>
             <span aria-hidden="true" />
           </div>
 
