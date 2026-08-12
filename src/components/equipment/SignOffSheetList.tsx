@@ -91,6 +91,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchSheets = useCallback(async () => {
     setLoading(true);
