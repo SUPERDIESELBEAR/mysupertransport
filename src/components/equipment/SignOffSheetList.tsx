@@ -262,6 +262,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         </div>
       </div>
 
+      {(() => null)()}
       {sheets.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center">
@@ -272,9 +273,20 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
             </Button>
           </CardContent>
         </Card>
+      ) : visibleSheets.length === 0 ? (
+        <>
+          {tabBar}
+          <Card className="border-dashed">
+            <CardContent className="py-10 text-center">
+              <p className="text-sm text-muted-foreground">No sheets in this view.</p>
+            </CardContent>
+          </Card>
+        </>
       ) : (
+        <>
+        {tabBar}
         <div className="grid gap-3">
-          {sheets.map(sheet => {
+          {visibleSheets.map(sheet => {
             const status = sheet.status ?? 'draft';
             const app = sheet.operator?.applications;
             const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || '—';
