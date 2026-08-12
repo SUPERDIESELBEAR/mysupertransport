@@ -559,6 +559,15 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {receiptPreview && (
+        <FilePreviewModal
+          url={receiptPreview.url}
+          name={receiptPreview.name}
+          bucketName="operator-documents"
+          onClose={() => setReceiptPreview(null)}
+        />
+      )}
     </div>
   );
 }
