@@ -61,7 +61,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
   const returnReceipts = sheet.return_receipts ?? [];
 
   const signUrl = sheet.access_token
-    ? `${window.location.origin}/dashboard?view=onboard-systems&osas_token=${sheet.access_token}`
+    ? `${window.location.origin}/operator/onboard-systems?osas_token=${sheet.access_token}`
     : null;
 
   const handleCopy = async () => {

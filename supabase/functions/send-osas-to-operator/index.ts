@@ -240,7 +240,7 @@ async function sendSheetEmail(supabase: any, authHeader: string, sheet: any, opt
     serial: it.serial_snapshot,
   }))
 
-  const signUrl = buildAppUrl(`/dashboard?view=onboard-systems&osas_token=${sheet.access_token}`)
+  const signUrl = buildAppUrl(`/operator/onboard-systems?osas_token=${sheet.access_token}`)
 
   // Initial send uses a stable per-sheet key. Resends must use a unique key so
   // the transactional queue does not dedupe them into no-ops.
