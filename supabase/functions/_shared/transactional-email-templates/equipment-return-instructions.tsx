@@ -17,7 +17,7 @@ export interface EquipmentReturnProps {
   unitNumber?: string | null
 }
 
-const twoColRow = { verticalAlign: 'top' as const, width: '50%', padding: '0 8px' }
+const twoColRow = { verticalAlign: 'top' as const, width: '50%', height: '100%', padding: '0 8px' }
 const addressCard = {
   backgroundColor: '#FAF8F2',
   border: '1px solid #EDE6CF',
@@ -26,6 +26,8 @@ const addressCard = {
   fontSize: '13px',
   color: '#0F0F0F',
   lineHeight: '1.55',
+  height: '100%',
+  boxSizing: 'border-box' as const,
 }
 const addressTitle = {
   fontSize: '13px',
@@ -106,7 +108,7 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
                     <div style={addressTitle}>OPTION 1 — THE UPS STORE #4564</div>
                     608 W. Parkway Dr.<br />
                     Russellville, AR 72801<br />
-                    <span style={{ color: '#5A5A5A' }}>
+                    <span style={{ color: '#5A5A5A', whiteSpace: 'nowrap' }}>
                       P: (479) 498-2041
                     </span>
                   </div>
