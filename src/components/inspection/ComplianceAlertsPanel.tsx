@@ -79,7 +79,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // Shared grid layout for header and rows. Responsive columns:
   // dot | operator (sticky, min 180px) | doc | expires | status | last-action | last-reminded | last-renewed | actions
   // The operator column is sticky so it stays visible during horizontal scroll.
-  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_280px]";
+  const gridCols = "grid-cols-[28px_minmax(220px,1fr)_96px_120px_140px_120px_104px_104px_330px]";
   const subgridRow = "grid grid-cols-subgrid col-span-full";
 
   // Right-edge fade: only show while there is more table to scroll to.
@@ -692,7 +692,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       {expanded && (
         <div className="relative">
         <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden -mx-4 px-4 pb-2 compliance-alerts-scroll">
-          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1284px] ${gridCols}`}>
+          <div className={`grid gap-x-5 gap-y-0 border-t border-destructive/20 divide-y divide-destructive/10 min-w-[1340px] ${gridCols}`}>
           {/* Column headers */}
           <div className={`${subgridRow} gap-x-5 items-start px-4 py-2 bg-destructive/5`}>
             <span aria-hidden="true" />
@@ -815,7 +815,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   );
                 })()}
                 {/* Action buttons */}
-                <div className="flex items-center justify-end gap-2 pr-2">
+                <div className="flex items-center justify-end gap-2 pr-6">
                   {/* Send Reminder button */}
                   <TooltipProvider delayDuration={100}><Tooltip>
                     <TooltipTrigger asChild>
@@ -858,7 +858,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           </div>
         </div>
         {!atScrollEnd && (
-          <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-6 bg-gradient-to-l from-background to-transparent" />
         )}
         </div>
       )}
