@@ -192,7 +192,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     const docOrder: Record<DocKey, number> = {
-      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Form 2290': 5,
+      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4, 'Form 2290': 5, 'DOT Inspection': 6,
     };
 
     result.sort((a, b) => {
