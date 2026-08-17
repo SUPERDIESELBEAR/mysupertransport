@@ -141,11 +141,29 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
       if (!map) return;
       const dates = enumerateDates(fromDate, toDate);
       const container = document.createElement('div');
-      container.style.cssText = 'position:fixed;left:-99999px;top:0;width:1200px;background:#fff;';
+      container.style.cssText = 'position:absolute;left:-99999px;top:0;width:1200px;background:#fff;';
       container.innerHTML = buildDocHtml(map, dates);
       document.body.appendChild(container);
       try {
-        const dataUrl = await toPng(container, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true });
+        // Let layout + fonts settle before serializing, otherwise html-to-image
+        // rasterizes an empty foreignObject and we save a blank white PNG.
+        try { await (document as any).fonts?.ready; } catch { /* noop */ }
+        await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+        const rect = container.getBoundingClientRect();
+        const opts = {
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+          cacheBust: true,
+          width: Math.ceil(rect.width) || 1200,
+          height: Math.ceil(rect.height),
+          style: { transform: 'none', margin: '0' },
+        };
+        // First call warms the clone/font inlining; the second is the keeper.
+        await toPng(container, opts);
+        const dataUrl = await toPng(container, opts);
+        if (!(await isNonBlank(dataUrl))) {
+          throw new Error('The image came out blank — please use the PDF option instead.');
+        }
         const a = document.createElement('a');
         a.href = dataUrl;
         a.download = `${fileBase}.png`;
