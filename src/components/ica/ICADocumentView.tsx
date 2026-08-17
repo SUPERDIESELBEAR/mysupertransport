@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
+import IcaWatermark from './IcaWatermark';
 
 interface ICAData {
   truck_year: string;
@@ -45,6 +46,8 @@ interface ICADocumentViewProps {
   depositInitials?: string;
   depositElectedDate?: string;
   onDepositChange?: (values: { elected?: boolean; initials?: string; date?: string }) => void;
+  /** Stamps a repeating "REVIEW COPY" watermark across the whole document. */
+  watermark?: boolean;
 }
 
 const fmt = (v: string | null | undefined) => v || '___________________________';
@@ -56,7 +59,8 @@ export default function ICADocumentView({
   contractorSignatureUrl, contractorTypedName, contractorSignedAt,
   contractorSigRef, contractorSignedName, onContractorSignedNameChange,
   onSignatureEnd, onSignatureClear,
-  depositElected, depositInitials, depositElectedDate, onDepositChange
+  depositElected, depositInitials, depositElectedDate, onDepositChange,
+  watermark = false
 }: ICADocumentViewProps) {
 
   const fullTruck = [data.truck_year, data.truck_make].filter(Boolean).join(' ');
@@ -88,7 +92,8 @@ export default function ICADocumentView({
   }, [contractorSigRef]);
 
   return (
-    <div className="bg-white text-foreground text-sm font-serif leading-relaxed rounded-xl border border-border overflow-hidden">
+    <div className="relative bg-white text-foreground text-sm font-serif leading-relaxed rounded-xl border border-border overflow-hidden">
+      {watermark && <IcaWatermark />}
       {/* Document header */}
       <div className="bg-surface-dark text-white text-center py-6 px-4">
         <p className="text-xs tracking-[0.3em] uppercase text-gold mb-1">SUPERTRANSPORT</p>
