@@ -49,6 +49,30 @@ function safeSlug(s: string) {
   return s.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'driver';
 }
 
+/** True when the rasterized PNG has at least some non-white pixels. */
+async function isNonBlank(dataUrl: string): Promise<boolean> {
+  try {
+    const img = new Image();
+    img.src = dataUrl;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.min(img.naturalWidth, 400);
+    canvas.height = Math.min(img.naturalHeight, 400);
+    if (!canvas.width || !canvas.height) return false;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return true;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] < 245 || data[i + 1] < 245 || data[i + 2] < 245) return true;
+    }
+    return false;
+  } catch {
+    // If we cannot inspect it, assume it is fine rather than blocking the download.
+    return true;
+  }
+}
+
 export default function DriverHistoryDownloadPopover({ operatorId, firstName, lastName, unitNumber }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
