@@ -212,7 +212,8 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
       const map = await loadLog();
       if (!map) return;
       const dates = enumerateDates(fromDate, toDate);
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fileBase)}</title>
+      // Empty title keeps Chrome's print header from printing the long filename.
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title></title>
         <style>@page { size: letter portrait; margin: 0.4in; } body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }</style>
         </head><body>${buildDocHtml(map, dates)}</body></html>`;
       // Use a hidden iframe so we don't rely on window.open (pop-up blockers, PWA).
