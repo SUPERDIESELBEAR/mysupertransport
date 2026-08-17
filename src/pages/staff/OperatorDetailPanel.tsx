@@ -3422,6 +3422,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     className="h-8 text-sm"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">CDL State</Label>
+                    <Select value={contactCdlDraft.cdl_state} onValueChange={v => setContactCdlDraft(prev => ({ ...prev, cdl_state: v }))}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(s => <SelectItem key={`cdl-${s}`} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">CDL Number</Label>
+                    <Input
+                      value={contactCdlDraft.cdl_number}
+                      onChange={e => setContactCdlDraft(prev => ({ ...prev, cdl_number: e.target.value.toUpperCase() }))}
+                      placeholder="CDL number"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Start Date (Anniversary)</Label>
                   <DateInput
@@ -3441,6 +3463,36 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <div className="flex items-center gap-2 min-w-0">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="text-foreground truncate">{applicationData.email || <span className="text-muted-foreground italic">No email</span>}</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CreditCard className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    {applicationData.cdl_number ? (
+                      <>
+                        <span className="text-foreground truncate">
+                          {applicationData.cdl_state ? `${applicationData.cdl_state} · ` : ''}{applicationData.cdl_number}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Copy CDL number"
+                          title="Copy CDL number"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(String(applicationData.cdl_number));
+                              setCopiedCdl(true);
+                              toast({ title: 'CDL number copied' });
+                              setTimeout(() => setCopiedCdl(false), 1500);
+                            } catch {
+                              toast({ title: 'Could not copy CDL number', variant: 'destructive' });
+                            }
+                          }}
+                          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {copiedCdl ? <Check className="h-3.5 w-3.5 text-status-complete" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground italic">No CDL number</span>
+                    )}
                   </div>
                   {addressParts.length > 0 && (
                     <div className="flex items-start gap-2 sm:col-span-2">
