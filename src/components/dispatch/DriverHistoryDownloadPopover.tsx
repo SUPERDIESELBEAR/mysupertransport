@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Download, Loader2, Printer, Camera, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { toPng } from 'html-to-image';
+import { renderDispatchHistoryPng } from '@/lib/dispatchHistoryCanvas';
 
 type DailyStatus = 'dispatched' | 'home' | 'truck_down' | 'not_dispatched';
 
@@ -47,30 +47,6 @@ function escapeHtml(s: string) {
 }
 function safeSlug(s: string) {
   return s.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'driver';
-}
-
-/** True when the rasterized PNG has at least some non-white pixels. */
-async function isNonBlank(dataUrl: string): Promise<boolean> {
-  try {
-    const img = new Image();
-    img.src = dataUrl;
-    await img.decode();
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.min(img.naturalWidth, 400);
-    canvas.height = Math.min(img.naturalHeight, 400);
-    if (!canvas.width || !canvas.height) return false;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return true;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] < 245 || data[i + 1] < 245 || data[i + 2] < 245) return true;
-    }
-    return false;
-  } catch {
-    // If we cannot inspect it, assume it is fine rather than blocking the download.
-    return true;
-  }
 }
 
 export default function DriverHistoryDownloadPopover({ operatorId, firstName, lastName, unitNumber }: Props) {
@@ -164,39 +140,22 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
       const map = await loadLog();
       if (!map) return;
       const dates = enumerateDates(fromDate, toDate);
-      const container = document.createElement('div');
-      container.style.cssText = 'position:absolute;left:-99999px;top:0;width:1200px;background:#fff;';
-      container.innerHTML = buildDocHtml(map, dates);
-      document.body.appendChild(container);
-      try {
-        // Let layout + fonts settle before serializing, otherwise html-to-image
-        // rasterizes an empty foreignObject and we save a blank white PNG.
-        try { await (document as any).fonts?.ready; } catch { /* noop */ }
-        await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())));
-        const rect = container.getBoundingClientRect();
-        const opts = {
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-          cacheBust: true,
-          width: Math.ceil(rect.width) || 1200,
-          height: Math.ceil(rect.height),
-          style: { transform: 'none', margin: '0' },
-        };
-        // First call warms the clone/font inlining; the second is the keeper.
-        await toPng(container, opts);
-        const dataUrl = await toPng(container, opts);
-        if (!(await isNonBlank(dataUrl))) {
-          throw new Error('The image came out blank — please use the PDF option instead.');
-        }
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `${fileBase}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } finally {
-        container.remove();
-      }
+      // Drawn directly on a canvas — DOM rasterization (html-to-image) produced
+      // blank white PNGs because of the app's stylesheet/font inlining.
+      const dataUrl = renderDispatchHistoryPng({
+        fullName,
+        unitNumber,
+        fromLabel: formatLongDate(fromDate),
+        toLabel: formatLongDate(toDate),
+        generatedAt: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+        days: dates.map(d => ({ iso: d, label: formatShortDate(d), status: map[d] ?? null })),
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${fileBase}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       toast({ title: 'Screenshot saved', description: 'PNG downloaded to your device.' });
       setOpen(false);
     } catch (e: any) {
