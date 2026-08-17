@@ -3167,17 +3167,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   address_state: contactDraft.address_state || null,
                   address_zip: contactDraft.address_zip || null,
                   dob: contactDraft.dob || null,
-                })
-                .eq('id', applicationData.id);
-              if (error) throw error;
-              const { error: cdlErr } = await supabase
-                .from('applications')
-                .update({
                   cdl_state: contactCdlDraft.cdl_state || null,
                   cdl_number: contactCdlDraft.cdl_number || null,
                 })
                 .eq('id', applicationData.id);
-              if (cdlErr) throw cdlErr;
+              if (error) throw error;
 
               // Sync name to profiles table
               if (operatorUserId) {
