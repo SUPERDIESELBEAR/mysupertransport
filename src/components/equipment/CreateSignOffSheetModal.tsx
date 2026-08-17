@@ -26,6 +26,7 @@ interface OperatorOption {
   operatorId: string;
   name: string;
   unitNumber: string | null;
+  isActive: boolean;
   email: string | null;
   phone: string | null;
   truckYear: string | null;
