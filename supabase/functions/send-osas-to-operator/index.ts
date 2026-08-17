@@ -148,7 +148,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
     const { data: operator, error: operatorError } = await supabase
       .from('operators')
-      .select('id, user_id, unit_number, applications(first_name, last_name, email, phone)')
+      .select('id, user_id, unit_number, applications(first_name, last_name, email, phone, cdl_number, cdl_state, cdl_expiration)')
       .eq('id', payload.operatorId)
       .single()
     if (operatorError || !operator) {
@@ -175,6 +175,9 @@ Deno.serve(withErrorEnvelope(async (req) => {
         status,
         assignment_date: assignmentDate,
         unit_number: payload.unitNumber || operator.unit_number || null,
+        cdl_number: app?.cdl_number ?? null,
+        cdl_state: app?.cdl_state ?? null,
+        cdl_expiration: app?.cdl_expiration ?? null,
         bestpass_included: bestpassIncluded,
         bestpass_fee_cents: bestpassFeeCents,
         sent_at: sentAt,
