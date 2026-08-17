@@ -65,7 +65,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     templateData: { recipientName, reviewUrl, note: note ?? undefined, expiresOn },
   })
 
-  if (!result.sent) {
+  if (!result.success) {
     return fail(502, 'The review link was created but the email could not be sent.', {
       cause: result.error,
       reviewUrl,
