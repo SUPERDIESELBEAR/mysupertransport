@@ -307,7 +307,7 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
           </Button>
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground leading-snug">
-          PDF opens the browser's print dialog — choose "Save as PDF".
+          PDF opens the browser's print dialog — choose "Save as PDF" and uncheck "Headers and footers" for a clean page.
         </p>
       </PopoverContent>
     </Popover>
