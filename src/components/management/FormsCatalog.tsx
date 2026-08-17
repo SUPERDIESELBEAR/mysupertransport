@@ -260,6 +260,13 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
           )}
         </div>
 
+        {/* ICA review actions */}
+        {isICA && (
+          <div className="shrink-0 flex items-center justify-end gap-2 px-6 py-3 border-t border-border bg-secondary/40">
+            <IcaReviewActions compact />
+          </div>
+        )}
+
         {/* Navigation footer — application only */}
         {!isICA && !isStandaloneDoc && (
           <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
