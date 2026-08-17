@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Download, Loader2, Printer, Camera, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { toPng } from 'html-to-image';
+import { renderDispatchHistoryPng } from '@/lib/dispatchHistoryCanvas';
 
 type DailyStatus = 'dispatched' | 'home' | 'truck_down' | 'not_dispatched';
 
@@ -140,21 +140,22 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
       const map = await loadLog();
       if (!map) return;
       const dates = enumerateDates(fromDate, toDate);
-      const container = document.createElement('div');
-      container.style.cssText = 'position:fixed;left:-99999px;top:0;width:1200px;background:#fff;';
-      container.innerHTML = buildDocHtml(map, dates);
-      document.body.appendChild(container);
-      try {
-        const dataUrl = await toPng(container, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true });
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `${fileBase}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } finally {
-        container.remove();
-      }
+      // Drawn directly on a canvas — DOM rasterization (html-to-image) produced
+      // blank white PNGs because of the app's stylesheet/font inlining.
+      const dataUrl = renderDispatchHistoryPng({
+        fullName,
+        unitNumber,
+        fromLabel: formatLongDate(fromDate),
+        toLabel: formatLongDate(toDate),
+        generatedAt: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+        days: dates.map(d => ({ iso: d, label: formatShortDate(d), status: map[d] ?? null })),
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${fileBase}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       toast({ title: 'Screenshot saved', description: 'PNG downloaded to your device.' });
       setOpen(false);
     } catch (e: any) {
@@ -170,7 +171,8 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
       const map = await loadLog();
       if (!map) return;
       const dates = enumerateDates(fromDate, toDate);
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fileBase)}</title>
+      // Empty title keeps Chrome's print header from printing the long filename.
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title></title>
         <style>@page { size: letter portrait; margin: 0.4in; } body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }</style>
         </head><body>${buildDocHtml(map, dates)}</body></html>`;
       // Use a hidden iframe so we don't rely on window.open (pop-up blockers, PWA).
@@ -264,7 +266,7 @@ export default function DriverHistoryDownloadPopover({ operatorId, firstName, la
           </Button>
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground leading-snug">
-          PDF opens the browser's print dialog — choose "Save as PDF".
+          PDF opens the browser's print dialog — choose "Save as PDF" and uncheck "Headers and footers" for a clean page.
         </p>
       </PopoverContent>
     </Popover>
