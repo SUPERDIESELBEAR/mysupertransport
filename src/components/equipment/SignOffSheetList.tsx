@@ -32,7 +32,15 @@ export type SheetWithItems = Sheet & {
   return_receipts?: ReturnReceipt[];
   sends?: SheetSend[];
   operator: (Operator & {
-    applications: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null;
+    applications: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      phone: string | null;
+      cdl_number?: string | null;
+      cdl_state?: string | null;
+      cdl_expiration?: string | null;
+    } | null;
   }) | null;
 };
 
@@ -121,7 +129,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
         items:onboard_assignment_sheet_items(*),
         operator:operator_id(
           *,
-          applications(user_id, first_name, last_name, email, phone)
+          applications(user_id, first_name, last_name, email, phone, cdl_number, cdl_state, cdl_expiration)
         )
       `)
       .order('created_at', { ascending: false });
