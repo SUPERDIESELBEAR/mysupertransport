@@ -341,7 +341,12 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
               <div className="space-y-1.5">
                 <Label>Driver</Label>
                 <DriverCombobox
-                  operators={operators.map(o => ({ userId: o.operatorId, name: o.name }))}
+                  operators={operators.map(o => ({
+                    userId: o.operatorId,
+                    name: o.name,
+                    unitNumber: o.unitNumber,
+                    isActive: o.isActive,
+                  }))}
                   value={selectedOperatorId ?? ''}
                   onChange={id => setSelectedOperatorId(id)}
                   placeholder="Select a driver…"
