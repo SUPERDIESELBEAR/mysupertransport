@@ -3663,6 +3663,9 @@ export type Database = {
           assignment_date: string
           bestpass_fee_cents: number | null
           bestpass_included: boolean
+          cdl_expiration: string | null
+          cdl_number: string | null
+          cdl_state: string | null
           created_at: string
           created_by: string | null
           created_by_name: string | null
@@ -3688,6 +3691,9 @@ export type Database = {
           assignment_date?: string
           bestpass_fee_cents?: number | null
           bestpass_included?: boolean
+          cdl_expiration?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
@@ -3713,6 +3719,9 @@ export type Database = {
           assignment_date?: string
           bestpass_fee_cents?: number | null
           bestpass_included?: boolean
+          cdl_expiration?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null

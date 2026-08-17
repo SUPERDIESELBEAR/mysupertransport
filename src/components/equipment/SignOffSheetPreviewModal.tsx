@@ -20,6 +20,7 @@ import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import type { SheetWithItems } from './SignOffSheetList';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 import AssignmentSheetTerms from './AssignmentSheetTerms';
+import { formatCdl } from '@/lib/cdlFormat';
 
 const DEVICE_LABELS: Record<string, string> = {
   eld: 'ELD Unit',
@@ -154,6 +155,14 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
         <div className="space-y-4 text-sm min-w-0">
           <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border border-border bg-muted/30 p-3 min-w-0">
             <Field label="Unit Number" value={sheet.unit_number || sheet.operator?.unit_number || '—'} />
+            <Field
+              label="CDL Number"
+              value={
+                formatCdl(sheet.cdl_number, sheet.cdl_state, sheet.cdl_expiration)
+                ?? formatCdl(app?.cdl_number, app?.cdl_state, app?.cdl_expiration)
+                ?? '—'
+              }
+            />
             <Field
               label="Assignment Date"
               value={sheet.assignment_date ? format(new Date(sheet.assignment_date + 'T12:00:00'), 'MM/dd/yyyy') : '—'}

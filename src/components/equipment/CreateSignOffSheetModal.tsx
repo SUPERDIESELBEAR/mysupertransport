@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
+import { formatCdl } from '@/lib/cdlFormat';
 
 type OsasDeviceType = 'eld' | 'dash_cam' | 'bestpass';
 type InventoryDeviceType = OsasDeviceType;
@@ -33,6 +34,9 @@ interface OperatorOption {
   truckPlate: string | null;
   truckPlateState: string | null;
   trailerNumber: string | null;
+  cdlNumber: string | null;
+  cdlState: string | null;
+  cdlExpiration: string | null;
 }
 
 interface DeviceChoice {
@@ -162,7 +166,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
           unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number
         ),
         applications (
-          first_name, last_name, email, phone
+          first_name, last_name, email, phone, cdl_number, cdl_state, cdl_expiration
         )
       `)
       .eq('is_active', true);
@@ -190,6 +194,9 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         truckPlate: os?.truck_plate ?? null,
         truckPlateState: os?.truck_plate_state ?? null,
         trailerNumber: os?.trailer_number ?? null,
+        cdlNumber: app?.cdl_number ?? null,
+        cdlState: app?.cdl_state ?? null,
+        cdlExpiration: app?.cdl_expiration ?? null,
       };
     });
     rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -355,6 +362,21 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
                       : selectedOperator.truckPlate ?? '—'}
                   </div>
                   <div><span className="text-muted-foreground">Trailer:</span> {selectedOperator.trailerNumber ?? '—'}</div>
+                  <div className="sm:col-span-2">
+                    {selectedOperator.cdlNumber ? (
+                      <>
+                        <span className="text-muted-foreground">CDL:</span>{' '}
+                        <span className="font-mono">
+                          {formatCdl(selectedOperator.cdlNumber, selectedOperator.cdlState, selectedOperator.cdlExpiration)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        No CDL number on file for this driver
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
