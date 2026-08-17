@@ -19,9 +19,9 @@ export const BLANK_ICA_DATA = {
   owner_zip: '',
   owner_phone: '',
   owner_email: '',
-  // Rendered inline as "{pct}%" — an empty string keeps the review copy blank
-  // instead of promising 0%.
-  linehaul_split_pct: '' as unknown as number,
+  // Rendered inline as "{pct}%" — a fill-in blank keeps the review copy neutral
+  // instead of promising a specific split.
+  linehaul_split_pct: '_____' as unknown as number,
   lease_effective_date: '',
   lease_termination_date: '',
 };
