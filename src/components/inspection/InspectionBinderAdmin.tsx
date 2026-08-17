@@ -59,6 +59,8 @@ interface OperatorOption {
   userId: string;
   operatorId: string;
   name: string;
+  unitNumber?: string | null;
+  isActive?: boolean;
 }
 
 interface StagedDoc extends InspectionDocument {
@@ -224,7 +226,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     (async () => {
       const { data } = await supabase
         .from('operators')
-        .select('id, user_id, applications(first_name, last_name)')
+        .select('id, user_id, is_active, unit_number, onboarding_status(unit_number), applications(first_name, last_name)')
         .order('created_at');
       if (!data) return;
 
@@ -250,6 +252,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const opts = (data as any[]).map(op => ({
         userId: op.user_id,
         operatorId: op.id,
+        unitNumber: (() => {
+          const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+          return os?.unit_number ?? op.unit_number ?? null;
+        })(),
+        isActive: op.is_active !== false,
         name: (() => {
           const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
           const prof = profileMap[op.user_id];

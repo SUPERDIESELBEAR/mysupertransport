@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DriverCombobox from '@/components/shared/DriverCombobox';
 import { Textarea } from '@/components/ui/textarea';
 import { DateInput } from '@/components/ui/date-input';
 import { Loader2, UserCheck, Package, Upload, X, FileText } from 'lucide-react';
@@ -23,6 +24,8 @@ import { assertAssignable, DuplicateAssignmentError, normalizeSerial } from '@/l
 interface Operator {
   id: string;
   name: string;
+  unitNumber: string | null;
+  isActive: boolean;
 }
 
 interface Props {
@@ -69,13 +72,19 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
     setLoadingOps(true);
     const { data } = await supabase
       .from('operators')
-      .select('id, applications(first_name, last_name)')
+      .select('id, is_active, unit_number, onboarding_status(unit_number), applications(first_name, last_name)')
       .order('created_at');
     if (data) {
       const ops: Operator[] = (data as any[]).map(op => {
-        const app = op.applications;
+        const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+        const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
         const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
-        return { id: op.id, name };
+        return {
+          id: op.id,
+          name,
+          unitNumber: os?.unit_number ?? op.unit_number ?? null,
+          isActive: op.is_active !== false,
+        };
       });
       setOperators(ops);
     }
@@ -255,16 +264,19 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading operators...
               </div>
             ) : (
-              <Select value={selectedOperator} onValueChange={setSelectedOperator}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select operator..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {operators.map(op => (
-                    <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <DriverCombobox
+                operators={operators.map(op => ({
+                  userId: op.id,
+                  name: op.name,
+                  unitNumber: op.unitNumber,
+                  isActive: op.isActive,
+                }))}
+                value={selectedOperator}
+                onChange={setSelectedOperator}
+                placeholder="Select operator..."
+                triggerClassName="h-9 w-full"
+                emptyText="No operators found."
+              />
             )}
           </div>
           <div className="space-y-1.5">

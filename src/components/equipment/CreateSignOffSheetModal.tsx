@@ -26,6 +26,7 @@ interface OperatorOption {
   operatorId: string;
   name: string;
   unitNumber: string | null;
+  isActive: boolean;
   email: string | null;
   phone: string | null;
   truckYear: string | null;
@@ -162,6 +163,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         id,
         user_id,
         unit_number,
+        is_active,
         onboarding_status (
           unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number
         ),
@@ -169,7 +171,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
           first_name, last_name, email, phone, cdl_number, cdl_state, cdl_expiration
         )
       `)
-      .eq('is_active', true);
+      ;
 
     if (error) {
       console.error('[CreateSignOffSheetModal] fetchOperators failed', error);
@@ -186,6 +188,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         operatorId: o.id,
         name,
         unitNumber: o.unit_number ?? os?.unit_number ?? null,
+        isActive: o.is_active !== false,
         email: app?.email ?? null,
         phone: app?.phone ?? null,
         truckYear: os?.truck_year ?? null,
@@ -339,7 +342,12 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
               <div className="space-y-1.5">
                 <Label>Driver</Label>
                 <DriverCombobox
-                  operators={operators.map(o => ({ userId: o.operatorId, name: o.name }))}
+                  operators={operators.map(o => ({
+                    userId: o.operatorId,
+                    name: o.name,
+                    unitNumber: o.unitNumber,
+                    isActive: o.isActive,
+                  }))}
                   value={selectedOperatorId ?? ''}
                   onChange={id => setSelectedOperatorId(id)}
                   placeholder="Select a driver…"
