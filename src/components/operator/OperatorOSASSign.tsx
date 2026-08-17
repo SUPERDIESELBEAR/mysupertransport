@@ -14,6 +14,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { useSignatureUrl } from '@/hooks/useSignatureUrl';
 import AssignmentSheetTerms, { ASSIGNMENT_SHEET_ACK_TEXT } from '@/components/equipment/AssignmentSheetTerms';
+import { formatCdl } from '@/lib/cdlFormat';
 
 type DeviceType = 'eld' | 'dash_cam' | 'license_plate' | 'registration' | 'bestpass';
 
@@ -21,6 +22,9 @@ type Sheet = {
   id: string;
   operator_id: string;
   unit_number: string | null;
+  cdl_number: string | null;
+  cdl_state: string | null;
+  cdl_expiration: string | null;
   assignment_date: string;
   status: 'draft' | 'sent' | 'signed' | 'void';
   bestpass_included: boolean;
@@ -337,6 +341,11 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
                   Unit {sheet.unit_number ?? '—'} · Assignment date{' '}
                   {new Date(sheet.assignment_date + 'T12:00:00').toLocaleDateString('en-US')}
                 </p>
+                {formatCdl(sheet.cdl_number, sheet.cdl_state, sheet.cdl_expiration) && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    CDL {formatCdl(sheet.cdl_number, sheet.cdl_state, sheet.cdl_expiration)}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Signed{sheet.driver_signature_name ? ` by ${sheet.driver_signature_name}` : ''} on{' '}
                   {sheet.signed_at ? new Date(sheet.signed_at).toLocaleString('en-US') : 'file'}
@@ -421,6 +430,11 @@ export default function OperatorOSASSign({ onBack, onComplete }: Props) {
               Unit {sheet.unit_number ?? '—'} · Assignment date{' '}
               {new Date(sheet.assignment_date + 'T12:00:00').toLocaleDateString('en-US')}
             </p>
+            {formatCdl(sheet.cdl_number, sheet.cdl_state, sheet.cdl_expiration) && (
+              <p className="text-xs text-muted-foreground">
+                CDL {formatCdl(sheet.cdl_number, sheet.cdl_state, sheet.cdl_expiration)}
+              </p>
+            )}
           </div>
         </div>
 
