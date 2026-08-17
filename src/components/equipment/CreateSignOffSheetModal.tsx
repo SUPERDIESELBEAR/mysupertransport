@@ -162,6 +162,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         id,
         user_id,
         unit_number,
+        is_active,
         onboarding_status (
           unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number
         ),
@@ -169,7 +170,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
           first_name, last_name, email, phone, cdl_number, cdl_state, cdl_expiration
         )
       `)
-      .eq('is_active', true);
+      ;
 
     if (error) {
       console.error('[CreateSignOffSheetModal] fetchOperators failed', error);
@@ -186,6 +187,7 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
         operatorId: o.id,
         name,
         unitNumber: o.unit_number ?? os?.unit_number ?? null,
+        isActive: o.is_active !== false,
         email: app?.email ?? null,
         phone: app?.phone ?? null,
         truckYear: os?.truck_year ?? null,
