@@ -20,6 +20,7 @@ import PreEmploymentAuthorizationsDoc from '@/components/application/documents/P
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
 import type { FullApplication } from '@/components/management/ApplicationReviewDrawer';
+import IcaReviewActions from '@/components/management/IcaReviewActions';
 
 const STEP_LABELS = [
   'Personal Info', 'CDL Info', 'Employment', 'Experience',
@@ -259,6 +260,13 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
           )}
         </div>
 
+        {/* ICA review actions */}
+        {isICA && (
+          <div className="shrink-0 flex items-center justify-end gap-2 px-6 py-3 border-t border-border bg-secondary/40">
+            <IcaReviewActions compact />
+          </div>
+        )}
+
         {/* Navigation footer — application only */}
         {!isICA && !isStandaloneDoc && (
           <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
@@ -343,9 +351,12 @@ function FormCard({ form, onPreview }: { form: FormEntry; onPreview: () => void 
         </div>
       </div>
       <p className="text-xs text-muted-foreground leading-relaxed flex-1">{form.description}</p>
-      <Button size="sm" variant="outline" className="w-full gap-2 text-xs" onClick={onPreview}>
-        <Eye className="h-3.5 w-3.5" /> Preview Form
-      </Button>
+      <div className="space-y-2">
+        <Button size="sm" variant="outline" className="w-full gap-2 text-xs" onClick={onPreview}>
+          <Eye className="h-3.5 w-3.5" /> Preview Form
+        </Button>
+        {form.id === 'ica-contract' && <IcaReviewActions />}
+      </div>
     </div>
   );
 }
