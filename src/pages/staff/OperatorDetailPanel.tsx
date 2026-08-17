@@ -3215,6 +3215,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   is_draft: false,
                   first_name: contactDraft.first_name || null,
                   last_name: contactDraft.last_name || null,
+                  cdl_state: contactCdlDraft.cdl_state || null,
+                  cdl_number: contactCdlDraft.cdl_number || null,
                 })
                 .select('id')
                 .single();
@@ -3251,6 +3253,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 address_state: contactDraft.address_state || null,
                 address_zip: contactDraft.address_zip || null,
                 dob: contactDraft.dob || null,
+                cdl_state: contactCdlDraft.cdl_state || null,
+                cdl_number: contactCdlDraft.cdl_number || null,
               }));
             }
             // Save go_live_date to onboarding_status if changed
@@ -3273,6 +3277,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               address_state: contactDraft.address_state || null,
               address_zip: contactDraft.address_zip || null,
               dob: contactDraft.dob || null,
+              cdl_state: contactCdlDraft.cdl_state || null,
+              cdl_number: contactCdlDraft.cdl_number || null,
             }));
             // Update header name immediately
             const newName = `${contactDraft.first_name} ${contactDraft.last_name}`.trim();
