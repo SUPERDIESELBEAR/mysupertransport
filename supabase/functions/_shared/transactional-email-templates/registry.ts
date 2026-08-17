@@ -15,6 +15,7 @@ import { template as peiRequestFinalNotice } from './pei-request-final-notice.ts
 import { template as equipmentReturnInstructions } from './equipment-return-instructions.tsx'
 import { template as passengerAuthRequest } from './passenger-auth-request.tsx'
 import { template as osasSignRequest } from './osas-sign-request.tsx'
+import { template as icaReviewCopy } from './ica-review-copy.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'pei-request-initial': peiRequestInitial,
@@ -23,4 +24,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'equipment-return-instructions': equipmentReturnInstructions,
   'passenger-auth-request': passengerAuthRequest,
   'osas-sign-request': osasSignRequest,
+  'ica-review-copy': icaReviewCopy,
 }
