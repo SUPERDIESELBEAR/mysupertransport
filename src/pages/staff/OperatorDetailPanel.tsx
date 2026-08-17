@@ -551,6 +551,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     dob: '' as string | null,
     go_live_date: '' as string | null,
   });
+  const [copiedCdl, setCopiedCdl] = useState(false);
 
   // Stage 6 Insurance email settings
   const [insuranceEmailRecipients, setInsuranceEmailRecipients] = useState<string[]>([]);
