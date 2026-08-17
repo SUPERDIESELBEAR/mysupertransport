@@ -551,6 +551,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     dob: '' as string | null,
     go_live_date: '' as string | null,
   });
+  const [contactCdlDraft, setContactCdlDraft] = useState({ cdl_state: '', cdl_number: '' });
   const [copiedCdl, setCopiedCdl] = useState(false);
 
   // Stage 6 Insurance email settings
@@ -3142,6 +3143,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             dob: applicationData.dob ?? null,
             go_live_date: status.go_live_date ?? null,
           });
+          setContactCdlDraft({
+            cdl_state: applicationData.cdl_state ?? '',
+            cdl_number: applicationData.cdl_number ?? '',
+          });
           setContactEditing(true);
         };
 
@@ -3165,6 +3170,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 })
                 .eq('id', applicationData.id);
               if (error) throw error;
+              const { error: cdlErr } = await supabase
+                .from('applications')
+                .update({
+                  cdl_state: contactCdlDraft.cdl_state || null,
+                  cdl_number: contactCdlDraft.cdl_number || null,
+                })
+                .eq('id', applicationData.id);
+              if (cdlErr) throw cdlErr;
 
               // Sync name to profiles table
               if (operatorUserId) {
