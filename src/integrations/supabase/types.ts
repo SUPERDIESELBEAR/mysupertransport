@@ -2933,6 +2933,45 @@ export type Database = {
           },
         ]
       }
+      ica_review_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          note: string | null
+          opened_at: string | null
+          recipient_email: string
+          recipient_name: string
+          revoked: boolean
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          note?: string | null
+          opened_at?: string | null
+          recipient_email: string
+          recipient_name: string
+          revoked?: boolean
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          note?: string | null
+          opened_at?: string | null
+          recipient_email?: string
+          recipient_name?: string
+          revoked?: boolean
+          token?: string
+        }
+        Relationships: []
+      }
       inspection_binder_order: {
         Row: {
           doc_order: Json
@@ -7129,6 +7168,7 @@ export type Database = {
           tracking_receipt_url: string
         }[]
       }
+      get_ica_review_link: { Args: { _token: string }; Returns: Json }
       get_inspection_doc_by_token: {
         Args: { p_token: string }
         Returns: {
