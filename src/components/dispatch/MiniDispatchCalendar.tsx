@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight, EyeOff, CalendarRange, HelpCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -574,14 +575,54 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         })}
       </div>
 
-      {/* Counters */}
-      <div className="flex flex-wrap gap-x-2 gap-y-0.5 pt-0.5">
-        {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
-          <span key={s} className={`flex items-center gap-1 text-[10px] font-medium ${STATUS_COLORS[s].text}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${STATUS_COLORS[s].dot}`} />
-            {counters[s]}
-          </span>
-        ))}
+      {/* Counters + compact color legend */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-0.5">
+        <TooltipProvider delayDuration={150}>
+          {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
+            <Tooltip key={s}>
+              <TooltipTrigger asChild>
+                <span
+                  className={`flex items-center gap-1 text-[10px] font-medium cursor-default ${STATUS_COLORS[s].text}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${STATUS_COLORS[s].dot}`} />
+                  {counters[s]}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-[11px]">
+                {STATUS_COLORS[s].label} — {counters[s]} day{counters[s] !== 1 ? 's' : ''} this month
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </TooltipProvider>
+
+        {/* Tiny "?" opens the full color key — one icon of extra footprint. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              title="What do these colors mean?"
+              aria-label="Color legend"
+              className="ml-auto p-0.5 rounded text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
+            >
+              <HelpCircle className="h-3 w-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="end" sideOffset={4} className="w-48 p-2">
+            <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Color key</p>
+            <div className="flex flex-col gap-1">
+              {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
+                <span key={s} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${STATUS_COLORS[s].dot}`} />
+                  {STATUS_COLORS[s].label}
+                </span>
+              ))}
+              <span className="flex items-center gap-1.5 text-[11px] text-foreground/80">
+                <span className="h-2 w-2 flex items-center justify-center text-[9px] font-bold leading-none text-gold shrink-0">?</span>
+                No status logged (past day)
+              </span>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
