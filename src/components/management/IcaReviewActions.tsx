@@ -63,13 +63,13 @@ export default function IcaReviewActions({ compact = false }: { compact?: boolea
 
   return (
     <>
-      <div className={compact ? 'flex items-center gap-2' : 'grid grid-cols-2 gap-2'}>
-        <Button size="sm" variant="outline" className="gap-2 text-xs" onClick={handleDownload} disabled={downloading}>
-          {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Download Review Copy
+      <div className={compact ? 'flex items-center gap-2 min-w-0' : 'grid grid-cols-2 gap-2 min-w-0'}>
+        <Button size="sm" variant="outline" className="gap-2 text-xs w-full min-w-0" onClick={handleDownload} disabled={downloading}>
+          {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Download className="h-3.5 w-3.5 shrink-0" />}
+          <span className="truncate">Download Review Copy</span>
         </Button>
-        <Button size="sm" variant="outline" className="gap-2 text-xs" onClick={() => setEmailOpen(true)}>
-          <Mail className="h-3.5 w-3.5" /> Email for Review
+        <Button size="sm" variant="outline" className="gap-2 text-xs w-full min-w-0" onClick={() => setEmailOpen(true)}>
+          <Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Email for Review</span>
         </Button>
       </div>
 
