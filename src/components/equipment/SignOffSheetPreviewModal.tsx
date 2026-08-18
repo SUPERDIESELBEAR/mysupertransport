@@ -146,9 +146,12 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
               <DialogTitle className="text-lg">Onboard Systems Assignment Sheet</DialogTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{driverName}</p>
             </div>
-            <Badge variant={meta.variant} className="shrink-0 mr-7">
-              <span className="flex items-center gap-1.5">{meta.icon}{meta.label}</span>
-            </Badge>
+            <div className="flex shrink-0 flex-col items-end gap-1 mr-7">
+              <Badge variant={meta.variant} className="shrink-0">
+                <span className="flex items-center gap-1.5">{meta.icon}{meta.label}</span>
+              </Badge>
+              {sheet.is_paper_original && <Badge variant="secondary" className="shrink-0">Paper original</Badge>}
+            </div>
           </div>
         </DialogHeader>
 
@@ -213,7 +216,22 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
 
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Signature</h3>
-            {sheet.signed_at ? (
+            {sheet.is_paper_original ? (
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="text-sm font-medium">Signed on paper</div>
+                <div className="text-xs text-muted-foreground">
+                  {sheet.signed_at ? `Signed ${format(new Date(sheet.signed_at), 'MM/dd/yyyy')}` : 'Signed date not recorded'}
+                  {sheet.recorded_by_name ? ` • recorded by ${sheet.recorded_by_name}` : ''}
+                  {sheet.recorded_at ? ` on ${format(new Date(sheet.recorded_at), 'MM/dd/yyyy')}` : ''}
+                </div>
+                {sheet.paper_scan_path && (
+                  <Button variant="outline" size="sm" onClick={() => void openPaperScan()} disabled={loadingScan}>
+                    {loadingScan ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+                    View original
+                  </Button>
+                )}
+              </div>
+            ) : sheet.signed_at ? (
               <div className="rounded-md border border-border p-3 space-y-2">
                 {signature.loading ? (
                   <div className="flex h-24 w-40 items-center justify-center rounded border border-border bg-muted/30 text-xs text-muted-foreground">
