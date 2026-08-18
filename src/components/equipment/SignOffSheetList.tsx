@@ -120,6 +120,20 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const debouncedSearch = useDebouncedValue(search, 200);
   const [receiptPreview, setReceiptPreview] = useState<{ url: string; name: string } | null>(null);
 
+  /** Paper originals live in the private operator-documents bucket. */
+  const openPaperScan = useCallback(async (sheet: SheetWithItems) => {
+    if (!sheet.paper_scan_path) return;
+    const { data, error } = await supabase.storage
+      .from('operator-documents')
+      .createSignedUrl(sheet.paper_scan_path, 60 * 10);
+    if (error || !data?.signedUrl) {
+      console.error('[SignOffSheetList] paper scan signed url failed', error);
+      toast({ title: 'Could not open the paper original', description: error?.message, variant: 'destructive' });
+      return;
+    }
+    setReceiptPreview({ url: data.signedUrl, name: sheet.paper_scan_name ?? 'Paper assignment sheet' });
+  }, []);
+
   const fetchSheets = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
