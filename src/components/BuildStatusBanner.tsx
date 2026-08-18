@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, X, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { refreshToBuild, shouldOfferBuildUpdate } from '@/lib/buildUpdate';
 
 declare const __BUILD_VERSION__: string;
 declare const __BUILD_TIME__: string;
@@ -66,6 +67,9 @@ export function BuildStatusBanner() {
   const remoteVersion = remote?.version ?? '—';
   const remoteTime = formatBuildTime(remote?.buildTime);
   const matched = loaded && remoteVersion === localVersion && remoteVersion !== '—';
+  const updateAvailable = loaded
+    && remoteVersion !== '—'
+    && shouldOfferBuildUpdate(localVersion, remoteVersion);
 
   const dismiss = () => {
     setDismissed(true);
@@ -145,10 +149,10 @@ export function BuildStatusBanner() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {!matched && loaded && (
+          {updateAvailable && (
             <Button
               size="sm"
-              onClick={() => window.location.reload()}
+              onClick={() => { void refreshToBuild(remoteVersion); }}
               className="bg-gold hover:bg-gold-light text-surface-dark h-7 text-xs px-2.5"
             >
               Refresh

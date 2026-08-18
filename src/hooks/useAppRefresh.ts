@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { refreshToBuild, shouldOfferBuildUpdate } from '@/lib/buildUpdate';
 
 declare const __BUILD_VERSION__: string;
 
@@ -48,14 +49,14 @@ export function useAppRefresh() {
       // app on mobile; surprise reloads look like broken navigation.
       if (!isPreviewHost()) {
         const remote = await fetchRemoteVersion();
-        if (remote && remote !== __BUILD_VERSION__) {
+        if (remote && shouldOfferBuildUpdate(__BUILD_VERSION__, remote)) {
           toast('A new version of SUPERDRIVE is available', {
             description: 'Refresh when you are ready to load the latest update.',
             duration: Infinity,
             id: 'version-update',
             action: {
               label: 'Refresh now',
-              onClick: () => window.location.reload(),
+              onClick: () => { void refreshToBuild(remote); },
             },
           });
         }

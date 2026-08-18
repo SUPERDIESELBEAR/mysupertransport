@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { refreshToBuild, shouldOfferBuildUpdate } from "@/lib/buildUpdate";
 
 declare const __BUILD_VERSION__: string;
 
@@ -43,7 +44,10 @@ export function useVersionCheck() {
         const remote = data.version;
         const local = sessionVersionRef.current;
 
-        if (remote !== local && lastNotifiedRef.current !== remote) {
+        if (
+          shouldOfferBuildUpdate(local, remote)
+          && lastNotifiedRef.current !== remote
+        ) {
           lastNotifiedRef.current = remote;
           toast("A new version of SUPERDRIVE is available", {
             description: "Refresh to load the latest build.",
@@ -51,7 +55,7 @@ export function useVersionCheck() {
             id: "version-update",
             action: {
               label: "Refresh now",
-              onClick: () => window.location.reload(),
+              onClick: () => { void refreshToBuild(remote); },
             },
           });
         }
