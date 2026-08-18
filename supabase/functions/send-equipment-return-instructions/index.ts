@@ -1,3 +1,6 @@
+import * as React from 'npm:react@18.3.1'
+import { renderAsync } from 'npm:@react-email/components@0.0.22'
+import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import {
   requireStaff,
   ok,
@@ -29,7 +32,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
   if (auth instanceof Response) return auth
   const { supabase, authHeader, userId } = auth
 
-  let body: { sheetId?: string }
+  let body: { sheetId?: string; preview?: boolean }
   try {
     body = await req.json()
   } catch {
@@ -70,6 +73,26 @@ Deno.serve(withErrorEnvelope(async (req) => {
     .maybeSingle()
   const staffName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || null
 
+  const templateData = {
+    driverName,
+    items,
+    portalUrl,
+    unitNumber: sheet.unit_number ?? (sheet as any).operator?.unit_number ?? null,
+    senderName: staffName ? `${staffName}, SUPERTRANSPORT Operations` : undefined,
+  }
+
+  if (body.preview) {
+    const entry = TEMPLATES['equipment-return-instructions']
+    if (!entry) return fail(500, 'Email template not found')
+    try {
+      const html = await renderAsync(React.createElement(entry.component, templateData))
+      const subject = typeof entry.subject === 'function' ? entry.subject(templateData) : entry.subject
+      return ok({ success: true, preview: true, html, subject, recipient: email, items })
+    } catch (err) {
+      return fail(500, 'Could not render the email preview', err instanceof Error ? err.message : String(err))
+    }
+  }
+
   const result = await sendTemplateEmail({
     supabase,
     authHeader,
@@ -77,13 +100,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     recipientEmail: email,
     // Unique per attempt so resends are never deduped into no-ops.
     idempotencyKey: `equipment-return-${sheet.id}-${Date.now()}`,
-    templateData: {
-      driverName,
-      items,
-      portalUrl,
-      unitNumber: sheet.unit_number ?? (sheet as any).operator?.unit_number ?? null,
-      senderName: staffName ? `${staffName}, SUPERTRANSPORT Operations` : undefined,
-    },
+    templateData,
   })
   if (!result.success) {
     return fail(502, 'Failed to send return instructions', result.details ?? result.error)
