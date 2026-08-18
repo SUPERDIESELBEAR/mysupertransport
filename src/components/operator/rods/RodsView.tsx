@@ -144,13 +144,6 @@ export default function RodsView({
     return iso;
   }
 
-  function unusedPrintBlankLogs() {
-    const blob = await renderDutyStatusGrid({ pages: 8, isDemo });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener');
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
-
   if (eventLoading || loading) {
     return <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>;
   }
