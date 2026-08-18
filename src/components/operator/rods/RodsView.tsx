@@ -105,7 +105,9 @@ export default function RodsView({
     home_terminal_address: homeTerminalAddress ?? carrier?.home_terminal_address ?? null,
   }), [unitNumber, homeTerminalAddress, carrier]);
 
-  // Segments from the day before the one being edited, for "Copy yesterday".
+  // Segments from the day before the one being edited. They seed the midnight
+  // carry-in (a status runs until the next tap, so a new day starts in the one
+  // the last day ended in) and supply the recent-town chips.
   useEffect(() => {
     void (async () => {
       if (!selected) { setPrevSegments(null); return; }
