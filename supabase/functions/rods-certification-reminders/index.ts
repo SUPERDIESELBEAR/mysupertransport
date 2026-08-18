@@ -1,22 +1,30 @@
 /**
  * Hourly job. For every driver with an open ELD malfunction, decides whether it
- * is 08:00 or 20:00 in that driver's home terminal timezone and, if so, sends
- * the appropriate paper-log reminder.
+ * is 08:00 in that driver's home terminal timezone and, if so, reminds them
+ * about a completed day they have not certified.
  *
  * Rules:
  *  - Never prompt a driver to certify a 24-hour period that has not ended. The
- *    08:00 reminder always targets the MOST RECENTLY COMPLETED day (yesterday
- *    in the driver's local timezone), and only when it is uncertified.
- *  - While reconstruction is incomplete (any of the 8 required days is Needed
- *    or In progress), the 08:00 single-day reminder is suppressed and replaced
- *    with the reconstruction count.
- *  - The 20:00 nudge only says to keep the log current. It never mentions
- *    certifying, because that day is still running.
+ *    reminder targets the MOST RECENTLY COMPLETED day (yesterday in the
+ *    driver's local timezone), and only when it is uncertified.
+ *  - This is a backstop, not the prompt. The app itself asks the driver to
+ *    certify on the first open after midnight; a notification that arrives
+ *    before they have had a working day to sign is noise, so nothing fires
+ *    until the day has been closed for a full 24 hours.
+ *  - The 20:00 "keep your log current" nudge was removed with the tap-to-change
+ *    redesign: a status now runs until the next tap, so there is no unfinished
+ *    entry to go back and close out at the end of a shift.
+ *  - Demo drivers are excluded. A sandbox account generating real reminders
+ *    trains staff to ignore them.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-const RECONSTRUCTION_DAYS = 8;
+/**
+ * How long a completed day is left alone before the backstop fires. The app's
+ * own rollover prompt gets the whole of the following day first.
+ */
+const GRACE_HOURS = 24;
 
 function localParts(tz: string, now: Date) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -63,8 +71,9 @@ Deno.serve(async (req) => {
 
   const { data: operators } = await supabase
     .from('operators')
-    .select('id, user_id, home_terminal_timezone')
-    .in('id', operatorIds);
+    .select('id, user_id, home_terminal_timezone, is_demo')
+    .in('id', operatorIds)
+    .or('is_demo.is.null,is_demo.eq.false');
 
   let sent = 0;
 
@@ -76,17 +85,21 @@ Deno.serve(async (req) => {
     } catch {
       local = localParts('America/Chicago', now);
     }
-    if (local.hour !== 8 && local.hour !== 20) continue;
+    if (local.hour !== 8) continue;
     if (!op.user_id) continue;
 
-    const windowStart = shiftDate(local.date, -(RECONSTRUCTION_DAYS - 1));
+    // Only ever the last completed day, and only once it has been closed for a
+    // full grace period. At 08:00 local, yesterday ended 8 hours ago, so the
+    // day this can speak to is the day before that.
+    const targetDate = shiftDate(local.date, local.hour >= GRACE_HOURS ? -1 : -2);
+    const windowStart = targetDate;
     const { data: days } = await supabase
       .from('rods_days')
       .select('log_date, status, record_source')
       .eq('operator_id', op.id)
       .neq('status', 'superseded')
       .gte('log_date', windowStart)
-      .lte('log_date', local.date);
+      .lte('log_date', targetDate);
 
     const rows = days ?? [];
     // BLIND SPOT: this query only sees the server-side rods_days row. It does
@@ -98,36 +111,15 @@ Deno.serve(async (req) => {
     const completeDates = new Set(
       rows.filter((r) => r.status === 'certified').map((r) => r.log_date as string),
     );
-    let completeCount = 0;
-    for (let i = 0; i < RECONSTRUCTION_DAYS; i += 1) {
-      if (completeDates.has(shiftDate(local.date, -i))) completeCount += 1;
-    }
-    const reconstructionComplete = completeCount === RECONSTRUCTION_DAYS;
+    // Nothing on file for that day is not the same as an uncertified log. A
+    // driver whose ELD came back, or who was off, has no row — and gets no
+    // reminder. Only a day that exists and is not certified is chased.
+    const hasRow = rows.some((r) => r.log_date === targetDate);
+    if (!hasRow || completeDates.has(targetDate)) continue;
 
-    let title: string | null = null;
-    let body: string | null = null;
-    let type = 'rods_certify_reminder';
-
-    if (local.hour === 8) {
-      if (!reconstructionComplete) {
-        type = 'rods_reconstruction_reminder';
-        title = 'Reconstruction incomplete';
-        body = `${RECONSTRUCTION_DAYS - completeCount} of ${RECONSTRUCTION_DAYS} days still needed.`;
-      } else {
-        const yesterday = shiftDate(local.date, -1);
-        if (!completeDates.has(yesterday)) {
-          title = 'Certify yesterday\u2019s log';
-          body = `Your paper log for ${yesterday} is not certified yet.`;
-        }
-      }
-    } else {
-      // 20:00 — the day is still running, so this never mentions certifying.
-      type = 'rods_keep_current_reminder';
-      title = 'Keep your paper log current';
-      body = 'Record any changes of duty status from today before you go off duty.';
-    }
-
-    if (!title) continue;
+    const type = 'rods_certify_reminder';
+    const title = 'Certify your paper log';
+    const body = `Your paper log for ${targetDate} is not certified yet.`;
 
     // One of each reminder type per local day.
     const since = new Date(now.getTime() - 20 * 60 * 60 * 1000).toISOString();
