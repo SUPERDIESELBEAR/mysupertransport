@@ -26,6 +26,13 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
  */
 const GRACE_HOURS = 24;
 
+/**
+ * Days back from the current local date to the day this job may chase. Two,
+ * because at the 08:00 send hour anything more recent is still inside
+ * GRACE_HOURS.
+ */
+const REMINDER_DAY_OFFSET = -2;
+
 function localParts(tz: string, now: Date) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz, hour12: false,
@@ -88,10 +95,11 @@ Deno.serve(async (req) => {
     if (local.hour !== 8) continue;
     if (!op.user_id) continue;
 
-    // Only ever the last completed day, and only once it has been closed for a
-    // full grace period. At 08:00 local, yesterday ended 8 hours ago, so the
-    // day this can speak to is the day before that.
-    const targetDate = shiftDate(local.date, local.hour >= GRACE_HOURS ? -1 : -2);
+    // Only ever a day that has been closed for the full grace period. At 08:00
+    // local, yesterday ended 8 hours ago — inside the grace window, and the
+    // app's own rollover prompt still has it. The day before that closed 32
+    // hours ago, so that is the one this chases.
+    const targetDate = shiftDate(local.date, REMINDER_DAY_OFFSET);
     const windowStart = targetDate;
     const { data: days } = await supabase
       .from('rods_days')
