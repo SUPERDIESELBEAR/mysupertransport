@@ -131,6 +131,26 @@ export default function RodsView({
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
+  /**
+   * Rollover prompt. Yesterday has ended, so if it is on file and unsigned it
+   * is the one thing this screen should ask for before anything else.
+   */
+  function yesterdayNeedingCertification(): string | null {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const iso = d.toLocaleDateString('en-CA');
+    const row = byDate.get(iso);
+    if (!row || row.status === 'certified' || row.status === 'superseded' || row.locked) return null;
+    return iso;
+  }
+
+  function unusedPrintBlankLogs() {
+    const blob = await renderDutyStatusGrid({ pages: 8, isDemo });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
   if (eventLoading || loading) {
     return <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>;
   }
