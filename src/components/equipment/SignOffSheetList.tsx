@@ -113,6 +113,9 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [returnSendingId, setReturnSendingId] = useState<string | null>(null);
   const [confirmReturn, setConfirmReturn] = useState<SheetWithItems | null>(null);
+  const [returnPreview, setReturnPreview] = useState<{ html: string; subject: string; recipient: string | null } | null>(null);
+  const [returnPreviewLoading, setReturnPreviewLoading] = useState(false);
+  const [returnPreviewError, setReturnPreviewError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SheetWithItems | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'signed' | 'void'>('all');
