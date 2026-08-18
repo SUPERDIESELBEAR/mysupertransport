@@ -37,6 +37,12 @@ export interface RodsDay {
   trailer_numbers: string | null;
   co_driver_name: string | null;
   shipping_document_no: string | null;
+  /**
+   * Photo of the day's shipping document. Supporting evidence only — the
+   * §395.8(d)(11) entry is `shipping_document_no`, and the certification guard
+   * checks that field, never this one.
+   */
+  bol_photo_path: string | null;
   from_location: string | null;
   to_location: string | null;
   total_miles_driving_today: number | null;
@@ -176,6 +182,7 @@ export function newLocalRodsDay(input: NewLocalRodsDayInput): RodsDay {
     trailer_numbers: null,
     co_driver_name: null,
     shipping_document_no: null,
+    bol_photo_path: null,
     from_location: null,
     to_location: null,
     total_miles_driving_today: null,
