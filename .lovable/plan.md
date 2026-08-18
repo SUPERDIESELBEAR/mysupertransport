@@ -66,8 +66,8 @@ The job reads Postgres only and cannot see `local_certified_at`, so a signed-but
 - Entry state stays `rods_events` with `start_minute`/`end_minute`; the tap model just guarantees each event's `end_minute` equals the next event's `start_minute` or 1440, so tiling is satisfied by construction rather than by validation.
 - New shared module for boundary maths (insert / move / delete / midnight split) with unit tests, so the invariant is tested independently of the UI.
 - `useRodsDay`'s local-first Dexie write path and single-writer queue discipline are reused unchanged; taps write through `saveSegments`.
-- Dead-reference report after the deletions: `ReconstructionWizard.tsx`, `UploadEldLogModal.tsx`, `CertifyMismatchDialog.tsx`, the reconstruction branches in `RodsView.tsx`, gap/pending paths in `rodsValidation.ts`, and the `definer-live-catalog` pins for `create_eld_document_day` / `replace_rods_document` (which lose their last callers — the RPCs stay, with no caller, and I'll state that plainly rather than leave it implied). The queue already has no handlers for either.
-- I will confirm the roadside packet and the retention export still render an existing `eld_document` row after the driver-side removal.
+- Dead-reference report after the deletions: `ReconstructionWizard.tsx`, `UploadEldLogModal.tsx`, `CertifyMismatchDialog.tsx`, the reconstruction branches in `RodsView.tsx`, and the gap/pending paths in `rodsValidation.ts`. The offline queue already has no handlers for the two RPCs, so nothing changes there.
+- The `eld_document` read paths (`rodsTypes` labelling, `manifestBuild`, `hydrate`, `RoadsideDayRender`, retention export) stay in place. With zero rows there is nothing live to regress, and I'll run the roadside and retention suites against a synthetic `eld_document` fixture to prove they still render.
 
 ## Verify
 
