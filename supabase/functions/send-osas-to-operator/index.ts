@@ -31,6 +31,13 @@ interface CreatePayload {
   bestpassFeeCents?: number | null
   items: DeviceInput[]
   sendToOperator?: boolean
+  /** Backfill of a sheet that was originally issued and signed on paper. */
+  paperOriginal?: boolean
+  /** Date the paper sheet was signed (YYYY-MM-DD), required when paperOriginal. */
+  signedDate?: string | null
+  /** Storage path (operator-documents bucket) of the uploaded scan. */
+  paperScanPath?: string | null
+  paperScanName?: string | null
 }
 
 interface ResendPayload {
@@ -121,6 +128,12 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return fail(400, 'At least one device must be assigned')
     }
 
+    const paperOriginal = !!payload.paperOriginal
+    if (paperOriginal) {
+      if (!payload.signedDate) return fail(400, 'signedDate is required for a paper original')
+      if (!payload.paperScanPath) return fail(400, 'A scan of the signed paper sheet is required')
+    }
+
     const inventoryItems = payload.items.filter(i => !NON_INVENTORY_TYPES.has(i.deviceType) && i.equipmentId)
 
     // Validate inventory-backed items exist and are available
@@ -132,13 +145,24 @@ Deno.serve(withErrorEnvelope(async (req) => {
     if (inventoryError) {
       return fail(500, 'Failed to verify inventory', inventoryError.message)
     }
+    // Devices already held by THIS operator may appear on a paper backfill sheet.
+    const alreadyHeld = new Set<string>()
+    if (paperOriginal && equipmentIds.length > 0) {
+      const { data: openAssignments } = await supabase
+        .from('equipment_assignments')
+        .select('equipment_id')
+        .eq('operator_id', payload.operatorId)
+        .is('returned_at', null)
+        .in('equipment_id', equipmentIds)
+      for (const row of openAssignments ?? []) alreadyHeld.add((row as any).equipment_id)
+    }
     const inventoryMap = new Map(inventoryRows?.map(r => [r.id, r]))
     for (const item of inventoryItems) {
       const inv = inventoryMap.get(item.equipmentId as string)
       if (!inv) {
         return fail(400, `Equipment ${item.equipmentId} not found`)
       }
-      if (inv.status !== 'available') {
+      if (inv.status !== 'available' && !alreadyHeld.has(item.equipmentId as string)) {
         return fail(409, `Serial ${inv.serial_number} is not available (${inv.status})`)
       }
       if (inv.device_type !== item.deviceType) {
@@ -164,8 +188,11 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const assignmentDate = payload.assignmentDate || new Date().toISOString().split('T')[0]
     const bestpassIncluded = !!payload.bestpassIncluded
     const bestpassFeeCents = bestpassIncluded ? (payload.bestpassFeeCents ?? 6000) : null
-    const status = body.sendToOperator ? 'sent' : 'draft'
-    const sentAt = body.sendToOperator ? new Date().toISOString() : null
+    const sendToOperator = paperOriginal ? false : !!body.sendToOperator
+    const status = paperOriginal ? 'signed' : (sendToOperator ? 'sent' : 'draft')
+    const sentAt = sendToOperator ? new Date().toISOString() : null
+    const nowIso = new Date().toISOString()
+    const operatorName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || null
 
     const { data: sheet, error: sheetError } = await supabase
       .from('onboard_assignment_sheets')
@@ -182,6 +209,18 @@ Deno.serve(withErrorEnvelope(async (req) => {
         bestpass_fee_cents: bestpassFeeCents,
         sent_at: sentAt,
         created_by: userId,
+        ...(paperOriginal
+          ? {
+              is_paper_original: true,
+              paper_scan_path: payload.paperScanPath,
+              paper_scan_name: payload.paperScanName ?? null,
+              signed_at: `${payload.signedDate}T12:00:00Z`,
+              driver_signature_name: operatorName,
+              recorded_by: userId,
+              recorded_by_name: actorEmail,
+              recorded_at: nowIso,
+            }
+          : {}),
       })
       .select()
       .single()
@@ -207,6 +246,9 @@ Deno.serve(withErrorEnvelope(async (req) => {
     // Mark equipment as assigned and create assignment records
     const now = new Date().toISOString()
     for (const item of inventoryItems) {
+      // Paper backfill: devices the driver already holds keep their existing
+      // inventory record — do not duplicate the assignment.
+      if (paperOriginal && alreadyHeld.has(item.equipmentId as string)) continue
       const { error: updateErr } = await supabase.from('equipment_items').update({ status: 'assigned' }).eq('id', item.equipmentId)
       if (updateErr) {
         console.error('Failed to update equipment status', updateErr)
@@ -219,8 +261,26 @@ Deno.serve(withErrorEnvelope(async (req) => {
       })
     }
 
+    if (paperOriginal) {
+      await supabase.from('audit_log').insert({
+        actor_id: userId,
+        actor_name: actorEmail,
+        action: 'osas_paper_sheet_recorded',
+        entity_type: 'operator',
+        entity_id: payload.operatorId,
+        entity_label: `Paper assignment sheet • Unit ${sheet.unit_number ?? '—'}`,
+        metadata: {
+          sheet_id: sheet.id,
+          signed_date: payload.signedDate,
+          scan_path: payload.paperScanPath,
+          serials: sheetItems.map(i => `${i.device_type}:${i.serial_snapshot}`),
+        },
+      })
+      return ok({ success: true, sheetId: sheet.id, paperOriginal: true })
+    }
+
     // Send email if requested
-    if (body.sendToOperator) {
+    if (sendToOperator) {
       const fullSheet = { ...sheet, items: sheetItems, operator }
       await sendSheetEmail(supabase, authHeader, fullSheet as any)
       const { error: sendLogError } = await supabase.from('onboard_assignment_sheet_sends').insert({
