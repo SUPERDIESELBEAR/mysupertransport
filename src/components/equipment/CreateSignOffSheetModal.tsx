@@ -516,7 +516,46 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
               <div className="space-y-1.5">
                 <Label>Assignment Date</Label>
                 <DateInput value={assignmentDate} onChange={setAssignmentDate} />
+                {isPaper && (
+                  <p className="text-xs text-muted-foreground">The date printed on the paper sheet.</p>
+                )}
               </div>
+
+              {isPaper && (
+                <div className="rounded-lg border border-gold/30 bg-gold/5 p-3 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Signed date</Label>
+                    <DateInput value={signedDate} onChange={setSignedDate} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Signed paper sheet (PDF, JPG or PNG)</Label>
+                    {paperFile ? (
+                      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate flex-1 min-w-0">{paperFile.name}</span>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setPaperFile(null)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground hover:bg-muted/40">
+                        <Upload className="h-4 w-4" />
+                        Choose a scan or photo (max 10MB)
+                        <input
+                          type="file"
+                          accept="application/pdf,image/jpeg,image/png"
+                          className="hidden"
+                          onChange={e => handlePickPaperFile(e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Devices the driver already holds are listed below. Recording a paper sheet does not change inventory
+                    status and does not email the driver.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <Label>Devices</Label>
@@ -659,23 +698,36 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
 
         <DialogFooter className="gap-2 sm:gap-2 pt-2">
           <Button variant="outline" onClick={handleClose} disabled={saving || sending}>Cancel</Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            <Save className="h-3.5 w-3.5 mr-1.5" />
-            Save Draft
-          </Button>
-          <Button
-            onClick={() => handleSave(true)}
-            disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
-          >
-            {sending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            <Send className="h-3.5 w-3.5 mr-1.5" />
-            Send to Operator
-          </Button>
+          {isPaper ? (
+            <Button
+              onClick={handleSavePaper}
+              disabled={!selectedOperatorId || !hasAtLeastOneDevice || !signedDate || !paperFile || saving}
+            >
+              {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Save Paper Sheet
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => handleSave(false)}
+                disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
+              >
+                {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Save Draft
+              </Button>
+              <Button
+                onClick={() => handleSave(true)}
+                disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
+              >
+                {sending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                Send to Operator
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
