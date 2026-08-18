@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2, Package } from 'lucide-react';
+import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2, Package, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,9 +50,28 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sendingReturn, setSendingReturn] = useState(false);
+  const [loadingScan, setLoadingScan] = useState(false);
   const signature = useSignatureUrl(sheet?.driver_signature_data_url ?? null);
 
   if (!sheet) return null;
+
+  /** Opens the scanned paper original from the private documents bucket. */
+  const openPaperScan = async () => {
+    if (!sheet.paper_scan_path) return;
+    setLoadingScan(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(sheet.paper_scan_path, 60 * 10);
+      if (error || !data?.signedUrl) {
+        toast.error(error?.message ?? 'Could not open the paper original');
+        return;
+      }
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } finally {
+      setLoadingScan(false);
+    }
+  };
 
   const app = sheet.operator?.applications;
   const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || '—';
