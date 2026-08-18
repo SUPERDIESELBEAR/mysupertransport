@@ -9,7 +9,7 @@ const day = (over: Partial<RodsDay> = {}): RodsDay => ({
   carrier_name: 'SUPERTRANSPORT LLC', carrier_usdot: '1234567', carrier_mc: 'MC-987654',
   main_office_address: '100 Main St', home_terminal_address: '100 Main St',
   home_terminal_timezone: 'America/Chicago', truck_number: '77', trailer_numbers: 'T-1',
-  co_driver_name: 'None', shipping_document_no: 'BOL-5150', from_location: 'Joplin, MO',
+  co_driver_name: 'None', shipping_document_no: 'BOL-5150', bol_photo_path: null, from_location: 'Joplin, MO',
   to_location: 'Tulsa, OK', total_miles_driving_today: 412, total_mileage_today: null,
   period_start_time: '00:00:00', recap_on_duty_today: null, recap_last_7_days: null,
   recap_available_tomorrow: null, recap_last_8_days: null, total_off_duty_minutes: 600,

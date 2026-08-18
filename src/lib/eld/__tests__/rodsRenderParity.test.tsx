@@ -28,6 +28,7 @@ const day: RodsDay = {
   is_reconstructed: true,
   supersedes_day_id: 'day-0',
   amendment_reason: 'Missed a stop',
+  bol_photo_path: null,
   carrier_name: 'SUPERTRANSPORT LLC',
   carrier_usdot: '1234567',
   carrier_mc: 'MC-7654',
