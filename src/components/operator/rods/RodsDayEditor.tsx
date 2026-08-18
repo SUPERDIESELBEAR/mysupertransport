@@ -507,12 +507,20 @@ export default function RodsDayEditor({
             </div>
           </div>
 
-          <DutyStatusTimeline
+          <BolPhotoCard
+            operatorId={operatorId}
+            logDate={logDate}
+            path={day.bol_photo_path ?? null}
+            disabled={locked}
+            onChange={(p) => patchHeader({ bol_photo_path: p } as Partial<RodsDay>)}
+          />
+
+          <TapLogEntry
             segments={segments}
             onChange={setSegments}
             disabled={locked}
-            activeLocalId={activeLocalId}
-            onFocusSegment={setActiveLocalId}
+            recentTowns={recentTowns}
+            isToday={isToday}
           />
 
           <div className="space-y-2 rounded-lg border border-border p-3">
@@ -544,11 +552,6 @@ export default function RodsDayEditor({
               {busy || saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save draft
             </Button>
-            {!isReconstruction && !!previousDaySegments?.length && (
-              <Button variant="outline" onClick={copyYesterday} disabled={busy}>
-                <Copy className="mr-2 h-4 w-4" /> Copy yesterday's times
-              </Button>
-            )}
             <Button onClick={() => setCertifyOpen(true)} disabled={busy}>Certify</Button>
           </>
         )}
@@ -594,15 +597,6 @@ export default function RodsDayEditor({
           onUseSaved={useSavedVersion}
         />
       )}
-
-      <UploadEldLogModal
-        open={replaceOpen}
-        onOpenChange={setReplaceOpen}
-        operatorId={operatorId}
-        logDate={logDate}
-        existing={day}
-        onDone={() => { onChanged(); void reload(); }}
-      />
     </div>
   );
 }
