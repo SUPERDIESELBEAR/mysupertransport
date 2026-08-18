@@ -15,7 +15,12 @@ Submit does exactly what it does today — same record, same notice PDF, same ca
 
 `UploadEldLogModal.tsx` ("I already have this day from my ELD") is deleted from the driver app and not moved to staff — there is no staff caller today, and building one now would be speculative.
 
-Kept exactly as-is: `record_source = 'eld_document'`, its guards (P0019/P0045/P0046), `create_eld_document_day`, `replace_rods_document`, and all roadside/retention handling of existing rows.
+Both RPCs are then dropped, because the database says they are unreachable in every sense: `rods_days` holds **one row in total and zero with `record_source = 'eld_document'`** — no production document rows exist, demo or otherwise.
+
+- `replace_rods_document` — dropped. It only replaces a document on a row type that has no rows and can no longer be created.
+- `create_eld_document_day` — dropped as well. Its plausible future is a staff-side filing path nobody has asked for, and a definer function nothing reaches is exactly the shape that drifted out of sync with the schema around it before.
+
+Both drops are recorded in `docs/deferred-removals.md` with the reason and the row count that justified them. The **schema support stays**: `record_source`, the `eld_document` CHECK value, and the P0019/P0045/P0046 guards are untouched, so a future staff filing path is additive — one migration re-creating one function, not a schema change. The `definer-live-catalog` pins for both go in the same change.
 
 ## 3. Today's log — tap-to-change
 
@@ -61,8 +66,8 @@ The job reads Postgres only and cannot see `local_certified_at`, so a signed-but
 - Entry state stays `rods_events` with `start_minute`/`end_minute`; the tap model just guarantees each event's `end_minute` equals the next event's `start_minute` or 1440, so tiling is satisfied by construction rather than by validation.
 - New shared module for boundary maths (insert / move / delete / midnight split) with unit tests, so the invariant is tested independently of the UI.
 - `useRodsDay`'s local-first Dexie write path and single-writer queue discipline are reused unchanged; taps write through `saveSegments`.
-- Dead-reference report after the deletions: `ReconstructionWizard.tsx`, `UploadEldLogModal.tsx`, `CertifyMismatchDialog.tsx`, the reconstruction branches in `RodsView.tsx`, gap/pending paths in `rodsValidation.ts`, and the `definer-live-catalog` pins for `create_eld_document_day` / `replace_rods_document` (which lose their last callers — the RPCs stay, with no caller, and I'll state that plainly rather than leave it implied). The queue already has no handlers for either.
-- I will confirm the roadside packet and the retention export still render an existing `eld_document` row after the driver-side removal.
+- Dead-reference report after the deletions: `ReconstructionWizard.tsx`, `UploadEldLogModal.tsx`, `CertifyMismatchDialog.tsx`, the reconstruction branches in `RodsView.tsx`, and the gap/pending paths in `rodsValidation.ts`. The offline queue already has no handlers for the two RPCs, so nothing changes there.
+- The `eld_document` read paths (`rodsTypes` labelling, `manifestBuild`, `hydrate`, `RoadsideDayRender`, retention export) stay in place. With zero rows there is nothing live to regress, and I'll run the roadside and retention suites against a synthetic `eld_document` fixture to prove they still render.
 
 ## Verify
 
