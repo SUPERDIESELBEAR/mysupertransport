@@ -1,75 +1,64 @@
-/**
- * Shown when the preflight guard finds the saved copy of a log does not match
- * what is on screen.
- *
- * Nothing is resolved automatically. Reloading the saved copy would throw away
- * work the driver can see; pushing the screen over the saved copy without
- * saying so would hide a write that failed. The driver decides, and the two
- * versions are named field by field so the choice is informed.
- */
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Loader2 } from 'lucide-react';
 import type { AmendmentChange } from '@/lib/eld/amendmentDiff';
 
+/**
+ * Shown when the certify preflight finds the saved log and the screen disagree.
+ *
+ * Nothing is certified from here and neither button picks a winner silently:
+ * the driver saves again, or knowingly takes the office copy and loses the
+ * listed edits. Certifying past a mismatch would sign a record the driver
+ * never saw.
+ */
 export default function CertifyMismatchDialog({
-  open, onOpenChange, differences, onRetry, onUseSaved, busy,
+  open,
+  onOpenChange,
+  differences,
+  busy,
+  onRetry,
+  onUseSaved,
 }: {
   open: boolean;
-  onOpenChange: (v: boolean) => void;
+  onOpenChange: (open: boolean) => void;
   differences: AmendmentChange[];
+  busy?: boolean;
   onRetry: () => void | Promise<void>;
   onUseSaved: () => void | Promise<void>;
-  busy?: boolean;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>This log was changed somewhere else</DialogTitle>
-        </DialogHeader>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
+        <AlertDialogHeader>
+          <AlertDialogTitle>This log was not saved the way it looks</AlertDialogTitle>
+          <AlertDialogDescription>
+            What is saved does not match what is on your screen, so nothing has been signed. Save again, or load the
+            saved version and lose the changes listed below.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-        <div className="space-y-4">
-          <p className="text-sm text-foreground">
-            Certifying locks the log permanently, so SUPERDRIVE checked the copy saved on this phone first. That copy
-            was changed — the change has already reached this phone, but the screen still shows the older version.
-            Nothing has been certified and nothing has been changed.
-          </p>
+        <ul className="space-y-2 rounded-lg border border-border p-3 text-xs">
+          {differences.map((d, i) => (
+            <li key={`${d.field_path}-${i}`} className="space-y-0.5">
+              <div className="font-semibold text-foreground">{d.field_path}</div>
+              <div className="text-muted-foreground">
+                Saved: {d.old_value ?? '—'} · On screen: {d.new_value ?? '—'}
+              </div>
+            </li>
+          ))}
+        </ul>
 
-          <div className="space-y-2 rounded-lg border border-border p-3">
-            <div className="text-xs font-semibold text-foreground">What differs</div>
-            <ul className="space-y-2">
-              {differences.map((d, i) => (
-                <li key={`${d.field_path}-${i}`} className="text-xs">
-                  <div className="font-semibold text-foreground">{d.field_path}</div>
-                  <div className="text-muted-foreground">
-                    Saved: <span className="text-foreground">{d.old_value ?? '—'}</span>
-                  </div>
-                  <div className="text-muted-foreground">
-                    On screen: <span className="text-foreground">{d.new_value ?? '—'}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="grid gap-2">
-            <Button disabled={busy} onClick={() => void onRetry()}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Try saving again'}
-            </Button>
-            <Button variant="outline" disabled={busy} onClick={() => void onUseSaved()}>
-              Use the saved version
-            </Button>
-            <Button variant="ghost" disabled={busy} onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            &ldquo;Use the saved version&rdquo; loads the version stored on this phone and discards what is on screen.
-            Neither option certifies anything — you sign again once the two agree.
-          </p>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <AlertDialogFooter className="gap-2">
+          <AlertDialogCancel disabled={busy} onClick={() => { void onUseSaved(); }}>
+            Use the saved version
+          </AlertDialogCancel>
+          <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); void onRetry(); }}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save again
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

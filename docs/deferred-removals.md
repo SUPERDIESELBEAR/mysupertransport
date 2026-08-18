@@ -207,3 +207,37 @@ in `has_role` does not reach these two.
 **Removal trigger:** both bodies consolidated onto `has_role` (or
 `has_any_role`), with the `owner` refusal kept as its own explicit check — or a
 line recorded here stating why the inline copy has to exist.
+
+## Removed 2026-08-18: `create_eld_document_day`, `replace_rods_document`
+
+**What:** both SECURITY DEFINER functions were dropped in the tap-to-change
+paper-log migration, along with their only caller,
+`src/components/operator/rods/UploadEldLogModal.tsx`.
+
+**Why now, rather than a note:** the redesign removes the driver-facing path
+that filed an ELD-produced log file, so both functions lose their last caller
+in the same change. A definer function nothing reaches drifts from the schema
+around it — their offline queue handlers had already drifted from the RPC
+argument lists before they were deleted, which is exactly the failure this
+records against. Leaving two orphans plus a note would repeat it.
+
+They were checked separately rather than treated as equivalent:
+
+- `replace_rods_document` replaces the document on a `record_source =
+  'eld_document'` row. A live query returned **0 such rows**, so it is
+  unreachable in every sense — there is nothing for it to act on and no way to
+  create something for it to act on.
+- `create_eld_document_day` had a plausible future: a staff-side filing path.
+  With zero document days in existence, that path would be built new against
+  whatever staff UI is written, not against this signature. Dropping it costs
+  nothing; keeping it would preserve an argument list no future caller would
+  match.
+
+**What stays, deliberately:** `rods_days.record_source`, its `'eld_document'`
+CHECK value, `enforce_rods_day_source_document`, and the P0019 / P0045 / P0046
+guards. The schema still knows what a document day is, so re-adding a staff
+filing path is one additive migration and no data migration.
+
+**Re-add trigger:** staff ask to file an ELD-produced log on a driver's behalf.
+Write the RPC against the new caller's argument list — including a display
+rendition path and conversion-failure flag, which the deleted pair never took.

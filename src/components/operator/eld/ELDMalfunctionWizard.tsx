@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { AlertTriangle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import {
   CLOCK_RED,
   MALFUNCTION_CODES, MALFUNCTION_CODE_LABEL, MAX_BACKDATE_HOURS, REPAIR_WINDOW_DAYS,
@@ -50,7 +50,6 @@ const toLocalInput = (d: Date) => {
 };
 
 export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumber, onCancel, onSubmitted }: Props) {
-  const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
   const [discoveredAt, setDiscoveredAt] = useState(toLocalInput(new Date()));
@@ -103,7 +102,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [step]);
+  }, []);
 
   const selectedModel = useMemo(() => models.find((m) => m.id === modelId) ?? null, [models, modelId]);
 
@@ -118,12 +117,23 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
     return d;
   }, [discoveredDate]);
 
-  const step1Valid = !!discoveredAt
-    && !!location.trim()
-    && backdatedHours <= MAX_BACKDATE_HOURS
-    && (backdatedHours <= 24 || backdateReason.trim().length > 0);
-  const step2Valid = !!modelId;
-  const step3Valid = !!code && description.trim().length > 0 && hinders !== '';
+  // One screen, so validity is one list. Each entry is the sentence shown under
+  // the submit button when it is missing — a driver reporting a malfunction is
+  // usually on the shoulder, and "Submit is greyed out" with no reason is the
+  // worst thing this screen could do.
+  const missing: string[] = [];
+  if (!discoveredAt) missing.push('when you discovered it');
+  if (backdatedHours > MAX_BACKDATE_HOURS) {
+    missing.push(`a discovery time within the last ${MAX_BACKDATE_HOURS} hours`);
+  }
+  if (backdatedHours > 24 && backdatedHours <= MAX_BACKDATE_HOURS && !backdateReason.trim()) {
+    missing.push('why it is being reported late');
+  }
+  if (!location.trim()) missing.push('where you were');
+  if (!modelId) missing.push('which device is in your truck');
+  if (!code) missing.push('what went wrong');
+  if (!description.trim()) missing.push('a description of what you saw');
+  if (hinders === '') missing.push('whether it can still record your hours');
 
   async function submit(withSignature: boolean) {
     if (saving) return;
@@ -227,7 +237,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-4">
       <div className="flex items-center gap-3">
         <button type="button" onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" /> Back
@@ -236,56 +246,56 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
 
       <div className="rounded-lg border p-4" style={{ borderColor: CLOCK_RED }}>
         <div className="flex items-center gap-2 font-semibold" style={{ color: CLOCK_RED }}>
-          <AlertTriangle className="h-5 w-5" /> Report an ELD malfunction — step {step} of 4
+          <AlertTriangle className="h-5 w-5" /> Report an ELD malfunction
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          This files the written notice your carrier must receive within 24 hours (49 CFR 395.34).
+          This files the written notice your carrier must receive within 24 hours (49 CFR 395.34). It is one screen —
+          fill it in, sign at the bottom and send.
         </p>
       </div>
 
-      {step === 1 && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="eld-discovered">When did you discover it?</Label>
-            <Input id="eld-discovered" type="datetime-local" value={discoveredAt} onChange={(e) => setDiscoveredAt(e.target.value)} className="text-base" />
-            {backdatedHours > MAX_BACKDATE_HOURS && (
-              <p className="text-xs" style={{ color: CLOCK_RED }}>
-                You can only back-date up to {MAX_BACKDATE_HOURS} hours. Contact your onboarding staff for anything older.
-              </p>
-            )}
-          </div>
-          {backdatedHours > 24 && backdatedHours <= MAX_BACKDATE_HOURS && (
-            <div className="space-y-2">
-              <Label htmlFor="eld-backdate">Why is this being reported late?</Label>
-              <Textarea id="eld-backdate" value={backdateReason} onChange={(e) => setBackdateReason(e.target.value)} className="text-base" rows={3} />
-            </div>
+      {/* When and where */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="eld-discovered">When did you discover it?</Label>
+          <Input id="eld-discovered" type="datetime-local" value={discoveredAt} onChange={(e) => setDiscoveredAt(e.target.value)} className="text-base" />
+          {backdatedHours > MAX_BACKDATE_HOURS && (
+            <p className="text-xs" style={{ color: CLOCK_RED }}>
+              You can only back-date up to {MAX_BACKDATE_HOURS} hours. Contact your onboarding staff for anything older.
+            </p>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="eld-location">Where were you? (city and state)</Label>
-            <Input id="eld-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Joplin, MO" className="text-base" />
-          </div>
-          <Button className="w-full" disabled={!step1Valid} onClick={() => setStep(2)}>
-            Continue <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
         </div>
-      )}
 
-      {step === 2 && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {device ? 'Confirm these details about the device in your truck.' : 'Tell us which device is in your truck.'}
-          </p>
+        {backdatedHours > 24 && backdatedHours <= MAX_BACKDATE_HOURS && (
           <div className="space-y-2">
-            <Label>Device</Label>
-            <Select value={modelId} onValueChange={setModelId}>
-              <SelectTrigger className="text-base"><SelectValue placeholder="Select your device" /></SelectTrigger>
-              <SelectContent>
-                {models.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.provider_name} — {m.device_model}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="eld-backdate">Why is this being reported late?</Label>
+            <Textarea id="eld-backdate" value={backdateReason} onChange={(e) => setBackdateReason(e.target.value)} className="text-base" rows={3} />
           </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="eld-location">Where were you? (city and state)</Label>
+          <Input id="eld-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Joplin, MO" className="text-base" />
+        </div>
+      </div>
+
+      {/* The device */}
+      <div className="space-y-4 rounded-lg border border-border p-3">
+        <p className="text-xs text-muted-foreground">
+          {device ? 'Confirm these details about the device in your truck.' : 'Tell us which device is in your truck.'}
+        </p>
+        <div className="space-y-2">
+          <Label>Device</Label>
+          <Select value={modelId} onValueChange={setModelId}>
+            <SelectTrigger className="text-base"><SelectValue placeholder="Select your device" /></SelectTrigger>
+            <SelectContent>
+              {models.map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.provider_name} — {m.device_model}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="eld-serial">Serial number</Label>
             <Input id="eld-serial" value={serial} onChange={(e) => setSerial(e.target.value)} className="text-base" />
@@ -294,106 +304,106 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
             <Label htmlFor="eld-truck">Truck / unit number</Label>
             <Input id="eld-truck" value={truckNumber} onChange={(e) => setTruckNumber(e.target.value)} className="text-base" />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setStep(1)}>Back</Button>
-            <Button className="flex-1" disabled={!step2Valid} onClick={() => setStep(3)}>Continue</Button>
+        </div>
+      </div>
+
+      {/* What happened */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>What went wrong?</Label>
+          <div className="grid gap-2">
+            {MALFUNCTION_CODES.map((c) => (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => setCode(c.code)}
+                className={`rounded-lg border p-3 text-left transition ${code === c.code ? 'border-primary bg-primary/5' : 'border-border'}`}
+              >
+                <div className="text-sm font-semibold text-foreground">{c.code} — {c.label}</div>
+                <div className="text-xs text-muted-foreground">{c.hint}</div>
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>What went wrong?</Label>
-            <div className="grid gap-2">
-              {MALFUNCTION_CODES.map((c) => (
-                <button
-                  key={c.code}
-                  type="button"
-                  onClick={() => setCode(c.code)}
-                  className={`rounded-lg border p-3 text-left transition ${code === c.code ? 'border-primary bg-primary/5' : 'border-border'}`}
-                >
-                  <div className="text-sm font-semibold text-foreground">{c.code} — {c.label}</div>
-                  <div className="text-xs text-muted-foreground">{c.hint}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="eld-desc">Describe what you saw</Label>
-            <Textarea id="eld-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="text-base" />
-          </div>
-          <div className="space-y-2">
-            <Label>Can the device still record your hours accurately?</Label>
-            <RadioGroup value={hinders} onValueChange={(v) => setHinders(v as 'yes' | 'no')} className="gap-2">
-              <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
-                <RadioGroupItem value="yes" id="hinders-yes" />
-                No — I cannot rely on it (I will keep paper logs)
-              </label>
-              <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
-                <RadioGroupItem value="no" id="hinders-no" />
-                Yes — hours are still recording correctly
-              </label>
-            </RadioGroup>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>Back</Button>
-            <Button className="flex-1" disabled={!step3Valid} onClick={() => setStep(4)}>Review &amp; sign</Button>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="eld-desc">Describe what you saw</Label>
+          <Textarea id="eld-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="text-base" />
         </div>
-      )}
 
-      {step === 4 && (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-2">
-            <div className="font-semibold text-foreground">{cachedCarrier?.legal_name ?? '—'}</div>
-            <div className="text-xs text-muted-foreground">
-              USDOT {cachedCarrier?.usdot_number ?? '—'} · MC {cachedCarrier?.mc_number ?? '—'}
-            </div>
-            <dl className="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 pt-2 text-xs">
-              <dt className="text-muted-foreground">Driver</dt><dd>{driverName}</dd>
-              <dt className="text-muted-foreground">Truck</dt><dd>{truckNumber || '—'}</dd>
-              <dt className="text-muted-foreground">Discovered</dt><dd>{discoveredDate.toLocaleString()}</dd>
-              <dt className="text-muted-foreground">Location</dt><dd>{location}</dd>
-              <dt className="text-muted-foreground">Device</dt>
-              <dd>{selectedModel ? `${selectedModel.provider_name} ${selectedModel.device_model}` : '—'}{serial ? ` · ${serial}` : ''}</dd>
-              <dt className="text-muted-foreground">Malfunction</dt><dd>{code} — {MALFUNCTION_CODE_LABEL[code]}</dd>
-              <dt className="text-muted-foreground">Repair deadline</dt><dd>{repairDeadline.toLocaleDateString()}</dd>
-            </dl>
-            <p className="pt-2 text-xs text-muted-foreground">
-              I am giving {cachedCarrier?.legal_name ?? 'my motor carrier'} written notice of this ELD malfunction
-              within 24 hours of discovering it, as required by 49 CFR 395.34(a)(1).
-            </p>
-          </div>
-
-          {!cachedCarrier && (
-            <p className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
-              {CARRIER_CACHE_MISSING_MESSAGE}
-            </p>
-          )}
-
-          <div className="space-y-2">
-            <Label>Sign below</Label>
-            <div ref={sigHostRef} className="rounded-lg border border-border bg-background">
-              <SignatureCanvas
-                ref={(r) => { sigRef.current = r; }}
-                penColor="#0D0D0D"
-                canvasProps={{ width: sigWidth, height: 144, className: 'rounded-lg touch-none' }}
-              />
-            </div>
-            <button type="button" className="text-xs text-muted-foreground underline" onClick={() => sigRef.current?.clear()}>
-              Clear signature
-            </button>
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setStep(3)} disabled={saving}>Back</Button>
-            <Button className="flex-1" onClick={() => submit(true)} disabled={saving || !cachedCarrier}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit notice'}
-            </Button>
-          </div>
+        <div className="space-y-2">
+          <Label>Can the device still record your hours accurately?</Label>
+          <RadioGroup value={hinders} onValueChange={(v) => setHinders(v as 'yes' | 'no')} className="gap-2">
+            <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+              <RadioGroupItem value="yes" id="hinders-yes" />
+              No — I cannot rely on it (I will keep paper logs)
+            </label>
+            <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+              <RadioGroupItem value="no" id="hinders-no" />
+              Yes — hours are still recording correctly
+            </label>
+          </RadioGroup>
         </div>
+      </div>
+
+      {/* What you are signing */}
+      <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-2">
+        <div className="font-semibold text-foreground">{cachedCarrier?.legal_name ?? '—'}</div>
+        <div className="text-xs text-muted-foreground">
+          USDOT {cachedCarrier?.usdot_number ?? '—'} · MC {cachedCarrier?.mc_number ?? '—'}
+        </div>
+        <dl className="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 pt-2 text-xs">
+          <dt className="text-muted-foreground">Driver</dt><dd>{driverName}</dd>
+          <dt className="text-muted-foreground">Truck</dt><dd>{truckNumber || '—'}</dd>
+          <dt className="text-muted-foreground">Discovered</dt>
+          <dd>{discoveredAt ? discoveredDate.toLocaleString() : '—'}</dd>
+          <dt className="text-muted-foreground">Location</dt><dd>{location || '—'}</dd>
+          <dt className="text-muted-foreground">Device</dt>
+          <dd>{selectedModel ? `${selectedModel.provider_name} ${selectedModel.device_model}` : '—'}{serial ? ` · ${serial}` : ''}</dd>
+          <dt className="text-muted-foreground">Malfunction</dt>
+          <dd>{code ? `${code} — ${MALFUNCTION_CODE_LABEL[code]}` : '—'}</dd>
+          <dt className="text-muted-foreground">Repair deadline</dt><dd>{repairDeadline.toLocaleDateString()}</dd>
+        </dl>
+        <p className="pt-2 text-xs text-muted-foreground">
+          I am giving {cachedCarrier?.legal_name ?? 'my motor carrier'} written notice of this ELD malfunction
+          within 24 hours of discovering it, as required by 49 CFR 395.34(a)(1).
+        </p>
+      </div>
+
+      {!cachedCarrier && (
+        <p className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+          {CARRIER_CACHE_MISSING_MESSAGE}
+        </p>
       )}
+
+      <div className="space-y-2">
+        <Label>Sign below</Label>
+        <div ref={sigHostRef} className="rounded-lg border border-border bg-background">
+          <SignatureCanvas
+            ref={(r) => { sigRef.current = r; }}
+            penColor="#0D0D0D"
+            canvasProps={{ width: sigWidth, height: 144, className: 'rounded-lg touch-none' }}
+          />
+        </div>
+        <button type="button" className="text-xs text-muted-foreground underline" onClick={() => sigRef.current?.clear()}>
+          Clear signature
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <Button
+          className="w-full"
+          onClick={() => submit(true)}
+          disabled={saving || !cachedCarrier || missing.length > 0}
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit notice'}
+        </Button>
+        {missing.length > 0 && (
+          <p className="text-center text-xs text-muted-foreground">
+            Still needed: {missing.join(', ')}.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

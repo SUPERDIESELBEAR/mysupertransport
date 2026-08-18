@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AlertTriangle, ClipboardList, Printer } from 'lucide-react';
+import { ClipboardList, Info, Printer } from 'lucide-react';
 import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@/lib/eld/carrierIdentity';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
@@ -24,7 +24,6 @@ import type { DraftSegment } from '@/hooks/useRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RodsDayStrip from './RodsDayStrip';
 import RodsDayEditor from './RodsDayEditor';
-import ReconstructionWizard from './ReconstructionWizard';
 import LogSyncBanner from './LogSyncBanner';
 import { syncNoticeDates } from '@/lib/eld/offline/cache';
 
@@ -45,9 +44,8 @@ export default function RodsView({
 }) {
   const { activeEvent, loading: eventLoading } = useEldMalfunction(operatorId);
   const isDemo = useIsDemoOperator(operatorId);
-  const { dates, byDate, completeCount, reconstructionComplete, loading, refresh } = useRodsDays(operatorId);
+  const { dates, byDate, loading, refresh } = useRodsDays(operatorId);
   const [selected, setSelected] = useState<string | null>(null);
-  const [reconstructing, setReconstructing] = useState(false);
   const [prevSegments, setPrevSegments] = useState<DraftSegment[] | null>(null);
   const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
   const [diverged, setDiverged] = useState<Set<string>>(new Set());
@@ -107,7 +105,9 @@ export default function RodsView({
     home_terminal_address: homeTerminalAddress ?? carrier?.home_terminal_address ?? null,
   }), [unitNumber, homeTerminalAddress, carrier]);
 
-  // Segments from the day before the one being edited, for "Copy yesterday".
+  // Segments from the day before the one being edited. They seed the midnight
+  // carry-in (a status runs until the next tap, so a new day starts in the one
+  // the last day ended in) and supply the recent-town chips.
   useEffect(() => {
     void (async () => {
       if (!selected) { setPrevSegments(null); return; }
@@ -131,6 +131,19 @@ export default function RodsView({
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
+  /**
+   * Rollover prompt. Yesterday has ended, so if it is on file and unsigned it
+   * is the one thing this screen should ask for before anything else.
+   */
+  function yesterdayNeedingCertification(): string | null {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const iso = d.toLocaleDateString('en-CA');
+    const row = byDate.get(iso);
+    if (!row || row.status === 'certified' || row.status === 'superseded' || row.locked) return null;
+    return iso;
+  }
+
   if (eventLoading || loading) {
     return <div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>;
   }
@@ -147,20 +160,6 @@ export default function RodsView({
           <Printer className="mr-2 h-4 w-4" /> Print 8 blank sheets
         </Button>
       </div>
-    );
-  }
-
-  if (reconstructing) {
-    return (
-      <ReconstructionWizard
-        operatorId={operatorId}
-        driverName={driverName}
-        dates={dates}
-        byDate={byDate}
-        defaults={defaults}
-        onExit={() => { setReconstructing(false); void refresh(); }}
-        onChanged={refresh}
-      />
     );
   }
 
@@ -188,17 +187,29 @@ export default function RodsView({
         </div>
       </div>
 
-      {!reconstructionComplete && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <AlertTriangle className="h-4 w-4" /> Reconstruction incomplete
+      {(() => {
+        const pending = yesterdayNeedingCertification();
+        if (!pending) return null;
+        return (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
+            <div className="text-sm font-semibold text-foreground">Yesterday’s log is not signed</div>
+            <p className="text-xs text-muted-foreground">
+              The day has ended, so it can be certified now. Check it over and sign it.
+            </p>
+            <Button size="sm" onClick={() => setSelected(pending)}>Review and sign</Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {dates.length - completeCount} of {dates.length} days still need a log — today plus the previous 7.
-          </p>
-          <Button size="sm" onClick={() => setReconstructing(true)}>Reconstruct my logs</Button>
+        );
+      })()}
+
+      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1.5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Info className="h-4 w-4 text-primary" /> The previous 7 days
         </div>
-      )}
+        <p className="text-xs text-muted-foreground">
+          You do not have to re-key them here. Those days are already in Motive — if an officer asks, show them
+          there. Keep your paper logs going from the day the ELD went down.
+        </p>
+      </div>
 
       {stalledDates.map((date) => (
         <LogSyncBanner

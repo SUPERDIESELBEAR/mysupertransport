@@ -237,12 +237,11 @@ export const HANDLERS: Record<SyncKind, SyncHandler> = {
   },
 
   // `create_eld_document_day` and `replace_rods_document` had handlers here and
-  // no enqueue site: UploadEldLogModal calls both RPCs directly. They were also
-  // already behind that caller — neither passed `p_display_document_path` or
-  // `p_display_conversion_failed`, so filing through them would have produced
-  // document days with no display rendition. Deleted rather than wired up. If
-  // an offline path for document days is ever wanted, write it against the
-  // modal's current argument list, not against these.
+  // no enqueue site. Both RPCs were dropped on 2026-08-18 along with the
+  // driver-facing upload modal that was their only caller — zero
+  // record_source = 'eld_document' rows existed. The column, its CHECK value
+  // and the P0019/P0045/P0046 guards remain, so a staff-side filing path is an
+  // additive change. See docs/deferred-removals.md.
   /**
    * 395.34(a)(1) notice PDF. `notice_uploaded_at` is stamped only after the
    * bytes land, because the server must never try to email a notice that has

@@ -256,10 +256,9 @@ export type SyncKind =
   | 'certify_rods_day'
   | 'save_draft_day'
   | 'save_draft_segments'
-  // 'create_eld_document_day' and 'replace_rods_document' were removed: nothing
-  // ever enqueued them, and their handlers had already drifted from the RPC
-  // arguments UploadEldLogModal actually sends. The RPCs themselves stay; only
-  // the offline path that no caller reached is gone. An entry carrying one of
+  // 'create_eld_document_day' and 'replace_rods_document' were removed here,
+  // and the RPCs behind them were dropped on 2026-08-18 with the driver-facing
+  // ELD-document upload (docs/deferred-removals.md). An entry carrying one of
   // these kinds cannot exist, and the runner fails an unknown kind loudly
   // ("No handler for ...") rather than crashing the drain.
   | 'upload_notice_pdf'

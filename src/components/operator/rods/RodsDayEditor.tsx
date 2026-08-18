@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { ArrowLeft, Copy, FileText, Loader2, Lock, PencilLine, Save, Upload } from 'lucide-react';
+import { ArrowLeft, Camera, FileText, Loader2, Lock, PencilLine, Save } from 'lucide-react';
 import { formatMinutes, MINUTES_PER_DAY, STATUS_SHORT } from '@/lib/eld/rodsGridGeometry';
 import { renderRodsDay } from '@/lib/eld/renderRodsDay';
 import { isShortPeriod, validateRodsDay } from '@/lib/eld/rodsValidation';
@@ -12,7 +12,7 @@ import {
   RODS_BUCKET, formatLogDate, rodsChip, showsDerivedTotals, type RodsDay,
 } from '@/lib/eld/rodsTypes';
 import {
-  isHandledFlushError, LOCAL_CERTIFIED_MESSAGE, newLocalId, useRodsDay, type DraftSegment,
+  isHandledFlushError, LOCAL_CERTIFIED_MESSAGE, useRodsDay, type DraftSegment,
 } from '@/hooks/useRodsDay';
 import { buildAmendmentDraft } from '@/lib/eld/buildAmendmentDraft';
 import { diffAmendment, type AmendmentChange } from '@/lib/eld/amendmentDiff';
@@ -23,13 +23,15 @@ import { getCachedDay } from '@/lib/eld/offline/cache';
 import {
   validateSignatureImage, SIGNATURE_INVALID_MESSAGE,
 } from '@/lib/eld/signatureIntegrity';
+import { carryIntoNextDay } from '@/lib/eld/tapLog';
 import RodsGrid from './RodsGrid';
-import DutyStatusTimeline from './DutyStatusTimeline';
+import TapLogEntry from './TapLogEntry';
 import CertifyDayModal from './CertifyDayModal';
 import CertifyMismatchDialog from './CertifyMismatchDialog';
-import UploadEldLogModal from './UploadEldLogModal';
 import LogSyncBanner from './LogSyncBanner';
 import CorrectionRequestBanner from './CorrectionRequestBanner';
+import BolPhotoCard from './BolPhotoCard';
+import type { TownOption } from './LocationPicker';
 
 export default function RodsDayEditor({
   operatorId,
@@ -60,9 +62,37 @@ export default function RodsDayEditor({
   const [legalName, setLegalName] = useState(driverName);
   const [certifyOpen, setCertifyOpen] = useState(false);
   const [amendmentReason, setAmendmentReason] = useState('');
-  const [replaceOpen, setReplaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mismatch, setMismatch] = useState<AmendmentChange[] | null>(null);
+  const seeded = useRef(false);
+
+  /**
+   * Midnight carry-in. A status runs until the next tap, so a day that starts
+   * with nothing is not an empty day — it is the previous day's last status
+   * still running. Seeded once, as a draft entry the driver can correct or
+   * delete; it is never written on its own and never applies to a locked day.
+   */
+  useEffect(() => {
+    if (seeded.current || loading || !day) return;
+    if (day.locked || localCertifiedAt || segments.length > 0) return;
+    const carried = carryIntoNextDay(previousDaySegments ?? []);
+    if (!carried.length) return;
+    seeded.current = true;
+    setSegments(carried);
+  }, [loading, day, localCertifiedAt, segments.length, previousDaySegments, setSegments]);
+
+  /** Towns this driver used yesterday, offered as chips before any typing. */
+  const recentTowns = useMemo<TownOption[]>(() => {
+    const seen = new Set<string>();
+    const out: TownOption[] = [];
+    for (const s of [...(previousDaySegments ?? [])].reverse()) {
+      const key = `${s.city.trim().toLowerCase()}|${s.state.trim().toLowerCase()}`;
+      if (!s.city.trim() || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ city: s.city, state: s.state });
+    }
+    return out;
+  }, [previousDaySegments]);
   /**
    * One token per certification attempt, held across retries. Regenerating it
    * on a retry turns a timed-out-but-committed certification into a P0014 the
@@ -98,26 +128,8 @@ export default function RodsDayEditor({
   });
   const locked = day.locked || !!localCertifiedAt;
   const isDocument = day.record_source === 'eld_document';
-
-  function copyYesterday() {
-    // Deliberately unavailable inside the reconstruction wizard — copying one
-    // day across seven and certifying is fabrication of a federal record.
-    if (isReconstruction || !previousDaySegments?.length) return;
-    setSegments(previousDaySegments.map((s) => ({
-      localId: newLocalId(),
-      start_minute: s.start_minute,
-      end_minute: s.end_minute,
-      duty_status: s.duty_status,
-      // Boundaries and statuses only. Everything place-specific is cleared so
-      // the driver has to enter it for this day.
-      city: '', state: '', remarks: '',
-    })));
-    patchHeader({
-      from_location: null, to_location: null, shipping_document_no: null,
-      total_miles_driving_today: null, total_mileage_today: null,
-    });
-    toast.info('Times copied. Enter the locations, miles and remarks for this day.');
-  }
+  // Only today stamps "now" on a tap; an older day asks for the time instead.
+  const isToday = logDate === new Date().toLocaleDateString('en-CA');
 
   async function save() {
     setBusy(true);
@@ -420,9 +432,6 @@ export default function RodsDayEditor({
             <Button variant="outline" size="sm" onClick={() => openFile(day.source_document_path)}>
               <FileText className="mr-2 h-4 w-4" /> Open document
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setReplaceOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" /> Replace document
-            </Button>
           </div>
         </div>
       ) : (
@@ -500,12 +509,20 @@ export default function RodsDayEditor({
             </div>
           </div>
 
-          <DutyStatusTimeline
+          <BolPhotoCard
+            operatorId={operatorId}
+            logDate={logDate}
+            path={day.bol_photo_path ?? null}
+            disabled={locked}
+            onChange={(p) => patchHeader({ bol_photo_path: p } as Partial<RodsDay>)}
+          />
+
+          <TapLogEntry
             segments={segments}
             onChange={setSegments}
             disabled={locked}
-            activeLocalId={activeLocalId}
-            onFocusSegment={setActiveLocalId}
+            recentTowns={recentTowns}
+            isToday={isToday}
           />
 
           <div className="space-y-2 rounded-lg border border-border p-3">
@@ -537,11 +554,6 @@ export default function RodsDayEditor({
               {busy || saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save draft
             </Button>
-            {!isReconstruction && !!previousDaySegments?.length && (
-              <Button variant="outline" onClick={copyYesterday} disabled={busy}>
-                <Copy className="mr-2 h-4 w-4" /> Copy yesterday's times
-              </Button>
-            )}
             <Button onClick={() => setCertifyOpen(true)} disabled={busy}>Certify</Button>
           </>
         )}
@@ -587,15 +599,6 @@ export default function RodsDayEditor({
           onUseSaved={useSavedVersion}
         />
       )}
-
-      <UploadEldLogModal
-        open={replaceOpen}
-        onOpenChange={setReplaceOpen}
-        operatorId={operatorId}
-        logDate={logDate}
-        existing={day}
-        onDone={() => { onChanged(); void reload(); }}
-      />
     </div>
   );
 }
