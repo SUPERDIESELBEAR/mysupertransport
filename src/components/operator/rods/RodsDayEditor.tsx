@@ -128,6 +128,8 @@ export default function RodsDayEditor({
   });
   const locked = day.locked || !!localCertifiedAt;
   const isDocument = day.record_source === 'eld_document';
+  // Only today stamps "now" on a tap; an older day asks for the time instead.
+  const isToday = logDate === new Date().toLocaleDateString('en-CA');
 
   async function save() {
     setBusy(true);
