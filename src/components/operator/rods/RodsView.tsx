@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AlertTriangle, ClipboardList, Printer } from 'lucide-react';
+import { ClipboardList, Info, Printer } from 'lucide-react';
 import { readCachedCarrier, rodsDayCarrierSnapshot, type CachedCarrier } from '@/lib/eld/carrierIdentity';
 import { renderDutyStatusGrid } from '@/lib/eld/renderDutyStatusGrid';
 import { useEldMalfunction } from '@/hooks/useEldMalfunction';
@@ -24,7 +24,6 @@ import type { DraftSegment } from '@/hooks/useRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RodsDayStrip from './RodsDayStrip';
 import RodsDayEditor from './RodsDayEditor';
-import ReconstructionWizard from './ReconstructionWizard';
 import LogSyncBanner from './LogSyncBanner';
 import { syncNoticeDates } from '@/lib/eld/offline/cache';
 
@@ -45,9 +44,8 @@ export default function RodsView({
 }) {
   const { activeEvent, loading: eventLoading } = useEldMalfunction(operatorId);
   const isDemo = useIsDemoOperator(operatorId);
-  const { dates, byDate, completeCount, reconstructionComplete, loading, refresh } = useRodsDays(operatorId);
+  const { dates, byDate, loading, refresh } = useRodsDays(operatorId);
   const [selected, setSelected] = useState<string | null>(null);
-  const [reconstructing, setReconstructing] = useState(false);
   const [prevSegments, setPrevSegments] = useState<DraftSegment[] | null>(null);
   const [carrier, setCarrier] = useState<CachedCarrier | null>(null);
   const [diverged, setDiverged] = useState<Set<string>>(new Set());
