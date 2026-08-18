@@ -645,7 +645,7 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
       </AlertDialog>
 
       <AlertDialog open={!!confirmReturn} onOpenChange={(v) => { if (!v && !returnSendingId) setConfirmReturn(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-3xl w-[95vw] max-h-[90dvh] flex flex-col">
           <AlertDialogHeader>
             <AlertDialogTitle>Email equipment return instructions?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -654,22 +654,60 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                 const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || 'this driver';
                 return `${name} will be emailed the two mailing addresses, the list of equipment on this sheet, and a button that opens the assignment sheet so they can upload their shipping receipt and tracking number.`;
               })()}
-              {confirmReturn?.operator?.applications?.email
-                ? ` Sending to ${confirmReturn.operator.applications.email}.`
-                : ' No email address is on file for this driver.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="space-y-2 min-h-0 flex-1 flex flex-col">
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
+              <div>
+                <span className="text-muted-foreground">To: </span>
+                {returnPreview?.recipient || confirmReturn?.operator?.applications?.email ? (
+                  <span className="font-medium text-foreground break-all">
+                    {returnPreview?.recipient ?? confirmReturn?.operator?.applications?.email}
+                  </span>
+                ) : (
+                  <span className="text-destructive">No email address is on file for this driver.</span>
+                )}
+              </div>
+              {returnPreview?.subject && (
+                <div>
+                  <span className="text-muted-foreground">Subject: </span>
+                  <span className="font-medium text-foreground">{returnPreview.subject}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-h-[280px] rounded-lg border border-border overflow-hidden bg-background">
+              {returnPreviewLoading ? (
+                <div className="h-full min-h-[280px] flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Building preview…
+                </div>
+              ) : returnPreviewError ? (
+                <div className="h-full min-h-[280px] flex items-center justify-center px-6 text-center text-sm text-destructive">
+                  {returnPreviewError}
+                </div>
+              ) : returnPreview ? (
+                <iframe
+                  title="Return instructions email preview"
+                  srcDoc={returnPreview.html}
+                  sandbox=""
+                  className="w-full h-full min-h-[380px]"
+                />
+              ) : null}
+            </div>
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={!!returnSendingId}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!!returnSendingId || !confirmReturn?.operator?.applications?.email}
+              disabled={!!returnSendingId || returnPreviewLoading || !(returnPreview?.recipient || confirmReturn?.operator?.applications?.email)}
               onClick={(e) => {
                 e.preventDefault();
                 if (confirmReturn) handleSendReturnInstructions(confirmReturn);
               }}
             >
               {returnSendingId ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
-              Send Instructions
+              Send to Driver
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
