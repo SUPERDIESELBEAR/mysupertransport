@@ -120,6 +120,20 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
   const debouncedSearch = useDebouncedValue(search, 200);
   const [receiptPreview, setReceiptPreview] = useState<{ url: string; name: string } | null>(null);
 
+  /** Paper originals live in the private operator-documents bucket. */
+  const openPaperScan = useCallback(async (sheet: SheetWithItems) => {
+    if (!sheet.paper_scan_path) return;
+    const { data, error } = await supabase.storage
+      .from('operator-documents')
+      .createSignedUrl(sheet.paper_scan_path, 60 * 10);
+    if (error || !data?.signedUrl) {
+      console.error('[SignOffSheetList] paper scan signed url failed', error);
+      toast({ title: 'Could not open the paper original', description: error?.message, variant: 'destructive' });
+      return;
+    }
+    setReceiptPreview({ url: data.signedUrl, name: sheet.paper_scan_name ?? 'Paper assignment sheet' });
+  }, []);
+
   const fetchSheets = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -457,6 +471,26 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                     })()}
                     {sheet.signed_at && (
                       <div className="text-xs text-muted-foreground">Signed: {format(new Date(sheet.signed_at), 'MM/dd/yyyy h:mm a')}</div>
+                    )}
+                    {sheet.is_paper_original && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
+                        <Badge variant="secondary" className="shrink-0">Paper original</Badge>
+                        <span className="text-muted-foreground">
+                          Recorded{sheet.recorded_by_name ? ` by ${sheet.recorded_by_name}` : ''}
+                          {sheet.recorded_at ? ` on ${format(new Date(sheet.recorded_at), 'MM/dd/yyyy')}` : ''}
+                        </span>
+                        {sheet.paper_scan_path && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => void openPaperScan(sheet)}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            View original
+                          </Button>
+                        )}
+                      </div>
                     )}
                     {returnRequested && returnReceipts.length === 0 && (
                       <div className="mt-2 flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs text-warning">

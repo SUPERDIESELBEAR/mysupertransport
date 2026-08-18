@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { DateInput } from '@/components/ui/date-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, Save, Cpu, Camera, Gauge, AlertTriangle, RectangleHorizontal, FileText } from 'lucide-react';
+import { Loader2, Send, Save, Cpu, Camera, Gauge, AlertTriangle, RectangleHorizontal, FileText, Upload, X } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DriverCombobox from '@/components/inspection/DriverCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
@@ -71,6 +72,8 @@ interface PlateAssignment {
 }
 
 const BESTPASS_FEE_CENTS = 6000;
+const PAPER_SCAN_MAX_BYTES = 10 * 1024 * 1024;
+const PAPER_SCAN_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
 
 export default function CreateSignOffSheetModal({ open, initialOperatorId, onClose, onSaved }: Props) {
   const { user } = useAuth();
@@ -95,6 +98,13 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
   const [includePlate, setIncludePlate] = useState(false);
   const [includeRegistration, setIncludeRegistration] = useState(false);
   const [registrationNote, setRegistrationNote] = useState('');
+
+  // Paper backfill mode
+  const [mode, setMode] = useState<'new' | 'paper'>('new');
+  const [signedDate, setSignedDate] = useState<string>('');
+  const [paperFile, setPaperFile] = useState<File | null>(null);
+  const [heldEquipmentIds, setHeldEquipmentIds] = useState<Set<string>>(new Set());
+  const isPaper = mode === 'paper';
 
   const selectedOperator = useMemo(() => operators.find(o => o.operatorId === selectedOperatorId), [operators, selectedOperatorId]);
 
@@ -128,10 +138,40 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
       setIncludeRegistration(false);
       setRegistrationNote('');
       setPlateAssignment(null);
+      setMode('new');
+      setSignedDate('');
+      setPaperFile(null);
+      setHeldEquipmentIds(new Set());
       setSaving(false);
       setSending(false);
     }
   }, [open, initialOperatorId]);
+
+  // Devices this driver already holds (open assignments) — selectable in paper mode.
+  useEffect(() => {
+    if (!open || !selectedOperatorId) { setHeldEquipmentIds(new Set()); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('equipment_assignments')
+        .select('equipment_id')
+        .eq('operator_id', selectedOperatorId)
+        .is('returned_at', null);
+      if (cancelled) return;
+      setHeldEquipmentIds(new Set((data ?? []).map((r: any) => r.equipment_id).filter(Boolean)));
+    })();
+    return () => { cancelled = true; };
+  }, [open, selectedOperatorId]);
+
+  // Selecting a different driver invalidates device choices tied to the old one.
+  useEffect(() => {
+    if (!isPaper) return;
+    setDevices({
+      eld: { equipmentId: null, serial: null },
+      dash_cam: { equipmentId: null, serial: null },
+      bestpass: { equipmentId: null, serial: null },
+    });
+  }, [selectedOperatorId, isPaper]);
 
   // Pull the driver's currently open MO Plate Registry assignment.
   useEffect(() => {
@@ -221,7 +261,12 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
   };
 
   const availableDevices = (type: InventoryDeviceType) => {
-    return inventory.filter(i => i.device_type === type && i.status === 'available');
+    return inventory.filter(i => {
+      if (i.device_type !== type) return false;
+      if (i.status === 'available') return true;
+      // Paper backfill also lists devices this driver already holds.
+      return isPaper && heldEquipmentIds.has(i.id);
+    });
   };
 
   const updateDevice = (type: InventoryDeviceType, equipmentId: string | null) => {
@@ -268,6 +313,78 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
       bestpassFeeCents: includeBestPass ? BESTPASS_FEE_CENTS : null,
       items,
     };
+  };
+
+  const handlePickPaperFile = (file: File | null) => {
+    if (!file) { setPaperFile(null); return; }
+    if (!PAPER_SCAN_TYPES.includes(file.type)) {
+      toast({ title: 'Unsupported file', description: 'Upload a PDF, JPG, or PNG.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > PAPER_SCAN_MAX_BYTES) {
+      toast({ title: 'File too large', description: 'Maximum size is 10MB.', variant: 'destructive' });
+      return;
+    }
+    setPaperFile(file);
+  };
+
+  const handleSavePaper = async () => {
+    if (!selectedOperatorId) {
+      toast({ title: 'Please select a driver', variant: 'destructive' });
+      return;
+    }
+    if (!hasAtLeastOneDevice) {
+      toast({ title: 'Select at least one device on the paper sheet', variant: 'destructive' });
+      return;
+    }
+    if (!signedDate) {
+      toast({ title: 'Enter the date the paper sheet was signed', variant: 'destructive' });
+      return;
+    }
+    if (!paperFile) {
+      toast({ title: 'Upload a scan of the signed paper sheet', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const ext = paperFile.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const path = `osas-paper/${selectedOperatorId}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, paperFile, { contentType: paperFile.type, upsert: false });
+      if (uploadError) {
+        console.error('[CreateSignOffSheetModal] paper scan upload failed', uploadError);
+        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+
+      const { error } = await supabase.functions.invoke('send-osas-to-operator', {
+        body: {
+          ...buildPayload(),
+          paperOriginal: true,
+          signedDate,
+          paperScanPath: path,
+          paperScanName: paperFile.name,
+        },
+      });
+      if (error) {
+        const details = await getEdgeFunctionErrorMessage(error, 'Could not save paper sheet');
+        await supabase.storage.from('operator-documents').remove([path]);
+        toast({ title: 'Error', description: details, variant: 'destructive' });
+        return;
+      }
+      toast({
+        title: '✅ Paper sheet recorded',
+        description: 'The signed original is on file. No email was sent to the driver.',
+      });
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      console.error('[CreateSignOffSheetModal] paper save failed', err);
+      toast({ title: 'Error', description: err?.message ?? 'Could not save paper sheet', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async (sendToOperator: boolean) => {
@@ -325,13 +442,21 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Sign-off Sheet</DialogTitle>
+          <DialogTitle>{isPaper ? 'Record Paper Assignment Sheet' : 'Create Sign-off Sheet'}</DialogTitle>
           <DialogDescription>
-            Build an Onboard Systems Assignment Sheet (OSAS). All serial numbers must be chosen from inventory.
+            {isPaper
+              ? 'Log an assignment sheet that was already issued and signed on paper. Nothing is emailed to the driver.'
+              : 'Build an Onboard Systems Assignment Sheet (OSAS). All serial numbers must be chosen from inventory.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
+          <Tabs value={mode} onValueChange={(v) => setMode(v as 'new' | 'paper')}>
+            <TabsList className="w-full">
+              <TabsTrigger value="new" className="flex-1">New assignment</TabsTrigger>
+              <TabsTrigger value="paper" className="flex-1">Record existing paper sheet</TabsTrigger>
+            </TabsList>
+          </Tabs>
           {loading ? (
             <div className="py-8 flex items-center justify-center text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -391,7 +516,46 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
               <div className="space-y-1.5">
                 <Label>Assignment Date</Label>
                 <DateInput value={assignmentDate} onChange={setAssignmentDate} />
+                {isPaper && (
+                  <p className="text-xs text-muted-foreground">The date printed on the paper sheet.</p>
+                )}
               </div>
+
+              {isPaper && (
+                <div className="rounded-lg border border-gold/30 bg-gold/5 p-3 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Signed date</Label>
+                    <DateInput value={signedDate} onChange={setSignedDate} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Signed paper sheet (PDF, JPG or PNG)</Label>
+                    {paperFile ? (
+                      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate flex-1 min-w-0">{paperFile.name}</span>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setPaperFile(null)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground hover:bg-muted/40">
+                        <Upload className="h-4 w-4" />
+                        Choose a scan or photo (max 10MB)
+                        <input
+                          type="file"
+                          accept="application/pdf,image/jpeg,image/png"
+                          className="hidden"
+                          onChange={e => handlePickPaperFile(e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Devices the driver already holds are listed below. Recording a paper sheet does not change inventory
+                    status and does not email the driver.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <Label>Devices</Label>
@@ -534,23 +698,36 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
 
         <DialogFooter className="gap-2 sm:gap-2 pt-2">
           <Button variant="outline" onClick={handleClose} disabled={saving || sending}>Cancel</Button>
-          <Button
-            variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            <Save className="h-3.5 w-3.5 mr-1.5" />
-            Save Draft
-          </Button>
-          <Button
-            onClick={() => handleSave(true)}
-            disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
-          >
-            {sending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            <Send className="h-3.5 w-3.5 mr-1.5" />
-            Send to Operator
-          </Button>
+          {isPaper ? (
+            <Button
+              onClick={handleSavePaper}
+              disabled={!selectedOperatorId || !hasAtLeastOneDevice || !signedDate || !paperFile || saving}
+            >
+              {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Save Paper Sheet
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => handleSave(false)}
+                disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
+              >
+                {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Save Draft
+              </Button>
+              <Button
+                onClick={() => handleSave(true)}
+                disabled={!selectedOperatorId || !hasAtLeastOneDevice || saving || sending}
+              >
+                {sending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                Send to Operator
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

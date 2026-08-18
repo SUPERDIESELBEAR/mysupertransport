@@ -3712,7 +3712,13 @@ export type Database = {
           driver_signature_data_url: string | null
           driver_signature_name: string | null
           id: string
+          is_paper_original: boolean
           operator_id: string
+          paper_scan_name: string | null
+          paper_scan_path: string | null
+          recorded_at: string | null
+          recorded_by: string | null
+          recorded_by_name: string | null
           return_completed_at: string | null
           return_requested_at: string | null
           return_requested_by: string | null
@@ -3740,7 +3746,13 @@ export type Database = {
           driver_signature_data_url?: string | null
           driver_signature_name?: string | null
           id?: string
+          is_paper_original?: boolean
           operator_id: string
+          paper_scan_name?: string | null
+          paper_scan_path?: string | null
+          recorded_at?: string | null
+          recorded_by?: string | null
+          recorded_by_name?: string | null
           return_completed_at?: string | null
           return_requested_at?: string | null
           return_requested_by?: string | null
@@ -3768,7 +3780,13 @@ export type Database = {
           driver_signature_data_url?: string | null
           driver_signature_name?: string | null
           id?: string
+          is_paper_original?: boolean
           operator_id?: string
+          paper_scan_name?: string | null
+          paper_scan_path?: string | null
+          recorded_at?: string | null
+          recorded_by?: string | null
+          recorded_by_name?: string | null
           return_completed_at?: string | null
           return_requested_at?: string | null
           return_requested_by?: string | null

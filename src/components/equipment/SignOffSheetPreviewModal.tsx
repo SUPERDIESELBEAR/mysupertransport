@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2, Package } from 'lucide-react';
+import { Loader2, Send, Copy, CheckCircle2, Clock, AlertTriangle, Trash2, Package, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,9 +50,28 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sendingReturn, setSendingReturn] = useState(false);
+  const [loadingScan, setLoadingScan] = useState(false);
   const signature = useSignatureUrl(sheet?.driver_signature_data_url ?? null);
 
   if (!sheet) return null;
+
+  /** Opens the scanned paper original from the private documents bucket. */
+  const openPaperScan = async () => {
+    if (!sheet.paper_scan_path) return;
+    setLoadingScan(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(sheet.paper_scan_path, 60 * 10);
+      if (error || !data?.signedUrl) {
+        toast.error(error?.message ?? 'Could not open the paper original');
+        return;
+      }
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } finally {
+      setLoadingScan(false);
+    }
+  };
 
   const app = sheet.operator?.applications;
   const driverName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || '—';
@@ -146,9 +165,12 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
               <DialogTitle className="text-lg">Onboard Systems Assignment Sheet</DialogTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{driverName}</p>
             </div>
-            <Badge variant={meta.variant} className="shrink-0 mr-7">
-              <span className="flex items-center gap-1.5">{meta.icon}{meta.label}</span>
-            </Badge>
+            <div className="flex shrink-0 flex-col items-end gap-1 mr-7">
+              <Badge variant={meta.variant} className="shrink-0">
+                <span className="flex items-center gap-1.5">{meta.icon}{meta.label}</span>
+              </Badge>
+              {sheet.is_paper_original && <Badge variant="secondary" className="shrink-0">Paper original</Badge>}
+            </div>
           </div>
         </DialogHeader>
 
@@ -213,7 +235,22 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
 
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Signature</h3>
-            {sheet.signed_at ? (
+            {sheet.is_paper_original ? (
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="text-sm font-medium">Signed on paper</div>
+                <div className="text-xs text-muted-foreground">
+                  {sheet.signed_at ? `Signed ${format(new Date(sheet.signed_at), 'MM/dd/yyyy')}` : 'Signed date not recorded'}
+                  {sheet.recorded_by_name ? ` • recorded by ${sheet.recorded_by_name}` : ''}
+                  {sheet.recorded_at ? ` on ${format(new Date(sheet.recorded_at), 'MM/dd/yyyy')}` : ''}
+                </div>
+                {sheet.paper_scan_path && (
+                  <Button variant="outline" size="sm" onClick={() => void openPaperScan()} disabled={loadingScan}>
+                    {loadingScan ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+                    View original
+                  </Button>
+                )}
+              </div>
+            ) : sheet.signed_at ? (
               <div className="rounded-md border border-border p-3 space-y-2">
                 {signature.loading ? (
                   <div className="flex h-24 w-40 items-center justify-center rounded border border-border bg-muted/30 text-xs text-muted-foreground">
