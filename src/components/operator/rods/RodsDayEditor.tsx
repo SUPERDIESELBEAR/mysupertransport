@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ import { getCachedDay } from '@/lib/eld/offline/cache';
 import {
   validateSignatureImage, SIGNATURE_INVALID_MESSAGE,
 } from '@/lib/eld/signatureIntegrity';
+import { carryIntoNextDay } from '@/lib/eld/tapLog';
 import RodsGrid from './RodsGrid';
 import TapLogEntry from './TapLogEntry';
 import CertifyDayModal from './CertifyDayModal';
