@@ -62,9 +62,37 @@ export default function RodsDayEditor({
   const [legalName, setLegalName] = useState(driverName);
   const [certifyOpen, setCertifyOpen] = useState(false);
   const [amendmentReason, setAmendmentReason] = useState('');
-  const [replaceOpen, setReplaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mismatch, setMismatch] = useState<AmendmentChange[] | null>(null);
+  const seeded = useRef(false);
+
+  /**
+   * Midnight carry-in. A status runs until the next tap, so a day that starts
+   * with nothing is not an empty day — it is the previous day's last status
+   * still running. Seeded once, as a draft entry the driver can correct or
+   * delete; it is never written on its own and never applies to a locked day.
+   */
+  useEffect(() => {
+    if (seeded.current || loading || !day) return;
+    if (day.locked || localCertifiedAt || segments.length > 0) return;
+    const carried = carryIntoNextDay(previousDaySegments ?? []);
+    if (!carried.length) return;
+    seeded.current = true;
+    setSegments(carried);
+  }, [loading, day, localCertifiedAt, segments.length, previousDaySegments, setSegments]);
+
+  /** Towns this driver used yesterday, offered as chips before any typing. */
+  const recentTowns = useMemo<TownOption[]>(() => {
+    const seen = new Set<string>();
+    const out: TownOption[] = [];
+    for (const s of [...(previousDaySegments ?? [])].reverse()) {
+      const key = `${s.city.trim().toLowerCase()}|${s.state.trim().toLowerCase()}`;
+      if (!s.city.trim() || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ city: s.city, state: s.state });
+    }
+    return out;
+  }, [previousDaySegments]);
   /**
    * One token per certification attempt, held across retries. Regenerating it
    * on a retry turns a timed-out-but-committed certification into a P0014 the
@@ -100,26 +128,6 @@ export default function RodsDayEditor({
   });
   const locked = day.locked || !!localCertifiedAt;
   const isDocument = day.record_source === 'eld_document';
-
-  function copyYesterday() {
-    // Deliberately unavailable inside the reconstruction wizard — copying one
-    // day across seven and certifying is fabrication of a federal record.
-    if (isReconstruction || !previousDaySegments?.length) return;
-    setSegments(previousDaySegments.map((s) => ({
-      localId: newLocalId(),
-      start_minute: s.start_minute,
-      end_minute: s.end_minute,
-      duty_status: s.duty_status,
-      // Boundaries and statuses only. Everything place-specific is cleared so
-      // the driver has to enter it for this day.
-      city: '', state: '', remarks: '',
-    })));
-    patchHeader({
-      from_location: null, to_location: null, shipping_document_no: null,
-      total_miles_driving_today: null, total_mileage_today: null,
-    });
-    toast.info('Times copied. Enter the locations, miles and remarks for this day.');
-  }
 
   async function save() {
     setBusy(true);
