@@ -17,7 +17,7 @@ describe('TapLogEntry', () => {
   it('shows the status the driver is in and when it started', () => {
     render(<TapLogEntry segments={[seg()]} onChange={() => {}} isToday />);
     expect(screen.getAllByText('1 OFF DUTY').length).toBeGreaterThan(0);
-    expect(screen.getByText(/since 00:00/)).toBeTruthy();
+    expect(screen.getByText(/since 12:00 AM/)).toBeTruthy();
   });
 
   it('lists every change of duty status as a row', () => {
@@ -28,8 +28,8 @@ describe('TapLogEntry', () => {
         isToday
       />,
     );
-    expect(screen.getByText('00:00')).toBeTruthy();
-    expect(screen.getByText('08:00')).toBeTruthy();
+    expect(screen.getByText('12:00 AM')).toBeTruthy();
+    expect(screen.getByText('8:00 AM')).toBeTruthy();
   });
 
   it('a tap records the change and leaves no gap or open end', () => {
