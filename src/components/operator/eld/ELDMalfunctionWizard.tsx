@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { AlertTriangle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import {
   CLOCK_RED,
   MALFUNCTION_CODES, MALFUNCTION_CODE_LABEL, MAX_BACKDATE_HOURS, REPAIR_WINDOW_DAYS,
