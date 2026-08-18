@@ -148,20 +148,6 @@ export default function RodsView({
     );
   }
 
-  if (reconstructing) {
-    return (
-      <ReconstructionWizard
-        operatorId={operatorId}
-        driverName={driverName}
-        dates={dates}
-        byDate={byDate}
-        defaults={defaults}
-        onExit={() => { setReconstructing(false); void refresh(); }}
-        onChanged={refresh}
-      />
-    );
-  }
-
   if (selected) {
     return (
       <RodsDayEditor
@@ -186,17 +172,15 @@ export default function RodsView({
         </div>
       </div>
 
-      {!reconstructionComplete && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <AlertTriangle className="h-4 w-4" /> Reconstruction incomplete
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {dates.length - completeCount} of {dates.length} days still need a log — today plus the previous 7.
-          </p>
-          <Button size="sm" onClick={() => setReconstructing(true)}>Reconstruct my logs</Button>
+      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1.5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Info className="h-4 w-4 text-primary" /> The previous 7 days
         </div>
-      )}
+        <p className="text-xs text-muted-foreground">
+          You do not have to re-key them here. Those days are already in Motive — if an officer asks, show them
+          there. Keep your paper logs going from the day the ELD went down.
+        </p>
+      </div>
 
       {stalledDates.map((date) => (
         <LogSyncBanner
