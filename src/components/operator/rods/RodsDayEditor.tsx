@@ -430,9 +430,6 @@ export default function RodsDayEditor({
             <Button variant="outline" size="sm" onClick={() => openFile(day.source_document_path)}>
               <FileText className="mr-2 h-4 w-4" /> Open document
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setReplaceOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" /> Replace document
-            </Button>
           </div>
         </div>
       ) : (
