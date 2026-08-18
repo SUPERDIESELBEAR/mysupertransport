@@ -21,15 +21,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 /**
- * How long a completed day is left alone before the backstop fires. The app's
- * own rollover prompt gets the whole of the following day first.
- */
-const GRACE_HOURS = 24;
-
-/**
- * Days back from the current local date to the day this job may chase. Two,
- * because at the 08:00 send hour anything more recent is still inside
- * GRACE_HOURS.
+ * Days back from the current local date to the day this job may chase.
+ *
+ * Two, not one. A completed day is left alone for a full 24 hours so the app's
+ * own rollover prompt gets first go at it; at the 08:00 send hour, yesterday
+ * closed only 8 hours ago and is still inside that window.
  */
 const REMINDER_DAY_OFFSET = -2;
 
@@ -95,10 +91,7 @@ Deno.serve(async (req) => {
     if (local.hour !== 8) continue;
     if (!op.user_id) continue;
 
-    // Only ever a day that has been closed for the full grace period. At 08:00
-    // local, yesterday ended 8 hours ago — inside the grace window, and the
-    // app's own rollover prompt still has it. The day before that closed 32
-    // hours ago, so that is the one this chases.
+    // See REMINDER_DAY_OFFSET: the day before yesterday, closed 32 hours ago.
     const targetDate = shiftDate(local.date, REMINDER_DAY_OFFSET);
     const windowStart = targetDate;
     const { data: days } = await supabase
