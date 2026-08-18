@@ -280,6 +280,37 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
     }
   };
 
+  // Load a live render of the email whenever the return dialog opens.
+  useEffect(() => {
+    if (!confirmReturn) {
+      setReturnPreview(null);
+      setReturnPreviewError(null);
+      setReturnPreviewLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setReturnPreview(null);
+    setReturnPreviewError(null);
+    setReturnPreviewLoading(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('send-equipment-return-instructions', {
+          body: { sheetId: confirmReturn.id, preview: true },
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        const d = data as any;
+        if (!d?.html) throw new Error(d?.error || 'Preview unavailable');
+        setReturnPreview({ html: d.html, subject: d.subject ?? '', recipient: d.recipient ?? null });
+      } catch (err: any) {
+        if (!cancelled) setReturnPreviewError(err?.message ?? 'Could not load the email preview.');
+      } finally {
+        if (!cancelled) setReturnPreviewLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [confirmReturn]);
+
 
   if (loading) {
     return (
