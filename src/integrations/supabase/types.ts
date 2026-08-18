@@ -4718,6 +4718,148 @@ export type Database = {
           },
         ]
       }
+      pay_policies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          detention_pct: number
+          effective_date: string
+          fsc_pct: number
+          id: string
+          is_active: boolean
+          is_company_default: boolean
+          layover_pct: number
+          linehaul_pct: number
+          loadout_pct: number
+          lumper_reimbursement_pct: number
+          name: string
+          other_accessorial_pct: number
+          per_ton_pct: number
+          stopoff_pct: number
+          tonu_pct: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          detention_pct?: number
+          effective_date?: string
+          fsc_pct?: number
+          id?: string
+          is_active?: boolean
+          is_company_default?: boolean
+          layover_pct?: number
+          linehaul_pct?: number
+          loadout_pct?: number
+          lumper_reimbursement_pct?: number
+          name: string
+          other_accessorial_pct?: number
+          per_ton_pct?: number
+          stopoff_pct?: number
+          tonu_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          detention_pct?: number
+          effective_date?: string
+          fsc_pct?: number
+          id?: string
+          is_active?: boolean
+          is_company_default?: boolean
+          layover_pct?: number
+          linehaul_pct?: number
+          loadout_pct?: number
+          lumper_reimbursement_pct?: number
+          name?: string
+          other_accessorial_pct?: number
+          per_ton_pct?: number
+          stopoff_pct?: number
+          tonu_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pay_policy_assignments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_end_date: string | null
+          effective_start_date: string
+          id: string
+          notes: string | null
+          operator_id: string
+          pay_policy_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_end_date?: string | null
+          effective_start_date?: string
+          id?: string
+          notes?: string | null
+          operator_id: string
+          pay_policy_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_end_date?: string | null
+          effective_start_date?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          pay_policy_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_policy_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_policy_assignments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_policy_assignments_pay_policy_id_fkey"
+            columns: ["pay_policy_id"]
+            isOneToOne: false
+            referencedRelation: "pay_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pei_accidents: {
         Row: {
           accident_date: string | null
