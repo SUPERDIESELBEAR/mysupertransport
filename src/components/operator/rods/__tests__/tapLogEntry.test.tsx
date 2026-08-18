@@ -16,7 +16,7 @@ const seg = (over: Partial<DraftSegment> = {}): DraftSegment => ({
 describe('TapLogEntry', () => {
   it('shows the status the driver is in and when it started', () => {
     render(<TapLogEntry segments={[seg()]} onChange={() => {}} isToday />);
-    expect(screen.getAllByText('1  OFF DUTY').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1 OFF DUTY').length).toBeGreaterThan(0);
     expect(screen.getByText(/since 00:00/)).toBeTruthy();
   });
 
@@ -35,7 +35,7 @@ describe('TapLogEntry', () => {
   it('a tap records the change and leaves no gap or open end', () => {
     const onChange = vi.fn();
     render(<TapLogEntry segments={[seg()]} onChange={onChange} isToday />);
-    fireEvent.click(screen.getAllByText('3  DRIVING')[0]);
+    fireEvent.click(screen.getAllByText('3 DRIVING')[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -50,7 +50,7 @@ describe('TapLogEntry', () => {
 
   it('a certified day opens nothing', () => {
     render(<TapLogEntry segments={[seg()]} onChange={() => {}} disabled isToday />);
-    fireEvent.click(screen.getAllByText('3  DRIVING')[0]);
+    fireEvent.click(screen.getAllByText('3 DRIVING')[0]);
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 });
