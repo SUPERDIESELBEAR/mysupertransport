@@ -187,6 +187,20 @@ export default function RodsView({
         </div>
       </div>
 
+      {(() => {
+        const pending = yesterdayNeedingCertification();
+        if (!pending) return null;
+        return (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
+            <div className="text-sm font-semibold text-foreground">Yesterday’s log is not signed</div>
+            <p className="text-xs text-muted-foreground">
+              The day has ended, so it can be certified now. Check it over and sign it.
+            </p>
+            <Button size="sm" onClick={() => setSelected(pending)}>Review and sign</Button>
+          </div>
+        );
+      })()}
+
       <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1.5">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Info className="h-4 w-4 text-primary" /> The previous 7 days
