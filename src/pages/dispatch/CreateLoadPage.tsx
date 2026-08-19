@@ -168,6 +168,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
 
       const stopsPayload = v.stops.map(s => ({
         stop_type: s.stop_type,
+        facility_id: s.facility_id ?? '',
         facility_name: s.facility_name ?? '',
         address_line1: s.address_line1 ?? '',
         address_line2: s.address_line2 ?? '',
