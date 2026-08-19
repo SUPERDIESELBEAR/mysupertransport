@@ -3946,6 +3946,45 @@ export type Database = {
           },
         ]
       }
+      load_number_config: {
+        Row: {
+          current_year: number | null
+          id: string
+          include_year: boolean
+          next_sequence: number
+          prefix: string
+          reset_annually: boolean
+          separator: string
+          sequence_padding: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          current_year?: number | null
+          id?: string
+          include_year?: boolean
+          next_sequence?: number
+          prefix?: string
+          reset_annually?: boolean
+          separator?: string
+          sequence_padding?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          current_year?: number | null
+          id?: string
+          include_year?: boolean
+          next_sequence?: number
+          prefix?: string
+          reset_annually?: boolean
+          separator?: string
+          sequence_padding?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       load_status_history: {
         Row: {
           change_source: string | null
@@ -8235,6 +8274,10 @@ export type Database = {
         Args: { _application_id: string }
         Returns: number
       }
+      create_load_with_stops: {
+        Args: { p_load: Json; p_stops: Json }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -8259,6 +8302,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      generate_load_number: { Args: never; Returns: string }
       get_application_by_draft_token: {
         Args: { p_token: string }
         Returns: {
