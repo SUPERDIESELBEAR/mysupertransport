@@ -25,6 +25,7 @@ import {
   RATE_TYPES, RATE_TYPE_LABELS, calcTotalLoadValue,
 } from '@/lib/loadRateMath';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
+import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
 
