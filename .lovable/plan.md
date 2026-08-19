@@ -1,54 +1,46 @@
-# Create Load failure — diagnosis
+# Fix: load creation stores the wrong kind of user id
 
-## Root cause (confirmed)
+Diagnosis confirmed: `create_load_with_stops` writes `auth.uid()` into `created_by` / `updated_by`, which are foreign keys to `profiles(id)`. No profile row has `id = user_id` (163 rows checked), so every attempt fails with `23503 loads_created_by_fkey` during the load insert. Nothing partial is written — the whole function rolls back.
 
-`create_load_with_stops` inserts `created_by` and `updated_by` as `auth.uid()`, but both columns are foreign keys to `profiles(id)` — and in this database `profiles.id` is never the auth user id (163 profile rows, 0 where `id = user_id`; your own profile is `a9f93d0a-…` for auth user `5cca4f77-…`).
+## 1. One shared way to get the actor's profile id
 
-So every call fails on the **loads insert** with a foreign-key violation:
+New `public.current_profile_id()` — `STABLE SECURITY DEFINER`, `search_path = public`, returns `SELECT id FROM public.profiles WHERE user_id = auth.uid()`. Execute revoked from public/anon, granted to authenticated and service_role.
 
-```text
-23503 — insert or update on table "loads" violates foreign key
-        constraint "loads_created_by_fkey"
-```
+## 2. `create_load_with_stops`
 
-The failure happens before the stops loop, inside a single function call, so the whole statement rolls back: **no partial data was written** (no orphan load, no stops, the load number sequence was already consumed by the earlier `generate_load_number()` call, which is expected behavior).
+- `created_by` / `updated_by` use `current_profile_id()`.
+- `dispatcher_id` is derived server-side: it is set to the caller's profile id when the caller holds the dispatcher role, and the `dispatcher_id` key in the payload is ignored. The client stops looking up profiles entirely.
+- No schema change, no form structure change.
 
-## Why the toast says nothing useful
+## 3. Audit of the other TMS tables — four more of the same bug
 
-The client does `catch (e) { e instanceof Error ? e.message : 'Could not create the load.' }`. A supabase-js `PostgrestError` is a plain object, not an `Error` instance, so the real message, `code`, `details`, and `hint` are all discarded and the generic fallback is shown. That is why the console/network snapshot has no Postgres error text.
+Every profiles-FK writer was checked. These insert `auth.uid()` into a `profiles(id)` column and get the same treatment:
 
-## Everything else checked out
+- `log_load_status_change` — `load_status_history.changed_by`
+- `log_broker_factoring_change` — `broker_factoring_history.changed_by`
+- `log_claim_flag_change` — `claim_flag_history.changed_by` (both insert and update branches)
+- `sync_claim_flag_resolution` — `claim_flags.resolved_by`
 
-- **Payload keys**: every key the form sends maps to a `p_load->>'…'` / stop key the function reads. No mismatches.
-- **NOT NULL columns**: only `load_number` (sent), plus columns with defaults (`status`, `load_type`, `rate_type`, timestamps) and stop `load_id` / `stop_sequence` / `stop_type`, all set server-side.
-- **Enums**: cast explicitly in the function (`::load_type`, `::equipment_type`, `::load_handling_type`, `::rate_type`, `::stop_type`), values match the enum labels.
-- **Empty numerics**: the form sends `''` and the function wraps each in `NULLIF(..., '')::numeric`, so blanks become NULL correctly.
-- **Timestamps**: `toIso()` sends ISO-8601 or `''`; `NULLIF(...)::timestamptz` accepts both.
-- **Role check**: passes — `generate_load_number()` succeeded and you hold management/owner.
-- **Triggers**: `loads` and `load_stops` have only BEFORE/AFTER **UPDATE** triggers, none on INSERT.
+Clean — no change needed:
 
-## Payload shape the form sends
+- `company_documents_set_version`, `company_documents_supersede_prior`, `stamp_broker_factoring_status_change` — never touch actor columns.
+- Client code: nothing writes `created_by`/`updated_by`/etc. on the new tables. The broker quick-add in `BrokerSelect.tsx` leaves `created_by` null; the only client profile lookup is the one in `CreateLoadPage.tsx` being removed.
+- `user_view_preferences.user_id` correctly stores the auth user id — untouched.
+- `pay_policies`, `pay_policy_assignments`, `brokers`, `broker_documents`, `company_documents`, `document_send_log`, `load_documents`, `document_exceptions`, `load_number_config` have no server-side writer yet, so nothing to fix — future writers use `current_profile_id()`.
 
-`p_load` — one flat JSON object, all values strings/booleans:
-`load_number, load_type, broker_id, broker_reference_number, dispatcher_id, equipment_type, handling_type, commodity, weight_lbs, bol_number, po_number, rate_type, linehaul_rate, rate_per_mile, rate_per_ton, estimated_tons, fsc_bundled_into_linehaul, fsc_amount, loaded_miles, deadhead_miles, total_load_value, reefer_* (6), loadout_* (7), internal_notes, driver_facing_notes, special_instructions, is_team_load, co_driver_name, is_hazmat, permit_required, permit_cost, permit_recovery_method` — unused fields sent as `''`.
+## 4. Load number separator
 
-`p_stops` — array of `{ stop_type, facility_name, address_line1, address_line2, city, state, zip, contact_name, contact_phone, appointment_start, appointment_end, stop_notes }`.
+Already correct: the seeded row is `prefix=ST`, `separator=''` (empty), `include_year=true`, `padding=3`, `reset_annually=true`, `current_year=2026`, `next_sequence=2`. It produces `ST26001` — the `ST26-004` in the earlier write-up was an illustrative example, not real output. No change, and the sequence counter is left alone.
 
-Example (standard flat-rate load):
+## 5. Client error surfacing
 
-```text
-p_load: { load_number: "ST26-004", load_type: "standard", broker_id: "",
-          dispatcher_id: "", equipment_type: "dry_van",
-          handling_type: "live_load_unload", rate_type: "flat",
-          linehaul_rate: "2500", fsc_bundled_into_linehaul: true,
-          total_load_value: "2500", weight_lbs: "", ...rest "" }
-p_stops: [ { stop_type: "pickup",  city: "Kansas City", state: "MO", ... },
-           { stop_type: "delivery", city: "Dallas",     state: "TX", ... } ]
-```
+New shared `src/lib/dbError.ts`:
 
-## Proposed fix (not implemented — awaiting approval)
+- `getDbErrorMessage(err, fallback)` — reads `message`, `code`, `details`, `hint` off a PostgrestError-shaped object (supabase-js errors are plain objects, not `Error` instances, which is exactly why the toast showed only the generic fallback), and returns a readable string including the code.
+- `logDbError(label, err, payload)` — `console.error` with the full error object and the submitted payload.
 
-1. **Database**: change `create_load_with_stops` so `created_by` / `updated_by` resolve the caller's profile id — `(SELECT id FROM public.profiles WHERE user_id = auth.uid())` — instead of `auth.uid()`. No schema change, no form change.
-2. **Client error surfacing**: replace the `instanceof Error` narrowing in `CreateLoadPage.tsx` with a small helper that reads `message`, `code`, `details`, and `hint` off a PostgrestError-shaped object and shows them in the toast, plus a `console.error` with the full error and the exact payload. Reusable for the rest of the TMS work.
+`CreateLoadPage.tsx` drops the `instanceof Error` narrowing, uses both helpers in its catch, and no longer queries `profiles`.
 
-Optional follow-up worth deciding on: `dispatcher_id` is already resolved to a profile id in the client, so it is consistent with the FK — but the same profile lookup could move server-side for symmetry.
+## 6. Verification
+
+After the migration, save a standard load end to end from the form and confirm the row and its two stops exist with `created_by` pointing at the correct profile.
