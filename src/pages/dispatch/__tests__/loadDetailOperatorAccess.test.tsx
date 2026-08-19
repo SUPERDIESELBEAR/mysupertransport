@@ -301,3 +301,41 @@ describe('assign_load_driver — server-side role and override gates', () => {
     expect(fn!.searchPath).toBe('public');
   });
 });
+
+describe('Load Detail — document and exception visibility', () => {
+  beforeEach(() => {
+    authState.roles = [];
+    tableCalls.length = 0;
+  });
+
+  it('shows documents to an operator without upload or delete controls', async () => {
+    renderDetail(['operator']);
+    expect(await screen.findByText(DOC_NAME)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(`^view ${DOC_NAME}$`, 'i') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(`^download ${DOC_NAME}$`, 'i') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: new RegExp(`^delete ${DOC_NAME}$`, 'i') })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^upload$/i })).not.toBeInTheDocument();
+  });
+
+  it('gives staff upload and delete controls on the same load', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText(DOC_NAME)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^upload$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(`^delete ${DOC_NAME}$`, 'i') })).toBeInTheDocument();
+  });
+
+  it('shows an operator the exception but never the internal resolution notes', async () => {
+    const { container } = renderDetail(['operator']);
+    expect(await screen.findByText('Document Exceptions')).toBeInTheDocument();
+    expect(screen.getByText(/shipper did not provide the document/i)).toBeInTheDocument();
+    expect(screen.queryByText(EXCEPTION_RESOLUTION_NOTE)).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('Resolution Notes');
+  });
+
+  it('shows staff the resolution notes for the same exception', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Document Exceptions')).toBeInTheDocument();
+    expect(screen.getByText('Resolution Notes')).toBeInTheDocument();
+    expect(screen.getByText(EXCEPTION_RESOLUTION_NOTE)).toBeInTheDocument();
+  });
+});
