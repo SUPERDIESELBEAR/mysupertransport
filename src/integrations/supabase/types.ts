@@ -1349,6 +1349,41 @@ export type Database = {
           },
         ]
       }
+      company_settings: {
+        Row: {
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractor_pay_setup: {
         Row: {
           business_name: string | null
@@ -8314,6 +8349,14 @@ export type Database = {
             }
             Returns: undefined
           }
+      assign_load_driver: {
+        Args: {
+          p_load_id: string
+          p_operator_id: string
+          p_override_reason?: string
+        }
+        Returns: Json
+      }
       assign_user_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
@@ -8358,6 +8401,14 @@ export type Database = {
       check_application_email_taken: {
         Args: { p_email: string }
         Returns: boolean
+      }
+      check_driver_eligibility: {
+        Args: { p_operator_id: string }
+        Returns: Json
+      }
+      check_driver_eligibility_bulk: {
+        Args: { p_operator_ids: string[] }
+        Returns: Json
       }
       compliance_status: {
         Args: { days: number; window_days: number }
@@ -9152,6 +9203,10 @@ export type Database = {
           title: string
           version: number
         }[]
+      }
+      unassign_load_driver: {
+        Args: { p_load_id: string; p_reason?: string }
+        Returns: Json
       }
       update_load_status: {
         Args: {
