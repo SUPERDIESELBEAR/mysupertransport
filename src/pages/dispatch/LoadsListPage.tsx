@@ -252,7 +252,7 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
                 {filtered.map(l => (
                   <TableRow
                     key={l.id}
-                    onClick={() => navigate(`/dispatch/loads/${l.id}`)}
+                    onClick={() => openLoad(l.id)}
                     className="cursor-pointer"
                   >
                     <TableCell className="font-mono font-medium text-foreground">{l.load_number}</TableCell>
@@ -280,7 +280,7 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
             {filtered.map(l => (
               <button
                 key={l.id}
-                onClick={() => navigate(`/dispatch/loads/${l.id}`)}
+                onClick={() => openLoad(l.id)}
                 className="w-full text-left rounded-lg border border-border bg-card p-3 active:bg-muted/40 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
