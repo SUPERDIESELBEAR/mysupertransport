@@ -1,54 +1,69 @@
 # Pass 2B — Driver Assignment on Load Detail
 
-Adds driver assign / reassign / unassign to the Load Detail page, backed by a server-side eligibility check and a company-level setting. Pass 1 and 2A sections stay as they are.
+Makes the Driver field in Load Summary interactive, backed by a server-side assignment function with compliance validation. Pass 1 and Pass 2A sections are otherwise untouched.
 
-## What gets built
+## 1. Where the setting lives
 
-**1. Company settings table**
-New `company_settings` table (key/value JSON) so future operational settings share one home. Seeded with `auto_cover_on_driver_assignment = true`, described as: assigning a driver to an `available` load auto-advances it to `covered`; carriers with a separate brokerage or load-planning team may want it off so assignment and status stay independent.
+New `company_settings` table rather than new columns on `load_number_config`. `load_number_config` is a load-numbering concern (prefix, sequence, padding) and this setting is dispatch behavior; mixing them would make the numbering table a catch-all. `company_settings` is a small key/value table that future operational settings can share.
 
-Access: management/owner read + update, dispatcher/onboarding staff read only, operators none. `updated_at` and `updated_by` stamped by triggers.
+- `setting_key` (unique text), `setting_value` (jsonb), `description`, `updated_at`, `updated_by`
+- Seeded with `auto_cover_on_assignment = true` for SUPERTRANSPORT, described as: when on, assigning a driver to an `available` load advances it to `covered`; carriers with a brokerage arm where a separate team builds loads may turn it off so assignment and status stay independent.
+- RLS: management and owner select + update; dispatcher and onboarding staff select only; operators no access. Grants to `authenticated` and `service_role` only. `updated_at` / `updated_by` stamped by triggers.
 
-**2. Eligibility check**
-`check_driver_assignment_eligibility(operator_id, load_id)` returns `{ eligible, issues[], warnings[] }`.
+## 2. Server-side functions
 
-Blocking: operator not active; operator flagged `excluded_from_dispatch`; CDL expired; medical card expired; annual DOT inspection past due; truck registration (IRP cab card) expired.
+`public.check_driver_eligibility(p_operator_id uuid)` — read-only, returns `{ eligible, blocking[], warnings[] }` with plain-language messages including dates ("Medical card expired on March 3, 2026").
 
-Warnings: driver already on another load in `covered` … `pod_received` (names the load number); any of the above documents expiring within 14 days.
+Blocking: operator not active; `excluded_from_dispatch`; `on_hold`; CDL expired; medical card expired; truck annual DOT inspection expired; truck registration expired.
 
-Data sources confirmed in the current schema: `operators.is_active`, `operators.excluded_from_dispatch`, `inspection_documents.expires_at` for the per-driver `CDL (Front)`, `Medical Certificate` and `IRP Registration (cab card)` rows (falling back to `applications.cdl_expiration` / `applications.medical_cert_expiration` when no document row exists), and `truck_dot_inspections.next_due_date` for the annual DOT inspection. Equipment-type matching is skipped as instructed. If a document row is simply missing, that check is reported as "not on file" as a warning rather than a hard block, since a missing record is not the same as an expired one.
+Warnings: operator already assigned to another load in a non-terminal status (names the load number); any of those documents expiring within 14 days.
 
-**3. Assignment functions**
-`assign_driver_to_load(load_id, operator_id, override_reason)`:
-- caller must hold dispatcher, management or owner
-- blocking issues with no override reason → raises, listing them
-- blocking issues with an override reason → management/owner only; dispatchers are refused
-- sets `operator_id` and `updated_by`
-- if `auto_cover_on_driver_assignment` is on and status is `available`, advances to `covered` so the existing history trigger fires; an override reason is carried into that history note
-- every override writes an `audit_log` entry (load, operator, caller, reason)
+Schema sources confirmed in the current database: `operators.is_active`, `operators.excluded_from_dispatch`, `operators.on_hold`, `inspection_documents.expires_at` for the per-driver `CDL (Front)`, `Medical Certificate` and `IRP Registration (cab card)` rows (falling back to `applications.cdl_expiration` and `applications.medical_cert_expiration` when no document row exists), and `truck_dot_inspections.next_due_date` for the annual inspection. A missing document (never uploaded) is reported as a warning, not a hard block, since absent is not the same as expired — called out in the UI text.
+
+A thin companion `public.check_driver_eligibility_bulk(p_operator_ids uuid[])` returns the same payload keyed by operator so the dialog can render one indicator per row in a single round trip instead of one call per driver.
+
+`public.assign_load_driver(p_load_id uuid, p_operator_id uuid, p_override_reason text)`:
+- caller must hold dispatcher, management or owner, else raise
+- runs the eligibility check; blocking failures with no override reason raise a single exception listing every failed check so the UI shows them all at once
+- blocking failures with an override reason require management or owner; a dispatcher attempting it raises
+- sets `loads.operator_id` and `updated_by` via `public.current_profile_id()`
+- when `auto_cover_on_assignment` is true and status is `available`, advances to `covered`, letting `log_load_status_change` fire, then updates that history row with a note that the status advanced automatically on driver assignment and `change_source = 'auto_assignment'`
+- on override, writes an `audit_log` row with load id, operator id, failed checks, reason and acting profile id
 - returns `{ success, auto_advanced, warnings[] }`
 
-`unassign_driver_from_load(load_id, reason)`: same roles, requires a non-empty reason, clears `operator_id`, writes an audit entry, leaves status untouched.
+Unassignment is handled by a matching `public.unassign_load_driver(p_load_id uuid)` with the same role gate; it clears `operator_id` and leaves the status alone.
 
-**4. UI**
-Inside the existing Load Summary driver field. Dispatcher/management/owner see `Assign Driver`, or the name plus `Reassign` / `Unassign`. Onboarding staff and operators see the name only.
+All functions: `SECURITY DEFINER`, `SET search_path = public`, EXECUTE revoked from `public` and `anon`, granted to `authenticated`.
 
-The assign dialog uses the existing shared `DriverCombobox` (searchable by name and unit number, active drivers). Selecting a driver runs the eligibility check immediately and shows the result inline: green when clean, amber panel listing warnings with confirm still enabled, red panel listing blocking issues — disabled confirm plus "management access required" helper text for dispatchers, or an override-reason textarea for management/owner that enables confirm once filled. Success toast mentions the auto-advance to Covered when it happened.
+## 3. UI
 
-Unassign uses a small dialog requiring a reason.
+Driver field in Load Summary becomes interactive for dispatcher, management and owner: `Assign Driver` when empty, otherwise the name plus `Reassign` and `Unassign`.
 
-**5. Refresh and errors**
-Invalidates the load detail, status history and loads list queries. Failures go through `getDbErrorMessage` / `logDbError`.
+The dialog uses the existing shared searchable driver combobox pattern, with an inline eligibility indicator per operator — green check when clear, amber when warnings, red when blocking. Selecting an operator opens a detail panel listing issues and warnings in plain language.
 
-**6. Formatter fix**
-`formatEnumLabel` gains acronym-aware casing so `manual_ui` renders "Manual UI" (and UI, POD, ELD, DOT, CDL, IRP, MC, TONU, BOL benefit everywhere the formatter is used).
+- No blocking issues: `Assign Driver` confirm button.
+- Blocking issues, management or owner: an override section with a required reason and a destructive `Override and Assign` button.
+- Blocking issues, dispatcher: confirm disabled, helper text that management approval is required to override.
 
-**7. Tests**
-Extends `loadDetailOperatorAccess.test.tsx`: an operator sees the driver name but no Assign/Reassign/Unassign controls, and `assign_driver_to_load` is pinned to raise for operator-only callers (same migration-source assertion style used for `update_load_status`). Failing assertions get reported, not loosened.
+Unassign uses its own confirmation dialog and does not change status.
 
-## Technical notes
+Onboarding staff see the driver name with no controls. Operators see their assigned driver name only — no controls, no eligibility data about themselves or anyone else, and no eligibility calls issued.
 
-- Files touched: new migration; `src/lib/loadFormat.ts`; `src/lib/loadDetail.ts` (assign/unassign/eligibility helpers); `src/components/dispatch/loadDetail/LoadSummaryCard.tsx`; new `AssignDriverDialog.tsx` and `UnassignDriverDialog.tsx` under `loadDetail/`; the existing test file.
-- All new functions: `SECURITY DEFINER`, `SET search_path = public`, EXECUTE revoked from `public`/`anon`, granted to `authenticated`.
-- No structural changes to `loads`, `operators` or `load_status_history`.
-- shadcn components only; charcoal/gold tokens, no hardcoded colors.
+## 4. Refresh, errors, formatter
+
+Success invalidates the load detail, status history and loads list queries and toasts the assigned driver's name, mentioning the automatic advance to Covered when it happened. Failures go through `getDbErrorMessage` and `logDbError`.
+
+`formatEnumLabel` gains acronym-aware casing so `manual_ui` renders "Manual UI" and `auto_assignment` renders sensibly, with UI, POD, ELD, DOT, CDL, IRP, MC, BOL and TONU handled for every caller.
+
+## 5. Tests
+
+Extends `loadDetailOperatorAccess.test.tsx`:
+- an operator viewing their own load sees the driver name but no Assign / Reassign / Unassign controls
+- `assign_load_driver` is pinned to raise for operator-only callers
+- the migration source is pinned to show a dispatcher cannot override a blocking check while management and owner can
+
+Same principle as before: a failing assertion gets reported, not loosened.
+
+## Files
+
+New migration; `src/lib/loadFormat.ts`; `src/lib/loadDetail.ts` (assign / unassign / eligibility helpers); `src/components/dispatch/loadDetail/LoadSummaryCard.tsx`; new `AssignDriverDialog.tsx` and `UnassignDriverDialog.tsx` under `loadDetail/`; the existing test file. No structural changes to `loads`, `operators` or `load_status_history`. shadcn components only, charcoal/gold tokens.
