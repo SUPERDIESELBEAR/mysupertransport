@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
+import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 
 interface QuickComposeTarget {
   operatorUserId: string;
