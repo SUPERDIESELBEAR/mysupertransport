@@ -1074,6 +1074,101 @@ export type Database = {
           },
         ]
       }
+      claim_flags: {
+        Row: {
+          actual_claim_amount: number | null
+          claim_type: Database["public"]["Enums"]["claim_type"]
+          created_at: string | null
+          created_by: string | null
+          description: string
+          documentation_url: string | null
+          estimated_claim_amount: number | null
+          flag_level: Database["public"]["Enums"]["claim_flag_level"]
+          id: string
+          is_active: boolean
+          load_id: string
+          reported_at: string
+          reported_by_contact: string | null
+          resolution: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          actual_claim_amount?: number | null
+          claim_type?: Database["public"]["Enums"]["claim_type"]
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          documentation_url?: string | null
+          estimated_claim_amount?: number | null
+          flag_level?: Database["public"]["Enums"]["claim_flag_level"]
+          id?: string
+          is_active?: boolean
+          load_id: string
+          reported_at?: string
+          reported_by_contact?: string | null
+          resolution?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          actual_claim_amount?: number | null
+          claim_type?: Database["public"]["Enums"]["claim_type"]
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          documentation_url?: string | null
+          estimated_claim_amount?: number | null
+          flag_level?: Database["public"]["Enums"]["claim_flag_level"]
+          id?: string
+          is_active?: boolean
+          load_id?: string
+          reported_at?: string
+          reported_by_contact?: string | null
+          resolution?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_flags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_flags_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_flags_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_flags_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_documents: {
         Row: {
           category: Database["public"]["Enums"]["company_document_category"]
@@ -3749,6 +3844,57 @@ export type Database = {
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_status_history: {
+        Row: {
+          change_source: string | null
+          changed_at: string
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          load_id: string
+          new_status: Database["public"]["Enums"]["load_status"]
+          notes: string | null
+          previous_status: Database["public"]["Enums"]["load_status"] | null
+        }
+        Insert: {
+          change_source?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          load_id: string
+          new_status: Database["public"]["Enums"]["load_status"]
+          notes?: string | null
+          previous_status?: Database["public"]["Enums"]["load_status"] | null
+        }
+        Update: {
+          change_source?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          load_id?: string
+          new_status?: Database["public"]["Enums"]["load_status"]
+          notes?: string | null
+          previous_status?: Database["public"]["Enums"]["load_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_status_history_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
             referencedColumns: ["id"]
           },
         ]
@@ -8756,6 +8902,15 @@ export type Database = {
         | "not_approved"
         | "unknown"
         | "pending"
+      claim_flag_level: "watch" | "hold" | "cleared"
+      claim_type:
+        | "damaged_goods"
+        | "late_delivery"
+        | "shortage"
+        | "service_failure"
+        | "rate_dispute"
+        | "documentation_issue"
+        | "other"
       company_document_category:
         | "authority_registration"
         | "tax_financial"
@@ -9053,6 +9208,16 @@ export const Constants = {
         "not_approved",
         "unknown",
         "pending",
+      ],
+      claim_flag_level: ["watch", "hold", "cleared"],
+      claim_type: [
+        "damaged_goods",
+        "late_delivery",
+        "shortage",
+        "service_failure",
+        "rate_dispute",
+        "documentation_issue",
+        "other",
       ],
       company_document_category: [
         "authority_registration",
