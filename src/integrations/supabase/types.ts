@@ -1074,6 +1074,88 @@ export type Database = {
           },
         ]
       }
+      company_documents: {
+        Row: {
+          category: Database["public"]["Enums"]["company_document_category"]
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          document_name: string
+          expiration_date: string | null
+          file_path: string | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          is_current_version: boolean
+          is_sendable: boolean
+          notes: string | null
+          superseded_by_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+          version_number: number
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["company_document_category"]
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          document_name: string
+          expiration_date?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_current_version?: boolean
+          is_sendable?: boolean
+          notes?: string | null
+          superseded_by_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          version_number?: number
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["company_document_category"]
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          document_name?: string
+          expiration_date?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_current_version?: boolean
+          is_sendable?: boolean
+          notes?: string | null
+          superseded_by_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_documents_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "company_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_documents_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractor_pay_setup: {
         Row: {
           business_name: string | null
@@ -1264,6 +1346,70 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "driver_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_send_log: {
+        Row: {
+          broker_id: string | null
+          company_document_id: string
+          id: string
+          message_body: string | null
+          notes: string | null
+          recipient_email: string
+          recipient_name: string | null
+          send_status: string
+          sent_at: string
+          sent_by: string | null
+          subject: string | null
+        }
+        Insert: {
+          broker_id?: string | null
+          company_document_id: string
+          id?: string
+          message_body?: string | null
+          notes?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          send_status?: string
+          sent_at?: string
+          sent_by?: string | null
+          subject?: string | null
+        }
+        Update: {
+          broker_id?: string | null
+          company_document_id?: string
+          id?: string
+          message_body?: string | null
+          notes?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          send_status?: string
+          sent_at?: string
+          sent_by?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_send_log_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_send_log_company_document_id_fkey"
+            columns: ["company_document_id"]
+            isOneToOne: false
+            referencedRelation: "company_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_send_log_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -8084,6 +8230,14 @@ export type Database = {
         | "not_approved"
         | "unknown"
         | "pending"
+      company_document_category:
+        | "authority_registration"
+        | "tax_financial"
+        | "insurance"
+        | "operating"
+        | "contract_template"
+        | "company_policy"
+        | "other"
       daily_dispatch_status:
         | "dispatched"
         | "home"
@@ -8323,6 +8477,15 @@ export const Constants = {
         "not_approved",
         "unknown",
         "pending",
+      ],
+      company_document_category: [
+        "authority_registration",
+        "tax_financial",
+        "insurance",
+        "operating",
+        "contract_template",
+        "company_policy",
+        "other",
       ],
       daily_dispatch_status: [
         "dispatched",
