@@ -4,7 +4,6 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +51,6 @@ interface CreateLoadPageProps {
 export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
