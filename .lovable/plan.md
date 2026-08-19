@@ -31,7 +31,10 @@ A thin companion `public.check_driver_eligibility_bulk(p_operator_ids uuid[])` r
 - on override, writes an `audit_log` row with load id, operator id, failed checks, reason and acting profile id
 - returns `{ success, auto_advanced, warnings[] }`
 
-Unassignment is handled by a matching `public.unassign_load_driver(p_load_id uuid)` with the same role gate; it clears `operator_id` and leaves the status alone.
+Unassignment is handled by a matching `public.unassign_load_driver(p_load_id uuid)` with the same role gate; it clears `operator_id` and returns a JSONB result with any warnings. Status handling mirrors assignment:
+- When `auto_cover_on_assignment` is true and the load is currently `covered`, the status reverts to `available` so the dispatch board never shows a covered load with no driver. The existing `log_load_status_change` trigger fires, then that history row is updated with a note that the load was returned to available on driver unassignment and `change_source = 'auto_unassignment'`.
+- When the load has progressed past `covered` (`dispatched`, `in_transit` or later), the status is left alone — real activity exists against it and the dispatcher should resolve it explicitly — and the response carries a warning so the UI can surface it.
+- When `auto_cover_on_assignment` is false, the status is never reverted, since that configuration intentionally decouples status from assignment.
 
 All functions: `SECURITY DEFINER`, `SET search_path = public`, EXECUTE revoked from `public` and `anon`, granted to `authenticated`.
 
@@ -45,7 +48,7 @@ The dialog uses the existing shared searchable driver combobox pattern, with an 
 - Blocking issues, management or owner: an override section with a required reason and a destructive `Override and Assign` button.
 - Blocking issues, dispatcher: confirm disabled, helper text that management approval is required to override.
 
-Unassign uses its own confirmation dialog and does not change status.
+Unassign uses its own confirmation dialog. Its toast reports the outcome: that the load was returned to Available, or the warning that the load is past Covered and its status was left unchanged for the dispatcher to resolve.
 
 Onboarding staff see the driver name with no controls. Operators see their assigned driver name only — no controls, no eligibility data about themselves or anyone else, and no eligibility calls issued.
 
