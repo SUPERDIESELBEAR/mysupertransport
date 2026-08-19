@@ -161,9 +161,15 @@ export interface AssignableDriver {
   isActive: boolean;
 }
 
-const rpc = supabase.rpc as unknown as (
-  fn: string, args?: Record<string, unknown>,
-) => Promise<{ data: unknown; error: unknown }>;
+type RpcFn = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+
+/** Untyped RPC escape hatch for functions that are not in the generated types.
+ *  Keep this as a wrapper that invokes `supabase.rpc(...)` on the client itself.
+ *  Never shorten it to `const rpc = supabase.rpc` — detaching the method drops its
+ *  `this` binding and every call then fails at runtime with
+ *  "can't access property 'rest', this is undefined". */
+const rpc: RpcFn = (fn, args) =>
+  (supabase.rpc as unknown as RpcFn).call(supabase, fn, args);
 
 /** Operators selectable for assignment, newest naming resolved from applications. */
 export async function fetchAssignableDrivers(): Promise<AssignableDriver[]> {
