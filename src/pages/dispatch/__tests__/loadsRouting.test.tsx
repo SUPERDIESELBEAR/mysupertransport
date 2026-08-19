@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -116,5 +117,43 @@ describe('Loads page routing', () => {
   it('redirects a role without dispatch access away from the loads page', async () => {
     renderApp(['operator']);
     expect(await screen.findByText('dashboard page')).toBeInTheDocument();
+  });
+});
+
+describe('Loads page hosted in the Management shell', () => {
+  function renderHosted() {
+    authState.roles = ['management'];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function Host() {
+      const [loadId, setLoadId] = React.useState<string | null>(null);
+      return (
+        <div>
+          <span>management shell</span>
+          {loadId
+            ? <LoadDetailPlaceholderPage loadId={loadId} onBack={() => setLoadId(null)} />
+            : <LoadsListPage onSelectLoad={setLoadId} />}
+        </div>
+      );
+    }
+    return render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/dashboard?view=loads']}>
+          <Host />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('opens and closes the detail view without leaving the host shell', async () => {
+    renderHosted();
+    const cells = await screen.findAllByText('ST-1042');
+    fireEvent.click(cells[0].closest('tr')!);
+
+    expect(await screen.findByText('Load detail coming soon.')).toBeInTheDocument();
+    expect(screen.getByText('management shell')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /back to loads/i }));
+    expect(await screen.findByRole('heading', { name: 'Loads' })).toBeInTheDocument();
+    expect(screen.getByText('management shell')).toBeInTheDocument();
   });
 });

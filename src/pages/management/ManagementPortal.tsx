@@ -4,6 +4,8 @@ import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import StaffApplicationModal from '@/components/management/StaffApplicationModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
+import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
 import DemoAccountsPanel from '@/components/management/DemoAccountsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -93,7 +95,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -118,7 +120,7 @@ const STATUS_COLORS: Record<string, string> = {
   revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
 };
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -144,6 +146,7 @@ export default function ManagementPortal() {
     return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
@@ -918,6 +921,7 @@ export default function ManagementPortal() {
     { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications',     badge: unreadNotifCount },
     { label: 'Fleet Compliance',  icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance',        badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
     { label: 'Dispatch Board',    icon: <Container className="h-4 w-4" />,      path: 'dispatch',          badge: truckDownCount || undefined },
+    { label: 'Loads',             icon: <Truck className="h-4 w-4" />,          path: 'loads' },
     { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Vehicle Hub',       icon: <Truck className="h-4 w-4" />,           path: 'vehicle-hub' },
     { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,      path: 'inspection-binder' },
@@ -1873,6 +1877,19 @@ export default function ManagementPortal() {
               setSearchParams(next, { replace: true });
               setView('inspection-binder');
             }}
+          />
+        )}
+
+        {view === 'loads' && (
+          <LoadsListPage
+            onSelectLoad={(id) => { setSelectedLoadId(id); setView('load-detail'); }}
+          />
+        )}
+
+        {view === 'load-detail' && (
+          <LoadDetailPlaceholderPage
+            loadId={selectedLoadId}
+            onBack={() => setView('loads')}
           />
         )}
 

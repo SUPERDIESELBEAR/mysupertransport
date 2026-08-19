@@ -88,9 +88,22 @@ async function fetchLoads(): Promise<LoadRow[]> {
   }));
 }
 
-export default function LoadsListPage() {
+interface LoadsListPageProps {
+  /**
+   * Host-supplied row navigation. The Management Portal drives its sections
+   * with internal state, so it passes this instead of relying on the
+   * dispatch-only `/dispatch/loads/:id` path.
+   */
+  onSelectLoad?: (id: string) => void;
+}
+
+export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const openLoad = (id: string) => {
+    if (onSelectLoad) onSelectLoad(id);
+    else navigate(`/dispatch/loads/${id}`);
+  };
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | LoadStatus>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<'all' | EquipmentType>('all');
@@ -239,7 +252,7 @@ export default function LoadsListPage() {
                 {filtered.map(l => (
                   <TableRow
                     key={l.id}
-                    onClick={() => navigate(`/dispatch/loads/${l.id}`)}
+                    onClick={() => openLoad(l.id)}
                     className="cursor-pointer"
                   >
                     <TableCell className="font-mono font-medium text-foreground">{l.load_number}</TableCell>
@@ -267,7 +280,7 @@ export default function LoadsListPage() {
             {filtered.map(l => (
               <button
                 key={l.id}
-                onClick={() => navigate(`/dispatch/loads/${l.id}`)}
+                onClick={() => openLoad(l.id)}
                 className="w-full text-left rounded-lg border border-border bg-card p-3 active:bg-muted/40 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">

@@ -7,8 +7,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import type { LoadStatus } from '@/lib/loadFormat';
 
-export default function LoadDetailPlaceholderPage() {
-  const { id } = useParams<{ id: string }>();
+interface LoadDetailPlaceholderPageProps {
+  /** Host-supplied load id (Management Portal drives sections with state). */
+  loadId?: string | null;
+  /** Host-supplied back handler; defaults to the dispatch loads route. */
+  onBack?: () => void;
+}
+
+export default function LoadDetailPlaceholderPage({ loadId, onBack }: LoadDetailPlaceholderPageProps = {}) {
+  const params = useParams<{ id: string }>();
+  const id = loadId ?? params.id;
   const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery({
@@ -27,7 +35,12 @@ export default function LoadDetailPlaceholderPage() {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate('/dispatch/loads')}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1.5 -ml-2"
+        onClick={() => (onBack ? onBack() : navigate('/dispatch/loads'))}
+      >
         <ArrowLeft className="h-4 w-4" />
         Back to Loads
       </Button>
