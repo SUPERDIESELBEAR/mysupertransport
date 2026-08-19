@@ -144,6 +144,7 @@ export default function ManagementPortal() {
     return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
@@ -1874,6 +1875,19 @@ export default function ManagementPortal() {
               setSearchParams(next, { replace: true });
               setView('inspection-binder');
             }}
+          />
+        )}
+
+        {view === 'loads' && (
+          <LoadsListPage
+            onSelectLoad={(id) => { setSelectedLoadId(id); setView('load-detail'); }}
+          />
+        )}
+
+        {view === 'load-detail' && (
+          <LoadDetailPlaceholderPage
+            loadId={selectedLoadId}
+            onBack={() => setView('loads')}
           />
         )}
 
