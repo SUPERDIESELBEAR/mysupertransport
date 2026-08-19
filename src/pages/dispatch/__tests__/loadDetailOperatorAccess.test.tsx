@@ -53,6 +53,43 @@ const HISTORY = [
 /** Records every table touched so we can assert operators never read claim_flags. */
 const tableCalls: string[] = [];
 
+const DOC_NAME = 'POD-signed.pdf';
+const LOAD_DOCUMENTS = [
+  {
+    id: 'doc-1',
+    load_id: VISIBLE_LOAD_ID,
+    load_stop_id: null,
+    document_type: 'pod',
+    document_name: DOC_NAME,
+    file_path: `${VISIBLE_LOAD_ID}/pod/abc-${DOC_NAME}`,
+    file_type: 'application/pdf',
+    upload_channel: 'office_upload',
+    uploaded_at: '2026-08-12T16:00:00Z',
+    uploaded_by: 'profile-1',
+    notes: null,
+    damage_noted: false,
+  },
+];
+
+const EXCEPTION_RESOLUTION_NOTE = 'Broker confirmed by phone; waiving the paper POD.';
+const DOCUMENT_EXCEPTIONS = [
+  {
+    id: 'exc-1',
+    load_id: VISIBLE_LOAD_ID,
+    document_type: 'bol',
+    reason: 'shipper_did_not_provide',
+    status: 'approved',
+    driver_notes: 'Shipper had no printer at the dock.',
+    ebol_reference_number: null,
+    reported_at: '2026-08-12T14:00:00Z',
+    reported_by: 'profile-1',
+    resolution_notes: EXCEPTION_RESOLUTION_NOTE,
+    resolved_at: '2026-08-12T17:00:00Z',
+    resolved_by: 'profile-1',
+    resolving_document_id: null,
+  },
+];
+
 vi.mock('@/integrations/supabase/client', () => {
   const makeQuery = (table: string) => {
     tableCalls.push(table);
@@ -62,6 +99,8 @@ vi.mock('@/integrations/supabase/client', () => {
       if (table === 'claim_flags') return CLAIM_FLAGS;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
       if (table === 'load_status_history') return HISTORY;
+      if (table === 'load_documents') return requestedId === HIDDEN_LOAD_ID ? [] : LOAD_DOCUMENTS;
+      if (table === 'document_exceptions') return requestedId === HIDDEN_LOAD_ID ? [] : DOCUMENT_EXCEPTIONS;
       if (table === 'profiles') {
         return [{ id: 'profile-1', user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
       }
@@ -77,7 +116,15 @@ vi.mock('@/integrations/supabase/client', () => {
     q.then = (resolve: (v: unknown) => unknown) => resolve({ data: rowsFor(), error: null });
     return q;
   };
-  return { supabase: { from: (table: string) => makeQuery(table) } };
+  const storage = {
+    from: () => ({
+      list: () => Promise.resolve({ data: [], error: null }),
+      createSignedUrl: () => Promise.resolve({ data: { signedUrl: 'https://example.test/signed' }, error: null }),
+      remove: () => Promise.resolve({ data: null, error: null }),
+      upload: () => Promise.resolve({ data: null, error: null }),
+    }),
+  };
+  return { supabase: { from: (table: string) => makeQuery(table), storage } };
 });
 
 const authState = { roles: [] as AppRole[] };
@@ -252,5 +299,43 @@ describe('assign_load_driver — server-side role and override gates', () => {
     expect(body).toMatch(/IF NOT v_is_mgmt THEN\s*\n\s*RAISE EXCEPTION 'Management approval is required/);
     expect(fn!.isDefiner).toBe(true);
     expect(fn!.searchPath).toBe('public');
+  });
+});
+
+describe('Load Detail — document and exception visibility', () => {
+  beforeEach(() => {
+    authState.roles = [];
+    tableCalls.length = 0;
+  });
+
+  it('shows documents to an operator without upload or delete controls', async () => {
+    renderDetail(['operator']);
+    expect(await screen.findByText(DOC_NAME)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(`^view ${DOC_NAME}$`, 'i') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(`^download ${DOC_NAME}$`, 'i') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: new RegExp(`^delete ${DOC_NAME}$`, 'i') })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^upload$/i })).not.toBeInTheDocument();
+  });
+
+  it('gives staff upload and delete controls on the same load', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText(DOC_NAME)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^upload$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(`^delete ${DOC_NAME}$`, 'i') })).toBeInTheDocument();
+  });
+
+  it('shows an operator the exception but never the internal resolution notes', async () => {
+    const { container } = renderDetail(['operator']);
+    expect(await screen.findByText('Document Exceptions')).toBeInTheDocument();
+    expect(screen.getByText(/shipper did not provide the document/i)).toBeInTheDocument();
+    expect(screen.queryByText(EXCEPTION_RESOLUTION_NOTE)).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('Resolution Notes');
+  });
+
+  it('shows staff the resolution notes for the same exception', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Document Exceptions')).toBeInTheDocument();
+    expect(screen.getByText('Resolution Notes')).toBeInTheDocument();
+    expect(screen.getByText(EXCEPTION_RESOLUTION_NOTE)).toBeInTheDocument();
   });
 });
