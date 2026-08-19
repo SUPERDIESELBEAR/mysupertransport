@@ -37,6 +37,19 @@ const CLAIM_FLAGS = [
   },
 ];
 
+const HISTORY_NOTE = 'Driver was unreachable for two hours; dispatch reverted the load.';
+const HISTORY = [
+  {
+    id: 'hist-1',
+    previous_status: 'in_transit',
+    new_status: 'dispatched',
+    changed_at: '2026-08-12T15:30:00Z',
+    changed_by: 'profile-1',
+    change_source: 'manual_ui',
+    notes: HISTORY_NOTE,
+  },
+];
+
 /** Records every table touched so we can assert operators never read claim_flags. */
 const tableCalls: string[] = [];
 
@@ -48,11 +61,14 @@ vi.mock('@/integrations/supabase/client', () => {
       if (table === 'loads') return requestedId === HIDDEN_LOAD_ID ? [] : [LOAD];
       if (table === 'claim_flags') return CLAIM_FLAGS;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
-      if (table === 'profiles') return [{ user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
+      if (table === 'load_status_history') return HISTORY;
+      if (table === 'profiles') {
+        return [{ id: 'profile-1', user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
+      }
       return [];
     };
     const q: Record<string, unknown> = {};
-    ['select', 'order'].forEach((m) => { q[m] = () => q; });
+    ['select', 'order', 'in'].forEach((m) => { q[m] = () => q; });
     q.eq = (col: string, value: string) => {
       if (col === 'id' || col === 'load_id') requestedId = value;
       return q;
@@ -152,5 +168,50 @@ describe('Load Detail — operator-facing access', () => {
     expect(screen.getByRole('button', { name: /return to loads/i })).toBeInTheDocument();
     expect(screen.queryByText('Load Summary')).not.toBeInTheDocument();
     expect(screen.queryByText('ST-TEST-005')).not.toBeInTheDocument();
+  });
+});
+
+describe('Load Detail — status history note visibility', () => {
+  beforeEach(() => {
+    authState.roles = [];
+    tableCalls.length = 0;
+  });
+
+  it('renders history entries for an operator but never the note text', async () => {
+    const { container } = renderDetail(['operator']);
+    expect(await screen.findByText('Status History')).toBeInTheDocument();
+    // The entry itself renders (timestamp + changer name resolved).
+    await waitFor(() => expect(screen.getByText(/Dale Rivers/)).toBeInTheDocument());
+    expect(screen.queryByText(HISTORY_NOTE)).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('Driver was unreachable');
+  });
+
+  it('shows the status history note text to a dispatcher on the same load', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Status History')).toBeInTheDocument();
+    expect(await screen.findByText(HISTORY_NOTE)).toBeInTheDocument();
+  });
+});
+
+describe('update_load_status — server-side role gate', () => {
+  it('raises for callers without dispatcher/management/owner and pins its ACL', async () => {
+    const { resolveMigrationFunctions } = await import('@/test/helpers/migrationFunctions');
+    const resolved = resolveMigrationFunctions();
+    const fn = Array.from(resolved.values()).find(f => f.name === 'public.update_load_status');
+    expect(fn, 'public.update_load_status must exist in the migration set').toBeTruthy();
+
+    const body = fn!.block;
+    // Role gate: dispatcher/management/owner only, and it must RAISE, not silently no-op.
+    expect(body).toMatch(/has_role\(v_uid, 'management'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'owner'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'dispatcher'\)/);
+    expect(body).toMatch(/IF NOT \(v_is_mgmt OR v_is_disp\) THEN\s*\n\s*RAISE EXCEPTION/);
+    // Billing statuses are management/owner only.
+    expect(body).toMatch(/p_new_status = ANY\(v_billing\) AND NOT v_is_mgmt THEN\s*\n\s*RAISE EXCEPTION/);
+    // Note requirement is enforced server-side too.
+    expect(body).toMatch(/v_requires_note AND v_note IS NULL THEN\s*\n\s*RAISE EXCEPTION/);
+    // Hardened definer.
+    expect(fn!.isDefiner).toBe(true);
+    expect(fn!.searchPath).toBe('public');
   });
 });

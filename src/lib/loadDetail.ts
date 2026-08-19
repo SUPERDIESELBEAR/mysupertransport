@@ -26,6 +26,17 @@ export interface LoadClaimFlag {
   reported_at: string | null;
 }
 
+export interface LoadStatusHistoryEntry {
+  id: string;
+  previous_status: Database['public']['Enums']['load_status'] | null;
+  new_status: Database['public']['Enums']['load_status'];
+  changed_at: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  change_source: string | null;
+  notes: string | null;
+}
+
 const nameOf = (p?: { first_name: string | null; last_name: string | null } | null) =>
   [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim() || null;
 
@@ -89,6 +100,43 @@ export async function fetchLoadClaimFlags(loadId: string): Promise<LoadClaimFlag
     .order('reported_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as LoadClaimFlag[];
+}
+
+/** Status history newest first, with changer names resolved from profiles. */
+export async function fetchLoadStatusHistory(loadId: string): Promise<LoadStatusHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from('load_status_history')
+    .select('id, previous_status, new_status, changed_at, changed_by, change_source, notes')
+    .eq('load_id', loadId)
+    .order('changed_at', { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as Omit<LoadStatusHistoryEntry, 'changed_by_name'>[];
+  const ids = Array.from(new Set(rows.map(r => r.changed_by).filter(Boolean))) as string[];
+  const names = new Map<string, string | null>();
+  if (ids.length) {
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', ids);
+    (profs ?? []).forEach(p => names.set(p.id, nameOf(p)));
+  }
+
+  return rows.map(r => ({ ...r, changed_by_name: r.changed_by ? names.get(r.changed_by) ?? null : null }));
+}
+
+/** Server-enforced status change. Permissions and note rules live in the RPC. */
+export async function updateLoadStatus(
+  loadId: string, newStatus: Database['public']['Enums']['load_status'], note: string | null,
+): Promise<void> {
+  const { error } = await (supabase.rpc as unknown as (
+    fn: string, args: Record<string, unknown>,
+  ) => Promise<{ error: unknown }>)('update_load_status', {
+    p_load_id: loadId,
+    p_new_status: newStatus,
+    p_note: note && note.trim() ? note.trim() : null,
+  });
+  if (error) throw error;
 }
 
 const dateTime = new Intl.DateTimeFormat('en-US', {
