@@ -38,4 +38,9 @@ Nothing to clean up.
 
 In `src/lib/loadDetail.ts`, stop detaching the client method: define the `rpc` helper as a function that calls `supabase.rpc(...)` directly (owner preserved), keeping the same typed signature so `fetchDriverEligibilityBulk`, `assignLoadDriver`, and `unassignLoadDriver` are unchanged at their call sites. Also make `updateLoadStatus` use the same helper for consistency.
 
-Then verify: eligibility marks render per driver in the dialog, an assignment succeeds with the correct toast, and the load moves to Covered where applicable.
+Add a short comment above the helper explaining that the client method must never be detached into a bare constant, so the pattern is not reintroduced by a later refactor.
+
+Then verify:
+- Eligibility marks render per driver in the dialog.
+- An assignment succeeds with the correct toast and the load advances to Covered where applicable.
+- Unassign works end to end, since it shares the same defect and has not been exercised yet: a Covered load reverts to Available, and a load already past Covered keeps its status and returns the warning instead.
