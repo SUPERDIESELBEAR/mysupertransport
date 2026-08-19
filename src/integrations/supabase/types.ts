@@ -3547,6 +3547,326 @@ export type Database = {
           },
         ]
       }
+      load_stops: {
+        Row: {
+          actual_arrival_at: string | null
+          actual_departure_at: string | null
+          address_line1: string | null
+          address_line2: string | null
+          appointment_end: string | null
+          appointment_start: string | null
+          arrival_latitude: number | null
+          arrival_longitude: number | null
+          city: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          departure_latitude: number | null
+          departure_longitude: number | null
+          facility_name: string | null
+          id: string
+          load_id: string
+          state: string | null
+          stop_notes: string | null
+          stop_sequence: number
+          stop_type: Database["public"]["Enums"]["stop_type"]
+          stopoff_charge_amount: number | null
+          stopoff_charge_eligible: boolean | null
+          updated_at: string
+          zip: string | null
+        }
+        Insert: {
+          actual_arrival_at?: string | null
+          actual_departure_at?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          appointment_end?: string | null
+          appointment_start?: string | null
+          arrival_latitude?: number | null
+          arrival_longitude?: number | null
+          city?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          departure_latitude?: number | null
+          departure_longitude?: number | null
+          facility_name?: string | null
+          id?: string
+          load_id: string
+          state?: string | null
+          stop_notes?: string | null
+          stop_sequence: number
+          stop_type: Database["public"]["Enums"]["stop_type"]
+          stopoff_charge_amount?: number | null
+          stopoff_charge_eligible?: boolean | null
+          updated_at?: string
+          zip?: string | null
+        }
+        Update: {
+          actual_arrival_at?: string | null
+          actual_departure_at?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          appointment_end?: string | null
+          appointment_start?: string | null
+          arrival_latitude?: number | null
+          arrival_longitude?: number | null
+          city?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          departure_latitude?: number | null
+          departure_longitude?: number | null
+          facility_name?: string | null
+          id?: string
+          load_id?: string
+          state?: string | null
+          stop_notes?: string | null
+          stop_sequence?: number
+          stop_type?: Database["public"]["Enums"]["stop_type"]
+          stopoff_charge_amount?: number | null
+          stopoff_charge_eligible?: boolean | null
+          updated_at?: string
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_stops_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loads: {
+        Row: {
+          bol_number: string | null
+          broker_id: string | null
+          broker_reference_number: string | null
+          co_driver_name: string | null
+          commodity: string | null
+          confirmed_tons: number | null
+          created_at: string
+          created_by: string | null
+          deadhead_miles: number | null
+          delivered_at: string | null
+          dispatched_at: string | null
+          dispatcher_id: string | null
+          driver_accepted_at: string | null
+          driver_decline_reason: string | null
+          driver_declined_at: string | null
+          driver_facing_notes: string | null
+          equipment_type: Database["public"]["Enums"]["equipment_type"] | null
+          estimated_tons: number | null
+          fsc_amount: number | null
+          fsc_bundled_into_linehaul: boolean | null
+          handling_type:
+            | Database["public"]["Enums"]["load_handling_type"]
+            | null
+          id: string
+          internal_notes: string | null
+          is_hazmat: boolean | null
+          is_team_load: boolean | null
+          linehaul_rate: number | null
+          load_number: string
+          load_type: Database["public"]["Enums"]["load_type"]
+          loaded_miles: number | null
+          loadout_relocation_fee: number | null
+          loadout_trailer_number: string | null
+          loadout_trailer_owner_company: string | null
+          loadout_trailer_owner_contact: string | null
+          loadout_trailer_type: string | null
+          loadout_trailer_vin: string | null
+          loadout_use_period_days: number | null
+          loadout_use_period_end: string | null
+          loadout_use_period_start: string | null
+          operator_id: string | null
+          permit_cost: number | null
+          permit_recovery_method: string | null
+          permit_required: boolean | null
+          po_number: string | null
+          rate_per_mile: number | null
+          rate_per_ton: number | null
+          rate_type: Database["public"]["Enums"]["rate_type"]
+          reefer_acknowledged_at: string | null
+          reefer_continuous_run: boolean | null
+          reefer_notes: string | null
+          reefer_precool_required: boolean | null
+          reefer_temp_f: number | null
+          reefer_temp_max_f: number | null
+          reefer_temp_min_f: number | null
+          special_instructions: string | null
+          status: Database["public"]["Enums"]["load_status"]
+          total_load_value: number | null
+          updated_at: string
+          updated_by: string | null
+          weight_lbs: number | null
+        }
+        Insert: {
+          bol_number?: string | null
+          broker_id?: string | null
+          broker_reference_number?: string | null
+          co_driver_name?: string | null
+          commodity?: string | null
+          confirmed_tons?: number | null
+          created_at?: string
+          created_by?: string | null
+          deadhead_miles?: number | null
+          delivered_at?: string | null
+          dispatched_at?: string | null
+          dispatcher_id?: string | null
+          driver_accepted_at?: string | null
+          driver_decline_reason?: string | null
+          driver_declined_at?: string | null
+          driver_facing_notes?: string | null
+          equipment_type?: Database["public"]["Enums"]["equipment_type"] | null
+          estimated_tons?: number | null
+          fsc_amount?: number | null
+          fsc_bundled_into_linehaul?: boolean | null
+          handling_type?:
+            | Database["public"]["Enums"]["load_handling_type"]
+            | null
+          id?: string
+          internal_notes?: string | null
+          is_hazmat?: boolean | null
+          is_team_load?: boolean | null
+          linehaul_rate?: number | null
+          load_number: string
+          load_type?: Database["public"]["Enums"]["load_type"]
+          loaded_miles?: number | null
+          loadout_relocation_fee?: number | null
+          loadout_trailer_number?: string | null
+          loadout_trailer_owner_company?: string | null
+          loadout_trailer_owner_contact?: string | null
+          loadout_trailer_type?: string | null
+          loadout_trailer_vin?: string | null
+          loadout_use_period_days?: number | null
+          loadout_use_period_end?: string | null
+          loadout_use_period_start?: string | null
+          operator_id?: string | null
+          permit_cost?: number | null
+          permit_recovery_method?: string | null
+          permit_required?: boolean | null
+          po_number?: string | null
+          rate_per_mile?: number | null
+          rate_per_ton?: number | null
+          rate_type?: Database["public"]["Enums"]["rate_type"]
+          reefer_acknowledged_at?: string | null
+          reefer_continuous_run?: boolean | null
+          reefer_notes?: string | null
+          reefer_precool_required?: boolean | null
+          reefer_temp_f?: number | null
+          reefer_temp_max_f?: number | null
+          reefer_temp_min_f?: number | null
+          special_instructions?: string | null
+          status?: Database["public"]["Enums"]["load_status"]
+          total_load_value?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          weight_lbs?: number | null
+        }
+        Update: {
+          bol_number?: string | null
+          broker_id?: string | null
+          broker_reference_number?: string | null
+          co_driver_name?: string | null
+          commodity?: string | null
+          confirmed_tons?: number | null
+          created_at?: string
+          created_by?: string | null
+          deadhead_miles?: number | null
+          delivered_at?: string | null
+          dispatched_at?: string | null
+          dispatcher_id?: string | null
+          driver_accepted_at?: string | null
+          driver_decline_reason?: string | null
+          driver_declined_at?: string | null
+          driver_facing_notes?: string | null
+          equipment_type?: Database["public"]["Enums"]["equipment_type"] | null
+          estimated_tons?: number | null
+          fsc_amount?: number | null
+          fsc_bundled_into_linehaul?: boolean | null
+          handling_type?:
+            | Database["public"]["Enums"]["load_handling_type"]
+            | null
+          id?: string
+          internal_notes?: string | null
+          is_hazmat?: boolean | null
+          is_team_load?: boolean | null
+          linehaul_rate?: number | null
+          load_number?: string
+          load_type?: Database["public"]["Enums"]["load_type"]
+          loaded_miles?: number | null
+          loadout_relocation_fee?: number | null
+          loadout_trailer_number?: string | null
+          loadout_trailer_owner_company?: string | null
+          loadout_trailer_owner_contact?: string | null
+          loadout_trailer_type?: string | null
+          loadout_trailer_vin?: string | null
+          loadout_use_period_days?: number | null
+          loadout_use_period_end?: string | null
+          loadout_use_period_start?: string | null
+          operator_id?: string | null
+          permit_cost?: number | null
+          permit_recovery_method?: string | null
+          permit_required?: boolean | null
+          po_number?: string | null
+          rate_per_mile?: number | null
+          rate_per_ton?: number | null
+          rate_type?: Database["public"]["Enums"]["rate_type"]
+          reefer_acknowledged_at?: string | null
+          reefer_continuous_run?: boolean | null
+          reefer_notes?: string | null
+          reefer_precool_required?: boolean | null
+          reefer_temp_f?: number | null
+          reefer_temp_max_f?: number | null
+          reefer_temp_min_f?: number | null
+          special_instructions?: string | null
+          status?: Database["public"]["Enums"]["load_status"]
+          total_load_value?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          weight_lbs?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loads_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_dispatcher_id_fkey"
+            columns: ["dispatcher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_notification_throttle: {
         Row: {
           last_notified_at: string
@@ -8252,6 +8572,7 @@ export type Database = {
         | "miscellaneous"
       driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
       equipment_assignment_state: "prior" | "during" | "not_assigned"
+      equipment_type: "dry_van" | "reefer" | "flatbed" | "hopper_bottom"
       faq_audience: "owner_operator" | "staff"
       faq_category:
         | "application_process"
@@ -8273,6 +8594,25 @@ export type Database = {
         | "ups_self_install"
         | "owner_operator_install"
         | "supertransport_shop"
+      load_handling_type: "live_load_unload" | "drop_and_hook"
+      load_status:
+        | "available"
+        | "covered"
+        | "dispatched"
+        | "in_transit"
+        | "at_delivery"
+        | "delivered"
+        | "pod_received"
+        | "accessorials_approved"
+        | "ready_to_invoice"
+        | "invoiced"
+        | "factored"
+        | "paid"
+        | "settled"
+        | "closed"
+        | "tonu"
+        | "cancelled"
+      load_type: "standard" | "per_ton" | "loadout"
       mo_docs_status: "not_submitted" | "submitted"
       mo_reg_status: "not_yet" | "yes"
       mvr_status: "not_started" | "requested" | "received"
@@ -8315,6 +8655,7 @@ export type Database = {
         | "final_notice_sent"
         | "completed"
         | "gfe_documented"
+      rate_type: "flat" | "per_mile" | "per_ton" | "percentage_of_load"
       registration_type: "own_registration" | "needs_mo_reg"
       resource_category:
         | "user_manuals"
@@ -8326,6 +8667,7 @@ export type Database = {
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
       staff_availability_mode: "all_drivers" | "specific_drivers" | "none"
+      stop_type: "pickup" | "delivery" | "drop_and_hook"
       yes_no: "no" | "yes"
     }
     CompositeTypes: {
@@ -8503,6 +8845,7 @@ export const Constants = {
       ],
       driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
       equipment_assignment_state: ["prior", "during", "not_assigned"],
+      equipment_type: ["dry_van", "reefer", "flatbed", "hopper_bottom"],
       faq_audience: ["owner_operator", "staff"],
       faq_category: [
         "application_process",
@@ -8527,6 +8870,26 @@ export const Constants = {
         "owner_operator_install",
         "supertransport_shop",
       ],
+      load_handling_type: ["live_load_unload", "drop_and_hook"],
+      load_status: [
+        "available",
+        "covered",
+        "dispatched",
+        "in_transit",
+        "at_delivery",
+        "delivered",
+        "pod_received",
+        "accessorials_approved",
+        "ready_to_invoice",
+        "invoiced",
+        "factored",
+        "paid",
+        "settled",
+        "closed",
+        "tonu",
+        "cancelled",
+      ],
+      load_type: ["standard", "per_ton", "loadout"],
       mo_docs_status: ["not_submitted", "submitted"],
       mo_reg_status: ["not_yet", "yes"],
       mvr_status: ["not_started", "requested", "received"],
@@ -8573,6 +8936,7 @@ export const Constants = {
         "completed",
         "gfe_documented",
       ],
+      rate_type: ["flat", "per_mile", "per_ton", "percentage_of_load"],
       registration_type: ["own_registration", "needs_mo_reg"],
       resource_category: [
         "user_manuals",
@@ -8585,6 +8949,7 @@ export const Constants = {
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
       staff_availability_mode: ["all_drivers", "specific_drivers", "none"],
+      stop_type: ["pickup", "delivery", "drop_and_hook"],
       yes_no: ["no", "yes"],
     },
   },
