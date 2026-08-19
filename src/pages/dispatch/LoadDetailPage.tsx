@@ -135,7 +135,7 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
         </div>
       ) : null}
 
-      <LoadSummaryCard load={load} />
+      <LoadSummaryCard load={load} canAssign={canChangeStatus} canOverride={isManagement} />
       <RateDetailsCard load={load} />
       <ReeferBlock load={load} />
       <LoadoutBlock load={load} />
