@@ -96,7 +96,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
