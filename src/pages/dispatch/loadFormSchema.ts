@@ -8,6 +8,7 @@ const optionalNumber = z
   .refine(v => !v || Number.isFinite(Number(v)), { message: 'Enter a number' });
 
 export const stopSchema = z.object({
+  facility_id: z.string().optional().or(z.literal('')),
   stop_type: z.enum(['pickup', 'delivery', 'drop_and_hook']),
   facility_name: optionalText,
   address_line1: optionalText,
@@ -102,6 +103,7 @@ export type LoadFormValues = z.infer<typeof loadFormSchema>;
 export type StopFormValues = z.infer<typeof stopSchema>;
 
 export const emptyStop = (stop_type: StopFormValues['stop_type']): StopFormValues => ({
+  facility_id: '',
   stop_type,
   facility_name: '',
   address_line1: '',

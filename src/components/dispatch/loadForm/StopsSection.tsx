@@ -1,5 +1,8 @@
 import { useFieldArray, useFormContext } from 'react-hook-form';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowDown, ArrowUp, Info, Plus, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,17 +12,84 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import StateSelect from '@/components/shared/StateSelect';
+import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
+import { FACILITIES_QUERY_KEY, useFacilities } from '@/hooks/useFacilities';
+import type { Facility } from '@/lib/facilities';
 import { STOP_TYPES, STOP_TYPE_LABELS } from '@/lib/loadRateMath';
-import { emptyStop, type LoadFormValues } from '@/pages/dispatch/loadFormSchema';
+import {
+  formatPhone, normalizePhone, normalizeWhitespace, normalizeZip, toTitleCase,
+} from '@/lib/textNormalize';
+import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
+
+/** Fields that are auto-filled from a saved facility and can drift from it. */
+const LINKED_FIELDS = [
+  'facility_name', 'address_line1', 'address_line2', 'city', 'state', 'zip',
+  'contact_name', 'contact_phone',
+] as const;
+
+const facilityValue = (f: Facility, key: (typeof LINKED_FIELDS)[number]) => (f[key] ?? '') as string;
 
 export default function StopsSection() {
   const form = useFormContext<LoadFormValues>();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: facilities } = useFacilities();
   const { fields, append, remove, move } = useFieldArray({ control: form.control, name: 'stops' });
+  const stops = form.watch('stops');
+
+  const facilityFor = (id?: string) => (id ? (facilities ?? []).find(f => f.id === id) ?? null : null);
+
+  const applyFacility = (index: number, f: Facility) => {
+    form.setValue(`stops.${index}.facility_id`, f.id, { shouldDirty: true });
+    LINKED_FIELDS.forEach(key => {
+      form.setValue(`stops.${index}.${key}` as const, facilityValue(f, key), { shouldDirty: true });
+    });
+  };
+
+  const updateSavedFacility = async (index: number, f: Facility) => {
+    const stop = form.getValues(`stops.${index}`);
+    const payload = {
+      facility_name: normalizeWhitespace(stop.facility_name) || f.facility_name,
+      address_line1: stop.address_line1 || null,
+      address_line2: stop.address_line2 || null,
+      city: stop.city || null,
+      state: stop.state || null,
+      zip: stop.zip || null,
+      contact_name: stop.contact_name || null,
+      contact_phone: normalizePhone(stop.contact_phone) || null,
+    };
+    const { error } = await supabase.from('facilities').update(payload).eq('id', f.id);
+    if (error) {
+      logDbError('facilities update from stop', error, payload);
+      toast({
+        variant: 'destructive',
+        title: 'Facility not updated',
+        description: getDbErrorMessage(error, 'Could not update the saved facility.'),
+      });
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
+    toast({ description: `${payload.facility_name} updated.` });
+  };
 
   return (
     <div className="space-y-4">
       {fields.map((field, index) => {
         const isMiddle = index > 0 && index < fields.length - 1;
+        const stop = (stops?.[index] ?? {}) as Partial<StopFormValues>;
+        const linked = facilityFor(stop.facility_id);
+        const differs = !!linked && LINKED_FIELDS.some(key => {
+          const current = key === 'contact_phone'
+            ? normalizePhone((stop[key] as string) ?? '')
+            : normalizeWhitespace((stop[key] as string) ?? '');
+          const saved = key === 'contact_phone'
+            ? normalizePhone(facilityValue(linked, key))
+            : normalizeWhitespace(facilityValue(linked, key));
+          return current !== saved;
+        });
+
         return (
           <div key={field.id} className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -82,19 +152,45 @@ export default function StopsSection() {
                 name={`stops.${index}.facility_name`}
                 render={({ field: f }) => (
                   <FormItem className="lg:col-span-2">
-                    <FormLabel>Facility name</FormLabel>
-                    <FormControl><Input {...f} /></FormControl>
+                    <FormLabel>Facility</FormLabel>
+                    <FacilitySelect
+                      facilityId={stop.facility_id ?? ''}
+                      facilityName={f.value ?? ''}
+                      onNameChange={value => {
+                        f.onChange(value);
+                        form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
+                      }}
+                      onSelectFacility={facility => applyFacility(index, facility)}
+                      onClearFacility={() => form.setValue(`stops.${index}.facility_id`, '', { shouldDirty: true })}
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {linked && differs && (
+                <div className="sm:col-span-2 lg:col-span-3 -mt-1 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                  <Info className="h-3.5 w-3.5 text-gold shrink-0" />
+                  <span>This stop differs from the saved facility &ldquo;{linked.facility_name}&rdquo;.</span>
+                  <button
+                    type="button"
+                    onClick={() => void updateSavedFacility(index, linked)}
+                    className="underline underline-offset-2 text-gold hover:text-gold-light"
+                  >
+                    Update saved facility
+                  </button>
+                </div>
+              )}
+
               <FormField
                 control={form.control}
                 name={`stops.${index}.address_line1`}
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Address line 1</FormLabel>
-                    <FormControl><Input {...f} /></FormControl>
+                    <FormControl>
+                      <Input {...f} onBlur={e => f.onChange(toTitleCase(e.target.value))} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -105,7 +201,9 @@ export default function StopsSection() {
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Address line 2</FormLabel>
-                    <FormControl><Input {...f} /></FormControl>
+                    <FormControl>
+                      <Input {...f} onBlur={e => f.onChange(toTitleCase(e.target.value))} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -116,7 +214,9 @@ export default function StopsSection() {
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>City *</FormLabel>
-                    <FormControl><Input {...f} /></FormControl>
+                    <FormControl>
+                      <Input {...f} onBlur={e => f.onChange(toTitleCase(e.target.value))} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -127,7 +227,7 @@ export default function StopsSection() {
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>State *</FormLabel>
-                    <FormControl><Input {...f} maxLength={40} /></FormControl>
+                    <StateSelect value={f.value ?? ''} onChange={f.onChange} />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -138,7 +238,14 @@ export default function StopsSection() {
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>ZIP</FormLabel>
-                    <FormControl><Input {...f} maxLength={12} /></FormControl>
+                    <FormControl>
+                      <Input
+                        {...f}
+                        inputMode="numeric"
+                        maxLength={10}
+                        onChange={e => f.onChange(normalizeZip(e.target.value))}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -149,7 +256,9 @@ export default function StopsSection() {
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Contact name</FormLabel>
-                    <FormControl><Input {...f} /></FormControl>
+                    <FormControl>
+                      <Input {...f} onBlur={e => f.onChange(toTitleCase(e.target.value))} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -160,7 +269,16 @@ export default function StopsSection() {
                 render={({ field: f }) => (
                   <FormItem>
                     <FormLabel>Contact phone</FormLabel>
-                    <FormControl><Input {...f} maxLength={30} /></FormControl>
+                    <FormControl>
+                      <Input
+                        inputMode="tel"
+                        value={formatPhone(f.value ?? '')}
+                        onChange={e => f.onChange(normalizePhone(e.target.value))}
+                        onBlur={f.onBlur}
+                        name={f.name}
+                        ref={f.ref}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

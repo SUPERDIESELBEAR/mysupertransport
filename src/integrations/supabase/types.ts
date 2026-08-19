@@ -3020,6 +3020,96 @@ export type Database = {
           },
         ]
       }
+      facilities: {
+        Row: {
+          access_notes: string | null
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          default_appointment_required: boolean
+          facility_name: string
+          facility_type: string | null
+          hours_notes: string | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          notes: string | null
+          state: string | null
+          times_used: number
+          updated_at: string
+          updated_by: string | null
+          zip: string | null
+        }
+        Insert: {
+          access_notes?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_appointment_required?: boolean
+          facility_name: string
+          facility_type?: string | null
+          hours_notes?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          notes?: string | null
+          state?: string | null
+          times_used?: number
+          updated_at?: string
+          updated_by?: string | null
+          zip?: string | null
+        }
+        Update: {
+          access_notes?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_appointment_required?: boolean
+          facility_name?: string
+          facility_type?: string | null
+          hours_notes?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          notes?: string | null
+          state?: string | null
+          times_used?: number
+          updated_at?: string
+          updated_by?: string | null
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facilities_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facilities_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faq: {
         Row: {
           answer: string
@@ -4052,6 +4142,7 @@ export type Database = {
           created_at: string
           departure_latitude: number | null
           departure_longitude: number | null
+          facility_id: string | null
           facility_name: string | null
           id: string
           load_id: string
@@ -4079,6 +4170,7 @@ export type Database = {
           created_at?: string
           departure_latitude?: number | null
           departure_longitude?: number | null
+          facility_id?: string | null
           facility_name?: string | null
           id?: string
           load_id: string
@@ -4106,6 +4198,7 @@ export type Database = {
           created_at?: string
           departure_latitude?: number | null
           departure_longitude?: number | null
+          facility_id?: string | null
           facility_name?: string | null
           id?: string
           load_id?: string
@@ -4119,6 +4212,13 @@ export type Database = {
           zip?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "load_stops_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "load_stops_load_id_fkey"
             columns: ["load_id"]
