@@ -1350,6 +1350,105 @@ export type Database = {
           },
         ]
       }
+      document_exceptions: {
+        Row: {
+          created_at: string | null
+          document_type: Database["public"]["Enums"]["load_document_type"]
+          driver_notes: string
+          ebol_reference_number: string | null
+          id: string
+          load_id: string
+          load_stop_id: string | null
+          reason: Database["public"]["Enums"]["document_exception_reason"]
+          report_latitude: number | null
+          report_longitude: number | null
+          reported_at: string
+          reported_by: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolving_document_id: string | null
+          status: Database["public"]["Enums"]["document_exception_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_type: Database["public"]["Enums"]["load_document_type"]
+          driver_notes: string
+          ebol_reference_number?: string | null
+          id?: string
+          load_id: string
+          load_stop_id?: string | null
+          reason: Database["public"]["Enums"]["document_exception_reason"]
+          report_latitude?: number | null
+          report_longitude?: number | null
+          reported_at?: string
+          reported_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolving_document_id?: string | null
+          status?: Database["public"]["Enums"]["document_exception_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document_type?: Database["public"]["Enums"]["load_document_type"]
+          driver_notes?: string
+          ebol_reference_number?: string | null
+          id?: string
+          load_id?: string
+          load_stop_id?: string | null
+          reason?: Database["public"]["Enums"]["document_exception_reason"]
+          report_latitude?: number | null
+          report_longitude?: number | null
+          reported_at?: string
+          reported_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolving_document_id?: string | null
+          status?: Database["public"]["Enums"]["document_exception_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_exceptions_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_exceptions_load_stop_id_fkey"
+            columns: ["load_stop_id"]
+            isOneToOne: false
+            referencedRelation: "load_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_exceptions_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_exceptions_resolving_document_id_fkey"
+            columns: ["resolving_document_id"]
+            isOneToOne: false
+            referencedRelation: "load_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_send_log: {
         Row: {
           broker_id: string | null
@@ -3543,6 +3642,113 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_documents: {
+        Row: {
+          capture_latitude: number | null
+          capture_longitude: number | null
+          created_at: string | null
+          damage_noted: boolean | null
+          damage_notes: string | null
+          document_name: string | null
+          document_type: Database["public"]["Enums"]["load_document_type"]
+          file_path: string | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          is_verified: boolean | null
+          load_id: string
+          load_stop_id: string | null
+          notes: string | null
+          photo_label: string | null
+          photo_sequence: number | null
+          updated_at: string | null
+          upload_channel: Database["public"]["Enums"]["document_upload_channel"]
+          uploaded_at: string
+          uploaded_by: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          capture_latitude?: number | null
+          capture_longitude?: number | null
+          created_at?: string | null
+          damage_noted?: boolean | null
+          damage_notes?: string | null
+          document_name?: string | null
+          document_type: Database["public"]["Enums"]["load_document_type"]
+          file_path?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_verified?: boolean | null
+          load_id: string
+          load_stop_id?: string | null
+          notes?: string | null
+          photo_label?: string | null
+          photo_sequence?: number | null
+          updated_at?: string | null
+          upload_channel?: Database["public"]["Enums"]["document_upload_channel"]
+          uploaded_at?: string
+          uploaded_by?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          capture_latitude?: number | null
+          capture_longitude?: number | null
+          created_at?: string | null
+          damage_noted?: boolean | null
+          damage_notes?: string | null
+          document_name?: string | null
+          document_type?: Database["public"]["Enums"]["load_document_type"]
+          file_path?: string | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_verified?: boolean | null
+          load_id?: string
+          load_stop_id?: string | null
+          notes?: string | null
+          photo_label?: string | null
+          photo_sequence?: number | null
+          updated_at?: string | null
+          upload_channel?: Database["public"]["Enums"]["document_upload_channel"]
+          uploaded_at?: string
+          uploaded_by?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_documents_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_documents_load_stop_id_fkey"
+            columns: ["load_stop_id"]
+            isOneToOne: false
+            referencedRelation: "load_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_documents_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -8565,7 +8771,22 @@ export type Database = {
         | "not_dispatched"
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
+      document_exception_reason:
+        | "shipper_did_not_provide"
+        | "receiver_refused_to_sign"
+        | "lost_or_damaged"
+        | "will_be_emailed_later"
+        | "electronic_bol_no_paper"
+        | "facility_closed_no_contact"
+        | "other"
+      document_exception_status: "pending" | "approved" | "resolved" | "denied"
       document_status: "not_started" | "requested" | "received"
+      document_upload_channel:
+        | "driver_app"
+        | "email_forward"
+        | "office_upload"
+        | "fax_forward"
+        | "system_generated"
       driver_upload_category:
         | "roadside_inspection_report"
         | "repairs_maintenance_receipt"
@@ -8594,6 +8815,19 @@ export type Database = {
         | "ups_self_install"
         | "owner_operator_install"
         | "supertransport_shop"
+      load_document_type:
+        | "rate_confirmation"
+        | "revised_rate_confirmation"
+        | "bol"
+        | "pod"
+        | "scale_ticket"
+        | "lumper_receipt"
+        | "detention_documentation"
+        | "loadout_pickup_inspection"
+        | "loadout_delivery_inspection"
+        | "permit"
+        | "broker_correspondence"
+        | "other"
       load_handling_type: "live_load_unload" | "drop_and_hook"
       load_status:
         | "available"
@@ -8837,7 +9071,24 @@ export const Constants = {
       ],
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
       doc_review_status: ["pending", "approved", "rejected"],
+      document_exception_reason: [
+        "shipper_did_not_provide",
+        "receiver_refused_to_sign",
+        "lost_or_damaged",
+        "will_be_emailed_later",
+        "electronic_bol_no_paper",
+        "facility_closed_no_contact",
+        "other",
+      ],
+      document_exception_status: ["pending", "approved", "resolved", "denied"],
       document_status: ["not_started", "requested", "received"],
+      document_upload_channel: [
+        "driver_app",
+        "email_forward",
+        "office_upload",
+        "fax_forward",
+        "system_generated",
+      ],
       driver_upload_category: [
         "roadside_inspection_report",
         "repairs_maintenance_receipt",
@@ -8869,6 +9120,20 @@ export const Constants = {
         "ups_self_install",
         "owner_operator_install",
         "supertransport_shop",
+      ],
+      load_document_type: [
+        "rate_confirmation",
+        "revised_rate_confirmation",
+        "bol",
+        "pod",
+        "scale_ticket",
+        "lumper_receipt",
+        "detention_documentation",
+        "loadout_pickup_inspection",
+        "loadout_delivery_inspection",
+        "permit",
+        "broker_correspondence",
+        "other",
       ],
       load_handling_type: ["live_load_unload", "drop_and_hook"],
       load_status: [
