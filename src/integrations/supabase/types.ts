@@ -1074,6 +1074,104 @@ export type Database = {
           },
         ]
       }
+      claim_flag_history: {
+        Row: {
+          action: string
+          change_source: string | null
+          changed_at: string
+          changed_by: string | null
+          claim_flag_id: string
+          created_at: string | null
+          id: string
+          load_id: string
+          new_actual_amount: number | null
+          new_estimated_amount: number | null
+          new_flag_level: Database["public"]["Enums"]["claim_flag_level"] | null
+          new_is_active: boolean | null
+          new_resolution: string | null
+          notes: string | null
+          previous_actual_amount: number | null
+          previous_estimated_amount: number | null
+          previous_flag_level:
+            | Database["public"]["Enums"]["claim_flag_level"]
+            | null
+          previous_is_active: boolean | null
+          previous_resolution: string | null
+        }
+        Insert: {
+          action: string
+          change_source?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          claim_flag_id: string
+          created_at?: string | null
+          id?: string
+          load_id: string
+          new_actual_amount?: number | null
+          new_estimated_amount?: number | null
+          new_flag_level?:
+            | Database["public"]["Enums"]["claim_flag_level"]
+            | null
+          new_is_active?: boolean | null
+          new_resolution?: string | null
+          notes?: string | null
+          previous_actual_amount?: number | null
+          previous_estimated_amount?: number | null
+          previous_flag_level?:
+            | Database["public"]["Enums"]["claim_flag_level"]
+            | null
+          previous_is_active?: boolean | null
+          previous_resolution?: string | null
+        }
+        Update: {
+          action?: string
+          change_source?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          claim_flag_id?: string
+          created_at?: string | null
+          id?: string
+          load_id?: string
+          new_actual_amount?: number | null
+          new_estimated_amount?: number | null
+          new_flag_level?:
+            | Database["public"]["Enums"]["claim_flag_level"]
+            | null
+          new_is_active?: boolean | null
+          new_resolution?: string | null
+          notes?: string | null
+          previous_actual_amount?: number | null
+          previous_estimated_amount?: number | null
+          previous_flag_level?:
+            | Database["public"]["Enums"]["claim_flag_level"]
+            | null
+          previous_is_active?: boolean | null
+          previous_resolution?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_flag_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_flag_history_claim_flag_id_fkey"
+            columns: ["claim_flag_id"]
+            isOneToOne: false
+            referencedRelation: "claim_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_flag_history_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       claim_flags: {
         Row: {
           actual_claim_amount: number | null
