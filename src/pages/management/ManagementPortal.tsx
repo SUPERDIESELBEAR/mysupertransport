@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
-import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
+import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import DemoAccountsPanel from '@/components/management/DemoAccountsPanel';
 import { supabase } from '@/integrations/supabase/client';
@@ -1900,7 +1900,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'load-detail' && (
-          <LoadDetailPlaceholderPage
+          <LoadDetailPage
             loadId={selectedLoadId}
             onBack={() => setView('loads')}
           />

@@ -36,7 +36,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
-import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
+import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 
@@ -2524,7 +2524,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           : loadsRoute
           ? (loadDetailId === 'new'
               ? <CreateLoadPage />
-              : loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
+              : loadDetailId ? <LoadDetailPage loadId={loadDetailId} /> : <LoadsListPage />)
           : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'

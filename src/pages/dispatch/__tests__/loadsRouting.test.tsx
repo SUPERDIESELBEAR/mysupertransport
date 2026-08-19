@@ -53,6 +53,7 @@ vi.mock('@/hooks/useAuth', () => ({
       isOwner,
       isManagement,
       isDispatcher: roles.includes('dispatcher'),
+      isStaff: isManagement || roles.includes('dispatcher') || roles.includes('onboarding_staff'),
       isOperator: roles.includes('operator'),
       isTruckOwner: roles.includes('truck_owner'),
     };
@@ -61,7 +62,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 import { useAuth } from '@/hooks/useAuth';
 import LoadsListPage from '../LoadsListPage';
-import LoadDetailPlaceholderPage from '../LoadDetailPlaceholderPage';
+import LoadDetailPage from '../LoadDetailPage';
 
 /** Mirrors the /dispatch/* guard in App.tsx. */
 function DispatchGuard({ children }: { children: React.ReactNode }) {
@@ -82,7 +83,7 @@ function renderApp(roles: AppRole[]) {
           <Route path="/login" element={<div>login page</div>} />
           <Route path="/dashboard" element={<div>dashboard page</div>} />
           <Route path="/dispatch/loads" element={<DispatchGuard><LoadsListPage /></DispatchGuard>} />
-          <Route path="/dispatch/loads/:id" element={<DispatchGuard><LoadDetailPlaceholderPage /></DispatchGuard>} />
+          <Route path="/dispatch/loads/:id" element={<DispatchGuard><LoadDetailPage /></DispatchGuard>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -110,7 +111,7 @@ describe('Loads page routing', () => {
     const row = cells[0].closest('tr');
     expect(row).not.toBeNull();
     fireEvent.click(row!);
-    expect(await screen.findByText('Load detail coming soon.')).toBeInTheDocument();
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /back to loads/i })).toBeInTheDocument();
   });
 
@@ -130,7 +131,7 @@ describe('Loads page hosted in the Management shell', () => {
         <div>
           <span>management shell</span>
           {loadId
-            ? <LoadDetailPlaceholderPage loadId={loadId} onBack={() => setLoadId(null)} />
+            ? <LoadDetailPage loadId={loadId} onBack={() => setLoadId(null)} />
             : <LoadsListPage onSelectLoad={setLoadId} />}
         </div>
       );
@@ -149,7 +150,7 @@ describe('Loads page hosted in the Management shell', () => {
     const cells = await screen.findAllByText('ST-1042');
     fireEvent.click(cells[0].closest('tr')!);
 
-    expect(await screen.findByText('Load detail coming soon.')).toBeInTheDocument();
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
     expect(screen.getByText('management shell')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /back to loads/i }));
