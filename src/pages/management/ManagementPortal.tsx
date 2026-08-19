@@ -975,7 +975,7 @@ export default function ManagementPortal() {
       <StaffLayout
         navItems={navItems}
         mobileNavItems={mobileNavItems}
-        currentPath={view}
+        currentPath={view === 'load-create' || view === 'load-detail' ? 'loads' : view}
         onNavigate={handleNavigate}
         title="Management"
         notificationsPath="/dashboard?view=notifications"
