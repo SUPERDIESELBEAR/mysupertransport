@@ -32,18 +32,15 @@ export interface Facility {
   notes: string | null;
 }
 
-export const FACILITY_SELECT =
-  'id, facility_name, address_line1, address_line2, city, state, zip, contact_name, ' +
-  'contact_phone, contact_email, facility_type, default_appointment_required, hours_notes, ' +
-  'access_notes, times_used, last_used_at, is_active, notes';
+export const FACILITY_SELECT = '*';
 
 /** Active facilities, most-used first. */
 export async function fetchFacilities(activeOnly = true): Promise<Facility[]> {
-  let query = supabase.from('facilities').select(FACILITY_SELECT);
+  let query = supabase.from('facilities').select('*');
   if (activeOnly) query = query.eq('is_active', true);
   const { data, error } = await query
     .order('times_used', { ascending: false })
     .order('facility_name', { ascending: true });
   if (error) throw error;
-  return (data ?? []) as Facility[];
+  return (data ?? []) as unknown as Facility[];
 }

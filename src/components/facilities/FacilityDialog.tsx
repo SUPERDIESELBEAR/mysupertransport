@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import StateSelect from '@/components/shared/StateSelect';
-import { FACILITY_SELECT, FACILITY_TYPES, FACILITY_TYPE_LABELS, type Facility } from '@/lib/facilities';
+import { FACILITY_TYPES, FACILITY_TYPE_LABELS, type Facility } from '@/lib/facilities';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import {
   formatPhone, normalizePhone, normalizeWhitespace, normalizeZip, toTitleCase,
@@ -112,8 +112,8 @@ export default function FacilityDialog({
 
     setSaving(true);
     const query = facility
-      ? supabase.from('facilities').update(payload).eq('id', facility.id).select(FACILITY_SELECT).single()
-      : supabase.from('facilities').insert(payload).select(FACILITY_SELECT).single();
+      ? supabase.from('facilities').update(payload).eq('id', facility.id).select('*').single()
+      : supabase.from('facilities').insert(payload).select('*').single();
     const { data, error } = await query;
     setSaving(false);
 
@@ -127,7 +127,7 @@ export default function FacilityDialog({
       return;
     }
     toast({ description: `${name} saved.` });
-    onSaved?.(data as Facility);
+    onSaved?.(data as unknown as Facility);
     onOpenChange(false);
   };
 
