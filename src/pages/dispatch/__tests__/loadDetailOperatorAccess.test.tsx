@@ -170,3 +170,48 @@ describe('Load Detail — operator-facing access', () => {
     expect(screen.queryByText('ST-TEST-005')).not.toBeInTheDocument();
   });
 });
+
+describe('Load Detail — status history note visibility', () => {
+  beforeEach(() => {
+    authState.roles = [];
+    tableCalls.length = 0;
+  });
+
+  it('renders history entries for an operator but never the note text', async () => {
+    const { container } = renderDetail(['operator']);
+    expect(await screen.findByText('Status History')).toBeInTheDocument();
+    // The entry itself renders (timestamp + changer name resolved).
+    await waitFor(() => expect(screen.getByText(/Dale Rivers/)).toBeInTheDocument());
+    expect(screen.queryByText(HISTORY_NOTE)).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('Driver was unreachable');
+  });
+
+  it('shows the status history note text to a dispatcher on the same load', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Status History')).toBeInTheDocument();
+    expect(await screen.findByText(HISTORY_NOTE)).toBeInTheDocument();
+  });
+});
+
+describe('update_load_status — server-side role gate', () => {
+  it('raises for callers without dispatcher/management/owner and pins its ACL', async () => {
+    const { resolveFunctions } = await import('@/test/helpers/migrationFunctions');
+    const resolved = resolveFunctions();
+    const fn = Array.from(resolved.values()).find(f => f.name === 'public.update_load_status');
+    expect(fn, 'public.update_load_status must exist in the migration set').toBeTruthy();
+
+    const body = fn!.block;
+    // Role gate: dispatcher/management/owner only, and it must RAISE, not silently no-op.
+    expect(body).toMatch(/has_role\(v_uid, 'management'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'owner'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'dispatcher'\)/);
+    expect(body).toMatch(/IF NOT \(v_is_mgmt OR v_is_disp\) THEN\s*\n\s*RAISE EXCEPTION/);
+    // Billing statuses are management/owner only.
+    expect(body).toMatch(/p_new_status = ANY\(v_billing\) AND NOT v_is_mgmt THEN\s*\n\s*RAISE EXCEPTION/);
+    // Note requirement is enforced server-side too.
+    expect(body).toMatch(/v_requires_note AND v_note IS NULL THEN\s*\n\s*RAISE EXCEPTION/);
+    // Hardened definer.
+    expect(fn!.isDefiner).toBe(true);
+    expect(fn!.searchPath).toBe('public');
+  });
+});
