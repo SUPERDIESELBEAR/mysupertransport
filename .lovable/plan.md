@@ -49,4 +49,12 @@ On success invalidate `['load-detail', id]`, `['load-status-history', id]`, and 
 
 - shadcn components already in the project (Button, DropdownMenu, Dialog, Textarea, Tooltip, Badge)
 - Reuses `LoadStatusBadge` and `loadFormat.ts` formatters
-- Optional: extend the existing operator-access test file to pin note-hiding for operators
+
+## Required tests
+
+Extend `src/pages/dispatch/__tests__/loadDetailOperatorAccess.test.tsx`:
+- Operator viewing their own load's status history: timeline entries render, but the note text does not appear anywhere in the output.
+- Dispatcher viewing the same load: the note text does appear.
+- Server-side gate: calling `update_load_status` as a user holding only the `operator` role raises an exception.
+
+If either assertion fails on first run, report it rather than loosening the assertion.
