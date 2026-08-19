@@ -52,7 +52,7 @@ interface CreateLoadPageProps {
 export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isDispatcher } = useAuth();
+  useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
