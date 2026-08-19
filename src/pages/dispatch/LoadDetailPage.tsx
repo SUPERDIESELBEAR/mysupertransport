@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import LoadStatusControls from '@/components/dispatch/loadDetail/LoadStatusControls';
+import StatusHistoryCard from '@/components/dispatch/loadDetail/StatusHistoryCard';
 import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
 import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
@@ -27,7 +29,8 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
   const params = useParams<{ id: string }>();
   const id = loadId ?? params.id;
   const navigate = useNavigate();
-  const { isStaff } = useAuth();
+  const { isStaff, isDispatcher, isManagement } = useAuth();
+  const canChangeStatus = isDispatcher || isManagement;
 
   const goBack = () => (onBack ? onBack() : navigate('/dispatch/loads'));
 
@@ -105,6 +108,16 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
             Edit Load
           </Button>
         </div>
+        {canChangeStatus ? (
+          <div className="mt-3">
+            <LoadStatusControls
+              loadId={load.id}
+              currentStatus={load.status as LoadStatus}
+              canChangeStatus={canChangeStatus}
+              canChangeBilling={isManagement}
+            />
+          </div>
+        ) : null}
       </div>
 
       {isStaff && holdFlag ? (
@@ -128,6 +141,7 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
       <LoadoutBlock load={load} />
       <FlagsBlock load={load} />
       <StopsTimeline stops={load.stops} />
+      <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
       <NotesSection load={load} canSeeInternal={isStaff} />
     </div>
   );
