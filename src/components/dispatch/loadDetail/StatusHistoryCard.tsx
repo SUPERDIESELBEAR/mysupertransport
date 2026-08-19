@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import { DetailSection } from './DetailPrimitives';
 import { fetchLoadStatusHistory, formatDateTime } from '@/lib/loadDetail';
-import { formatEnumLabel } from '@/lib/loadFormat';
+const SOURCE_LABELS: Record<string, string> = { manual_ui: 'Manual change' };
 
 /** Notes may contain internal commentary, so operators never see them. */
 export default function StatusHistoryCard({ loadId, canSeeNotes }: { loadId: string; canSeeNotes: boolean }) {
@@ -40,7 +40,7 @@ export default function StatusHistoryCard({ loadId, canSeeNotes }: { loadId: str
               <p className="mt-1 text-xs text-muted-foreground">
                 {formatDateTime(entry.changed_at)}
                 {entry.changed_by_name ? ` · ${entry.changed_by_name}` : ''}
-                {entry.change_source ? ` · ${formatEnumLabel(entry.change_source)}` : ''}
+                {entry.change_source ? ` · ${SOURCE_LABELS[entry.change_source] ?? entry.change_source}` : ''}
               </p>
               {canSeeNotes && entry.notes?.trim() ? (
                 <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{entry.notes}</p>
