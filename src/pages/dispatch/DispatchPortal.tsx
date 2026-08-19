@@ -2512,7 +2512,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       >
         {quickComposeModal}
         {loadsRoute
-          ? (loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
+          ? (loadDetailId === 'new'
+              ? <CreateLoadPage />
+              : loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
           : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'

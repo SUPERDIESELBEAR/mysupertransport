@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useViewPreferences } from '@/hooks/useViewPreferences';
 import { Button } from '@/components/ui/button';
@@ -159,7 +158,6 @@ interface LoadsListPageProps {
 
 export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListPageProps = {}) {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const openLoad = (id: string) => {
     if (onSelectLoad) onSelectLoad(id);
     else navigate(`/dispatch/loads/${id}`);
