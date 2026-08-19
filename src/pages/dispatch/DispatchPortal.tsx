@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { playTruckDownChime } from '@/lib/chime';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
 import NotificationHistory from '@/components/management/NotificationHistory';
@@ -35,6 +35,8 @@ import type { DecalPhotoExtra } from '@/components/staff/StaffDecalPhotoEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -161,6 +163,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const { session } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  // The dispatch portal switches sections with internal state (?page=), but the
+  // Loads section lives on real paths so rows can deep-link to a load id.
+  const loadsRoute = location.pathname.startsWith('/dispatch/loads');
+  const loadDetailId = loadsRoute
+    ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
+    : null;
 
   // Desktop push notifications for high-priority events (truck_down, new_message)
   const { fireNotification } = useDesktopNotifications({
