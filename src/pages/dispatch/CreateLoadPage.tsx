@@ -4,7 +4,6 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +24,7 @@ import {
   RATE_TYPES, RATE_TYPE_LABELS, calcTotalLoadValue,
 } from '@/lib/loadRateMath';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
+import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
 
@@ -51,7 +51,6 @@ interface CreateLoadPageProps {
 export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isDispatcher } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -119,20 +118,14 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
 
   const onSubmit = async (v: LoadFormValues) => {
     setSubmitting(true);
+    let loadPayloadForLog: unknown = null;
+    let stopsPayloadForLog: unknown = null;
     try {
-      let dispatcherId: string | null = null;
-      if (isDispatcher && user) {
-        const { data: profile } = await supabase
-          .from('profiles').select('id').eq('user_id', user.id).maybeSingle();
-        dispatcherId = profile?.id ?? null;
-      }
-
       const loadPayload: Record<string, unknown> = {
         load_number: v.load_number,
         load_type: v.load_type,
         broker_id: v.broker_id || '',
         broker_reference_number: v.broker_reference_number ?? '',
-        dispatcher_id: dispatcherId ?? '',
         equipment_type: v.equipment_type,
         handling_type: v.handling_type,
         commodity: v.commodity ?? '',
@@ -188,6 +181,9 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
         stop_notes: s.stop_notes ?? '',
       }));
 
+      loadPayloadForLog = loadPayload;
+      stopsPayloadForLog = stopsPayload;
+
       const { data, error } = await supabase.rpc('create_load_with_stops', {
         p_load: loadPayload as never,
         p_stops: stopsPayload as never,
@@ -199,8 +195,12 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
       if (onCreated) onCreated(newId);
       else navigate(`/dispatch/loads/${newId}`);
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not create the load.';
-      toast({ variant: 'destructive', title: 'Load not saved', description: message });
+      logDbError('create_load_with_stops', e, { p_load: loadPayloadForLog, p_stops: stopsPayloadForLog });
+      toast({
+        variant: 'destructive',
+        title: 'Load not saved',
+        description: getDbErrorMessage(e, 'Could not create the load.'),
+      });
     } finally {
       setSubmitting(false);
     }

@@ -8278,6 +8278,7 @@ export type Database = {
         Args: { p_load: Json; p_stops: Json }
         Returns: string
       }
+      current_profile_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
