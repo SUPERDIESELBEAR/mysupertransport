@@ -5,29 +5,25 @@ import { Plus, Search, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useViewPreferences } from '@/hooks/useViewPreferences';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import ColumnVisibilityMenu from '@/components/shared/ColumnVisibilityMenu';
+import SortableTableHead from '@/components/shared/SortableTableHead';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import { compareValues, nextSortState } from '@/lib/listSorting';
 import {
-  EQUIPMENT_TYPES, LOAD_STATUSES, formatCurrency, formatEnumLabel, formatShortDate,
+  EQUIPMENT_TYPES, LOAD_STATUSES, formatEnumLabel,
   type EquipmentType, type LoadStatus,
 } from '@/lib/loadFormat';
+import {
+  DEFAULT_LOAD_COLUMNS, LOAD_COLUMNS, LOAD_COLUMN_TOGGLES, rateOf, type LoadRow,
+} from './loadsColumns';
 
-interface LoadRow {
-  id: string;
-  load_number: string;
-  status: LoadStatus;
-  equipment_type: EquipmentType | null;
-  linehaul_rate: number | null;
-  total_load_value: number | null;
-  created_at: string;
-  operator_id: string | null;
-  brokerName: string | null;
-  driverName: string | null;
-}
+const VIEW_KEY = 'loads_list';
 
 const STAT_GROUPS: { label: string; statuses: LoadStatus[] }[] = [
   { label: 'Available',         statuses: ['available'] },
@@ -37,15 +33,29 @@ const STAT_GROUPS: { label: string; statuses: LoadStatus[] }[] = [
   { label: 'Ready to Invoice',  statuses: ['ready_to_invoice'] },
 ];
 
-async function fetchLoads(): Promise<LoadRow[]> {
+interface StopRow {
+  stop_sequence: number | null;
+  city: string | null;
+  state: string | null;
+  appointment_start: string | null;
+}
+
+async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadRow[]> {
   const { data, error } = await supabase
     .from('loads')
-    .select('id, load_number, status, equipment_type, linehaul_rate, total_load_value, created_at, operator_id, brokers:broker_id(company_name)')
-    .order('created_at', { ascending: false });
+    .select(
+      'id, load_number, status, equipment_type, load_type, linehaul_rate, total_load_value, ' +
+      'loaded_miles, commodity, weight_lbs, created_at, operator_id, dispatcher_id, ' +
+      'brokers:broker_id(company_name), dispatcher:dispatcher_id(first_name, last_name), ' +
+      'load_stops(stop_sequence, city, state, appointment_start)',
+    )
+    .order(orderField, { ascending });
   if (error) throw error;
 
-  const rows = data ?? [];
-  const operatorIds = Array.from(new Set(rows.map(r => r.operator_id).filter(Boolean))) as string[];
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
+  const operatorIds = Array.from(
+    new Set(rows.map(r => r.operator_id as string | null).filter(Boolean)),
+  ) as string[];
 
   const driverNames: Record<string, string> = {};
   if (operatorIds.length > 0) {
@@ -74,18 +84,66 @@ async function fetchLoads(): Promise<LoadRow[]> {
     });
   }
 
-  return rows.map(r => ({
-    id: r.id,
-    load_number: r.load_number,
-    status: r.status as LoadStatus,
-    equipment_type: r.equipment_type as EquipmentType | null,
-    linehaul_rate: r.linehaul_rate,
-    total_load_value: r.total_load_value,
-    created_at: r.created_at,
-    operator_id: r.operator_id,
-    brokerName: (r as { brokers?: { company_name: string } | null }).brokers?.company_name ?? null,
-    driverName: r.operator_id ? driverNames[r.operator_id] ?? null : null,
-  }));
+  return rows.map(r => {
+    const stops = ((r.load_stops as StopRow[] | null) ?? [])
+      .slice()
+      .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
+    const first = stops[0];
+    const last = stops.length > 1 ? stops[stops.length - 1] : undefined;
+    const dispatcher = r.dispatcher as { first_name: string | null; last_name: string | null } | null;
+    const dispatcherName = dispatcher
+      ? [dispatcher.first_name, dispatcher.last_name].filter(Boolean).join(' ').trim() || null
+      : null;
+    const operatorId = r.operator_id as string | null;
+
+    return {
+      id: r.id as string,
+      load_number: r.load_number as string,
+      status: r.status as LoadRow['status'],
+      equipment_type: r.equipment_type as LoadRow['equipment_type'],
+      load_type: r.load_type as LoadRow['load_type'],
+      linehaul_rate: r.linehaul_rate as number | null,
+      total_load_value: r.total_load_value as number | null,
+      loaded_miles: r.loaded_miles as number | null,
+      commodity: r.commodity as string | null,
+      weight_lbs: r.weight_lbs as number | null,
+      created_at: r.created_at as string,
+      operator_id: operatorId,
+      dispatcher_id: r.dispatcher_id as string | null,
+      brokerName: (r.brokers as { company_name: string } | null)?.company_name ?? null,
+      driverName: operatorId ? driverNames[operatorId] ?? null : null,
+      dispatcherName,
+      originCity: first?.city ?? null,
+      originState: first?.state ?? null,
+      destinationCity: last?.city ?? null,
+      destinationState: last?.state ?? null,
+      pickupDate: first?.appointment_start ?? null,
+      deliveryDate: last?.appointment_start ?? null,
+    } satisfies LoadRow;
+  });
+}
+
+interface DispatcherOption { id: string; name: string }
+
+async function fetchDispatchers(): Promise<DispatcherOption[]> {
+  const { data: roleRows, error } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'dispatcher');
+  if (error) throw error;
+  const userIds = Array.from(new Set((roleRows ?? []).map(r => r.user_id).filter(Boolean))) as string[];
+  if (userIds.length === 0) return [];
+
+  const { data: profiles, error: profErr } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name')
+    .in('user_id', userIds);
+  if (profErr) throw profErr;
+
+  return (profiles ?? [])
+    .map(p => ({ id: p.id, name: [p.first_name, p.last_name].filter(Boolean).join(' ').trim() }))
+    .filter(p => p.id && p.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 interface LoadsListPageProps {
@@ -107,36 +165,68 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | LoadStatus>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<'all' | EquipmentType>('all');
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>('all');
   const debouncedSearch = useDebouncedValue(search, 200);
 
+  const { visibleColumns, sort, setVisibleColumns, setSort, reset } = useViewPreferences({
+    viewKey: VIEW_KEY,
+    defaultVisibleColumns: DEFAULT_LOAD_COLUMNS,
+  });
+
+  const columns = useMemo(
+    () => LOAD_COLUMNS.filter(c => c.locked || visibleColumns.includes(c.key)),
+    [visibleColumns],
+  );
+
+  const activeColumn = sort ? LOAD_COLUMNS.find(c => c.key === sort.column) ?? null : null;
+  const serverField = activeColumn?.serverField ?? null;
+  const orderField = serverField ?? 'created_at';
+  const ascending = serverField ? sort?.direction === 'asc' : false;
+
   const { data: loads, isLoading, error, refetch } = useQuery({
-    queryKey: ['dispatch-loads'],
-    queryFn: fetchLoads,
+    queryKey: ['dispatch-loads', orderField, ascending],
+    queryFn: () => fetchLoads(orderField, ascending),
+  });
+
+  const { data: dispatchers } = useQuery({
+    queryKey: ['dispatch-loads-dispatchers'],
+    queryFn: fetchDispatchers,
   });
 
   const comingSoon = () => toast({ description: 'Load creation coming soon.' });
 
-  const filtersActive = debouncedSearch.trim() !== '' || statusFilter !== 'all' || equipmentFilter !== 'all';
-  const clearFilters = () => { setSearch(''); setStatusFilter('all'); setEquipmentFilter('all'); };
+  const clearFilters = () => {
+    setSearch(''); setStatusFilter('all'); setEquipmentFilter('all'); setDispatcherFilter('all');
+  };
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
-    return (loads ?? []).filter(l => {
+    const rows = (loads ?? []).filter(l => {
       if (statusFilter !== 'all' && l.status !== statusFilter) return false;
       if (equipmentFilter !== 'all' && l.equipment_type !== equipmentFilter) return false;
+      if (dispatcherFilter === 'unassigned' && l.dispatcher_id) return false;
+      if (dispatcherFilter !== 'all' && dispatcherFilter !== 'unassigned' && l.dispatcher_id !== dispatcherFilter) return false;
       if (!q) return true;
-      return [l.load_number, l.brokerName, l.driverName]
+      return [l.load_number, l.brokerName, l.driverName, l.dispatcherName]
         .filter(Boolean)
         .some(v => (v as string).toLowerCase().includes(q));
     });
-  }, [loads, debouncedSearch, statusFilter, equipmentFilter]);
+
+    // Derived columns (and status workflow order) sort client-side; direct
+    // `loads` columns already came back ordered from the database.
+    if (sort && activeColumn && !activeColumn.serverField) {
+      return rows.slice().sort((a, b) =>
+        compareValues(activeColumn.sortValue(a), activeColumn.sortValue(b), sort.direction));
+    }
+    return rows;
+  }, [loads, debouncedSearch, statusFilter, equipmentFilter, dispatcherFilter, sort, activeColumn]);
 
   const counts = useMemo(() => STAT_GROUPS.map(g => ({
     label: g.label,
     count: (loads ?? []).filter(l => g.statuses.includes(l.status)).length,
   })), [loads]);
 
-  const rateOf = (l: LoadRow) => formatCurrency(l.total_load_value ?? l.linehaul_rate);
+  const handleSort = (columnKey: string) => setSort(nextSortState(sort, columnKey));
 
   const createButton = (
     <Button onClick={comingSoon} className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light">
@@ -166,8 +256,8 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2.5">
-        <div className="relative flex-1 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
+        <div className="relative flex-1 min-w-[12rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
@@ -177,7 +267,7 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
           />
         </div>
         <Select value={statusFilter} onValueChange={v => setStatusFilter(v as 'all' | LoadStatus)}>
-          <SelectTrigger className="sm:w-52"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+          <SelectTrigger className="sm:w-44"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             {LOAD_STATUSES.map(s => (
@@ -186,7 +276,7 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
           </SelectContent>
         </Select>
         <Select value={equipmentFilter} onValueChange={v => setEquipmentFilter(v as 'all' | EquipmentType)}>
-          <SelectTrigger className="sm:w-48"><SelectValue placeholder="All Equipment" /></SelectTrigger>
+          <SelectTrigger className="sm:w-44"><SelectValue placeholder="All Equipment" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Equipment</SelectItem>
             {EQUIPMENT_TYPES.map(t => (
@@ -194,6 +284,22 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
             ))}
           </SelectContent>
         </Select>
+        <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
+          <SelectTrigger className="sm:w-48"><SelectValue placeholder="All Dispatchers" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Dispatchers</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {(dispatchers ?? []).map(d => (
+              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <ColumnVisibilityMenu
+          columns={LOAD_COLUMN_TOGGLES}
+          visible={visibleColumns}
+          onChange={setVisibleColumns}
+          onReset={reset}
+        />
       </div>
 
       {/* Error */}
@@ -235,37 +341,30 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
       {/* Table (md+) */}
       {!isLoading && !error && filtered.length > 0 && (
         <>
-          <div className="hidden md:block rounded-lg border border-border bg-card overflow-hidden">
+          <div className="hidden md:block rounded-lg border border-border bg-card overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Load #</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Broker</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Equipment</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">Created</TableHead>
+                  {columns.map(col => (
+                    <SortableTableHead
+                      key={col.key}
+                      columnKey={col.key}
+                      label={col.label}
+                      align={col.align}
+                      sort={sort}
+                      onSort={handleSort}
+                    />
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map(l => (
-                  <TableRow
-                    key={l.id}
-                    onClick={() => openLoad(l.id)}
-                    className="cursor-pointer"
-                  >
-                    <TableCell className="font-mono font-medium text-foreground">{l.load_number}</TableCell>
-                    <TableCell><LoadStatusBadge status={l.status} /></TableCell>
-                    <TableCell className="text-muted-foreground">{l.brokerName ?? '—'}</TableCell>
-                    <TableCell className={l.driverName ? 'text-foreground' : 'text-muted-foreground'}>
-                      {l.driverName ?? 'Unassigned'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{formatEnumLabel(l.equipment_type)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{rateOf(l)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground whitespace-nowrap">
-                      {formatShortDate(l.created_at)}
-                    </TableCell>
+                  <TableRow key={l.id} onClick={() => openLoad(l.id)} className="cursor-pointer">
+                    {columns.map(col => (
+                      <TableCell key={col.key} className={col.cellClassName}>
+                        {col.render(l)}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
@@ -275,7 +374,7 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
             </div>
           </div>
 
-          {/* Card list (mobile) */}
+          {/* Card list (mobile) — curated subset */}
           <div className="md:hidden space-y-2.5">
             {filtered.map(l => (
               <button
@@ -292,12 +391,8 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
                   <span className="text-foreground text-right truncate">{l.brokerName ?? '—'}</span>
                   <span className="text-muted-foreground">Driver</span>
                   <span className="text-foreground text-right truncate">{l.driverName ?? 'Unassigned'}</span>
-                  <span className="text-muted-foreground">Equipment</span>
-                  <span className="text-foreground text-right">{formatEnumLabel(l.equipment_type)}</span>
                   <span className="text-muted-foreground">Rate</span>
                   <span className="text-foreground text-right tabular-nums">{rateOf(l)}</span>
-                  <span className="text-muted-foreground">Created</span>
-                  <span className="text-foreground text-right">{formatShortDate(l.created_at)}</span>
                 </div>
               </button>
             ))}

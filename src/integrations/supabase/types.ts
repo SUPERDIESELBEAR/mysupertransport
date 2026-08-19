@@ -8051,6 +8051,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_view_preferences: {
+        Row: {
+          created_at: string
+          filters: Json | null
+          id: string
+          page_size: number | null
+          sort_column: string | null
+          sort_direction: string | null
+          updated_at: string
+          user_id: string
+          view_key: string
+          visible_columns: Json | null
+        }
+        Insert: {
+          created_at?: string
+          filters?: Json | null
+          id?: string
+          page_size?: number | null
+          sort_column?: string | null
+          sort_direction?: string | null
+          updated_at?: string
+          user_id: string
+          view_key: string
+          visible_columns?: Json | null
+        }
+        Update: {
+          created_at?: string
+          filters?: Json | null
+          id?: string
+          page_size?: number | null
+          sort_column?: string | null
+          sort_direction?: string | null
+          updated_at?: string
+          user_id?: string
+          view_key?: string
+          visible_columns?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_compliance_items: {
