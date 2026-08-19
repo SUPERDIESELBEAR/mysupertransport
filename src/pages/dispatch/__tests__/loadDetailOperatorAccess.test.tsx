@@ -37,6 +37,19 @@ const CLAIM_FLAGS = [
   },
 ];
 
+const HISTORY_NOTE = 'Driver was unreachable for two hours; dispatch reverted the load.';
+const HISTORY = [
+  {
+    id: 'hist-1',
+    previous_status: 'in_transit',
+    new_status: 'dispatched',
+    changed_at: '2026-08-12T15:30:00Z',
+    changed_by: 'profile-1',
+    change_source: 'manual_ui',
+    notes: HISTORY_NOTE,
+  },
+];
+
 /** Records every table touched so we can assert operators never read claim_flags. */
 const tableCalls: string[] = [];
 
@@ -48,11 +61,14 @@ vi.mock('@/integrations/supabase/client', () => {
       if (table === 'loads') return requestedId === HIDDEN_LOAD_ID ? [] : [LOAD];
       if (table === 'claim_flags') return CLAIM_FLAGS;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
-      if (table === 'profiles') return [{ user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
+      if (table === 'load_status_history') return HISTORY;
+      if (table === 'profiles') {
+        return [{ id: 'profile-1', user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
+      }
       return [];
     };
     const q: Record<string, unknown> = {};
-    ['select', 'order'].forEach((m) => { q[m] = () => q; });
+    ['select', 'order', 'in'].forEach((m) => { q[m] = () => q; });
     q.eq = (col: string, value: string) => {
       if (col === 'id' || col === 'load_id') requestedId = value;
       return q;
