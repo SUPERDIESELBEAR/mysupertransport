@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.log_broker_factoring_change() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.stamp_broker_factoring_status_change() FROM PUBLIC, anon, authenticated;
