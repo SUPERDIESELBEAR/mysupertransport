@@ -119,20 +119,14 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
 
   const onSubmit = async (v: LoadFormValues) => {
     setSubmitting(true);
+    let loadPayloadForLog: unknown = null;
+    let stopsPayloadForLog: unknown = null;
     try {
-      let dispatcherId: string | null = null;
-      if (isDispatcher && user) {
-        const { data: profile } = await supabase
-          .from('profiles').select('id').eq('user_id', user.id).maybeSingle();
-        dispatcherId = profile?.id ?? null;
-      }
-
       const loadPayload: Record<string, unknown> = {
         load_number: v.load_number,
         load_type: v.load_type,
         broker_id: v.broker_id || '',
         broker_reference_number: v.broker_reference_number ?? '',
-        dispatcher_id: dispatcherId ?? '',
         equipment_type: v.equipment_type,
         handling_type: v.handling_type,
         commodity: v.commodity ?? '',
