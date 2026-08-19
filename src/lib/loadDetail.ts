@@ -129,9 +129,7 @@ export async function fetchLoadStatusHistory(loadId: string): Promise<LoadStatus
 export async function updateLoadStatus(
   loadId: string, newStatus: Database['public']['Enums']['load_status'], note: string | null,
 ): Promise<void> {
-  const { error } = await (supabase.rpc as unknown as (
-    fn: string, args: Record<string, unknown>,
-  ) => Promise<{ error: unknown }>)('update_load_status', {
+  const { error } = await rpc('update_load_status', {
     p_load_id: loadId,
     p_new_status: newStatus,
     p_note: note && note.trim() ? note.trim() : null,
@@ -163,9 +161,15 @@ export interface AssignableDriver {
   isActive: boolean;
 }
 
-const rpc = supabase.rpc as unknown as (
-  fn: string, args?: Record<string, unknown>,
-) => Promise<{ data: unknown; error: unknown }>;
+type RpcFn = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+
+/** Untyped RPC escape hatch for functions that are not in the generated types.
+ *  Keep this as a wrapper that invokes `supabase.rpc(...)` on the client itself.
+ *  Never shorten it to `const rpc = supabase.rpc` — detaching the method drops its
+ *  `this` binding and every call then fails at runtime with
+ *  "can't access property 'rest', this is undefined". */
+const rpc: RpcFn = (fn, args) =>
+  (supabase.rpc as unknown as RpcFn).call(supabase, fn, args);
 
 /** Operators selectable for assignment, newest naming resolved from applications. */
 export async function fetchAssignableDrivers(): Promise<AssignableDriver[]> {
