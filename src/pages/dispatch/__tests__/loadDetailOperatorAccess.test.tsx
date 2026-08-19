@@ -195,8 +195,8 @@ describe('Load Detail — status history note visibility', () => {
 
 describe('update_load_status — server-side role gate', () => {
   it('raises for callers without dispatcher/management/owner and pins its ACL', async () => {
-    const { resolveFunctions } = await import('@/test/helpers/migrationFunctions');
-    const resolved = resolveFunctions();
+    const { resolveMigrationFunctions } = await import('@/test/helpers/migrationFunctions');
+    const resolved = resolveMigrationFunctions();
     const fn = Array.from(resolved.values()).find(f => f.name === 'public.update_load_status');
     expect(fn, 'public.update_load_status must exist in the migration set').toBeTruthy();
 
