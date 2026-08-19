@@ -2524,7 +2524,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           : loadsRoute
           ? (loadDetailId === 'new'
               ? <CreateLoadPage />
-              : loadDetailId ? <LoadDetailPage /> : <LoadsListPage />)
+              : loadDetailId ? <LoadDetailPage loadId={loadDetailId} /> : <LoadsListPage />)
           : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'
