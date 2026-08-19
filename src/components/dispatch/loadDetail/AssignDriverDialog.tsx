@@ -75,12 +75,15 @@ export default function AssignDriverDialog({
 
   const options = useMemo(() => drivers.map(d => {
     const e = (eligibility as Record<string, DriverEligibility>)[d.operatorId];
-    const mark = !e ? '' : e.blocking.length ? ' ✕' : e.warnings.length ? ' !' : ' ✓';
     return {
       userId: d.userId,
-      name: `${d.name}${mark}`,
+      name: d.name,
       unitNumber: d.unitNumber,
       isActive: d.isActive,
+      status: !e ? undefined : e.blocking.length ? 'blocked' as const
+        : e.warnings.length ? 'warning' as const : 'eligible' as const,
+      statusDetail: !e ? undefined
+        : (e.blocking.length ? e.blocking : e.warnings).map(i => i.message),
     };
   }), [drivers, eligibility]);
 
