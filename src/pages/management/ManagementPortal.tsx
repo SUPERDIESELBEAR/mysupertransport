@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
+import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import DemoAccountsPanel from '@/components/management/DemoAccountsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -1883,6 +1884,14 @@ export default function ManagementPortal() {
         {view === 'loads' && (
           <LoadsListPage
             onSelectLoad={(id) => { setSelectedLoadId(id); setView('load-detail'); }}
+            onCreateLoad={() => setView('load-create')}
+          />
+        )}
+
+        {view === 'load-create' && (
+          <CreateLoadPage
+            onCreated={(id) => { setSelectedLoadId(id); setView('load-detail'); }}
+            onCancel={() => setView('loads')}
           />
         )}
 
