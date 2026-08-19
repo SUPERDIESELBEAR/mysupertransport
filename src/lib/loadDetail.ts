@@ -139,6 +139,96 @@ export async function updateLoadStatus(
   if (error) throw error;
 }
 
+/* ------------------------------------------------------------------ */
+/* Driver assignment                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface EligibilityIssue {
+  code: string;
+  message: string;
+}
+
+export interface DriverEligibility {
+  operator_id: string;
+  eligible: boolean;
+  blocking: EligibilityIssue[];
+  warnings: EligibilityIssue[];
+}
+
+export interface AssignableDriver {
+  operatorId: string;
+  userId: string;
+  name: string;
+  unitNumber: string | null;
+  isActive: boolean;
+}
+
+const rpc = supabase.rpc as unknown as (
+  fn: string, args?: Record<string, unknown>,
+) => Promise<{ data: unknown; error: unknown }>;
+
+/** Operators selectable for assignment, newest naming resolved from applications. */
+export async function fetchAssignableDrivers(): Promise<AssignableDriver[]> {
+  const { data, error } = await supabase
+    .from('operators')
+    .select('id, user_id, unit_number, is_active, applications(first_name, last_name)');
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(o => {
+    const app = o.applications as { first_name: string | null; last_name: string | null } | null;
+    return {
+      operatorId: o.id as string,
+      userId: o.user_id as string,
+      name: nameOf(app) ?? 'Unknown',
+      unitNumber: (o.unit_number as string | null) ?? null,
+      isActive: o.is_active !== false,
+    };
+  });
+}
+
+/** Eligibility for many operators in one round trip, keyed by operator id. */
+export async function fetchDriverEligibilityBulk(
+  operatorIds: string[],
+): Promise<Record<string, DriverEligibility>> {
+  if (!operatorIds.length) return {};
+  const { data, error } = await rpc('check_driver_eligibility_bulk', { p_operator_ids: operatorIds });
+  if (error) throw error;
+  return (data ?? {}) as Record<string, DriverEligibility>;
+}
+
+export interface AssignResult {
+  success: boolean;
+  auto_advanced: boolean;
+  warnings: EligibilityIssue[];
+}
+
+export async function assignLoadDriver(
+  loadId: string, operatorId: string, overrideReason: string | null,
+): Promise<AssignResult> {
+  const { data, error } = await rpc('assign_load_driver', {
+    p_load_id: loadId,
+    p_operator_id: operatorId,
+    p_override_reason: overrideReason && overrideReason.trim() ? overrideReason.trim() : null,
+  });
+  if (error) throw error;
+  return data as AssignResult;
+}
+
+export interface UnassignResult {
+  success: boolean;
+  status_reverted: boolean;
+  warnings: EligibilityIssue[];
+}
+
+export async function unassignLoadDriver(loadId: string, reason: string): Promise<UnassignResult> {
+  const { data, error } = await rpc('unassign_load_driver', {
+    p_load_id: loadId,
+    p_reason: reason.trim(),
+  });
+  if (error) throw error;
+  return data as UnassignResult;
+}
+
 const dateTime = new Intl.DateTimeFormat('en-US', {
   month: 'short', day: 'numeric', year: 'numeric',
   hour: 'numeric', minute: '2-digit',

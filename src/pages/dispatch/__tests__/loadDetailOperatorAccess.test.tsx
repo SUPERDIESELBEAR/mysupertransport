@@ -169,6 +169,22 @@ describe('Load Detail — operator-facing access', () => {
     expect(screen.queryByText('Load Summary')).not.toBeInTheDocument();
     expect(screen.queryByText('ST-TEST-005')).not.toBeInTheDocument();
   });
+
+  it('shows the driver name to an operator but no assignment controls', async () => {
+    renderDetail(['operator']);
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
+    expect(screen.getByText('Driver')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /assign driver/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^reassign$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^unassign$/i })).not.toBeInTheDocument();
+  });
+
+  it('shows assignment controls to a dispatcher on the same load', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^reassign$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^unassign$/i })).toBeInTheDocument();
+  });
 });
 
 describe('Load Detail — status history note visibility', () => {
@@ -211,6 +227,29 @@ describe('update_load_status — server-side role gate', () => {
     // Note requirement is enforced server-side too.
     expect(body).toMatch(/v_requires_note AND v_note IS NULL THEN\s*\n\s*RAISE EXCEPTION/);
     // Hardened definer.
+    expect(fn!.isDefiner).toBe(true);
+    expect(fn!.searchPath).toBe('public');
+  });
+});
+
+describe('assign_load_driver — server-side role and override gates', () => {
+  it('raises for non-dispatch roles and restricts overrides to management/owner', async () => {
+    const { resolveMigrationFunctions } = await import('@/test/helpers/migrationFunctions');
+    const resolved = resolveMigrationFunctions();
+    const fn = Array.from(resolved.values()).find(f => f.name === 'public.assign_load_driver');
+    expect(fn, 'public.assign_load_driver must exist in the migration set').toBeTruthy();
+
+    const body = fn!.block;
+    // Role gate: dispatcher/management/owner only, and it must RAISE for anyone else
+    // (an operator-only caller satisfies none of these predicates).
+    expect(body).toMatch(/has_role\(v_uid, 'management'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'owner'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'dispatcher'\)/);
+    expect(body).toMatch(/IF NOT \(v_is_mgmt OR v_is_disp\) THEN\s*\n\s*RAISE EXCEPTION/);
+    // Blocking issues without an override reason are refused outright.
+    expect(body).toMatch(/IF v_reason IS NULL THEN\s*\n\s*RAISE EXCEPTION 'Driver is not eligible/);
+    // Dispatchers cannot override; management/owner can.
+    expect(body).toMatch(/IF NOT v_is_mgmt THEN\s*\n\s*RAISE EXCEPTION 'Management approval is required/);
     expect(fn!.isDefiner).toBe(true);
     expect(fn!.searchPath).toBe('public');
   });
