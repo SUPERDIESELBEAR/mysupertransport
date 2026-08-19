@@ -88,9 +88,22 @@ async function fetchLoads(): Promise<LoadRow[]> {
   }));
 }
 
-export default function LoadsListPage() {
+interface LoadsListPageProps {
+  /**
+   * Host-supplied row navigation. The Management Portal drives its sections
+   * with internal state, so it passes this instead of relying on the
+   * dispatch-only `/dispatch/loads/:id` path.
+   */
+  onSelectLoad?: (id: string) => void;
+}
+
+export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const openLoad = (id: string) => {
+    if (onSelectLoad) onSelectLoad(id);
+    else navigate(`/dispatch/loads/${id}`);
+  };
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | LoadStatus>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<'all' | EquipmentType>('all');
