@@ -182,6 +182,9 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
         stop_notes: s.stop_notes ?? '',
       }));
 
+      loadPayloadForLog = loadPayload;
+      stopsPayloadForLog = stopsPayload;
+
       const { data, error } = await supabase.rpc('create_load_with_stops', {
         p_load: loadPayload as never,
         p_stops: stopsPayload as never,
@@ -193,8 +196,12 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
       if (onCreated) onCreated(newId);
       else navigate(`/dispatch/loads/${newId}`);
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not create the load.';
-      toast({ variant: 'destructive', title: 'Load not saved', description: message });
+      logDbError('create_load_with_stops', e, { p_load: loadPayloadForLog, p_stops: stopsPayloadForLog });
+      toast({
+        variant: 'destructive',
+        title: 'Load not saved',
+        description: getDbErrorMessage(e, 'Could not create the load.'),
+      });
     } finally {
       setSubmitting(false);
     }
