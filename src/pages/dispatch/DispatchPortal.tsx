@@ -592,6 +592,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
+    if (loadsRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -602,12 +603,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
+    if (path === 'dispatch-loads') {
+      navigate('/dispatch/loads');
+      return;
+    }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
+    if (loadsRoute) {
+      navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
+    }
     if (p === 'dispatch-messages') {
       setUnreadMessages(0);
       setUnreadPerOperator({});
