@@ -4,6 +4,8 @@ import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import StaffApplicationModal from '@/components/management/StaffApplicationModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
+import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
 import DemoAccountsPanel from '@/components/management/DemoAccountsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useDemoMode } from '@/hooks/useDemoMode';
