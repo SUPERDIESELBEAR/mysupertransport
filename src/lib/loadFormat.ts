@@ -19,13 +19,23 @@ const LABEL_OVERRIDES: Record<string, string> = {
   in_transit: 'In Transit',
 };
 
+/** Words that must render as acronyms rather than Title Case. */
+const ACRONYMS = new Set([
+  'ui', 'pod', 'bol', 'eld', 'dot', 'cdl', 'irp', 'mc', 'tonu', 'po', 'ica', 'osas', 'ifta', 'usdot',
+]);
+
 /** Turns a snake_case enum value into a human label ("dry_van" → "Dry Van"). */
 export function formatEnumLabel(value: string | null | undefined): string {
   if (!value) return '—';
   if (LABEL_OVERRIDES[value]) return LABEL_OVERRIDES[value];
   return value
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .filter(Boolean)
+    .map(word =>
+      ACRONYMS.has(word.toLowerCase())
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1),
+    )
     .join(' ');
 }
 
