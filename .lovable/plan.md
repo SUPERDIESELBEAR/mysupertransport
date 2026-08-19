@@ -21,6 +21,14 @@ New section between the Stops timeline and Notes. Lists every `load_documents` r
 
 Each row shows the type label, document/original filename, upload timestamp, uploader name, upload channel, and file size when known. Image files get a thumbnail; PDFs get a file-type icon. Actions: view (signed URL, new tab) and download for everyone; delete with a confirmation dialog for management, owner, and dispatcher only.
 
+### Signed URL policy
+
+All signed URLs use a short expiry (5 minutes) and are minted at the moment they are needed, never in bulk at render time.
+
+- View and download are buttons, not pre-built links: activating one requests a fresh signed URL and then opens the tab or triggers the download. No URLs are generated for rows the user never touches.
+- Thumbnails are the one render-time exception. They use the same short-lived URL, and on image load failure the component re-requests a fresh URL and retries once rather than showing a broken-image icon.
+- The loadout lightbox follows the click-time rule too: the full-size URL is requested when the lightbox opens on that photo (and when navigating to the next/previous photo), not when the grid renders.
+
 ## Part 3 — Upload
 
 Upload control in the section header for management, owner, dispatcher, and onboarding_staff. Operators get a read-only list with no control.
