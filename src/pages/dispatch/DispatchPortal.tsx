@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
+import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -2512,7 +2513,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       >
         {quickComposeModal}
         {loadsRoute
-          ? (loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
+          ? (loadDetailId === 'new'
+              ? <CreateLoadPage />
+              : loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
           : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'

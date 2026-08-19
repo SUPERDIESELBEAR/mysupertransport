@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Search, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useViewPreferences } from '@/hooks/useViewPreferences';
 import { Button } from '@/components/ui/button';
@@ -153,14 +152,19 @@ interface LoadsListPageProps {
    * dispatch-only `/dispatch/loads/:id` path.
    */
   onSelectLoad?: (id: string) => void;
+  /** Host-supplied "Create Load" navigation; defaults to the dispatch route. */
+  onCreateLoad?: () => void;
 }
 
-export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {}) {
+export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListPageProps = {}) {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const openLoad = (id: string) => {
     if (onSelectLoad) onSelectLoad(id);
     else navigate(`/dispatch/loads/${id}`);
+  };
+  const createLoad = () => {
+    if (onCreateLoad) onCreateLoad();
+    else navigate('/dispatch/loads/new');
   };
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | LoadStatus>('all');
@@ -192,8 +196,6 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
     queryKey: ['dispatch-loads-dispatchers'],
     queryFn: fetchDispatchers,
   });
-
-  const comingSoon = () => toast({ description: 'Load creation coming soon.' });
 
   const clearFilters = () => {
     setSearch(''); setStatusFilter('all'); setEquipmentFilter('all'); setDispatcherFilter('all');
@@ -229,7 +231,7 @@ export default function LoadsListPage({ onSelectLoad }: LoadsListPageProps = {})
   const handleSort = (columnKey: string) => setSort(nextSortState(sort, columnKey));
 
   const createButton = (
-    <Button onClick={comingSoon} className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light">
+    <Button onClick={createLoad} className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light">
       <Plus className="h-4 w-4" />
       Create Load
     </Button>
