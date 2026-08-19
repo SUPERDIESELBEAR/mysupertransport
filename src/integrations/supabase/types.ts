@@ -9153,6 +9153,14 @@ export type Database = {
           version: number
         }[]
       }
+      update_load_status: {
+        Args: {
+          p_load_id: string
+          p_new_status: Database["public"]["Enums"]["load_status"]
+          p_note?: string
+        }
+        Returns: undefined
+      }
       update_pei_archive_category: {
         Args: {
           _application_id: string
