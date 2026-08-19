@@ -2390,6 +2390,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
 
   const navItems = [
     { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
+    { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
     { label: 'Notifications',  icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications',  badge: unreadNotifCount || undefined },
@@ -2495,7 +2496,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={activePage}
+        currentPath={loadsRoute ? 'dispatch-loads' : activePage}
         onNavigate={handleNavigate}
         title="Dispatch Board"
         notificationsPath="/dispatch?tab=notifications"
@@ -2510,7 +2511,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         }
       >
         {quickComposeModal}
-        {activePage === 'dispatch-messages'
+        {loadsRoute
+          ? (loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
+          : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'
           ? <NotificationHistory />
