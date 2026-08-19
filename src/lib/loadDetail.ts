@@ -129,9 +129,7 @@ export async function fetchLoadStatusHistory(loadId: string): Promise<LoadStatus
 export async function updateLoadStatus(
   loadId: string, newStatus: Database['public']['Enums']['load_status'], note: string | null,
 ): Promise<void> {
-  const { error } = await (supabase.rpc as unknown as (
-    fn: string, args: Record<string, unknown>,
-  ) => Promise<{ error: unknown }>)('update_load_status', {
+  const { error } = await rpc('update_load_status', {
     p_load_id: loadId,
     p_new_status: newStatus,
     p_note: note && note.trim() ? note.trim() : null,
