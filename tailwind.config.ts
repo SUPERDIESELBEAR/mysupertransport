@@ -69,6 +69,10 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        billing: {
+          DEFAULT: "hsl(var(--billing))",
+          foreground: "hsl(var(--billing-foreground))",
+        },
         gold: {
           light: "hsl(var(--gold-light))",
           DEFAULT: "hsl(var(--gold-main))",

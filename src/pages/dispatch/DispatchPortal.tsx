@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { playTruckDownChime } from '@/lib/chime';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
 import NotificationHistory from '@/components/management/NotificationHistory';
@@ -35,6 +35,8 @@ import type { DecalPhotoExtra } from '@/components/staff/StaffDecalPhotoEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -161,6 +163,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const { session } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  // The dispatch portal switches sections with internal state (?page=), but the
+  // Loads section lives on real paths so rows can deep-link to a load id.
+  const loadsRoute = location.pathname.startsWith('/dispatch/loads');
+  const loadDetailId = loadsRoute
+    ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
+    : null;
 
   // Desktop push notifications for high-priority events (truck_down, new_message)
   const { fireNotification } = useDesktopNotifications({
@@ -583,6 +592,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
+    if (loadsRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -593,12 +603,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
+    if (path === 'dispatch-loads') {
+      navigate('/dispatch/loads');
+      return;
+    }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
+    if (loadsRoute) {
+      navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
+    }
     if (p === 'dispatch-messages') {
       setUnreadMessages(0);
       setUnreadPerOperator({});
@@ -2373,6 +2390,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
 
   const navItems = [
     { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
+    { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
     { label: 'Notifications',  icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications',  badge: unreadNotifCount || undefined },
@@ -2478,7 +2496,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={activePage}
+        currentPath={loadsRoute ? 'dispatch-loads' : activePage}
         onNavigate={handleNavigate}
         title="Dispatch Board"
         notificationsPath="/dispatch?tab=notifications"
@@ -2493,7 +2511,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         }
       >
         {quickComposeModal}
-        {activePage === 'dispatch-messages'
+        {loadsRoute
+          ? (loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
+          : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'
           ? <NotificationHistory />
