@@ -13,6 +13,7 @@ import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
 import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
+import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
 import { fetchLoadClaimFlags, fetchLoadDetail } from '@/lib/loadDetail';
 import { formatEnumLabel, type LoadStatus } from '@/lib/loadFormat';
@@ -141,6 +142,7 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
       <LoadoutBlock load={load} />
       <FlagsBlock load={load} />
       <StopsTimeline stops={load.stops} />
+      <DocumentsSection load={load} canManage={isStaff} canSeeInternal={isStaff} />
       <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
       <NotesSection load={load} canSeeInternal={isStaff} />
     </div>
