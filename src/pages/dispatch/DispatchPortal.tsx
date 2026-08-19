@@ -38,6 +38,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import LoadDetailPlaceholderPage from '@/pages/dispatch/LoadDetailPlaceholderPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
+import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -168,6 +169,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // The dispatch portal switches sections with internal state (?page=), but the
   // Loads section lives on real paths so rows can deep-link to a load id.
   const loadsRoute = location.pathname.startsWith('/dispatch/loads');
+  const facilitiesRoute = location.pathname.startsWith('/dispatch/facilities');
   const loadDetailId = loadsRoute
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
@@ -593,7 +595,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    if (loadsRoute) return;
+    if (loadsRoute || facilitiesRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -604,7 +606,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
@@ -612,9 +614,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       navigate('/dispatch/loads');
       return;
     }
+    if (path === 'dispatch-facilities') {
+      navigate('/dispatch/facilities');
+      return;
+    }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
-    if (loadsRoute) {
+    if (loadsRoute || facilitiesRoute) {
       navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
     }
     if (p === 'dispatch-messages') {
@@ -2392,6 +2398,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const navItems = [
     { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
     { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
+    { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
     { label: 'Notifications',  icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications',  badge: unreadNotifCount || undefined },
@@ -2497,7 +2504,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={loadsRoute ? 'dispatch-loads' : activePage}
+        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : activePage}
         onNavigate={handleNavigate}
         title="Dispatch Board"
         notificationsPath="/dispatch?tab=notifications"
@@ -2512,7 +2519,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         }
       >
         {quickComposeModal}
-        {loadsRoute
+        {facilitiesRoute
+          ? <FacilitiesListPage />
+          : loadsRoute
           ? (loadDetailId === 'new'
               ? <CreateLoadPage />
               : loadDetailId ? <LoadDetailPlaceholderPage /> : <LoadsListPage />)
