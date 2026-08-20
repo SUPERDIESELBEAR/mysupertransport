@@ -40,14 +40,9 @@ function titleCaseWord(word: string, index: number): string {
   // Preserve short acronyms the user typed in caps ("US", "JFK", "LLC").
   if (word.length <= 3 && word === word.toUpperCase() && /[A-Z]/.test(word)) return word;
 
-  const bare = bareEarly;
+  if (index > 0 && LOWER_WORDS.has(bareEarly)) return word.toLowerCase();
 
-  if (DIRECTIONALS.has(bare) && bare.length <= 3) {
-    return word.replace(/[A-Za-z]+/, m => m.toUpperCase());
-  }
-  if (index > 0 && LOWER_WORDS.has(bare)) return word.toLowerCase();
-
-  return word.replace(/[A-Za-z][A-Za-z']*/g, m => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
+  return titleCasePlain(word);
 }
 
 /**
