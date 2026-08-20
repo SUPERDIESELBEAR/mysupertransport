@@ -48,8 +48,16 @@ A new "Change History" section sits beside Status History, staff-only, gated exa
 Database:
 
 - `load_change_history`: `id`, `load_id` (FK cascade), `field_path` text, `previous_value` text, `new_value` text, `is_financial` boolean, `reason` text, `changed_by` (profile), `changed_at`, `change_source` text. Index on `load_id`. GRANTs to `authenticated`/`service_role`, no `anon`. RLS: management/owner/dispatcher/onboarding staff read; inserts only through the definer function; operators no access.
-- `update_load_with_stops(p_load_id, p_load jsonb, p_stops jsonb, p_charges jsonb, p_reason text, p_financial_unlock_reason text)` — SECURITY DEFINER, `search_path = public`, `REVOKE EXECUTE FROM public, anon`, `GRANT` to `authenticated`, profile references via `public.current_profile_id()`. It re-derives the load's current status and the caller's roles, rejects `load_number` changes, rejects financial field changes at locked statuses unless the caller is owner with an unlock reason, requires a reason when total load value changes, then replaces stops (resequencing and recomputing stop-off eligibility), reconciles `load_charges`, mirrors stop-off amounts back to `load_stops.stopoff_charge_amount`, recomputes `total_load_value`, and writes one `load_change_history` row per changed field — all in the single function call.
+- `update_load_with_stops(p_load_id, p_load jsonb, p_stops jsonb, p_charges jsonb, p_reason text, p_financial_unlock_reason text)` — SECURITY DEFINER, `search_path = public`, `REVOKE EXECUTE FROM public, anon`, `GRANT` to `authenticated`, profile references via `public.current_profile_id()`. It re-derives the load's current status and the caller's roles, rejects `load_number` changes, rejects financial field changes at locked statuses unless the caller is owner with an unlock reason, requires a reason when total load value changes, then reconciles stops (see below), reconciles `load_charges`, mirrors stop-off amounts back to `load_stops.stopoff_charge_amount`, recomputes `total_load_value`, and writes one `load_change_history` row per changed field — all in the single function call.
 - Clearing a stop-off amount deletes the corresponding `load_charges` row rather than zeroing it.
+
+Stop reconciliation (never replace):
+
+- Submitted stops carry their existing `id` where they came from the loaded load. Matched stops are `UPDATE`d in place on form-owned columns only; genuinely new stops are inserted; only stops whose ids are absent from the submission are deleted.
+- The update statement never touches driver-recorded columns: `actual_arrival_at`, `actual_departure_at`, the four latitude/longitude columns, and `facility_id` unless the dispatcher explicitly changed the facility link in the form. A phone-number edit on stop 2 leaves stop 1's 8:04 AM arrival and GPS untouched.
+- Resequencing writes `stop_sequence` per the form's current order, and because rows are matched by id the recorded arrival/departure always travels with its own row — reordering renumbers the row, it does not shuffle timestamps between rows. Stop-off eligibility (middle stops only) is recomputed from the new sequence after matching.
+- Deleting a stop that has any driver-recorded check-in data (`actual_arrival_at`, `actual_departure_at`, or coordinates) triggers a confirm dialog naming what will be lost, in the same spirit as the charge dialog; the server also rejects such a delete unless the client passes an explicit acknowledgement flag, and records the deletion in `load_change_history`.
+
 
 Client:
 
