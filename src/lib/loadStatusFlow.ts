@@ -65,3 +65,25 @@ export const TRANSITION_LABELS: Record<TransitionKind, string> = {
   terminal: 'Terminal — ends the load lifecycle',
   override: 'Override — skips one or more steps',
 };
+
+/* ------------------------------------------------------------------ */
+/* Edit tiers — mirrors public.update_load_with_stops                   */
+/* ------------------------------------------------------------------ */
+
+/** Money has been billed out: financial fields are locked to everyone but the owner. */
+export const FINANCIALLY_LOCKED_STATUSES: LoadStatus[] = [
+  'invoiced', 'factored', 'paid', 'settled', 'closed',
+];
+
+/** Invoicing is imminent: financial fields stay open but the user is warned. */
+export const FINANCIALLY_SENSITIVE_STATUSES: LoadStatus[] = [
+  'accessorials_approved', 'ready_to_invoice',
+];
+
+export type FinancialEditTier = 'open' | 'warn' | 'locked';
+
+export function financialEditTier(status: LoadStatus): FinancialEditTier {
+  if (FINANCIALLY_LOCKED_STATUSES.includes(status)) return 'locked';
+  if (FINANCIALLY_SENSITIVE_STATUSES.includes(status)) return 'warn';
+  return 'open';
+}

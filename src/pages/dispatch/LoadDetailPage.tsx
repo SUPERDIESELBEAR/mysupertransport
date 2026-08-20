@@ -26,9 +26,11 @@ interface LoadDetailPageProps {
   loadId?: string | null;
   /** Host-supplied back handler; defaults to the dispatch loads route. */
   onBack?: () => void;
+  /** Host-supplied edit handler; defaults to the dispatch edit route. */
+  onEdit?: () => void;
 }
 
-export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps = {}) {
+export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPageProps = {}) {
   const params = useParams<{ id: string }>();
   const id = loadId ?? params.id;
   const navigate = useNavigate();
@@ -107,7 +109,7 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
             variant="outline"
             size="sm"
             className="ml-auto gap-1.5"
-            onClick={() => toast({ title: 'Load editing coming soon' })}
+            onClick={() => (onEdit ? onEdit() : navigate(`/dispatch/loads/${id}/edit`))}
           >
             <Pencil className="h-4 w-4" />
             Edit Load

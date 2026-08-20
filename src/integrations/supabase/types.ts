@@ -3964,6 +3964,60 @@ export type Database = {
           },
         ]
       }
+      load_change_history: {
+        Row: {
+          change_source: string
+          changed_at: string
+          changed_by: string | null
+          field_path: string
+          id: string
+          is_financial: boolean
+          load_id: string
+          new_value: string | null
+          previous_value: string | null
+          reason: string | null
+        }
+        Insert: {
+          change_source?: string
+          changed_at?: string
+          changed_by?: string | null
+          field_path: string
+          id?: string
+          is_financial?: boolean
+          load_id: string
+          new_value?: string | null
+          previous_value?: string | null
+          reason?: string | null
+        }
+        Update: {
+          change_source?: string
+          changed_at?: string
+          changed_by?: string | null
+          field_path?: string
+          id?: string
+          is_financial?: boolean
+          load_id?: string
+          new_value?: string | null
+          previous_value?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_change_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_change_history_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       load_charges: {
         Row: {
           amount: number
@@ -9310,6 +9364,18 @@ export type Database = {
           p_note?: string
         }
         Returns: undefined
+      }
+      update_load_with_stops: {
+        Args: {
+          p_ack_stop_data_loss?: boolean
+          p_charges?: Json
+          p_financial_unlock_reason?: string
+          p_load: Json
+          p_load_id: string
+          p_reason?: string
+          p_stops: Json
+        }
+        Returns: string
       }
       update_pei_archive_category: {
         Args: {

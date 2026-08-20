@@ -414,3 +414,94 @@ export function formatNumber(value: number | null | undefined, suffix = ''): str
   if (!Number.isFinite(n)) return '—';
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix}`;
 }
+
+/* ------------------------------------------------------------------ */
+/* Load editing                                                         */
+/* ------------------------------------------------------------------ */
+
+export type LoadChargeRow = Database['public']['Tables']['load_charges']['Row'];
+
+export interface LoadEditData {
+  load: LoadsRow;
+  stops: StopRow[];
+  charges: LoadChargeRow[];
+}
+
+/** Everything the load form needs to hydrate in edit mode. */
+export async function fetchLoadForEdit(loadId: string): Promise<LoadEditData | null> {
+  const { data: load, error } = await supabase
+    .from('loads').select('*').eq('id', loadId).maybeSingle();
+  if (error) throw error;
+  if (!load) return null;
+
+  const [{ data: stops, error: stopsError }, { data: charges, error: chargesError }] =
+    await Promise.all([
+      supabase.from('load_stops').select('*').eq('load_id', loadId).order('stop_sequence'),
+      supabase.from('load_charges').select('*').eq('load_id', loadId).order('created_at'),
+    ]);
+  if (stopsError) throw stopsError;
+  if (chargesError) throw chargesError;
+
+  return {
+    load: load as LoadsRow,
+    stops: (stops ?? []) as StopRow[],
+    charges: (charges ?? []) as LoadChargeRow[],
+  };
+}
+
+export interface UpdateLoadInput {
+  loadId: string;
+  load: Record<string, unknown>;
+  stops: Record<string, unknown>[];
+  charges: Record<string, unknown>[];
+  reason?: string | null;
+  unlockReason?: string | null;
+  /** Set once the user has confirmed a stop with driver check-in data is being removed. */
+  acknowledgeStopDataLoss?: boolean;
+}
+
+/** Atomic load + stops + charges update. All rules live in the definer function. */
+export async function updateLoadWithStops(input: UpdateLoadInput): Promise<string> {
+  const { data, error } = await rpc('update_load_with_stops', {
+    p_load_id: input.loadId,
+    p_load: input.load,
+    p_stops: input.stops,
+    p_charges: input.charges,
+    p_reason: input.reason && input.reason.trim() ? input.reason.trim() : null,
+    p_financial_unlock_reason:
+      input.unlockReason && input.unlockReason.trim() ? input.unlockReason.trim() : null,
+    p_ack_stop_data_loss: !!input.acknowledgeStopDataLoss,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export interface LoadChangeEntry {
+  id: string;
+  field_path: string;
+  previous_value: string | null;
+  new_value: string | null;
+  is_financial: boolean;
+  reason: string | null;
+  change_source: string | null;
+  changed_at: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+}
+
+/** Field-level edit trail, newest first. Staff-only — never called for operators. */
+export async function fetchLoadChangeHistory(loadId: string): Promise<LoadChangeEntry[]> {
+  const { data, error } = await supabase
+    .from('load_change_history')
+    .select('id, field_path, previous_value, new_value, is_financial, reason, change_source, changed_at, changed_by')
+    .eq('load_id', loadId)
+    .order('changed_at', { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as LoadChangeEntry[];
+  const names = await resolveProfileNames(rows.map(r => r.changed_by));
+  return rows.map(r => ({
+    ...r,
+    changed_by_name: r.changed_by ? names.get(r.changed_by) ?? null : null,
+  }));
+}

@@ -8,6 +8,10 @@ const optionalNumber = z
   .refine(v => !v || Number.isFinite(Number(v)), { message: 'Enter a number' });
 
 export const stopSchema = z.object({
+  /** Present only in edit mode — the row this stop reconciles back to. */
+  id: z.string().optional().or(z.literal('')),
+  /** Edit mode only: the driver has already checked in or out at this stop. */
+  has_driver_data: z.boolean().optional(),
   facility_id: z.string().optional().or(z.literal('')),
   stop_type: z.enum(['pickup', 'delivery', 'drop_and_hook']),
   facility_name: optionalText,
@@ -30,7 +34,10 @@ export const chargeSchema = z.object({
   charge_type: z.string().trim().max(60),
   description: z.string().trim().max(200),
   amount: optionalNumber,
+  /** Provenance carried through an edit so re-saving does not relabel a parsed line. */
+  source: z.string().trim().max(60).optional(),
 });
+
 
 export const loadFormSchema = z
   .object({
@@ -115,8 +122,11 @@ export type StopFormValues = z.infer<typeof stopSchema>;
 export type ChargeFormValues = z.infer<typeof chargeSchema>;
 
 export const emptyStop = (stop_type: StopFormValues['stop_type']): StopFormValues => ({
+  id: '',
+  has_driver_data: false,
   facility_id: '',
   stop_type,
+
   facility_name: '',
   address_line1: '',
   address_line2: '',

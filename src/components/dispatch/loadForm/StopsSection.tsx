@@ -13,6 +13,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import StateSelect from '@/components/shared/StateSelect';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
 import FacilityDialog, { type FacilityDraft } from '@/components/facilities/FacilityDialog';
@@ -49,9 +53,11 @@ const draftFromStop = (stop: Partial<StopFormValues>): Partial<FacilityDraft> =>
 interface Props {
   /** Directory matches for parsed stops, keyed by stop index. Suggestions only. */
   facilitySuggestions?: Record<number, Facility[]>;
+  /** Edit mode on a billed load — stop-off amounts cannot be changed. */
+  financialLocked?: boolean;
 }
 
-export default function StopsSection({ facilitySuggestions }: Props = {}) {
+export default function StopsSection({ facilitySuggestions, financialLocked }: Props = {}) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -61,6 +67,46 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
 
   const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
   const [addForIndex, setAddForIndex] = useState<number | null>(null);
+  const [removeIndex, setRemoveIndex] = useState<number | null>(null);
+  const [keepCharge, setKeepCharge] = useState(true);
+
+  /** Removal is only confirmed when it destroys something: driver data or a charge. */
+  const removalRisk = (index: number) => {
+    const s = (stops?.[index] ?? {}) as Partial<StopFormValues>;
+    return {
+      hasDriverData: !!s.has_driver_data,
+      chargeAmount: Number(s.stopoff_charge_amount) || 0,
+    };
+  };
+
+  const requestRemove = (index: number) => {
+    const risk = removalRisk(index);
+    if (!risk.hasDriverData && risk.chargeAmount <= 0) {
+      remove(index);
+      return;
+    }
+    setKeepCharge(true);
+    setRemoveIndex(index);
+  };
+
+  const confirmRemove = () => {
+    const index = removeIndex;
+    if (index === null) return;
+    const { chargeAmount } = removalRisk(index);
+    if (chargeAmount > 0 && keepCharge) {
+      // The charge survives the stop as a load-level line so the total stays right.
+      const existing = form.getValues('charges') ?? [];
+      form.setValue('charges', [...existing, {
+        charge_type: 'stopoff',
+        description: `Stop-off charge (removed stop ${index + 1})`,
+        amount: String(chargeAmount),
+        source: 'manual',
+      }], { shouldDirty: true });
+    }
+    remove(index);
+    setRemoveIndex(null);
+  };
+
 
   const facilityFor = (id?: string) => (id ? (facilities ?? []).find(f => f.id === id) ?? null : null);
 
@@ -144,7 +190,7 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
                   type="button" variant="ghost" size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive"
                   disabled={fields.length <= 2}
-                  onClick={() => remove(index)}
+                  onClick={() => requestRemove(index)}
                   aria-label={`Remove stop ${index + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -420,7 +466,7 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
                   render={({ field: f }) => (
                     <FormItem>
                       <FormLabel>Stop-off charge ($)</FormLabel>
-                      <FormControl><Input inputMode="decimal" {...f} /></FormControl>
+                      <FormControl><Input inputMode="decimal" disabled={financialLocked} {...f} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -459,6 +505,69 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
         }}
       />
 
+      <AlertDialog open={removeIndex !== null} onOpenChange={open => { if (!open) setRemoveIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove stop {(removeIndex ?? 0) + 1}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {removeIndex !== null && removalRisk(removeIndex).hasDriverData && (
+                  <p className="text-destructive">
+                    The driver has already checked in or out at this stop. Removing it deletes
+                    the recorded arrival and departure times and their GPS coordinates. That
+                    record cannot be restored.
+                  </p>
+                )}
+                {removeIndex !== null && removalRisk(removeIndex).chargeAmount > 0 && (
+                  <p>
+                    This stop carries a stop-off charge of $
+                    {removalRisk(removeIndex).chargeAmount.toFixed(2)}.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {removeIndex !== null && removalRisk(removeIndex).chargeAmount > 0 && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio" className="mt-1" checked={keepCharge}
+                  onChange={() => setKeepCharge(true)}
+                />
+                <span>
+                  <span className="font-medium">Keep the charge on the load</span>
+                  <span className="block text-xs text-muted-foreground">
+                    It becomes a load-level charge, so Total Load Value does not change.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio" className="mt-1" checked={!keepCharge}
+                  onChange={() => setKeepCharge(false)}
+                />
+                <span>
+                  <span className="font-medium">Remove the charge too</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Total Load Value drops by the charge amount.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemove}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove stop
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

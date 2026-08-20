@@ -28,6 +28,19 @@ import {
 } from '@/lib/loadRateMath';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchLoadForEdit, updateLoadWithStops } from '@/lib/loadDetail';
+import { loadToFormValues, financialChanges, removedStops } from '@/lib/loadEdit';
+import { financialEditTier } from '@/lib/loadStatusFlow';
+import type { LoadStatus } from '@/lib/loadFormat';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { AlertTriangle, Lock } from 'lucide-react';
+
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
 
@@ -49,16 +62,31 @@ interface CreateLoadPageProps {
   /** Host-supplied navigation for the Management Portal (state-driven views). */
   onCreated?: (loadId: string) => void;
   onCancel?: () => void;
+  /** Present in edit mode — the load being edited. */
+  loadId?: string | null;
+  onSaved?: (loadId: string) => void;
 }
 
-export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPageProps = {}) {
+export default function CreateLoadPage({
+  onCreated, onCancel, loadId, onSaved,
+}: CreateLoadPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isOwner } = useAuth();
+  const queryClient = useQueryClient();
+  const isEdit = !!loadId;
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [extractedBroker, setExtractedBroker] = useState<string | null>(null);
   const [facilitySuggestions, setFacilitySuggestions] = useState<Record<number, Facility[]>>({});
+  const [financialUnlocked, setFinancialUnlocked] = useState(false);
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [unlockReason, setUnlockReason] = useState('');
+  const pendingValues = useRef<LoadFormValues | null>(null);
+  const initialValues = useRef<LoadFormValues | null>(null);
+  const hydrated = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<LoadFormValues>({
@@ -66,6 +94,24 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
     defaultValues: loadFormDefaults(),
     mode: 'onSubmit',
   });
+
+  const { data: editData, isLoading: editLoading, error: editError } = useQuery({
+    queryKey: ['load-edit', loadId],
+    enabled: isEdit,
+    queryFn: () => fetchLoadForEdit(loadId as string),
+  });
+
+  useEffect(() => {
+    if (!editData || hydrated.current) return;
+    const v = loadToFormValues(editData);
+    initialValues.current = v;
+    form.reset(v);
+    hydrated.current = true;
+  }, [editData, form]);
+
+  const loadStatus = (editData?.load.status ?? 'available') as LoadStatus;
+  const tier = isEdit ? financialEditTier(loadStatus) : 'open';
+  const financialLocked = tier === 'locked' && !financialUnlocked;
 
   const values = form.watch();
   const isLoadout = values.load_type === 'loadout';
@@ -85,9 +131,11 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
   };
 
   useEffect(() => {
+    if (isEdit) return;
     void generateNumber();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isEdit]);
+
 
   // Per-Ton Bulk forces the rate type; flatbed/hopper force live load-unload.
   useEffect(() => {
@@ -116,7 +164,10 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
 
   }), [values]);
 
-  const goBack = () => (onCancel ? onCancel() : navigate('/dispatch/loads'));
+  const goBack = () => (onCancel
+    ? onCancel()
+    : navigate(isEdit ? `/dispatch/loads/${loadId}` : '/dispatch/loads'));
+
 
   const scrollToFirstError = () => {
     window.requestAnimationFrame(() => {
@@ -125,7 +176,9 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
     });
   };
 
-  const onSubmit = async (v: LoadFormValues) => {
+  const performSave = async (
+    v: LoadFormValues, reasonText: string | null = null, unlockText: string | null = null,
+  ) => {
     setSubmitting(true);
     let loadPayloadForLog: unknown = null;
     let stopsPayloadForLog: unknown = null;
@@ -176,6 +229,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
       };
 
       const stopsPayload = v.stops.map(s => ({
+        id: s.id ?? '',
         stop_type: s.stop_type,
         facility_id: s.facility_id ?? '',
         facility_name: s.facility_name ?? '',
@@ -193,6 +247,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
         stopoff_charge_amount: s.stopoff_charge_amount ?? '',
         stop_notes: s.stop_notes ?? '',
       }));
+
 
       // load_charges is the authoritative record of every charge on the load.
       // A stop-attached charge also mirrors into load_stops.stopoff_charge_amount
@@ -215,21 +270,39 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
             charge_type: c.charge_type || 'other',
             description: c.description || '',
             amount: String(c.amount),
-            source: 'parsed_rate_confirmation',
+            source: c.source || (isEdit ? 'manual' : 'parsed_rate_confirmation'),
           })),
       ];
 
       loadPayloadForLog = loadPayload;
       stopsPayloadForLog = stopsPayload;
 
-      const { data, error } = await supabase.rpc('create_load_with_stops', {
-        p_load: loadPayload as never,
-        p_stops: stopsPayload as never,
-        p_charges: chargesPayload as never,
-      });
-      if (error) throw error;
+      let savedId: string;
 
-      const newId = data as unknown as string;
+      if (isEdit) {
+        const before = initialValues.current;
+        const dropped = before ? removedStops(before, v) : [];
+        savedId = await updateLoadWithStops({
+          loadId: loadId as string,
+          load: loadPayload,
+          stops: stopsPayload,
+          charges: chargesPayload,
+          reason: reasonText,
+          unlockReason: financialUnlocked ? unlockText : null,
+          // The removal dialog is the acknowledgement; only send it when one applies.
+          acknowledgeStopDataLoss: dropped.some(s => s.hasDriverData),
+        });
+      } else {
+        const { data, error } = await supabase.rpc('create_load_with_stops', {
+          p_load: loadPayload as never,
+          p_stops: stopsPayload as never,
+          p_charges: chargesPayload as never,
+        });
+        if (error) throw error;
+        savedId = data as unknown as string;
+      }
+
+      const newId = savedId;
 
       // The parsed rate confirmation becomes the load's source document.
       if (sourceFile) {
@@ -244,34 +317,137 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
           toast({
             variant: 'destructive',
             title: 'Rate confirmation not attached',
-            description: 'The load was created, but the file did not upload. Add it from the load page.',
+            description: 'The load was saved, but the file did not upload. Add it from the load page.',
           });
         }
       }
 
-      toast({ description: `Load ${v.load_number} created.` });
-      if (onCreated) onCreated(newId);
-      else navigate(`/dispatch/loads/${newId}`);
+      if (isEdit) {
+        await queryClient.invalidateQueries({ queryKey: ['load-detail', newId] });
+        await queryClient.invalidateQueries({ queryKey: ['load-change-history', newId] });
+        await queryClient.invalidateQueries({ queryKey: ['load-edit', newId] });
+        toast({ description: `Load ${v.load_number} updated.` });
+        if (onSaved) onSaved(newId);
+        else navigate(`/dispatch/loads/${newId}`);
+      } else {
+        toast({ description: `Load ${v.load_number} created.` });
+        if (onCreated) onCreated(newId);
+        else navigate(`/dispatch/loads/${newId}`);
+      }
     } catch (e) {
-      logDbError('create_load_with_stops', e, { p_load: loadPayloadForLog, p_stops: stopsPayloadForLog });
+      logDbError(isEdit ? 'update_load_with_stops' : 'create_load_with_stops', e, {
+        p_load: loadPayloadForLog, p_stops: stopsPayloadForLog,
+      });
       toast({
         variant: 'destructive',
         title: 'Load not saved',
-        description: getDbErrorMessage(e, 'Could not create the load.'),
+        description: getDbErrorMessage(e, isEdit ? 'Could not update the load.' : 'Could not create the load.'),
       });
     } finally {
       setSubmitting(false);
     }
   };
 
+  /** Financial edits need a written reason before the save is allowed to run. */
+  const onSubmit = (v: LoadFormValues) => {
+    if (!isEdit) return performSave(v);
+    const before = initialValues.current;
+    const changed = before ? financialChanges(before, v) : [];
+    if (changed.length > 0 && !reason.trim()) {
+      pendingValues.current = v;
+      setReasonOpen(true);
+      return Promise.resolve();
+    }
+    return performSave(v, reason.trim() || null, unlockReason.trim() || null);
+  };
+
+  const confirmReasonAndSave = () => {
+    const v = pendingValues.current;
+    if (!v || !reason.trim()) return;
+    setReasonOpen(false);
+    void performSave(v, reason.trim(), unlockReason.trim() || null);
+  };
+
+  if (isEdit && editLoading) {
+    return (
+      <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading load…
+      </div>
+    );
+  }
+
+  if (isEdit && (editError || (!editLoading && !editData))) {
+    return (
+      <div className="space-y-4 max-w-2xl">
+        <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
+        <Alert variant="destructive">
+          <AlertTitle>Load unavailable</AlertTitle>
+          <AlertDescription>
+            {editError ? getDbErrorMessage(editError, 'Could not load this record.') : 'This load no longer exists.'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 max-w-5xl">
       <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
         <ArrowLeft className="h-4 w-4" />
-        Back to Loads
+        {isEdit ? 'Back to Load' : 'Back to Loads'}
       </Button>
 
-      <h1 className="text-xl font-semibold text-foreground">Create Load</h1>
+      <h1 className="text-xl font-semibold text-foreground">
+        {isEdit ? `Edit Load ${values.load_number || ''}`.trim() : 'Create Load'}
+      </h1>
+
+      {isEdit && tier === 'warn' && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>This load is close to invoicing</AlertTitle>
+          <AlertDescription>
+            Rates and charges can still be changed, but the load is already at
+            “{formatEnumLabel(loadStatus)}”. Any financial change requires a written reason
+            and will be recorded in the load's change history.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isEdit && tier === 'locked' && (
+        <Alert variant={financialUnlocked ? 'default' : 'destructive'}>
+          <Lock className="h-4 w-4" />
+          <AlertTitle>Financial fields are locked</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>
+              This load is “{formatEnumLabel(loadStatus)}” — it has been billed out, so rates
+              and charges cannot be edited. Operational details can still be corrected.
+            </p>
+            {isOwner && !financialUnlocked && (
+              <Button
+                type="button" size="sm" variant="outline"
+                onClick={() => setFinancialUnlocked(true)}
+              >
+                Unlock financial fields (owner override)
+              </Button>
+            )}
+            {financialUnlocked && (
+              <div className="space-y-1.5">
+                <Label htmlFor="unlock-reason">Owner override reason (required)</Label>
+                <Textarea
+                  id="unlock-reason"
+                  value={unlockReason}
+                  onChange={e => setUnlockReason(e.target.value)}
+                  placeholder="Why is a billed load being changed?"
+                  rows={2}
+                />
+              </div>
+            )}
+            {!isOwner && <p className="text-xs">Only the owner can override this.</p>}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <FormProvider {...form}>
         <Form {...form}>
@@ -280,11 +456,14 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
             onSubmit={form.handleSubmit(onSubmit, scrollToFirstError)}
             className="space-y-4"
           >
-            <RateConfirmationParser
-              onSourceFileChange={setSourceFile}
-              onExtractedBroker={setExtractedBroker}
-              onFacilitySuggestions={setFacilitySuggestions}
-            />
+            {!isEdit && (
+              <RateConfirmationParser
+                onSourceFileChange={setSourceFile}
+                onExtractedBroker={setExtractedBroker}
+                onFacilitySuggestions={setFacilitySuggestions}
+              />
+            )}
+
 
             {/* 1 — Load type */}
             <Section title="Load Type">
@@ -328,15 +507,22 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
                         <FormControl>
                           <Input {...field} readOnly className="font-mono bg-muted/40" />
                         </FormControl>
-                        <Button
-                          type="button" variant="outline" size="icon"
-                          onClick={generateNumber} disabled={numberLoading}
-                          aria-label="Regenerate load number"
-                        >
-                          <RefreshCw className={`h-4 w-4 ${numberLoading ? 'animate-spin' : ''}`} />
-                        </Button>
+                        {!isEdit && (
+                          <Button
+                            type="button" variant="outline" size="icon"
+                            onClick={generateNumber} disabled={numberLoading}
+                            aria-label="Regenerate load number"
+                          >
+                            <RefreshCw className={`h-4 w-4 ${numberLoading ? 'animate-spin' : ''}`} />
+                          </Button>
+                        )}
                       </div>
-                      <FormDescription>The number format is configurable in settings.</FormDescription>
+                      <FormDescription>
+                        {isEdit
+                          ? 'The load number cannot be changed after creation.'
+                          : 'The number format is configurable in settings.'}
+                      </FormDescription>
+
                       <FormMessage />
                     </FormItem>
                   )}
@@ -587,7 +773,9 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
             {/* 5 — Rate */}
             {!isLoadout && (
               <Section title="Rate">
+                <fieldset disabled={financialLocked} className="space-y-4 disabled:opacity-70">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
                   <FormField
                     control={form.control}
                     name="rate_type"
@@ -740,6 +928,8 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
                     ))}
                   </div>
                 )}
+                </fieldset>
+
 
                 <div className="rounded-md border border-gold/40 bg-gold/5 px-4 py-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Total Load Value</span>
@@ -760,7 +950,11 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
               title="Stops"
               description="Stops save in the order shown. Any stop between the first and last is marked stop-off charge eligible."
             >
-              <StopsSection facilitySuggestions={facilitySuggestions} />
+              <StopsSection
+                facilitySuggestions={facilitySuggestions}
+                financialLocked={financialLocked}
+              />
+
               {form.formState.errors.stops?.message && (
                 <p className="text-sm font-medium text-destructive">
                   {form.formState.errors.stops.message as string}
@@ -904,16 +1098,53 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
               <Button type="button" variant="outline" onClick={goBack} disabled={submitting}>Cancel</Button>
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (financialUnlocked && !unlockReason.trim())}
                 className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light"
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create Load
+                {isEdit ? 'Save Changes' : 'Create Load'}
               </Button>
             </div>
           </form>
         </Form>
       </FormProvider>
+
+      <Dialog open={reasonOpen} onOpenChange={setReasonOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Why is the money changing?</DialogTitle>
+            <DialogDescription>
+              This edit changes what the broker is billed
+              {pendingValues.current && initialValues.current
+                ? `: ${financialChanges(initialValues.current, pendingValues.current).join(', ')}.`
+                : '.'}{' '}
+              A written reason is required and is stored in the load's change history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="financial-reason">Reason (required)</Label>
+            <Textarea
+              id="financial-reason"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              placeholder="Revised rate confirmation received — linehaul increased by $150."
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setReasonOpen(false)}>Cancel</Button>
+            <Button
+              type="button"
+              disabled={reason.trim().length < 5}
+              onClick={confirmReasonAndSave}
+              className="bg-gold text-surface-dark hover:bg-gold-light"
+            >
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 }
