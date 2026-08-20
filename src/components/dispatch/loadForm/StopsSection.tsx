@@ -13,6 +13,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import StateSelect from '@/components/shared/StateSelect';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
 import FacilityDialog, { type FacilityDraft } from '@/components/facilities/FacilityDialog';
@@ -186,7 +190,7 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
                   type="button" variant="ghost" size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive"
                   disabled={fields.length <= 2}
-                  onClick={() => remove(index)}
+                  onClick={() => requestRemove(index)}
                   aria-label={`Remove stop ${index + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -462,7 +466,7 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
                   render={({ field: f }) => (
                     <FormItem>
                       <FormLabel>Stop-off charge ($)</FormLabel>
-                      <FormControl><Input inputMode="decimal" {...f} /></FormControl>
+                      <FormControl><Input inputMode="decimal" disabled={financialLocked} {...f} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -501,6 +505,69 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
         }}
       />
 
+      <AlertDialog open={removeIndex !== null} onOpenChange={open => { if (!open) setRemoveIndex(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove stop {(removeIndex ?? 0) + 1}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {removeIndex !== null && removalRisk(removeIndex).hasDriverData && (
+                  <p className="text-destructive">
+                    The driver has already checked in or out at this stop. Removing it deletes
+                    the recorded arrival and departure times and their GPS coordinates. That
+                    record cannot be restored.
+                  </p>
+                )}
+                {removeIndex !== null && removalRisk(removeIndex).chargeAmount > 0 && (
+                  <p>
+                    This stop carries a stop-off charge of $
+                    {removalRisk(removeIndex).chargeAmount.toFixed(2)}.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {removeIndex !== null && removalRisk(removeIndex).chargeAmount > 0 && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio" className="mt-1" checked={keepCharge}
+                  onChange={() => setKeepCharge(true)}
+                />
+                <span>
+                  <span className="font-medium">Keep the charge on the load</span>
+                  <span className="block text-xs text-muted-foreground">
+                    It becomes a load-level charge, so Total Load Value does not change.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio" className="mt-1" checked={!keepCharge}
+                  onChange={() => setKeepCharge(false)}
+                />
+                <span>
+                  <span className="font-medium">Remove the charge too</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Total Load Value drops by the charge amount.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemove}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove stop
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
