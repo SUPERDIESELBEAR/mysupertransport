@@ -950,7 +950,11 @@ export default function CreateLoadPage({
               title="Stops"
               description="Stops save in the order shown. Any stop between the first and last is marked stop-off charge eligible."
             >
-              <StopsSection facilitySuggestions={facilitySuggestions} />
+              <StopsSection
+                facilitySuggestions={facilitySuggestions}
+                financialLocked={financialLocked}
+              />
+
               {form.formState.errors.stops?.message && (
                 <p className="text-sm font-medium text-destructive">
                   {form.formState.errors.stops.message as string}
