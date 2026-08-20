@@ -166,9 +166,13 @@ export default function CreateLoadPage({
 
   }), [values]);
 
-  const goBack = () => (onCancel
+  const leaveNow = () => (onCancel
     ? onCancel()
     : navigate(isEdit ? `/dispatch/loads/${loadId}` : '/dispatch/loads'));
+
+  // Routed through the unsaved-changes guard below; safe to reference before
+  // the hook call because it only runs on click.
+  const goBack = () => unsaved.guard(leaveNow);
 
 
   const scrollToFirstError = () => {
