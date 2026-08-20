@@ -106,12 +106,23 @@ const usable = <T,>(f?: Field<T> | null): T | null =>
 const needsCheck = <T,>(f?: Field<T> | null): boolean =>
   !!f && f.value !== null && f.value !== undefined && f.confidence === 'medium';
 
-/** A stop's reference number: highest-confidence gate/invoice number wins. */
+/** Labels a guard shack actually asks for. Anything else is not promoted into the field. */
+const GATE_LABEL =
+  /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal|shipment|load)\b/i;
+
+/**
+ * A stop's reference number. Only an explicitly labelled gate/invoice reference at
+ * high or medium confidence is used — a bare internal code is left blank on purpose,
+ * because a wrong number at a guard shack is worse than no number.
+ */
 export function pickReference(refs: ParsedReference[]): ParsedReference | null {
   if (!refs.length) return null;
   const rank: Record<Confidence, number> = { high: 0, medium: 1, low: 2 };
-  return [...refs].sort((a, b) => rank[a.confidence] - rank[b.confidence])[0] ?? null;
+  return [...refs]
+    .filter(r => r.confidence !== 'low' && GATE_LABEL.test(r.label ?? ''))
+    .sort((a, b) => rank[a.confidence] - rank[b.confidence])[0] ?? null;
 }
+
 
 export interface LoadoutAssessment { score: number; reasons: string[]; suspected: boolean }
 
