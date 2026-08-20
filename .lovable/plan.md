@@ -82,10 +82,11 @@ Parsed values run through `src/lib/textNormalize.ts` before they reach the form,
 
 ## Technical notes
 
-- `RateConfirmationParser.tsx`: effect dependency fix; assign dropdown gains the "add to load total" option and conditional stop options; section heading and helper copy; provisional broker name handed to the form.
-- `src/lib/rateConfirmation.ts`: normalization on stop and broker fields in `applyParsedToForm`; return unattached lines unchanged.
-- `src/pages/dispatch/loadFormSchema.ts`: new `additional_charges` array field (description + amount) on the form only.
-- `src/lib/loadRateMath.ts`: `calcTotalLoadValue` sums `additionalCharges` for non-loadout loads; new unit tests alongside the existing stop-off tests.
-- `src/pages/dispatch/CreateLoadPage.tsx`: pass additional charges into the total, render the removable list near the rate fields, append the itemized block to `special_instructions` on submit.
+- Migration: `load_charges` table, index, grants, RLS policies, audit trigger; `create_load_with_stops` gains a charges payload and inserts the rows after stops. Load Detail reads charges for its rate card.
+- `RateConfirmationParser.tsx`: effect dependency fix; assign dropdown gains "Add to load total" and conditional stop options; section heading and helper copy; provisional broker name handed to the form.
+- `src/lib/rateConfirmation.ts`: normalization on stop and broker fields in `applyParsedToForm`.
+- `src/pages/dispatch/loadFormSchema.ts`: `charges` array on the form (`charge_type`, `description`, `amount`, `stop_index | null`, `source`); stop cards read and write their entry.
+- `src/lib/loadRateMath.ts`: `calcTotalLoadValue` sums charges instead of stop-off amounts; tests including the double-counting guard.
+- `src/pages/dispatch/CreateLoadPage.tsx`: charge list UI near the rate fields, charges in the RPC payload, regenerated itemized block in `special_instructions`.
 - `BrokerSelect.tsx`: optional `provisionalName` prop and hint.
-- Verification: re-parse the real AAA Freight PDF — source panel renders inline, $50 assignable to the load total, Total Load Value $1,050, broker field shows "AAA Freight Global Inc. — not in directory", stops read Macon / Attalla / Gadsden Warehousing Inc in title case.
+- Verification: re-parse the real AAA Freight PDF — source panel renders inline, $50 added to the load total, Total Load Value $1,050, a `load_charges` row saved with `source 'parsed_rate_confirmation'`, broker field shows "AAA Freight Global Inc. — not in directory", stops read Macon / Attalla / Gadsden Warehousing Inc in title case.
