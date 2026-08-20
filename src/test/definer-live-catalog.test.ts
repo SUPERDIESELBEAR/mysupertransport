@@ -73,7 +73,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.approve_application_correction(text,text,text,jsonb)",
   "public.archive_applicant_pei(uuid,text,text)",
   "public.archive_applicant_pei(uuid,text)",
-  "public.assign_user_role(uuid,app_role)",
   "public.can_driver_message_staff(uuid,uuid)",
   "public.cancel_application_correction(uuid)",
   "public.check_application_email_taken(text)",
@@ -85,10 +84,8 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.get_equipment_shipping_for_operator(uuid)",
   "public.get_inspection_doc_by_token(uuid)",
   "public.get_or_create_short_link(text)",
-  "public.get_pei_queue()",
   "public.get_pei_request_for_response(uuid)",
   "public.get_pei_requests_needing_action()",
-  "public.get_staff_contact_info(uuid[])",
   "public.get_thread_participants(uuid)",
   "public.get_user_roles(uuid)",
   "public.has_role(uuid,app_role)",
@@ -107,14 +104,10 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.operator_awaiting_return(uuid)",
   "public.operator_return_requested(uuid)",
   "public.reject_application_correction(text,text,jsonb)",
-  "public.remove_user_role(uuid,app_role)",
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
   "public.save_application_draft(uuid,jsonb)",
-  "public.search_audit_log(text,text,timestamp with time zone,timestamp with time zone,integer,integer,uuid,uuid)",
-  "public.search_audit_log(text,text,timestamp with time zone,timestamp with time zone,integer,integer)",
-  "public.set_go_live_with_override(uuid,date,text)",
   "public.submit_application_correction(uuid,text,text,jsonb)",
   "public.submit_application_draft(uuid,jsonb,text)",
   "public.submit_pei_response(uuid,jsonb,jsonb,jsonb)",
@@ -141,8 +134,9 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
 // undone (discard_rods_amendment, log_ica_event, match_staff_help_knowledge,
 // revoke_share_token), re-asserted 2026-08-03 and re-read live.
 // 54 + the three token-gated public endpoints registered 2026-08-20
-// (get_ica_review_link, get_share_bundle_meta, resolve_share_bundle).
-const KNOWN_ANON_EXECUTABLE_MAX = 57;
+// (get_ica_review_link, get_share_bundle_meta, resolve_share_bundle), minus the
+// seven entries no longer anon-executable, removed in the same 2026-08-20 pass.
+const KNOWN_ANON_EXECUTABLE_MAX = 50;
 
 
 /**
