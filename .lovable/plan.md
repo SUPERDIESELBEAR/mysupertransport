@@ -36,4 +36,6 @@ Both paths reuse `FacilityDialog` unchanged, which is the same component the Fac
 
 - Files touched: `src/components/dispatch/loadForm/FacilitySelect.tsx` (forceMount action rows, actionable empty state, add-row label), `src/components/dispatch/loadForm/StopsSection.tsx` (unsaved-facility note + dialog wiring).
 - No schema change, no RPC change, no edge-function change. `FacilityDialog.tsx` and `facilityMatch.ts` are unchanged.
-- New unit test is not the right tool here (cmdk filtering is render-level); verification is a live browser check on Create Load: type a name with no match and confirm the add action is present; create from it and confirm the stop links, no drift note appears, and the facility shows up in the directory.
+- Regression pinning: attempt a Testing Library render test on `FacilitySelect` that opens the combobox, types a query matching no saved facility, and asserts the add action is still in the document. The test must exercise the typed-no-match state only — the empty-input case already worked and asserting it would pass without covering the defect. If cmdk's filtering cannot be driven reliably in jsdom (virtualized list, no layout, input events not reaching the filter), I will report that plainly and skip the test rather than ship one that passes vacuously.
+- Live verification on Create Load: type a name with no match and confirm the add action is present; create from it and confirm the stop links, no drift note appears, and the facility shows up in the directory.
+
