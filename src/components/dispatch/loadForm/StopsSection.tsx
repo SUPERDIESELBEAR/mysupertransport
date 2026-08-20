@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import StateSelect from '@/components/shared/StateSelect';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
+import FacilityDialog, { type FacilityDraft } from '@/components/facilities/FacilityDialog';
 import { FACILITIES_QUERY_KEY, useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
 import { facilitySummary } from '@/lib/facilityMatch';
