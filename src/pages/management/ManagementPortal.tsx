@@ -372,10 +372,8 @@ export default function ManagementPortal() {
     else next.delete('loadId');
     const current = window.location.search.replace(/^\?/, '');
     const nextSearch = next.toString();
-    console.log('[urlwriter2]', { current, nextSearch });
     if (nextSearch !== current) {
       setSearchParams(next, { replace: true });
-      setTimeout(() => console.log('[urlwriter3] after', window.location.search), 50);
     }
     // Remember what we wrote so the reader effect doesn't treat it as external.
     lastWrittenSearchRef.current = nextSearch;
