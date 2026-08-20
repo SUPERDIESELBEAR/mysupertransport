@@ -12,13 +12,35 @@ export function normalizeWhitespace(value: string | null | undefined): string {
 const LOWER_WORDS = new Set(['of', 'and', 'the', 'in', 'at', 'on', 'for', 'to', 'by']);
 const DIRECTIONALS = new Set(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw', 'nne', 'nnw', 'sse', 'ssw']);
 
+/**
+ * Street type abbreviations are not acronyms — they must always title case
+ * ("ST" -> "St"), even though the acronym rule would otherwise preserve them.
+ */
+const STREET_TYPES = new Set([
+  'st', 'rd', 'ave', 'av', 'blvd', 'dr', 'ln', 'ct', 'cir', 'pl', 'pkwy', 'pky',
+  'hwy', 'ter', 'trl', 'way', 'pike', 'expy', 'fwy', 'sq', 'plz', 'aly', 'bnd',
+  'crk', 'xing', 'loop', 'run', 'path', 'rte', 'tpke', 'mtwy',
+]);
+
+const titleCasePlain = (word: string) =>
+  word.replace(/[A-Za-z][A-Za-z']*/g, m => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
+
 function titleCaseWord(word: string, index: number): string {
   if (!word) return word;
+
+  const bareEarly = word.replace(/[^A-Za-z]/g, '').toLowerCase();
+
+  // Directionals win over street types ("N", "SE" stay uppercase).
+  if (DIRECTIONALS.has(bareEarly) && bareEarly.length <= 3) {
+    return word.replace(/[A-Za-z]+/, m => m.toUpperCase());
+  }
+  // Street types always title case, even with trailing punctuation ("ST." -> "St.").
+  if (STREET_TYPES.has(bareEarly)) return titleCasePlain(word);
 
   // Preserve short acronyms the user typed in caps ("US", "JFK", "LLC").
   if (word.length <= 3 && word === word.toUpperCase() && /[A-Z]/.test(word)) return word;
 
-  const bare = word.replace(/[^A-Za-z]/g, '').toLowerCase();
+  const bare = bareEarly;
 
   if (DIRECTIONALS.has(bare) && bare.length <= 3) {
     return word.replace(/[A-Za-z]+/, m => m.toUpperCase());
