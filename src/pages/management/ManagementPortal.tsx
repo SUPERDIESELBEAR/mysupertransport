@@ -142,7 +142,12 @@ export default function ManagementPortal() {
     // email, or a pasted link — so it wins outright. Requiring a companion
     // deep-link marker (`op`/`app`/`event`) made every plain `?view=` link dead
     // for anyone who had already visited another section in the same tab.
-    if (urlView && ALLOWED_VIEWS.includes(urlView)) return urlView;
+    if (urlView && ALLOWED_VIEWS.includes(urlView)) {
+      // The edit form is meaningless without a load; fall back to the list
+      // rather than rendering an empty form.
+      if (urlView === 'load-edit' && !searchParams.get('loadId')) return 'loads';
+      return urlView;
+    }
     // With no view in the URL, restore the per-tab "last viewed section".
     try {
       const saved = sessionStorage.getItem('mgmt_last_view') as ManagementView | null;
@@ -151,7 +156,9 @@ export default function ManagementPortal() {
     return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
-  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
+  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(
+    () => searchParams.get('loadId'),
+  );
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
