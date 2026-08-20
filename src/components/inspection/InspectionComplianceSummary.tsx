@@ -153,11 +153,25 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until, file_path, uploaded_at, expires_updated_at');
 
     // DOT inspections live in a separate table; merge them client-side so the
-    // view definition can stay unchanged.
-    const { data: dotRows } = await supabase
+    // view definition can stay unchanged. Driver names are NOT columns on
+    // `operators` — they live on `applications`, reached through
+    // `operators.application_id`. Getting that embed wrong makes PostgREST
+    // reject the whole request, and a swallowed error here empties every DOT
+    // Inspection row out of the summary with no other visible sign, so the
+    // error is surfaced rather than discarded.
+    const { data: dotRows, error: dotError } = await supabase
       .from('truck_dot_inspections')
-      .select('id, operator_id, next_due_date, inspection_date, operators(id, application_id, first_name, last_name)')
+      .select('id, operator_id, next_due_date, inspection_date, operators(id, application_id, applications(first_name, last_name))')
       .order('next_due_date', { ascending: true });
+
+    if (dotError) {
+      console.error('[compliance] DOT inspections query failed', dotError);
+      toast({
+        variant: 'destructive',
+        title: 'DOT inspections could not be loaded',
+        description: 'The rest of the compliance summary is shown, but DOT inspection dates are missing.',
+      });
+    }
 
     if (!rows) { setLoading(false); return; }
 
@@ -189,8 +203,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
     // Merge DOT inspections into the same list.
     (dotRows ?? []).forEach((r: any) => {
-      const op = r.operators;
-      const operatorName = op ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown' : 'Unknown';
+      const app = r.operators?.applications;
+      const operatorName = app
+        ? `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || 'Unknown'
+        : 'Unknown';
       const nextDue = r.next_due_date ? String(r.next_due_date) : null;
       const daysUntil = nextDue ? differenceInDays(parseLocalDate(nextDue), new Date()) : null;
       result.push({

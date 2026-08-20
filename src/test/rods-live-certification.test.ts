@@ -53,6 +53,60 @@ function psqlJson(sql: string): unknown {
 
 const describeLive = HAS_DB ? describe : describe.skip;
 
+/**
+ * Can this harness actually CALL the function? In the Lovable sandbox, psql
+ * connects as a restricted role that is deliberately barred from EXECUTE on
+ * database functions, so `SELECT public.certify_rods_day(...)` comes back as
+ * `permission denied for function certify_rods_day`. That is by design and
+ * granting EXECUTE to the sandbox role to work around it is forbidden.
+ *
+ * The function also cannot be reached over REST from here: it requires an
+ * authenticated JWT for the specific driver, and no service-role key is
+ * available on Lovable Cloud to mint one.
+ *
+ * So the executing arm is gated on the real capability and, when it cannot
+ * run, says so at the same volume as the missing-PGHOST banner. It must never
+ * read as coverage.
+ */
+function canExecuteFunctions(): boolean {
+  if (!HAS_DB) return false;
+  try {
+    const out = psql(`
+      SELECT bool_or(has_function_privilege(current_user, p.oid, 'EXECUTE'))
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'certify_rods_day'
+    `).trim();
+    return out === 't';
+  } catch {
+    return false;
+  }
+}
+
+const CAN_EXECUTE = canExecuteFunctions();
+
+if (HAS_DB && !CAN_EXECUTE) {
+  console.warn(
+    [
+      '',
+      '  ############################################################',
+      '  #  rods-live-certification: THE LIVE RPC ARM DID NOT RUN   #',
+      '  #                                                          #',
+      '  #  This harness role has no EXECUTE on certify_rods_day,   #',
+      '  #  by design, and the RPC needs a driver JWT that cannot   #',
+      '  #  be minted here. The end-to-end certify/supersede arm    #',
+      '  #  was SKIPPED.                                            #',
+      '  #                                                          #',
+      '  #  A green run of this file is NOT evidence that           #',
+      '  #  certify_rods_day works. Run it where a driver session   #',
+      '  #  exists, on a disposable instance.                       #',
+      '  ############################################################',
+      '',
+    ].join('\n'),
+  );
+}
+
+const itExecuting = CAN_EXECUTE ? it : it.skip;
+
 interface DemoFixture {
   operator_id: string;
   user_id: string;
@@ -101,7 +155,7 @@ describeLive('certify_rods_day live RPC', () => {
     expect(fixture.is_demo).toBe(true);
   });
 
-  it('certifies a clean initial draft and supersedes it with an amendment', () => {
+  itExecuting('certifies a clean initial draft and supersedes it with an amendment', () => {
     // Own fixture, resolved live. The connection cannot write auth.users, so
     // the subject is an existing DEMO operator — an account that exists to be
     // written to — rather than a working driver. Rollback still wraps it.

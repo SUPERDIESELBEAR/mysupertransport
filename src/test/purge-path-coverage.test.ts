@@ -71,10 +71,11 @@ describeLive('purge_rods_day path coverage', () => {
     `).join('\n');
     expect(def.length, 'purge_rods_day must exist').toBeGreaterThan(0);
 
-    // The four known today. Stated explicitly so a RENAME is caught as well as
+    // The five known today. Stated explicitly so a RENAME is caught as well as
     // an addition: renaming one away makes both this list and the catalog
     // comparison fail.
     expect(columns).toEqual([
+      'bol_photo_path',
       'certification_signature_path',
       'display_document_path',
       'pdf_path',

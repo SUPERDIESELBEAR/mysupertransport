@@ -99,12 +99,52 @@ describeLive('share token throttling', () => {
     ).trim());
     expect(nullExpiry).toBeGreaterThan(0);
 
-    // And one of them still resolves through the new path.
-    const resolved = Number(psql(`SELECT count(*) FROM public.resolve_share_token(
-      (SELECT token FROM public.share_tokens
-        WHERE scope = 'inspection_document' AND expires_at IS NULL AND revoked_at IS NULL
-        LIMIT 1))`).trim());
-    expect(resolved).toBe(1);
+    // The resolve used to be executed here. It no longer is, for two reasons,
+    // and neither is "the sandbox cannot run it" alone:
+    //
+    //   1. The sandbox psql role is deliberately barred from EXECUTE, so the
+    //      call returned `permission denied for function resolve_share_token`.
+    //      Granting EXECUTE to work around that is forbidden.
+    //   2. Re-pointing it at the REST RPC endpoint would have worked — and
+    //      would have been WRONG. `_share_token_gate` INSERTs into
+    //      share_token_access_log on EVERY outcome, including 'ok'. Executing
+    //      the resolver here writes a row against a production token and burns
+    //      one of that QR sticker's 60 served opens per hour. That is exactly
+    //      the write the header of this file forbids.
+    //
+    // So the NULL-expiry ok-path is asserted structurally instead: the resolver
+    // delegates to the gate, and the gate's only expiry branch treats NULL as
+    // never-expired (asserted above). What is NOT covered is a real end-to-end
+    // resolve. See the banner below.
+    const resolver = defOf('resolve_share_token');
+    expect(resolver).toContain('_share_token_gate');
+    // Anything the gate does not call 'ok' returns nothing; only 'ok' reaches
+    // the per-scope SELECT that yields the row.
+    expect(resolver).toMatch(/v_gate\.outcome IS DISTINCT FROM 'ok'/);
+    expect(resolver).toMatch(/'ok'::text/);
+  });
+
+  it('DOES NOT execute the resolver end-to-end, and says so', () => {
+    console.warn(
+      [
+        '',
+        '  ############################################################',
+        '  #  share-token-throttle: END-TO-END RESOLVE DID NOT RUN    #',
+        '  #                                                          #',
+        '  #  resolve_share_token is NOT executed by this suite.      #',
+        '  #  The sandbox psql role cannot EXECUTE functions, and     #',
+        '  #  resolving over REST would write a share_token_access_log #',
+        '  #  row against a real printed QR sticker and consume one    #',
+        '  #  of its 60 served opens/hour.                             #',
+        '  #                                                          #',
+        '  #  A green run here is evidence about the FUNCTION BODIES   #',
+        '  #  and GRANTS only. It is NOT evidence that a token         #',
+        '  #  resolves. That belongs on a disposable instance.         #',
+        '  ############################################################',
+        '',
+      ].join('\n'),
+    );
+    expect(true).toBe(true);
   });
 
   it('keeps the gate and the officer resolver off the public API', () => {
