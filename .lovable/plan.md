@@ -15,7 +15,7 @@ The skip list is unchanged — legal boilerplate, insurance and liability, doubl
 
 ## Verification
 
-Redeploy the function and re-parse the same three-page AAA Freight document, then report the full extracted special instructions text verbatim so both sides can be judged: the unpriced page-one items now present, and no boilerplate pulled in behind them. Confirm the reference-number and total behaviour from the previous pass is unaffected, and run the test suite.
+Redeploy the function and parse AAA's original rate confirmation PDF exactly as uploaded — not a rebuilt test document, so the real file's layout quirks are exercised. Then report the full extracted special instructions text verbatim so both sides can be judged: the unpriced operational items now present, and no boilerplate pulled in behind them. Confirm the reference-number and total behaviour from the previous pass is unaffected on the real file, and run the test suite.
 
 ## Technical detail
 
