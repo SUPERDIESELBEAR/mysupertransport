@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, Pencil } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, FileUp, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +18,7 @@ import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection'
 import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
 import ChangeHistoryCard from '@/components/dispatch/loadDetail/ChangeHistoryCard';
+import RevisedRateConModal from '@/components/dispatch/loadDetail/RevisedRateConModal';
 import { fetchLoadClaims, fetchLoadDetail } from '@/lib/loadDetail';
 import { CLAIM_TYPE_LABELS } from '@/components/dispatch/loadDetail/claimConstants';
 import { type LoadStatus } from '@/lib/loadFormat';
@@ -37,6 +39,9 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
   const navigate = useNavigate();
   const { isStaff, isDispatcher, isManagement } = useAuth();
   const canChangeStatus = isDispatcher || isManagement;
+  // Re-parsing a revised rate confirmation reprices the load: staff only, never operators.
+  const canRevise = isDispatcher || isManagement;
+  const [reviseOpen, setReviseOpen] = useState(false);
   const canManageClaims = isDispatcher || isManagement;
 
   const goBack = () => (onBack ? onBack() : navigate('/dispatch/loads'));
@@ -106,10 +111,21 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
               {LOAD_TYPE_LABELS[loadType]}
             </Badge>
           ) : null}
+          {canRevise ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto gap-1.5"
+              onClick={() => setReviseOpen(true)}
+            >
+              <FileUp className="h-4 w-4" />
+              Revised Rate Con
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"
-            className="ml-auto gap-1.5"
+            className={canRevise ? 'gap-1.5' : 'ml-auto gap-1.5'}
             onClick={() => (onEdit ? onEdit() : navigate(`/dispatch/loads/${id}/edit`))}
           >
             <Pencil className="h-4 w-4" />
@@ -161,6 +177,9 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
       <NotesSection load={load} canSeeInternal={isStaff} />
       {isStaff ? <ChangeHistoryCard loadId={load.id} /> : null}
+      {canRevise ? (
+        <RevisedRateConModal load={load} open={reviseOpen} onOpenChange={setReviseOpen} />
+      ) : null}
     </div>
   );
 }

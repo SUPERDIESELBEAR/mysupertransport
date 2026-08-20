@@ -21,6 +21,7 @@ import StopsSection from '@/components/dispatch/loadForm/StopsSection';
 import type { Facility } from '@/lib/facilities';
 import RateConfirmationParser from '@/components/dispatch/loadForm/RateConfirmationParser';
 import { uploadLoadDocument } from '@/lib/loadDocuments';
+import { buildLoadSavePayload } from '@/lib/loadSavePayload';
 import { EQUIPMENT_TYPES, formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
 import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
@@ -44,7 +45,6 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
 
 
-const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
 
 function Section({ title, description, children }: {
   title: string; description?: string; children: React.ReactNode;
@@ -189,99 +189,13 @@ export default function CreateLoadPage({
     let loadPayloadForLog: unknown = null;
     let stopsPayloadForLog: unknown = null;
     try {
-      const loadPayload: Record<string, unknown> = {
-        load_number: v.load_number,
-        load_type: v.load_type,
-        broker_id: v.broker_id || '',
-        broker_reference_number: v.broker_reference_number ?? '',
-        equipment_type: v.equipment_type,
-        handling_type: v.handling_type,
-        commodity: v.commodity ?? '',
-        weight_lbs: isLoadout ? '' : (v.weight_lbs ?? ''),
-        bol_number: v.bol_number ?? '',
-        po_number: v.po_number ?? '',
-        rate_type: isLoadout ? 'flat' : v.rate_type,
-        linehaul_rate: isLoadout ? '' : (v.linehaul_rate ?? ''),
-        rate_per_mile: isLoadout ? '' : (v.rate_per_mile ?? ''),
-        rate_per_ton: isLoadout ? '' : (v.rate_per_ton ?? ''),
-        estimated_tons: isLoadout ? '' : (v.estimated_tons ?? ''),
-        fsc_bundled_into_linehaul: v.fsc_bundled_into_linehaul,
-        fsc_amount: v.fsc_bundled_into_linehaul ? '' : (v.fsc_amount ?? ''),
-        loaded_miles: v.loaded_miles ?? '',
-        deadhead_miles: v.deadhead_miles ?? '',
-        total_load_value: totalValue ? String(totalValue) : '',
-        reefer_temp_f: isReefer ? (v.reefer_temp_f ?? '') : '',
-        reefer_temp_min_f: isReefer ? (v.reefer_temp_min_f ?? '') : '',
-        reefer_temp_max_f: isReefer ? (v.reefer_temp_max_f ?? '') : '',
-        reefer_precool_required: isReefer ? v.reefer_precool_required : false,
-        reefer_continuous_run: isReefer ? v.reefer_continuous_run : false,
-        reefer_notes: isReefer ? (v.reefer_notes ?? '') : '',
-        loadout_trailer_owner_company: isLoadout ? (v.loadout_trailer_owner_company ?? '') : '',
-        loadout_trailer_owner_contact: isLoadout ? (v.loadout_trailer_owner_contact ?? '') : '',
-        loadout_trailer_number: isLoadout ? (v.loadout_trailer_number ?? '') : '',
-        loadout_trailer_vin: isLoadout ? (v.loadout_trailer_vin ?? '') : '',
-        loadout_trailer_type: isLoadout ? (v.loadout_trailer_type ?? '') : '',
-        loadout_relocation_fee: isLoadout ? (v.loadout_relocation_fee ?? '') : '',
-        loadout_use_period_days: isLoadout ? (v.loadout_use_period_days ?? '') : '',
-        internal_notes: v.internal_notes ?? '',
-        driver_facing_notes: v.driver_facing_notes ?? '',
-        special_instructions: v.special_instructions ?? '',
-        is_team_load: v.is_team_load,
-        co_driver_name: v.is_team_load ? (v.co_driver_name ?? '') : '',
-        is_hazmat: v.is_hazmat,
-        permit_required: v.permit_required,
-        permit_cost: v.permit_required ? (v.permit_cost ?? '') : '',
-        permit_recovery_method: v.permit_required ? (v.permit_recovery_method ?? '') : '',
-      };
-
-      const stopsPayload = v.stops.map(s => ({
-        id: s.id ?? '',
-        stop_type: s.stop_type,
-        facility_id: s.facility_id ?? '',
-        facility_name: s.facility_name ?? '',
-        address_line1: s.address_line1 ?? '',
-        address_line2: s.address_line2 ?? '',
-        city: s.city,
-        state: s.state,
-        zip: s.zip ?? '',
-        contact_name: s.contact_name ?? '',
-        contact_phone: s.contact_phone ?? '',
-        appointment_start: toIso(s.appointment_start),
-        appointment_end: toIso(s.appointment_end),
-        reference_number: s.reference_number ?? '',
-        reference_label: s.reference_label ?? '',
-        stopoff_charge_amount: s.stopoff_charge_amount ?? '',
-        stop_notes: s.stop_notes ?? '',
-      }));
-
-
-      // load_charges is the authoritative record of every charge on the load.
-      // A stop-attached charge also mirrors into load_stops.stopoff_charge_amount
-      // for display; the total counts it once, from this list only.
-      const chargesPayload = [
-        ...v.stops
-          .map((s, i) => ({ s, i }))
-          .filter(({ s, i }) => i > 0 && i < v.stops.length - 1 && Number(s.stopoff_charge_amount) > 0)
-          .map(({ s, i }) => ({
-            stop_index: String(i),
-            charge_type: 'stopoff',
-            description: 'Stop-off charge',
-            amount: String(s.stopoff_charge_amount),
-            source: 'manual',
-          })),
-        ...(v.charges ?? [])
-          .filter(c => Number(c.amount) > 0)
-          .map(c => ({
-            stop_index: '',
-            charge_type: c.charge_type || 'other',
-            description: c.description || '',
-            amount: String(c.amount),
-            source: c.source || (isEdit ? 'manual' : 'parsed_rate_confirmation'),
-          })),
-      ];
+      const {
+        load: loadPayload, stops: stopsPayload, charges: chargesPayload,
+      } = buildLoadSavePayload(v, { isEdit });
 
       loadPayloadForLog = loadPayload;
       stopsPayloadForLog = stopsPayload;
+
 
       let savedId: string;
 
