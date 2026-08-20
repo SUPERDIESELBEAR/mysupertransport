@@ -75,6 +75,7 @@ describeLive('purge_rods_day path coverage', () => {
     // an addition: renaming one away makes both this list and the catalog
     // comparison fail.
     expect(columns).toEqual([
+      'bol_photo_path',
       'certification_signature_path',
       'display_document_path',
       'pdf_path',
