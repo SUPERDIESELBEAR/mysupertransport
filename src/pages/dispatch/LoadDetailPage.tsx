@@ -14,9 +14,11 @@ import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
+import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
-import { fetchLoadClaimFlags, fetchLoadDetail } from '@/lib/loadDetail';
-import { formatEnumLabel, type LoadStatus } from '@/lib/loadFormat';
+import { fetchLoadClaims, fetchLoadDetail } from '@/lib/loadDetail';
+import { CLAIM_TYPE_LABELS } from '@/components/dispatch/loadDetail/claimConstants';
+import { type LoadStatus } from '@/lib/loadFormat';
 import { LOAD_TYPE_LABELS, type LoadType } from '@/lib/loadRateMath';
 
 interface LoadDetailPageProps {
@@ -32,6 +34,7 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
   const navigate = useNavigate();
   const { isStaff, isDispatcher, isManagement } = useAuth();
   const canChangeStatus = isDispatcher || isManagement;
+  const canManageClaims = isDispatcher || isManagement;
 
   const goBack = () => (onBack ? onBack() : navigate('/dispatch/loads'));
 
@@ -41,14 +44,15 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
     queryFn: () => fetchLoadDetail(id as string),
   });
 
-  // Operators must never request or see claim flag information.
-  const { data: claimFlags } = useQuery({
-    queryKey: ['load-claim-flags', id],
+  // Operators must never request or see claim flag information. Staff read the whole
+  // claim list once; the hold banner is derived from it.
+  const { data: claims } = useQuery({
+    queryKey: ['load-claims', id],
     enabled: !!id && isStaff,
-    queryFn: () => fetchLoadClaimFlags(id as string),
+    queryFn: () => fetchLoadClaims(id as string),
   });
 
-  const holdFlag = (claimFlags ?? []).find(f => f.flag_level === 'hold');
+  const holdFlag = (claims ?? []).find(f => f.is_active && f.flag_level === 'hold');
 
   if (isLoading) {
     return (
@@ -129,7 +133,7 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
               This load is on hold and excluded from settlement.
             </p>
             <p className="mt-1 text-sm text-foreground">
-              {formatEnumLabel(holdFlag.claim_type)}
+              {CLAIM_TYPE_LABELS[holdFlag.claim_type]}
               {holdFlag.description ? ` — ${holdFlag.description}` : ''}
             </p>
           </div>
@@ -143,6 +147,14 @@ export default function LoadDetailPage({ loadId, onBack }: LoadDetailPageProps =
       <FlagsBlock load={load} />
       <StopsTimeline stops={load.stops} />
       <DocumentsSection load={load} canManage={isStaff} canSeeInternal={isStaff} />
+      {isStaff ? (
+        <ClaimsSection
+          loadId={load.id}
+          claims={claims ?? []}
+          canManage={canManageClaims}
+          canReopen={isManagement}
+        />
+      ) : null}
       <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
       <NotesSection load={load} canSeeInternal={isStaff} />
     </div>
