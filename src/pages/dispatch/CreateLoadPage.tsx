@@ -356,17 +356,40 @@ export default function CreateLoadPage({
   };
 
   /** Financial edits need a written reason before the save is allowed to run. */
-  const onSubmit = (v: LoadFormValues) => {
+  const onSubmit = async (v: LoadFormValues): Promise<boolean> => {
     if (!isEdit) return performSave(v);
     const before = initialValues.current;
     const changed = before ? financialChanges(before, v) : [];
     if (changed.length > 0 && !reason.trim()) {
       pendingValues.current = v;
       setReasonOpen(true);
-      return Promise.resolve();
+      return false;
     }
     return performSave(v, reason.trim() || null, unlockReason.trim() || null);
   };
+
+  // ── Unsaved-changes guard ────────────────────────────────────────────────
+  // Dirty covers both modes. In create mode the rate-confirmation parser writes
+  // every extracted field with shouldDirty, so a parsed-but-unsaved load counts
+  // as dirty; the attached source file lives outside the form, so it is ORed in.
+  const isDirty = form.formState.isDirty || !!sourceFile;
+
+  const guardedSave = async () => {
+    let saved = false;
+    await form.handleSubmit(async (v) => { saved = await onSubmit(v); }, scrollToFirstError)();
+    // Throwing keeps the dialog open and surfaces the error state instead of
+    // silently navigating away with the work unsaved.
+    if (!saved) throw new Error('Load not saved');
+  };
+
+  const unsaved = useUnsavedChanges({
+    dirty: isDirty,
+    onSave: guardedSave,
+    onDiscard: () => {
+      form.reset(initialValues.current ?? loadFormDefaults());
+      setSourceFile(null);
+    },
+  });
 
   const confirmReasonAndSave = () => {
     const v = pendingValues.current;
