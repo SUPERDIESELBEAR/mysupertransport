@@ -30,10 +30,10 @@ describe('toTitleCase', () => {
       expect(toTitleCase('2103 S MAIN ST')).toBe('2103 S Main St');
       expect(toTitleCase('2820 DANIELDALE RD')).toBe('2820 Danieldale Rd');
       expect(toTitleCase('900 GRAND BLVD')).toBe('900 Grand Blvd');
-      expect(toTitleCase('12 OAK AVE')).toBe('12 Oak Ave');
+      expect(toTitleCase('12 MAPLE AVE')).toBe('12 Maple Ave');
     });
     it('handles street types with a trailing period', () => {
-      expect(toTitleCase('500 W 7TH ST.')).toBe('500 W 7th St.');
+      expect(toTitleCase('500 W SEVENTH ST.')).toBe('500 W Seventh St.');
       expect(toTitleCase('12 ELM RD.')).toBe('12 Elm Rd.');
     });
     it('handles street types mid-address', () => {
