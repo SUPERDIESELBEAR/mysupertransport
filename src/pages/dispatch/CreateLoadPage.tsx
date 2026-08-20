@@ -368,15 +368,86 @@ export default function CreateLoadPage({
     void performSave(v, reason.trim(), unlockReason.trim() || null);
   };
 
+  if (isEdit && editLoading) {
+    return (
+      <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading load…
+      </div>
+    );
+  }
+
+  if (isEdit && (editError || (!editLoading && !editData))) {
+    return (
+      <div className="space-y-4 max-w-2xl">
+        <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Button>
+        <Alert variant="destructive">
+          <AlertTitle>Load unavailable</AlertTitle>
+          <AlertDescription>
+            {editError ? getDbErrorMessage(editError, 'Could not load this record.') : 'This load no longer exists.'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 max-w-5xl">
       <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
         <ArrowLeft className="h-4 w-4" />
-        Back to Loads
+        {isEdit ? 'Back to Load' : 'Back to Loads'}
       </Button>
 
-      <h1 className="text-xl font-semibold text-foreground">Create Load</h1>
+      <h1 className="text-xl font-semibold text-foreground">
+        {isEdit ? `Edit Load ${values.load_number || ''}`.trim() : 'Create Load'}
+      </h1>
+
+      {isEdit && tier === 'warn' && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>This load is close to invoicing</AlertTitle>
+          <AlertDescription>
+            Rates and charges can still be changed, but the load is already at
+            “{formatEnumLabel(loadStatus)}”. Any financial change requires a written reason
+            and will be recorded in the load's change history.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isEdit && tier === 'locked' && (
+        <Alert variant={financialUnlocked ? 'default' : 'destructive'}>
+          <Lock className="h-4 w-4" />
+          <AlertTitle>Financial fields are locked</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>
+              This load is “{formatEnumLabel(loadStatus)}” — it has been billed out, so rates
+              and charges cannot be edited. Operational details can still be corrected.
+            </p>
+            {isOwner && !financialUnlocked && (
+              <Button
+                type="button" size="sm" variant="outline"
+                onClick={() => setFinancialUnlocked(true)}
+              >
+                Unlock financial fields (owner override)
+              </Button>
+            )}
+            {financialUnlocked && (
+              <div className="space-y-1.5">
+                <Label htmlFor="unlock-reason">Owner override reason (required)</Label>
+                <Textarea
+                  id="unlock-reason"
+                  value={unlockReason}
+                  onChange={e => setUnlockReason(e.target.value)}
+                  placeholder="Why is a billed load being changed?"
+                  rows={2}
+                />
+              </div>
+            )}
+            {!isOwner && <p className="text-xs">Only the owner can override this.</p>}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <FormProvider {...form}>
         <Form {...form}>
@@ -385,11 +456,14 @@ export default function CreateLoadPage({
             onSubmit={form.handleSubmit(onSubmit, scrollToFirstError)}
             className="space-y-4"
           >
-            <RateConfirmationParser
-              onSourceFileChange={setSourceFile}
-              onExtractedBroker={setExtractedBroker}
-              onFacilitySuggestions={setFacilitySuggestions}
-            />
+            {!isEdit && (
+              <RateConfirmationParser
+                onSourceFileChange={setSourceFile}
+                onExtractedBroker={setExtractedBroker}
+                onFacilitySuggestions={setFacilitySuggestions}
+              />
+            )}
+
 
             {/* 1 — Load type */}
             <Section title="Load Type">
