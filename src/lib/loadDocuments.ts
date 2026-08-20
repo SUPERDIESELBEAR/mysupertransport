@@ -116,6 +116,20 @@ export function validateLoadDocumentFile(file: File): { valid: boolean; error?: 
   return { valid: true };
 }
 
+/** Loadout inspection photos must be images — PDFs are not valid POD/condition photos. */
+export function validateLoadoutPhotoFile(file: File): { valid: boolean; error?: string } {
+  const base = validateLoadDocumentFile(file);
+  if (!base.valid) return base;
+  const mime = resolveMimeType(file);
+  if (!mime.startsWith('image/')) {
+    return {
+      valid: false,
+      error: `${file.name} is not an image. Inspection photos must be JPG, PNG, HEIC, or WebP.`,
+    };
+  }
+  return { valid: true };
+}
+
 export function formatFileSize(bytes: number | null | undefined): string | null {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) return null;
   if (bytes < 1024) return `${bytes} B`;
