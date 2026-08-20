@@ -56,6 +56,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [extractedBroker, setExtractedBroker] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<LoadFormValues>({
@@ -109,6 +110,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
     fscAmount: values.fsc_amount,
     relocationFee: values.loadout_relocation_fee,
     stopoffCharges: (values.stops ?? []).map(s => s?.stopoff_charge_amount),
+    additionalCharges: (values.charges ?? []).map(c => c?.amount),
 
   }), [values]);
 
@@ -190,12 +192,38 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
         stop_notes: s.stop_notes ?? '',
       }));
 
+      // load_charges is the authoritative record of every charge on the load.
+      // A stop-attached charge also mirrors into load_stops.stopoff_charge_amount
+      // for display; the total counts it once, from this list only.
+      const chargesPayload = [
+        ...v.stops
+          .map((s, i) => ({ s, i }))
+          .filter(({ s, i }) => i > 0 && i < v.stops.length - 1 && Number(s.stopoff_charge_amount) > 0)
+          .map(({ s, i }) => ({
+            stop_index: String(i),
+            charge_type: 'stopoff',
+            description: 'Stop-off charge',
+            amount: String(s.stopoff_charge_amount),
+            source: 'manual',
+          })),
+        ...(v.charges ?? [])
+          .filter(c => Number(c.amount) > 0)
+          .map(c => ({
+            stop_index: '',
+            charge_type: c.charge_type || 'other',
+            description: c.description || '',
+            amount: String(c.amount),
+            source: 'parsed_rate_confirmation',
+          })),
+      ];
+
       loadPayloadForLog = loadPayload;
       stopsPayloadForLog = stopsPayload;
 
       const { data, error } = await supabase.rpc('create_load_with_stops', {
         p_load: loadPayload as never,
         p_stops: stopsPayload as never,
+        p_charges: chargesPayload as never,
       });
       if (error) throw error;
 
@@ -250,7 +278,10 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
             onSubmit={form.handleSubmit(onSubmit, scrollToFirstError)}
             className="space-y-4"
           >
-            <RateConfirmationParser onSourceFileChange={setSourceFile} />
+            <RateConfirmationParser
+              onSourceFileChange={setSourceFile}
+              onExtractedBroker={setExtractedBroker}
+            />
 
             {/* 1 — Load type */}
             <Section title="Load Type">
@@ -313,7 +344,12 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{isLoadout ? 'Broker (optional)' : 'Broker'}</FormLabel>
-                      <BrokerSelect value={field.value ?? ''} onChange={field.onChange} optional={isLoadout} />
+                      <BrokerSelect
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        optional={isLoadout}
+                        provisionalName={extractedBroker}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -676,6 +712,31 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
                     )}
                   />
                 </div>
+
+                {(values.charges ?? []).length > 0 && (
+                  <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                    <p className="text-sm font-semibold text-foreground">Additional charges on this load</p>
+                    <p className="text-xs text-muted-foreground">
+                      Not attached to a stop. Each one is included in Total Load Value.
+                    </p>
+                    {(values.charges ?? []).map((c, i) => (
+                      <div key={`${c.description}-${i}`} className="flex items-center gap-2 text-sm">
+                        <span className="text-foreground">{c.description || 'Charge'}</span>
+                        <span className="font-semibold text-foreground">{formatCurrency(Number(c.amount) || 0)}</span>
+                        <Button
+                          type="button" variant="ghost" size="sm" className="ml-auto h-7 px-2 text-xs"
+                          onClick={() => form.setValue(
+                            'charges',
+                            (form.getValues('charges') ?? []).filter((_, idx) => idx !== i),
+                            { shouldDirty: true },
+                          )}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="rounded-md border border-gold/40 bg-gold/5 px-4 py-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Total Load Value</span>
