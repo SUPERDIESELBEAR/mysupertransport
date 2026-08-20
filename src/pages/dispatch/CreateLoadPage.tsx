@@ -45,7 +45,6 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
 
 
-const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
 
 function Section({ title, description, children }: {
   title: string; description?: string; children: React.ReactNode;
