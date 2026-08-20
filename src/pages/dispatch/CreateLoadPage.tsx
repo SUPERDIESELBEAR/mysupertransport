@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, Lock } from 'lucide-react';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
 
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
