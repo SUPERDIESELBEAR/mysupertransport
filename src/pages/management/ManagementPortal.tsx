@@ -367,6 +367,11 @@ export default function ManagementPortal() {
     } catch { /* ignore */ }
   }, [view, selectedOperatorId, selectedLoadId, statusFilter, setSearchParams]);
 
+  // A load-edit view with no load (e.g. a hand-edited URL) falls back to the list.
+  useEffect(() => {
+    if (view === 'load-edit' && !selectedLoadId) setView('loads');
+  }, [view, selectedLoadId]);
+
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
