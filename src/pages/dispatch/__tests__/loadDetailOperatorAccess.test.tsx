@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Database } from '@/integrations/supabase/types';
@@ -417,11 +417,10 @@ describe('Load Detail — claims visibility', () => {
   });
 
   it('loads claim history only once the history panel is opened', async () => {
-    const user = (await import('@testing-library/user-event')).default;
     renderDetail(['dispatcher']);
     expect(await screen.findByText('Claims')).toBeInTheDocument();
     expect(tableCalls.filter(t => t === 'claim_flag_history')).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: /view history/i }));
+    fireEvent.click(screen.getByRole('button', { name: /view history/i }));
     await waitFor(() => expect(tableCalls.filter(t => t === 'claim_flag_history')).toHaveLength(1));
   });
 });
