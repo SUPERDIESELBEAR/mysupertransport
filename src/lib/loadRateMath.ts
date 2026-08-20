@@ -50,6 +50,8 @@ export interface RateInput {
   fscBundled?: boolean;
   fscAmount?: unknown;
   relocationFee?: unknown;
+  /** Per-stop stop-off charges; summed into the total for non-loadout loads. */
+  stopoffCharges?: unknown[];
 }
 
 /** Live "Total Load Value" for the create form. Loadout uses the relocation fee. */
@@ -72,5 +74,7 @@ export function calcTotalLoadValue(input: RateInput): number {
   }
 
   const fsc = input.fscBundled === false ? num(input.fscAmount) : 0;
-  return Math.round((base + fsc) * 100) / 100;
+  const stopoff = (input.stopoffCharges ?? []).reduce<number>((sum, v) => sum + num(v), 0);
+  return Math.round((base + fsc + stopoff) * 100) / 100;
 }
+

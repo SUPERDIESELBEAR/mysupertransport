@@ -108,6 +108,8 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
     fscBundled: values.fsc_bundled_into_linehaul,
     fscAmount: values.fsc_amount,
     relocationFee: values.loadout_relocation_fee,
+    stopoffCharges: (values.stops ?? []).map(s => s?.stopoff_charge_amount),
+
   }), [values]);
 
   const goBack = () => (onCancel ? onCancel() : navigate('/dispatch/loads'));
