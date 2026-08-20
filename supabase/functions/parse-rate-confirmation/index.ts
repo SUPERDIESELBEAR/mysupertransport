@@ -104,7 +104,7 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       ]
     }
   ],
-  "special_instructions": FIELD(string - carrier requirements that apply to the whole load),
+  "special_instructions": FIELD(string - see the special_instructions rule below),
   "loadout_signals": {
     "no_bol_mentioned": boolean - true if the document never mentions a BOL or bill of lading,
     "photo_pod_required": boolean - true if photos are named as proof of delivery,
