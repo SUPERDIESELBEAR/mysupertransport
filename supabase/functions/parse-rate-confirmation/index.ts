@@ -376,7 +376,11 @@ Deno.serve(async (req) => {
 
     const ls = parsed.loadout_signals ?? {};
 
-    return json(200, {
+    if (droppedRefs.length) {
+      console.log('parse-rate-confirmation: discarded reference numbers —', droppedRefs.join(' | '));
+    }
+
+    const result = {
       broker: {
         company_name: str(parsed.broker?.company_name),
         mc_number: (() => {
@@ -428,7 +432,31 @@ Deno.serve(async (req) => {
         relocation_fee: money(ls.relocation_fee),
         use_period_days: num(ls.use_period_days),
       },
-    });
+    };
+
+    // A parse that yields nothing is a failure, never a silent success.
+    const gotAnything =
+      !!result.broker.company_name.value ||
+      !!result.load.broker_load_number.value ||
+      !!result.load.bol_number.value ||
+      result.rate.total.value !== null ||
+      result.rate.linehaul.value !== null ||
+      result.rate.line_items.length > 0 ||
+      result.stops.length > 0;
+
+    if (!gotAnything) {
+      console.error(
+        'parse-rate-confirmation: empty extraction.',
+        'payload type:', Array.isArray(payload) ? 'array' : typeof payload,
+        'top-level keys:', JSON.stringify(Object.keys(parsed ?? {})),
+        'raw prefix:', String(raw).slice(0, 600),
+      );
+      return json(422, {
+        error: 'The document was read but no load data could be extracted from it. Check that this is a rate confirmation, or enter the load manually.',
+      });
+    }
+
+    return json(200, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('parse-rate-confirmation error', msg);
