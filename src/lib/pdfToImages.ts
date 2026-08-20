@@ -8,19 +8,36 @@ export async function pdfToImages(
   pdfUrl: string,
   opts?: { scale?: number; maxPages?: number },
 ): Promise<string[]> {
-  if (!pdfUrl || !/^https?:\/\//i.test(pdfUrl)) {
+  if (!pdfUrl || /^https?:\/\//i.test(pdfUrl) === false) {
     throw new Error('Document source not accessible — please re-upload this document.');
   }
 
+  const response = await fetch(pdfUrl);
+  if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+  return renderPdfBytesToImages(await response.arrayBuffer(), opts);
+}
+
+/**
+ * Same renderer for a PDF already in memory (a picked File or raw bytes),
+ * so an unsaved upload can be shown inline without a round trip.
+ */
+export async function pdfFileToImages(
+  source: File | Blob | ArrayBuffer,
+  opts?: { scale?: number; maxPages?: number },
+): Promise<string[]> {
+  const arrayBuffer = source instanceof ArrayBuffer ? source : await source.arrayBuffer();
+  return renderPdfBytesToImages(arrayBuffer, opts);
+}
+
+async function renderPdfBytesToImages(
+  arrayBuffer: ArrayBuffer,
+  opts?: { scale?: number; maxPages?: number },
+): Promise<string[]> {
   const pdfjsLib = await import('pdfjs-dist');
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
     import.meta.url,
   ).toString();
-
-  const response = await fetch(pdfUrl);
-  if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
-  const arrayBuffer = await response.arrayBuffer();
 
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const scale = opts?.scale ?? 2;
