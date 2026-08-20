@@ -120,6 +120,16 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.submit_pei_response(uuid,jsonb,jsonb,jsonb)",
   "public.submit_pei_response(uuid,jsonb,jsonb)",
   "public.unacked_go_live_blockers(uuid)",
+  // Token-gated public endpoints, verified 2026-08-20 by reading each body.
+  // get_ica_review_link: /ica-review/:token (IcaReview.tsx). Looks the token up
+  // in ica_review_links and returns {valid:false} when missing, revoked, or
+  // expired; exposes only recipient name, note, and expiry — no financial data.
+  "public.get_ica_review_link(text)",
+  // get_share_bundle_meta / resolve_share_bundle: /binder-share/:token
+  // (BinderShareBundlePage.tsx). Both filter on the bundle token AND
+  // expires_at > now(), and return nothing at all when either fails.
+  "public.get_share_bundle_meta(uuid)",
+  "public.resolve_share_bundle(uuid)",
 ];
 
 /**
@@ -130,7 +140,9 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
 // 58 minus the four whose creating-migration REVOKE the platform re-grant had
 // undone (discard_rods_amendment, log_ica_event, match_staff_help_knowledge,
 // revoke_share_token), re-asserted 2026-08-03 and re-read live.
-const KNOWN_ANON_EXECUTABLE_MAX = 54;
+// 54 + the three token-gated public endpoints registered 2026-08-20
+// (get_ica_review_link, get_share_bundle_meta, resolve_share_bundle).
+const KNOWN_ANON_EXECUTABLE_MAX = 57;
 
 
 /**
@@ -247,6 +259,31 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // phone and the console, never anon.
   "public.record_rods_divergence(uuid,date,uuid,uuid,text[],jsonb,jsonb,timestamp with time zone,text,text)",
   "public.acknowledge_rods_divergence(uuid,text)",
+  // Load management RPCs (TMS). All are called with supabase.rpc from the
+  // staff console under the signed-in user, and every one re-checks the
+  // caller's role in its own body — anon EXECUTE is revoked on each.
+  // has_role management|owner|dispatcher; management alone may override a
+  // blocking eligibility failure.
+  "public.assign_load_driver(uuid,uuid,text)",
+  // has_role management|owner|dispatcher; requires a written reason.
+  "public.unassign_load_driver(uuid,text)",
+  // has_role management|owner|dispatcher; billing statuses management|owner only.
+  "public.update_load_status(uuid,load_status,text)",
+  // has_role management|owner|dispatcher.
+  "public.create_load_with_stops(jsonb,jsonb)",
+  // has_role management|owner|dispatcher; read-only eligibility evaluation.
+  "public.check_driver_eligibility(uuid)",
+  "public.check_driver_eligibility_bulk(uuid[])",
+  // has_role management|owner|dispatcher; advances the shared load counter.
+  "public.generate_load_number()",
+  // has_role management|owner|dispatcher to raise/resolve; reopen is
+  // management|owner only.
+  "public.manage_claim_flag(text,uuid,uuid,claim_flag_level,claim_type,text,text,numeric,text,text,text,numeric,text)",
+  // Token-gated public endpoints that also hold the authenticated grant; see
+  // the KNOWN_ANON_EXECUTABLE entries above for the gate each one enforces.
+  "public.get_ica_review_link(text)",
+  "public.get_share_bundle_meta(uuid)",
+  "public.resolve_share_bundle(uuid)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -254,7 +291,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + the two §8 divergence RPCs. Goes back to
 // 70 when the seven-argument certify form is dropped
 // (docs/deferred-removals.md).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 73;
+// + the eight load-management RPCs and the three token-gated public
+// endpoints registered 2026-08-20.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 84;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a

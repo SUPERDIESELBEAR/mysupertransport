@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:guards": "vitest run src/test/definer-search-path.test.ts src/test/policy-grant-parity.test.ts src/lib/__tests__/postgrestEmbeds.test.ts src/lib/eld/offline/__tests__/parityFixtures.test.ts src/test/sync-payload-operator-id.test.ts src/test/notification-priority.test.ts src/test/notification-isolation.test.ts"
+    "test:guards": "vitest run src/test/definer-search-path.test.ts src/test/definer-live-catalog.test.ts src/test/definer-fail-open.test.ts src/test/policy-grant-parity.test.ts src/lib/__tests__/postgrestEmbeds.test.ts src/lib/eld/offline/__tests__/parityFixtures.test.ts src/test/sync-payload-operator-id.test.ts src/test/notification-priority.test.ts src/test/notification-isolation.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
