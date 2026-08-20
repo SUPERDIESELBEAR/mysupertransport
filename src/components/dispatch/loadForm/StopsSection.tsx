@@ -60,6 +60,7 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
   const stops = form.watch('stops');
 
   const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
+  const [addForIndex, setAddForIndex] = useState<number | null>(null);
 
   const facilityFor = (id?: string) => (id ? (facilities ?? []).find(f => f.id === id) ?? null : null);
 
