@@ -254,7 +254,10 @@ export interface UploadLoadDocumentInput {
 
 /** Uploads one file and records it. `uploaded_by` is stamped server-side. */
 export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promise<void> {
-  const { loadId, documentType, loadStopId, notes, file } = input;
+  const {
+    loadId, documentType, loadStopId, notes, file,
+    photoLabel, photoSequence, damageNoted, damageNotes,
+  } = input;
   const contentType = resolveMimeType(file) || 'application/octet-stream';
   const path = `${loadId}/${documentType}/${crypto.randomUUID()}-${sanitizeFilename(file.name)}`;
 
@@ -264,6 +267,7 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     .upload(path, file, { contentType, upsert: false });
   if (upErr) throw upErr;
 
+  const isPhotoType = LOADOUT_PHOTO_TYPES.includes(documentType);
   const { error: insErr } = await supabase.from('load_documents').insert({
     load_id: loadId,
     load_stop_id: loadStopId || null,
@@ -273,6 +277,10 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     file_type: contentType,
     upload_channel: 'office_upload',
     notes: notes?.trim() ? notes.trim() : null,
+    photo_label: isPhotoType ? (photoLabel?.trim() ? photoLabel.trim() : null) : null,
+    photo_sequence: isPhotoType ? photoSequence ?? null : null,
+    damage_noted: isPhotoType ? damageNoted ?? false : false,
+    damage_notes: isPhotoType && damageNoted ? (damageNotes?.trim() ? damageNotes.trim() : null) : null,
   });
   if (insErr) {
     // Roll back the orphaned object so storage does not drift from the table.
