@@ -26,18 +26,21 @@ Scope stays narrow: only `load-edit` becomes URL-addressable. `loads` and `load-
 - If `view=load-edit` arrives without a resolvable `loadId`, fall back to the loads list rather than rendering an empty form.
 - Leaving edit (save or cancel) clears `loadId` from the URL and returns to `load-detail` as it does today.
 
-## 3. Dirty-form guard on the edit form
+## 3. Dirty-form guard on the load form (create and edit)
 
-Applies to the load edit form in both portals, using the project's existing `useUnsavedChanges` hook and `UnsavedChangesDialog` so the behaviour matches the rest of the staff dashboard.
+Applies to the load form in both modes and both portals, using the project's existing `useUnsavedChanges` hook and `UnsavedChangesDialog` so the behaviour matches the rest of the staff dashboard.
 
-- Dirty signal comes from react-hook-form's `formState.isDirty` against the hydrated baseline.
+- Dirty signal comes from react-hook-form's `formState.isDirty` — in edit mode against the hydrated baseline, in create mode against the empty defaults.
+- Parsed loads count as dirty with no extra machinery: the rate-confirmation parser already writes every extracted field with `shouldDirty: true`, so a parsed-but-untouched load is already dirty to react-hook-form.
+- The signal additionally ORs in the attached source file, which lives in component state rather than the form, so an attached rate confirmation on its own counts as unsaved work.
 - `beforeunload` warning while dirty, covering refresh and tab close — the browser's own prompt, which is the only thing that can intercept a reload.
 - In-app exits (Back to Load, cancel, Management sidebar navigation) route through the hook's `guard()` so the user gets Save / Discard / Cancel instead of silent loss.
 - The guard disarms on successful save so the post-save redirect is not interrupted.
-- Create mode keeps its current behaviour unless the same guard falls out naturally from the shared form; no separate work for it in this pass.
+- Create mode needs no different handling. The only create-specific piece is the file/parse dirty signal above, which is a single added condition on the shared guard, not a separate implementation. Dialog copy differs slightly: "Discard this load?" rather than "Discard changes?", since there is nothing saved to fall back to.
 
 ## Verification
 
 - New routing tests plus the existing suite green.
 - Manual: start an edit in Management, type a rate-change reason, refresh — confirm the URL restores the same load's edit form and the browser warned first.
 - Manual: dirty the form, click Back to Load — confirm the unsaved-changes dialog appears and Cancel keeps the user on the form.
+- Manual: parse a rate confirmation into a new load and navigate away without typing anything — confirm the guard fires.
