@@ -1,31 +1,43 @@
-# Edit Load Button — Investigation Result and Test Gap Fix
+# Edit Load — Entry-Point Tests, Addressable Edit View, Dirty-Form Guard
 
-## What I found
+Background settled: the button was never broken in current code; the toast came from a stale bundle. Remaining work is coverage plus the refresh-safety concern.
 
-The button wiring is already correct in the current code, and both entry paths work end to end. What you hit was a stale client bundle, not a missing change.
+## Answer to your question first
 
-Evidence, all gathered against the running app on real load ST26003 (Available):
+Restoring the edit view on refresh does **not** restore the user's work. The edit form hydrates from the database through `fetchLoadForEdit` on mount, so a reload rebuilds the form from saved values and everything unsaved — the typed reason for a rate change, an attached file not yet uploaded, edited stop fields — is gone.
 
-- Source: `LoadDetailPage` renders `onClick={() => (onEdit ? onEdit() : navigate('/dispatch/loads/${id}/edit'))}`. There is no "coming soon" toast anywhere in `src` today. Git history shows that string existed in `LoadDetailPage.tsx` and was removed in a later commit — so the toast you saw is the previous build.
-- Dispatch path, clicked through the real UI: row click landed on `/dispatch/loads/8028010c-.../`, then the Edit Load button navigated to `/dispatch/loads/8028010c-.../edit` and the edit form rendered hydrated (Total Load Value $2,000.00, stops populated).
-- Management path, clicked through the real UI at `/dashboard?view=loads`: Edit Load switched the in-shell view to "Edit Load ST26003" with the Management sidebar intact and Loads still highlighted. It does not throw the user into the Dispatch Portal. The URL stays `?view=load-detail` because Management view state is not URL-synced — that matches every other Management view and is not specific to load editing.
+So addressability alone only gets the user back to the right screen. To protect the work itself, the plan adds a dirty-form guard alongside it. The two together are what makes the scenario you described non-destructive: the browser asks before a reload or tab close, in-app navigation asks before leaving, and if the user proceeds anyway they at least land back on the same load's edit form rather than the overview.
 
-So: only the button appeared wrong, the whole edit path is reachable, and the portal-aware pattern you asked for is already what is implemented.
+## 1. Entry-point test coverage
 
-## Why you saw the old behaviour
+Extend `src/pages/dispatch/__tests__/loadsRouting.test.tsx`:
 
-Your preview session is pinned to build `c2228d08` (visible in the current route's `__lovable_sha`). That bundle predates the edit-mode commit, so it still contained the toast handler. A hard refresh of the preview picks up the current build.
+- **Dispatch case** — render Load Detail at `/dispatch/loads/:id` inside the dispatch routes, click the "Edit Load" button, assert the location becomes `/dispatch/loads/:id/edit` and the edit form renders (heading "Edit Load <load number>", load number field disabled).
+- **Management case** — render `LoadDetailPage` with an `onEdit` spy, click the button, assert the spy fires exactly once and that no navigation to a `/dispatch/*` path occurred. This pins that the host-supplied handler wins over the dispatch fallback, so a management user is never thrown out of their shell.
 
-## How the gap was missed
+Both fail if the handler is replaced with a toast or a no-op.
 
-Accurate criticism: the verification exercised `update_load_with_stops`, the double-counting guard, and the change-history card, plus a direct render of the edit form. Nothing clicked the Edit Load button. `src/pages/dispatch/__tests__/loadsRouting.test.tsx` covers list-to-detail routing but stops there, so a button still wired to a toast would have passed the whole suite.
+## 2. Addressable Management edit view (edit only)
 
-## Proposed work
+Scope stays narrow: only `load-edit` becomes URL-addressable. `loads` and `load-detail` keep the current `?view=` pattern.
 
-No production code change is required. The one thing worth adding is the missing entry-point coverage:
+- When Management enters the edit view, write `?view=load-edit&loadId=<id>` via the existing `setSearchParams`.
+- On mount, the existing URL-view sync reads `loadId` when `view === 'load-edit'` and seeds `selectedLoadId`, so a refresh returns to the same load's edit form instead of the overview.
+- If `view=load-edit` arrives without a resolvable `loadId`, fall back to the loads list rather than rendering an empty form.
+- Leaving edit (save or cancel) clears `loadId` from the URL and returns to `load-detail` as it does today.
 
-- Extend `src/pages/dispatch/__tests__/loadsRouting.test.tsx` with a Dispatch case: render Load Detail at `/dispatch/loads/:id`, click the "Edit Load" button, assert the router lands on `/dispatch/loads/:id/edit` and the edit form renders.
-- Add a Management case: render `LoadDetailPage` with an `onEdit` spy, click the button, assert the spy fires — pinning that the host-supplied handler wins over the dispatch fallback, so a management user is never pushed onto a `/dispatch/*` path.
-- Both assertions fail if the handler is ever replaced with a toast or a no-op.
+## 3. Dirty-form guard on the edit form
 
-If you would rather I also add a defensive change, the only candidate is making Management's load views URL-addressable (`?view=load-edit&loadId=...`) so a refresh mid-edit does not drop back to the overview. That is a separate ask; say the word and I will fold it in.
+Applies to the load edit form in both portals, using the project's existing `useUnsavedChanges` hook and `UnsavedChangesDialog` so the behaviour matches the rest of the staff dashboard.
+
+- Dirty signal comes from react-hook-form's `formState.isDirty` against the hydrated baseline.
+- `beforeunload` warning while dirty, covering refresh and tab close — the browser's own prompt, which is the only thing that can intercept a reload.
+- In-app exits (Back to Load, cancel, Management sidebar navigation) route through the hook's `guard()` so the user gets Save / Discard / Cancel instead of silent loss.
+- The guard disarms on successful save so the post-save redirect is not interrupted.
+- Create mode keeps its current behaviour unless the same guard falls out naturally from the shared form; no separate work for it in this pass.
+
+## Verification
+
+- New routing tests plus the existing suite green.
+- Manual: start an edit in Management, type a rate-change reason, refresh — confirm the URL restores the same load's edit form and the browser warned first.
+- Manual: dirty the form, click Back to Load — confirm the unsaved-changes dialog appears and Cancel keeps the user on the form.
