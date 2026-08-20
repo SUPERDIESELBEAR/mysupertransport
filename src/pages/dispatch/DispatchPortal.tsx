@@ -173,6 +173,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const loadDetailId = loadsRoute
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
+  const loadEditRoute = loadsRoute && location.pathname.endsWith('/edit');
 
   // Desktop push notifications for high-priority events (truck_down, new_message)
   const { fireNotification } = useDesktopNotifications({
@@ -2524,6 +2525,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           : loadsRoute
           ? (loadDetailId === 'new'
               ? <CreateLoadPage />
+              : loadDetailId && loadEditRoute
+              ? <CreateLoadPage loadId={loadDetailId} />
               : loadDetailId ? <LoadDetailPage loadId={loadDetailId} /> : <LoadsListPage />)
           : activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
