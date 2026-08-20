@@ -31,13 +31,22 @@ On the AAA document, the outcome is both stops blank — which is the correct an
 `special_instructions` is redefined in the prompt as a full-document sweep rather than a section transcription. Explicitly:
 
 - Scan **every page**, regardless of section heading — Agreement, Terms and Conditions, Carrier Requirements, fine print, footers.
-- Capture, with the printed dollar figures and time thresholds intact: detention rate and free-time threshold, layover pay by equipment type, late-arrival penalties, missed check-call fines, tracking-compliance fines, paperwork deadlines and late-paperwork deductions, check/advance processing fees, OS&D reporting windows and fines, required tracking apps and check-in procedures, fuel advance terms.
 - The block headed "Instructions" is one source among several, never the whole answer.
-- Output as a readable one-line-per-term list, quoting printed amounts verbatim and omitting anything not printed.
+
+**Inclusion test — the filter runs in both directions.** A term is captured only if it carries a specific dollar amount, a specific time threshold, or a required action a driver or dispatcher must take on this load. Everything else is skipped.
+
+Capture: detention rate and free-time threshold, layover pay by equipment type, late-arrival penalties, missed check-call fines, tracking-compliance fines, paperwork deadlines and late-paperwork deductions, check/advance processing fees, OS&D reporting windows and fines, required tracking apps, facility check-in procedures, fuel advance terms.
+
+Skip: general legal boilerplate, double-brokering prohibitions, insurance and coverage requirements, liability allocation, indemnification, governing law and venue, signature blocks, and anything restating standard broker-carrier agreement language with no load-specific consequence.
+
+The prompt states the test in the dispatcher's terms, with both examples: "Detention $40/hr after 3 hours" is captured; "Carrier is responsible for any damage to product" is not. A wall of legal prose is as useless as an empty field.
+
+Output as a readable one-line-per-term list, quoting printed amounts verbatim and omitting anything not printed.
 
 To leave room for the longer output, the request gains an explicit generous completion limit so a dense terms list is never clipped.
 
-Verification: re-parse the AAA Freight Global document and confirm the $40/hr detention after 3 hours, $150/$200 layover, $250/day late, $125 check-call, $250 tracking, $50 late paperwork, 48-hour deadline, $10 EFS fee and $125 OS&D terms all appear.
+Verification: re-parse the AAA Freight Global document and **report the full extracted special instructions text back in chat**, so both the catch rate and any boilerplate that slipped through can be judged directly.
+
 
 ## Fix 3 — Stop-off charges in Total Load Value
 
