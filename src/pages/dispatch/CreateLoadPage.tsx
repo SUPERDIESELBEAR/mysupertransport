@@ -430,6 +430,14 @@ export default function CreateLoadPage({
 
   return (
     <div className="space-y-4 max-w-5xl">
+      <UnsavedChangesDialog
+        pending={unsaved.pendingExit}
+        title={isEdit ? 'You have unsaved changes' : 'Discard this load?'}
+        description={isEdit
+          ? 'Save your changes before leaving, or discard them and continue.'
+          : 'This load has not been created yet. Save it now, or discard it and continue — nothing is stored until it is saved.'}
+      />
+
       <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
         <ArrowLeft className="h-4 w-4" />
         {isEdit ? 'Back to Load' : 'Back to Loads'}
