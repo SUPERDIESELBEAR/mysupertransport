@@ -5,6 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
 import type { Facility } from '@/lib/facilities';
 
+// cmdk observes its list container; jsdom has no ResizeObserver.
+class RO { observe() {} unobserve() {} disconnect() {} }
+(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO;
+
+
 vi.mock('@/components/facilities/FacilityDialog', () => ({
   __esModule: true,
   default: () => null,
