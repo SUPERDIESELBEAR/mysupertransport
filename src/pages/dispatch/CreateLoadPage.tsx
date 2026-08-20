@@ -164,7 +164,10 @@ export default function CreateLoadPage({
 
   }), [values]);
 
-  const goBack = () => (onCancel ? onCancel() : navigate('/dispatch/loads'));
+  const goBack = () => (onCancel
+    ? onCancel()
+    : navigate(isEdit ? `/dispatch/loads/${loadId}` : '/dispatch/loads'));
+
 
   const scrollToFirstError = () => {
     window.requestAnimationFrame(() => {
