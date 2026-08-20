@@ -188,4 +188,26 @@ describe('Loads page hosted in the Management shell', () => {
     expect(await screen.findByRole('heading', { name: 'Loads' })).toBeInTheDocument();
     expect(screen.getByText('management shell')).toBeInTheDocument();
   });
+
+  it('calls the host onEdit handler instead of navigating to the dispatch route', async () => {
+    authState.roles = ['management'];
+    const onEdit = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function Probe() { return <span data-testid="path">{useLocation().pathname}</span>; }
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/dashboard?view=load-detail']}>
+          <Probe />
+          <span>management shell</span>
+          <LoadDetailPage loadId="load-1" onEdit={onEdit} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /edit load/i }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    // The management user stays in their shell — no dispatch route navigation.
+    expect(screen.getByTestId('path')).toHaveTextContent('/dashboard');
+    expect(screen.getByText('management shell')).toBeInTheDocument();
+  });
 });
