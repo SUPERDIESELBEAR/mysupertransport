@@ -22,19 +22,50 @@ Fix: drive the effect only from `[file, showSource]`, track the in-flight file w
 - Each line offers: assign to a stop (only when eligible middle stops exist), **Add to load total** (new), and Leave it out.
 - "Add to load total" moves the line into a small "Additional charges" list shown with the rate fields, each removable, and immediately included in Total Load Value. For the AAA document, the $50 Extra Stop lands there and the total reads $1,050.
 
-### Persistence — exactly what gets written
-No new column in this pass. On save:
-- `loads.linehaul_rate` — unchanged base ($1,000).
-- `loads.fsc_amount` — unchanged.
-- `loads.total_load_value` — **includes** the additional charges ($1,050). This is a plain stored numeric column written by the form, so the saved load really is worth $1,050; the number is not only prose.
-- `loads.special_instructions` — gains an itemized block appended under a stable heading, e.g.
-  ```text
-  Additional charges (not stop-specific):
-  - Extra Stop — $50.00
-  ```
-  Re-editing regenerates that block rather than duplicating it.
+### Persistence — new `load_charges` child table
 
-**Flag, as you asked:** the schema can hold the *amount* (via `total_load_value`) but cannot hold the *itemization* — the breakdown of what makes up the extra $50 lives only in `special_instructions` text. Nothing can machine-read it later for settlement or invoicing. If you want it structured, the deliberate addition is one migration adding `loads.other_charges_amount numeric` and `loads.other_charges_description text` (or a proper `load_charges` child table, which is the right long-term shape for the accessorials module). Say which you want and I will do it in this pass; otherwise I proceed with total + prose as above.
+```sql
+create table public.load_charges (
+  id uuid primary key default gen_random_uuid(),
+  load_id uuid not null references public.loads(id) on delete cascade,
+  load_stop_id uuid references public.load_stops(id) on delete set null,
+  charge_type text not null,          -- 'stopoff', 'detention', 'other' … enum later
+  description text,                   -- broker's own label, e.g. "Extra Stop"
+  amount numeric not null default 0,
+  source text not null default 'manual',  -- 'parsed_rate_confirmation' | 'manual'
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id)
+);
+create index load_charges_load_id_idx on public.load_charges(load_id);
+```
+
+- Grants: `select, insert, update, delete` to `authenticated`; `all` to `service_role`; **no anon grant**.
+- RLS mirrors `load_documents`: management / owner / dispatcher full read-write; onboarding staff read only; operators read only for loads assigned to them.
+- `created_by` / `updated_by` stamped by a `before insert/update` trigger using `current_profile_id()`, same as `facilities` and `load_documents`.
+- Kept deliberately minimal — no approval state, no adjustment refs, no accessorial enum. Those arrive with the accessorials module.
+
+On save:
+- `loads.linehaul_rate` — unchanged base ($1,000). `loads.fsc_amount` — unchanged.
+- One `load_charges` row per additional charge (`charge_type 'stopoff'` for an Extra Stop, `source 'parsed_rate_confirmation'`, `load_stop_id` null when load-level).
+- `loads.total_load_value` — includes those charges ($1,050).
+- `loads.special_instructions` — still gains the human-readable itemized block, regenerated rather than duplicated. The table is authoritative; the text is a convenience.
+
+Since `create_load_with_stops` inserts the load and stops in one transaction, it gains a third payload argument for charges so the stop rows exist before a `load_stop_id` is referenced. Everything stays atomic.
+
+### Interaction with `load_stops.stopoff_charge_amount` — and the double-counting risk
+
+Your preference does create a real double-counting risk, and it is worth naming precisely: a stop-assigned charge would exist both as `load_stops.stopoff_charge_amount` and as a `load_charges` row with `load_stop_id` set. Any future report that does `sum(stopoff_charge_amount) + sum(load_charges.amount)` overstates the load.
+
+Proposal that keeps your "one place to read all charges" goal without the risk:
+
+- Write both, as you asked — the mirror row is created for every stop-assigned charge.
+- **`load_charges` is authoritative.** `load_stops.stopoff_charge_amount` is a denormalized display mirror of the row whose `load_stop_id` points at that stop, and nothing else may treat it as an independent amount.
+- The total is computed from exactly one source: `sum(load_charges.amount)` for the load, plus base and FSC. `stopoff_charge_amount` is never added to a total again — `calcTotalLoadValue` takes charges, not stop-off amounts, so the create form derives its live total from the same list that gets written.
+- In the form, entering a stop-off amount on a stop card creates or updates that stop's charge entry; clearing it removes the entry. There is one number, shown in two places.
+- A unit test asserts the total for a load with one stop-assigned charge and one load-level charge equals base + FSC + both amounts once, guarding the regression directly.
+
 
 ## Issue 4 — broker field shows the extracted name
 
@@ -51,10 +82,11 @@ Parsed values run through `src/lib/textNormalize.ts` before they reach the form,
 
 ## Technical notes
 
-- `RateConfirmationParser.tsx`: effect dependency fix; assign dropdown gains the "add to load total" option and conditional stop options; section heading and helper copy; provisional broker name handed to the form.
-- `src/lib/rateConfirmation.ts`: normalization on stop and broker fields in `applyParsedToForm`; return unattached lines unchanged.
-- `src/pages/dispatch/loadFormSchema.ts`: new `additional_charges` array field (description + amount) on the form only.
-- `src/lib/loadRateMath.ts`: `calcTotalLoadValue` sums `additionalCharges` for non-loadout loads; new unit tests alongside the existing stop-off tests.
-- `src/pages/dispatch/CreateLoadPage.tsx`: pass additional charges into the total, render the removable list near the rate fields, append the itemized block to `special_instructions` on submit.
+- Migration: `load_charges` table, index, grants, RLS policies, audit trigger; `create_load_with_stops` gains a charges payload and inserts the rows after stops. Load Detail reads charges for its rate card.
+- `RateConfirmationParser.tsx`: effect dependency fix; assign dropdown gains "Add to load total" and conditional stop options; section heading and helper copy; provisional broker name handed to the form.
+- `src/lib/rateConfirmation.ts`: normalization on stop and broker fields in `applyParsedToForm`.
+- `src/pages/dispatch/loadFormSchema.ts`: `charges` array on the form (`charge_type`, `description`, `amount`, `stop_index | null`, `source`); stop cards read and write their entry.
+- `src/lib/loadRateMath.ts`: `calcTotalLoadValue` sums charges instead of stop-off amounts; tests including the double-counting guard.
+- `src/pages/dispatch/CreateLoadPage.tsx`: charge list UI near the rate fields, charges in the RPC payload, regenerated itemized block in `special_instructions`.
 - `BrokerSelect.tsx`: optional `provisionalName` prop and hint.
-- Verification: re-parse the real AAA Freight PDF — source panel renders inline, $50 assignable to the load total, Total Load Value $1,050, broker field shows "AAA Freight Global Inc. — not in directory", stops read Macon / Attalla / Gadsden Warehousing Inc in title case.
+- Verification: re-parse the real AAA Freight PDF — source panel renders inline, $50 added to the load total, Total Load Value $1,050, a `load_charges` row saved with `source 'parsed_rate_confirmation'`, broker field shows "AAA Freight Global Inc. — not in directory", stops read Macon / Attalla / Gadsden Warehousing Inc in title case.
