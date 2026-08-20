@@ -157,6 +157,14 @@ function Gallery({ title, photos }: { title: string; photos: LoadDocument[] }) {
                     <AlertTriangle className="h-3 w-3" />
                   </span>
                 ) : null}
+                {photo.upload_channel !== 'driver_app' ? (
+                  <span
+                    className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground"
+                    title="Uploaded from office"
+                  >
+                    <Building2 className="h-3 w-3" />
+                  </span>
+                ) : null}
               </div>
               <p className="mt-1 truncate text-[11px] text-muted-foreground">
                 {photo.photo_label || `Photo ${i + 1}`}
