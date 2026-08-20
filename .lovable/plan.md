@@ -66,3 +66,8 @@ The change reason is pre-filled automatically, e.g. `Revised rate confirmation r
 - Rejection: a rejected change leaves the existing value untouched in the applied payload.
 - Stop matching: address-identity match across a moved sequence; position match on a corrected address; a genuinely new stop 1 falls to unresolved rather than overwriting stop 1.
 - Broker mismatch: differing MC blocks the diff; differing reference number requires explicit confirmation before the diff renders.
+- Driver-data default (pinned explicitly): an address change on a stop with `actual_arrival_at` recorded defaults that diff row to **reject**; the identical address change on a stop with no check-in data defaults to **accept**. This is asserted directly so it cannot flip silently.
+
+## Refactor safety
+
+The payload-builder extraction touches a working save path, so it is treated as a pure move: no logic edits, no signature changes visible to the form. The existing create and edit tests must pass unchanged afterwards. If any existing test needs adjusting, that is evidence the payloads are not identical — it will be reported, named, and explained rather than quietly fixed.
