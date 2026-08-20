@@ -360,7 +360,7 @@ export function buildRevisionDiff(
   const parsedStops = [...(parsed.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
   const matches = matchParsedStops(
     parsedStops.map(p => ({
-      stop_type: use(p.stop_type),
+      stop_type: p.stop_type,
       address_line1: use(p.address_line1),
       zip: use(p.zip),
       city: use(p.city),
