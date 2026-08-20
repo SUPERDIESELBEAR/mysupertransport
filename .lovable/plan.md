@@ -8,7 +8,7 @@ After a rate confirmation is parsed and the form is populated, each stop is comp
 
 - **Match found** — an inline suggestion appears on that stop card showing the two versions side by side:
   - "On the rate confirmation: J M Exotic Foods (a Midas Foods Comp"
-  - "In our directory: J M Exotic Foods / Midas Foods — 2435 US-78, Heflin AL 36264"
+  - "In our directory: J M Exotic Foods / Midas Foods — Moody, AL 35004" (illustrative only — no facility is seeded or created by this work)
   - Actions: **Use saved facility** (populates the stop from the directory record and sets `facility_id`, exactly as manual selection does today, so usage tracking increments) and **Keep as printed** (dismisses the suggestion, stop stays free text).
 - **No match** — unchanged from today: parsed name lands as free text, no `facility_id`, the "Add new facility" path stays available.
 - The suggestion never changes field values on its own, and it disappears once the dispatcher acts or edits the facility field.
