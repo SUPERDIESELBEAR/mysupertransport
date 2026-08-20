@@ -395,20 +395,54 @@ Deno.serve(async (req) => {
         .filter((v) => v !== null && v !== undefined && String(v).trim().length)
         .map((v) => normRef(String(v))),
     );
+    /** References deliberately kept despite repeating across stops, and collapsed near-duplicates. */
+    const keptRefs: string[] = [];
     stops.forEach((s: any, i: number) => {
       s.references = s.references.filter((r: any) => {
         const key = normRef(r.value);
         if (!key) return true;
-        if ((refCounts.get(key) ?? 0) > 1) {
-          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [same value on multiple stops: internal broker code]`);
-          return false;
-        }
+        // A load-level id already has a home on the load — never a stop reference.
         if (loadIds.has(key)) {
           droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [duplicates a load-level id]`);
           return false;
         }
+        if ((refCounts.get(key) ?? 0) > 1) {
+          if (SHIPMENT_REF.test(r.label)) {
+            keptRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [recognized shipment/order label]`);
+            return true;
+          }
+          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [same value on multiple stops: internal broker code]`);
+          return false;
+        }
         return true;
       });
+    });
+
+    // Two survivors that differ only by a leading/trailing alphabetic prefix or
+    // suffix are one reference written twice (SI R2633450554 vs SO 2633450554).
+    const refCore = (v: string) => normRef(v).replace(/^[a-z]+/, '').replace(/[a-z]+$/, '');
+    /** More explicit label wins; ties go to the shorter, unprefixed value. */
+    const better = (a: any, b: any) => {
+      const ax = EXPLICIT_REF_LABEL.test(a.label) ? 0 : SHIPMENT_REF.test(a.label) ? 1 : 2;
+      const bx = EXPLICIT_REF_LABEL.test(b.label) ? 0 : SHIPMENT_REF.test(b.label) ? 1 : 2;
+      if (ax !== bx) return ax < bx ? a : b;
+      return normRef(a.value).length <= normRef(b.value).length ? a : b;
+    };
+    stops.forEach((s: any, i: number) => {
+      const byCore = new Map<string, any>();
+      s.references.forEach((r: any) => {
+        const core = refCore(r.value);
+        if (!core) { byCore.set(`~${byCore.size}`, r); return; }
+        const held = byCore.get(core);
+        if (!held) { byCore.set(core, r); return; }
+        const win = better(held, r);
+        const lose = win === held ? r : held;
+        byCore.set(core, win);
+        keptRefs.push(
+          `stop ${i + 1}: "${lose.label}"=${lose.value.slice(0, 24)} collapsed into "${win.label}"=${win.value.slice(0, 24)} [same reference written twice]`,
+        );
+      });
+      s.references = Array.from(byCore.values());
     });
 
     const rawItems = Array.isArray(parsed.rate?.line_items) ? parsed.rate.line_items : [];
