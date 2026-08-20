@@ -4181,6 +4181,8 @@ export type Database = {
           facility_name: string | null
           id: string
           load_id: string
+          reference_label: string | null
+          reference_number: string | null
           state: string | null
           stop_notes: string | null
           stop_sequence: number
@@ -4209,6 +4211,8 @@ export type Database = {
           facility_name?: string | null
           id?: string
           load_id: string
+          reference_label?: string | null
+          reference_number?: string | null
           state?: string | null
           stop_notes?: string | null
           stop_sequence: number
@@ -4237,6 +4241,8 @@ export type Database = {
           facility_name?: string | null
           id?: string
           load_id?: string
+          reference_label?: string | null
+          reference_number?: string | null
           state?: string | null
           stop_notes?: string | null
           stop_sequence?: number
