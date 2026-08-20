@@ -6,7 +6,7 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import FacilityDialog from '@/components/facilities/FacilityDialog';
+import FacilityDialog, { type FacilityDraft } from '@/components/facilities/FacilityDialog';
 import { FACILITIES_QUERY_KEY, useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
 import { cn } from '@/lib/utils';
@@ -19,15 +19,21 @@ interface Props {
   onNameChange: (name: string) => void;
   onSelectFacility: (facility: Facility) => void;
   onClearFacility: () => void;
+  /** Prefill used when creating a facility from this stop's current values. */
+  newFacilityDraft?: Partial<FacilityDraft>;
 }
 
 /**
  * Facility picker for a load stop. Typing searches saved facilities by name and
  * city (most used first) and also updates the stop's free-text facility name,
  * so a one-off address can still be typed without picking anything.
+ *
+ * The "Add new facility" and "Unlink" rows are force-mounted: cmdk filters items
+ * by their `value`, so without that they vanish the moment anything is typed —
+ * exactly when the dispatcher needs to create a facility.
  */
 export default function FacilitySelect({
-  facilityId, facilityName, onNameChange, onSelectFacility, onClearFacility,
+  facilityId, facilityName, onNameChange, onSelectFacility, onClearFacility, newFacilityDraft,
 }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
