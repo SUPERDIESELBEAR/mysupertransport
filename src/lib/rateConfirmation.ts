@@ -1,5 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
+import {
+  normalizeImportedName, normalizePhone, normalizeWhitespace, normalizeZip, toTitleCase,
+} from '@/lib/textNormalize';
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -254,14 +257,17 @@ export function applyParsedToForm(
     return {
       ...base,
       stop_type: s.stop_type ?? base.stop_type,
-      facility_name: take(s.facility_name, 'facility'),
-      address_line1: take(s.address_line1, 'address'),
-      address_line2: take(s.address_line2, 'address line 2'),
-      city: take(s.city, 'city'),
-      state: take(s.state, 'state'),
-      zip: take(s.zip, 'ZIP'),
-      contact_name: take(s.contact_name, 'contact'),
-      contact_phone: take(s.contact_phone, 'phone'),
+      facility_name: normalizeImportedName(take(s.facility_name, 'facility')),
+      address_line1: toTitleCase(take(s.address_line1, 'address')),
+      address_line2: toTitleCase(take(s.address_line2, 'address line 2')),
+      city: toTitleCase(take(s.city, 'city')),
+      state: (() => {
+        const st = normalizeWhitespace(take(s.state, 'state'));
+        return st.length <= 2 ? st.toUpperCase() : toTitleCase(st);
+      })(),
+      zip: normalizeZip(take(s.zip, 'ZIP')),
+      contact_name: toTitleCase(take(s.contact_name, 'contact')),
+      contact_phone: normalizePhone(take(s.contact_phone, 'phone')),
       appointment_start: take(s.appointment_start, 'appointment start'),
       appointment_end: take(s.appointment_end, 'appointment end'),
       stop_notes: take(s.notes, 'notes'),

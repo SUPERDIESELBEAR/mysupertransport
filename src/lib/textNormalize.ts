@@ -70,3 +70,13 @@ export function formatPhone(value: string | null | undefined): string {
   if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
+
+/**
+ * A name arriving from a broker's system ("GADSDEN_WAREHOUSING_INC") is a data
+ * formatting artifact, not a stylistic choice: underscores become spaces and the
+ * result is title cased. Short all-caps acronyms are still preserved by toTitleCase.
+ */
+export function normalizeImportedName(value: string | null | undefined): string {
+  const spaced = (value ?? '').replace(/_+/g, ' ');
+  return toTitleCase(spaced);
+}

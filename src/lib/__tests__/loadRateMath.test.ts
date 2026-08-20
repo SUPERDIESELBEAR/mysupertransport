@@ -24,3 +24,32 @@ describe('calcTotalLoadValue', () => {
     expect(calcTotalLoadValue({ ...base, stopoffCharges: ['', ''] })).toBe(1000);
   });
 });
+
+describe('charges are counted exactly once', () => {
+  it('sums a stop-attached stop-off charge and an unattached load charge without double counting', () => {
+    expect(
+      calcTotalLoadValue({
+        loadType: 'standard',
+        rateType: 'flat',
+        linehaulRate: '1000',
+        fscBundled: true,
+        // three-stop load: only the middle stop carries a stop-off amount
+        stopoffCharges: ['', '75', ''],
+        additionalCharges: ['50'],
+      }),
+    ).toBe(1125);
+  });
+
+  it('drops a cleared stop-off amount from the total', () => {
+    expect(
+      calcTotalLoadValue({
+        loadType: 'standard',
+        rateType: 'flat',
+        linehaulRate: '1000',
+        fscBundled: true,
+        stopoffCharges: ['', '', ''],
+        additionalCharges: ['50'],
+      }),
+    ).toBe(1050);
+  });
+});
