@@ -299,20 +299,39 @@ Deno.serve(async (req) => {
     const plainBool = (v: unknown) => v === true || v === 'true';
 
     const rawStops = Array.isArray(parsed.stops) ? parsed.stops : [];
+    /** Every discarded reference is logged so a filtered-out broker code is visible. */
+    const droppedRefs: string[] = [];
     const stops = rawStops.slice(0, 12).map((s: any, i: number) => {
       const refsRaw = Array.isArray(s?.reference_numbers) ? s.reference_numbers : [];
       const references = refsRaw
         .map((r: any) => ({
           label: String(r?.label ?? '').trim(),
           value: String(r?.value ?? '').trim(),
+          useful: r?.useful,
+          reason: r?.reason ? String(r.reason).trim().slice(0, 80) : '',
           confidence: conf(r?.confidence),
         }))
-        .filter((r: any) =>
-          r.value.length > 0 &&
-          r.value.length <= 60 &&
-          KEEP_REF.test(r.label) &&
-          !DROP_REF.test(r.label))
-        .slice(0, 6);
+        .filter((r: any) => {
+          const drop = (rule: string) => {
+            droppedRefs.push(
+              `stop ${i + 1}: "${r.label || '(no label)'}"=${r.value.slice(0, 24) || '(empty)'} [${rule}${r.reason ? `: ${r.reason}` : ''}]`,
+            );
+            return false;
+          };
+          if (!r.value.length) return drop('empty value');
+          if (r.value.length > 60) return drop('oversize value');
+          // Explicit denylist and coordinate-shaped values always lose.
+          if (DROP_REF.test(r.label)) return drop('denylist label');
+          if (COORDINATE_VALUE.test(r.value)) return drop('coordinate-shaped value');
+          // Explicit allowlist always wins.
+          if (KEEP_REF.test(r.label)) return true;
+          // Anything unrecognized is governed by the model's judgement.
+          if (r.useful === true) return true;
+          if (r.useful === false) return drop('model judged not useful');
+          return drop('unclassified label');
+        })
+        .map(({ label, value, confidence }: any) => ({ label, value, confidence }))
+        .slice(0, 8);
 
       const type = String(s?.stop_type ?? '').trim();
       return {
