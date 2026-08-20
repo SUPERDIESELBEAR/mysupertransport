@@ -213,6 +213,29 @@ describe('Load Detail — operator-facing access', () => {
     expect(await screen.findByText(HOLD_BANNER)).toBeInTheDocument();
   });
 
+  it('hides the revised rate confirmation action from an operator', async () => {
+    renderDetail(['operator']);
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /revised rate con/i })).not.toBeInTheDocument();
+  });
+
+  it('offers the revised rate confirmation action to a dispatcher', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByRole('button', { name: /revised rate con/i })).toBeInTheDocument();
+  });
+
+  it('offers the revised rate confirmation action to management', async () => {
+    renderDetail(['management']);
+    expect(await screen.findByRole('button', { name: /revised rate con/i })).toBeInTheDocument();
+  });
+
+  it('hides the revised rate confirmation action from onboarding staff', async () => {
+    renderDetail(['onboarding_staff']);
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /revised rate con/i })).not.toBeInTheDocument();
+  });
+
+
   it('omits Internal Notes for an operator but keeps driver-facing notes', async () => {
     renderDetail(['operator']);
     expect(await screen.findByText('Driver-Facing Notes')).toBeInTheDocument();
