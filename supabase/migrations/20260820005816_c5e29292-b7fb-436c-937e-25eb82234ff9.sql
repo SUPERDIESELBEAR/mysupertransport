@@ -1,0 +1,2 @@
+DELETE FROM public.claim_flag_history WHERE claim_flag_id IN (SELECT id FROM public.claim_flags WHERE description LIKE 'QA smoke test claim%');
+DELETE FROM public.claim_flags WHERE description LIKE 'QA smoke test claim%';
