@@ -21,6 +21,7 @@ import StopsSection from '@/components/dispatch/loadForm/StopsSection';
 import type { Facility } from '@/lib/facilities';
 import RateConfirmationParser from '@/components/dispatch/loadForm/RateConfirmationParser';
 import { uploadLoadDocument } from '@/lib/loadDocuments';
+import { buildLoadSavePayload } from '@/lib/loadSavePayload';
 import { EQUIPMENT_TYPES, formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
 import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
