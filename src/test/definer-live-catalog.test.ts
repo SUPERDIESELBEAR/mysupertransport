@@ -264,7 +264,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role management|owner|dispatcher; billing statuses management|owner only.
   "public.update_load_status(uuid,load_status,text)",
   // has_role management|owner|dispatcher.
-  "public.create_load_with_stops(jsonb,jsonb)",
+  "public.create_load_with_stops(jsonb,jsonb,jsonb)",
   // has_role management|owner|dispatcher; read-only eligibility evaluation.
   "public.check_driver_eligibility(uuid)",
   "public.check_driver_eligibility_bulk(uuid[])",
