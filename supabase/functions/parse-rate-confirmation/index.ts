@@ -94,7 +94,13 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       "appointment_end": FIELD("YYYY-MM-DDTHH:mm"; null unless a closing/end time is printed),
       "notes": FIELD(string - driver-relevant instructions for this stop only),
       "reference_numbers": [
-        { "label": "exact label printed (e.g. PU#, Delivery #, BOL#, PO#, Appt #)", "value": "the number", "confidence": "high"|"medium"|"low" }
+        {
+          "label": "exact label printed (e.g. PU#, Delivery #, BOL#, PO#, Appt #, LO, SI, SO)",
+          "value": "the number",
+          "useful": true or false - see the reference_numbers rule below,
+          "reason": "short phrase explaining the useful judgement (e.g. load reference, GPS coordinate)",
+          "confidence": "high"|"medium"|"low"
+        }
       ]
     }
   ],
@@ -115,15 +121,43 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
 Rules:
 - Dates: normalize every date to a 4-digit year. If the year is not printed, use the year that keeps the stop dates in ascending order relative to any printed date; if that is still unclear, return null.
 - Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence.
-- reference_numbers: include only numbers a driver or an invoice needs — pickup numbers, delivery numbers, BOL, PO, appointment/confirmation numbers, pro numbers. Do NOT include quote numbers, carrier pay IDs, page numbers, fax/phone numbers, MC/DOT numbers, or the broker's internal tracking codes.
+- reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
+  - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
+  - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
+  - Judge the value, not just the label: a signed decimal such as -83.6779 is a coordinate however it is labelled; a long digit string labelled LO is a load reference.
+  - Always give a short "reason" for the judgement.
 - Do not put the broker's own load number in reference_numbers; it belongs in load.broker_load_number.
 - line_items: one entry per printed money line. Do not invent a linehaul line by subtracting other lines from the total.
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
 
 type Conf = 'high' | 'medium' | 'low';
 
-const KEEP_REF = /(^|\b)(pu|pick\s*up|pickup|delivery|del|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal)\b/i;
-const DROP_REF = /(quote|carrier\s*pay|page|fax|mc\s*#|dot|invoice\s*to|tracking\s*id|w9|insurance)/i;
+/** Known-good labels: kept no matter what the model judged. */
+const KEEP_REF = /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal|ref|lo|si|so)\b/i;
+/** Known noise: dropped no matter what the model judged. */
+const DROP_REF = /(quote|carrier\s*pay|page|fax|mc\s*#|dot|invoice\s*to|tracking\s*id|w9|insurance|lat\b|latitude|lon\b|lng|longitude|coord|pallet|piece|case\s*count|cube|temp)/i;
+/** A decimal-degree value is a coordinate whatever the broker labelled it. */
+const COORDINATE_VALUE = /^-?\d{1,3}\.\d{3,}$/;
+
+/** Models wrap the requested object in arrays or single-key envelopes; unwrap those. */
+function unwrapPayload(input: unknown): Record<string, any> {
+  let node: any = input;
+  for (let depth = 0; depth < 3; depth++) {
+    if (Array.isArray(node)) {
+      node = node.find((item) => item && typeof item === 'object') ?? {};
+      continue;
+    }
+    if (!node || typeof node !== 'object') return {};
+    const looksLikeResult = 'broker' in node || 'stops' in node || 'load' in node || 'rate' in node;
+    const keys = Object.keys(node);
+    if (!looksLikeResult && keys.length === 1 && node[keys[0]] && typeof node[keys[0]] === 'object') {
+      node = node[keys[0]];
+      continue;
+    }
+    return node as Record<string, any>;
+  }
+  return node && typeof node === 'object' && !Array.isArray(node) ? node : {};
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -210,10 +244,12 @@ Deno.serve(async (req) => {
 
     const data = await aiRes.json();
     const raw = data.choices?.[0]?.message?.content ?? '{}';
-    let parsed: Record<string, any>;
-    try { parsed = JSON.parse(raw); } catch {
+    let payload: unknown;
+    try { payload = JSON.parse(raw); } catch {
+      console.error('parse-rate-confirmation: AI returned invalid JSON', String(raw).slice(0, 400));
       return json(502, { error: 'AI returned invalid JSON' });
     }
+    const parsed = unwrapPayload(payload);
 
     // ---- normalizers -------------------------------------------------------
     const conf = (v: unknown): Conf =>
@@ -263,20 +299,39 @@ Deno.serve(async (req) => {
     const plainBool = (v: unknown) => v === true || v === 'true';
 
     const rawStops = Array.isArray(parsed.stops) ? parsed.stops : [];
+    /** Every discarded reference is logged so a filtered-out broker code is visible. */
+    const droppedRefs: string[] = [];
     const stops = rawStops.slice(0, 12).map((s: any, i: number) => {
       const refsRaw = Array.isArray(s?.reference_numbers) ? s.reference_numbers : [];
       const references = refsRaw
         .map((r: any) => ({
           label: String(r?.label ?? '').trim(),
           value: String(r?.value ?? '').trim(),
+          useful: r?.useful,
+          reason: r?.reason ? String(r.reason).trim().slice(0, 80) : '',
           confidence: conf(r?.confidence),
         }))
-        .filter((r: any) =>
-          r.value.length > 0 &&
-          r.value.length <= 60 &&
-          KEEP_REF.test(r.label) &&
-          !DROP_REF.test(r.label))
-        .slice(0, 6);
+        .filter((r: any) => {
+          const drop = (rule: string) => {
+            droppedRefs.push(
+              `stop ${i + 1}: "${r.label || '(no label)'}"=${r.value.slice(0, 24) || '(empty)'} [${rule}${r.reason ? `: ${r.reason}` : ''}]`,
+            );
+            return false;
+          };
+          if (!r.value.length) return drop('empty value');
+          if (r.value.length > 60) return drop('oversize value');
+          // Explicit denylist and coordinate-shaped values always lose.
+          if (DROP_REF.test(r.label)) return drop('denylist label');
+          if (COORDINATE_VALUE.test(r.value)) return drop('coordinate-shaped value');
+          // Explicit allowlist always wins.
+          if (KEEP_REF.test(r.label)) return true;
+          // Anything unrecognized is governed by the model's judgement.
+          if (r.useful === true) return true;
+          if (r.useful === false) return drop('model judged not useful');
+          return drop('unclassified label');
+        })
+        .map(({ label, value, confidence }: any) => ({ label, value, confidence }))
+        .slice(0, 8);
 
       const type = String(s?.stop_type ?? '').trim();
       return {
@@ -321,7 +376,11 @@ Deno.serve(async (req) => {
 
     const ls = parsed.loadout_signals ?? {};
 
-    return json(200, {
+    if (droppedRefs.length) {
+      console.log('parse-rate-confirmation: discarded reference numbers —', droppedRefs.join(' | '));
+    }
+
+    const result = {
       broker: {
         company_name: str(parsed.broker?.company_name),
         mc_number: (() => {
@@ -373,7 +432,31 @@ Deno.serve(async (req) => {
         relocation_fee: money(ls.relocation_fee),
         use_period_days: num(ls.use_period_days),
       },
-    });
+    };
+
+    // A parse that yields nothing is a failure, never a silent success.
+    const gotAnything =
+      !!result.broker.company_name.value ||
+      !!result.load.broker_load_number.value ||
+      !!result.load.bol_number.value ||
+      result.rate.total.value !== null ||
+      result.rate.linehaul.value !== null ||
+      result.rate.line_items.length > 0 ||
+      result.stops.length > 0;
+
+    if (!gotAnything) {
+      console.error(
+        'parse-rate-confirmation: empty extraction.',
+        'payload type:', Array.isArray(payload) ? 'array' : typeof payload,
+        'top-level keys:', JSON.stringify(Object.keys(parsed ?? {})),
+        'raw prefix:', String(raw).slice(0, 600),
+      );
+      return json(422, {
+        error: 'The document was read but no load data could be extracted from it. Check that this is a rate confirmation, or enter the load manually.',
+      });
+    }
+
+    return json(200, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('parse-rate-confirmation error', msg);

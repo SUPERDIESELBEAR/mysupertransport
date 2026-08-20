@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { pdfFileToImages } from '@/lib/pdfToImages';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
   applyLoadoutFields, applyParsedToForm, assessLoadout, fileToBase64, matchBroker,
@@ -27,6 +28,20 @@ interface Props {
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
+
+/** A parse that produced nothing is a failure, never a silent "found nothing". */
+function isEmptyResult(r: ParsedRateConfirmation): boolean {
+  return (
+    !r.broker?.company_name?.value &&
+    !r.load?.broker_load_number?.value &&
+    !r.load?.bol_number?.value &&
+    (r.rate?.total?.value ?? null) === null &&
+    (r.rate?.linehaul?.value ?? null) === null &&
+    (r.rate?.line_items?.length ?? 0) === 0 &&
+    (r.stops?.length ?? 0) === 0
+  );
+}
+
 async function invokeErrorMessage(error: unknown, fallback: string): Promise<string> {
   const ctx = (error as { context?: Response })?.context;
   if (ctx && typeof ctx.json === 'function') {
@@ -47,6 +62,9 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showSource, setShowSource] = useState(false);
+  const [pdfPages, setPdfPages] = useState<string[] | null>(null);
+  const [pdfRendering, setPdfRendering] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<ParsedRateConfirmation | null>(null);
   const [verify, setVerify] = useState<string[]>([]);
@@ -57,6 +75,22 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  // Render PDF pages with pdf.js — browsers do not reliably display PDFs in <object>.
+  useEffect(() => {
+    if (!file || file.type !== 'application/pdf' || !showSource) return;
+    if (pdfPages || pdfRendering) return;
+    let cancelled = false;
+    setPdfRendering(true);
+    setPdfError(null);
+    pdfFileToImages(file, { scale: 1.6, maxPages: 15 })
+      .then(pages => { if (!cancelled) setPdfPages(pages); })
+      .catch(err => {
+        if (!cancelled) setPdfError(err instanceof Error ? err.message : 'Could not render this PDF.');
+      })
+      .finally(() => { if (!cancelled) setPdfRendering(false); });
+    return () => { cancelled = true; };
+  }, [file, showSource, pdfPages, pdfRendering]);
 
   const stops = form.watch('stops') ?? [];
   const middleStops = stops
@@ -75,6 +109,8 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const pickFile = (f: File | null) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     reset();
+    setPdfPages(null);
+    setPdfError(null);
     if (!f) {
       setFile(null);
       setPreviewUrl(null);
@@ -102,7 +138,11 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
       if (error) throw error;
 
       const result = data as ParsedRateConfirmation;
-      if (!result?.stops) throw new Error('The parser returned nothing usable.');
+      if (!result?.stops || isEmptyResult(result)) {
+        throw new Error(
+          'The document was read but no load data could be extracted from it. Enter the load manually, or try a clearer copy of the rate confirmation.',
+        );
+      }
 
       const applied = applyParsedToForm(result, (name, value) =>
         form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
@@ -357,14 +397,30 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
           {showSource && (
             <div className="rounded-md border border-border bg-background overflow-hidden">
               {isPdf ? (
-                <object data={previewUrl} type="application/pdf" className="h-[70vh] w-full">
-                  <p className="p-4 text-sm text-muted-foreground">
-                    This browser cannot display the PDF inline.{' '}
-                    <a href={previewUrl} target="_blank" rel="noreferrer" className="text-gold underline">
-                      Open it in a new tab
-                    </a>.
-                  </p>
-                </object>
+                <div className="max-h-[70vh] overflow-y-auto">
+                  {pdfRendering && (
+                    <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Rendering the document…
+                    </div>
+                  )}
+                  {pdfError && (
+                    <p className="p-4 text-sm text-muted-foreground">
+                      {pdfError}{' '}
+                      <a href={previewUrl} target="_blank" rel="noreferrer" className="text-gold underline">
+                        Open it in a new tab
+                      </a>.
+                    </p>
+                  )}
+                  {pdfPages?.map((page, i) => (
+                    <figure key={i} className="border-b border-border last:border-b-0">
+                      <img src={page} alt={`Rate confirmation page ${i + 1}`} className="w-full" />
+                      <figcaption className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                        Page {i + 1} of {pdfPages.length}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
               ) : (
                 <img src={previewUrl} alt="Rate confirmation source document" className="max-h-[70vh] w-full object-contain" />
               )}
