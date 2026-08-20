@@ -25,6 +25,8 @@ import {
 interface Props {
   /** The parsed file is attached to the load as its rate confirmation after saving. */
   onSourceFileChange: (file: File | null) => void;
+  /** Broker name read off the document, shown in the Broker field until it is linked. */
+  onExtractedBroker?: (name: string | null) => void;
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
@@ -53,7 +55,7 @@ async function invokeErrorMessage(error: unknown, fallback: string): Promise<str
   return getDbErrorMessage(error, fallback);
 }
 
-export default function RateConfirmationParser({ onSourceFileChange }: Props) {
+export default function RateConfirmationParser({ onSourceFileChange, onExtractedBroker }: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -77,9 +79,13 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   // Render PDF pages with pdf.js — browsers do not reliably display PDFs in <object>.
+  // The effect must NOT depend on the state it sets: `setPdfRendering(true)` used to
+  // re-run it, and the cleanup cancelled the render that was already in flight.
+  const renderedForRef = useRef<File | null>(null);
   useEffect(() => {
     if (!file || file.type !== 'application/pdf' || !showSource) return;
-    if (pdfPages || pdfRendering) return;
+    if (renderedForRef.current === file) return;
+    renderedForRef.current = file;
     let cancelled = false;
     setPdfRendering(true);
     setPdfError(null);
@@ -90,7 +96,7 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
       })
       .finally(() => { if (!cancelled) setPdfRendering(false); });
     return () => { cancelled = true; };
-  }, [file, showSource, pdfPages, pdfRendering]);
+  }, [file, showSource]);
 
   const stops = form.watch('stops') ?? [];
   const middleStops = stops
@@ -111,6 +117,7 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
     reset();
     setPdfPages(null);
     setPdfError(null);
+    renderedForRef.current = null;
     if (!f) {
       setFile(null);
       setPreviewUrl(null);
@@ -148,6 +155,7 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
         form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
 
       setParsed(result);
+      onExtractedBroker?.(result.broker?.company_name?.value?.trim() || null);
       setVerify(applied.verify);
       setUnassigned(applied.unassigned);
       setLoadout(assessLoadout(result));
@@ -174,6 +182,7 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const chooseBroker = (id: string) => {
     form.setValue('broker_id', id, { shouldDirty: true });
     setBrokerResolved(true);
+    onExtractedBroker?.(null);
   };
 
   const createBroker = async () => {
@@ -211,7 +220,15 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   };
 
   const assignLine = (line: UnassignedRateLine, target: string) => {
-    if (target !== 'ignore') {
+    if (target === 'load') {
+      const current = form.getValues('charges') ?? [];
+      form.setValue(
+        'charges',
+        [...current, { charge_type: line.category, description: line.description, amount: String(line.amount) }],
+        { shouldDirty: true },
+      );
+      toast({ description: `${formatCurrency(line.amount)} added to the load total.` });
+    } else if (target !== 'ignore') {
       const index = Number(target);
       form.setValue(`stops.${index}.stopoff_charge_amount` as never, String(line.amount) as never, { shouldDirty: true });
       toast({ description: `${formatCurrency(line.amount)} applied to stop ${index + 1}.` });
@@ -350,7 +367,9 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
         <div className="rounded-md border border-info/40 bg-info/10 p-3 space-y-2">
           <p className="text-sm font-semibold text-foreground">Rate lines that need a decision</p>
           <p className="text-xs text-muted-foreground">
-            These charges were on the document but could not be tied to one stop. Assign each one or leave it out.
+            {middleStops.length
+              ? 'These charges were on the document. Attach each one to a stop, add it to the load total, or leave it out.'
+              : 'These charges were on the document. This load has no middle stop, so attach each one to the load total or leave it out.'}
           </p>
           {unassigned.map(line => (
             <div key={line.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2">
@@ -364,6 +383,7 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
                     {middleStops.map(s => (
                       <SelectItem key={s.i} value={String(s.i)}>{s.label} stop-off charge</SelectItem>
                     ))}
+                    <SelectItem value="load">Add to load total (no stop)</SelectItem>
                     <SelectItem value="ignore">Leave it out</SelectItem>
                   </SelectContent>
                 </Select>
