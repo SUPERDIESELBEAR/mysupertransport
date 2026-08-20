@@ -1933,7 +1933,7 @@ export default function ManagementPortal() {
           <LoadDetailPage
             loadId={selectedLoadId}
             onBack={() => setView('loads')}
-            onEdit={() => setView('load-edit')}
+            onEdit={() => openLoadEdit(selectedLoadId)}
           />
         )}
 
