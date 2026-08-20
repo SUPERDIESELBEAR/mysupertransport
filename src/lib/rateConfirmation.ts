@@ -108,7 +108,7 @@ const needsCheck = <T,>(f?: Field<T> | null): boolean =>
 
 /** Labels a guard shack actually asks for. Anything else is not promoted into the field. */
 const GATE_LABEL =
-  /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal|shipment|load)\b/i;
+  /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|so|si|release|seal|shipment|load)\b/i;
 
 /**
  * A stop's reference number. Only an explicitly labelled gate/invoice reference at
