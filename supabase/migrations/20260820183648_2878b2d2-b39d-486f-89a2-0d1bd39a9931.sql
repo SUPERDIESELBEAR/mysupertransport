@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.stamp_load_charges_actor() FROM authenticated;
