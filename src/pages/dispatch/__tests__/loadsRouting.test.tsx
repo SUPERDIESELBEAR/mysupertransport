@@ -143,6 +143,13 @@ describe('Loads page routing', () => {
     renderApp(['operator']);
     expect(await screen.findByText('dashboard page')).toBeInTheDocument();
   });
+
+  it('routes Edit Load to /dispatch/loads/:id/edit and renders the edit form', async () => {
+    renderApp(['dispatcher'], '/dispatch/loads/load-1');
+    fireEvent.click(await screen.findByRole('button', { name: /edit load/i }));
+    expect(await screen.findByTestId('path')).toHaveTextContent('/dispatch/loads/load-1/edit');
+    expect(await screen.findByRole('heading', { name: /edit load ST-1042/i })).toBeInTheDocument();
+  });
 });
 
 describe('Loads page hosted in the Management shell', () => {
