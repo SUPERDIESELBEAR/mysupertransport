@@ -29,6 +29,12 @@ vi.mock('@/integrations/supabase/client', () => {
       if (table === 'loads') return LOADS;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
       if (table === 'profiles') return [{ user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
+      if (table === 'load_stops') {
+        return [
+          { id: 'stop-1', load_id: 'load-1', stop_sequence: 1, stop_type: 'pickup', city: 'Kansas City', state: 'MO' },
+          { id: 'stop-2', load_id: 'load-1', stop_sequence: 2, stop_type: 'delivery', city: 'Dallas', state: 'TX' },
+        ];
+      }
       return [];
     };
     const q: Record<string, unknown> = {};
@@ -37,7 +43,12 @@ vi.mock('@/integrations/supabase/client', () => {
     q.then = (resolve: (v: unknown) => unknown) => resolve({ data: rowsFor(), error: null });
     return q;
   };
-  return { supabase: { from: (table: string) => makeQuery(table) } };
+  return {
+    supabase: {
+      from: (table: string) => makeQuery(table),
+      rpc: () => Promise.resolve({ data: 'ST-9999', error: null }),
+    },
+  };
 });
 
 const authState = { roles: [] as AppRole[] };
