@@ -70,3 +70,5 @@ Tests:
 - Extend `loadDetailOperatorAccess.test.tsx` so operators see no change history, reasons, or previous values.
 - Wire the existing stop-off clearing unit test to the real edit save path.
 - Cover the stop-removal-with-charge choice and the no-double-counting total.
+- Pin driver-recorded data preservation: create a load, set `actual_arrival_at`, `actual_departure_at`, and coordinates on stop 1, edit an unrelated field on stop 2, save, and confirm stop 1's driver-recorded columns and `facility_id` are unchanged.
+- Sibling case for reorder: with check-in data on stop 1, move stop 2 above it and save, then confirm the arrival timestamp is still attached to its own stop row and did not follow sequence 1.
