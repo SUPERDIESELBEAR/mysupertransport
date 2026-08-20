@@ -125,8 +125,8 @@ export const emptyStop = (stop_type: StopFormValues['stop_type']): StopFormValue
   id: '',
   has_driver_data: false,
   facility_id: '',
-
   stop_type,
+
   facility_name: '',
   address_line1: '',
   address_line2: '',
