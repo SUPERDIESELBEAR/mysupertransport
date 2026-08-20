@@ -118,7 +118,10 @@ describeLive('share token throttling', () => {
     // resolve. See the banner below.
     const resolver = defOf('resolve_share_token');
     expect(resolver).toContain('_share_token_gate');
-    expect(resolver).toMatch(/outcome\s*=\s*'ok'|v_outcome\s*(<>|!=)\s*'ok'/);
+    // Anything the gate does not call 'ok' returns nothing; only 'ok' reaches
+    // the per-scope SELECT that yields the row.
+    expect(resolver).toMatch(/v_gate\.outcome IS DISTINCT FROM 'ok'/);
+    expect(resolver).toMatch(/'ok'::text/);
   });
 
   it('DOES NOT execute the resolver end-to-end, and says so', () => {
