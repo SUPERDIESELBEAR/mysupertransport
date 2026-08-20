@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const aiRes = await fetch(`${AI_GATEWAY}/chat/completions`, {
+    const callGateway = () => fetch(`${AI_GATEWAY}/chat/completions`, {
       method: 'POST',
       headers: { 'Lovable-API-Key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -253,9 +253,20 @@ Deno.serve(async (req) => {
         response_format: { type: 'json_object' },
         // Terms sweeps run long; leave room so a dense list is never clipped.
         max_tokens: 8000,
-
       }),
     });
+
+    // 429/5xx from the gateway are transient — retry with bounded backoff.
+    let aiRes = await callGateway();
+    for (let attempt = 1; attempt <= 3 && (aiRes.status === 429 || aiRes.status >= 500); attempt++) {
+      const retryAfter = Number(aiRes.headers.get('Retry-After'));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 10_000)
+        : Math.min(1000 * 2 ** (attempt - 1), 8000) + Math.floor(Math.random() * 400);
+      console.warn(`parse-rate-confirmation: gateway ${aiRes.status}, retry ${attempt} in ${waitMs}ms`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      aiRes = await callGateway();
+    }
 
     if (!aiRes.ok) {
       const t = await aiRes.text();
@@ -263,8 +274,12 @@ Deno.serve(async (req) => {
       if (aiRes.status === 402) return json(402, { error: 'AI credits exhausted. Ask an admin to top up.' });
       if (aiRes.status === 403) return json(403, { error: 'AI access is blocked for this workspace.' });
       console.error('AI gateway failed', aiRes.status, t.slice(0, 400));
+      if (aiRes.status >= 500) {
+        return json(503, { error: 'The AI service is temporarily unavailable. Please try parsing again in a moment.' });
+      }
       return json(502, { error: `AI request failed (${aiRes.status})` });
     }
+
 
     const data = await aiRes.json();
     const raw = data.choices?.[0]?.message?.content ?? '{}';
