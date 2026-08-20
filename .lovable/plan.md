@@ -1,5 +1,7 @@
 # Three separate items: two real defects, one harness gap
 
+Decisions recorded: Item 1 fix as proposed including surfacing the swallowed error, plus an audit of nearby queries that discard errors the same way. Item 2 fix as proposed, plus a check for any other storage-path columns added since the guard last passed, plus a decision on the one already-orphaned BOL photo. Item 3 skip loudly, and re-point `resolve_share_token` at the REST RPC endpoint.
+
 ## Item 1 — postgrestEmbeds / InspectionComplianceSummary: REAL LIVE BUG
 
 The guard is not stale. Verified against the live database and the live REST API.
@@ -40,7 +42,12 @@ Proposed handling, which I want your call on before doing it:
 - `resolve_share_token` is granted to `anon`, so its test can be re-pointed at the REST RPC endpoint with the publishable key — a real execution, no grants changed, no rows written (it is the read path).
 - `certify_rods_day` requires an authenticated JWT for a specific driver. There is no way to mint one here (the service role key is not available on Lovable Cloud). That arm genuinely cannot run in this harness. Rather than leave it red or quietly delete it, gate it behind an explicit capability check that skips loudly with the same banner style the file already uses for a missing `PGHOST` — so it reads as "did not run, here is why", never as coverage. The static assertions in the file continue to run.
 
-If you would rather that arm stay red as a standing reminder than skip loudly, say so and I will leave it failing.
+Decision: skip loudly, do not leave it red.
+
+## Follow-ups requested with the approval
+
+- Item 1: after the fix, report whether any other query in `InspectionComplianceSummary.tsx` or the neighbouring inspection components discards its error the same way. A first scan shows roughly 35 `const { data: ... } = await supabase...` sites across that folder with no `error` destructured, so the pattern does repeat; the report will separate the ones that can silently empty a view from the harmless ones.
+- Item 2: report whether any other `_path`-style storage columns were added anywhere since this guard last passed, so a third gap is not left behind. Also state explicitly whether the fix cleans up the one already-orphaned BOL photo or whether that object needs a separate one-time removal — the fix changes future purges only, so an existing orphan would need its own cleanup.
 
 ## Technical notes
 
