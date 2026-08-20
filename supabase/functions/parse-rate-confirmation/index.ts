@@ -244,10 +244,12 @@ Deno.serve(async (req) => {
 
     const data = await aiRes.json();
     const raw = data.choices?.[0]?.message?.content ?? '{}';
-    let parsed: Record<string, any>;
-    try { parsed = JSON.parse(raw); } catch {
+    let payload: unknown;
+    try { payload = JSON.parse(raw); } catch {
+      console.error('parse-rate-confirmation: AI returned invalid JSON', String(raw).slice(0, 400));
       return json(502, { error: 'AI returned invalid JSON' });
     }
+    const parsed = unwrapPayload(payload);
 
     // ---- normalizers -------------------------------------------------------
     const conf = (v: unknown): Conf =>
