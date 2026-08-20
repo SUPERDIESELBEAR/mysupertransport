@@ -74,6 +74,7 @@ vi.mock('@/hooks/useAuth', () => ({
 import { useAuth } from '@/hooks/useAuth';
 import LoadsListPage from '../LoadsListPage';
 import LoadDetailPage from '../LoadDetailPage';
+import CreateLoadPage from '../CreateLoadPage';
 
 /** Mirrors the /dispatch/* guard in App.tsx. */
 function DispatchGuard({ children }: { children: React.ReactNode }) {
@@ -84,17 +85,24 @@ function DispatchGuard({ children }: { children: React.ReactNode }) {
   return <Navigate to="/dashboard" replace />;
 }
 
-function renderApp(roles: AppRole[]) {
+function EditRoute() {
+  const id = window.location.pathname; // unused; kept for clarity in failures
+  void id;
+  return <CreateLoadPage loadId="load-1" />;
+}
+
+function renderApp(roles: AppRole[], initialEntry = '/dispatch/loads') {
   authState.roles = roles;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/dispatch/loads']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/login" element={<div>login page</div>} />
           <Route path="/dashboard" element={<div>dashboard page</div>} />
           <Route path="/dispatch/loads" element={<DispatchGuard><LoadsListPage /></DispatchGuard>} />
           <Route path="/dispatch/loads/:id" element={<DispatchGuard><LoadDetailPage /></DispatchGuard>} />
+          <Route path="/dispatch/loads/:id/edit" element={<DispatchGuard><EditRoute /></DispatchGuard>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
