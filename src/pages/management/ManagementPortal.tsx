@@ -277,6 +277,25 @@ export default function ManagementPortal() {
     if (options?.focusField) setDrawerFocusField(options.focusField);
   }, [setSearchParams]);
 
+  // Same authoritative pattern for the load edit form: write ?view=load-edit
+  // &loadId synchronously on click. Modals on the detail page push virtual
+  // history entries (useBackButton); if the URL still matched theirs when they
+  // unmounted, their back() would rewind our edit navigation. Writing the URL
+  // in the click handler — before React commits the unmount — makes those
+  // entries stale so the hook's href guard skips the back().
+  const openLoadEdit = useCallback((loadId: string | null) => {
+    if (!loadId) return;
+    setSelectedLoadId(loadId);
+    setView('load-edit');
+    const next = new URLSearchParams(window.location.search);
+    next.set('view', 'load-edit');
+    next.set('loadId', loadId);
+    const nextSearch = next.toString();
+    lastWrittenSearchRef.current = nextSearch;
+    skipNextUrlSyncRef.current = true;
+    setSearchParams(next, { replace: true });
+  }, [setSearchParams]);
+
   // One-shot deep-link migration on mount (e.g. notification ?op=... links).
   // Initial state was already seeded from the URL by the lazy useState above.
   useEffect(() => {
