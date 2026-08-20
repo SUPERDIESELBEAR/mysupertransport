@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Database } from '@/integrations/supabase/types';
@@ -34,6 +34,37 @@ const CLAIM_FLAGS = [
     claim_type: 'damaged_goods',
     description: 'Pallets crushed in transit.',
     reported_at: '2026-08-10T12:00:00Z',
+    is_active: true,
+    reported_by_contact: 'Kara at Prime Logistics',
+    estimated_claim_amount: 1250,
+    actual_claim_amount: null,
+    documentation_url: null,
+    resolution: null,
+    resolution_notes: null,
+    resolved_at: null,
+    resolved_by: null,
+    created_by: 'profile-1',
+  },
+];
+
+const CLAIM_HISTORY = [
+  {
+    id: 'claim-hist-1',
+    action: 'created',
+    previous_flag_level: null,
+    new_flag_level: 'hold',
+    previous_is_active: null,
+    new_is_active: true,
+    previous_resolution: null,
+    new_resolution: null,
+    previous_estimated_amount: null,
+    new_estimated_amount: 1250,
+    previous_actual_amount: null,
+    new_actual_amount: null,
+    change_source: 'trigger',
+    notes: null,
+    changed_at: '2026-08-10T12:00:00Z',
+    changed_by: 'profile-1',
   },
 ];
 
@@ -97,6 +128,7 @@ vi.mock('@/integrations/supabase/client', () => {
     const rowsFor = () => {
       if (table === 'loads') return requestedId === HIDDEN_LOAD_ID ? [] : [LOAD];
       if (table === 'claim_flags') return CLAIM_FLAGS;
+      if (table === 'claim_flag_history') return CLAIM_HISTORY;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
       if (table === 'load_status_history') return HISTORY;
       if (table === 'load_documents') return requestedId === HIDDEN_LOAD_ID ? [] : LOAD_DOCUMENTS;
@@ -337,5 +369,80 @@ describe('Load Detail — document and exception visibility', () => {
     expect(await screen.findByText('Document Exceptions')).toBeInTheDocument();
     expect(screen.getByText('Resolution Notes')).toBeInTheDocument();
     expect(screen.getByText(EXCEPTION_RESOLUTION_NOTE)).toBeInTheDocument();
+  });
+});
+
+describe('Load Detail — claims visibility', () => {
+  beforeEach(() => {
+    authState.roles = [];
+    tableCalls.length = 0;
+  });
+
+  it('shows an operator no Claims section and no claim data at all', async () => {
+    const { container } = renderDetail(['operator']);
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
+    await waitFor(() => expect(tableCalls).toContain('loads'));
+
+    expect(screen.queryByText('Claims')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /raise claim/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /view history/i })).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('Pallets crushed in transit');
+    expect(container.textContent).not.toContain('Kara at Prime Logistics');
+    expect(container.textContent).not.toContain('Damaged Goods');
+    expect(container.textContent).not.toContain('$1,250');
+  });
+
+  it('issues no claim_flags or claim_flag_history read for an operator session', async () => {
+    renderDetail(['operator']);
+    expect(await screen.findByText('Load Summary')).toBeInTheDocument();
+    await waitFor(() => expect(tableCalls).toContain('load_documents'));
+    expect(tableCalls.filter(t => t === 'claim_flags')).toHaveLength(0);
+    expect(tableCalls.filter(t => t === 'claim_flag_history')).toHaveLength(0);
+  });
+
+  it('shows a dispatcher the claim with resolve controls but no reopen affordance', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Claims')).toBeInTheDocument();
+    expect(await screen.findByText('Pallets crushed in transit.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /raise claim/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^resolve$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^reopen$/i })).not.toBeInTheDocument();
+  });
+
+  it('gives onboarding staff a read-only Claims section', async () => {
+    renderDetail(['onboarding_staff']);
+    expect(await screen.findByText('Claims')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /raise claim/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^resolve$/i })).not.toBeInTheDocument();
+  });
+
+  it('loads claim history only once the history panel is opened', async () => {
+    renderDetail(['dispatcher']);
+    expect(await screen.findByText('Claims')).toBeInTheDocument();
+    expect(tableCalls.filter(t => t === 'claim_flag_history')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: /view history/i }));
+    await waitFor(() => expect(tableCalls.filter(t => t === 'claim_flag_history')).toHaveLength(1));
+  });
+});
+
+describe('manage_claim_flag — server-side role gate', () => {
+  it('raises for operator-only callers and restricts reopen to management', async () => {
+    const { resolveMigrationFunctions } = await import('@/test/helpers/migrationFunctions');
+    const resolved = resolveMigrationFunctions();
+    const fn = Array.from(resolved.values()).find(f => f.name === 'public.manage_claim_flag');
+    expect(fn, 'public.manage_claim_flag must exist in the migration set').toBeTruthy();
+
+    const body = fn!.block;
+    expect(body).toMatch(/has_role\(v_uid, 'management'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'owner'\)/);
+    expect(body).toMatch(/has_role\(v_uid, 'dispatcher'\)/);
+    // An operator-only caller satisfies none of these, so raise/resolve must RAISE.
+    expect(body).toMatch(/IF NOT \(v_is_mgmt OR v_is_disp\) THEN\s*\n\s*RAISE EXCEPTION/);
+    // Reopen is management/owner only.
+    expect(body).toMatch(/IF NOT v_is_mgmt THEN\s*\n\s*RAISE EXCEPTION 'Only management may reopen/);
+    // A new claim can never be created as cleared.
+    expect(body).toMatch(/p_flag_level = 'cleared'::claim_flag_level THEN\s*\n\s*RAISE EXCEPTION/);
+    expect(fn!.isDefiner).toBe(true);
+    expect(fn!.searchPath).toBe('public');
   });
 });
