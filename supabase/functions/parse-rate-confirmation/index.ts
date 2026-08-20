@@ -94,7 +94,13 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       "appointment_end": FIELD("YYYY-MM-DDTHH:mm"; null unless a closing/end time is printed),
       "notes": FIELD(string - driver-relevant instructions for this stop only),
       "reference_numbers": [
-        { "label": "exact label printed (e.g. PU#, Delivery #, BOL#, PO#, Appt #)", "value": "the number", "confidence": "high"|"medium"|"low" }
+        {
+          "label": "exact label printed (e.g. PU#, Delivery #, BOL#, PO#, Appt #, LO, SI, SO)",
+          "value": "the number",
+          "useful": true or false - see the reference_numbers rule below,
+          "reason": "short phrase explaining the useful judgement (e.g. load reference, GPS coordinate)",
+          "confidence": "high"|"medium"|"low"
+        }
       ]
     }
   ],
