@@ -335,6 +335,7 @@ export default function ManagementPortal() {
   // restores the section. If the URL was just changed by an external navigation,
   // skip one cycle to avoid overwriting it.
   useEffect(() => {
+    console.log('[urlwriter]', view, 'skip=', skipNextUrlSyncRef.current, 'loadId=', selectedLoadId, 'search=', window.location.search);
     if (skipNextUrlSyncRef.current) {
       skipNextUrlSyncRef.current = false;
       return;
