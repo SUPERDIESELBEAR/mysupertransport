@@ -85,10 +85,15 @@ function DispatchGuard({ children }: { children: React.ReactNode }) {
   return <Navigate to="/dashboard" replace />;
 }
 
+/** Stands in for the dispatch edit route: reads :id and renders the shared form. */
 function EditRoute() {
-  const id = window.location.pathname; // unused; kept for clarity in failures
-  void id;
-  return <CreateLoadPage loadId="load-1" />;
+  const { id } = useParams<{ id: string }>();
+  return (
+    <div>
+      <span data-testid="path">{useLocation().pathname}</span>
+      <CreateLoadPage loadId={id} />
+    </div>
+  );
 }
 
 function renderApp(roles: AppRole[], initialEntry = '/dispatch/loads') {
