@@ -34,6 +34,37 @@ const CLAIM_FLAGS = [
     claim_type: 'damaged_goods',
     description: 'Pallets crushed in transit.',
     reported_at: '2026-08-10T12:00:00Z',
+    is_active: true,
+    reported_by_contact: 'Kara at Prime Logistics',
+    estimated_claim_amount: 1250,
+    actual_claim_amount: null,
+    documentation_url: null,
+    resolution: null,
+    resolution_notes: null,
+    resolved_at: null,
+    resolved_by: null,
+    created_by: 'profile-1',
+  },
+];
+
+const CLAIM_HISTORY = [
+  {
+    id: 'claim-hist-1',
+    action: 'created',
+    previous_flag_level: null,
+    new_flag_level: 'hold',
+    previous_is_active: null,
+    new_is_active: true,
+    previous_resolution: null,
+    new_resolution: null,
+    previous_estimated_amount: null,
+    new_estimated_amount: 1250,
+    previous_actual_amount: null,
+    new_actual_amount: null,
+    change_source: 'trigger',
+    notes: null,
+    changed_at: '2026-08-10T12:00:00Z',
+    changed_by: 'profile-1',
   },
 ];
 
@@ -97,6 +128,7 @@ vi.mock('@/integrations/supabase/client', () => {
     const rowsFor = () => {
       if (table === 'loads') return requestedId === HIDDEN_LOAD_ID ? [] : [LOAD];
       if (table === 'claim_flags') return CLAIM_FLAGS;
+      if (table === 'claim_flag_history') return CLAIM_HISTORY;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
       if (table === 'load_status_history') return HISTORY;
       if (table === 'load_documents') return requestedId === HIDDEN_LOAD_ID ? [] : LOAD_DOCUMENTS;
