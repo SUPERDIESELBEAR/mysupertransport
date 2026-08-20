@@ -34,7 +34,7 @@ describe('toTitleCase', () => {
     });
     it('handles street types with a trailing period', () => {
       expect(toTitleCase('500 W SEVENTH ST.')).toBe('500 W Seventh St.');
-      expect(toTitleCase('12 ELM RD.')).toBe('12 Elm Rd.');
+      expect(toTitleCase('12 CEDAR RD.')).toBe('12 Cedar Rd.');
     });
     it('handles street types mid-address', () => {
       expect(toTitleCase('1400 INDUSTRIAL DR SUITE 200')).toBe('1400 Industrial Dr Suite 200');
