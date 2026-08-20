@@ -145,6 +145,16 @@ type Conf = 'high' | 'medium' | 'low';
 
 /** Known-good labels: kept no matter what the model judged. */
 const KEEP_REF = /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal|ref|lo|si|so)\b/i;
+/**
+ * Recognized shipment/order labels. A value under one of these survives the
+ * cross-stop duplicate rule: the same shipment number printed on every stop is
+ * exactly what a guard shack asks for, not an internal routing code.
+ * Deliberately narrow — opaque shorthand (DJ, ZZ, F9) is NOT in here.
+ */
+const SHIPMENT_REF =
+  /(^|\b)(so|si|pro|order|shipment|bol|bill\s*of\s*lading|po|purchase\s*order|pu|pick\s*up|pickup|delivery|del|dl|release|seal|appt|appointment|confirmation|conf)\b/i;
+/** Labels that spell out what the number is, preferred when collapsing near-duplicates. */
+const EXPLICIT_REF_LABEL = /(shipment|order|pick\s*up|pickup|delivery|release|seal|appointment|bill\s*of\s*lading|purchase\s*order|confirmation)/i;
 /** Known noise: dropped no matter what the model judged. */
 const DROP_REF = /(quote|carrier\s*pay|page|fax|mc\s*#|dot|invoice\s*to|tracking\s*id|w9|insurance|lat\b|latitude|lon\b|lng|longitude|coord|pallet|piece|case\s*count|cube|temp)/i;
 /** A decimal-degree value is a coordinate whatever the broker labelled it. */
