@@ -49,16 +49,31 @@ interface CreateLoadPageProps {
   /** Host-supplied navigation for the Management Portal (state-driven views). */
   onCreated?: (loadId: string) => void;
   onCancel?: () => void;
+  /** Present in edit mode — the load being edited. */
+  loadId?: string | null;
+  onSaved?: (loadId: string) => void;
 }
 
-export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPageProps = {}) {
+export default function CreateLoadPage({
+  onCreated, onCancel, loadId, onSaved,
+}: CreateLoadPageProps = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isOwner } = useAuth();
+  const queryClient = useQueryClient();
+  const isEdit = !!loadId;
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [extractedBroker, setExtractedBroker] = useState<string | null>(null);
   const [facilitySuggestions, setFacilitySuggestions] = useState<Record<number, Facility[]>>({});
+  const [financialUnlocked, setFinancialUnlocked] = useState(false);
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [unlockReason, setUnlockReason] = useState('');
+  const pendingValues = useRef<LoadFormValues | null>(null);
+  const initialValues = useRef<LoadFormValues | null>(null);
+  const hydrated = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<LoadFormValues>({
@@ -66,6 +81,24 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
     defaultValues: loadFormDefaults(),
     mode: 'onSubmit',
   });
+
+  const { data: editData, isLoading: editLoading, error: editError } = useQuery({
+    queryKey: ['load-edit', loadId],
+    enabled: isEdit,
+    queryFn: () => fetchLoadForEdit(loadId as string),
+  });
+
+  useEffect(() => {
+    if (!editData || hydrated.current) return;
+    const v = loadToFormValues(editData);
+    initialValues.current = v;
+    form.reset(v);
+    hydrated.current = true;
+  }, [editData, form]);
+
+  const loadStatus = (editData?.load.status ?? 'available') as LoadStatus;
+  const tier = isEdit ? financialEditTier(loadStatus) : 'open';
+  const financialLocked = tier === 'locked' && !financialUnlocked;
 
   const values = form.watch();
   const isLoadout = values.load_type === 'loadout';
@@ -85,9 +118,11 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
   };
 
   useEffect(() => {
+    if (isEdit) return;
     void generateNumber();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isEdit]);
+
 
   // Per-Ton Bulk forces the rate type; flatbed/hopper force live load-unload.
   useEffect(() => {
