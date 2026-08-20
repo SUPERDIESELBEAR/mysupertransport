@@ -26,6 +26,42 @@ export interface LoadClaimFlag {
   reported_at: string | null;
 }
 
+/** Full claim row plus resolved people names, for the staff-only Claims section. */
+export interface LoadClaim extends LoadClaimFlag {
+  is_active: boolean;
+  reported_by_contact: string | null;
+  estimated_claim_amount: number | null;
+  actual_claim_amount: number | null;
+  documentation_url: string | null;
+  resolution: string | null;
+  resolution_notes: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolved_by_name: string | null;
+  created_by: string | null;
+  created_by_name: string | null;
+}
+
+export interface ClaimHistoryEntry {
+  id: string;
+  action: string;
+  previous_flag_level: string | null;
+  new_flag_level: string | null;
+  previous_is_active: boolean | null;
+  new_is_active: boolean | null;
+  previous_resolution: string | null;
+  new_resolution: string | null;
+  previous_estimated_amount: number | null;
+  new_estimated_amount: number | null;
+  previous_actual_amount: number | null;
+  new_actual_amount: number | null;
+  change_source: string | null;
+  notes: string | null;
+  changed_at: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+}
+
 export interface LoadStatusHistoryEntry {
   id: string;
   previous_status: Database['public']['Enums']['load_status'] | null;
