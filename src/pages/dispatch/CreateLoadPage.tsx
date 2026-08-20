@@ -507,15 +507,22 @@ export default function CreateLoadPage({
                         <FormControl>
                           <Input {...field} readOnly className="font-mono bg-muted/40" />
                         </FormControl>
-                        <Button
-                          type="button" variant="outline" size="icon"
-                          onClick={generateNumber} disabled={numberLoading}
-                          aria-label="Regenerate load number"
-                        >
-                          <RefreshCw className={`h-4 w-4 ${numberLoading ? 'animate-spin' : ''}`} />
-                        </Button>
+                        {!isEdit && (
+                          <Button
+                            type="button" variant="outline" size="icon"
+                            onClick={generateNumber} disabled={numberLoading}
+                            aria-label="Regenerate load number"
+                          >
+                            <RefreshCw className={`h-4 w-4 ${numberLoading ? 'animate-spin' : ''}`} />
+                          </Button>
+                        )}
                       </div>
-                      <FormDescription>The number format is configurable in settings.</FormDescription>
+                      <FormDescription>
+                        {isEdit
+                          ? 'The load number cannot be changed after creation.'
+                          : 'The number format is configurable in settings.'}
+                      </FormDescription>
+
                       <FormMessage />
                     </FormItem>
                   )}
