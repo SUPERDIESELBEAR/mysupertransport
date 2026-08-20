@@ -261,7 +261,10 @@ export function applyParsedToForm(
       address_line1: toTitleCase(take(s.address_line1, 'address')),
       address_line2: toTitleCase(take(s.address_line2, 'address line 2')),
       city: toTitleCase(take(s.city, 'city')),
-      state: normalizeWhitespace(take(s.state, 'state')).toUpperCase(),
+      state: (() => {
+        const st = normalizeWhitespace(take(s.state, 'state'));
+        return st.length <= 2 ? st.toUpperCase() : toTitleCase(st);
+      })(),
       zip: normalizeZip(take(s.zip, 'ZIP')),
       contact_name: toTitleCase(take(s.contact_name, 'contact')),
       contact_phone: normalizePhone(take(s.contact_phone, 'phone')),
