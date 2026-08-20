@@ -265,21 +265,39 @@ export default function CreateLoadPage({
             charge_type: c.charge_type || 'other',
             description: c.description || '',
             amount: String(c.amount),
-            source: 'parsed_rate_confirmation',
+            source: c.source || (isEdit ? 'manual' : 'parsed_rate_confirmation'),
           })),
       ];
 
       loadPayloadForLog = loadPayload;
       stopsPayloadForLog = stopsPayload;
 
-      const { data, error } = await supabase.rpc('create_load_with_stops', {
-        p_load: loadPayload as never,
-        p_stops: stopsPayload as never,
-        p_charges: chargesPayload as never,
-      });
-      if (error) throw error;
+      let savedId: string;
 
-      const newId = data as unknown as string;
+      if (isEdit) {
+        const before = initialValues.current;
+        const dropped = before ? removedStops(before, v) : [];
+        savedId = await updateLoadWithStops({
+          loadId: loadId as string,
+          load: loadPayload,
+          stops: stopsPayload,
+          charges: chargesPayload,
+          reason: reasonText,
+          unlockReason: financialUnlocked ? unlockText : null,
+          // The removal dialog is the acknowledgement; only send it when one applies.
+          acknowledgeStopDataLoss: dropped.some(s => s.hasDriverData),
+        });
+      } else {
+        const { data, error } = await supabase.rpc('create_load_with_stops', {
+          p_load: loadPayload as never,
+          p_stops: stopsPayload as never,
+          p_charges: chargesPayload as never,
+        });
+        if (error) throw error;
+        savedId = data as unknown as string;
+      }
+
+      const newId = savedId;
 
       // The parsed rate confirmation becomes the load's source document.
       if (sourceFile) {
@@ -294,25 +312,57 @@ export default function CreateLoadPage({
           toast({
             variant: 'destructive',
             title: 'Rate confirmation not attached',
-            description: 'The load was created, but the file did not upload. Add it from the load page.',
+            description: 'The load was saved, but the file did not upload. Add it from the load page.',
           });
         }
       }
 
-      toast({ description: `Load ${v.load_number} created.` });
-      if (onCreated) onCreated(newId);
-      else navigate(`/dispatch/loads/${newId}`);
+      if (isEdit) {
+        await queryClient.invalidateQueries({ queryKey: ['load-detail', newId] });
+        await queryClient.invalidateQueries({ queryKey: ['load-change-history', newId] });
+        await queryClient.invalidateQueries({ queryKey: ['load-edit', newId] });
+        toast({ description: `Load ${v.load_number} updated.` });
+        if (onSaved) onSaved(newId);
+        else navigate(`/dispatch/loads/${newId}`);
+      } else {
+        toast({ description: `Load ${v.load_number} created.` });
+        if (onCreated) onCreated(newId);
+        else navigate(`/dispatch/loads/${newId}`);
+      }
     } catch (e) {
-      logDbError('create_load_with_stops', e, { p_load: loadPayloadForLog, p_stops: stopsPayloadForLog });
+      logDbError(isEdit ? 'update_load_with_stops' : 'create_load_with_stops', e, {
+        p_load: loadPayloadForLog, p_stops: stopsPayloadForLog,
+      });
       toast({
         variant: 'destructive',
         title: 'Load not saved',
-        description: getDbErrorMessage(e, 'Could not create the load.'),
+        description: getDbErrorMessage(e, isEdit ? 'Could not update the load.' : 'Could not create the load.'),
       });
     } finally {
       setSubmitting(false);
     }
   };
+
+  /** Financial edits need a written reason before the save is allowed to run. */
+  const onSubmit = (v: LoadFormValues) => {
+    if (!isEdit) return performSave(v);
+    const before = initialValues.current;
+    const changed = before ? financialChanges(before, v) : [];
+    if (changed.length > 0 && !reason.trim()) {
+      pendingValues.current = v;
+      setReasonOpen(true);
+      return Promise.resolve();
+    }
+    return performSave(v, reason.trim() || null, unlockReason.trim() || null);
+  };
+
+  const confirmReasonAndSave = () => {
+    const v = pendingValues.current;
+    if (!v || !reason.trim()) return;
+    setReasonOpen(false);
+    void performSave(v, reason.trim(), unlockReason.trim() || null);
+  };
+
 
   return (
     <div className="space-y-4 max-w-5xl">
