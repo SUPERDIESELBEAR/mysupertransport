@@ -132,8 +132,32 @@ Rules:
 
 type Conf = 'high' | 'medium' | 'low';
 
-const KEEP_REF = /(^|\b)(pu|pick\s*up|pickup|delivery|del|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal)\b/i;
-const DROP_REF = /(quote|carrier\s*pay|page|fax|mc\s*#|dot|invoice\s*to|tracking\s*id|w9|insurance)/i;
+/** Known-good labels: kept no matter what the model judged. */
+const KEEP_REF = /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal|ref|lo|si|so)\b/i;
+/** Known noise: dropped no matter what the model judged. */
+const DROP_REF = /(quote|carrier\s*pay|page|fax|mc\s*#|dot|invoice\s*to|tracking\s*id|w9|insurance|lat\b|latitude|lon\b|lng|longitude|coord|pallet|piece|case\s*count|cube|temp)/i;
+/** A decimal-degree value is a coordinate whatever the broker labelled it. */
+const COORDINATE_VALUE = /^-?\d{1,3}\.\d{3,}$/;
+
+/** Models wrap the requested object in arrays or single-key envelopes; unwrap those. */
+function unwrapPayload(input: unknown): Record<string, any> {
+  let node: any = input;
+  for (let depth = 0; depth < 3; depth++) {
+    if (Array.isArray(node)) {
+      node = node.find((item) => item && typeof item === 'object') ?? {};
+      continue;
+    }
+    if (!node || typeof node !== 'object') return {};
+    const looksLikeResult = 'broker' in node || 'stops' in node || 'load' in node || 'rate' in node;
+    const keys = Object.keys(node);
+    if (!looksLikeResult && keys.length === 1 && node[keys[0]] && typeof node[keys[0]] === 'object') {
+      node = node[keys[0]];
+      continue;
+    }
+    return node as Record<string, any>;
+  }
+  return node && typeof node === 'object' && !Array.isArray(node) ? node : {};
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
