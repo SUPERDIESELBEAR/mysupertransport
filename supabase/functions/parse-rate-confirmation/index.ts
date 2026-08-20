@@ -369,7 +369,38 @@ Deno.serve(async (req) => {
       };
     });
 
+    // A reference that repeats verbatim across stops, or restates a load-level id,
+    // is an internal broker code — not something a guard shack asks for.
+    const normRef = (v: string) => v.replace(/[^0-9a-z]/gi, '').toLowerCase();
+    const refCounts = new Map<string, number>();
+    stops.forEach((s: any) =>
+      new Set(s.references.map((r: any) => normRef(r.value))).forEach((k) =>
+        refCounts.set(k as string, (refCounts.get(k as string) ?? 0) + 1),
+      ),
+    );
+    const loadIds = new Set(
+      [parsed.load?.bol_number?.value, parsed.load?.po_number?.value, parsed.load?.broker_load_number?.value]
+        .filter((v) => v !== null && v !== undefined && String(v).trim().length)
+        .map((v) => normRef(String(v))),
+    );
+    stops.forEach((s: any, i: number) => {
+      s.references = s.references.filter((r: any) => {
+        const key = normRef(r.value);
+        if (!key) return true;
+        if ((refCounts.get(key) ?? 0) > 1) {
+          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [same value on multiple stops: internal broker code]`);
+          return false;
+        }
+        if (loadIds.has(key)) {
+          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [duplicates a load-level id]`);
+          return false;
+        }
+        return true;
+      });
+    });
+
     const rawItems = Array.isArray(parsed.rate?.line_items) ? parsed.rate.line_items : [];
+
     const lineItems = rawItems
       .map((it: any) => {
         const amt = money({ value: it?.amount, confidence: it?.confidence ?? 'high' });
