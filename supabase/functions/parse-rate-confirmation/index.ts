@@ -121,7 +121,11 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
 Rules:
 - Dates: normalize every date to a 4-digit year. If the year is not printed, use the year that keeps the stop dates in ascending order relative to any printed date; if that is still unclear, return null.
 - Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence.
-- reference_numbers: include only numbers a driver or an invoice needs — pickup numbers, delivery numbers, BOL, PO, appointment/confirmation numbers, pro numbers. Do NOT include quote numbers, carrier pay IDs, page numbers, fax/phone numbers, MC/DOT numbers, or the broker's internal tracking codes.
+- reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
+  - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
+  - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
+  - Judge the value, not just the label: a signed decimal such as -83.6779 is a coordinate however it is labelled; a long digit string labelled LO is a load reference.
+  - Always give a short "reason" for the judgement.
 - Do not put the broker's own load number in reference_numbers; it belongs in load.broker_load_number.
 - line_items: one entry per printed money line. Do not invent a linehaul line by subtracting other lines from the total.
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
