@@ -124,11 +124,20 @@ Rules:
 - reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
   - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
   - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
+  - Treat a BARE two-letter or unexplained code (e.g. "DJ", "XR") with suspicion: mark it useful = false unless the surrounding text clearly shows a driver would present it at the gate.
+  - If the SAME value appears on more than one stop, it is almost certainly an internal broker code, not a gate reference: mark it useful = false on every stop and say so in "reason".
+  - Never invent a stop reference. If a stop prints no gate reference, return an empty reference_numbers array — a blank field is correct.
   - Judge the value, not just the label: a signed decimal such as -83.6779 is a coordinate however it is labelled; a long digit string labelled LO is a load reference.
   - Always give a short "reason" for the judgement.
 - Do not put the broker's own load number in reference_numbers; it belongs in load.broker_load_number.
 - line_items: one entry per printed money line. Do not invent a linehaul line by subtracting other lines from the total.
+- special_instructions: sweep the ENTIRE document, every page. Terms live in the Agreement, Terms & Conditions, Carrier Requirements, fine print and footers as often as under a heading called "Instructions" — that block is one source among several, never the whole answer.
+  - INCLUDE a term only if it carries a specific dollar amount, a specific time threshold, or a required action the driver or dispatcher must take on THIS load. For example: detention rate and free time, layover pay, late-arrival penalties, missed check-call fines, tracking-compliance fines, paperwork deadlines and late-paperwork deductions, check/advance processing fees, OS&D reporting windows and fines, required tracking apps, facility check-in procedures, fuel advance terms.
+  - EXCLUDE general legal boilerplate: double-brokering prohibitions, insurance and coverage requirements, liability allocation, indemnification, cargo damage responsibility, governing law and venue, signature blocks, and anything restating standard broker-carrier agreement language with no load-specific consequence.
+  - The test: would a dispatcher scanning this field learn something they would otherwise have had to hunt for? "Detention $40/hr after 3 hours free" passes. "Carrier is responsible for any damage to product" does not.
+  - Format as one short line per term, quoting printed amounts and thresholds verbatim. Omit anything not printed. Do not pad with prose.
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
+
 
 type Conf = 'high' | 'medium' | 'low';
 
