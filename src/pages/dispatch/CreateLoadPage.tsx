@@ -224,6 +224,7 @@ export default function CreateLoadPage({
       };
 
       const stopsPayload = v.stops.map(s => ({
+        id: s.id ?? '',
         stop_type: s.stop_type,
         facility_id: s.facility_id ?? '',
         facility_name: s.facility_name ?? '',
@@ -241,6 +242,7 @@ export default function CreateLoadPage({
         stopoff_charge_amount: s.stopoff_charge_amount ?? '',
         stop_notes: s.stop_notes ?? '',
       }));
+
 
       // load_charges is the authoritative record of every charge on the load.
       // A stop-attached charge also mirrors into load_stops.stopoff_charge_amount
