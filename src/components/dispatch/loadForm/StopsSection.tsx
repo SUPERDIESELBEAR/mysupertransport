@@ -446,6 +446,19 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
         <Plus className="h-4 w-4" />
         Add Stop
       </Button>
+
+      <FacilityDialog
+        open={addForIndex !== null}
+        onOpenChange={open => { if (!open) setAddForIndex(null); }}
+        initial={addForIndex !== null ? draftFromStop((stops?.[addForIndex] ?? {}) as Partial<StopFormValues>) : undefined}
+        onSaved={async facility => {
+          const target = addForIndex;
+          await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
+          if (target !== null) applyFacility(target, facility);
+          setAddForIndex(null);
+        }}
+      />
+
     </div>
   );
 }
