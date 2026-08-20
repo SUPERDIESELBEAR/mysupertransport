@@ -346,6 +346,10 @@ export default function ManagementPortal() {
     if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId);
     else if (view !== 'eld-logs') next.delete('op');
     if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
+    // Only the edit view is addressable — a refresh mid-edit must return to the
+    // same load's form. Detail/list refreshes cost nothing, so they stay as-is.
+    if (view === 'load-edit' && selectedLoadId) next.set('loadId', selectedLoadId);
+    else next.delete('loadId');
     const current = window.location.search.replace(/^\?/, '');
     const nextSearch = next.toString();
     if (nextSearch !== current) {
@@ -357,11 +361,11 @@ export default function ManagementPortal() {
     // restores the last viewed page, independent of URL state. Skip transient
     // detail views that need a selected record to render correctly.
     try {
-      if (view !== 'operator-detail' && view !== 'vehicle-detail') {
+      if (view !== 'operator-detail' && view !== 'vehicle-detail' && view !== 'load-edit') {
         sessionStorage.setItem('mgmt_last_view', view);
       }
     } catch { /* ignore */ }
-  }, [view, selectedOperatorId, statusFilter, setSearchParams]);
+  }, [view, selectedOperatorId, selectedLoadId, statusFilter, setSearchParams]);
 
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
