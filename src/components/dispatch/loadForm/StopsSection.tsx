@@ -49,9 +49,11 @@ const draftFromStop = (stop: Partial<StopFormValues>): Partial<FacilityDraft> =>
 interface Props {
   /** Directory matches for parsed stops, keyed by stop index. Suggestions only. */
   facilitySuggestions?: Record<number, Facility[]>;
+  /** Edit mode on a billed load — stop-off amounts cannot be changed. */
+  financialLocked?: boolean;
 }
 
-export default function StopsSection({ facilitySuggestions }: Props = {}) {
+export default function StopsSection({ facilitySuggestions, financialLocked }: Props = {}) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -61,6 +63,46 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
 
   const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
   const [addForIndex, setAddForIndex] = useState<number | null>(null);
+  const [removeIndex, setRemoveIndex] = useState<number | null>(null);
+  const [keepCharge, setKeepCharge] = useState(true);
+
+  /** Removal is only confirmed when it destroys something: driver data or a charge. */
+  const removalRisk = (index: number) => {
+    const s = (stops?.[index] ?? {}) as Partial<StopFormValues>;
+    return {
+      hasDriverData: !!s.has_driver_data,
+      chargeAmount: Number(s.stopoff_charge_amount) || 0,
+    };
+  };
+
+  const requestRemove = (index: number) => {
+    const risk = removalRisk(index);
+    if (!risk.hasDriverData && risk.chargeAmount <= 0) {
+      remove(index);
+      return;
+    }
+    setKeepCharge(true);
+    setRemoveIndex(index);
+  };
+
+  const confirmRemove = () => {
+    const index = removeIndex;
+    if (index === null) return;
+    const { chargeAmount } = removalRisk(index);
+    if (chargeAmount > 0 && keepCharge) {
+      // The charge survives the stop as a load-level line so the total stays right.
+      const existing = form.getValues('charges') ?? [];
+      form.setValue('charges', [...existing, {
+        charge_type: 'stopoff',
+        description: `Stop-off charge (removed stop ${index + 1})`,
+        amount: String(chargeAmount),
+        source: 'manual',
+      }], { shouldDirty: true });
+    }
+    remove(index);
+    setRemoveIndex(null);
+  };
+
 
   const facilityFor = (id?: string) => (id ? (facilities ?? []).find(f => f.id === id) ?? null : null);
 
