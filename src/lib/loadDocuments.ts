@@ -245,6 +245,11 @@ export interface UploadLoadDocumentInput {
   loadStopId?: string | null;
   notes?: string | null;
   file: File;
+  /** Photo-only metadata for loadout inspection uploads. */
+  photoLabel?: string | null;
+  photoSequence?: number | null;
+  damageNoted?: boolean | null;
+  damageNotes?: string | null;
 }
 
 /** Uploads one file and records it. `uploaded_by` is stamped server-side. */
