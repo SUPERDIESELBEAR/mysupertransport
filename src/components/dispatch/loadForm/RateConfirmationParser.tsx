@@ -397,14 +397,30 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
           {showSource && (
             <div className="rounded-md border border-border bg-background overflow-hidden">
               {isPdf ? (
-                <object data={previewUrl} type="application/pdf" className="h-[70vh] w-full">
-                  <p className="p-4 text-sm text-muted-foreground">
-                    This browser cannot display the PDF inline.{' '}
-                    <a href={previewUrl} target="_blank" rel="noreferrer" className="text-gold underline">
-                      Open it in a new tab
-                    </a>.
-                  </p>
-                </object>
+                <div className="max-h-[70vh] overflow-y-auto">
+                  {pdfRendering && (
+                    <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Rendering the document…
+                    </div>
+                  )}
+                  {pdfError && (
+                    <p className="p-4 text-sm text-muted-foreground">
+                      {pdfError}{' '}
+                      <a href={previewUrl} target="_blank" rel="noreferrer" className="text-gold underline">
+                        Open it in a new tab
+                      </a>.
+                    </p>
+                  )}
+                  {pdfPages?.map((page, i) => (
+                    <figure key={i} className="border-b border-border last:border-b-0">
+                      <img src={page} alt={`Rate confirmation page ${i + 1}`} className="w-full" />
+                      <figcaption className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                        Page {i + 1} of {pdfPages.length}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
               ) : (
                 <img src={previewUrl} alt="Rate confirmation source document" className="max-h-[70vh] w-full object-contain" />
               )}
