@@ -39,7 +39,17 @@ Written as a clean readable list into `special_instructions`, consolidating: det
 
 ### Rate line items
 
-Base amount maps to `linehaul_rate`. An "Extra Stop" style charge maps onto `stopoff_charge_amount` on the matching stop where it can be tied to one; anything else is appended to `special_instructions` as an itemized rate breakdown. A broken-out rate is never collapsed into one flat number.
+Base amount maps to `linehaul_rate`. A broken-out rate is never collapsed into one flat number, and every extracted line always appears in the itemized rate breakdown appended to `special_instructions`, so no charge is ever silently lost.
+
+An "Extra Stop" style charge is auto-assigned to a stop **only** when all of these hold:
+
+- the load has three or more stops, and
+- the document explicitly ties the charge to a specific named middle stop, and
+- the extraction confidence for that association is high.
+
+In that case `stopoff_charge_amount` is set on that stop and marked medium confidence so the dispatcher verifies it.
+
+In every other case — two-stop loads, a charge that cannot be tied to a specific stop, or any confidence below high — the parser assigns it to no stop. The review screen surfaces it as an **unassigned rate line** showing the broker's label and amount, with a prompt to assign it to a specific stop or leave it out. A two-stop load has no middle stop and so no eligible stop-off, yet brokers still bill "Extra Stop" on them; that discrepancy belongs in front of the dispatcher, not papered over by the parser picking a stop.
 
 ### Reference-number filtering
 
