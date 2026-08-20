@@ -1098,16 +1098,53 @@ export default function CreateLoadPage({
               <Button type="button" variant="outline" onClick={goBack} disabled={submitting}>Cancel</Button>
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (financialUnlocked && !unlockReason.trim())}
                 className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light"
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create Load
+                {isEdit ? 'Save Changes' : 'Create Load'}
               </Button>
             </div>
           </form>
         </Form>
       </FormProvider>
+
+      <Dialog open={reasonOpen} onOpenChange={setReasonOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Why is the money changing?</DialogTitle>
+            <DialogDescription>
+              This edit changes what the broker is billed
+              {pendingValues.current && initialValues.current
+                ? `: ${financialChanges(initialValues.current, pendingValues.current).join(', ')}.`
+                : '.'}{' '}
+              A written reason is required and is stored in the load's change history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="financial-reason">Reason (required)</Label>
+            <Textarea
+              id="financial-reason"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              placeholder="Revised rate confirmation received — linehaul increased by $150."
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setReasonOpen(false)}>Cancel</Button>
+            <Button
+              type="button"
+              disabled={reason.trim().length < 5}
+              onClick={confirmReasonAndSave}
+              className="bg-gold text-surface-dark hover:bg-gold-light"
+            >
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 }
