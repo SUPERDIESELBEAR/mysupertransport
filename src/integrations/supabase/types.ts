@@ -3964,6 +3964,77 @@ export type Database = {
           },
         ]
       }
+      load_charges: {
+        Row: {
+          amount: number
+          charge_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          load_id: string
+          load_stop_id: string | null
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount?: number
+          charge_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          load_id: string
+          load_stop_id?: string | null
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          charge_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          load_id?: string
+          load_stop_id?: string | null
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_charges_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_charges_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_charges_load_stop_id_fkey"
+            columns: ["load_stop_id"]
+            isOneToOne: false
+            referencedRelation: "load_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_charges_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       load_documents: {
         Row: {
           capture_latitude: number | null
@@ -8432,7 +8503,7 @@ export type Database = {
         Returns: number
       }
       create_load_with_stops: {
-        Args: { p_load: Json; p_stops: Json }
+        Args: { p_charges?: Json; p_load: Json; p_stops: Json }
         Returns: string
       }
       current_profile_id: { Args: never; Returns: string }
