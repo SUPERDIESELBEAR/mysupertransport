@@ -28,6 +28,20 @@ interface Props {
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
+
+/** A parse that produced nothing is a failure, never a silent "found nothing". */
+function isEmptyResult(r: ParsedRateConfirmation): boolean {
+  return (
+    !r.broker?.company_name?.value &&
+    !r.load?.broker_load_number?.value &&
+    !r.load?.bol_number?.value &&
+    (r.rate?.total?.value ?? null) === null &&
+    (r.rate?.linehaul?.value ?? null) === null &&
+    (r.rate?.line_items?.length ?? 0) === 0 &&
+    (r.stops?.length ?? 0) === 0
+  );
+}
+
 async function invokeErrorMessage(error: unknown, fallback: string): Promise<string> {
   const ctx = (error as { context?: Response })?.context;
   if (ctx && typeof ctx.json === 'function') {
