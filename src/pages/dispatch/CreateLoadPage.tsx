@@ -322,6 +322,11 @@ export default function CreateLoadPage({
         }
       }
 
+      // Disarm the unsaved-changes guard before navigating: the work is
+      // persisted, so neither beforeunload nor guard() should interrupt.
+      form.reset(v);
+      setSourceFile(null);
+
       if (isEdit) {
         await queryClient.invalidateQueries({ queryKey: ['load-detail', newId] });
         await queryClient.invalidateQueries({ queryKey: ['load-change-history', newId] });
@@ -334,6 +339,7 @@ export default function CreateLoadPage({
         if (onCreated) onCreated(newId);
         else navigate(`/dispatch/loads/${newId}`);
       }
+      return true;
     } catch (e) {
       logDbError(isEdit ? 'update_load_with_stops' : 'create_load_with_stops', e, {
         p_load: loadPayloadForLog, p_stops: stopsPayloadForLog,
@@ -343,6 +349,7 @@ export default function CreateLoadPage({
         title: 'Load not saved',
         description: getDbErrorMessage(e, isEdit ? 'Could not update the load.' : 'Could not create the load.'),
       });
+      return false;
     } finally {
       setSubmitting(false);
     }
