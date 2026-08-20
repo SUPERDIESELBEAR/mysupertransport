@@ -52,6 +52,17 @@ export const LOADOUT_PHOTO_TYPES: LoadDocumentType[] = [
   'loadout_delivery_inspection',
 ];
 
+export const PHOTO_LABEL_SUGGESTIONS = [
+  'Front',
+  'Driver Side',
+  'Passenger Side',
+  'Rear Doors Closed',
+  'Rear Doors Open',
+  'Trailer Number Plate',
+  'Delivery Location Signage',
+  'Other',
+] as const;
+
 export const EXCEPTION_REASON_LABELS: Record<Database['public']['Enums']['document_exception_reason'], string> = {
   shipper_did_not_provide: 'Shipper did not provide the document',
   receiver_refused_to_sign: 'Receiver refused to sign',
