@@ -15,7 +15,7 @@ import { formatDateTime, type LoadDetail } from '@/lib/loadDetail';
 import { STOP_TYPE_LABELS, type LoadType, type StopType } from '@/lib/loadRateMath';
 import {
   DOCUMENT_TYPE_ORDER, LOADOUT_PHOTO_TYPES, createDocumentSignedUrl, deleteLoadDocument,
-  fetchLoadDocumentExceptions, fetchLoadDocuments, formatFileSize, isImageDocument,
+  fetchLoadDocumentExceptions, fetchLoadDocuments, formatFileSize, isImageDocument, validateLoadDocumentFile,
   type LoadDocument, type LoadDocumentType,
 } from '@/lib/loadDocuments';
 import DocumentThumbnail from './DocumentThumbnail';
@@ -145,6 +145,8 @@ export default function DocumentsSection({
 }) {
   const qc = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState<File[] | undefined>(undefined);
+  const [isDragging, setIsDragging] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<LoadDocument | null>(null);
 
   const { data: documents, isLoading } = useQuery({
@@ -202,16 +204,90 @@ export default function DocumentsSection({
   const isLoadout = (load.load_type as LoadType) === 'loadout';
   const listCount = all.filter(d => !LOADOUT_PHOTO_TYPES.includes(d.document_type)).length;
 
+  function handleDragEnter(e: React.DragEvent) {
+    if (!canManage) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    if (!canManage) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!canManage) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    if (!canManage) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (!files.length) return;
+
+    const accepted: File[] = [];
+    files.forEach(file => {
+      const check = validateLoadDocumentFile(file);
+      if (!check.valid) {
+        toast({ title: 'File not accepted', description: check.error, variant: 'destructive' });
+        return;
+      }
+      accepted.push(file);
+    });
+
+    if (accepted.length) {
+      setDroppedFiles(accepted);
+      setUploadOpen(true);
+    }
+  }
+
+  function openUpload() {
+    setDroppedFiles(undefined);
+    setUploadOpen(true);
+  }
+
+  function closeUpload(open: boolean) {
+    setUploadOpen(open);
+    if (!open) setDroppedFiles(undefined);
+  }
+
   return (
-    <section className="rounded-lg border border-border bg-card p-4 sm:p-5">
+    <section
+      className={cn(
+        'relative rounded-lg border border-border bg-card p-4 sm:p-5',
+        canManage && isDragging && 'border-dashed border-primary bg-primary/5',
+      )}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {canManage && isDragging ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-primary/5">
+          <p className="text-sm font-medium text-foreground">Drop files to upload</p>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-foreground">Documents</h2>
         <span className="text-sm text-muted-foreground">({listCount})</span>
         {canManage ? (
-          <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4" />
-            Upload
-          </Button>
+          <>
+            <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={openUpload}>
+              <Upload className="h-4 w-4" />
+              Upload
+            </Button>
+            <span className="hidden text-xs text-muted-foreground sm:inline">or drop files here</span>
+          </>
         ) : null}
       </div>
 
@@ -233,7 +309,9 @@ export default function DocumentsSection({
           </div>
         ) : grouped.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No documents have been attached to this load yet.
+            {canManage
+              ? 'No documents yet. Use the Upload button or drag and drop files here to add them.'
+              : 'No documents have been attached to this load yet.'}
           </p>
         ) : (
           grouped.map(group => (
@@ -261,7 +339,7 @@ export default function DocumentsSection({
       </div>
 
       {uploadOpen ? (
-        <UploadDocumentsDialog load={load} open onOpenChange={setUploadOpen} />
+        <UploadDocumentsDialog load={load} open onOpenChange={closeUpload} initialFiles={droppedFiles} />
       ) : null}
 
       <AlertDialog open={!!pendingDelete} onOpenChange={v => { if (!v && !deleteMutation.isPending) setPendingDelete(null); }}>
