@@ -34,4 +34,6 @@ Truncated broker names never affect the match, since the name is only ever a tie
 
 ## Verification
 
-Re-parse the Cahaba document and confirm the truncated "J M Exotic Foods (a Midas Foods Comp" stop surfaces a suggestion for the clean directory record, that accepting it sets `facility_id` and fills the stop from our record, and that a stop with no directory equivalent shows no suggestion and still saves as free text.
+- Re-parse the Cahaba document: the truncated "J M Exotic Foods (a Midas Foods Comp" stop surfaces a suggestion for the clean directory record, accepting it sets `facility_id` and fills the stop from our record, and a stop with no directory equivalent shows no suggestion and still saves as free text.
+- **Negative case, same street different ZIP** — create a facility at the same street address as a parsed stop but with a different ZIP and confirm no suggestion appears. ZIP is an exact-match component of the primary key precisely so a same-street-different-town pair can never send a driver to the wrong place. Covered both by a unit test in `facilityMatch.test.ts` and by a live check.
+- **No spurious drift note on accept** — after accepting a suggestion, the "differs from the saved facility" note must not appear, since the stop was just populated from that record. The existing `differs` comparison in `StopsSection` normalizes phone and whitespace on both sides, and accepting reuses the same `applyFacility` handler, so the values are identical; verified live rather than assumed.
