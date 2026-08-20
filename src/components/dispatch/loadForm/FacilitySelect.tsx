@@ -65,18 +65,32 @@ export default function FacilitySelect({
               placeholder="Search or type a facility name…"
             />
             <CommandList>
-              <CommandEmpty>No saved facility matches — the typed name is kept.</CommandEmpty>
-              {facilityId && (
-                <CommandGroup>
+              <CommandGroup forceMount>
+                <CommandItem
+                  forceMount
+                  value="__add__"
+                  onSelect={() => { setOpen(false); setAddOpen(true); }}
+                  data-testid="facility-add-new"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span className="truncate">
+                    {facilityName.trim()
+                      ? `Add “${facilityName.trim()}” as a new facility`
+                      : 'Add new facility'}
+                  </span>
+                </CommandItem>
+                {facilityId && (
                   <CommandItem
+                    forceMount
                     value="__unlink__"
                     onSelect={() => { onClearFacility(); setOpen(false); }}
                     className="text-muted-foreground"
                   >
                     Unlink saved facility (keep typed address)
                   </CommandItem>
-                </CommandGroup>
-              )}
+                )}
+              </CommandGroup>
+              <CommandEmpty>No saved facility matches — the typed name is kept.</CommandEmpty>
               <CommandGroup heading="Saved facilities">
                 {(facilities ?? []).map(f => (
                   <CommandItem
@@ -92,12 +106,6 @@ export default function FacilitySelect({
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandGroup>
-                <CommandItem value="__add__" onSelect={() => { setOpen(false); setAddOpen(true); }}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new facility
-                </CommandItem>
-              </CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>
@@ -106,12 +114,13 @@ export default function FacilitySelect({
       <FacilityDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        initial={{ facility_name: facilityName }}
+        initial={{ ...newFacilityDraft, facility_name: facilityName }}
         onSaved={async facility => {
           await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
           onSelectFacility(facility);
         }}
       />
+
     </>
   );
 }
