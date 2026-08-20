@@ -16,6 +16,7 @@ import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
 import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
+import ChangeHistoryCard from '@/components/dispatch/loadDetail/ChangeHistoryCard';
 import { fetchLoadClaims, fetchLoadDetail } from '@/lib/loadDetail';
 import { CLAIM_TYPE_LABELS } from '@/components/dispatch/loadDetail/claimConstants';
 import { type LoadStatus } from '@/lib/loadFormat';
@@ -159,6 +160,7 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       ) : null}
       <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
       <NotesSection load={load} canSeeInternal={isStaff} />
+      {isStaff ? <ChangeHistoryCard loadId={load.id} /> : null}
     </div>
   );
 }

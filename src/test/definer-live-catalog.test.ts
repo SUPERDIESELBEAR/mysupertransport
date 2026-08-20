@@ -265,6 +265,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.update_load_status(uuid,load_status,text)",
   // has_role management|owner|dispatcher.
   "public.create_load_with_stops(jsonb,jsonb,jsonb)",
+  // has_role management|owner|dispatcher; financial fields on billed loads are
+  // owner-only and every change is written to load_change_history.
+  "public.update_load_with_stops(uuid,jsonb,jsonb,jsonb,text,text,boolean)",
   // has_role management|owner|dispatcher; read-only eligibility evaluation.
   "public.check_driver_eligibility(uuid)",
   "public.check_driver_eligibility_bulk(uuid[])",
@@ -286,8 +289,8 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // 70 when the seven-argument certify form is dropped
 // (docs/deferred-removals.md).
 // + the eight load-management RPCs and the three token-gated public
-// endpoints registered 2026-08-20.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 84;
+// endpoints registered 2026-08-20, plus update_load_with_stops.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 85;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a
