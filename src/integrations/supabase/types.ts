@@ -8837,6 +8837,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      manage_claim_flag: {
+        Args: {
+          p_action: string
+          p_actual_amount?: number
+          p_claim_id?: string
+          p_claim_type?: Database["public"]["Enums"]["claim_type"]
+          p_description?: string
+          p_documentation_url?: string
+          p_estimated_amount?: number
+          p_flag_level?: Database["public"]["Enums"]["claim_flag_level"]
+          p_load_id?: string
+          p_reason?: string
+          p_reported_by_contact?: string
+          p_resolution?: string
+          p_resolution_notes?: string
+        }
+        Returns: string
+      }
       mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
       mark_thread_read: { Args: { _thread_id: string }; Returns: undefined }
       match_staff_help_knowledge: {
