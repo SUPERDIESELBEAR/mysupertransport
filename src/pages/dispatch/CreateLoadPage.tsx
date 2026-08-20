@@ -928,6 +928,8 @@ export default function CreateLoadPage({
                     ))}
                   </div>
                 )}
+                </fieldset>
+
 
                 <div className="rounded-md border border-gold/40 bg-gold/5 px-4 py-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Total Load Value</span>
