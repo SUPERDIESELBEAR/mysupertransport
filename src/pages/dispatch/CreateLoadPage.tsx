@@ -28,6 +28,19 @@ import {
 } from '@/lib/loadRateMath';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchLoadForEdit, updateLoadWithStops } from '@/lib/loadDetail';
+import { loadToFormValues, financialChanges, removedStops } from '@/lib/loadEdit';
+import { financialEditTier } from '@/lib/loadStatusFlow';
+import type { LoadStatus } from '@/lib/loadFormat';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { AlertTriangle, Lock } from 'lucide-react';
+
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
 
