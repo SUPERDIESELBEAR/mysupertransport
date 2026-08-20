@@ -358,7 +358,16 @@ export function buildRevisionDiff(
 
   // ---- stops -------------------------------------------------------------
   const parsedStops = [...(parsed.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
-  const matches = matchParsedStops(parsedStops, current.stops ?? []);
+  const matches = matchParsedStops(
+    parsedStops.map(p => ({
+      stop_type: use(p.stop_type),
+      address_line1: use(p.address_line1),
+      zip: use(p.zip),
+      city: use(p.city),
+      state: use(p.state),
+    })),
+    current.stops ?? [],
+  );
 
   const resolved = matches.map(m => {
     if (m.existingIndex !== null) return m;
