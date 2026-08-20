@@ -11,6 +11,7 @@ The whole Documents section becomes a drop zone, but only for users with upload 
 - On drop, files run through the existing `validateLoadDocumentFile` check. Rejected files raise the same message the picker shows. Accepted files open the upload dialog pre-populated, so a document type is still chosen before anything is written.
 - If every dropped file is rejected, the dialog does not open.
 - A one-line static hint ("or drop files here") sits next to the Upload button for staff so the affordance is discoverable without dragging.
+- In the empty state, the existing "No documents have been attached to this load yet." line is extended for staff to mention both the Upload button and drag-and-drop, e.g. "No documents yet. Use the Upload button or drag and drop files here to add them." Operators continue to see the original neutral message.
 
 The dialog already accepts `initialFiles`; it will be opened with the dropped set.
 
