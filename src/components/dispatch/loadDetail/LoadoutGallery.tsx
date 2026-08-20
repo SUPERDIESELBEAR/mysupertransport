@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Building2, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -155,6 +155,14 @@ function Gallery({ title, photos }: { title: string; photos: LoadDocument[] }) {
                 {photo.damage_noted ? (
                   <span className="absolute right-1 top-1 rounded-full bg-destructive p-1 text-destructive-foreground">
                     <AlertTriangle className="h-3 w-3" />
+                  </span>
+                ) : null}
+                {photo.upload_channel !== 'driver_app' ? (
+                  <span
+                    className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-muted-foreground"
+                    title="Uploaded from office"
+                  >
+                    <Building2 className="h-3 w-3" />
                   </span>
                 ) : null}
               </div>

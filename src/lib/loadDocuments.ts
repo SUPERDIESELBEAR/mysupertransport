@@ -52,6 +52,17 @@ export const LOADOUT_PHOTO_TYPES: LoadDocumentType[] = [
   'loadout_delivery_inspection',
 ];
 
+export const PHOTO_LABEL_SUGGESTIONS = [
+  'Front',
+  'Driver Side',
+  'Passenger Side',
+  'Rear Doors Closed',
+  'Rear Doors Open',
+  'Trailer Number Plate',
+  'Delivery Location Signage',
+  'Other',
+] as const;
+
 export const EXCEPTION_REASON_LABELS: Record<Database['public']['Enums']['document_exception_reason'], string> = {
   shipper_did_not_provide: 'Shipper did not provide the document',
   receiver_refused_to_sign: 'Receiver refused to sign',
@@ -100,6 +111,20 @@ export function validateLoadDocumentFile(file: File): { valid: boolean; error?: 
     return {
       valid: false,
       error: `${file.name} is not an accepted file type. Upload a PDF, JPG, PNG, HEIC, or WebP.`,
+    };
+  }
+  return { valid: true };
+}
+
+/** Loadout inspection photos must be images — PDFs are not valid POD/condition photos. */
+export function validateLoadoutPhotoFile(file: File): { valid: boolean; error?: string } {
+  const base = validateLoadDocumentFile(file);
+  if (!base.valid) return base;
+  const mime = resolveMimeType(file);
+  if (!mime.startsWith('image/')) {
+    return {
+      valid: false,
+      error: `${file.name} is not an image. Inspection photos must be JPG, PNG, HEIC, or WebP.`,
     };
   }
   return { valid: true };
@@ -220,11 +245,19 @@ export interface UploadLoadDocumentInput {
   loadStopId?: string | null;
   notes?: string | null;
   file: File;
+  /** Photo-only metadata for loadout inspection uploads. */
+  photoLabel?: string | null;
+  photoSequence?: number | null;
+  damageNoted?: boolean | null;
+  damageNotes?: string | null;
 }
 
 /** Uploads one file and records it. `uploaded_by` is stamped server-side. */
 export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promise<void> {
-  const { loadId, documentType, loadStopId, notes, file } = input;
+  const {
+    loadId, documentType, loadStopId, notes, file,
+    photoLabel, photoSequence, damageNoted, damageNotes,
+  } = input;
   const contentType = resolveMimeType(file) || 'application/octet-stream';
   const path = `${loadId}/${documentType}/${crypto.randomUUID()}-${sanitizeFilename(file.name)}`;
 
@@ -234,6 +267,7 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     .upload(path, file, { contentType, upsert: false });
   if (upErr) throw upErr;
 
+  const isPhotoType = LOADOUT_PHOTO_TYPES.includes(documentType);
   const { error: insErr } = await supabase.from('load_documents').insert({
     load_id: loadId,
     load_stop_id: loadStopId || null,
@@ -243,6 +277,10 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     file_type: contentType,
     upload_channel: 'office_upload',
     notes: notes?.trim() ? notes.trim() : null,
+    photo_label: isPhotoType ? (photoLabel?.trim() ? photoLabel.trim() : null) : null,
+    photo_sequence: isPhotoType ? photoSequence ?? null : null,
+    damage_noted: isPhotoType ? damageNoted ?? false : false,
+    damage_notes: isPhotoType && damageNoted ? (damageNotes?.trim() ? damageNotes.trim() : null) : null,
   });
   if (insErr) {
     // Roll back the orphaned object so storage does not drift from the table.
