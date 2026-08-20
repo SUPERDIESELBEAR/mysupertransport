@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -29,6 +29,12 @@ vi.mock('@/integrations/supabase/client', () => {
       if (table === 'loads') return LOADS;
       if (table === 'operators') return [{ id: 'op-1', user_id: 'user-1' }];
       if (table === 'profiles') return [{ user_id: 'user-1', first_name: 'Dale', last_name: 'Rivers' }];
+      if (table === 'load_stops') {
+        return [
+          { id: 'stop-1', load_id: 'load-1', stop_sequence: 1, stop_type: 'pickup', city: 'Kansas City', state: 'MO' },
+          { id: 'stop-2', load_id: 'load-1', stop_sequence: 2, stop_type: 'delivery', city: 'Dallas', state: 'TX' },
+        ];
+      }
       return [];
     };
     const q: Record<string, unknown> = {};
@@ -37,7 +43,12 @@ vi.mock('@/integrations/supabase/client', () => {
     q.then = (resolve: (v: unknown) => unknown) => resolve({ data: rowsFor(), error: null });
     return q;
   };
-  return { supabase: { from: (table: string) => makeQuery(table) } };
+  return {
+    supabase: {
+      from: (table: string) => makeQuery(table),
+      rpc: () => Promise.resolve({ data: 'ST-9999', error: null }),
+    },
+  };
 });
 
 const authState = { roles: [] as AppRole[] };
@@ -63,6 +74,7 @@ vi.mock('@/hooks/useAuth', () => ({
 import { useAuth } from '@/hooks/useAuth';
 import LoadsListPage from '../LoadsListPage';
 import LoadDetailPage from '../LoadDetailPage';
+import CreateLoadPage from '../CreateLoadPage';
 
 /** Mirrors the /dispatch/* guard in App.tsx. */
 function DispatchGuard({ children }: { children: React.ReactNode }) {
@@ -73,17 +85,29 @@ function DispatchGuard({ children }: { children: React.ReactNode }) {
   return <Navigate to="/dashboard" replace />;
 }
 
-function renderApp(roles: AppRole[]) {
+/** Stands in for the dispatch edit route: reads :id and renders the shared form. */
+function EditRoute() {
+  const { id } = useParams<{ id: string }>();
+  return (
+    <div>
+      <span data-testid="path">{useLocation().pathname}</span>
+      <CreateLoadPage loadId={id} />
+    </div>
+  );
+}
+
+function renderApp(roles: AppRole[], initialEntry = '/dispatch/loads') {
   authState.roles = roles;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/dispatch/loads']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/login" element={<div>login page</div>} />
           <Route path="/dashboard" element={<div>dashboard page</div>} />
           <Route path="/dispatch/loads" element={<DispatchGuard><LoadsListPage /></DispatchGuard>} />
           <Route path="/dispatch/loads/:id" element={<DispatchGuard><LoadDetailPage /></DispatchGuard>} />
+          <Route path="/dispatch/loads/:id/edit" element={<DispatchGuard><EditRoute /></DispatchGuard>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -118,6 +142,13 @@ describe('Loads page routing', () => {
   it('redirects a role without dispatch access away from the loads page', async () => {
     renderApp(['operator']);
     expect(await screen.findByText('dashboard page')).toBeInTheDocument();
+  });
+
+  it('routes Edit Load to /dispatch/loads/:id/edit and renders the edit form', async () => {
+    renderApp(['dispatcher'], '/dispatch/loads/load-1');
+    fireEvent.click(await screen.findByRole('button', { name: /edit load/i }));
+    expect(await screen.findByTestId('path')).toHaveTextContent('/dispatch/loads/load-1/edit');
+    expect(await screen.findByRole('heading', { name: /edit load ST-1042/i })).toBeInTheDocument();
   });
 });
 
@@ -155,6 +186,28 @@ describe('Loads page hosted in the Management shell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /back to loads/i }));
     expect(await screen.findByRole('heading', { name: 'Loads' })).toBeInTheDocument();
+    expect(screen.getByText('management shell')).toBeInTheDocument();
+  });
+
+  it('calls the host onEdit handler instead of navigating to the dispatch route', async () => {
+    authState.roles = ['management'];
+    const onEdit = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function Probe() { return <span data-testid="path">{useLocation().pathname}</span>; }
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/dashboard?view=load-detail']}>
+          <Probe />
+          <span>management shell</span>
+          <LoadDetailPage loadId="load-1" onEdit={onEdit} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /edit load/i }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    // The management user stays in their shell — no dispatch route navigation.
+    expect(screen.getByTestId('path')).toHaveTextContent('/dashboard');
     expect(screen.getByText('management shell')).toBeInTheDocument();
   });
 });

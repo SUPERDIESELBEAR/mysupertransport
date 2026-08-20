@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, Lock } from 'lucide-react';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
 
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
@@ -164,9 +166,13 @@ export default function CreateLoadPage({
 
   }), [values]);
 
-  const goBack = () => (onCancel
+  const leaveNow = () => (onCancel
     ? onCancel()
     : navigate(isEdit ? `/dispatch/loads/${loadId}` : '/dispatch/loads'));
+
+  // Routed through the unsaved-changes guard below; safe to reference before
+  // the hook call because it only runs on click.
+  const goBack = () => unsaved.guard(leaveNow);
 
 
   const scrollToFirstError = () => {
@@ -322,6 +328,11 @@ export default function CreateLoadPage({
         }
       }
 
+      // Disarm the unsaved-changes guard before navigating: the work is
+      // persisted, so neither beforeunload nor guard() should interrupt.
+      form.reset(v);
+      setSourceFile(null);
+
       if (isEdit) {
         await queryClient.invalidateQueries({ queryKey: ['load-detail', newId] });
         await queryClient.invalidateQueries({ queryKey: ['load-change-history', newId] });
@@ -334,6 +345,7 @@ export default function CreateLoadPage({
         if (onCreated) onCreated(newId);
         else navigate(`/dispatch/loads/${newId}`);
       }
+      return true;
     } catch (e) {
       logDbError(isEdit ? 'update_load_with_stops' : 'create_load_with_stops', e, {
         p_load: loadPayloadForLog, p_stops: stopsPayloadForLog,
@@ -343,23 +355,47 @@ export default function CreateLoadPage({
         title: 'Load not saved',
         description: getDbErrorMessage(e, isEdit ? 'Could not update the load.' : 'Could not create the load.'),
       });
+      return false;
     } finally {
       setSubmitting(false);
     }
   };
 
   /** Financial edits need a written reason before the save is allowed to run. */
-  const onSubmit = (v: LoadFormValues) => {
+  const onSubmit = async (v: LoadFormValues): Promise<boolean> => {
     if (!isEdit) return performSave(v);
     const before = initialValues.current;
     const changed = before ? financialChanges(before, v) : [];
     if (changed.length > 0 && !reason.trim()) {
       pendingValues.current = v;
       setReasonOpen(true);
-      return Promise.resolve();
+      return false;
     }
     return performSave(v, reason.trim() || null, unlockReason.trim() || null);
   };
+
+  // ── Unsaved-changes guard ────────────────────────────────────────────────
+  // Dirty covers both modes. In create mode the rate-confirmation parser writes
+  // every extracted field with shouldDirty, so a parsed-but-unsaved load counts
+  // as dirty; the attached source file lives outside the form, so it is ORed in.
+  const isDirty = form.formState.isDirty || !!sourceFile;
+
+  const guardedSave = async () => {
+    let saved = false;
+    await form.handleSubmit(async (v) => { saved = await onSubmit(v); }, scrollToFirstError)();
+    // Throwing keeps the dialog open and surfaces the error state instead of
+    // silently navigating away with the work unsaved.
+    if (!saved) throw new Error('Load not saved');
+  };
+
+  const unsaved = useUnsavedChanges({
+    dirty: isDirty,
+    onSave: guardedSave,
+    onDiscard: () => {
+      form.reset(initialValues.current ?? loadFormDefaults());
+      setSourceFile(null);
+    },
+  });
 
   const confirmReasonAndSave = () => {
     const v = pendingValues.current;
@@ -394,6 +430,14 @@ export default function CreateLoadPage({
 
   return (
     <div className="space-y-4 max-w-5xl">
+      <UnsavedChangesDialog
+        pending={unsaved.pendingExit}
+        title={isEdit ? 'You have unsaved changes' : 'Discard this load?'}
+        description={isEdit
+          ? 'Save your changes before leaving, or discard them and continue.'
+          : 'This load has not been created yet. Save it now, or discard it and continue — nothing is stored until it is saved.'}
+      />
+
       <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
         <ArrowLeft className="h-4 w-4" />
         {isEdit ? 'Back to Load' : 'Back to Loads'}

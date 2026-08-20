@@ -122,7 +122,10 @@ const STATUS_COLORS: Record<string, string> = {
   revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
 };
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','facilities','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
+// `load-edit` is deliberately addressable: a dispatcher part-way through
+// editing a load who refreshes should land back on the same load's edit form
+// rather than the overview. The other load views keep the plain ?view= pattern.
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -139,7 +142,12 @@ export default function ManagementPortal() {
     // email, or a pasted link — so it wins outright. Requiring a companion
     // deep-link marker (`op`/`app`/`event`) made every plain `?view=` link dead
     // for anyone who had already visited another section in the same tab.
-    if (urlView && ALLOWED_VIEWS.includes(urlView)) return urlView;
+    if (urlView && ALLOWED_VIEWS.includes(urlView)) {
+      // The edit form is meaningless without a load; fall back to the list
+      // rather than rendering an empty form.
+      if (urlView === 'load-edit' && !searchParams.get('loadId')) return 'loads';
+      return urlView;
+    }
     // With no view in the URL, restore the per-tab "last viewed section".
     try {
       const saved = sessionStorage.getItem('mgmt_last_view') as ManagementView | null;
@@ -148,7 +156,9 @@ export default function ManagementPortal() {
     return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
-  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
+  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(
+    () => searchParams.get('loadId'),
+  );
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
@@ -267,6 +277,25 @@ export default function ManagementPortal() {
     if (options?.focusField) setDrawerFocusField(options.focusField);
   }, [setSearchParams]);
 
+  // Same authoritative pattern for the load edit form: write ?view=load-edit
+  // &loadId synchronously on click. Modals on the detail page push virtual
+  // history entries (useBackButton); if the URL still matched theirs when they
+  // unmounted, their back() would rewind our edit navigation. Writing the URL
+  // in the click handler — before React commits the unmount — makes those
+  // entries stale so the hook's href guard skips the back().
+  const openLoadEdit = useCallback((loadId: string | null) => {
+    if (!loadId) return;
+    setSelectedLoadId(loadId);
+    setView('load-edit');
+    const next = new URLSearchParams(window.location.search);
+    next.set('view', 'load-edit');
+    next.set('loadId', loadId);
+    const nextSearch = next.toString();
+    lastWrittenSearchRef.current = nextSearch;
+    skipNextUrlSyncRef.current = true;
+    setSearchParams(next, { replace: true });
+  }, [setSearchParams]);
+
   // One-shot deep-link migration on mount (e.g. notification ?op=... links).
   // Initial state was already seeded from the URL by the lazy useState above.
   useEffect(() => {
@@ -325,6 +354,7 @@ export default function ManagementPortal() {
   // restores the section. If the URL was just changed by an external navigation,
   // skip one cycle to avoid overwriting it.
   useEffect(() => {
+    
     if (skipNextUrlSyncRef.current) {
       skipNextUrlSyncRef.current = false;
       return;
@@ -336,6 +366,10 @@ export default function ManagementPortal() {
     if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId);
     else if (view !== 'eld-logs') next.delete('op');
     if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
+    // Only the edit view is addressable — a refresh mid-edit must return to the
+    // same load's form. Detail/list refreshes cost nothing, so they stay as-is.
+    if (view === 'load-edit' && selectedLoadId) next.set('loadId', selectedLoadId);
+    else next.delete('loadId');
     const current = window.location.search.replace(/^\?/, '');
     const nextSearch = next.toString();
     if (nextSearch !== current) {
@@ -347,11 +381,16 @@ export default function ManagementPortal() {
     // restores the last viewed page, independent of URL state. Skip transient
     // detail views that need a selected record to render correctly.
     try {
-      if (view !== 'operator-detail' && view !== 'vehicle-detail') {
+      if (view !== 'operator-detail' && view !== 'vehicle-detail' && view !== 'load-edit') {
         sessionStorage.setItem('mgmt_last_view', view);
       }
     } catch { /* ignore */ }
-  }, [view, selectedOperatorId, statusFilter, setSearchParams]);
+  }, [view, selectedOperatorId, selectedLoadId, statusFilter, setSearchParams]);
+
+  // A load-edit view with no load (e.g. a hand-edited URL) falls back to the list.
+  useEffect(() => {
+    if (view === 'load-edit' && !selectedLoadId) setView('loads');
+  }, [view, selectedLoadId]);
 
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
@@ -1911,7 +1950,7 @@ export default function ManagementPortal() {
           <LoadDetailPage
             loadId={selectedLoadId}
             onBack={() => setView('loads')}
-            onEdit={() => setView('load-edit')}
+            onEdit={() => openLoadEdit(selectedLoadId)}
           />
         )}
 
