@@ -26,6 +26,12 @@ export const stopSchema = z.object({
   stop_notes: z.string().trim().max(2000).optional().or(z.literal('')),
 });
 
+export const chargeSchema = z.object({
+  charge_type: z.string().trim().max(60),
+  description: z.string().trim().max(200),
+  amount: optionalNumber,
+});
+
 export const loadFormSchema = z
   .object({
     load_type: z.enum(['standard', 'per_ton', 'loadout']),
@@ -67,6 +73,8 @@ export const loadFormSchema = z
     deadhead_miles: optionalNumber,
 
     stops: z.array(stopSchema).min(2, 'A load needs at least two stops'),
+    /** Charges that belong to the load but not to any one stop. */
+    charges: z.array(chargeSchema),
 
     internal_notes: z.string().trim().max(4000).optional().or(z.literal('')),
     driver_facing_notes: z.string().trim().max(4000).optional().or(z.literal('')),
@@ -104,6 +112,7 @@ export const loadFormSchema = z
 
 export type LoadFormValues = z.infer<typeof loadFormSchema>;
 export type StopFormValues = z.infer<typeof stopSchema>;
+export type ChargeFormValues = z.infer<typeof chargeSchema>;
 
 export const emptyStop = (stop_type: StopFormValues['stop_type']): StopFormValues => ({
   facility_id: '',
@@ -158,6 +167,7 @@ export const loadFormDefaults = (): LoadFormValues => ({
   loaded_miles: '',
   deadhead_miles: '',
   stops: [emptyStop('pickup'), emptyStop('delivery')],
+  charges: [],
   internal_notes: '',
   driver_facing_notes: '',
   special_instructions: '',

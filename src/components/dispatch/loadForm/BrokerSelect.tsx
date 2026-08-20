@@ -21,9 +21,11 @@ interface Props {
   value: string;
   onChange: (id: string) => void;
   optional?: boolean;
+  /** Broker name read off a parsed rate confirmation that is not yet a directory record. */
+  provisionalName?: string | null;
 }
 
-export default function BrokerSelect({ value, onChange, optional }: Props) {
+export default function BrokerSelect({ value, onChange, optional, provisionalName }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -84,8 +86,12 @@ export default function BrokerSelect({ value, onChange, optional }: Props) {
             aria-expanded={open}
             className="w-full justify-between font-normal"
           >
-            <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-              {selected ? selected.company_name : optional ? 'Select a broker (optional)…' : 'Select a broker…'}
+            <span className={cn('truncate', !selected && !provisionalName && 'text-muted-foreground')}>
+              {selected
+                ? selected.company_name
+                : provisionalName
+                  ? provisionalName
+                  : optional ? 'Select a broker (optional)…' : 'Select a broker…'}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -129,6 +135,11 @@ export default function BrokerSelect({ value, onChange, optional }: Props) {
           </Command>
         </PopoverContent>
       </Popover>
+      {!value && provisionalName && (
+        <p className="mt-1 text-xs text-warning">
+          Read from the rate confirmation — not linked to a broker record yet. Create or select the broker.
+        </p>
+      )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-md">
