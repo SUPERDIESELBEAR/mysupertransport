@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { pdfFileToImages } from '@/lib/pdfToImages';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
   applyLoadoutFields, applyParsedToForm, assessLoadout, fileToBase64, matchBroker,
@@ -47,6 +48,9 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showSource, setShowSource] = useState(false);
+  const [pdfPages, setPdfPages] = useState<string[] | null>(null);
+  const [pdfRendering, setPdfRendering] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<ParsedRateConfirmation | null>(null);
   const [verify, setVerify] = useState<string[]>([]);
@@ -57,6 +61,22 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  // Render PDF pages with pdf.js — browsers do not reliably display PDFs in <object>.
+  useEffect(() => {
+    if (!file || file.type !== 'application/pdf' || !showSource) return;
+    if (pdfPages || pdfRendering) return;
+    let cancelled = false;
+    setPdfRendering(true);
+    setPdfError(null);
+    pdfFileToImages(file, { scale: 1.6, maxPages: 15 })
+      .then(pages => { if (!cancelled) setPdfPages(pages); })
+      .catch(err => {
+        if (!cancelled) setPdfError(err instanceof Error ? err.message : 'Could not render this PDF.');
+      })
+      .finally(() => { if (!cancelled) setPdfRendering(false); });
+    return () => { cancelled = true; };
+  }, [file, showSource, pdfPages, pdfRendering]);
 
   const stops = form.watch('stops') ?? [];
   const middleStops = stops
@@ -75,6 +95,8 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
   const pickFile = (f: File | null) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     reset();
+    setPdfPages(null);
+    setPdfError(null);
     if (!f) {
       setFile(null);
       setPreviewUrl(null);
