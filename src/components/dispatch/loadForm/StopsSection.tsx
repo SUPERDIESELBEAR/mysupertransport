@@ -33,6 +33,18 @@ const LINKED_FIELDS = [
 
 const facilityValue = (f: Facility, key: (typeof LINKED_FIELDS)[number]) => (f[key] ?? '') as string;
 
+/** Prefill for creating a facility from the values currently typed on a stop. */
+const draftFromStop = (stop: Partial<StopFormValues>): Partial<FacilityDraft> => ({
+  facility_name: normalizeWhitespace(stop.facility_name ?? ''),
+  address_line1: stop.address_line1 ?? '',
+  address_line2: stop.address_line2 ?? '',
+  city: stop.city ?? '',
+  state: stop.state ?? '',
+  zip: stop.zip ?? '',
+  contact_name: stop.contact_name ?? '',
+  contact_phone: stop.contact_phone ?? '',
+});
+
 interface Props {
   /** Directory matches for parsed stops, keyed by stop index. Suggestions only. */
   facilitySuggestions?: Record<number, Facility[]>;
