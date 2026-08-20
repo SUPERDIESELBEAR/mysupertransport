@@ -773,7 +773,9 @@ export default function CreateLoadPage({
             {/* 5 — Rate */}
             {!isLoadout && (
               <Section title="Rate">
+                <fieldset disabled={financialLocked} className="space-y-4 disabled:opacity-70">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
                   <FormField
                     control={form.control}
                     name="rate_type"
