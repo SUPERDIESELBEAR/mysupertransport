@@ -66,7 +66,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260727195451_f65f922b-e025-4ed4-86e4-b609458f05a3.sql::public.get_pei_queue()",
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.get_pei_request_for_response(uuid)",
   "20260513151918_1701f4a4-1d3f-4686-918d-2b6bbe53841c.sql::public.get_pei_requests_needing_action()",
-  "20260728163658_df64e4da-2143-4da5-9e44-affc4a82cb2c.sql::public.get_staff_contact_info(uuid[])",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.get_thread_participants(uuid)",
   "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.get_user_roles(uuid)",
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.handle_operator_document_soft_delete()",
@@ -105,15 +104,12 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260309143148_c2d6cd8a-60db-4010-94f9-16894ab39863.sql::public.search_audit_log(text, text, timestamp with time zone, timestamp with time zone, integer, integer)",
   "20260618185610_96052999-3491-4f8a-99b2-032e2cb5cc05.sql::public.set_go_live_with_override(uuid, date, text)",
   "20260515183610_31d9c6cc-8a17-4ba1-adf6-c0daab0222b6.sql::public.submit_application_correction(uuid, text, text, jsonb)",
-  "20260611154650_c42e4903-52f2-4ebf-8856-27a1ef3a0229.sql::public.submit_application_draft(uuid, jsonb, text)",
   "20260515172041_d30b358f-5de9-4bfd-9102-3b8409913292.sql::public.submit_pei_response(uuid, jsonb, jsonb, jsonb)",
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.submit_pei_response(uuid, jsonb, jsonb)",
   "20260526140552_f1ee7a34-458d-480a-a373-a721e4ec836c.sql::public.sync_active_dispatch_from_log()",
   "20260622153201_cef136ba-9684-4bed-b914-e4346e972d96.sql::public.sync_application_expiry_to_binder()",
   "20260714133602_5d2278ce-f14c-4cd2-84e7-589aac3a1372.sql::public.sync_dot_binder_to_vh()",
   "20260423115108_31ef84a8-5d17-4eed-87bb-79c5df6ad1ad.sql::public.sync_dot_to_inspection_documents()",
-  "20260626200242_64de85e0-b29b-4671-9c7f-660461eb8bab.sql::public.sync_ica_completion_to_onboarding()",
-  "20260423115108_31ef84a8-5d17-4eed-87bb-79c5df6ad1ad.sql::public.sync_inspection_doc_to_dot()",
   "20260714133602_5d2278ce-f14c-4cd2-84e7-589aac3a1372.sql::public.sync_irp_expiry_to_mo_plate()",
   "20260729123623_6c7c969d-1a1e-4fc1-a403-1ed040340a0b.sql::public.sync_mo_plate_expiry_to_irp()",
   "20260723165445_9915b9a4-b93d-4c80-ba34-bdd65e50b2dc.sql::public.sync_photos_from_storage()",
@@ -131,4 +127,4 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  * function is a new defect: pin it to `public, extensions` instead of
  * widening the exemption.
  */
-export const LEGACY_MAX = 91;
+export const LEGACY_MAX = 87;

@@ -307,7 +307,7 @@ describe('update_load_status — server-side role gate', () => {
     expect(body).toMatch(/v_requires_note AND v_note IS NULL THEN\s*\n\s*RAISE EXCEPTION/);
     // Hardened definer.
     expect(fn!.isDefiner).toBe(true);
-    expect(fn!.searchPath).toBe('public');
+    expect(fn!.searchPath).toBe("'public', 'extensions'");
   });
 });
 
@@ -330,7 +330,7 @@ describe('assign_load_driver — server-side role and override gates', () => {
     // Dispatchers cannot override; management/owner can.
     expect(body).toMatch(/IF NOT v_is_mgmt THEN\s*\n\s*RAISE EXCEPTION 'Management approval is required/);
     expect(fn!.isDefiner).toBe(true);
-    expect(fn!.searchPath).toBe('public');
+    expect(fn!.searchPath).toBe("'public', 'extensions'");
   });
 });
 
@@ -443,6 +443,6 @@ describe('manage_claim_flag — server-side role gate', () => {
     // A new claim can never be created as cleared.
     expect(body).toMatch(/p_flag_level = 'cleared'::claim_flag_level THEN\s*\n\s*RAISE EXCEPTION/);
     expect(fn!.isDefiner).toBe(true);
-    expect(fn!.searchPath).toBe('public');
+    expect(fn!.searchPath).toBe("'public', 'extensions'");
   });
 });
