@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import StateSelect from '@/components/shared/StateSelect';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
+import FacilityDialog, { type FacilityDraft } from '@/components/facilities/FacilityDialog';
 import { FACILITIES_QUERY_KEY, useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
 import { facilitySummary } from '@/lib/facilityMatch';
@@ -33,6 +34,18 @@ const LINKED_FIELDS = [
 
 const facilityValue = (f: Facility, key: (typeof LINKED_FIELDS)[number]) => (f[key] ?? '') as string;
 
+/** Prefill for creating a facility from the values currently typed on a stop. */
+const draftFromStop = (stop: Partial<StopFormValues>): Partial<FacilityDraft> => ({
+  facility_name: normalizeWhitespace(stop.facility_name ?? ''),
+  address_line1: stop.address_line1 ?? '',
+  address_line2: stop.address_line2 ?? '',
+  city: stop.city ?? '',
+  state: stop.state ?? '',
+  zip: stop.zip ?? '',
+  contact_name: stop.contact_name ?? '',
+  contact_phone: stop.contact_phone ?? '',
+});
+
 interface Props {
   /** Directory matches for parsed stops, keyed by stop index. Suggestions only. */
   facilitySuggestions?: Record<number, Facility[]>;
@@ -47,6 +60,7 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
   const stops = form.watch('stops');
 
   const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
+  const [addForIndex, setAddForIndex] = useState<number | null>(null);
 
   const facilityFor = (id?: string) => (id ? (facilities ?? []).find(f => f.id === id) ?? null : null);
 
@@ -166,6 +180,7 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
                     <FacilitySelect
                       facilityId={stop.facility_id ?? ''}
                       facilityName={f.value ?? ''}
+                      newFacilityDraft={draftFromStop(stop)}
                       onNameChange={value => {
                         f.onChange(value);
                         form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
@@ -177,6 +192,21 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
                   </FormItem>
                 )}
               />
+
+              {!linked && suggestions.length === 0 && !!normalizeWhitespace(stop.facility_name ?? '') && (
+                <div className="sm:col-span-2 lg:col-span-3 -mt-1 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                  <Info className="h-3.5 w-3.5 text-gold shrink-0" />
+                  <span>This facility isn&rsquo;t in your directory.</span>
+                  <button
+                    type="button"
+                    onClick={() => setAddForIndex(index)}
+                    className="underline underline-offset-2 text-gold hover:text-gold-light"
+                  >
+                    Save to facilities
+                  </button>
+                </div>
+              )}
+
 
               {suggestions.length > 0 && (
                 <div className="sm:col-span-2 lg:col-span-3 -mt-1 rounded-md border border-gold/40 bg-gold/5 p-3 space-y-2">
@@ -416,6 +446,19 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
         <Plus className="h-4 w-4" />
         Add Stop
       </Button>
+
+      <FacilityDialog
+        open={addForIndex !== null}
+        onOpenChange={open => { if (!open) setAddForIndex(null); }}
+        initial={addForIndex !== null ? draftFromStop((stops?.[addForIndex] ?? {}) as Partial<StopFormValues>) : undefined}
+        onSaved={async facility => {
+          const target = addForIndex;
+          await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
+          if (target !== null) applyFacility(target, facility);
+          setAddForIndex(null);
+        }}
+      />
+
     </div>
   );
 }

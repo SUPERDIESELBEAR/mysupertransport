@@ -6,7 +6,7 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import FacilityDialog from '@/components/facilities/FacilityDialog';
+import FacilityDialog, { type FacilityDraft } from '@/components/facilities/FacilityDialog';
 import { FACILITIES_QUERY_KEY, useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
 import { cn } from '@/lib/utils';
@@ -19,15 +19,21 @@ interface Props {
   onNameChange: (name: string) => void;
   onSelectFacility: (facility: Facility) => void;
   onClearFacility: () => void;
+  /** Prefill used when creating a facility from this stop's current values. */
+  newFacilityDraft?: Partial<FacilityDraft>;
 }
 
 /**
  * Facility picker for a load stop. Typing searches saved facilities by name and
  * city (most used first) and also updates the stop's free-text facility name,
  * so a one-off address can still be typed without picking anything.
+ *
+ * The "Add new facility" and "Unlink" rows are force-mounted: cmdk filters items
+ * by their `value`, so without that they vanish the moment anything is typed —
+ * exactly when the dispatcher needs to create a facility.
  */
 export default function FacilitySelect({
-  facilityId, facilityName, onNameChange, onSelectFacility, onClearFacility,
+  facilityId, facilityName, onNameChange, onSelectFacility, onClearFacility, newFacilityDraft,
 }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -59,18 +65,32 @@ export default function FacilitySelect({
               placeholder="Search or type a facility name…"
             />
             <CommandList>
-              <CommandEmpty>No saved facility matches — the typed name is kept.</CommandEmpty>
-              {facilityId && (
-                <CommandGroup>
+              <CommandGroup forceMount>
+                <CommandItem
+                  forceMount
+                  value="__add__"
+                  onSelect={() => { setOpen(false); setAddOpen(true); }}
+                  data-testid="facility-add-new"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span className="truncate">
+                    {facilityName.trim()
+                      ? `Add “${facilityName.trim()}” as a new facility`
+                      : 'Add new facility'}
+                  </span>
+                </CommandItem>
+                {facilityId && (
                   <CommandItem
+                    forceMount
                     value="__unlink__"
                     onSelect={() => { onClearFacility(); setOpen(false); }}
                     className="text-muted-foreground"
                   >
                     Unlink saved facility (keep typed address)
                   </CommandItem>
-                </CommandGroup>
-              )}
+                )}
+              </CommandGroup>
+              <CommandEmpty>No saved facility matches — the typed name is kept.</CommandEmpty>
               <CommandGroup heading="Saved facilities">
                 {(facilities ?? []).map(f => (
                   <CommandItem
@@ -86,12 +106,6 @@ export default function FacilitySelect({
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandGroup>
-                <CommandItem value="__add__" onSelect={() => { setOpen(false); setAddOpen(true); }}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new facility
-                </CommandItem>
-              </CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>
@@ -100,12 +114,13 @@ export default function FacilitySelect({
       <FacilityDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        initial={{ facility_name: facilityName }}
+        initial={{ ...newFacilityDraft, facility_name: facilityName }}
         onSaved={async facility => {
           await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
           onSelectFacility(facility);
         }}
       />
+
     </>
   );
 }
