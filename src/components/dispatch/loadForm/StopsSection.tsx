@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Info, Plus, Trash2 } from 'lucide-react';
@@ -16,6 +17,7 @@ import StateSelect from '@/components/shared/StateSelect';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
 import { FACILITIES_QUERY_KEY, useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
+import { facilitySummary } from '@/lib/facilityMatch';
 import { STOP_TYPES, STOP_TYPE_LABELS } from '@/lib/loadRateMath';
 import {
   formatPhone, normalizePhone, normalizeWhitespace, normalizeZip, toTitleCase,
@@ -31,13 +33,20 @@ const LINKED_FIELDS = [
 
 const facilityValue = (f: Facility, key: (typeof LINKED_FIELDS)[number]) => (f[key] ?? '') as string;
 
-export default function StopsSection() {
+interface Props {
+  /** Directory matches for parsed stops, keyed by stop index. Suggestions only. */
+  facilitySuggestions?: Record<number, Facility[]>;
+}
+
+export default function StopsSection({ facilitySuggestions }: Props = {}) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: facilities } = useFacilities();
   const { fields, append, remove, move } = useFieldArray({ control: form.control, name: 'stops' });
   const stops = form.watch('stops');
+
+  const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
 
   const facilityFor = (id?: string) => (id ? (facilities ?? []).find(f => f.id === id) ?? null : null);
 
@@ -80,6 +89,7 @@ export default function StopsSection() {
         const isMiddle = index > 0 && index < fields.length - 1;
         const stop = (stops?.[index] ?? {}) as Partial<StopFormValues>;
         const linked = facilityFor(stop.facility_id);
+        const suggestions = (!linked && !dismissed[index] ? facilitySuggestions?.[index] : null) ?? [];
         const differs = !!linked && LINKED_FIELDS.some(key => {
           const current = key === 'contact_phone'
             ? normalizePhone((stop[key] as string) ?? '')
@@ -167,6 +177,52 @@ export default function StopsSection() {
                   </FormItem>
                 )}
               />
+
+              {suggestions.length > 0 && (
+                <div className="sm:col-span-2 lg:col-span-3 -mt-1 rounded-md border border-gold/40 bg-gold/5 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+                    <p className="text-xs text-foreground">
+                      {suggestions.length === 1
+                        ? 'This address matches a facility already in the directory.'
+                        : `This address matches ${suggestions.length} facilities in the directory.`}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    On the rate confirmation:{' '}
+                    <span className="text-foreground">{stop.facility_name || '(no name printed)'}</span>
+                  </p>
+                  <div className="space-y-2">
+                    {suggestions.map(f => (
+                      <div key={f.id} className="flex items-start gap-2 flex-wrap">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] text-muted-foreground">
+                            In our directory:{' '}
+                            <span className="text-foreground font-medium">{f.facility_name}</span>
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{facilitySummary(f)}</p>
+                        </div>
+                        <Button
+                          type="button" size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => {
+                            applyFacility(index, f);
+                            setDismissed(prev => ({ ...prev, [index]: true }));
+                          }}
+                        >
+                          Use saved facility
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(prev => ({ ...prev, [index]: true }))}
+                    className="text-[11px] underline underline-offset-2 text-muted-foreground hover:text-foreground"
+                  >
+                    Keep as printed
+                  </button>
+                </div>
+              )}
 
               {linked && differs && (
                 <div className="sm:col-span-2 lg:col-span-3 -mt-1 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">

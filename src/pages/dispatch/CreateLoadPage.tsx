@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import BrokerSelect from '@/components/dispatch/loadForm/BrokerSelect';
 import StopsSection from '@/components/dispatch/loadForm/StopsSection';
+import type { Facility } from '@/lib/facilities';
 import RateConfirmationParser from '@/components/dispatch/loadForm/RateConfirmationParser';
 import { uploadLoadDocument } from '@/lib/loadDocuments';
 import { EQUIPMENT_TYPES, formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
@@ -57,6 +58,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
   const [numberLoading, setNumberLoading] = useState(false);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [extractedBroker, setExtractedBroker] = useState<string | null>(null);
+  const [facilitySuggestions, setFacilitySuggestions] = useState<Record<number, Facility[]>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<LoadFormValues>({
@@ -281,6 +283,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
             <RateConfirmationParser
               onSourceFileChange={setSourceFile}
               onExtractedBroker={setExtractedBroker}
+              onFacilitySuggestions={setFacilitySuggestions}
             />
 
             {/* 1 — Load type */}
@@ -757,7 +760,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
               title="Stops"
               description="Stops save in the order shown. Any stop between the first and last is marked stop-off charge eligible."
             >
-              <StopsSection />
+              <StopsSection facilitySuggestions={facilitySuggestions} />
               {form.formState.errors.stops?.message && (
                 <p className="text-sm font-medium text-destructive">
                   {form.formState.errors.stops.message as string}

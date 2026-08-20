@@ -14,6 +14,9 @@ import {
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { pdfFileToImages } from '@/lib/pdfToImages';
+import { useFacilities } from '@/hooks/useFacilities';
+import type { Facility } from '@/lib/facilities';
+import { matchFacilities } from '@/lib/facilityMatch';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
   applyLoadoutFields, applyParsedToForm, assessLoadout, fileToBase64, matchBroker,
@@ -27,6 +30,8 @@ interface Props {
   onSourceFileChange: (file: File | null) => void;
   /** Broker name read off the document, shown in the Broker field until it is linked. */
   onExtractedBroker?: (name: string | null) => void;
+  /** Directory facilities that look like each parsed stop, keyed by stop index. */
+  onFacilitySuggestions?: (byStopIndex: Record<number, Facility[]>) => void;
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
@@ -55,7 +60,9 @@ async function invokeErrorMessage(error: unknown, fallback: string): Promise<str
   return getDbErrorMessage(error, fallback);
 }
 
-export default function RateConfirmationParser({ onSourceFileChange, onExtractedBroker }: Props) {
+export default function RateConfirmationParser({
+  onSourceFileChange, onExtractedBroker, onFacilitySuggestions,
+}: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -74,6 +81,7 @@ export default function RateConfirmationParser({ onSourceFileChange, onExtracted
   const [candidates, setCandidates] = useState<BrokerCandidate[]>([]);
   const [brokerResolved, setBrokerResolved] = useState(false);
   const [creatingBroker, setCreatingBroker] = useState(false);
+  const { data: facilities } = useFacilities();
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
@@ -110,6 +118,7 @@ export default function RateConfirmationParser({ onSourceFileChange, onExtracted
     setCandidates([]);
     setBrokerResolved(false);
     setLoadout(null);
+    onFacilitySuggestions?.({});
   };
 
   const pickFile = (f: File | null) => {
@@ -159,6 +168,15 @@ export default function RateConfirmationParser({ onSourceFileChange, onExtracted
       setVerify(applied.verify);
       setUnassigned(applied.unassigned);
       setLoadout(assessLoadout(result));
+
+      // Suggest-only: never rewrite what the broker printed, just point at our record.
+      const filled = form.getValues('stops') ?? [];
+      const suggestions: Record<number, Facility[]> = {};
+      filled.forEach((s, i) => {
+        const hits = matchFacilities(s, facilities ?? []);
+        if (hits.length) suggestions[i] = hits;
+      });
+      onFacilitySuggestions?.(suggestions);
       setShowSource(true);
 
       const found = await matchBroker(result.broker).catch(() => []);
