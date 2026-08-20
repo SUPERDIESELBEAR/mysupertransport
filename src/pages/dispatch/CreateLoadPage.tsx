@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select';
 import BrokerSelect from '@/components/dispatch/loadForm/BrokerSelect';
 import StopsSection from '@/components/dispatch/loadForm/StopsSection';
+import RateConfirmationParser from '@/components/dispatch/loadForm/RateConfirmationParser';
+import { uploadLoadDocument } from '@/lib/loadDocuments';
 import { EQUIPMENT_TYPES, formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
 import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
@@ -53,6 +55,7 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [numberLoading, setNumberLoading] = useState(false);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<LoadFormValues>({
@@ -179,6 +182,9 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
         contact_phone: s.contact_phone ?? '',
         appointment_start: toIso(s.appointment_start),
         appointment_end: toIso(s.appointment_end),
+        reference_number: s.reference_number ?? '',
+        reference_label: s.reference_label ?? '',
+        stopoff_charge_amount: s.stopoff_charge_amount ?? '',
         stop_notes: s.stop_notes ?? '',
       }));
 
@@ -191,8 +197,27 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
       });
       if (error) throw error;
 
-      toast({ description: `Load ${v.load_number} created.` });
       const newId = data as unknown as string;
+
+      // The parsed rate confirmation becomes the load's source document.
+      if (sourceFile) {
+        try {
+          await uploadLoadDocument({
+            loadId: newId,
+            documentType: 'rate_confirmation',
+            file: sourceFile,
+          });
+        } catch (uploadError) {
+          logDbError('rate confirmation attach', uploadError, { loadId: newId });
+          toast({
+            variant: 'destructive',
+            title: 'Rate confirmation not attached',
+            description: 'The load was created, but the file did not upload. Add it from the load page.',
+          });
+        }
+      }
+
+      toast({ description: `Load ${v.load_number} created.` });
       if (onCreated) onCreated(newId);
       else navigate(`/dispatch/loads/${newId}`);
     } catch (e) {
@@ -223,6 +248,8 @@ export default function CreateLoadPage({ onCreated, onCancel }: CreateLoadPagePr
             onSubmit={form.handleSubmit(onSubmit, scrollToFirstError)}
             className="space-y-4"
           >
+            <RateConfirmationParser onSourceFileChange={setSourceFile} />
+
             {/* 1 — Load type */}
             <Section title="Load Type">
               <FormField

@@ -20,6 +20,9 @@ export const stopSchema = z.object({
   contact_phone: optionalText,
   appointment_start: z.string().optional().or(z.literal('')),
   appointment_end: z.string().optional().or(z.literal('')),
+  reference_number: z.string().trim().max(60).optional().or(z.literal('')),
+  reference_label: z.string().trim().max(60).optional().or(z.literal('')),
+  stopoff_charge_amount: optionalNumber,
   stop_notes: z.string().trim().max(2000).optional().or(z.literal('')),
 });
 
@@ -115,6 +118,9 @@ export const emptyStop = (stop_type: StopFormValues['stop_type']): StopFormValue
   contact_phone: '',
   appointment_start: '',
   appointment_end: '',
+  reference_number: '',
+  reference_label: '',
+  stopoff_charge_amount: '',
   stop_notes: '',
 });
 

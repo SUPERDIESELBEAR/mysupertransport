@@ -1,0 +1,325 @@
+import { supabase } from '@/integrations/supabase/client';
+import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
+
+export type Confidence = 'high' | 'medium' | 'low';
+
+export interface Field<T> { value: T | null; confidence: Confidence }
+
+export interface ParsedReference { label: string; value: string; confidence: Confidence }
+
+export interface ParsedStop {
+  sequence: number;
+  stop_type: StopFormValues['stop_type'];
+  facility_name: Field<string>;
+  address_line1: Field<string>;
+  address_line2: Field<string>;
+  city: Field<string>;
+  state: Field<string>;
+  zip: Field<string>;
+  contact_name: Field<string>;
+  contact_phone: Field<string>;
+  appointment_start: Field<string>;
+  appointment_end: Field<string>;
+  notes: Field<string>;
+  references: ParsedReference[];
+}
+
+export interface ParsedRateLine {
+  description: string;
+  amount: number;
+  category: 'linehaul' | 'fsc' | 'stopoff' | 'detention' | 'layover' | 'lumper' | 'tonu' | 'other';
+  stop_hint: string | null;
+  confidence: Confidence;
+}
+
+export interface ParsedRateConfirmation {
+  broker: {
+    company_name: Field<string>;
+    mc_number: Field<string>;
+    contact_name: Field<string>;
+    contact_phone: Field<string>;
+    contact_email: Field<string>;
+  };
+  load: {
+    broker_load_number: Field<string>;
+    bol_number: Field<string>;
+    po_number: Field<string>;
+    equipment_type: Field<LoadFormValues['equipment_type']>;
+    handling_type: Field<LoadFormValues['handling_type']>;
+    commodity: Field<string>;
+    weight_lbs: Field<number>;
+    loaded_miles: Field<number>;
+    is_hazmat: Field<boolean>;
+    is_team_load: Field<boolean>;
+  };
+  reefer: {
+    temp_f: Field<number>;
+    temp_min_f: Field<number>;
+    temp_max_f: Field<number>;
+    precool_required: Field<boolean>;
+    continuous_run: Field<boolean>;
+    notes: Field<string>;
+  };
+  rate: {
+    linehaul: Field<number>;
+    fsc_amount: Field<number>;
+    total: Field<number>;
+    line_items: ParsedRateLine[];
+  };
+  stops: ParsedStop[];
+  special_instructions: Field<string>;
+  loadout_signals: {
+    no_bol_mentioned: boolean;
+    photo_pod_required: boolean;
+    multi_day_use_period: boolean;
+    trailer_relocation_language: boolean;
+    no_commodity: boolean;
+    trailer_number: Field<string>;
+    trailer_owner_company: Field<string>;
+    relocation_fee: Field<number>;
+    use_period_days: Field<number>;
+  };
+}
+
+/** A rate line the dispatcher still has to place (or deliberately drop). */
+export interface UnassignedRateLine extends ParsedRateLine { id: string }
+
+export interface BrokerCandidate {
+  id: string;
+  company_name: string;
+  mc_number: string | null;
+  /** 'mc' beats any name score — an MC number is unique. */
+  matchedOn: 'mc' | 'name';
+  score: number;
+}
+
+export const MAX_RATECON_BYTES = 20 * 1024 * 1024;
+
+export const ACCEPTED_RATECON_MIME = [
+  'application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+];
+
+/** Only fill the form from values the model is sure about. */
+const usable = <T,>(f?: Field<T> | null): T | null =>
+  f && f.value !== null && f.value !== undefined && f.confidence !== 'low' ? f.value : null;
+
+const needsCheck = <T,>(f?: Field<T> | null): boolean =>
+  !!f && f.value !== null && f.value !== undefined && f.confidence === 'medium';
+
+/** A stop's reference number: highest-confidence gate/invoice number wins. */
+export function pickReference(refs: ParsedReference[]): ParsedReference | null {
+  if (!refs.length) return null;
+  const rank: Record<Confidence, number> = { high: 0, medium: 1, low: 2 };
+  return [...refs].sort((a, b) => rank[a.confidence] - rank[b.confidence])[0] ?? null;
+}
+
+export interface LoadoutAssessment { score: number; reasons: string[]; suspected: boolean }
+
+/** Trailer relocations look nothing like freight: score the tells, never auto-switch. */
+export function assessLoadout(p: ParsedRateConfirmation): LoadoutAssessment {
+  const s = p.loadout_signals;
+  const reasons: string[] = [];
+  let score = 0;
+  if (s.trailer_relocation_language) { score += 3; reasons.push('The document describes relocating a trailer, not hauling freight.'); }
+  if (s.no_bol_mentioned) { score += 1; reasons.push('No bill of lading is mentioned anywhere.'); }
+  if (s.photo_pod_required) { score += 2; reasons.push('Photos are named as the proof of delivery.'); }
+  if (s.multi_day_use_period) { score += 2; reasons.push('The carrier may keep the trailer for a period of days.'); }
+  if (s.no_commodity) { score += 1; reasons.push('No commodity is listed.'); }
+  if (s.trailer_number.value) { score += 1; reasons.push(`A specific trailer is named (${s.trailer_number.value}).`); }
+  return { score, reasons, suspected: score >= 4 };
+}
+
+const normName = (s: string) =>
+  s.toLowerCase()
+    .replace(/\b(inc|llc|l\.l\.c|corp|co|company|logistics|transportation|transport|freight|group|the)\b/g, ' ')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Token-overlap similarity — good enough to shortlist, never good enough to auto-pick. */
+export function nameScore(a: string, b: string): number {
+  const at = new Set(normName(a).split(' ').filter(Boolean));
+  const bt = new Set(normName(b).split(' ').filter(Boolean));
+  if (!at.size || !bt.size) return 0;
+  let hit = 0;
+  at.forEach(t => { if (bt.has(t)) hit += 1; });
+  return hit / Math.max(at.size, bt.size);
+}
+
+/** MC first, then fuzzy name. The dispatcher always confirms the result. */
+export async function matchBroker(
+  parsed: ParsedRateConfirmation['broker'],
+): Promise<BrokerCandidate[]> {
+  const { data, error } = await supabase
+    .from('brokers')
+    .select('id, company_name, mc_number')
+    .order('company_name');
+  if (error) throw error;
+  const rows = data ?? [];
+
+  const mc = parsed.mc_number.value?.replace(/[^0-9]/g, '') ?? '';
+  if (mc) {
+    const exact = rows.filter(b => (b.mc_number ?? '').replace(/[^0-9]/g, '') === mc);
+    if (exact.length) {
+      return exact.map(b => ({ ...b, matchedOn: 'mc' as const, score: 1 }));
+    }
+  }
+
+  const name = parsed.company_name.value ?? '';
+  if (!name) return [];
+  return rows
+    .map(b => ({ ...b, matchedOn: 'name' as const, score: nameScore(name, b.company_name) }))
+    .filter(b => b.score >= 0.5)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+}
+
+export interface ApplyResult {
+  /** Human labels of fields filled at medium confidence — the dispatcher must verify these. */
+  verify: string[];
+  /** Rate lines that could not be placed automatically. */
+  unassigned: UnassignedRateLine[];
+  stopCount: number;
+}
+
+const numStr = (n: number | null) => (n === null ? '' : String(n));
+
+/**
+ * Writes parsed values into the Create Load form. Low-confidence values are left
+ * blank on purpose — an empty field is safer than a wrong one.
+ */
+export function applyParsedToForm(
+  p: ParsedRateConfirmation,
+  set: (name: string, value: unknown) => void,
+): ApplyResult {
+  const verify: string[] = [];
+  const put = (name: string, f: Field<string | number | boolean> | undefined, label: string) => {
+    const v = usable(f as Field<unknown>);
+    if (v === null) return;
+    set(name, typeof v === 'boolean' ? v : String(v));
+    if (needsCheck(f as Field<unknown>)) verify.push(label);
+  };
+
+  put('broker_reference_number', p.load.broker_load_number, "Broker's load #");
+  put('bol_number', p.load.bol_number, 'BOL number');
+  put('po_number', p.load.po_number, 'PO number');
+  put('equipment_type', p.load.equipment_type, 'Equipment type');
+  put('handling_type', p.load.handling_type, 'Handling type');
+  put('commodity', p.load.commodity, 'Commodity');
+  put('weight_lbs', p.load.weight_lbs, 'Weight');
+  put('loaded_miles', p.load.loaded_miles, 'Loaded miles');
+  put('is_hazmat', p.load.is_hazmat, 'Hazmat');
+  put('is_team_load', p.load.is_team_load, 'Team load');
+  put('special_instructions', p.special_instructions, 'Special instructions');
+
+  if (usable(p.load.equipment_type) === 'reefer') {
+    put('reefer_temp_f', p.reefer.temp_f, 'Reefer temperature');
+    put('reefer_temp_min_f', p.reefer.temp_min_f, 'Reefer min temp');
+    put('reefer_temp_max_f', p.reefer.temp_max_f, 'Reefer max temp');
+    put('reefer_precool_required', p.reefer.precool_required, 'Pre-cool required');
+    put('reefer_continuous_run', p.reefer.continuous_run, 'Continuous run');
+    put('reefer_notes', p.reefer.notes, 'Reefer notes');
+  }
+
+  const linehaul = usable(p.rate.linehaul);
+  const fsc = usable(p.rate.fsc_amount);
+  if (linehaul !== null) set('linehaul_rate', numStr(linehaul));
+  if (fsc !== null) {
+    set('fsc_bundled_into_linehaul', false);
+    set('fsc_amount', numStr(fsc));
+  }
+
+  // ---- stops -------------------------------------------------------------
+  const sorted = [...p.stops].sort((a, b) => a.sequence - b.sequence);
+  const stops: StopFormValues[] = sorted.map((s, i) => {
+    const base = emptyStop(s.stop_type ?? (i === 0 ? 'pickup' : 'delivery'));
+    const ref = pickReference(s.references);
+    const label = (name: string) => `Stop ${i + 1} ${name}`;
+    const take = (f: Field<string>, fieldLabel: string) => {
+      const v = usable(f);
+      if (v !== null && needsCheck(f)) verify.push(label(fieldLabel));
+      return v ?? '';
+    };
+    return {
+      ...base,
+      stop_type: s.stop_type ?? base.stop_type,
+      facility_name: take(s.facility_name, 'facility'),
+      address_line1: take(s.address_line1, 'address'),
+      address_line2: take(s.address_line2, 'address line 2'),
+      city: take(s.city, 'city'),
+      state: take(s.state, 'state'),
+      zip: take(s.zip, 'ZIP'),
+      contact_name: take(s.contact_name, 'contact'),
+      contact_phone: take(s.contact_phone, 'phone'),
+      appointment_start: take(s.appointment_start, 'appointment start'),
+      appointment_end: take(s.appointment_end, 'appointment end'),
+      stop_notes: take(s.notes, 'notes'),
+      reference_number: ref && ref.confidence !== 'low' ? ref.value : '',
+      reference_label: ref && ref.confidence !== 'low' ? ref.label : '',
+      stopoff_charge_amount: '',
+    };
+  });
+
+  while (stops.length < 2) stops.push(emptyStop(stops.length === 0 ? 'pickup' : 'delivery'));
+
+  // ---- stop-off charges --------------------------------------------------
+  // Only auto-assign on 3+ stop loads when the line clearly names one middle stop.
+  const unassigned: UnassignedRateLine[] = [];
+  p.rate.line_items.forEach((line, idx) => {
+    if (line.category === 'linehaul' || line.category === 'fsc') return;
+    const id = `line-${idx}`;
+    if (line.category === 'stopoff' && stops.length >= 3 && line.confidence === 'high' && line.stop_hint) {
+      const hint = line.stop_hint.toLowerCase();
+      const middles = stops
+        .map((s, i) => ({ s, i }))
+        .filter(({ i }) => i > 0 && i < stops.length - 1);
+      const hits = middles.filter(({ s, i }) =>
+        (s.city && hint.includes(s.city.toLowerCase())) ||
+        (s.facility_name && hint.includes(s.facility_name.toLowerCase())) ||
+        new RegExp(`\\bstop\\s*${i + 1}\\b`).test(hint));
+      if (hits.length === 1) {
+        stops[hits[0].i].stopoff_charge_amount = String(line.amount);
+        verify.push(`Stop ${hits[0].i + 1} stop-off charge`);
+        return;
+      }
+    }
+    unassigned.push({ ...line, id });
+  });
+
+  set('stops', stops);
+
+  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length };
+}
+
+/** Loadout fields, applied only after the dispatcher confirms the load is a loadout. */
+export function applyLoadoutFields(
+  p: ParsedRateConfirmation,
+  set: (name: string, value: unknown) => void,
+) {
+  set('load_type', 'loadout');
+  const s = p.loadout_signals;
+  if (usable(s.trailer_number) !== null) set('loadout_trailer_number', String(s.trailer_number.value));
+  if (usable(s.trailer_owner_company) !== null) set('loadout_trailer_owner_company', String(s.trailer_owner_company.value));
+  if (usable(s.relocation_fee) !== null) set('loadout_relocation_fee', String(s.relocation_fee.value));
+  if (usable(s.use_period_days) !== null) set('loadout_use_period_days', String(s.use_period_days.value));
+}
+
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const result = String(reader.result ?? '');
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export function validateRateConFile(file: File): string | null {
+  if (file.size > MAX_RATECON_BYTES) return 'That file is larger than 20 MB.';
+  const mime = file.type || '';
+  if (!ACCEPTED_RATECON_MIME.includes(mime)) return 'Upload a PDF or an image of the rate confirmation.';
+  return null;
+}

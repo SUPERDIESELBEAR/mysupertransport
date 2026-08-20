@@ -1,4 +1,4 @@
-import { Bookmark, CheckCircle2, Circle, DollarSign } from 'lucide-react';
+import { Bookmark, CheckCircle2, Circle, DollarSign, Hash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { DetailSection } from './DetailPrimitives';
@@ -58,6 +58,13 @@ function StopCard({ stop }: { stop: Stop }) {
             {STOP_TYPE_LABELS[stop.stop_type as StopType]}
           </Badge>
           <span className="text-sm font-semibold text-foreground">{stop.facility_name || 'Facility TBD'}</span>
+          {stop.reference_number ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+              <Hash className="h-3 w-3 text-gold" />
+              {stop.reference_label ? `${stop.reference_label} ` : ''}
+              <span className="font-mono">{stop.reference_number}</span>
+            </span>
+          ) : null}
           {stop.facility_id ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Bookmark className="h-3 w-3" /> Saved facility

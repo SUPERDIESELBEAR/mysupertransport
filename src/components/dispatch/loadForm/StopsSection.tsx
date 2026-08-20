@@ -307,6 +307,41 @@ export default function StopsSection() {
               />
               <FormField
                 control={form.control}
+                name={`stops.${index}.reference_number`}
+                render={({ field: f }) => (
+                  <FormItem>
+                    <FormLabel>Reference number</FormLabel>
+                    <FormControl><Input {...f} className="font-mono" maxLength={60} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`stops.${index}.reference_label`}
+                render={({ field: f }) => (
+                  <FormItem>
+                    <FormLabel>Reference label</FormLabel>
+                    <FormControl><Input {...f} placeholder="PU #, Delivery #, BOL #…" maxLength={60} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {isMiddle && (
+                <FormField
+                  control={form.control}
+                  name={`stops.${index}.stopoff_charge_amount`}
+                  render={({ field: f }) => (
+                    <FormItem>
+                      <FormLabel>Stop-off charge ($)</FormLabel>
+                      <FormControl><Input inputMode="decimal" {...f} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormField
+                control={form.control}
                 name={`stops.${index}.stop_notes`}
                 render={({ field: f }) => (
                   <FormItem className="sm:col-span-2 lg:col-span-3">
