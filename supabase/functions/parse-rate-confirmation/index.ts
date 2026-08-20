@@ -239,6 +239,9 @@ Deno.serve(async (req) => {
           { role: 'user', content: contentBlocks },
         ],
         response_format: { type: 'json_object' },
+        // Terms sweeps run long; leave room so a dense list is never clipped.
+        max_tokens: 8000,
+
       }),
     });
 
