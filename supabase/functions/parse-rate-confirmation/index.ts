@@ -468,6 +468,9 @@ Deno.serve(async (req) => {
     if (droppedRefs.length) {
       console.log('parse-rate-confirmation: discarded reference numbers —', droppedRefs.join(' | '));
     }
+    if (keptRefs.length) {
+      console.log('parse-rate-confirmation: shared references kept —', keptRefs.join(' | '));
+    }
 
     const result = {
       broker: {
