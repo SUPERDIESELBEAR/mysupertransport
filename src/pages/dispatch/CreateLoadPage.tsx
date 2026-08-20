@@ -173,7 +173,9 @@ export default function CreateLoadPage({
     });
   };
 
-  const onSubmit = async (v: LoadFormValues) => {
+  const performSave = async (
+    v: LoadFormValues, reasonText: string | null = null, unlockText: string | null = null,
+  ) => {
     setSubmitting(true);
     let loadPayloadForLog: unknown = null;
     let stopsPayloadForLog: unknown = null;
