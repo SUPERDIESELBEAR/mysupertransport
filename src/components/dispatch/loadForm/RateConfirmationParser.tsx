@@ -124,7 +124,11 @@ export default function RateConfirmationParser({ onSourceFileChange }: Props) {
       if (error) throw error;
 
       const result = data as ParsedRateConfirmation;
-      if (!result?.stops) throw new Error('The parser returned nothing usable.');
+      if (!result?.stops || isEmptyResult(result)) {
+        throw new Error(
+          'The document was read but no load data could be extracted from it. Enter the load manually, or try a clearer copy of the rate confirmation.',
+        );
+      }
 
       const applied = applyParsedToForm(result, (name, value) =>
         form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
