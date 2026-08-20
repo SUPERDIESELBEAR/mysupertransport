@@ -38,15 +38,23 @@ In `RateConfirmationParser`, treat an all-empty result as a failure too, so a fu
 ### 4. Diagnostic logging
 Log, on the function side, the response shape (top-level type and keys) and a truncated raw content prefix when extraction comes back empty — so the next shape drift is one log line away, not an investigation.
 
-### 5. Reference-number filter (visible in this document)
-The AAA doc labels its numbers `LO`, `SI`, `SO`. The current `KEEP_REF` allowlist drops all three, so the stop reference chips would come back empty even after the parse is fixed. Add these common broker shorthand labels (`LO`, `SI`, `SO`, `PU`, `REF`, `ORDER`) to the keep list while leaving the noise filter intact.
+### 5. Reference numbers — model-judged classification, not an allowlist alone
+A strict allowlist fails silently on any label we did not anticipate, and every broker uses its own shorthand. Change the approach:
+
+- The prompt asks the model to return **every** labelled number it finds in a stop block, each carrying a `useful` boolean plus a short reason. The model judges from context — it can tell `LK -83.6779` is a coordinate and `LO 99092859` is a load reference without knowing what the codes stand for.
+- Keep the explicit allowlist as a fast path for known-good labels (PU, PICKUP, DELIVERY, DL, BOL, PO, APPT, CONF, PRO, ORDER, RELEASE, SEAL, REF, LO, SI, SO) — those are kept regardless of the model's judgement.
+- Keep an explicit denylist for known noise (lat/lon and coordinates, pallet and piece counts, temperatures, page, fax, MC/DOT, quote, carrier pay, tracking id) — those are dropped regardless. A value shaped like a decimal degree is treated as a coordinate whatever its label.
+- Anything matching neither list is governed by the model's `useful` flag rather than being silently dropped.
+
+### 5b. Log every discarded reference
+Whenever a reference is filtered out, log its label, a truncated value, and which rule dropped it (denylist, model judgement, empty/oversize). A broker's useful reference being filtered then shows up as a log line rather than a mysteriously empty field.
 
 ### 6. Inline PDF viewer
 Replace the `<object>` in the source panel with a pdfjs-rendered page view: render the selected File's bytes to page images with the existing pdfjs pipeline and display them in a scrollable column, with a spinner while rendering and a page count. Images keep their current direct rendering. The "open in new tab" link stays only as a last-resort fallback if pdfjs itself throws.
 
 ## Technical notes
 
-- `supabase/functions/parse-rate-confirmation/index.ts`: unwrap logic, emptiness guard returning 422, shape logging, `KEEP_REF` additions. Redeploy.
+- `supabase/functions/parse-rate-confirmation/index.ts`: unwrap logic, emptiness guard returning 422, shape logging, prompt-level `useful` classification for reference numbers, allowlist/denylist fast paths, and drop logging. Redeploy.
 - `src/lib/pdfToImages.ts`: add a sibling that accepts `File | ArrayBuffer` and shares the render loop (no change to the existing URL-based export).
 - `src/components/dispatch/loadForm/RateConfirmationParser.tsx`: emptiness guard on the result, and the new pdfjs source panel.
 - No schema changes, no changes to save logic, broker matching, loadout detection, or the Create Load form.
