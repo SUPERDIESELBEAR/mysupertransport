@@ -166,6 +166,7 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
                     <FacilitySelect
                       facilityId={stop.facility_id ?? ''}
                       facilityName={f.value ?? ''}
+                      newFacilityDraft={draftFromStop(stop)}
                       onNameChange={value => {
                         f.onChange(value);
                         form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
@@ -177,6 +178,21 @@ export default function StopsSection({ facilitySuggestions }: Props = {}) {
                   </FormItem>
                 )}
               />
+
+              {!linked && suggestions.length === 0 && !!normalizeWhitespace(stop.facility_name ?? '') && (
+                <div className="sm:col-span-2 lg:col-span-3 -mt-1 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                  <Info className="h-3.5 w-3.5 text-gold shrink-0" />
+                  <span>This facility isn&rsquo;t in your directory.</span>
+                  <button
+                    type="button"
+                    onClick={() => setAddForIndex(index)}
+                    className="underline underline-offset-2 text-gold hover:text-gold-light"
+                  >
+                    Save to facilities
+                  </button>
+                </div>
+              )}
+
 
               {suggestions.length > 0 && (
                 <div className="sm:col-span-2 lg:col-span-3 -mt-1 rounded-md border border-gold/40 bg-gold/5 p-3 space-y-2">
