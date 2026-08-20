@@ -126,16 +126,111 @@ export async function fetchLoadDetail(id: string): Promise<LoadDetail | null> {
   };
 }
 
-/** Active claim flags for a load. Only called for staff roles. */
-export async function fetchLoadClaimFlags(loadId: string): Promise<LoadClaimFlag[]> {
+/** Every claim flag on a load, active first. Staff-only — never called for operators.
+ *  The Pass 1 hold banner reads the active holds out of this same list so the page
+ *  issues exactly one claim_flags request. */
+export async function fetchLoadClaims(loadId: string): Promise<LoadClaim[]> {
   const { data, error } = await supabase
     .from('claim_flags')
-    .select('id, flag_level, claim_type, description, reported_at')
+    .select(
+      'id, flag_level, claim_type, description, reported_at, is_active, reported_by_contact, ' +
+      'estimated_claim_amount, actual_claim_amount, documentation_url, resolution, ' +
+      'resolution_notes, resolved_at, resolved_by, created_by',
+    )
     .eq('load_id', loadId)
-    .eq('is_active', true)
     .order('reported_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as LoadClaimFlag[];
+
+  const rows = (data ?? []) as unknown as LoadClaim[];
+  const names = await resolveProfileNames(
+    rows.flatMap(r => [r.resolved_by, r.created_by]),
+  );
+
+  return rows
+    .map(r => ({
+      ...r,
+      resolved_by_name: r.resolved_by ? names.get(r.resolved_by) ?? null : null,
+      created_by_name: r.created_by ? names.get(r.created_by) ?? null : null,
+    }))
+    .sort((a, b) => Number(b.is_active) - Number(a.is_active));
+}
+
+/** Append-only audit trail for one claim, newest first. Staff-only. */
+export async function fetchClaimHistory(claimId: string): Promise<ClaimHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from('claim_flag_history')
+    .select(
+      'id, action, previous_flag_level, new_flag_level, previous_is_active, new_is_active, ' +
+      'previous_resolution, new_resolution, previous_estimated_amount, new_estimated_amount, ' +
+      'previous_actual_amount, new_actual_amount, change_source, notes, changed_at, changed_by',
+    )
+    .eq('claim_flag_id', claimId)
+    .order('changed_at', { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as ClaimHistoryEntry[];
+  const names = await resolveProfileNames(rows.map(r => r.changed_by));
+  return rows.map(r => ({
+    ...r,
+    changed_by_name: r.changed_by ? names.get(r.changed_by) ?? null : null,
+  }));
+}
+
+/** Shared profile-name lookup: claim rows reference profiles without a traversable FK. */
+async function resolveProfileNames(ids: (string | null)[]): Promise<Map<string, string | null>> {
+  const unique = Array.from(new Set(ids.filter(Boolean))) as string[];
+  const names = new Map<string, string | null>();
+  if (!unique.length) return names;
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name')
+    .in('id', unique);
+  (data ?? []).forEach(p => names.set(p.id, nameOf(p)));
+  return names;
+}
+
+export type ClaimAction = 'raise' | 'resolve' | 'reopen';
+
+export interface ManageClaimInput {
+  action: ClaimAction;
+  loadId?: string;
+  claimId?: string;
+  flagLevel?: Database['public']['Enums']['claim_flag_level'];
+  claimType?: Database['public']['Enums']['claim_type'];
+  description?: string;
+  reportedByContact?: string | null;
+  estimatedAmount?: number | null;
+  documentationUrl?: string | null;
+  resolution?: string;
+  resolutionNotes?: string;
+  actualAmount?: number | null;
+  reason?: string;
+}
+
+const trimmed = (v: string | null | undefined) => {
+  const s = (v ?? '').trim();
+  return s ? s : null;
+};
+
+/** All claim mutations go through the role-gated definer function. */
+export async function manageClaimFlag(input: ManageClaimInput): Promise<string> {
+  const { data, error } = await rpc('manage_claim_flag', {
+    p_action: input.action,
+    p_load_id: input.loadId ?? null,
+    p_claim_id: input.claimId ?? null,
+    p_flag_level: input.flagLevel ?? null,
+    p_claim_type: input.claimType ?? null,
+    p_description: trimmed(input.description),
+    p_reported_by_contact: trimmed(input.reportedByContact),
+    p_estimated_amount: input.estimatedAmount ?? null,
+    p_documentation_url: trimmed(input.documentationUrl),
+    p_resolution: trimmed(input.resolution),
+    p_resolution_notes: trimmed(input.resolutionNotes),
+    p_actual_amount: input.actualAmount ?? null,
+    p_reason: trimmed(input.reason),
+  });
+  if (error) throw error;
+  return data as string;
 }
 
 /** Status history newest first, with changer names resolved from profiles. */
