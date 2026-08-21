@@ -84,7 +84,8 @@ export default function RateConfirmationParser({
   const [unassigned, setUnassigned] = useState<UnassignedRateLine[]>([]);
   const [candidates, setCandidates] = useState<BrokerCandidate[]>([]);
   const [brokerResolved, setBrokerResolved] = useState(false);
-  const [creatingBroker, setCreatingBroker] = useState(false);
+  const [brokerDialogOpen, setBrokerDialogOpen] = useState(false);
+  const [brokerDialogInitial, setBrokerDialogInitial] = useState<Partial<BrokerDialogValues>>({});
   const { data: facilities } = useFacilities();
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
 
