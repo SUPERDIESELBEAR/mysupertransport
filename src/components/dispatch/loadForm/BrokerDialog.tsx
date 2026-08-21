@@ -218,7 +218,12 @@ export default function BrokerDialog({ open, onOpenChange, initial, onCreated, o
                 {duplicates.map(d => (
                   <BrokerCandidateRow
                     key={d.id}
-                    candidate={{ ...d, matchedOn: d.matchReason, score: d.matchReason === 'mc' ? 1 : 0.75, dot_number: null }}
+                    candidate={{
+                      ...d,
+                      matchedOn: d.matchReason ?? 'name',
+                      score: d.matchReason === 'mc' ? 1 : 0.75,
+                      dot_number: null,
+                    }}
                     onSelect={() => useExisting(d.id, d.company_name)}
                     actionLabel="Use this broker"
                     showBadge
