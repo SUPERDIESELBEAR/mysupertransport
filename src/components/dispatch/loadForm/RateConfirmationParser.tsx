@@ -6,10 +6,6 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { normalizeImportedName } from '@/lib/textNormalize';
@@ -25,6 +21,7 @@ import {
   type UnassignedRateLine,
 } from '@/lib/rateConfirmation';
 import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
+import BrokerCandidateRow from './BrokerCandidateRow';
 
 interface Props {
   /** The parsed file is attached to the load as its rate confirmation after saving. */
