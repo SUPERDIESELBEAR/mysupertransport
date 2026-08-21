@@ -55,7 +55,7 @@ In a new `src/lib/__tests__/duplicateBrokerRef.test.ts`, against the pure matche
 - same reference + different broker → no warning
 - match against a `cancelled` load → no warning
 - unlinked broker: reference with no `broker_id`, extracted broker name matching an existing record → warning, flagged lower confidence
-- create-anyway → override entry carries the reason and the duplicated load id
+- create-anyway → two override entries built: one on the new load referencing the original, one on the original referencing the new load, both carrying the same reason
 
 ## Technical notes
 
