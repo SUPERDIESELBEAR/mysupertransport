@@ -9,6 +9,21 @@ export function normalizeWhitespace(value: string | null | undefined): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Collapses runs of spaces/tabs but keeps line breaks, for free-text fields where
+ * the author's line structure carries meaning (e.g. broker notes).
+ */
+export function normalizeMultiline(value: string | null | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(line => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 const LOWER_WORDS = new Set(['of', 'and', 'the', 'in', 'at', 'on', 'for', 'to', 'by']);
 const DIRECTIONALS = new Set(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw', 'nne', 'nnw', 'sse', 'ssw']);
 
