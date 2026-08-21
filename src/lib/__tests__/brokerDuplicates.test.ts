@@ -78,7 +78,7 @@ describe('findDuplicateBrokers', () => {
       base({ id: 'name', mc_number: null, company_name: 'Acme Logistics' }),
       base({ id: 'mc', mc_number: '123456', company_name: 'Acme Freight' }),
     ];
-    const result = findDuplicateBrokers({ company_name: 'Acme', mc_number: '123456' }, existing);
+    const result = findDuplicateBrokers({ company_name: 'Acme Logistics LLC', mc_number: '123456' }, existing);
     expect(result.map(r => r.id)).toEqual(['mc', 'name']);
   });
 
