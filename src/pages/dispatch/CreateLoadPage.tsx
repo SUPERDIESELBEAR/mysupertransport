@@ -842,11 +842,11 @@ export default function CreateLoadPage({
                     control={form.control}
                     name="loadout_relocation_fee"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Relocation fee *</FormLabel>
-                        <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
+                    <FormItem>
+                      <FormLabel>Relocation fee *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                     )}
                   />
                   <FormField
