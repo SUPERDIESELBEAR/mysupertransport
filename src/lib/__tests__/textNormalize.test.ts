@@ -36,7 +36,7 @@ describe('toTitleCase', () => {
       // Reverses a previous behavior: periods are now dropped for consistency.
       expect(toTitleCase('500 W SEVENTH ST.')).toBe('500 W Seventh St');
       expect(toTitleCase('12 CEDAR RD.')).toBe('12 Cedar Rd');
-      expect(toTitleCase('8901 SAN MATEO DR.')).toBe('8901 San Mateo Dr');
+      expect(toTitleCase('8901 HILLSIDE DR.')).toBe('8901 Hillside Dr');
       expect(toTitleCase('2600 MCCREE RD')).toBe('2600 McCree Rd');
     });
     it('handles street types mid-address', () => {
