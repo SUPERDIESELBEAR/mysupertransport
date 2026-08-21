@@ -513,6 +513,23 @@ Deno.serve(async (req) => {
         contact_name: str(parsed.broker?.contact_name),
         contact_phone: str(parsed.broker?.contact_phone),
         contact_email: str(parsed.broker?.contact_email),
+        address_line1: str(parsed.broker?.address_line1),
+        address_line2: str(parsed.broker?.address_line2),
+        city: str(parsed.broker?.city),
+        state: (() => {
+          const v = str(parsed.broker?.state);
+          return v.value ? { value: v.value.toUpperCase().slice(0, 2), confidence: v.confidence } : v;
+        })(),
+        zip: (() => {
+          const v = str(parsed.broker?.zip);
+          if (!v.value) return v;
+          const cleaned = v.value.replace(/[^0-9-]/g, '').slice(0, 10);
+          return cleaned ? { value: cleaned, confidence: v.confidence } : { value: null, confidence: 'low' as Conf };
+        })(),
+        address_source: (() => {
+          const s = String(parsed.broker?.address_source ?? '').trim().toLowerCase();
+          return s === 'remit_to' || s === 'bill_to' || s === 'letterhead' ? s : null;
+        })(),
       },
       load: {
         broker_load_number: str(parsed.load?.broker_load_number),
