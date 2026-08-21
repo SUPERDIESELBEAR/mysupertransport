@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle, Check, FileText, Loader2, Sparkles, Upload, X,
 } from 'lucide-react';
