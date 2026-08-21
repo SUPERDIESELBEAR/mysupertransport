@@ -527,6 +527,22 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
         }}
       />
 
+      {/* Correcting the linked facility itself, without leaving the load form. */}
+      <FacilityDialog
+        open={editForIndex !== null}
+        onOpenChange={open => { if (!open) setEditForIndex(null); }}
+        facility={editForIndex !== null
+          ? facilityFor((stops?.[editForIndex] as Partial<StopFormValues> | undefined)?.facility_id)
+          : null}
+        onSaved={async facility => {
+          const target = editForIndex;
+          await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
+          // Re-apply so the stop picks up the corrected values and stays linked.
+          if (target !== null) applyFacility(target, facility);
+          setEditForIndex(null);
+        }}
+      />
+
       <AlertDialog open={removeIndex !== null} onOpenChange={open => { if (!open) setRemoveIndex(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
