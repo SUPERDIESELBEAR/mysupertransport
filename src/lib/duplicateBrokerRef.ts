@@ -185,21 +185,36 @@ export async function fetchDuplicateCandidates(
   if (error) throw error;
 
   const target = normalizeReference(ref);
-  return (data ?? [])
+  const rows = (data ?? [])
     .filter(row => row.id !== excludeLoadId)
-    .filter(row => normalizeReference(row.broker_reference_number) === target)
-    .map(row => ({
-      id: row.id,
-      load_number: row.load_number,
-      status: row.status,
-      created_at: row.created_at,
-      created_by: row.created_by,
-      broker_id: row.broker_id,
-      broker_reference_number: row.broker_reference_number,
-      broker_name: (row.broker as { company_name?: string } | null)?.company_name ?? null,
-      stops: (row.stops ?? []) as DuplicateCandidateStop[],
-    }));
+    .filter(row => normalizeReference(row.broker_reference_number) === target);
+
+  // Who created it matters for the dispatcher's judgement call, so resolve the name.
+  const creatorIds = Array.from(new Set(rows.map(r => r.created_by).filter(Boolean))) as string[];
+  const names = new Map<string, string>();
+  if (creatorIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles').select('id, first_name, last_name').in('id', creatorIds);
+    (profiles ?? []).forEach(p => {
+      const full = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+      if (full) names.set(p.id, full);
+    });
+  }
+
+  return rows.map(row => ({
+    id: row.id,
+    load_number: row.load_number,
+    status: row.status,
+    created_at: row.created_at,
+    created_by: row.created_by,
+    created_by_name: row.created_by ? names.get(row.created_by) ?? null : null,
+    broker_id: row.broker_id,
+    broker_reference_number: row.broker_reference_number,
+    broker_name: (row.broker as { company_name?: string } | null)?.company_name ?? null,
+    stops: (row.stops ?? []) as DuplicateCandidateStop[],
+  }));
 }
+
 
 /** Runs the whole check: candidates + name fallback + the pure classifier. */
 export async function checkForDuplicateBrokerReference(args: {
