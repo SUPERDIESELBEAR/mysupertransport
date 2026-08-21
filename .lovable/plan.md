@@ -39,7 +39,13 @@ Shows each matching load: load number, status badge, created date, created-by na
 
 ## Recording the override
 
-On a "create anyway" save, after the load is created, write a `load_change_history` row on the **new** load recording the override: the reason text and the duplicated load's id, so it renders in the existing Change History card as a deliberate decision with its justification. No new table and no schema change — the existing history shape carries the duplicate load id in its value fields.
+On a "create anyway" save, after the load is created, write **two** `load_change_history` rows for the same event — one on each load — so the relationship is visible from whichever load someone opens first.
+
+- On the **new** load: it was created despite an existing load for the same broker reference, naming the original load's number and id, with the reason.
+- On the **original** load: a duplicate was created against its broker reference, naming the new load's number and id, with the same reason.
+
+Same event, worded from each load's own perspective. No new table and no schema change — the existing history shape carries the counterpart load id and number in its value fields, so both entries render in the existing Change History card. Writing the original's entry must not fail the save: if it errors, the new load and its own entry stand and the failure is surfaced as a non-blocking notice.
+
 
 ## Tests
 
@@ -49,7 +55,7 @@ In a new `src/lib/__tests__/duplicateBrokerRef.test.ts`, against the pure matche
 - same reference + different broker → no warning
 - match against a `cancelled` load → no warning
 - unlinked broker: reference with no `broker_id`, extracted broker name matching an existing record → warning, flagged lower confidence
-- create-anyway → override entry carries the reason and the duplicated load id
+- create-anyway → two override entries built: one on the new load referencing the original, one on the original referencing the new load, both carrying the same reason
 
 ## Technical notes
 
