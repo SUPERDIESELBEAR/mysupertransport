@@ -2,42 +2,50 @@
 
 The gate conversion works. The reason only 2 skips showed up is that a database is reachable in this environment, so all three PGHOST-gated suites ran for real. Verified by re-running with the PG environment unset: each then registers a named `SKIPPED — no PGHOST, …` entry.
 
-Two things remain.
+## 1. Sweep result — one offender, and only one
 
-## 1. One file was never converted
+Swept every test file for `skipIf`, `runIf`, `it.skip`, `test.skip`, `describe.skip`, `.only` and `.todo`, excluding the gate helper.
 
-`src/test/definer-live-catalog.test.ts` gates 9 tests on `PGHOST` with per-test `skipIf`. Without a database they skip with no reason attached — the exact shape the gate work was meant to eliminate, just at test level instead of file level.
+- `src/test/definer-live-catalog.test.ts` — `it.runIf(HAS_DB)` on 9 tests. `runIf` drops them from the report entirely when the gate is unmet: invisible, and the only remaining case of it.
+- `src/test/rods-live-certification.test.ts:102` — `const itExecuting = CAN_EXECUTE ? it : it.skip`. Already visible: registers a named, counted skip. Left as is.
+- The three converted suites use `gatedDescribe` correctly.
+- Every other match is prose or an unrelated identifier (`skippedRungs`, embed-check counters). No gating.
 
-Convert it to `gatedDescribe` keyed on `PGHOST`, matching the other three: one named skip, a banner naming why, and a hard failure under CI. This collapses 9 unnamed skips into 1 named one, which changes the no-database baseline.
+Nothing else can shift the baseline later.
 
-## 2. Write both baselines down somewhere durable
+## 2. Convert definer-live-catalog
 
-Record them as a comment block at the top of `src/test/helpers/gate.ts` (the file every gate imports, so it is read whenever a gate is touched), and mirror the same two shapes in `src/test/README.md`.
+Its gated and ungated tests are interleaved (3 pure tests sit between the 9 live ones), so hoisting them into a `gatedDescribe` means reordering the file. Add a per-test counterpart instead.
 
-Stated plainly:
+- `src/test/helpers/gate.ts`: add `gatedIt(options)`, returning an `it`-shaped function with the same contract as `gatedDescribe` — runs when enabled, registers `SKIPPED (<reason>) — <name>` when not, fails under CI. Document that bare `runIf`/`skip` must not be used for environment gating.
+- `definer-live-catalog.test.ts`: define `itLive = gatedIt({ enabled: HAS_DB, … })`, replace the 9 `it.runIf(HAS_DB)(` call sites, and swap the hand-rolled banner block for `skipBanner` so the wording matches the other gates. Test bodies unchanged.
+
+Result without a database: 9 named counted skips from this file instead of 9 invisible ones.
+
+## 3. Write both baselines down somewhere durable
+
+A comment block at the top of `src/test/helpers/gate.ts` (read whenever a gate is touched), mirrored in `src/test/README.md`:
 
 ```text
 WITH a database attached (PGHOST set), no RUN_BUNDLE_TESTS:
-  508 passed | 2 skipped   (67 files passed | 1 skipped)
+  514 passed | 2 skipped
   skipped:
-    - roadside bundle                        (opt-in; needs RUN_BUNDLE_TESTS=1 + a fresh build)
+    - roadside bundle                        (opt-in; RUN_BUNDLE_TESTS=1 + a fresh build)
     - certify_rods_day live RPC, execute arm (no EXECUTE grant, no driver JWT)
 
 WITHOUT a database (PGHOST absent):
-  495 passed | 5 skipped   (63 files passed | 5 skipped)
+  495 passed | 13 skipped
   skipped: the two above, plus
-    - share token throttling      (no PGHOST, live catalog unreadable)
-    - purge_rods_day path coverage (no PGHOST, live column list unreadable)
-    - certify_rods_day live RPC    (no PGHOST, outer gate)
-    - live SECURITY DEFINER catalog (no PGHOST, pg_proc unreadable)
+    - share token throttling         (no PGHOST, live catalog unreadable)
+    - purge_rods_day path coverage   (no PGHOST, live column list unreadable)
+    - certify_rods_day live RPC      (no PGHOST, outer gate)
+    - live SECURITY DEFINER catalog  (no PGHOST) x9, one per live check
 
 Anything that is not one of these two shapes is a signal, not a question.
 ```
 
-Exact numbers get confirmed by running the suite both ways after the conversion and written in as measured, not as predicted. Today's measured figures are 514/2 with a database and 495/13 without; the conversion moves 9 unnamed skips into 1 named one, and the note will carry the post-change numbers.
+Numbers go in as measured after the conversion, not as predicted — today's figures are 514/2 and 495/13, and the conversion is expected to leave both totals unchanged while making the 9 skips named.
 
-## Technical notes
+## Verification
 
-- `definer-live-catalog.test.ts`: replace the per-test `skipIf(!HAS_DB)` with a `describeLive` wrapper built on `gatedDescribe`, same pattern as `purge-path-coverage.test.ts`. Test bodies are unchanged.
-- No change to `gate.ts` behaviour — only the baseline comment is added.
-- Verification: run the suite twice, once as-is and once with the PG env vars unset, and confirm both totals match what the note claims.
+Run the full suite twice — once as-is, once with the PG environment variables unset — and confirm both totals and the named skip list match the note exactly before it is written.
