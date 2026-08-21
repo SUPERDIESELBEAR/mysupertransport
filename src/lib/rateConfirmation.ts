@@ -149,7 +149,7 @@ export function assessLoadout(p: ParsedRateConfirmation): LoadoutAssessment {
 
 const normName = (s: string) =>
   s.toLowerCase()
-    .replace(/\b(inc|llc|l\.l\.c|corp|co|company|logistics|transportation|transport|freight|group|the)\b/g, ' ')
+    .replace(/\b(inc\.?|llc\.?|l\.l\.c\.?|ltd\.?|corp\.?|co\.?|lp\.?|llp\.?)\b/g, ' ')
     .replace(/[^a-z0-9 ]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
