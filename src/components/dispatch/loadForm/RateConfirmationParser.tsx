@@ -25,6 +25,7 @@ import {
   type UnassignedRateLine,
 } from '@/lib/rateConfirmation';
 import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
+import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 
 interface Props {
@@ -85,6 +86,7 @@ export default function RateConfirmationParser({
   const [brokerResolved, setBrokerResolved] = useState(false);
   const [brokerDialogOpen, setBrokerDialogOpen] = useState(false);
   const [brokerDialogInitial, setBrokerDialogInitial] = useState<Partial<BrokerDialogValues>>({});
+  const [brokerAddressSource, setBrokerAddressSource] = useState<string | null>(null);
   const { data: facilities } = useFacilities();
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
 
@@ -216,13 +218,23 @@ export default function RateConfirmationParser({
       toast({ variant: 'destructive', description: 'No broker name was found on the document.' });
       return;
     }
+    const address = brokerAddressPrefill(parsed.broker);
     setBrokerDialogInitial({
       company_name: normalizeImportedName(name),
       mc_number: parsed.broker.mc_number.value ?? '',
       primary_contact_name: parsed.broker.contact_name.value ?? '',
       primary_contact_phone: parsed.broker.contact_phone.value ?? '',
       primary_contact_email: parsed.broker.contact_email.value ?? '',
+      address_line1: address.address_line1,
+      address_line2: address.address_line2,
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      // Provenance survives the save: the brokers table holds one address and no
+      // indication of whether it is corporate or remit-to.
+      notes: appendNote('', address.note),
     });
+    setBrokerAddressSource(address.sourceLabel);
     setBrokerDialogOpen(true);
   };
 
@@ -457,6 +469,7 @@ export default function RateConfirmationParser({
         open={brokerDialogOpen}
         onOpenChange={setBrokerDialogOpen}
         initial={brokerDialogInitial}
+        addressSourceLabel={brokerAddressSource}
         onCreated={handleBrokerCreated}
         onUseExisting={id => chooseBroker(id)}
       />
