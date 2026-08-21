@@ -51,6 +51,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Initial values, e.g. parsed from a rate confirmation. Name is normalized on open. */
   initial?: Partial<BrokerDialogValues>;
+  /**
+   * When the initial address came from a parsed document, the block it was read from
+   * (e.g. "Bill To block"). Shown above the address fields; the provenance itself is
+   * persisted in the notes by the caller.
+   */
+  addressSourceLabel?: string | null;
   /** When provided the dialog edits this record instead of creating a new one. */
   broker?: Broker | null;
   /** Loads referencing the broker being edited. Delete is offered only at zero. */
@@ -378,6 +384,12 @@ export default function BrokerDialog({
                     maxLength={200}
                   />
                 </div>
+                {!isEdit && addressSourceLabel && (
+                  <p className="sm:col-span-2 text-xs text-muted-foreground">
+                    Address read from the document&rsquo;s {addressSourceLabel}. A note recording
+                    that is saved with this broker — edit or remove it below if it is wrong.
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   <Label htmlFor="broker-dialog-addr1">Address line 1</Label>
                   <Input
