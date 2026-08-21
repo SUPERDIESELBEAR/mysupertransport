@@ -69,9 +69,10 @@ export function findDuplicateBrokers(
       continue;
     }
 
-    // Name match only when the candidate has no MC number. If the candidate
-    // has an MC and it didn't match, a name-only match is too weak to warn on.
-    if (!candidateMC && !rowMC && nameMatches(candidate.company_name, row.company_name)) {
+    // Name match whenever the new record has no MC number, regardless of
+    // whether the existing record has one. If the candidate does have an MC
+    // and it didn't match, a name-only match is too weak to warn on.
+    if (!candidateMC && nameMatches(candidate.company_name, row.company_name)) {
       matches.set(row.id, { ...row, matchReason: 'name' });
     }
   }
