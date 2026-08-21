@@ -170,25 +170,45 @@ export async function matchBroker(
 ): Promise<BrokerCandidate[]> {
   const { data, error } = await supabase
     .from('brokers')
-    .select('id, company_name, mc_number')
+    .select('id, company_name, mc_number, dot_number, city, state, primary_contact_name')
     .order('company_name');
   if (error) throw error;
   const rows = data ?? [];
 
-  const mc = parsed.mc_number.value?.replace(/[^0-9]/g, '') ?? '';
-  if (mc) {
-    const exact = rows.filter(b => (b.mc_number ?? '').replace(/[^0-9]/g, '') === mc);
-    if (exact.length) {
-      return exact.map(b => ({ ...b, matchedOn: 'mc' as const, score: 1 }));
-    }
+  const parsedMC = parsed.mc_number.value?.replace(/[^0-9]/g, '') ?? '';
+  const parsedName = parsed.company_name.value ?? '';
+
+  const candidates: BrokerCandidate[] = rows.map(b => ({
+    id: b.id,
+    company_name: b.company_name,
+    mc_number: b.mc_number,
+    dot_number: b.dot_number,
+    city: b.city,
+    state: b.state,
+    primary_contact_name: b.primary_contact_name,
+    matchedOn: 'name' as const,
+    score: parsedName ? nameScore(parsedName, b.company_name) : 0,
+  }));
+
+  // Mark any MC-confirmed candidate as authoritative. Do not remove name-only
+  // candidates; the dispatcher may still want to see them.
+  if (parsedMC) {
+    candidates.forEach(c => {
+      const rowMC = (c.mc_number ?? '').replace(/[^0-9]/g, '');
+      if (rowMC && rowMC === parsedMC) {
+        c.matchedOn = 'mc';
+        c.score = 1;
+      }
+    });
   }
 
-  const name = parsed.company_name.value ?? '';
-  if (!name) return [];
-  return rows
-    .map(b => ({ ...b, matchedOn: 'name' as const, score: nameScore(name, b.company_name) }))
-    .filter(b => b.score >= 0.5)
-    .sort((a, b) => b.score - a.score)
+  return candidates
+    .filter(c => c.matchedOn === 'mc' || c.score >= 0.5)
+    .sort((a, b) => {
+      if (a.matchedOn === 'mc' && b.matchedOn !== 'mc') return -1;
+      if (a.matchedOn !== 'mc' && b.matchedOn === 'mc') return 1;
+      return b.score - a.score;
+    })
     .slice(0, 4);
 }
 
