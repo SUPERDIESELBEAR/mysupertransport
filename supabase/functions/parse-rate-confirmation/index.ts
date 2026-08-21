@@ -42,7 +42,13 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
     "mc_number": FIELD(string, digits only, no "MC" prefix),
     "contact_name": FIELD(string),
     "contact_phone": FIELD(string),
-    "contact_email": FIELD(string)
+    "contact_email": FIELD(string),
+    "address_line1": FIELD(string - street of the broker's own address; see the broker address rule),
+    "address_line2": FIELD(string - suite/unit only),
+    "city": FIELD(string),
+    "state": FIELD(2-letter state code),
+    "zip": FIELD(string),
+    "address_source": "remit_to" | "bill_to" | "letterhead" | null (NOT a FIELD object - a bare string naming which block the address above came from)
   },
   "load": {
     "broker_load_number": FIELD(string - the broker's own load/order/reference number),
