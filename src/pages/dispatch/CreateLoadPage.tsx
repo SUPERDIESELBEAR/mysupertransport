@@ -966,11 +966,11 @@ export default function CreateLoadPage({
                       control={form.control}
                       name="fsc_amount"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>FSC Amount</FormLabel>
-                          <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <FormItem>
+                      <FormLabel>FSC Amount</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                       )}
                     />
                   )}
