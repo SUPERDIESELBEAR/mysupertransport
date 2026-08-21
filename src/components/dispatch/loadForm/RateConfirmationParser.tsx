@@ -6,6 +6,10 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { normalizeImportedName } from '@/lib/textNormalize';
