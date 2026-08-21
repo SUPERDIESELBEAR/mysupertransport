@@ -458,6 +458,7 @@ export default function RateConfirmationParser({
         onOpenChange={setBrokerDialogOpen}
         initial={brokerDialogInitial}
         onCreated={handleBrokerCreated}
+        onUseExisting={id => chooseBroker(id)}
       />
     </section>
   );
