@@ -67,8 +67,13 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
   const { fields, append, remove, move } = useFieldArray({ control: form.control, name: 'stops' });
   const stops = form.watch('stops');
 
+  const { isManagement, isDispatcher, isOnboardingStaff } = useAuth();
+  /** Mirrors the facilities table write policies — UI affordance only, RLS still enforces. */
+  const canEditDirectory = isManagement || isDispatcher || isOnboardingStaff;
+
   const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
   const [addForIndex, setAddForIndex] = useState<number | null>(null);
+  const [editForIndex, setEditForIndex] = useState<number | null>(null);
   const [removeIndex, setRemoveIndex] = useState<number | null>(null);
   const [keepCharge, setKeepCharge] = useState(true);
 
