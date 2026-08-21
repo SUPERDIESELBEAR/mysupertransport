@@ -895,14 +895,14 @@ export default function CreateLoadPage({
                       control={form.control}
                       name="linehaul_rate"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Linehaul Rate *</FormLabel>
-                          <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                          {values.rate_type === 'percentage_of_load' && (
-                            <FormDescription>Enter the agreed load value the percentage applies to.</FormDescription>
-                          )}
-                          <FormMessage />
-                        </FormItem>
+                    <FormItem>
+                      <FormLabel>Linehaul Rate *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      {values.rate_type === 'percentage_of_load' && (
+                        <FormDescription>Enter the agreed load value the percentage applies to.</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
                       )}
                     />
                   )}
