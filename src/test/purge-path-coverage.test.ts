@@ -13,25 +13,11 @@
  * test reads the live catalog rather than a fixture, and fails on the NEXT
  * `_path` column somebody adds without touching the function.
  */
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { gatedDescribe } from '@/test/helpers/gate';
 
 const HAS_DB = Boolean(process.env.PGHOST);
-
-if (!HAS_DB) {
-  console.warn(
-    [
-      '',
-      '  ############################################################',
-      '  #  purge-path-coverage.test.ts DID NOT RUN                 #',
-      '  #  No PGHOST, so the live column list could not be read.   #',
-      '  #  A green run WITHOUT this file is not evidence that      #',
-      '  #  purge_rods_day collects every stored object.            #',
-      '  ############################################################',
-      '',
-    ].join('\n'),
-  );
-}
 
 function psql(sql: string): string[] {
   const out = execFileSync('psql', ['-At', '-c', sql], {
@@ -48,7 +34,16 @@ function psql(sql: string): string[] {
  */
 const NOT_STORAGE_OBJECTS: readonly string[] = [];
 
-const describeLive = HAS_DB ? describe : describe.skip;
+const describeLive = (name: string, body: () => void) =>
+  gatedDescribe(name, {
+    enabled: HAS_DB,
+    reason: 'no PGHOST, so the live column list could not be read',
+    details: [
+      'A green run WITHOUT this file is not evidence that',
+      'purge_rods_day collects every stored object.',
+    ],
+  }, body);
+
 
 describeLive('purge_rods_day path coverage', () => {
   it('collects every _path column on rods_days', () => {

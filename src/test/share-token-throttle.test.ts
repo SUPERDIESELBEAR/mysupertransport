@@ -22,14 +22,11 @@
  * database. Behavioural coverage of the counter belongs on a disposable
  * instance, not here.
  */
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { gatedDescribe } from '@/test/helpers/gate';
 
 const HAS_DB = Boolean(process.env.PGHOST);
-
-if (!HAS_DB) {
-  console.warn('\n  ##  share-token-throttle.test.ts DID NOT RUN — no PGHOST.  ##\n');
-}
 
 function psql(sql: string): string {
   return execFileSync('psql', ['-At', '-c', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -41,9 +38,19 @@ function defOf(name: string): string {
     WHERE n.nspname = 'public' AND p.proname = '${name}'`);
 }
 
-const describeLive = HAS_DB ? describe : describe.skip;
+const describeLive = (name: string, body: () => void) =>
+  gatedDescribe(name, {
+    enabled: HAS_DB,
+    reason: 'no PGHOST, so the live catalog could not be read',
+    details: [
+      'share-token-throttle.test.ts reads the shipped function bodies.',
+      'A green run WITHOUT this file is not evidence that the',
+      'per-token throttle exists or fails closed.',
+    ],
+  }, body);
 
 describeLive('share token throttling', () => {
+
   it('counts accesses per token and fails closed', () => {
     const gate = defOf('_share_token_gate');
     expect(gate, 'the gate must exist').toContain('share_token_access_log');
