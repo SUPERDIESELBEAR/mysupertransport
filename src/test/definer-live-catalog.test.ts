@@ -276,6 +276,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role management|owner|dispatcher to raise/resolve; reopen is
   // management|owner only.
   "public.manage_claim_flag(text,uuid,uuid,claim_flag_level,claim_type,text,text,numeric,text,text,text,numeric,text)",
+  // has_role management|owner|dispatcher; writes the paired duplicate-broker-
+  // reference notes to load_change_history on both loads. No other effect.
+  "public.record_duplicate_broker_reference(uuid,uuid,text)",
   // Token-gated public endpoints that also hold the authenticated grant; see
   // the KNOWN_ANON_EXECUTABLE entries above for the gate each one enforces.
   "public.get_ica_review_link(text)",
@@ -289,8 +292,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // 70 when the seven-argument certify form is dropped
 // (docs/deferred-removals.md).
 // + the eight load-management RPCs and the three token-gated public
-// endpoints registered 2026-08-20, plus update_load_with_stops.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 85;
+// endpoints registered 2026-08-20, plus update_load_with_stops and
+// record_duplicate_broker_reference.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 86;
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a
