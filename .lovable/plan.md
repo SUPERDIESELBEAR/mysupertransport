@@ -43,6 +43,7 @@ No database uniqueness constraint is added.
 ## Technical notes
 
 - Files: `src/lib/rateConfirmation.ts` (matchBroker), new `src/lib/brokerDuplicates.ts`, new `BrokerCandidateRow.tsx`, `BrokerDialog.tsx`, `RateConfirmationParser.tsx`.
-- MC normalization strips non-digits for comparison so `MC 123456`, `123456`, and `mc-123456` collapse to one value; name normalization lowercases, strips punctuation/`inc`/`llc`/`logistics` suffix noise, collapses whitespace.
+- MC normalization strips non-digits for comparison so `MC 123456`, `123456`, and `mc-123456` collapse to one value.
+- Name normalization lowercases, collapses whitespace, and strips **only genuine legal entity suffixes** — Inc, LLC, L.L.C., Ltd, Corp, Co, LP, LLP and punctuated variants. Industry words (Logistics, Transport, Transportation, Freight, Trucking, Carriers, Express) are left in place, so "Smith Logistics" and "Smith Trucking" stay distinct. A missed duplicate warning is acceptable; a false one is not.
 - Audit rows use the existing `audit_log` shape (action `broker_duplicate_override`, target the new broker id, details carrying the reason and matched ids).
 - Unit tests in `src/lib/__tests__/brokerDuplicates.test.ts`: MC match wins over name, name match only when MC absent, unrelated names do not match, MC-confirmed sorts first. Full suite run at the end.
