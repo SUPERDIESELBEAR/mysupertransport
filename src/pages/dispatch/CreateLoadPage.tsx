@@ -912,11 +912,11 @@ export default function CreateLoadPage({
                       control={form.control}
                       name="rate_per_mile"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Rate Per Mile *</FormLabel>
-                          <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <FormItem>
+                      <FormLabel>Rate Per Mile *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                       )}
                     />
                   )}
