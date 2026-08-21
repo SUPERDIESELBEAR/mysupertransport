@@ -68,7 +68,6 @@ export default function RateConfirmationParser({
 }: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
-  const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
