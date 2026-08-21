@@ -1,0 +1,1 @@
+ALTER FUNCTION public.record_duplicate_broker_reference(uuid, uuid, text) SET search_path = public, extensions;
