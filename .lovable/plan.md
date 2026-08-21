@@ -1,29 +1,44 @@
-# Broker edit pencil: diagnosis
+# Broker address extraction from rate confirmations
 
-Reproduced signed in as owner (Marcus Mueller) against the running app: Management portal > Loads > Create Load, opened the Broker picker, selected BlueGrace Logistics.
+## What I found
 
-## 1. Is the button rendering?
+The parser's broker block captures exactly five fields — company name, MC number, contact name, contact phone, contact email. There is no address field anywhere in the extraction schema, so today the parser cannot produce a broker address at all: the address inputs in the broker dialog are always blank because nothing is ever passed for them, not because a guess was suppressed. That answers your last question — the blank-not-guessed behavior is currently guaranteed by omission, and the plan below keeps it explicit in the prompt rather than by accident.
 
-Yes. After selecting BlueGrace Logistics, `[data-testid="broker-edit"]` is present in the DOM, `display: flex`, 36x36 px, on-screen at x 900-936 / y 579-615 — immediately right of the Broker combobox, not behind it. `button[title]` enumeration includes "Edit broker details". The screenshot shows a bare, low-contrast pencil glyph sitting in the gap between the Broker field and the "Broker's Load #" field.
+The broker dialog already exposes street, line 2, city, state, ZIP and normalizes them (title case for street/city, ZIP normalization). Only the prefill payload from the parser is missing those keys.
 
-So this is not a rendering or gating bug. It is a discoverability problem: a ghost icon button with no label, no border, and muted foreground, placed in whitespace between two labelled inputs, reads as decoration rather than an action. It also only exists after a broker is committed to `broker_id` — if the field shows a parser-extracted name that is not yet linked to a record, there is deliberately no pencil, which is another way it can look "missing".
+## My view on one address vs. two
 
-## 2. Role gate for this session
+I agree with your inclination: one address set is enough for now, and the parser should prefer the remit-to / bill-to address.
 
-Passes. `useAuth` derives `isOwner = roles.includes('owner')` and `isManagement = roles.includes('management') || isOwner`. An owner therefore satisfies `isManagement || isDispatcher || isOnboardingStaff` through `isManagement`. Verified against the hook, and confirmed live — the button rendered for this owner session.
+Reasoning:
+- Every rate confirmation shown so far prints exactly one broker address, under a "Bill To" style heading (Blue Grace: `2846 S Falkenburg Rd, Riverview, FL 33578`). A letterhead corporate address, when it appears, is usually the same company location.
+- The one operational use for a broker address in this app is invoicing, which is also why `billing_email` exists as its own field. The billing address is therefore the more valuable of the two, so if only one is stored it should be that one.
+- Adding `billing_address_line1..billing_zip` now means four to five new columns, new dialog fields, and a "which one is this?" decision on every broker record, to serve a distinction we have not yet seen in the documents. That is a reasonable later migration if a document turns up with genuinely different corporate and remit-to addresses; nothing in this plan blocks it.
 
-## 3. Selected broker object
+One safeguard instead of new columns: the parser reports which heading the address came from, and the dialog shows that label next to the prefilled address ("From the document's Bill To block"), so a dispatcher saving the record knows what kind of address they are accepting.
 
-Resolves correctly. `useBrokers()` returns the full `Broker` records and the `find(b => b.id === value)` lookup produced an object — the trigger label renders "BlueGrace Logistics" from `selected.company_name`, which is only possible when `selected` is non-null. The same `selected` truthiness drives the pencil, so the object is there.
+## Preference order when a document shows more than one
 
-## 4. Do the tests cover this path?
+The parser picks one address using this order, and returns the label it used:
 
-They do exercise the real component: `BrokerSelect.test.tsx` renders the actual `BrokerSelect` and asserts on `broker-edit` for a dispatcher, for no selection, and for a non-writing role. `BrokerDialog` and `useBrokers` are mocked, which is the normal seam here. Since the live DOM check agrees with the tests (button present as owner), the tests were not passing against something other than the rendered component — the tests and the app both say the button exists. The gap is between "in the DOM" and "noticeable to a person", which no assertion on presence can catch.
+1. Explicit remit-to / payment address ("Remit To", "Send Invoices To", "Payment Address", "Billing Address")
+2. Bill-to address ("Bill To", "Invoice To")
+3. Corporate / letterhead address, only when neither of the above exists
+4. Nothing — all address fields null
 
-## Proposed fix (visibility only, pending approval)
+Never mixed: the chosen block's street, city, state and ZIP come from one block only. Partial blocks are allowed (street present, ZIP missing) but never completed from a second block.
 
-- Replace the bare ghost icon with a labelled, bordered affordance next to the picker: small outline button, pencil + "Edit" text, so it reads as an action at a glance. Same for the facility pencil on stops, which has the identical treatment and the same problem.
-- Keep it inline with the field (not inside the dropdown) as originally specified, and keep the role gate and `type="button"` behaviour unchanged.
-- When the Broker field holds a parser-extracted name with no linked record, keep the existing "not linked to a broker record yet" hint as the only affordance — nothing to edit yet.
+The address is not taken from a footer, a fine-print legal block, or a factoring/lockbox notice, and never from a shipper, consignee or facility block.
 
-No schema, RLS, or business-logic change. Files: `BrokerSelect.tsx`, `StopsSection.tsx`; existing tests keep passing since the test id stays.
+## Blank when absent
+
+The prompt states explicitly that a broker address must be returned null unless it is printed in an addressed block belonging to the broker. Anything that would require inferring from a logo, a phone-area code, a URL or a bare city name returns null. Confidence is `high` only for a clearly labelled remit-to/bill-to block, `medium` for a letterhead fallback; a `low` address gets left out of the prefill, consistent with how other low-confidence fields are treated.
+
+## Technical notes
+
+- `supabase/functions/parse-rate-confirmation/index.ts`: add to the `broker` schema `address_line1`, `address_line2`, `city`, `state` (2-letter), `zip`, plus `address_source` (`remit_to` | `bill_to` | `letterhead` | null, not a confidence-wrapped field). Add the preference-order and never-guess rules to the prompt. Sanitize the new values through the existing `str()` helper; uppercase and length-check `state`; keep `zip` digits/hyphen only.
+- `src/lib/rateConfirmation.ts`: extend the `broker` shape on `ParsedRateConfirmation` with the five address fields and `address_source`.
+- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`: include the address fields in `openCreateBrokerDialog`'s prefill (skipping any field whose confidence is `low`), and pass the source label through.
+- `src/components/dispatch/loadForm/BrokerDialog.tsx`: when a prefilled address arrives from a parse, show a small muted note above the address group naming the source block. No change to validation or the saved payload — existing `toTitleCase` / `normalizeZip` handling applies.
+- No migration, no schema change to `brokers`.
+- Tests: a unit test over the prefill mapping covering remit-to preferred over bill-to, letterhead-only fallback, low-confidence dropped, and no-address leaving every field blank.
