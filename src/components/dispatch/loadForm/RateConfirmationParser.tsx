@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle, Check, FileText, Loader2, Sparkles, Upload, X,
 } from 'lucide-react';
@@ -13,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { normalizeImportedName } from '@/lib/textNormalize';
 import { pdfFileToImages } from '@/lib/pdfToImages';
 import { useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
@@ -24,6 +24,7 @@ import {
   type BrokerCandidate, type LoadoutAssessment, type ParsedRateConfirmation,
   type UnassignedRateLine,
 } from '@/lib/rateConfirmation';
+import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 
 interface Props {
   /** The parsed file is attached to the load as its rate confirmation after saving. */
@@ -67,7 +68,6 @@ export default function RateConfirmationParser({
 }: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
-  const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -82,7 +82,8 @@ export default function RateConfirmationParser({
   const [unassigned, setUnassigned] = useState<UnassignedRateLine[]>([]);
   const [candidates, setCandidates] = useState<BrokerCandidate[]>([]);
   const [brokerResolved, setBrokerResolved] = useState(false);
-  const [creatingBroker, setCreatingBroker] = useState(false);
+  const [brokerDialogOpen, setBrokerDialogOpen] = useState(false);
+  const [brokerDialogInitial, setBrokerDialogInitial] = useState<Partial<BrokerDialogValues>>({});
   const { data: facilities } = useFacilities();
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
 
@@ -207,38 +208,26 @@ export default function RateConfirmationParser({
     onExtractedBroker?.(null);
   };
 
-  const createBroker = async () => {
+  const openCreateBrokerDialog = () => {
     if (!parsed) return;
     const name = parsed.broker.company_name.value?.trim();
     if (!name) {
       toast({ variant: 'destructive', description: 'No broker name was found on the document.' });
       return;
     }
-    setCreatingBroker(true);
-    const { data, error } = await supabase
-      .from('brokers')
-      .insert({
-        company_name: name,
-        mc_number: parsed.broker.mc_number.value || null,
-        primary_contact_name: parsed.broker.contact_name.value || null,
-        primary_contact_phone: parsed.broker.contact_phone.value || null,
-        primary_contact_email: parsed.broker.contact_email.value || null,
-      })
-      .select('id, company_name')
-      .single();
-    setCreatingBroker(false);
-    if (error || !data) {
-      logDbError('brokers insert from rate confirmation', error, { name });
-      toast({
-        variant: 'destructive',
-        title: 'Broker not added',
-        description: getDbErrorMessage(error, 'Could not add the broker.'),
-      });
-      return;
-    }
-    await qc.invalidateQueries({ queryKey: ['load-form-brokers'] });
-    chooseBroker(data.id);
-    toast({ description: `${data.company_name} added and selected.` });
+    setBrokerDialogInitial({
+      company_name: normalizeImportedName(name),
+      mc_number: parsed.broker.mc_number.value ?? '',
+      primary_contact_name: parsed.broker.contact_name.value ?? '',
+      primary_contact_phone: parsed.broker.contact_phone.value ?? '',
+      primary_contact_email: parsed.broker.contact_email.value ?? '',
+    });
+    setBrokerDialogOpen(true);
+  };
+
+  const handleBrokerCreated = (id: string) => {
+    chooseBroker(id);
+    toast({ description: `${normalizeImportedName(parsed?.broker?.company_name?.value ?? '')} added and selected.` });
   };
 
   const assignLine = (line: UnassignedRateLine, target: string) => {
@@ -374,8 +363,7 @@ export default function RateConfirmationParser({
             <p className="text-xs text-muted-foreground">No broker in the directory matches this document.</p>
           )}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" size="sm" variant="outline" onClick={() => void createBroker()} disabled={creatingBroker}>
-              {creatingBroker && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            <Button type="button" size="sm" variant="outline" onClick={() => openCreateBrokerDialog()}>
               Create new broker from document
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setBrokerResolved(true)}>
@@ -470,6 +458,13 @@ export default function RateConfirmationParser({
           )}
         </div>
       )}
+
+      <BrokerDialog
+        open={brokerDialogOpen}
+        onOpenChange={setBrokerDialogOpen}
+        initial={brokerDialogInitial}
+        onCreated={handleBrokerCreated}
+      />
     </section>
   );
 }

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -460,17 +461,17 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
                 )}
               />
               {isMiddle && (
-                <FormField
-                  control={form.control}
-                  name={`stops.${index}.stopoff_charge_amount`}
-                  render={({ field: f }) => (
-                    <FormItem>
-                      <FormLabel>Stop-off charge ($)</FormLabel>
-                      <FormControl><Input inputMode="decimal" disabled={financialLocked} {...f} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name={`stops.${index}.stopoff_charge_amount`}
+                render={({ field: f }) => (
+                  <FormItem>
+                    <FormLabel>Stop-off charge</FormLabel>
+                    <FormControl><CurrencyInput disabled={financialLocked} {...f} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               )}
               <FormField
                 control={form.control}

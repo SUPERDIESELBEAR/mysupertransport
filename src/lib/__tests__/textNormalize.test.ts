@@ -32,9 +32,12 @@ describe('toTitleCase', () => {
       expect(toTitleCase('900 GRAND BLVD')).toBe('900 Grand Blvd');
       expect(toTitleCase('12 MAPLE AVE')).toBe('12 Maple Ave');
     });
-    it('handles street types with a trailing period', () => {
-      expect(toTitleCase('500 W SEVENTH ST.')).toBe('500 W Seventh St.');
-      expect(toTitleCase('12 CEDAR RD.')).toBe('12 Cedar Rd.');
+    it('strips trailing periods from street type abbreviations', () => {
+      // Reverses a previous behavior: periods are now dropped for consistency.
+      expect(toTitleCase('500 W SEVENTH ST.')).toBe('500 W Seventh St');
+      expect(toTitleCase('12 CEDAR RD.')).toBe('12 Cedar Rd');
+      expect(toTitleCase('8901 HILLSIDE DR.')).toBe('8901 Hillside Dr');
+      expect(toTitleCase('2600 MCCREE RD')).toBe('2600 McCree Rd');
     });
     it('handles street types mid-address', () => {
       expect(toTitleCase('1400 INDUSTRIAL DR SUITE 200')).toBe('1400 Industrial Dr Suite 200');
@@ -42,6 +45,24 @@ describe('toTitleCase', () => {
     it('keeps directionals uppercase', () => {
       expect(toTitleCase('1400 industrial dr ne')).toBe('1400 Industrial Dr NE');
       expect(toTitleCase('100 SW BROADWAY ST')).toBe('100 SW Broadway St');
+    });
+    it('preserves genuine inner capitals in names', () => {
+      expect(toTitleCase('mccree logistics')).toBe('McCree Logistics');
+      expect(toTitleCase('MCCREE LOGISTICS')).toBe('McCree Logistics');
+      expect(toTitleCase('mcdonald ave')).toBe('McDonald Ave');
+      expect(toTitleCase('macarthur blvd')).toBe('MacArthur Blvd');
+      expect(toTitleCase('o\'brien st')).toBe('O\'Brien St');
+      expect(toTitleCase('desoto pkwy')).toBe('DeSoto Pkwy');
+      expect(toTitleCase('lasalle dr')).toBe('LaSalle Dr');
+      expect(toTitleCase('Winston-Salem')).toBe('Winston-Salem');
+    });
+    it('does not split ordinary words that happen to start with Mac, De, La, or Van', () => {
+      expect(toTitleCase('macon rd')).toBe('Macon Rd');
+      expect(toTitleCase('delaware ave')).toBe('Delaware Ave');
+      expect(toTitleCase('lancaster st')).toBe('Lancaster St');
+      expect(toTitleCase('madison blvd')).toBe('Madison Blvd');
+      expect(toTitleCase('vandalia dr')).toBe('Vandalia Dr');
+      expect(toTitleCase('lafayette pkwy')).toBe('Lafayette Pkwy');
     });
   });
 });

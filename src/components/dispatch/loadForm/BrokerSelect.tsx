@@ -1,19 +1,14 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import BrokerDialog from './BrokerDialog';
 
 interface BrokerOption { id: string; company_name: string; mc_number: string | null }
 
@@ -26,12 +21,8 @@ interface Props {
 }
 
 export default function BrokerSelect({ value, onChange, optional, provisionalName }: Props) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ company_name: '', mc_number: '', primary_contact_name: '' });
 
   const { data: brokers } = useQuery({
     queryKey: ['load-form-brokers'],
@@ -46,34 +37,6 @@ export default function BrokerSelect({ value, onChange, optional, provisionalNam
   });
 
   const selected = (brokers ?? []).find(b => b.id === value) ?? null;
-
-  const saveBroker = async () => {
-    const name = form.company_name.trim();
-    if (!name) {
-      toast({ variant: 'destructive', description: 'Company name is required.' });
-      return;
-    }
-    setSaving(true);
-    const { data, error } = await supabase
-      .from('brokers')
-      .insert({
-        company_name: name,
-        mc_number: form.mc_number.trim() || null,
-        primary_contact_name: form.primary_contact_name.trim() || null,
-      })
-      .select('id, company_name, mc_number')
-      .single();
-    setSaving(false);
-    if (error || !data) {
-      toast({ variant: 'destructive', description: error?.message ?? 'Could not add the broker.' });
-      return;
-    }
-    await qc.invalidateQueries({ queryKey: ['load-form-brokers'] });
-    onChange(data.id);
-    setAddOpen(false);
-    setForm({ company_name: '', mc_number: '', primary_contact_name: '' });
-    toast({ description: `${data.company_name} added.` });
-  };
 
   return (
     <>
@@ -141,46 +104,11 @@ export default function BrokerSelect({ value, onChange, optional, provisionalNam
         </p>
       )}
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Add new broker</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-broker-name">Company name</Label>
-              <Input
-                id="new-broker-name"
-                value={form.company_name}
-                onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                maxLength={200}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-broker-mc">MC number</Label>
-              <Input
-                id="new-broker-mc"
-                value={form.mc_number}
-                onChange={e => setForm(f => ({ ...f, mc_number: e.target.value }))}
-                maxLength={40}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-broker-contact">Primary contact</Label>
-              <Input
-                id="new-broker-contact"
-                value={form.primary_contact_name}
-                onChange={e => setForm(f => ({ ...f, primary_contact_name: e.target.value }))}
-                maxLength={120}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={saveBroker} disabled={saving}>
-              {saving ? 'Saving…' : 'Add broker'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BrokerDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={id => { onChange(id); }}
+      />
     </>
   );
 }

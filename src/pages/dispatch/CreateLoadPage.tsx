@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -841,11 +842,11 @@ export default function CreateLoadPage({
                     control={form.control}
                     name="loadout_relocation_fee"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Relocation fee *</FormLabel>
-                        <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
+                    <FormItem>
+                      <FormLabel>Relocation fee *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                     )}
                   />
                   <FormField
@@ -894,14 +895,14 @@ export default function CreateLoadPage({
                       control={form.control}
                       name="linehaul_rate"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Linehaul Rate *</FormLabel>
-                          <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                          {values.rate_type === 'percentage_of_load' && (
-                            <FormDescription>Enter the agreed load value the percentage applies to.</FormDescription>
-                          )}
-                          <FormMessage />
-                        </FormItem>
+                    <FormItem>
+                      <FormLabel>Linehaul Rate *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      {values.rate_type === 'percentage_of_load' && (
+                        <FormDescription>Enter the agreed load value the percentage applies to.</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
                       )}
                     />
                   )}
@@ -911,11 +912,11 @@ export default function CreateLoadPage({
                       control={form.control}
                       name="rate_per_mile"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Rate Per Mile *</FormLabel>
-                          <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <FormItem>
+                      <FormLabel>Rate Per Mile *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                       )}
                     />
                   )}
@@ -926,11 +927,11 @@ export default function CreateLoadPage({
                         control={form.control}
                         name="rate_per_ton"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Rate Per Ton *</FormLabel>
-                            <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
+                    <FormItem>
+                      <FormLabel>Rate Per Ton *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                         )}
                       />
                       <FormField
@@ -965,11 +966,11 @@ export default function CreateLoadPage({
                       control={form.control}
                       name="fsc_amount"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>FSC Amount</FormLabel>
-                          <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <FormItem>
+                      <FormLabel>FSC Amount</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                       )}
                     />
                   )}
@@ -1156,7 +1157,7 @@ export default function CreateLoadPage({
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Permit Cost</FormLabel>
-                            <FormControl><Input inputMode="decimal" {...field} /></FormControl>
+                            <FormControl><CurrencyInput {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
