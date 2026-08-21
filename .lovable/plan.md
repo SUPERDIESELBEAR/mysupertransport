@@ -27,17 +27,20 @@ Note: this reverses a previously specified behavior — the current test asserts
 
 Add to `toTitleCase` word handling, after the directional/street-type checks:
 
-- Rule-based: a word starting `Mc`, `Mac`, or `O'` followed by a letter capitalizes that letter — but only when the remainder is long enough and not a known exception, so `Macon` and `Mack` stay flat.
-- Exception list (never split): `macon`, `mack`, `mackey`, `machine`, `macy`, `delaware`, `lancaster`, `laredo`, `denver`, `dallas`, `denton`, `vancouver`, and similar.
-- Explicit inner-capital list for the unruly patterns: `DeSoto`, `DeKalb`, `LaSalle`, `LaGrange`, `LaPorte`, `VanBuren`, `DeWitt`, `McKinney` style entries as needed.
-- Hyphen handling untouched, so `Winston-Salem` still works.
+**General rules — `Mc` and `O'` only.** A word beginning `Mc` followed by a letter capitalizes that letter (`mccree` to `McCree`); same for `O'` (`o'brien` to `O'Brien`). Only a very small exception list here (e.g. `mcguffey`-type entries if one ever surfaces; none needed today).
+
+**Inclusion list — `Mac`, `De`, `La`, `Van`.** No general rule. These split only when the whole word matches an explicit list of genuine compound names: `macarthur`, `macdonald`, `mackenzie`, `macmillan`, `desoto`, `dekalb`, `dewitt`, `demoines`, `lasalle`, `lagrange`, `laporte`, `lacrosse`, `vanburen`, `vanderbilt`, `vanhorn`, `vannuys`. Anything not listed is an ordinary word and stays flat, so `Macon`, `Madison`, `Macomb`, `Delaware`, `Delano`, `Lancaster`, `Lafayette`, `Lawrence`, `Vandalia` all render normally. Bias is deliberately toward under-correcting: a missed `Desoto` is cosmetic, a wrong `MacOn` looks broken.
+
+**All-caps input.** `MCCREE` renders as `McCree`. The word is longer than the three-character acronym-preservation window, so the acronym rule does not catch it; the word is lowercased first and then the `Mc` rule applies. Same for `O'BRIEN` to `O'Brien`. An all-caps word on the `Mac`/`De`/`La`/`Van` inclusion list also splits correctly (`MACARTHUR` to `MacArthur`).
+
+Hyphen handling untouched, so `Winston-Salem` still works.
 
 ## Tests
 
 `src/lib/__tests__/textNormalize.test.ts`:
 - Street types: period stripped (`ST.` to `St`, `RD.` to `Rd`), existing no-period cases still pass.
-- Positive names: McCree, McDonald, MacArthur, O'Brien, DeSoto, LaSalle.
-- Negative names: Delaware, Lancaster, Macon (must not become MacOn).
+- Positive: McCree, McDonald, MacArthur, O'Brien, DeSoto, LaSalle, plus all-caps `MCCREE` to `McCree`.
+- Negative: Delaware, Lancaster, Macon (must not become MacOn), Madison, Vandalia, Lafayette.
 - Existing acronym/directional cases re-run unchanged.
 
 Full suite run at the end.
