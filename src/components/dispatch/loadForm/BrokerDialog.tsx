@@ -18,7 +18,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import StateSelect from '@/components/shared/StateSelect';
 import {
-  normalizeImportedName, normalizePhone, formatPhone, normalizeWhitespace, normalizeZip, toTitleCase,
+  normalizeImportedName, normalizePhone, formatPhone, normalizeMultiline, normalizeWhitespace,
+  normalizeZip, toTitleCase,
 } from '@/lib/textNormalize';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { findDuplicateBrokers, type BrokerDuplicate } from '@/lib/brokerDuplicates';
@@ -50,6 +51,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Initial values, e.g. parsed from a rate confirmation. Name is normalized on open. */
   initial?: Partial<BrokerDialogValues>;
+  /**
+   * When the initial address came from a parsed document, the block it was read from
+   * (e.g. "Bill To block"). Shown above the address fields; the provenance itself is
+   * persisted in the notes by the caller.
+   */
+  addressSourceLabel?: string | null;
   /** When provided the dialog edits this record instead of creating a new one. */
   broker?: Broker | null;
   /** Loads referencing the broker being edited. Delete is offered only at zero. */
@@ -100,12 +107,14 @@ const valuesFrom = (b: Broker): BrokerDialogValues => ({
 });
 
 export default function BrokerDialog({
-  open, onOpenChange, initial, broker, loadCount = 0, canDelete = false,
+  open, onOpenChange, initial, addressSourceLabel = null, broker, loadCount = 0, canDelete = false,
   onCreated, onUseExisting, onSaved, onDeleted,
 }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const isEdit = !!broker;
+  /** Address + notes are edit-mode fields, but a parsed address must be reviewable on create. */
+  const showAddress = isEdit || !!addressSourceLabel;
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -181,7 +190,7 @@ export default function BrokerDialog({
     state: form.state || null,
     zip: normalizeZip(form.zip) || null,
     payment_terms: normalizeWhitespace(form.payment_terms) || null,
-    notes: normalizeWhitespace(form.notes) || null,
+    notes: normalizeMultiline(form.notes) || null,
     is_active: form.is_active,
   });
 
@@ -366,17 +375,26 @@ export default function BrokerDialog({
             </div>
 
             {isEdit && (
+              <div className="space-y-1.5">
+                <Label htmlFor="broker-dialog-billing">Billing email</Label>
+                <Input
+                  id="broker-dialog-billing"
+                  type="email"
+                  value={form.billing_email}
+                  onChange={e => set('billing_email', e.target.value)}
+                  maxLength={200}
+                />
+              </div>
+            )}
+
+            {showAddress && (
               <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="broker-dialog-billing">Billing email</Label>
-                  <Input
-                    id="broker-dialog-billing"
-                    type="email"
-                    value={form.billing_email}
-                    onChange={e => set('billing_email', e.target.value)}
-                    maxLength={200}
-                  />
-                </div>
+                {!isEdit && addressSourceLabel && (
+                  <p className="sm:col-span-2 text-xs text-muted-foreground">
+                    Address read from the document&rsquo;s {addressSourceLabel}. A note recording
+                    that is saved with this broker — edit or remove it below if it is wrong.
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   <Label htmlFor="broker-dialog-addr1">Address line 1</Label>
                   <Input
@@ -415,25 +433,36 @@ export default function BrokerDialog({
                     onChange={e => set('zip', normalizeZip(e.target.value))}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="broker-dialog-terms">Payment terms</Label>
-                  <Input
-                    id="broker-dialog-terms"
-                    placeholder="Net 30"
-                    value={form.payment_terms}
-                    onChange={e => set('payment_terms', e.target.value)}
-                    maxLength={80}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="broker-dialog-notes">Notes</Label>
-                  <Textarea
-                    id="broker-dialog-notes"
-                    rows={2}
-                    value={form.notes}
-                    onChange={e => set('notes', e.target.value)}
-                  />
-                </div>
+              </>
+            )}
+
+            {isEdit && (
+              <div className="space-y-1.5">
+                <Label htmlFor="broker-dialog-terms">Payment terms</Label>
+                <Input
+                  id="broker-dialog-terms"
+                  placeholder="Net 30"
+                  value={form.payment_terms}
+                  onChange={e => set('payment_terms', e.target.value)}
+                  maxLength={80}
+                />
+              </div>
+            )}
+
+            {showAddress && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="broker-dialog-notes">Notes</Label>
+                <Textarea
+                  id="broker-dialog-notes"
+                  rows={2}
+                  value={form.notes}
+                  onChange={e => set('notes', e.target.value)}
+                />
+              </div>
+            )}
+
+            {isEdit && (
+              <>
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <Switch
                     id="broker-dialog-active"
@@ -444,6 +473,7 @@ export default function BrokerDialog({
                     Active — available when building a load
                   </Label>
                 </div>
+
 
                 <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 p-3 space-y-2">
                   <p className="text-sm font-semibold text-foreground">Change factoring status</p>

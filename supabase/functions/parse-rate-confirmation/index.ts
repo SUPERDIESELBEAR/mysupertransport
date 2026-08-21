@@ -42,7 +42,13 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
     "mc_number": FIELD(string, digits only, no "MC" prefix),
     "contact_name": FIELD(string),
     "contact_phone": FIELD(string),
-    "contact_email": FIELD(string)
+    "contact_email": FIELD(string),
+    "address_line1": FIELD(string - street of the broker's own address; see the broker address rule),
+    "address_line2": FIELD(string - suite/unit only),
+    "city": FIELD(string),
+    "state": FIELD(2-letter state code),
+    "zip": FIELD(string),
+    "address_source": "remit_to" | "bill_to" | "letterhead" | null (NOT a FIELD object - a bare string naming which block the address above came from)
   },
   "load": {
     "broker_load_number": FIELD(string - the broker's own load/order/reference number),
@@ -119,6 +125,14 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
 }
 
 Rules:
+- broker address: capture AT MOST ONE address for the broker, from a single addressed block, and say which block it came from in "address_source". Preference order:
+  1. An explicit remit-to / payment address ("Remit To", "Send Invoices To", "Payment Address", "Billing Address") → address_source "remit_to", confidence "high".
+  2. A bill-to / invoice-to address ("Bill To", "Invoice To") → address_source "bill_to", confidence "high".
+  3. The broker's corporate or letterhead address, ONLY when neither of the above is printed → address_source "letterhead", confidence "medium".
+  4. Otherwise every broker address field is null and address_source is null.
+  - NEVER mix blocks: street, city, state and zip must all come from the one chosen block. A partial block is fine (street with no zip); do not complete it from another block.
+  - NEVER take the broker address from a shipper, consignee, facility or stop block, from a page footer, from fine-print legal terms, or from a factoring / lockbox / third-party payment notice.
+  - NEVER infer an address. A logo, a phone area code, a website, an email domain or a bare city name is NOT an address — return null. A blank address is the correct answer when no addressed broker block is printed.
 - Dates: normalize every date to a 4-digit year. If the year is not printed, use the year that keeps the stop dates in ascending order relative to any printed date; if that is still unclear, return null.
 - Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence.
 - reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
@@ -499,6 +513,23 @@ Deno.serve(async (req) => {
         contact_name: str(parsed.broker?.contact_name),
         contact_phone: str(parsed.broker?.contact_phone),
         contact_email: str(parsed.broker?.contact_email),
+        address_line1: str(parsed.broker?.address_line1),
+        address_line2: str(parsed.broker?.address_line2),
+        city: str(parsed.broker?.city),
+        state: (() => {
+          const v = str(parsed.broker?.state);
+          return v.value ? { value: v.value.toUpperCase().slice(0, 2), confidence: v.confidence } : v;
+        })(),
+        zip: (() => {
+          const v = str(parsed.broker?.zip);
+          if (!v.value) return v;
+          const cleaned = v.value.replace(/[^0-9-]/g, '').slice(0, 10);
+          return cleaned ? { value: cleaned, confidence: v.confidence } : { value: null, confidence: 'low' as Conf };
+        })(),
+        address_source: (() => {
+          const s = String(parsed.broker?.address_source ?? '').trim().toLowerCase();
+          return s === 'remit_to' || s === 'bill_to' || s === 'letterhead' ? s : null;
+        })(),
       },
       load: {
         broker_load_number: str(parsed.load?.broker_load_number),
