@@ -210,38 +210,26 @@ export default function RateConfirmationParser({
     onExtractedBroker?.(null);
   };
 
-  const createBroker = async () => {
+  const openCreateBrokerDialog = () => {
     if (!parsed) return;
     const name = parsed.broker.company_name.value?.trim();
     if (!name) {
       toast({ variant: 'destructive', description: 'No broker name was found on the document.' });
       return;
     }
-    setCreatingBroker(true);
-    const { data, error } = await supabase
-      .from('brokers')
-      .insert({
-        company_name: name,
-        mc_number: parsed.broker.mc_number.value || null,
-        primary_contact_name: parsed.broker.contact_name.value || null,
-        primary_contact_phone: parsed.broker.contact_phone.value || null,
-        primary_contact_email: parsed.broker.contact_email.value || null,
-      })
-      .select('id, company_name')
-      .single();
-    setCreatingBroker(false);
-    if (error || !data) {
-      logDbError('brokers insert from rate confirmation', error, { name });
-      toast({
-        variant: 'destructive',
-        title: 'Broker not added',
-        description: getDbErrorMessage(error, 'Could not add the broker.'),
-      });
-      return;
-    }
-    await qc.invalidateQueries({ queryKey: ['load-form-brokers'] });
-    chooseBroker(data.id);
-    toast({ description: `${data.company_name} added and selected.` });
+    setBrokerDialogInitial({
+      company_name: normalizeImportedName(name),
+      mc_number: parsed.broker.mc_number.value ?? '',
+      primary_contact_name: parsed.broker.contact_name.value ?? '',
+      primary_contact_phone: parsed.broker.contact_phone.value ?? '',
+      primary_contact_email: parsed.broker.contact_email.value ?? '',
+    });
+    setBrokerDialogOpen(true);
+  };
+
+  const handleBrokerCreated = (id: string) => {
+    chooseBroker(id);
+    toast({ description: `${normalizeImportedName(parsed?.broker?.company_name?.value ?? '')} added and selected.` });
   };
 
   const assignLine = (line: UnassignedRateLine, target: string) => {
