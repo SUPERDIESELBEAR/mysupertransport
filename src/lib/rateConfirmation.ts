@@ -35,6 +35,8 @@ export interface ParsedRateLine {
   confidence: Confidence;
 }
 
+export type BrokerAddressSource = 'remit_to' | 'bill_to' | 'letterhead';
+
 export interface ParsedRateConfirmation {
   broker: {
     company_name: Field<string>;
@@ -42,6 +44,13 @@ export interface ParsedRateConfirmation {
     contact_name: Field<string>;
     contact_phone: Field<string>;
     contact_email: Field<string>;
+    address_line1: Field<string>;
+    address_line2: Field<string>;
+    city: Field<string>;
+    state: Field<string>;
+    zip: Field<string>;
+    /** Which printed block the address above came from; null when no address was captured. */
+    address_source: BrokerAddressSource | null;
   };
   load: {
     broker_load_number: Field<string>;
