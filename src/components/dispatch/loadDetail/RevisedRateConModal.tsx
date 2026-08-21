@@ -298,7 +298,7 @@ export default function RevisedRateConModal({
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => close(false)}>Cancel</Button>
-              <Button onClick={parse} disabled={!file || busy} className="gap-1.5">
+              <Button onClick={() => void parse()} disabled={!file || busy} className="gap-1.5">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Compare with this load
               </Button>
