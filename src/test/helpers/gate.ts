@@ -15,6 +15,32 @@
  *                                  silently; if the gate could not be
  *                                  satisfied where it must be, that is a red
  *                                  run, not an absent one.
+ *
+ * ---------------------------------------------------------------------------
+ * EXPECTED BASELINES — measured 2026-08-21. There are exactly two shapes. A
+ * total that matches neither is a signal, not a question: something started
+ * or stopped running, and the run should be read before it is trusted.
+ *
+ *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
+ *     514 passed | 2 skipped        (67 files passed | 1 skipped)
+ *     skipped:
+ *       - roadside bundle
+ *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
+ *       - certify_rods_day live RPC, execute arm
+ *           no EXECUTE grant for the harness role, no driver JWT mintable here
+ *
+ *   WITHOUT a database (PGHOST absent):
+ *     495 passed | 13 skipped       (64 files passed | 4 skipped)
+ *     skipped: the two above, plus
+ *       - share token throttling              (live catalog unreadable)
+ *       - purge_rods_day path coverage        (live column list unreadable)
+ *       - certify_rods_day live RPC, outer    (whole suite gated)
+ *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
+ *
+ * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
+ * without a matching named line, a gate has regressed to `runIf`/`skip`.
+ * See src/test/README.md.
+ * ---------------------------------------------------------------------------
  */
 import { describe, expect, it } from 'vitest';
 
@@ -78,4 +104,41 @@ export function gatedDescribe(name: string, options: GateOptions, body: SuiteBod
       /* not executed; present so the non-execution is counted and named */
     });
   });
+}
+
+/**
+ * Per-test counterpart to `gatedDescribe`, for files where gated and ungated
+ * tests are interleaved and hoisting the gated ones into their own block would
+ * mean reordering the file.
+ *
+ * Same contract: runs when enabled, registers a NAMED skipped test when not
+ * (so the non-execution is a counted line in the report), and FAILS under CI
+ * where the gate is required.
+ *
+ * Never use bare `it.runIf` / `it.skipIf` for environment gating — `runIf`
+ * drops the test from the report entirely, which is exactly the invisible
+ * shape this helper exists to prevent.
+ */
+export function gatedIt(options: GateOptions) {
+  const { enabled, reason, details = [] } = options;
+  const required = options.required ?? IS_CI;
+
+  return (name: string, body: () => void | Promise<void>): void => {
+    if (enabled) {
+      it(name, body);
+      return;
+    }
+    if (required) {
+      it(`GATE NOT SATISFIED — ${name}`, () => {
+        expect.fail(
+          `${name}: required in this environment but the gate was not satisfied — ${reason}. ` +
+            `${details.join(' ')}`.trim(),
+        );
+      });
+      return;
+    }
+    it.skip(`SKIPPED (${reason}) — ${name}`, () => {
+      /* not executed; present so the non-execution is counted and named */
+    });
+  };
 }

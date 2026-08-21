@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { gatedIt, skipBanner } from "@/test/helpers/gate";
 import { execFileSync } from "node:child_process";
 import { LEGACY_PUBLIC_ONLY_PINS } from "./helpers/legacyPublicOnlyPins";
 
@@ -24,23 +25,23 @@ import { LEGACY_PUBLIC_ONLY_PINS } from "./helpers/legacyPublicOnlyPins";
 const HAS_DB = Boolean(process.env.PGHOST);
 
 if (!HAS_DB) {
-  console.warn(
-    [
-      "",
-      "  ############################################################",
-      "  #  definer-live-catalog.test.ts DID NOT RUN                #",
-      "  #                                                          #",
-      "  #  No PGHOST in the environment, so the live pg_proc       #",
-      "  #  catalog could not be read. The SECURITY DEFINER pin and #",
-      "  #  anon-EXECUTE checks are the authoritative ones, and     #",
-      "  #  they are the only checks that can see grants made       #",
-      "  #  outside the migration files. A green run WITHOUT this   #",
-      "  #  file is not evidence the database is clean.             #",
-      "  ############################################################",
-      "",
-    ].join("\n"),
-  );
+  skipBanner("definer-live-catalog.test.ts LIVE CHECKS DID NOT RUN", [
+    "No PGHOST in the environment, so the live pg_proc catalog could not be",
+    "read. The SECURITY DEFINER pin and anon-EXECUTE checks are the",
+    "authoritative ones, and the only checks that can see grants made outside",
+    "the migration files. A green run WITHOUT them is not evidence the",
+    "database is clean. Each one is registered below as a named skip so its",
+    "non-execution is counted, and each fails under CI.",
+  ]);
 }
+
+const itLive = gatedIt({
+  enabled: HAS_DB,
+  reason: "no PGHOST, so the live pg_proc catalog could not be read",
+  details: [
+    "These are the only checks that see grants made outside the migration files.",
+  ],
+});
 
 function psql(sql: string): string[] {
   const out = execFileSync("psql", ["-At", "-c", sql], {
@@ -382,7 +383,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     ).toEqual([]);
   });
 
-  it.runIf(HAS_DB)(
+  itLive(
     "every live public-only pin is accounted for by the file-based guard",
     () => {
       // WHY THIS EXISTS. The check below it asserts only the absence of a pin.
@@ -454,7 +455,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     ).toEqual([]);
   });
 
-  it.runIf(HAS_DB)(
+  itLive(
     "every SECURITY DEFINER function in public pins search_path",
     () => {
       const unpinned = psql(`
@@ -484,7 +485,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     },
   );
 
-  it.runIf(HAS_DB)(
+  itLive(
     "no trigger function is executable by anon or authenticated",
     () => {
       const reachable = psql(`
@@ -515,7 +516,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     },
   );
 
-  it.runIf(HAS_DB)("anon holds only the two sanctioned table privileges", () => {
+  itLive("anon holds only the two sanctioned table privileges", () => {
     // Moved here from definer-search-path.test.ts, which tried to infer this
     // by scanning migration text for GRANT ... TO anon. That inference cannot
     // account for a later REVOKE and cannot see a grant made out of band --
@@ -547,7 +548,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     ).toEqual(["applications: INSERT", "faq: SELECT"]);
   });
 
-  it.runIf(HAS_DB)("the mail queue RPCs are service-role only", () => {
+  itLive("the mail queue RPCs are service-role only", () => {
     const MAIL_QUEUE = [
       "enqueue_email",
       "delete_email",
@@ -577,7 +578,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     ).toEqual([]);
   });
 
-  it.runIf(HAS_DB)(
+  itLive(
     "no NEW SECURITY DEFINER function is executable by anon",
     () => {
       const live = psql(`
@@ -629,7 +630,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     ).toEqual([]);
   });
 
-  it.runIf(HAS_DB)(
+  itLive(
     "no NEW SECURITY DEFINER function is executable by authenticated",
     () => {
       const live = psql(`
@@ -657,7 +658,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     },
   );
 
-  it.runIf(HAS_DB)(
+  itLive(
     "every SECURITY DEFINER trigger function is attached to a live trigger",
     () => {
       // Counterpart to the revoke check above. Revoking EXECUTE on 53 trigger
@@ -688,7 +689,7 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     },
   );
 
-  it.runIf(HAS_DB)(
+  itLive(
     "no RLS table without policies holds client-role grants",
     () => {
       // RLS-on + zero-policies denies every row to a client role, so a grant
