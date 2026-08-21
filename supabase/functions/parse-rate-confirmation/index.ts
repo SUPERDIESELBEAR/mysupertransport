@@ -125,6 +125,14 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
 }
 
 Rules:
+- broker address: capture AT MOST ONE address for the broker, from a single addressed block, and say which block it came from in "address_source". Preference order:
+  1. An explicit remit-to / payment address ("Remit To", "Send Invoices To", "Payment Address", "Billing Address") → address_source "remit_to", confidence "high".
+  2. A bill-to / invoice-to address ("Bill To", "Invoice To") → address_source "bill_to", confidence "high".
+  3. The broker's corporate or letterhead address, ONLY when neither of the above is printed → address_source "letterhead", confidence "medium".
+  4. Otherwise every broker address field is null and address_source is null.
+  - NEVER mix blocks: street, city, state and zip must all come from the one chosen block. A partial block is fine (street with no zip); do not complete it from another block.
+  - NEVER take the broker address from a shipper, consignee, facility or stop block, from a page footer, from fine-print legal terms, or from a factoring / lockbox / third-party payment notice.
+  - NEVER infer an address. A logo, a phone area code, a website, an email domain or a bare city name is NOT an address — return null. A blank address is the correct answer when no addressed broker block is printed.
 - Dates: normalize every date to a 4-digit year. If the year is not printed, use the year that keeps the stop dates in ascending order relative to any printed date; if that is still unclear, return null.
 - Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence.
 - reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
