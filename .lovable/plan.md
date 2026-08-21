@@ -47,3 +47,9 @@ No database uniqueness constraint is added.
 - Name normalization lowercases, collapses whitespace, and strips **only genuine legal entity suffixes** — Inc, LLC, L.L.C., Ltd, Corp, Co, LP, LLP and punctuated variants. Industry words (Logistics, Transport, Transportation, Freight, Trucking, Carriers, Express) are left in place, so "Smith Logistics" and "Smith Trucking" stay distinct. A missed duplicate warning is acceptable; a false one is not.
 - Audit rows use the existing `audit_log` shape (action `broker_duplicate_override`, target the new broker id, details carrying the reason and matched ids).
 - Unit tests in `src/lib/__tests__/brokerDuplicates.test.ts`: MC match wins over name, name match only when MC absent, unrelated names do not match, MC-confirmed sorts first. Full suite run at the end.
+
+## 4. Orphan cleanup
+
+Delete the later BlueGrace row (`811b3641-7701-49a3-8b0f-6f88d9a9e1f2`, created 12:28:02) and keep the earlier one (`7d07acfd-5485-489b-aacc-ce099b3c2373`, created 12:24:59). Both are unreferenced by loads, so no re-pointing is needed. Done via migration.
+
+The kept record is left exactly as-is — name only, no MC number, city, state, or contact — so you can populate it through the new BrokerDialog and confirm the duplicate detection recognizes it on the next Blue Grace parse. Its emptiness is verified after the delete and reported back.
