@@ -32,6 +32,8 @@ interface Props {
   onExtractedBroker?: (name: string | null) => void;
   /** Directory facilities that look like each parsed stop, keyed by stop index. */
   onFacilitySuggestions?: (byStopIndex: Record<number, Facility[]>) => void;
+  /** The raw extraction, lifted so the host can run its own checks on it. */
+  onParsed?: (result: ParsedRateConfirmation | null) => void;
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
@@ -61,7 +63,7 @@ async function invokeErrorMessage(error: unknown, fallback: string): Promise<str
 }
 
 export default function RateConfirmationParser({
-  onSourceFileChange, onExtractedBroker, onFacilitySuggestions,
+  onSourceFileChange, onExtractedBroker, onFacilitySuggestions, onParsed,
 }: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
@@ -118,6 +120,7 @@ export default function RateConfirmationParser({
     setCandidates([]);
     setBrokerResolved(false);
     setLoadout(null);
+    onParsed?.(null);
     onFacilitySuggestions?.({});
   };
 
@@ -164,6 +167,7 @@ export default function RateConfirmationParser({
         form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
 
       setParsed(result);
+      onParsed?.(result);
       onExtractedBroker?.(result.broker?.company_name?.value?.trim() || null);
       setVerify(applied.verify);
       setUnassigned(applied.unassigned);
