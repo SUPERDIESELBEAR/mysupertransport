@@ -22,8 +22,52 @@ const STREET_TYPES = new Set([
   'crk', 'xing', 'loop', 'run', 'path', 'rte', 'tpke', 'mtwy',
 ]);
 
+/**
+ * Genuine compound names that begin with Mac, De, La, or Van. These are split
+ * after the prefix so the following letter is capitalized. Any word not on
+ * this list is treated as an ordinary word and left flat — a missed cosmetic
+ * correction is safer than a wrongly split place name like "MacOn".
+ */
+const INNER_CAPITAL_PREFIXES = new Set([
+  'macarthur', 'macdonald', 'mackenzie', 'macmillan',
+  'desoto', 'dekalb', 'dewitt',
+  'lasalle', 'lagrange', 'laporte', 'lacrosse',
+  'vanburen', 'vanderbilt', 'vanhorn', 'vannuys',
+]);
+
 const titleCasePlain = (word: string) =>
   word.replace(/[A-Za-z][A-Za-z']*/g, m => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
+
+/**
+ * Rebuild a word so an inner capital is preserved after a prefix:
+ *   McCree, O'Brien, MacArthur, DeSoto, LaSalle, VanBuren.
+ * Returns null when the word does not match a known pattern.
+ */
+function applyInnerCapital(word: string): string | null {
+  // Mc / MC / mc followed by a letter: McCree, MCCREE -> McCree.
+  const mc = word.match(/^([Mm][Cc])([A-Za-z])([A-Za-z]*)([^A-Za-z]*)$/);
+  if (mc) {
+    return `Mc${mc[2].toUpperCase()}${mc[3].toLowerCase()}${mc[4]}`;
+  }
+  // O' followed by a letter: O'Brien, O'BRIEN -> O'Brien.
+  const o = word.match(/^([Oo]')([A-Za-z])([A-Za-z]*)([^A-Za-z]*)$/);
+  if (o) {
+    return `O'${o[2].toUpperCase()}${o[3].toLowerCase()}${o[4]}`;
+  }
+  // Mac/De/La/Van only when the full word is a known compound name.
+  const bare = word.replace(/[^A-Za-z]/g, '').toLowerCase();
+  if (INNER_CAPITAL_PREFIXES.has(bare)) {
+    const prefixLen = bare.startsWith('mac') ? 3 : 2;
+    const prefix = bare.slice(0, prefixLen);
+    const next = bare[prefixLen];
+    const rest = bare.slice(prefixLen + 1);
+    const leading = word.match(/^[^A-Za-z]*/)?.[0] ?? '';
+    const trailing = word.match(/[^A-Za-z]*$/)?.[0] ?? '';
+    const titlePrefix = prefix.charAt(0).toUpperCase() + prefix.slice(1).toLowerCase();
+    return `${leading}${titlePrefix}${next.toUpperCase()}${rest.toLowerCase()}${trailing}`;
+  }
+  return null;
+}
 
 function titleCaseWord(word: string, index: number): string {
   if (!word) return word;
@@ -34,8 +78,15 @@ function titleCaseWord(word: string, index: number): string {
   if (DIRECTIONALS.has(bareEarly) && bareEarly.length <= 3) {
     return word.replace(/[A-Za-z]+/, m => m.toUpperCase());
   }
-  // Street types always title case, even with trailing punctuation ("ST." -> "St.").
-  if (STREET_TYPES.has(bareEarly)) return titleCasePlain(word);
+  // Street types always title case, and the trailing period is dropped
+  // ("ST." -> "St") so addresses stay consistent regardless of source formatting.
+  if (STREET_TYPES.has(bareEarly)) {
+    return titleCasePlain(word.replace(/\.$/, ''));
+  }
+
+  // Preserve genuine inner capitals in names (McCree, O'Brien, MacArthur, DeSoto).
+  const inner = applyInnerCapital(word);
+  if (inner !== null) return inner;
 
   // Preserve short acronyms the user typed in caps ("US", "JFK", "LLC").
   if (word.length <= 3 && word === word.toUpperCase() && /[A-Z]/.test(word)) return word;
