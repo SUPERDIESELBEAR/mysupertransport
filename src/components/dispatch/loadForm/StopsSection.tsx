@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Info, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Info, Pencil, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,8 +67,13 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
   const { fields, append, remove, move } = useFieldArray({ control: form.control, name: 'stops' });
   const stops = form.watch('stops');
 
+  const { isManagement, isDispatcher, isOnboardingStaff } = useAuth();
+  /** Mirrors the facilities table write policies — UI affordance only, RLS still enforces. */
+  const canEditDirectory = isManagement || isDispatcher || isOnboardingStaff;
+
   const [dismissed, setDismissed] = useState<Record<number, boolean>>({});
   const [addForIndex, setAddForIndex] = useState<number | null>(null);
+  const [editForIndex, setEditForIndex] = useState<number | null>(null);
   const [removeIndex, setRemoveIndex] = useState<number | null>(null);
   const [keepCharge, setKeepCharge] = useState(true);
 
@@ -224,17 +230,32 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
                 render={({ field: f }) => (
                   <FormItem className="lg:col-span-2">
                     <FormLabel>Facility</FormLabel>
-                    <FacilitySelect
-                      facilityId={stop.facility_id ?? ''}
-                      facilityName={f.value ?? ''}
-                      newFacilityDraft={draftFromStop(stop)}
-                      onNameChange={value => {
-                        f.onChange(value);
-                        form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
-                      }}
-                      onSelectFacility={facility => applyFacility(index, facility)}
-                      onClearFacility={() => form.setValue(`stops.${index}.facility_id`, '', { shouldDirty: true })}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <FacilitySelect
+                          facilityId={stop.facility_id ?? ''}
+                          facilityName={f.value ?? ''}
+                          newFacilityDraft={draftFromStop(stop)}
+                          onNameChange={value => {
+                            f.onChange(value);
+                            form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
+                          }}
+                          onSelectFacility={facility => applyFacility(index, facility)}
+                          onClearFacility={() => form.setValue(`stops.${index}.facility_id`, '', { shouldDirty: true })}
+                        />
+                      </div>
+                      {linked && canEditDirectory && (
+                        <Button
+                          type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0"
+                          onClick={() => setEditForIndex(index)}
+                          aria-label={`Edit saved facility ${linked.facility_name}`}
+                          title="Edit saved facility"
+                          data-testid={`stop-${index}-edit-facility`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -503,6 +524,22 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
           await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
           if (target !== null) applyFacility(target, facility);
           setAddForIndex(null);
+        }}
+      />
+
+      {/* Correcting the linked facility itself, without leaving the load form. */}
+      <FacilityDialog
+        open={editForIndex !== null}
+        onOpenChange={open => { if (!open) setEditForIndex(null); }}
+        facility={editForIndex !== null
+          ? facilityFor((stops?.[editForIndex] as Partial<StopFormValues> | undefined)?.facility_id)
+          : null}
+        onSaved={async facility => {
+          const target = editForIndex;
+          await qc.invalidateQueries({ queryKey: FACILITIES_QUERY_KEY });
+          // Re-apply so the stop picks up the corrected values and stays linked.
+          if (target !== null) applyFacility(target, facility);
+          setEditForIndex(null);
         }}
       />
 
