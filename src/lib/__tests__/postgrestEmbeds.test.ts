@@ -119,6 +119,8 @@ function parseColumnRefs(select: string, root: string, tables: Set<string>, byCo
     if (!raw) return;
     const name = raw.includes(':') ? raw.split(':').pop()!.trim() : raw;
     if (!/^[a-z0-9_]+$/.test(name)) return; // *, ->, ::, count(), etc.
+    // `table(count)` is the PostgREST row-count aggregate on an embed, not a column.
+    if (name === 'count' && stack.length > 1) return;
     refs.push({ table: stack[stack.length - 1], column: name });
   };
   for (const ch of select) {

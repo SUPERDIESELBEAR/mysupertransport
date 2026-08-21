@@ -102,3 +102,33 @@ describe('findDuplicateBrokers', () => {
     expect(result[0].matchReason).toBe('name');
   });
 });
+
+describe('findDuplicateBrokers excludeId', () => {
+  const base = (over: Partial<BrokerDuplicate>): BrokerDuplicate => ({
+    id: 'x', company_name: 'Broker', mc_number: null, city: null, state: null,
+    primary_contact_name: null, ...over,
+  });
+
+  it('never flags the record being edited as a duplicate of itself', () => {
+    const existing = [base({ id: 'self', mc_number: '123456', company_name: 'BlueGrace Logistics' })];
+    const result = findDuplicateBrokers(
+      { company_name: 'BlueGrace Logistics', mc_number: '123456' },
+      existing,
+      'self',
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it('still flags a different record when an edit renames into an exact match', () => {
+    const existing = [
+      base({ id: 'self', company_name: 'Blue Grace Freight' }),
+      base({ id: 'other', company_name: 'BlueGrace Logistics' }),
+    ];
+    const result = findDuplicateBrokers(
+      { company_name: 'BlueGrace Logistics', mc_number: null },
+      existing,
+      'self',
+    );
+    expect(result.map(r => r.id)).toEqual(['other']);
+  });
+});
