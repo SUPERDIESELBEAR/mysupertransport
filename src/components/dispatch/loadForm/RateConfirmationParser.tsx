@@ -365,8 +365,7 @@ export default function RateConfirmationParser({
             <p className="text-xs text-muted-foreground">No broker in the directory matches this document.</p>
           )}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" size="sm" variant="outline" onClick={() => void createBroker()} disabled={creatingBroker}>
-              {creatingBroker && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            <Button type="button" size="sm" variant="outline" onClick={() => openCreateBrokerDialog()}>
               Create new broker from document
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setBrokerResolved(true)}>
