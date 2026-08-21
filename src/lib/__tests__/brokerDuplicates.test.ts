@@ -67,6 +67,16 @@ describe('findDuplicateBrokers', () => {
     expect(result[0].matchReason).toBe('name');
   });
 
+  it('matches by name when the new record has no MC but the existing record does', () => {
+    const existing = [base({ id: 'a', mc_number: '123456', company_name: 'BlueGrace Logistics' })];
+    const result = findDuplicateBrokers({ company_name: 'BlueGrace Logistics', mc_number: null }, existing);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('a');
+    expect(result[0].matchReason).toBe('name');
+  });
+
+
+
   it('does not match unrelated names', () => {
     const existing = [base({ id: 'a', company_name: 'BlueGrace Logistics' })];
     const result = findDuplicateBrokers({ company_name: 'Cahaba Transportation', mc_number: null }, existing);
