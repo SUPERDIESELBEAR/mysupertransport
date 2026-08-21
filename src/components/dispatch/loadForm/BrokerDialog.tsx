@@ -18,7 +18,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import StateSelect from '@/components/shared/StateSelect';
 import {
-  normalizeImportedName, normalizePhone, formatPhone, normalizeWhitespace, normalizeZip, toTitleCase,
+  normalizeImportedName, normalizePhone, formatPhone, normalizeMultiline, normalizeWhitespace,
+  normalizeZip, toTitleCase,
 } from '@/lib/textNormalize';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { findDuplicateBrokers, type BrokerDuplicate } from '@/lib/brokerDuplicates';
@@ -181,7 +182,7 @@ export default function BrokerDialog({
     state: form.state || null,
     zip: normalizeZip(form.zip) || null,
     payment_terms: normalizeWhitespace(form.payment_terms) || null,
-    notes: normalizeWhitespace(form.notes) || null,
+    notes: normalizeMultiline(form.notes) || null,
     is_active: form.is_active,
   });
 
