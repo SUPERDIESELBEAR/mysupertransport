@@ -15,6 +15,32 @@
  *                                  silently; if the gate could not be
  *                                  satisfied where it must be, that is a red
  *                                  run, not an absent one.
+ *
+ * ---------------------------------------------------------------------------
+ * EXPECTED BASELINES — measured 2026-08-21. There are exactly two shapes. A
+ * total that matches neither is a signal, not a question: something started
+ * or stopped running, and the run should be read before it is trusted.
+ *
+ *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
+ *     514 passed | 2 skipped        (67 files passed | 1 skipped)
+ *     skipped:
+ *       - roadside bundle
+ *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
+ *       - certify_rods_day live RPC, execute arm
+ *           no EXECUTE grant for the harness role, no driver JWT mintable here
+ *
+ *   WITHOUT a database (PGHOST absent):
+ *     495 passed | 13 skipped       (64 files passed | 4 skipped)
+ *     skipped: the two above, plus
+ *       - share token throttling              (live catalog unreadable)
+ *       - purge_rods_day path coverage        (live column list unreadable)
+ *       - certify_rods_day live RPC, outer    (whole suite gated)
+ *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
+ *
+ * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
+ * without a matching named line, a gate has regressed to `runIf`/`skip`.
+ * See src/test/README.md.
+ * ---------------------------------------------------------------------------
  */
 import { describe, expect, it } from 'vitest';
 
