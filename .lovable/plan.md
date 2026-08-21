@@ -15,7 +15,7 @@ Reasoning:
 - The one operational use for a broker address in this app is invoicing, which is also why `billing_email` exists as its own field. The billing address is therefore the more valuable of the two, so if only one is stored it should be that one.
 - Adding `billing_address_line1..billing_zip` now means four to five new columns, new dialog fields, and a "which one is this?" decision on every broker record, to serve a distinction we have not yet seen in the documents. That is a reasonable later migration if a document turns up with genuinely different corporate and remit-to addresses; nothing in this plan blocks it.
 
-One safeguard instead of new columns: the parser reports which heading the address came from, and the dialog shows that label next to the prefilled address ("From the document's Bill To block"), so a dispatcher saving the record knows what kind of address they are accepting.
+One safeguard instead of new columns: the parser reports which heading the address came from, the dialog shows that label next to the prefilled address ("From the document's Bill To block"), and the provenance is persisted into the broker's `notes` so it survives the save.
 
 ## Preference order when a document shows more than one
 
