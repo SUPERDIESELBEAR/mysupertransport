@@ -91,6 +91,10 @@ export interface BrokerCandidate {
   id: string;
   company_name: string;
   mc_number: string | null;
+  dot_number: string | null;
+  city: string | null;
+  state: string | null;
+  primary_contact_name: string | null;
   /** 'mc' beats any name score — an MC number is unique. */
   matchedOn: 'mc' | 'name';
   score: number;
