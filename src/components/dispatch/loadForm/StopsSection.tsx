@@ -461,17 +461,17 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
                 )}
               />
               {isMiddle && (
-                <FormField
-                  control={form.control}
-                  name={`stops.${index}.stopoff_charge_amount`}
-                  render={({ field: f }) => (
-                    <FormItem>
-                      <FormLabel>Stop-off charge ($)</FormLabel>
-                      <FormControl><Input inputMode="decimal" disabled={financialLocked} {...f} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name={`stops.${index}.stopoff_charge_amount`}
+                render={({ field: f }) => (
+                  <FormItem>
+                    <FormLabel>Stop-off charge</FormLabel>
+                    <FormControl><CurrencyInput disabled={financialLocked} {...f} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               )}
               <FormField
                 control={form.control}
