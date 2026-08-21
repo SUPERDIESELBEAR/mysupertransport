@@ -927,11 +927,11 @@ export default function CreateLoadPage({
                         control={form.control}
                         name="rate_per_ton"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Rate Per Ton *</FormLabel>
-                            <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
+                    <FormItem>
+                      <FormLabel>Rate Per Ton *</FormLabel>
+                      <FormControl><CurrencyInput {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                         )}
                       />
                       <FormField
