@@ -224,17 +224,32 @@ export default function StopsSection({ facilitySuggestions, financialLocked }: P
                 render={({ field: f }) => (
                   <FormItem className="lg:col-span-2">
                     <FormLabel>Facility</FormLabel>
-                    <FacilitySelect
-                      facilityId={stop.facility_id ?? ''}
-                      facilityName={f.value ?? ''}
-                      newFacilityDraft={draftFromStop(stop)}
-                      onNameChange={value => {
-                        f.onChange(value);
-                        form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
-                      }}
-                      onSelectFacility={facility => applyFacility(index, facility)}
-                      onClearFacility={() => form.setValue(`stops.${index}.facility_id`, '', { shouldDirty: true })}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <FacilitySelect
+                          facilityId={stop.facility_id ?? ''}
+                          facilityName={f.value ?? ''}
+                          newFacilityDraft={draftFromStop(stop)}
+                          onNameChange={value => {
+                            f.onChange(value);
+                            form.setValue(`stops.${index}.facility_name`, value, { shouldDirty: true });
+                          }}
+                          onSelectFacility={facility => applyFacility(index, facility)}
+                          onClearFacility={() => form.setValue(`stops.${index}.facility_id`, '', { shouldDirty: true })}
+                        />
+                      </div>
+                      {linked && canEditDirectory && (
+                        <Button
+                          type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0"
+                          onClick={() => setEditForIndex(index)}
+                          aria-label={`Edit saved facility ${linked.facility_name}`}
+                          title="Edit saved facility"
+                          data-testid={`stop-${index}-edit-facility`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
