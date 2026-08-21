@@ -18,26 +18,11 @@
  *
  * WHEN THIS FILE SKIPS, IT SAYS SO LOUDLY.
  */
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { gatedDescribe } from '@/test/helpers/gate';
 
 const HAS_DB = Boolean(process.env.PGHOST);
-
-if (!HAS_DB) {
-  console.warn(
-    [
-      '',
-      '  ############################################################',
-      '  #  rods-live-certification.test.ts DID NOT RUN             #',
-      '  #                                                          #',
-      '  #  No PGHOST in the environment. The live certification      #',
-      '  #  RPC could not be exercised. A green run without this      #',
-      '  #  file is not evidence that certify_rods_day works.       #',
-      '  ############################################################',
-      '',
-    ].join('\n'),
-  );
-}
 
 function psql(sql: string): string {
   return execFileSync('psql', ['-qAt', '-c', sql], {
@@ -51,7 +36,16 @@ function psqlJson(sql: string): unknown {
   return out ? JSON.parse(out) : null;
 }
 
-const describeLive = HAS_DB ? describe : describe.skip;
+const describeLive = (name: string, body: () => void) =>
+  gatedDescribe(name, {
+    enabled: HAS_DB,
+    reason: 'no PGHOST, so the live certification RPC could not be exercised',
+    details: [
+      'A green run WITHOUT this file is not evidence that',
+      'certify_rods_day works.',
+    ],
+  }, body);
+
 
 /**
  * Can this harness actually CALL the function? In the Lovable sandbox, psql
