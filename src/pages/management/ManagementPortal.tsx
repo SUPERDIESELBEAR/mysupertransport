@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
+import BrokersListPage from '@/pages/dispatch/BrokersListPage';
 import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import DemoAccountsPanel from '@/components/management/DemoAccountsPanel';
@@ -34,7 +35,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, SlidersHorizontal, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   Building2, MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy, Handshake,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -97,7 +98,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -125,7 +126,7 @@ const STATUS_COLORS: Record<string, string> = {
 // `load-edit` is deliberately addressable: a dispatcher part-way through
 // editing a load who refreshes should land back on the same load's edit form
 // rather than the overview. The other load views keep the plain ?view= pattern.
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -964,6 +965,7 @@ export default function ManagementPortal() {
     { label: 'Dispatch Board',    icon: <Container className="h-4 w-4" />,      path: 'dispatch',          badge: truckDownCount || undefined },
     { label: 'Loads',             icon: <Truck className="h-4 w-4" />,          path: 'loads' },
     { label: 'Facilities',        icon: <Building2 className="h-4 w-4" />,      path: 'facilities' },
+    { label: 'Brokers',           icon: <Handshake className="h-4 w-4" />,      path: 'brokers' },
     { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Vehicle Hub',       icon: <Truck className="h-4 w-4" />,           path: 'vehicle-hub' },
     { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,      path: 'inspection-binder' },
@@ -1923,6 +1925,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'facilities' && <FacilitiesListPage />}
+        {view === 'brokers' && <BrokersListPage />}
 
         {view === 'loads' && (
           <LoadsListPage

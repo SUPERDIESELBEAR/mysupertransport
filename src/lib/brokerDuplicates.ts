@@ -52,17 +52,24 @@ function nameMatches(a: string, b: string): boolean {
 /**
  * Find existing brokers that look like the new candidate. Returns an empty
  * array when no plausible duplicate exists. Never auto-selects.
+ *
+ * `excludeId` skips a record entirely — used when editing a broker, since a
+ * broker is never a duplicate of itself.
  */
 export function findDuplicateBrokers(
   candidate: BrokerMatchInput,
   existing: BrokerDuplicate[],
+  excludeId?: string | null,
 ): BrokerDuplicate[] {
+
   const candidateMC = normalizeMC(candidate.mc_number);
 
   const matches = new Map<string, BrokerDuplicate>();
 
   for (const row of existing) {
+    if (excludeId && row.id === excludeId) continue;
     const rowMC = normalizeMC(row.mc_number);
+
 
     if (candidateMC && rowMC && candidateMC === rowMC) {
       matches.set(row.id, { ...row, matchReason: 'mc' });
