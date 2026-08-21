@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { normalizeImportedName, normalizePhone, formatPhone } from '@/lib/textNormalize';
+import { findDuplicateBrokers, type BrokerDuplicate } from '@/lib/brokerDuplicates';
+import BrokerCandidateRow from './BrokerCandidateRow';
 
 export interface BrokerDialogValues {
   company_name: string;
