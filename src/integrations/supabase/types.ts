@@ -9066,6 +9066,14 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      record_duplicate_broker_reference: {
+        Args: {
+          p_existing_load_id: string
+          p_new_load_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
       record_retention_export: {
         Args: {
           _artifact_count: number

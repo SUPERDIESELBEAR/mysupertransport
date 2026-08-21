@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, FileUp, Pencil } from 'lucide-react';
@@ -19,6 +19,7 @@ import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
 import ChangeHistoryCard from '@/components/dispatch/loadDetail/ChangeHistoryCard';
 import RevisedRateConModal from '@/components/dispatch/loadDetail/RevisedRateConModal';
+import { takeRateConForLoad } from '@/lib/rateConHandoff';
 import { fetchLoadClaims, fetchLoadDetail } from '@/lib/loadDetail';
 import { CLAIM_TYPE_LABELS } from '@/components/dispatch/loadDetail/claimConstants';
 import { type LoadStatus } from '@/lib/loadFormat';
@@ -42,6 +43,16 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
   // Re-parsing a revised rate confirmation reprices the load: staff only, never operators.
   const canRevise = isDispatcher || isManagement;
   const [reviseOpen, setReviseOpen] = useState(false);
+  const [handedOverRateCon, setHandedOverRateCon] = useState<File | null>(null);
+
+  // A dispatcher who chose "update existing load instead" on the duplicate warning
+  // arrives with the file already in hand, so open the revision flow on it.
+  useEffect(() => {
+    const handoff = takeRateConForLoad(id);
+    if (!handoff) return;
+    setHandedOverRateCon(handoff.file);
+    setReviseOpen(true);
+  }, [id]);
   const canManageClaims = isDispatcher || isManagement;
 
   const goBack = () => (onBack ? onBack() : navigate('/dispatch/loads'));
@@ -178,7 +189,15 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       <NotesSection load={load} canSeeInternal={isStaff} />
       {isStaff ? <ChangeHistoryCard loadId={load.id} /> : null}
       {canRevise ? (
-        <RevisedRateConModal load={load} open={reviseOpen} onOpenChange={setReviseOpen} />
+        <RevisedRateConModal
+          load={load}
+          open={reviseOpen}
+          initialFile={handedOverRateCon}
+          onOpenChange={next => {
+            setReviseOpen(next);
+            if (!next) setHandedOverRateCon(null);
+          }}
+        />
       ) : null}
     </div>
   );

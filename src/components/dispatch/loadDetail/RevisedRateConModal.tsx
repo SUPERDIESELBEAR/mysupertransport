@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle, ArrowRight, FileUp, Loader2, Lock, Sparkles, TriangleAlert, Upload,
@@ -42,6 +42,11 @@ interface Props {
   load: LoadDetail;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * A rate confirmation carried over from the duplicate-load warning, so the
+   * dispatcher is not asked to upload the same file a second time.
+   */
+  initialFile?: File | null;
 }
 
 type Phase = 'upload' | 'identity' | 'review';
@@ -53,7 +58,9 @@ type Phase = 'upload' | 'identity' | 'review';
  * `update_load_with_stops` save path as the edit form. It never creates a load,
  * touches the load number or driver, or removes the original document.
  */
-export default function RevisedRateConModal({ load, open, onOpenChange }: Props) {
+export default function RevisedRateConModal({
+  load, open, onOpenChange, initialFile = null,
+}: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { isOwner } = useAuth();
@@ -98,6 +105,16 @@ export default function RevisedRateConModal({ load, open, onOpenChange }: Props)
     onOpenChange(next);
   };
 
+  // A handed-over file goes straight to parsing: the upload step is already done.
+  const handedOver = useRef<File | null>(null);
+  useEffect(() => {
+    if (!open || !initialFile || handedOver.current === initialFile) return;
+    handedOver.current = initialFile;
+    setFile(initialFile);
+    void parse(initialFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFile]);
+
   const pickFile = (f: File | null) => {
     if (!f) return;
     const problem = validateRateConFile(f);
@@ -108,16 +125,17 @@ export default function RevisedRateConModal({ load, open, onOpenChange }: Props)
     setFile(f);
   };
 
-  const parse = async () => {
-    if (!file) return;
+  const parse = async (override?: File) => {
+    const target = override ?? file;
+    if (!target) return;
     setBusy(true);
     try {
       const [{ data, error }, editData] = await Promise.all([
         supabase.functions.invoke('parse-rate-confirmation', {
           body: {
-            file_base64: await fileToBase64(file),
-            mime_type: file.type,
-            file_name: file.name,
+            file_base64: await fileToBase64(target),
+            mime_type: target.type,
+            file_name: target.name,
           },
         }),
         fetchLoadForEdit(load.id),
@@ -280,7 +298,7 @@ export default function RevisedRateConModal({ load, open, onOpenChange }: Props)
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => close(false)}>Cancel</Button>
-              <Button onClick={parse} disabled={!file || busy} className="gap-1.5">
+              <Button onClick={() => void parse()} disabled={!file || busy} className="gap-1.5">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Compare with this load
               </Button>

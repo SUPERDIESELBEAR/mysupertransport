@@ -42,6 +42,12 @@ import {
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, Lock } from 'lucide-react';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import DuplicateBrokerRefDialog from '@/components/dispatch/loadForm/DuplicateBrokerRefDialog';
+import {
+  checkForDuplicateBrokerReference, recordDuplicateOverride, type DuplicateMatch,
+} from '@/lib/duplicateBrokerRef';
+import { stashRateConForLoad } from '@/lib/rateConHandoff';
+import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
 import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
 
 
@@ -81,6 +87,15 @@ export default function CreateLoadPage({
   const [numberLoading, setNumberLoading] = useState(false);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [extractedBroker, setExtractedBroker] = useState<string | null>(null);
+  const [parsedRateCon, setParsedRateCon] = useState<ParsedRateConfirmation | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  /** True when the warning interrupted a save rather than firing at parse time. */
+  const [duplicateAtSave, setDuplicateAtSave] = useState(false);
+  // Set once the dispatcher has chosen to create anyway: {existingLoadId, reason}.
+  const duplicateOverride = useRef<{ existingLoadId: string; reason: string } | null>(null);
+  // References already cleared this session, so the backstop does not re-ask.
+  const duplicateCleared = useRef<Set<string>>(new Set());
   const [facilitySuggestions, setFacilitySuggestions] = useState<Record<number, Facility[]>>({});
   const [financialUnlocked, setFinancialUnlocked] = useState(false);
   const [reasonOpen, setReasonOpen] = useState(false);
@@ -224,6 +239,30 @@ export default function CreateLoadPage({
 
       const newId = savedId;
 
+      // A duplicate created knowingly is recorded on BOTH loads, so either one
+      // explains the relationship later. A failure here must not lose the load.
+      const override = duplicateOverride.current;
+      if (!isEdit && override) {
+        try {
+          await recordDuplicateOverride({
+            newLoadId: newId,
+            existingLoadId: override.existingLoadId,
+            reason: override.reason,
+          });
+          await queryClient.invalidateQueries({
+            queryKey: ['load-change-history', override.existingLoadId],
+          });
+        } catch (overrideError) {
+          logDbError('record_duplicate_broker_reference', overrideError, { loadId: newId });
+          toast({
+            variant: 'destructive',
+            title: 'Duplicate note not recorded',
+            description: 'The load was created, but the duplicate reason was not written to the change history.',
+          });
+        }
+        duplicateOverride.current = null;
+      }
+
       // The parsed rate confirmation becomes the load's source document.
       if (sourceFile) {
         try {
@@ -275,9 +314,57 @@ export default function CreateLoadPage({
     }
   };
 
+  /**
+   * Looks for an existing, non-cancelled load with the same broker and the same
+   * broker reference. Warn-only: it never blocks, it just surfaces the match.
+   */
+  const runDuplicateCheck = async (
+    reference: string, brokerId: string,
+  ): Promise<DuplicateMatch[]> => {
+    const key = `${brokerId}|${reference.trim().toUpperCase()}`;
+    if (duplicateCleared.current.has(key)) return [];
+    try {
+      const matches = await checkForDuplicateBrokerReference({
+        reference,
+        brokerId,
+        extractedBrokerName: extractedBroker,
+      });
+      if (matches.length === 0) return [];
+      setDuplicates(matches);
+      setDuplicateOpen(true);
+      return matches;
+    } catch (e) {
+      // A failed check never stands between a dispatcher and a load.
+      logDbError('duplicate broker reference check', e, { reference });
+      return [];
+    }
+  };
+
+  /** Fires as soon as a reference is extracted, before any other effort is spent. */
+  const onParsedRateCon = async (result: ParsedRateConfirmation | null) => {
+    setParsedRateCon(result);
+    if (!result) return;
+    const reference = (form.getValues('broker_reference_number') ?? '').trim();
+    if (!reference) return;
+    setDuplicateAtSave(false);
+    await runDuplicateCheck(reference, form.getValues('broker_id') ?? '');
+  };
+
   /** Financial edits need a written reason before the save is allowed to run. */
   const onSubmit = async (v: LoadFormValues): Promise<boolean> => {
-    if (!isEdit) return performSave(v);
+    if (!isEdit) {
+      // Backstop: the reference may have been typed or edited after the parse.
+      const reference = (v.broker_reference_number ?? '').trim();
+      if (reference && !duplicateOverride.current) {
+        const matches = await runDuplicateCheck(reference, v.broker_id ?? '');
+        if (matches.length > 0) {
+          pendingValues.current = v;
+          setDuplicateAtSave(true);
+          return false;
+        }
+      }
+      return performSave(v);
+    }
     const before = initialValues.current;
     const changed = before ? financialChanges(before, v) : [];
     if (changed.length > 0 && !reason.trim()) {
@@ -310,6 +397,39 @@ export default function CreateLoadPage({
       setSourceFile(null);
     },
   });
+
+  const dismissDuplicates = () => {
+    setDuplicateOpen(false);
+    const v = pendingValues.current;
+    const reference = (v?.broker_reference_number ?? form.getValues('broker_reference_number') ?? '').trim();
+    const brokerId = v?.broker_id ?? form.getValues('broker_id') ?? '';
+    if (reference) duplicateCleared.current.add(`${brokerId}|${reference.toUpperCase()}`);
+    pendingValues.current = null;
+  };
+
+  const goToExistingLoad = (existingLoadId: string) => {
+    setDuplicateOpen(false);
+    unsaved.guard(() => (onCreated
+      ? onCreated(existingLoadId)
+      : navigate(`/dispatch/loads/${existingLoadId}`)));
+  };
+
+  /** Carries the uploaded file over so the revision flow does not ask for it twice. */
+  const reviseExistingLoad = (existingLoadId: string) => {
+    if (sourceFile) stashRateConForLoad(existingLoadId, sourceFile, parsedRateCon);
+    goToExistingLoad(existingLoadId);
+  };
+
+  const createDespiteDuplicate = (existingLoadId: string, reason: string) => {
+    duplicateOverride.current = { existingLoadId, reason };
+    setDuplicateOpen(false);
+    const v = pendingValues.current;
+    pendingValues.current = null;
+    // Parse-time warnings have nothing pending: the dispatcher keeps filling the
+    // form and the recorded override rides along with the eventual save.
+    if (v) void performSave(v);
+    else toast({ description: 'Noted — the duplicate reason will be saved with this load.' });
+  };
 
   const confirmReasonAndSave = () => {
     const v = pendingValues.current;
@@ -351,6 +471,20 @@ export default function CreateLoadPage({
           ? 'Save your changes before leaving, or discard them and continue.'
           : 'This load has not been created yet. Save it now, or discard it and continue — nothing is stored until it is saved.'}
       />
+
+      {!isEdit && (
+        <DuplicateBrokerRefDialog
+          open={duplicateOpen}
+          matches={duplicates}
+          reference={(values.broker_reference_number ?? '').trim()}
+          canRevise={!!sourceFile}
+          onOpenChange={o => { if (!o) dismissDuplicates(); }}
+          onViewExisting={goToExistingLoad}
+          onUpdateExisting={reviseExistingLoad}
+          onCreateAnyway={createDespiteDuplicate}
+          createLabel={duplicateAtSave ? 'Create anyway' : 'Create anyway when I save'}
+        />
+      )}
 
       <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={goBack}>
         <ArrowLeft className="h-4 w-4" />
@@ -416,6 +550,7 @@ export default function CreateLoadPage({
           >
             {!isEdit && (
               <RateConfirmationParser
+                onParsed={result => void onParsedRateCon(result)}
                 onSourceFileChange={setSourceFile}
                 onExtractedBroker={setExtractedBroker}
                 onFacilitySuggestions={setFacilitySuggestions}
