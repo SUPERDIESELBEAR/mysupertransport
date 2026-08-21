@@ -1157,7 +1157,7 @@ export default function CreateLoadPage({
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Permit Cost</FormLabel>
-                            <FormControl><Input inputMode="decimal" {...field} /></FormControl>
+                            <FormControl><CurrencyInput {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
