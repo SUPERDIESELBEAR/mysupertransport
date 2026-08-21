@@ -373,17 +373,20 @@ export default function BrokerDialog({
             </div>
 
             {isEdit && (
+              <div className="space-y-1.5">
+                <Label htmlFor="broker-dialog-billing">Billing email</Label>
+                <Input
+                  id="broker-dialog-billing"
+                  type="email"
+                  value={form.billing_email}
+                  onChange={e => set('billing_email', e.target.value)}
+                  maxLength={200}
+                />
+              </div>
+            )}
+
+            {showAddress && (
               <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="broker-dialog-billing">Billing email</Label>
-                  <Input
-                    id="broker-dialog-billing"
-                    type="email"
-                    value={form.billing_email}
-                    onChange={e => set('billing_email', e.target.value)}
-                    maxLength={200}
-                  />
-                </div>
                 {!isEdit && addressSourceLabel && (
                   <p className="sm:col-span-2 text-xs text-muted-foreground">
                     Address read from the document&rsquo;s {addressSourceLabel}. A note recording
@@ -428,25 +431,36 @@ export default function BrokerDialog({
                     onChange={e => set('zip', normalizeZip(e.target.value))}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="broker-dialog-terms">Payment terms</Label>
-                  <Input
-                    id="broker-dialog-terms"
-                    placeholder="Net 30"
-                    value={form.payment_terms}
-                    onChange={e => set('payment_terms', e.target.value)}
-                    maxLength={80}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="broker-dialog-notes">Notes</Label>
-                  <Textarea
-                    id="broker-dialog-notes"
-                    rows={2}
-                    value={form.notes}
-                    onChange={e => set('notes', e.target.value)}
-                  />
-                </div>
+              </>
+            )}
+
+            {isEdit && (
+              <div className="space-y-1.5">
+                <Label htmlFor="broker-dialog-terms">Payment terms</Label>
+                <Input
+                  id="broker-dialog-terms"
+                  placeholder="Net 30"
+                  value={form.payment_terms}
+                  onChange={e => set('payment_terms', e.target.value)}
+                  maxLength={80}
+                />
+              </div>
+            )}
+
+            {showAddress && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="broker-dialog-notes">Notes</Label>
+                <Textarea
+                  id="broker-dialog-notes"
+                  rows={2}
+                  value={form.notes}
+                  onChange={e => set('notes', e.target.value)}
+                />
+              </div>
+            )}
+
+            {isEdit && (
+              <>
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <Switch
                     id="broker-dialog-active"
@@ -457,6 +471,7 @@ export default function BrokerDialog({
                     Active — available when building a load
                   </Label>
                 </div>
+
 
                 <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 p-3 space-y-2">
                   <p className="text-sm font-semibold text-foreground">Change factoring status</p>
