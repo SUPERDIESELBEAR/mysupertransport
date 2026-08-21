@@ -28,6 +28,8 @@ interface Props {
   /** Initial values, e.g. parsed from a rate confirmation. Name is normalized on open. */
   initial?: Partial<BrokerDialogValues>;
   onCreated?: (id: string) => void;
+  /** Called when the user chooses an existing broker instead of creating a new one. */
+  onUseExisting?: (id: string) => void;
 }
 
 const empty: BrokerDialogValues = {
