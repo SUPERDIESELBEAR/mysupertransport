@@ -19,7 +19,8 @@ export interface BrokerDuplicate {
   city: string | null;
   state: string | null;
   primary_contact_name: string | null;
-  matchReason: 'mc' | 'name';
+  /** Set by findDuplicateBrokers when the row is returned as a match. */
+  matchReason?: 'mc' | 'name';
 }
 
 /** Digits only, so "MC 123456", "123456", and "mc-123456" collapse. */
