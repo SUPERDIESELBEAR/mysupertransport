@@ -79,3 +79,40 @@ export function gatedDescribe(name: string, options: GateOptions, body: SuiteBod
     });
   });
 }
+
+/**
+ * Per-test counterpart to `gatedDescribe`, for files where gated and ungated
+ * tests are interleaved and hoisting the gated ones into their own block would
+ * mean reordering the file.
+ *
+ * Same contract: runs when enabled, registers a NAMED skipped test when not
+ * (so the non-execution is a counted line in the report), and FAILS under CI
+ * where the gate is required.
+ *
+ * Never use bare `it.runIf` / `it.skipIf` for environment gating — `runIf`
+ * drops the test from the report entirely, which is exactly the invisible
+ * shape this helper exists to prevent.
+ */
+export function gatedIt(options: GateOptions) {
+  const { enabled, reason, details = [] } = options;
+  const required = options.required ?? IS_CI;
+
+  return (name: string, body: () => void | Promise<void>): void => {
+    if (enabled) {
+      it(name, body);
+      return;
+    }
+    if (required) {
+      it(`GATE NOT SATISFIED — ${name}`, () => {
+        expect.fail(
+          `${name}: required in this environment but the gate was not satisfied — ${reason}. ` +
+            `${details.join(' ')}`.trim(),
+        );
+      });
+      return;
+    }
+    it.skip(`SKIPPED (${reason}) — ${name}`, () => {
+      /* not executed; present so the non-execution is counted and named */
+    });
+  };
+}
