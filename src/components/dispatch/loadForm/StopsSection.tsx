@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Info, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Info, Pencil, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
