@@ -73,13 +73,10 @@ describe('findDuplicateBrokers', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('sorts MC matches first', () => {
-    const existing = [
-      base({ id: 'name', mc_number: null, company_name: 'Acme Logistics' }),
-      base({ id: 'mc', mc_number: '123456', company_name: 'Acme Freight' }),
-    ];
-    const result = findDuplicateBrokers({ company_name: 'Acme Logistics', mc_number: null }, existing);
-    expect(result.map(r => r.id)).toEqual(['mc', 'name']);
+  it('does not match by name when the candidate has an MC number', () => {
+    const existing = [base({ id: 'a', mc_number: null, company_name: 'Acme Logistics' })];
+    const result = findDuplicateBrokers({ company_name: 'Acme Logistics', mc_number: '123456' }, existing);
+    expect(result).toHaveLength(0);
   });
 
   it('suffix distinction: Smith Logistics and Smith Trucking do not match', () => {
