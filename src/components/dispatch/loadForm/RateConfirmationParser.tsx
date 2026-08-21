@@ -460,6 +460,13 @@ export default function RateConfirmationParser({
           )}
         </div>
       )}
+
+      <BrokerDialog
+        open={brokerDialogOpen}
+        onOpenChange={setBrokerDialogOpen}
+        initial={brokerDialogInitial}
+        onCreated={handleBrokerCreated}
+      />
     </section>
   );
 }
