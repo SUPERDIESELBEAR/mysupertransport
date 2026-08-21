@@ -108,6 +108,7 @@ export default function BrokerSelect({ value, onChange, optional, provisionalNam
         open={addOpen}
         onOpenChange={setAddOpen}
         onCreated={id => { onChange(id); }}
+        onUseExisting={id => { onChange(id); }}
       />
     </>
   );

@@ -25,6 +25,7 @@ import {
   type UnassignedRateLine,
 } from '@/lib/rateConfirmation';
 import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
+import BrokerCandidateRow from './BrokerCandidateRow';
 
 interface Props {
   /** The parsed file is attached to the load as its rate confirmation after saving. */
@@ -343,20 +344,13 @@ export default function RateConfirmationParser({
           {candidates.length > 0 ? (
             <div className="space-y-1.5">
               {candidates.map(c => (
-                <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border px-2.5 py-2">
-                  <span className="text-sm text-foreground">{c.company_name}</span>
-                  {c.mc_number && <span className="text-xs text-muted-foreground">MC {c.mc_number}</span>}
-                  <Badge variant="outline" className="text-[10px]">
-                    {c.matchedOn === 'mc' ? 'MC match' : `Name match ${Math.round(c.score * 100)}%`}
-                  </Badge>
-                  <Button
-                    type="button" size="sm" variant="outline" className="ml-auto gap-1"
-                    onClick={() => chooseBroker(c.id)}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    Use this broker
-                  </Button>
-                </div>
+                <BrokerCandidateRow
+                  key={c.id}
+                  candidate={c}
+                  onSelect={() => chooseBroker(c.id)}
+                  actionLabel="Use this broker"
+                  showBadge
+                />
               ))}
             </div>
           ) : (
@@ -464,6 +458,7 @@ export default function RateConfirmationParser({
         onOpenChange={setBrokerDialogOpen}
         initial={brokerDialogInitial}
         onCreated={handleBrokerCreated}
+        onUseExisting={id => chooseBroker(id)}
       />
     </section>
   );
