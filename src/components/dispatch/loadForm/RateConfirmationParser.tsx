@@ -25,6 +25,7 @@ import {
   type BrokerCandidate, type LoadoutAssessment, type ParsedRateConfirmation,
   type UnassignedRateLine,
 } from '@/lib/rateConfirmation';
+import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 
 interface Props {
   /** The parsed file is attached to the load as its rate confirmation after saving. */
