@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION public.record_duplicate_broker_reference(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_profile uuid;
