@@ -107,12 +107,14 @@ const valuesFrom = (b: Broker): BrokerDialogValues => ({
 });
 
 export default function BrokerDialog({
-  open, onOpenChange, initial, broker, loadCount = 0, canDelete = false,
+  open, onOpenChange, initial, addressSourceLabel = null, broker, loadCount = 0, canDelete = false,
   onCreated, onUseExisting, onSaved, onDeleted,
 }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const isEdit = !!broker;
+  /** Address + notes are edit-mode fields, but a parsed address must be reviewable on create. */
+  const showAddress = isEdit || !!addressSourceLabel;
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
