@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/loadFormat';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
+import { normalizeImportedName } from '@/lib/textNormalize';
 import { pdfFileToImages } from '@/lib/pdfToImages';
 import { useFacilities } from '@/hooks/useFacilities';
 import type { Facility } from '@/lib/facilities';
