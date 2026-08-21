@@ -90,6 +90,8 @@ export default function CreateLoadPage({
   const [parsedRateCon, setParsedRateCon] = useState<ParsedRateConfirmation | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
+  /** True when the warning interrupted a save rather than firing at parse time. */
+  const [duplicateAtSave, setDuplicateAtSave] = useState(false);
   // Set once the dispatcher has chosen to create anyway: {existingLoadId, reason}.
   const duplicateOverride = useRef<{ existingLoadId: string; reason: string } | null>(null);
   // References already cleared this session, so the backstop does not re-ask.
@@ -344,6 +346,7 @@ export default function CreateLoadPage({
     if (!result) return;
     const reference = (form.getValues('broker_reference_number') ?? '').trim();
     if (!reference) return;
+    setDuplicateAtSave(false);
     await runDuplicateCheck(reference, form.getValues('broker_id') ?? '');
   };
 
@@ -356,6 +359,7 @@ export default function CreateLoadPage({
         const matches = await runDuplicateCheck(reference, v.broker_id ?? '');
         if (matches.length > 0) {
           pendingValues.current = v;
+          setDuplicateAtSave(true);
           return false;
         }
       }
@@ -478,7 +482,7 @@ export default function CreateLoadPage({
           onViewExisting={goToExistingLoad}
           onUpdateExisting={reviseExistingLoad}
           onCreateAnyway={createDespiteDuplicate}
-          createLabel={pendingValues.current ? 'Create anyway' : 'Create anyway when I save'}
+          createLabel={duplicateAtSave ? 'Create anyway' : 'Create anyway when I save'}
         />
       )}
 
