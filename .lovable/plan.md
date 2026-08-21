@@ -34,11 +34,25 @@ The address is not taken from a footer, a fine-print legal block, or a factoring
 
 The prompt states explicitly that a broker address must be returned null unless it is printed in an addressed block belonging to the broker. Anything that would require inferring from a logo, a phone-area code, a URL or a bare city name returns null. Confidence is `high` only for a clearly labelled remit-to/bill-to block, `medium` for a letterhead fallback; a `low` address gets left out of the prefill, consistent with how other low-confidence fields are treated.
 
+## Persisted provenance in notes
+
+When the parse supplies an address, one line is appended to the broker's `notes`:
+
+```text
+Address captured from Bill To block on rate confirmation, 8/21/26.
+```
+
+- Wording follows the chosen source: `Remit To block`, `Bill To block`, or `letterhead`.
+- Date is the parse date in US Central, formatted `M/D/YY`.
+- Appended on its own line after any existing notes text — never overwriting.
+- Written into the dialog's notes field before save, so the dispatcher sees it and can edit or remove it.
+- Only when an address is actually prefilled — no address, no line.
+
 ## Technical notes
 
 - `supabase/functions/parse-rate-confirmation/index.ts`: add to the `broker` schema `address_line1`, `address_line2`, `city`, `state` (2-letter), `zip`, plus `address_source` (`remit_to` | `bill_to` | `letterhead` | null, not a confidence-wrapped field). Add the preference-order and never-guess rules to the prompt. Sanitize the new values through the existing `str()` helper; uppercase and length-check `state`; keep `zip` digits/hyphen only.
 - `src/lib/rateConfirmation.ts`: extend the `broker` shape on `ParsedRateConfirmation` with the five address fields and `address_source`.
 - `src/components/dispatch/loadForm/RateConfirmationParser.tsx`: include the address fields in `openCreateBrokerDialog`'s prefill (skipping any field whose confidence is `low`), and pass the source label through.
-- `src/components/dispatch/loadForm/BrokerDialog.tsx`: when a prefilled address arrives from a parse, show a small muted note above the address group naming the source block. No change to validation or the saved payload — existing `toTitleCase` / `normalizeZip` handling applies.
+- `src/components/dispatch/loadForm/BrokerDialog.tsx`: when a prefilled address arrives from a parse, show a small muted note above the address group naming the source block, and append the provenance line to the `notes` textarea value. `normalizeWhitespace` on save must preserve the line break between existing notes and the appended line. No other change to validation or the saved payload — existing `toTitleCase` / `normalizeZip` handling applies.
 - No migration, no schema change to `brokers`.
-- Tests: a unit test over the prefill mapping covering remit-to preferred over bill-to, letterhead-only fallback, low-confidence dropped, and no-address leaving every field blank.
+- Tests: prefill mapping (remit-to preferred over bill-to, letterhead-only fallback, low-confidence dropped, no-address leaving every field blank) plus the notes append (correct wording per source, appended after existing notes without overwriting, omitted when no address was captured).
