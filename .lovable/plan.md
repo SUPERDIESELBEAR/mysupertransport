@@ -26,22 +26,29 @@ Same glyph pathology both ways: `53' 102"` renders as control chars + `¶`, `OS&
 
 ## What gets built
 
-### A. Document-determined field regions (`src/lib/verbatimVerify.ts`)
-- Add `resolveFieldRegion(layer, field)`: locate the field's region from the *document*, using per-field printed anchors — special instructions start at the `Special Instructions` heading and end at the next known heading or page break; broker terms anchor on their paragraph opener; stop comments anchor on their `Comments:` line within the stop's slice.
-- Verify against that fixed region: similarity is the best window *inside the region only* (bounded slop for heading/label edges), never across the document.
-- Damage is computed from the region, so one figure per field per document regardless of transcription.
-- When no anchor resolves, fall back to today's whole-layer search but tag `regionSource: 'transcription'` on the result so the number is visibly approximate rather than silently transcription-dependent.
+### A. Document-determined field regions (new `src/lib/verbatimRegions.ts`)
+- `resolveFieldRegion(layer, field, { occurrence })` locates the field's region from the *document*: match a printed anchor line, take the body from that line (or the lines below it) until a blank line after content, a known terminator heading (`References`, `Freight Terms`, `Items`, `Stop N`, `Page n / m`, `Equipment & Services`), or a 40-line cap.
+- Damage is measured on that region, so it is one figure per field per document. Similarity is the best window *inside the region only*. Signal tokens are demanded from the whole region.
+- **Anchor counts per field (as built):** special instructions 7 (`Special Instructions`, `Driver Instructions`, `Carrier Instructions`, `Load Instructions`, `Shipment Instructions`, `Notes to Carrier`, `Dispatch Notes`); broker terms 3 (the `<Name> Logistics (XXX) will …` paragraph opener, `Terms and Conditions`, `Broker-Carrier Agreement`/`Terms`); stop notes 2 (`Comments:` — colon required so the load-level bare `Comments` heading is not matched — and `Stop Notes:`/`Stop Instructions:`). Only the Blue Grace ones are sighted; the rest are common synonyms.
+- **Heading appearing twice:** for a field expected once, occurrences that carry a body are counted. Exactly one → that one is used. More than one → `anchor_ambiguous`, no region, no numbers. Fields that legitimately repeat (one `Comments:` per stop) are resolved by 1-based `occurrence`, and an occurrence beyond the count fails as `occurrence_not_found`.
+
+### A2. An unresolved region is its own verdict, not a tag
+- No whole-layer fallback. Failure to resolve produces `verdict: 'region_unresolved'` with `similarity`, `missingTokens`, `similarityPass`, `tokenPass` and `layerDegradation` all `null` — nothing computed against an unanchored window is reported, because an approximate figure that looks precise is worse than none.
+- Review screen wording: "Could not locate this text on the document" — the field is not verified.
+- Every miss is logged via `recordAnchorMiss(field, failure)` with the field name, the failure reason, the occurrence count and the document's heading-shaped lines (`documentHeadings()`), mirroring how unclassified reference labels are logged. `anchorMisses()` exposes the list so the anchor set can grow from real documents.
 
 ### B. Report all three signals, not the first (`verbatimVerify.ts` + callers)
-- Always compute similarity, token presence, and damage. Headline `verdict` stays as specified (`layer_unreliable` wins the label — dispatcher-facing wording unchanged).
-- Extend `VerbatimVerification` with `similarityPass`, `tokenPass`, and `regionSource`, and keep `missingTokens` populated even when the headline is `layer_unreliable`.
-- Review UI: a layer-unreliable field that is also missing tokens present in the damaged layer reads as "page text is damaged — and a phone number printed on the page is not in the capture", distinct from a merely unreadable one.
+- Always compute similarity, token presence, and damage when a region resolves. `VerbatimVerification` gains `similarityPass`, `tokenPass`, `regionSource` (`'anchor' | 'none'`) and the resolved anchor id.
+- Headline: `verified` when similarity and tokens both pass; otherwise `layer_unreliable` when region damage exceeds the 2% limit; otherwise `unverified`. Dispatcher-facing labels unchanged.
+- A layer-unreliable field that is also missing tokens present in the damaged layer reads distinctly from a merely unreadable one.
 
 ### C. Tests and baselines
-- Fixed-region regression: faithful and paraphrase transcriptions of the same field must report the *same* damage figure.
-- Paraphrase must again report the phone and email as missing, with `layer_unreliable` as headline and `tokenPass: false` as detail.
-- Anchor-resolution test for each anchored field, plus the `regionSource: 'transcription'` fallback.
-- Update `src/test/helpers/gate.ts` and `src/test/README.md` counts, and the measurement table in `docs/tms-build-status.md` with the corrected figures.
+- Fixed-region regression: faithful and paraphrase transcriptions of the same field report the *same* damage figure.
+- Paraphrase: assert `layer_unreliable` headline, `tokenPass: false`, `(800) 697-4477` and `CALAVO@BLUEGRACEGROUP.COM` both named missing, **and** assert and report its similarity against the correctly-resolved region — if that number comes out high, the similarity check has a problem the token check was masking, and it gets reported rather than smoothed.
+- Anchor resolution per field; duplicate-heading ambiguity; occurrence selection for stop comments; `region_unresolved` on an unanchored document, with the miss log asserted to contain the field and the document's headings.
+- The broker-terms fixture is extended to the full printed paragraph (it currently holds only its last two lines), since the field is the whole block.
+- Update `src/test/helpers/gate.ts` and `src/test/README.md` counts, and the measurement table in `docs/tms-build-status.md`.
+
 
 ### D. End-to-end browser run
 Drive one revised rate confirmation through the real Create Load UI, capture the damage ratio the browser worker produces for the special-instructions block, and compare against 5.57% / 5.69%. If the browser worker differs materially, report it and re-tune the 2% limit against the production renderer rather than the test one.
