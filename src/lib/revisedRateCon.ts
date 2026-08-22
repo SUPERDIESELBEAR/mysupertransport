@@ -488,8 +488,13 @@ export function buildRevisionDiff(
       (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
   ]);
 
+  // A load saved before references were written back has no rows on file. That
+  // is not the same as a document that added five numbers, so the whole set is
+  // reported as uncomparable and nothing is pre-accepted.
+  const currentRefs = current.references ?? [];
+  const referencesComparable = currentRefs.length > 0;
+
   if (classified.references.length) {
-    const currentRefs = current.references ?? [];
     const currentKeys = new Map(currentRefs.map(r =>
       [referenceKey(r.reference_class as ReferenceClass, r.value), r]));
     const revisedKeys = new Set<string>();
@@ -499,16 +504,17 @@ export function buildRevisionDiff(
       revisedKeys.add(key);
       const existing = currentKeys.get(key);
       if (existing) {
-        // Same identifier, different citation set: the number moved stops.
-        const before = [...(existing.citations ?? [])].sort((a, b) => a - b).join(',');
-        const after = [...r.citations].sort((a, b) => a - b).join(',');
+        // Same identifier, different citation set: the number moved stops, or a
+        // stop changed how it prints the label.
+        const before = citationKey(toCitations(existing.citations));
+        const after = citationKey(r.citations);
         if (before === after) return;
         nonFinancial.push({
           id: `ref.cite.${key}`,
           label: `Reference printed on — ${r.label}`,
           path: 'references', stopIndex: null,
-          current: before ? `Stops ${before}` : 'Load level',
-          revised: after ? `Stops ${after}` : 'Load level',
+          current: describeCitations(toCitations(existing.citations)),
+          revised: describeCitations(r.citations),
           value: null, hasDriverData: false, defaultAccept: true,
           reference: { op: 'added', reference_class: r.clazz, label: r.label, value: r.value, citations: r.citations },
         });
@@ -516,10 +522,14 @@ export function buildRevisionDiff(
       }
       nonFinancial.push({
         id: `ref.add.${key}`,
-        label: `Reference added — ${r.label}`,
+        label: referencesComparable
+          ? `Reference added — ${r.label}`
+          : `Reference on document — ${r.label}`,
         path: 'references', stopIndex: null,
-        current: '—', revised: `${r.label}: ${r.value}`,
-        value: null, hasDriverData: false, defaultAccept: true,
+        current: referencesComparable ? '—' : 'Not on file',
+        revised: `${r.label}: ${r.value}`,
+        value: null, hasDriverData: false,
+        defaultAccept: referencesComparable,
         reference: { op: 'added', reference_class: r.clazz, label: r.label, value: r.value, citations: r.citations },
       });
     });
@@ -535,11 +545,12 @@ export function buildRevisionDiff(
         value: null, hasDriverData: false, defaultAccept: true,
         reference: {
           op: 'removed', reference_class: r.reference_class, label: r.label,
-          value: r.value, citations: r.citations ?? [],
+          value: r.value, citations: toCitations(r.citations),
         },
       });
     });
   }
+
 
   // ---- money -------------------------------------------------------------
   const revisedLinehaul = use(parsed.rate.linehaul);
