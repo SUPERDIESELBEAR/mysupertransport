@@ -142,18 +142,20 @@ Current treatment under "SUPERTRANSPORT Standard": linehaul 72, fuel surcharge 7
 
 - Golden text: verbatim fields equal the PDF-extracted fixture exactly, asterisks intact.
 - Stability: re-parsing the unmodified fixture produces zero diff rows.
-- Comparator: faithful transcription against the degraded Blue Grace layer passes; a paraphrase fails; a case-only alteration fails; the pilcrow and entity-chain lines report `text_layer_unreliable`, not `verbatim_unverified`; an image upload reports `no_text_layer`.
+- Token check: faithful transcription passes; the same transcription with `(800) 697-4477` removed **fails the token check while passing similarity at 0.987**; removing the email too fails and names both; a layer token lost to degradation (`53' 102"`) never demands digits the transcription must supply.
+- Comparator: faithful transcription passes; a paraphrase fails; a reordered transcription fails; a case-only alteration fails; the pilcrow and entity-chain fields report `text_layer_unreliable`, not `verbatim_unverified`; a short field with one damaged glyph reports `text_layer_unreliable` rather than passing on 0.929 similarity; an image upload reports `no_text_layer`. Evaluation order degrade → token → similarity is asserted.
 - Classes: `PU#` and `Pickup Number` resolve alike; `PRO` and `BOL` sharing a value both survive all three passes; an unmapped label lands in `unclassified` and is logged.
-- Reference diff: the added PRO row appears as a change; a removed reference appears as a removal.
+- References: the stop-level `PU# IX00286060` collapses into the load-level pickup row and is stored once at load scope; the added `PRO` surfaces as one load-scope addition; a reference moved between scopes reports as one scope change, not a remove plus an add.
 - Defaults: free-text unchecked, structured checked.
 - Retention: cancelling the review leaves the revised document attached.
 
 ## Technical notes
 
-- `supabase/functions/parse-rate-confirmation/index.ts` — verbatim fields in contract and prompt; `text_layer` comparator with entity/whitespace normalization, case-sensitive, 0.90 similarity, degradation scoring; class-keyed dedup across all three passes; `unclassified` logging.
+- `supabase/functions/parse-rate-confirmation/index.ts` — verbatim fields in contract and prompt; `text_layer` verification (entity/whitespace normalization, case-sensitive, degradation scoring, token-presence, 0.90 similarity, in that order); class- and scope-keyed dedup across all three passes; `unclassified` logging.
 - `src/lib/pdfToText.ts` (new) — text-layer extraction via the existing `pdfjs-dist`; null for image/scan input.
-- `src/lib/verbatimVerify.ts` (new) — normalization, similarity, degradation scoring, shared by the function and the tests.
-- `src/lib/rateConfirmation.ts` — extended types, reference class, `condenseInstructions`.
-- `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; reference-set diffing.
+- `src/lib/verbatimVerify.ts` (new) — normalization, degradation scoring, token extraction and presence check, similarity; shared by the function and the tests.
+- `src/lib/rateConfirmation.ts` — extended types, reference class and scope, `condenseInstructions`.
+- `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; scope-aware reference-set diffing.
 - `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — upload the revised document on selection.
-- Migration: verbatim text columns on `loads` and `load_stops`; `load_stop_references` table with GRANTs, RLS and indexes.
+- Migration: verbatim text columns on `loads` and `load_stops`; `load_references` table (`load_id` not null, `load_stop_id` nullable) with GRANTs, RLS and the three indexes.
+
