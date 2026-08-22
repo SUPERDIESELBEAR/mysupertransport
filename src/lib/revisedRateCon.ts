@@ -681,7 +681,10 @@ export function initialDecisions(diff: RevisionDiff): DiffDecisions {
   diff.financial.forEach(d => {
     // Money is never accepted until the dispatcher confirms what it is.
     accepted[d.id] = false;
-    if (d.suggested) classifications[d.id] = d.suggested;
+    // "Other" is the parser's fallback, not a category the document gave. It is
+    // never pre-selected: it settles at the residual accessorial rate, and a
+    // dispatcher clicking through a pre-filled dropdown would never see that.
+    if (d.suggested && d.suggested !== 'other') classifications[d.id] = d.suggested;
   });
   return { accepted, classifications, descriptions: {}, stopResolutions: {} };
 }
@@ -852,4 +855,29 @@ export function buildRevisionReason(input: ReasonInput): string {
   const extra = (input.addition ?? '').trim();
   if (extra) parts.push(extra);
   return parts.join(' — ');
+}
+
+/**
+ * Every reference the document prints, classified and deduped, in the shape the
+ * load form and `saveLoadReferences` use. Used to file a baseline for a load
+ * that has no reference rows on file.
+ */
+export function documentReferences(parsed: ParsedRateConfirmation): {
+  reference_class: string; label: string; value: string;
+  citations: { stopSequence: number; printedLabel: string }[];
+}[] {
+  const stops = [...(parsed.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const classified = classifyReferences([
+    ...(parsed.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: null })),
+    ...stops.flatMap(st =>
+      (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
+  ]);
+  return classified.references.map(r => ({
+    reference_class: r.clazz,
+    label: r.label,
+    value: r.value,
+    citations: r.citations.map(c => ({
+      stopSequence: c.stopSequence, printedLabel: c.printedLabel,
+    })),
+  }));
 }
