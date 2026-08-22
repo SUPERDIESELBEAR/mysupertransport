@@ -109,14 +109,28 @@ export interface ParsedReferenceRow {
   stopSequence?: number | null;
 }
 
+/**
+ * One stop that printed a reference, with the label as THAT stop printed it.
+ *
+ * The printed label has to travel with the citation, not with the collapsed
+ * row: Stop 1 prints `PU#` and the References table prints `Pickup Number` for
+ * the same number. Collapsing to a single label would keep one of the two and
+ * silently lose where the other was read from — the association the join table
+ * exists to record.
+ */
+export interface ReferenceCitation {
+  stopSequence: number;
+  printedLabel: string;
+}
+
 export interface ClassifiedReference {
   clazz: ReferenceClass;
-  /** The label as printed, kept for display. */
+  /** The load-level printed label, falling back to the class label. */
   label: string;
   value: string;
   valueKey: string;
-  /** Stop sequences where this reference is printed. */
-  citations: number[];
+  /** Stops where this reference is printed, each with its own printed label. */
+  citations: ReferenceCitation[];
   /** True when the row is printed in the load-level References table. */
   loadLevel: boolean;
 }
@@ -131,6 +145,13 @@ export interface ClassifyResult {
 /** Identity of a reference row for diffing and dedup: class + normalized value. */
 export const referenceKey = (clazz: ReferenceClass, value: string | null | undefined): string =>
   `${clazz}:${referenceValueKey(value)}`;
+
+/** Stable comparison string for a citation set: sequence and printed label. */
+export const citationKey = (citations: ReferenceCitation[] | null | undefined): string =>
+  [...(citations ?? [])]
+    .map(c => `${c.stopSequence}:${labelKey(c.printedLabel)}`)
+    .sort()
+    .join('|');
 
 /**
  * Collapse a document's reference rows into one row per (class, value), keeping
@@ -161,21 +182,34 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
 
     const key = referenceKey(clazz, value);
     const seq = row.stopSequence ?? null;
+    const printed = (row.label ?? '').trim() || spec.label;
     const existing = byKey.get(key);
+
     if (existing) {
-      if (seq !== null && !existing.citations.includes(seq)) existing.citations.push(seq);
-      if (seq === null) existing.loadLevel = true;
+      if (seq !== null) {
+        const already = existing.citations
+          .some(c => c.stopSequence === seq && labelKey(c.printedLabel) === labelKey(printed));
+        if (!already) existing.citations.push({ stopSequence: seq, printedLabel: printed });
+      } else {
+        // The load-level table is the authority on the row's own label.
+        existing.loadLevel = true;
+        existing.label = printed;
+      }
       return;
     }
+
     byKey.set(key, {
       clazz,
-      label: (row.label ?? '').trim() || spec.label,
+      // A stop-only row keeps the canonical class label at row level; its
+      // printed form lives on the citation.
+      label: seq === null ? printed : spec.label,
       value,
       valueKey: referenceValueKey(value),
-      citations: seq === null ? [] : [seq],
+      citations: seq === null ? [] : [{ stopSequence: seq, printedLabel: printed }],
       loadLevel: seq === null,
     });
   });
 
   return { references: [...byKey.values()], routed, dropped };
 }
+
