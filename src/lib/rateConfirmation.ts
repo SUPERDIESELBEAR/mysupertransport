@@ -83,7 +83,22 @@ export interface ParsedRateConfirmation {
     line_items: ParsedRateLine[];
   };
   stops: ParsedStop[];
+  /**
+   * Condensed instructions for display. Derived; never the system of record.
+   * The stored value is `verbatim.special_instructions`.
+   */
   special_instructions: Field<string>;
+  /**
+   * Broker-authored text captured exactly as printed. The terms paragraph and
+   * the Special Instructions block are separate fields on purpose — merging
+   * them is what made the re-parse diff churn.
+   */
+  verbatim: {
+    broker_terms: Field<string>;
+    special_instructions: Field<string>;
+  };
+  /** Load-level References table rows, as printed. */
+  references: ParsedReference[];
   loadout_signals: {
     no_bol_mentioned: boolean;
     photo_pod_required: boolean;
