@@ -65,6 +65,8 @@ export interface ParsedRateConfirmation {
     loaded_miles: Field<number>;
     is_hazmat: Field<boolean>;
     is_team_load: Field<boolean>;
+    /** Categorical attribute printed in the References table (`Mode: TL`). */
+    mode: Field<string>;
   };
   reefer: {
     temp_f: Field<number>;
