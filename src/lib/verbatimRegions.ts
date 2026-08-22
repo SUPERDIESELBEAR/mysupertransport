@@ -207,13 +207,16 @@ export function stopOrdering(layer: string): StopOrdering {
 export function stopSlicesUntrustworthy(layer: string): boolean {
   const { headings, comments, orphanComments } = stopOrdering(layer);
   if (!headings.length || !comments.length) return false;
-  if (orphanComments.length > 0) return true;
 
-  // One comment per stop is the shape these tenders print. A slice holding two
-  // while another holds none is the same shift seen from the other end.
+  // One comment per stop is the shape these tenders print, so a stop left with
+  // none is the tell. A comment above the first heading is not enough on its
+  // own: Blue Grace prints a legitimate load-level `Comments:` there while every
+  // stop still keeps its own. The shift only shows when an orphan (or a slice
+  // holding two) is paired with a slice holding none.
   const slices = [...stopSlices(layer).values()];
   const counts = slices.map((s) => comments.filter((c) => c >= s.start && c <= s.end).length);
-  return counts.some((n) => n > 1) && counts.some((n) => n === 0);
+  if (!counts.some((n) => n === 0)) return false;
+  return orphanComments.length > 0 || counts.some((n) => n > 1);
 }
 
 /** Heading-shaped lines, for the miss log: short, non-empty, not sentence prose. */
