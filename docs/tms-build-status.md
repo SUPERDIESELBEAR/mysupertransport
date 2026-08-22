@@ -8,7 +8,7 @@ Date: 2026-08-22
 |---|---|
 | Loads list | List view with search, filters, and saved view preferences. |
 | Create load | Full form with facility normalization, configurable load numbering, and broker/facility quick-add affordances. |
-| Rate confirmation parsing | Separate AI-assisted parser on the Create Load form; extracts stops, charges, broker address, and reference numbers. |
+| Rate confirmation parsing | Separate AI-assisted parser on the Create Load form; extracts stops, charges, broker details, and reference numbers. Refinement pass built and verified — see below. |
 | Load detail — Pass 1 | Read-only detail view. |
 | Load detail — Pass 2A | Status controls and history timeline. |
 | Load detail — Pass 2B | Driver assignment with eligibility checks. |
