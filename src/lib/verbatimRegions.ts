@@ -48,9 +48,16 @@ export interface FieldRegion {
   text: string;
 }
 
-export type RegionResult =
-  | { ok: true; region: FieldRegion }
-  | { ok: false; failure: RegionFailure; occurrences: number; anchorId: string | null };
+export interface RegionResult {
+  /** The resolved region, or null when the document did not yield one. */
+  region: FieldRegion | null;
+  failure: RegionFailure | null;
+  occurrences: number;
+  anchorId: string | null;
+}
+
+const miss = (failure: RegionFailure, occurrences = 0, anchorId: string | null = null): RegionResult =>
+  ({ region: null, failure, occurrences, anchorId });
 
 interface Anchor {
   id: string;
@@ -203,7 +210,7 @@ export function resolveFieldRegion(
   opts: { stopNumber?: number } = {},
 ): RegionResult {
   const source = layer ?? '';
-  if (!source.trim()) return { ok: false, failure: 'anchor_not_found', occurrences: 0, anchorId: null };
+  if (!source.trim()) return miss('anchor_not_found');
 
   const lines = source.split('\n');
   let from = 0;
@@ -212,24 +219,24 @@ export function resolveFieldRegion(
   if (field === 'stop_notes_verbatim') {
     const n = opts.stopNumber;
     const slice = n == null ? undefined : stopSlices(source).get(n);
-    if (!slice) return { ok: false, failure: 'stop_not_found', occurrences: 0, anchorId: null };
+    if (!slice) return miss('stop_not_found');
     from = slice.start;
     to = slice.end;
   }
 
   const hits = findHits(lines, FIELD_ANCHORS[field], from, to);
   if (hits.length === 0) {
-    return { ok: false, failure: 'anchor_not_found', occurrences: 0, anchorId: null };
+    return miss('anchor_not_found');
   }
 
   // Occurrences that carry a body are the ones that could plausibly be the
   // field. More than one and the document is ambiguous: no region, no numbers.
   const bodied = hits.filter((h) => h.inline || bodyBelow(lines, h.line + 1, to));
   if (bodied.length === 0) {
-    return { ok: false, failure: 'empty_region', occurrences: hits.length, anchorId: hits[0].anchorId };
+    return miss('empty_region', hits.length, hits[0].anchorId);
   }
   if (bodied.length > 1) {
-    return { ok: false, failure: 'anchor_ambiguous', occurrences: bodied.length, anchorId: bodied[0].anchorId };
+    return miss('anchor_ambiguous', bodied.length, bodied[0].anchorId);
   }
 
   const hit = bodied[0];
@@ -242,10 +249,15 @@ export function resolveFieldRegion(
   const rawLines = lines.slice(startLine, endLine + 1);
   const text = rawLines.join('\n');
   if (!text.trim()) {
-    return { ok: false, failure: 'empty_region', occurrences: 1, anchorId: hit.anchorId };
+    return miss('empty_region', 1, hit.anchorId);
   }
 
-  return { ok: true, region: { field, anchorId: hit.anchorId, startLine, endLine, rawLines, text } };
+  return {
+    region: { field, anchorId: hit.anchorId, startLine, endLine, rawLines, text },
+    failure: null,
+    occurrences: 1,
+    anchorId: hit.anchorId,
+  };
 }
 
 /* ------------------------------------------------------------------ */

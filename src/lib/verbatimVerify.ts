@@ -303,20 +303,20 @@ export function verifyVerbatim(
   }
 
   const resolved = resolveFieldRegion(layer, field as VerbatimField, { stopNumber: opts.stopNumber });
-  if (!resolved.ok) {
+  if (!resolved.region) {
     if (opts.log !== false) {
       recordAnchorMiss(
         field as VerbatimField,
-        resolved.failure,
+        resolved.failure as RegionFailure,
         layer,
         resolved.occurrences,
         opts.stopNumber ?? null,
       );
     }
-    return unresolved(field, resolved.failure);
+    return unresolved(field, resolved.failure as RegionFailure);
   }
 
-  const { region } = resolved;
+  const region = resolved.region;
   const normRegion = normalizeForVerbatim(region.text);
   const normValue = normalizeForVerbatim(value);
 
