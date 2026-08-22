@@ -476,6 +476,7 @@ export function buildRevisionDiff(
     .map(m => m.parsedIndex);
 
   // ---- references --------------------------------------------------------
+
   // Reference rows were not diffed at all before this: a PRO number the revised
   // document added went in silently. They are keyed on class + normalized value,
   // never value alone — one number printed as BOL, PRO and load number is three
