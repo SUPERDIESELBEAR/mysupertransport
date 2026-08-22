@@ -45,8 +45,8 @@ Same glyph pathology both ways: `53' 102"` renders as control chars + `¶`, `OS&
 
 ### C. Tests and baselines
 - Fixed-region regression: faithful and paraphrase transcriptions of the same field report the *same* damage figure.
-- Paraphrase: assert `layer_unreliable` headline, `tokenPass: false`, `(800) 697-4477` and `CALAVO@BLUEGRACEGROUP.COM` both named missing, **and** assert and report its similarity against the correctly-resolved region — if that number comes out high, the similarity check has a problem the token check was masking, and it gets reported rather than smoothed.
-- Anchor resolution per field; duplicate-heading ambiguity; occurrence selection for stop comments; `region_unresolved` on an unanchored document, with the miss log asserted to contain the field and the document's headings.
+- Paraphrase: assert `layer_unreliable` headline, `tokenPass: false`, `(800) 697-4477` and `CALAVO@BLUEGRACEGROUP.COM` both named missing. Its similarity against the correctly-resolved region is reported as a number in the write-up whether it passes, fails, or embarrasses the design — that figure is the first honest measurement of whether similarity does any work here, and it is stated either way rather than only asserted.
+- Anchor resolution per field; duplicate-heading ambiguity; stop-slice selection (including a load-level `Comments:` that must not shift stop numbering); `region_unresolved` on an unanchored document, with the miss log asserted to contain the field and the document's headings.
 - The broker-terms fixture is extended to the full printed paragraph (it currently holds only its last two lines), since the field is the whole block.
 - Update `src/test/helpers/gate.ts` and `src/test/README.md` counts, and the measurement table in `docs/tms-build-status.md`.
 
