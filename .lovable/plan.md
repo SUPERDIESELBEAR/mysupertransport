@@ -43,16 +43,19 @@ New behaviour: the file uploads once the document-identity check passes (immedia
 
 ## Test coverage
 
-An integration-level test for the write path, per your addition: save a load through the real save path, read it back through `loadToFormValues`, assert the reference rows and citations return with the right class, value and stop scope. Deleting either the `saveLoadReferences` call or the read must turn it red.
+An integration-level test for the write path: save a load through the real save path, read it back through `loadToFormValues`, and assert the reference rows **and their citations**. Specifically, for this document's shape: `IX00286060` comes back as one row at load scope labelled `Pickup Number`, carrying a Stop 1 citation whose printed label is `PU#` — distinct from the row's own label. Deleting the `saveLoadReferences` call, the read in `loadToFormValues`, or the citation write must each turn it red.
 
-Wiring audit reported before the charge diff is touched: each function added in this pass gets checked for a production call site and reported as wired or test-only.
+Wiring audit reported with the build: each function in this area gets checked for a production call site and reported as wired or test-only.
 
 ## Technical notes
 
-- `src/lib/loadReferences.ts` — unchanged; it was already correct.
+- `src/lib/referenceClasses.ts` — citations become `{ stopSequence, printedLabel }`.
+- `src/pages/dispatch/loadFormSchema.ts` — `referenceSchema.citations` takes the same shape.
+- `src/lib/rateConfirmation.ts`, `src/lib/revisedRateCon.ts` — updated for the citation shape; `firstCapture` on `NonFinancialDiff`; reference rows default unchecked when the comparison set is empty; `special_instructions` spec removed.
+- `src/lib/loadReferences.ts` — per-citation `printed_label` on write, read back on fetch.
 - `src/lib/loadDetail.ts` — `fetchLoadForEdit` also reads `load_references` with citations.
 - `src/lib/loadEdit.ts` — `loadToFormValues` maps those rows instead of `[]`.
 - `src/pages/dispatch/CreateLoadPage.tsx`, `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — call `saveLoadReferences` post-RPC.
-- `src/lib/revisedRateCon.ts` — `firstCapture` on `NonFinancialDiff`, reference rows default unchecked when the comparison set is empty, `special_instructions` spec removed.
 - `RevisedRateConModal` — upload-on-identity-pass, note lifecycle, no-baseline note, first-capture rendering and change-count exclusion.
-- No schema changes.
+- No schema changes; `load_reference_citations.printed_label` already exists.
+
