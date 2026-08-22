@@ -99,6 +99,7 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       "appointment_start": FIELD("YYYY-MM-DDTHH:mm" local time as printed; null if no time printed),
       "appointment_end": FIELD("YYYY-MM-DDTHH:mm"; null unless a closing/end time is printed),
       "notes": FIELD(string - driver-relevant instructions for this stop only),
+      "notes_verbatim": FIELD(string - the stop's printed comment/notes line copied EXACTLY as printed, character for character; see the verbatim rule),
       "reference_numbers": [
         {
           "label": "exact label printed (e.g. PU#, Delivery #, BOL#, PO#, Appt #, LO, SI, SO)",
