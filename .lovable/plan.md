@@ -110,19 +110,22 @@ Classes, matched after lowercasing and stripping `#`, `no.`, `number`, punctuati
 | `appointment` | appt, appointment, confirmation, conf |
 | `mode` | mode |
 
-`PU# IX00286060` in Stop 1's Comments and `Pickup Number IX00286060` in the References table both resolve to `pickup` and collapse to one row. An unmapped label becomes `unclassified` — never its own class from the raw string — keeps its printed label, falls back to value-only dedup, and every occurrence is logged with label and value.
+`PU# IX00286060` in Stop 1's Comments and `Pickup Number IX00286060` in the References table both resolve to `pickup`. An unmapped label becomes `unclassified` — never its own class from the raw string — keeps its printed label, falls back to value-only dedup, and every occurrence is logged with label and value.
 
-All three dedup passes re-key on **class + value**:
+All three dedup passes re-key on **class + value**, and are now scope-aware:
 
-- load-level pass: a stop reference is dropped only when it matches a load id *of the same class*, so PRO no longer dies against BOL;
+- load-level pass: a stop reference collapses into a load-level reference only when class *and* value match, so Stop 1's `PU# IX00286060` and the table's `Pickup Number IX00286060` end as **one row at load scope**, while PRO no longer dies against BOL;
 - cross-stop pass: a repeat under a mapped class is kept on every stop (a shipment number at both ends is what the guard asks for); only `unclassified` repeats are dropped, and logged;
-- the `refCore` near-duplicate collapse — the pass that actually killed the PRO row — collapses only within one class.
+- the `refCore` near-duplicate collapse — the pass that actually killed the PRO row — collapses only within one class, and only within one scope.
 
-### 4. Reference diffing and storage
+### 4. Reference storage and diffing (correction 2)
 
-References move to a proper table, `load_stop_references`: `id`, `load_stop_id` FK, `reference_class`, `printed_label`, `value`, standard audit columns, indexed on `value` and on `(load_stop_id, reference_class)`. No JSON column — AP asks for a PRO number by value, and duplicate detection already keys on broker reference, so both need an indexed lookup. GRANTs and RLS mirror `load_stops`.
+The References block on page 2 is load-level — it belongs to no stop — while stop Comments carry stop-level references. Both scopes are real, so one table carries both: `load_references` with `id`, `load_id` FK (not null), `load_stop_id` FK (**nullable — null means load-level**), `reference_class`, `printed_label`, `value`, standard audit columns. Indexes on `value`, on `(load_id, reference_class)` and on `(load_stop_id, reference_class)`. One table rather than two so an AP lookup by value hits a single index regardless of scope. No JSON column. GRANTs and RLS mirror `load_stops`, scoped through `load_id`.
 
-References diff as a set per stop: added, removed and changed rows each surface as their own non-financial change with printed label and value. `pickReference` still chooses the primary gate reference the stop form displays. On the Blue Grace pair this surfaces exactly one new reference — `PRO BG969676425` — and no phantom pickup number.
+References diff as a **scope-aware set**: each row is keyed on `(scope, class, value)`, and every added, removed or changed row surfaces as its own non-financial change carrying its scope, printed label and value. A reference that moves between load-level and stop-level is reported as a single **scope change**, not a removal plus an addition. `pickReference` still chooses the primary gate reference a stop form displays, now falling back to a matching load-level reference when the stop has none of its own.
+
+On the Blue Grace pair this surfaces exactly one change — `PRO BG969676425` added at load scope — with no phantom pickup number and no duplicate of the pickup reference that exists at both scopes.
+
 
 ### 5. Retention
 
