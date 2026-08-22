@@ -78,7 +78,7 @@ export async function fetchEffectivePayPolicy(
 
     const active = (data ?? []).find(row =>
       !row.effective_end_date || String(row.effective_end_date) >= today);
-    const policy = active?.pay_policies as PayPolicyRates | null | undefined;
+    const policy = active?.pay_policies as unknown as PayPolicyRates | null | undefined;
     if (policy) return policy;
   }
 
