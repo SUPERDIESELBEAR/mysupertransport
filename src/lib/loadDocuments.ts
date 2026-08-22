@@ -270,7 +270,7 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
   if (upErr) throw upErr;
 
   const isPhotoType = LOADOUT_PHOTO_TYPES.includes(documentType);
-  const { error: insErr } = await supabase.from('load_documents').insert({
+  const { data: inserted, error: insErr } = await supabase.from('load_documents').insert({
     load_id: loadId,
     load_stop_id: loadStopId || null,
     document_type: documentType,
@@ -283,13 +283,25 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     photo_sequence: isPhotoType ? photoSequence ?? null : null,
     damage_noted: isPhotoType ? damageNoted ?? false : false,
     damage_notes: isPhotoType && damageNoted ? (damageNotes?.trim() ? damageNotes.trim() : null) : null,
-  });
+  }).select('id').single();
   if (insErr) {
     // Roll back the orphaned object so storage does not drift from the table.
     await supabase.storage.from(LOAD_DOCUMENTS_BUCKET).remove([path]).catch(() => undefined);
     throw insErr;
   }
+  return inserted.id as string;
 }
+
+/** Replaces a load document's notes, e.g. when a reviewed file is later applied. */
+export async function setLoadDocumentNotes(documentId: string, notes: string): Promise<void> {
+  const { error } = await supabase
+    .from('load_documents')
+    .update({ notes: notes.trim() || null })
+    .eq('id', documentId);
+  if (error) throw error;
+}
+
+
 
 export async function deleteLoadDocument(doc: { id: string; file_path: string | null }): Promise<void> {
   if (doc.file_path) {
