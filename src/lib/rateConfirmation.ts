@@ -110,6 +110,11 @@ export interface ParsedRateConfirmation {
     relocation_fee: Field<number>;
     use_period_days: Field<number>;
   };
+  /**
+   * Per-field result of checking the verbatim captures against the PDF text
+   * layer. Absent when the caller did not supply a text layer.
+   */
+  verbatim_verification?: VerbatimVerification[];
 }
 
 /** A rate line the dispatcher still has to place (or deliberately drop). */
