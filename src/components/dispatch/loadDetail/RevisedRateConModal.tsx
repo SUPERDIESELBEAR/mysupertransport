@@ -24,7 +24,10 @@ import { fetchLoadForEdit, updateLoadWithStops, type LoadDetail } from '@/lib/lo
 import { loadToFormValues } from '@/lib/loadEdit';
 import { buildLoadSavePayload } from '@/lib/loadSavePayload';
 import { setLoadDocumentNotes, uploadLoadDocument } from '@/lib/loadDocuments';
-import { saveLoadReferences } from '@/lib/loadReferences';
+import { fileReferenceBaseline, saveLoadReferences } from '@/lib/loadReferences';
+import {
+  fetchEffectivePayPolicy, payTreatment, type PayPolicyRates,
+} from '@/lib/payTreatment';
 
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import { formatCurrency, type LoadStatus } from '@/lib/loadFormat';
@@ -33,7 +36,7 @@ import {
 } from '@/lib/rateConfirmation';
 import {
   applyRevision, buildRevisionDiff, buildRevisionReason, checkDocumentIdentity,
-  CLASSIFICATION_LABELS, CLASSIFICATION_OPTIONS, financialRowReady, FULL_PAY_CLASSIFICATIONS,
+  CLASSIFICATION_LABELS, CLASSIFICATION_OPTIONS, documentReferences, financialRowReady,
   initialDecisions,
   type ClassificationKey, type DiffDecisions, type IdentityCheck, type RevisionDiff,
   type StopResolution,
@@ -81,6 +84,9 @@ export default function RevisedRateConModal({
   });
   const [note, setNote] = useState('');
   const [unlockReason, setUnlockReason] = useState('');
+  /** Pay policy in force for this load's driver — drives the settlement hints. */
+  const [payPolicy, setPayPolicy] = useState<PayPolicyRates | null>(null);
+  const [filingBaseline, setFilingBaseline] = useState(false);
   /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
   const uploadedDocId = useRef<string | null>(null);
 
@@ -103,6 +109,7 @@ export default function RevisedRateConModal({
     setDecisions({ accepted: {}, classifications: {}, descriptions: {}, stopResolutions: {} });
     setNote('');
     setUnlockReason('');
+    setFilingBaseline(false);
     // The retained document stays on the load; only the session pointer clears.
     uploadedDocId.current = null;
     handedOver.current = null;
@@ -139,6 +146,15 @@ export default function RevisedRateConModal({
     if (!target) return;
     setBusy(true);
     try {
+      void fetchEffectivePayPolicy(load.operator_id)
+        .then(setPayPolicy)
+        .catch(policyError => {
+          // A missing policy costs the hint, not the review: the options render
+          // without percentages rather than showing a number we cannot stand behind.
+          logDbError('pay policy for revision review', policyError, { loadId: load.id });
+          setPayPolicy(null);
+        });
+
       const [{ data, error }, editData] = await Promise.all([
         supabase.functions.invoke('parse-rate-confirmation', {
           body: {
