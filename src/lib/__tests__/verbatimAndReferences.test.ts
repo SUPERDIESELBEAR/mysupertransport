@@ -75,12 +75,27 @@ describe('verbatim verification against the text layer', () => {
     expect(n.text).not.toContain('mandatory on site at shipper');
   });
 
-  it('verifies a faithful transcription', () => {
-    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, LAYER);
-    expect(r.similarity).toBeGreaterThanOrEqual(0.99);
+  it('verifies a faithful transcription against a clean layer', () => {
+    const clean = LAYER.replace(BG_SPECIAL_INSTRUCTIONS_LAYER, BG_SPECIAL_INSTRUCTIONS_VERBATIM);
+    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, clean);
+    expect(r.similarity).toBe(1);
     expect(r.missingTokens).toEqual([]);
     expect(r.verdict).toBe('verified');
   });
+
+  /**
+   * On this document the layer cannot render `53' 102"` at all, so a correct
+   * transcription can never reach the threshold. That is the document's fault,
+   * and the verdict has to say so rather than accusing the model.
+   */
+  it('blames the document, not the model, when the block is mangled', () => {
+    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, LAYER);
+    expect(r.verdict).toBe('layer_unreliable');
+    expect(r.similarity).toBeGreaterThan(0.98);
+    expect(r.missingTokens).toEqual([]);
+    expect(r.layerDegradation).toBeGreaterThan(0.02);
+  });
+
 
   it('rejects the condensed rewrite', () => {
     const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_PARAPHRASE, LAYER);
