@@ -594,6 +594,13 @@ export default function RevisedRateConModal({
             {diff.nonFinancial.length > 0 ? (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Non-financial changes</h3>
+                {!diff.referencesComparable ? (
+                  <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    This load has no reference numbers on file, so the numbers printed on this
+                    document cannot be compared against anything. They are listed as found, not
+                    as changes, and none are pre-selected.
+                  </p>
+                ) : null}
                 <div className="divide-y divide-border rounded-lg border border-border">
                   {diff.nonFinancial.map(n => (
                     <div key={n.id} className="flex flex-wrap items-start gap-3 p-3">
@@ -606,10 +613,16 @@ export default function RevisedRateConModal({
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground">{n.label}</p>
                         <p className="flex flex-wrap items-center gap-2 break-words text-sm text-muted-foreground">
-                          <span className="line-through">{n.current}</span>
+                          <span className={n.firstCapture ? 'italic' : 'line-through'}>{n.current}</span>
                           <ArrowRight className="h-3.5 w-3.5 shrink-0" />
                           <span className="text-foreground">{n.revised}</span>
                         </p>
+                        {n.firstCapture ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Captured from this document — this field was never stored on the load,
+                            so this is a first capture rather than a change the broker made.
+                          </p>
+                        ) : null}
                         {n.hasDriverData ? (
                           <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-600">
                             <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -623,6 +636,7 @@ export default function RevisedRateConModal({
                 </div>
               </section>
             ) : null}
+
 
             {diff.nonFinancial.length > 0 || diff.financial.length > 0 ? (
               <div className="space-y-1.5">
