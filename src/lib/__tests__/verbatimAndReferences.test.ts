@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   bestWindow, diceSimilarity, normalizeForVerbatim, verifyVerbatim,
 } from '@/lib/verbatimVerify';
+import {
+  anchorMisses, clearAnchorMisses, resolveFieldRegion, stopSlices,
+} from '@/lib/verbatimRegions';
 import {
   classifyReferenceLabel, classifyReferences, referenceKey,
 } from '@/lib/referenceClasses';
