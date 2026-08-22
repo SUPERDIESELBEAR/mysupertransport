@@ -339,7 +339,9 @@ const STOP_FIELDS: StopFieldSpec[] = [
     // not decide whether it is offered. The dispatcher decides.
     read: p => p.notes_verbatim?.value ?? null,
     freeText: true,
+    verbatim: true,
   },
+
   // Stop references are diffed structurally against load_references /
   // load_reference_citations, keyed on class + value. The old single-slot
   // reference_number / reference_label pair only ever held the first row, so
