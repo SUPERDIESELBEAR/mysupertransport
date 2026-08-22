@@ -495,12 +495,14 @@ export function buildRevisionDiff(
       if (revised === null) return;
       const cur = e[spec.key];
       if (sameText(cur, revised)) return;
+      const firstCapture = !!spec.verbatim && text(cur).trim() === '';
       nonFinancial.push({
         id: `stop.${m.existingIndex}.${String(spec.key)}`,
-        label: `Stop ${(m.existingIndex as number) + 1} — ${spec.label}`,
+        label: `Stop ${(m.existingIndex as number) + 1} — ${spec.label}`
+          + (firstCapture ? ' — first capture' : ''),
         path: `stops.${m.existingIndex}.${String(spec.key)}`,
         stopIndex: m.existingIndex,
-        current: text(cur) || '—',
+        current: firstCapture ? 'Not previously stored' : (text(cur) || '—'),
         revised: text(revised),
         value: String(revised),
         hasDriverData,
@@ -508,9 +510,11 @@ export function buildRevisionDiff(
         // and neither is prose the dispatcher would have to read to judge.
         defaultAccept: !hasDriverData && !spec.freeText,
         freeText: spec.freeText,
+        firstCapture,
       });
     });
   });
+
 
   const unresolved = resolved
     .filter(m => m.existingIndex === null && resolutions[m.parsedIndex] !== 'ignore')
