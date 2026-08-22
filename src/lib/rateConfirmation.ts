@@ -4,6 +4,10 @@ import {
   normalizeImportedName, normalizePhone, normalizeWhitespace, normalizeZip, toTitleCase,
 } from '@/lib/textNormalize';
 
+import type { VerbatimVerification } from '@/lib/verbatimVerify';
+
+export type { VerbatimVerification };
+
 export type Confidence = 'high' | 'medium' | 'low';
 
 export interface Field<T> { value: T | null; confidence: Confidence }
