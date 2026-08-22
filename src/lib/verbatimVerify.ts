@@ -218,8 +218,12 @@ export function verifyVerbatim(
   const normValue = normalizeForVerbatim(value);
   const { score, window } = bestWindow(normLayer.text, normValue.text);
 
-  const windowDamage = normalizeForVerbatim(window).degradation;
+  // `window` is already normalized, so re-normalizing it reports zero damage.
+  // Measure damage on the raw source lines the window actually came from —
+  // a two-page layer's average hides a block that is locally mangled.
+  const windowDamage = localDamage(layer, window);
   const degradation = Math.max(windowDamage, normLayer.degradation);
+
 
   // Tokens the page prints inside the matched window must survive transcription.
   const have = new Set(extractSignalTokens(normValue.text).map(tokenKey));
