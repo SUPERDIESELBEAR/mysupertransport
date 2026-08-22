@@ -159,8 +159,8 @@ Current treatment under "SUPERTRANSPORT Standard": linehaul 72, fuel surcharge 7
 - `supabase/functions/parse-rate-confirmation/index.ts` — verbatim fields in contract and prompt; `text_layer` verification (entity/whitespace normalization, case-sensitive, degradation scoring, token-presence, 0.90 similarity, in that order); class- and scope-keyed dedup across all three passes; `unclassified` logging.
 - `src/lib/pdfToText.ts` (new) — text-layer extraction via the existing `pdfjs-dist`; null for image/scan input.
 - `src/lib/verbatimVerify.ts` (new) — normalization, degradation scoring, token extraction and presence check, similarity; shared by the function and the tests.
-- `src/lib/rateConfirmation.ts` — extended types, reference class and scope, `condenseInstructions`.
-- `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; scope-aware reference-set diffing.
+- `src/lib/rateConfirmation.ts` — extended types, reference class, scope and citations, `condenseInstructions`; citation-preferring `pickReference`.
+- `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; scope- and citation-aware reference-set diffing.
 - `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — upload the revised document on selection.
-- Migration: verbatim text columns on `loads` and `load_stops`; `load_references` table (`load_id` not null, `load_stop_id` nullable) with GRANTs, RLS and the three indexes.
+- Migration: verbatim text columns on `loads` and `load_stops`; `load_references` table (`load_id` not null, `load_stop_id` nullable) and `load_reference_citations` join table, with GRANTs, RLS and indexes.
 
