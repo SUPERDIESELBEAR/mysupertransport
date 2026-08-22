@@ -58,3 +58,31 @@ Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
 - **`certify_rods_day` live RPC execution arm** cannot run in this environment and is one of the two permanent named skips.
+
+## Verbatim verification: document-determined regions (2026-08-22)
+
+Verification no longer slides a transcription-length window across the layer.
+`src/lib/verbatimRegions.ts` cuts the region from printed structure — the field's
+heading and the block it owns — so damage is one figure per field per document
+regardless of what the model wrote. All three signals (similarity, tokens,
+damage) are always reported, even when `layer_unreliable` is the headline.
+
+Blue Grace, browser worker (pdf.js), page-1 fields:
+
+| Field | Damage | Faithful similarity | Paraphrase similarity |
+| --- | --- | --- | --- |
+| Special Instructions | 5.71% | 0.9929 (verified) | 0.0436 (layer_unreliable) |
+| Broker terms | 0.00% | 1.0000 (verified) | — |
+
+The paraphrase scores 0.0436 because the comparator does not collapse casing and
+the printed block is upper-case; that is the specified behaviour, not a defect.
+
+Blank lines cannot bound a region: `pdftotext` emits them, pdf.js does not.
+Boundaries are printed structures both extractors produce (`Comments:`,
+`Contact Information:`, appointment-window lines, `Stop N`).
+
+**Open — stop-level notes are not verifiable on this document.** pdf.js emits the
+first stop's `Comments:` line *before* its `Stop 1 (pickup)` heading, so the slice
+for stop 1 contains stop 2's comment. Load-level fields are unaffected. Slicing by
+printed heading is correct against `pdftotext` ordering and wrong against pdf.js
+ordering here; this needs a decision rather than a silent adjustment.

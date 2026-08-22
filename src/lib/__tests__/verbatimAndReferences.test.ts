@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   bestWindow, diceSimilarity, normalizeForVerbatim, verifyVerbatim,
 } from '@/lib/verbatimVerify';
+import {
+  anchorMisses, clearAnchorMisses, resolveFieldRegion, stopSlices,
+} from '@/lib/verbatimRegions';
 import {
   classifyReferenceLabel, classifyReferences, referenceKey,
 } from '@/lib/referenceClasses';
@@ -32,6 +35,8 @@ const LAYER = [
   BG_SPECIAL_INSTRUCTIONS_LAYER,
   'Stop 1 (pickup)',
   BG_STOP1_COMMENT,
+  'Stop 2 (drop)',
+  'Comments: PO# 001000562117',
 ].join('\n');
 
 /* ------------------------------------------------------------------ */
@@ -80,27 +85,58 @@ describe('verbatim verification against the text layer', () => {
     const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, clean);
     expect(r.similarity).toBe(1);
     expect(r.missingTokens).toEqual([]);
+    expect(r.layerDegradation).toBe(0);
     expect(r.verdict).toBe('verified');
   });
 
   /**
-   * On this document the layer cannot render `53' 102"` at all, so a correct
-   * transcription can never reach the threshold. That is the document's fault,
-   * and the verdict has to say so rather than accusing the model.
+   * The point of the fix: damage is a property of the document, so the same
+   * field on the same PDF reports one figure no matter what the transcription
+   * says. Before regions were cut from the page, the faithful transcription
+   * scored 5.57% and the paraphrase 0.98% on this same layer, because each was
+   * scored against whichever window it happened to select.
    */
-  it('blames the document, not the model, when the block is mangled', () => {
-    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, LAYER);
-    expect(r.verdict).toBe('layer_unreliable');
-    expect(r.similarity).toBeGreaterThan(0.98);
-    expect(r.missingTokens).toEqual([]);
-    expect(r.layerDegradation).toBeGreaterThan(0.02);
+  it('reports one damage figure per field per document', () => {
+    const faithful = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, LAYER);
+    const paraphrase = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_PARAPHRASE, LAYER);
+    expect(faithful.layerDegradation).toBeGreaterThan(0.02);
+    expect(paraphrase.layerDegradation).toBe(faithful.layerDegradation);
+    expect(faithful.anchorId).toBe('special_instructions');
+    expect(paraphrase.anchorId).toBe('special_instructions');
   });
 
+  it('verifies the faithful transcription of the mangled block', () => {
+    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, LAYER);
+    expect(r.regionSource).toBe('anchor');
+    expect(r.similarityPass).toBe(true);
+    expect(r.tokenPass).toBe(true);
+    expect(r.missingTokens).toEqual([]);
+    expect(r.verdict).toBe('verified');
+  });
 
-  it('rejects the condensed rewrite', () => {
+  /**
+   * The case the check was built for. Scored against the region it actually
+   * corresponds to, the paraphrase fails on both signals — and the two tokens
+   * it dropped are the ones now demanded, rather than an unrelated address from
+   * a window a page away.
+   */
+  it('rejects the condensed rewrite and names the tokens it dropped', () => {
     const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_PARAPHRASE, LAYER);
-    expect(r.verdict).toBe('unverified');
-    expect(r.similarity).toBeLessThan(0.99);
+    expect(r.verdict).toBe('layer_unreliable');
+    expect(r.similarityPass).toBe(false);
+    expect(r.tokenPass).toBe(false);
+    expect(r.missingTokens).toContain('(800) 697-4477');
+    expect(r.missingTokens).toContain('CALAVO@BLUEGRACEGROUP.COM');
+  });
+
+  /** A damaged region no longer hides the other two signals behind its headline. */
+  it('reports all three signals even when the headline is layer_unreliable', () => {
+    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_PARAPHRASE, LAYER);
+    expect(r.verdict).toBe('layer_unreliable');
+    expect(typeof r.similarity).toBe('number');
+    expect(r.similarityPass).not.toBeNull();
+    expect(r.tokenPass).not.toBeNull();
+    expect(r.layerDegradation).not.toBeNull();
   });
 
   it('catches a lossy transcription that still scores well', () => {
@@ -108,13 +144,22 @@ describe('verbatim verification against the text layer', () => {
       .replace('CALL (800) 697-4477 AND/ OR', 'CALL AND/ OR')
       .replace('EMAIL CALAVO@BLUEGRACEGROUP.COM FOR ASSISTANCE.', 'EMAIL FOR ASSISTANCE.');
     const r = verifyVerbatim('special_instructions_verbatim', lossy, LAYER);
-    expect(r.verdict).toBe('unverified');
-    expect(r.missingTokens.length).toBeGreaterThan(0);
+    expect(r.tokenPass).toBe(false);
+    expect(r.missingTokens?.length).toBeGreaterThan(0);
+    expect(r.verdict).not.toBe('verified');
+  });
+
+  it('verifies the broker terms paragraph as its own field', () => {
+    const r = verifyVerbatim('broker_terms_verbatim', BG_BROKER_TERMS_LAYER, LAYER);
+    expect(r.anchorId).toBe('terms_paragraph_opener');
+    expect(r.verdict).toBe('verified');
+    expect(r.similarity).toBe(1);
   });
 
   it('reports no_layer rather than blaming the model when there is no text layer', () => {
     const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, '');
     expect(r.verdict).toBe('no_layer');
+    expect(r.similarity).toBeNull();
   });
 
   it('scores the entity chain and the pilcrow as damage, not as difference', () => {
@@ -124,6 +169,86 @@ describe('verbatim verification against the text layer', () => {
     expect(bestWindow(a, b).score).toBeGreaterThan(0.95);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* 2b. Regions come from the document, never from the transcription     */
+/* ------------------------------------------------------------------ */
+
+describe('document-determined field regions', () => {
+  beforeEach(() => clearAnchorMisses());
+
+  it('cuts stop slices from the printed Stop headings', () => {
+    const slices = stopSlices(LAYER);
+    expect([...slices.keys()]).toEqual([1, 2]);
+    expect(slices.get(1)!.end).toBeLessThan(slices.get(2)!.start);
+  });
+
+  /**
+   * Blue Grace prints a bare `Comments` heading at load level and `Comments:`
+   * inside each stop. A broker who prints the load-level one *with* a colon
+   * would shift every stop by one under occurrence counting — each stop then
+   * verifying against its neighbour's text, silently.
+   */
+  it('is not shifted by a load-level Comments: heading', () => {
+    const layer = [
+      'Carrier Load Tender',
+      'Comments: General note to carrier about this tender.',
+      'Stop 1 (pickup)',
+      'Comments: PU# IX00286060',
+      'Stop 2 (drop)',
+      'Comments: PO# 001000562117',
+    ].join('\n');
+    expect(resolveFieldRegion(layer, 'stop_notes_verbatim', { stopNumber: 1 }).region?.text)
+      .toBe('Comments: PU# IX00286060');
+    expect(resolveFieldRegion(layer, 'stop_notes_verbatim', { stopNumber: 2 }).region?.text)
+      .toBe('Comments: PO# 001000562117');
+  });
+
+  it('fails as stop_not_found rather than falling through to a neighbour', () => {
+    const r = resolveFieldRegion(LAYER, 'stop_notes_verbatim', { stopNumber: 9 });
+    expect(r.region).toBeNull();
+    expect(r.failure).toBe('stop_not_found');
+  });
+
+  it('keeps the first slice when a stop number is printed twice', () => {
+    const layer = ['Stop 2 (pickup)', 'Comments: FIRST', 'Stop 2 (drop)', 'Comments: SECOND'].join('\n');
+    expect(resolveFieldRegion(layer, 'stop_notes_verbatim', { stopNumber: 2 }).region?.text)
+      .toBe('Comments: FIRST');
+  });
+
+  it('refuses to guess when a heading appears twice with a body', () => {
+    const layer = [
+      'Special Instructions',
+      'FIRST BLOCK OF INSTRUCTIONS.',
+      '',
+      'Special Instructions',
+      'SECOND BLOCK OF INSTRUCTIONS.',
+    ].join('\n');
+    const r = resolveFieldRegion(layer, 'special_instructions_verbatim');
+    expect(r.region).toBeNull();
+    expect(r.failure).toBe('anchor_ambiguous');
+    expect(r.occurrences).toBe(2);
+  });
+
+  it('reports region_unresolved with nothing computed, and logs the miss', () => {
+    const layer = ['Load Tender', 'Rate: $1400.00', 'Stop 1 (pickup)'].join('\n');
+    const r = verifyVerbatim('special_instructions_verbatim', BG_SPECIAL_INSTRUCTIONS_VERBATIM, layer);
+    expect(r.verdict).toBe('region_unresolved');
+    expect(r.regionSource).toBe('none');
+    expect(r.similarity).toBeNull();
+    expect(r.missingTokens).toBeNull();
+    expect(r.layerDegradation).toBeNull();
+    expect(r.similarityPass).toBeNull();
+    expect(r.tokenPass).toBeNull();
+
+    const logged = anchorMisses();
+    expect(logged).toHaveLength(1);
+    expect(logged[0].field).toBe('special_instructions_verbatim');
+    expect(logged[0].failure).toBe('anchor_not_found');
+    expect(logged[0].headings).toContain('Load Tender');
+  });
+});
+
 
 /* ------------------------------------------------------------------ */
 /* 3. Reference classification                                          */

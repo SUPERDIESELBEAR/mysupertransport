@@ -27,6 +27,46 @@ import {
 import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
+import { textLayerFor } from '@/lib/pdfTextLayer';
+import { verifyVerbatim, type VerbatimVerification } from '@/lib/verbatimVerify';
+
+/**
+ * Runs the verbatim check in the browser, where the PDF's own text layer is
+ * available. The edge function only ever sees page images, so it cannot check
+ * its own transcription against the page it transcribed.
+ */
+async function verifyAgainstLayer(
+  f: File, result: ParsedRateConfirmation,
+): Promise<VerbatimVerification[]> {
+  const layer = await textLayerFor(f).catch(() => null);
+  const text = layer?.text ?? '';
+  const out: VerbatimVerification[] = [];
+
+  const si = result.verbatim?.special_instructions?.value;
+  if (si) out.push(verifyVerbatim('special_instructions_verbatim', si, text));
+
+  const bt = result.verbatim?.broker_terms?.value;
+  if (bt) out.push(verifyVerbatim('broker_terms_verbatim', bt, text));
+
+  (result.stops ?? []).forEach((stop, i) => {
+    const notes = stop.notes_verbatim?.value;
+    if (notes) {
+      out.push(verifyVerbatim('stop_notes_verbatim', notes, text, { stopNumber: i + 1 }));
+    }
+  });
+
+  return out;
+}
+
+const VERDICT_COPY: Record<string, { label: string; tone: string; hint: string }> = {
+  verified: { label: 'Matches the page', tone: 'border-success/40 bg-success/10', hint: 'The transcription matches the printed text.' },
+  unverified: { label: 'Does not match the page', tone: 'border-destructive/40 bg-destructive/10', hint: 'Read this field off the document before saving.' },
+  layer_unreliable: { label: 'Page text is damaged', tone: 'border-warning/40 bg-warning/10', hint: 'The PDF\u2019s own text is degraded here, so the check cannot judge the transcription.' },
+  no_layer: { label: 'No text layer', tone: 'border-border bg-muted', hint: 'This document is a scan \u2014 nothing to check against.' },
+  region_unresolved: { label: 'Field not found on the page', tone: 'border-border bg-muted', hint: 'No printed heading matched, so nothing was compared.' },
+};
+
+const pct = (n: number | null) => (n === null ? '\u2014' : `${(n * 100).toFixed(1)}%`);
 
 interface Props {
   /** The parsed file is attached to the load as its rate confirmation after saving. */
@@ -81,6 +121,7 @@ export default function RateConfirmationParser({
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<ParsedRateConfirmation | null>(null);
   const [verify, setVerify] = useState<string[]>([]);
+  const [verbatim, setVerbatim] = useState<VerbatimVerification[]>([]);
   const [unassigned, setUnassigned] = useState<UnassignedRateLine[]>([]);
   const [candidates, setCandidates] = useState<BrokerCandidate[]>([]);
   const [brokerResolved, setBrokerResolved] = useState(false);
@@ -120,6 +161,7 @@ export default function RateConfirmationParser({
   const reset = () => {
     setParsed(null);
     setVerify([]);
+    setVerbatim([]);
     setUnassigned([]);
     setCandidates([]);
     setBrokerResolved(false);
@@ -169,6 +211,10 @@ export default function RateConfirmationParser({
 
       const applied = applyParsedToForm(result, (name, value) =>
         form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
+
+      const checks = await verifyAgainstLayer(file, result);
+      result.verbatim_verification = checks;
+      setVerbatim(checks);
 
       setParsed(result);
       onParsed?.(result);
@@ -422,6 +468,39 @@ export default function RateConfirmationParser({
           <p className="text-xs text-muted-foreground">
             Anything the parser was unsure of was left blank on purpose.
           </p>
+        </div>
+      )}
+
+      {verbatim.length > 0 && (
+        <div className="rounded-md border border-border bg-background p-3 space-y-2">
+          <p className="text-sm font-semibold text-foreground">Verbatim capture checked against the page</p>
+          <div className="space-y-1.5">
+            {verbatim.map((v, i) => {
+              const copy = VERDICT_COPY[v.verdict] ?? VERDICT_COPY.region_unresolved;
+              return (
+                <div key={`${v.field}-${i}`} className={`rounded border p-2 ${copy.tone}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">
+                      {v.field.replace(/_verbatim$/, '').replace(/_/g, ' ')}
+                    </span>
+                    <Badge variant="outline" className="text-[11px] font-normal">{copy.label}</Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Similarity {pct(v.similarity)}
+                    {v.similarityPass === null ? '' : v.similarityPass ? ' (pass)' : ' (fail)'}
+                    {' \u00b7 '}Tokens {v.tokenPass === null ? '\u2014' : v.tokenPass ? 'all present' : `${v.missingTokens?.length ?? 0} missing`}
+                    {' \u00b7 '}Page damage {pct(v.layerDegradation)}
+                  </p>
+                  {v.missingTokens && v.missingTokens.length > 0 && (
+                    <p className="mt-0.5 text-[11px] text-foreground">
+                      Dropped: {v.missingTokens.join(', ')}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{copy.hint}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
