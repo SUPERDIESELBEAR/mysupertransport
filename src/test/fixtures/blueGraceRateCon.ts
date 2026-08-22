@@ -51,8 +51,18 @@ export const BG_SPECIAL_INSTRUCTIONS_PARAPHRASE = [
   'All accessorials must be submitted with documents within 24 hours of delivery. No detention on produce.',
 ].join('\n');
 
-/** The BGLF terms paragraph, printed above the Comments block on page 1. */
+/**
+ * The BGLF terms paragraph, printed above the Comments block on page 1 — the
+ * whole block, not its closing lines. The field is the paragraph, so a fixture
+ * holding only its tail was never covering the field it claimed to cover.
+ */
 export const BG_BROKER_TERMS_LAYER = [
+  'BlueGrace Logistics (BGLF) will only consider additional charges if agreed to in writing. Carrier must inform BGLF at the',
+  'time charges occur and of all unplanned accessorial or other additional charges incurred. BGLF will not reimburse',
+  'detention charges unless reported at the time of the event, and "in" and "out" times are clearly stated on the Bill of',
+  'Lading. BGLF will reimburse Carrier for approved lumper costs upon submission of a signed receipt. OS&D must be',
+  'reported prior to leaving the consignee. PLEASE NOTE: Invoices and PODs must be submitted within 24 hours of',
+  'delivery for Payment to: TLInvoices@bluegracegroup.com. Payment will not be processed without all required',
   'paperwork. Reference is made to the broker-carrier agreement between BGLF and Carrier for the legal requirements and',
   'terms between the parties.',
 ].join('\n');
