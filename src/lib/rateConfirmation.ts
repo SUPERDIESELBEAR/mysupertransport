@@ -1,3 +1,4 @@
+import { classifyReferences } from '@/lib/referenceClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
@@ -286,6 +287,15 @@ export function applyParsedToForm(
   put('is_hazmat', p.load.is_hazmat, 'Hazmat');
   put('is_team_load', p.load.is_team_load, 'Team load');
   put('special_instructions', p.special_instructions, 'Special instructions');
+  // Verbatim blocks are written unconditionally, including at low confidence:
+  // they are a transcription, not an inference, and an empty field here would
+  // silently lose the only faithful copy of what the broker wrote.
+  if (p.verbatim?.special_instructions?.value) {
+    set('special_instructions_verbatim', p.verbatim.special_instructions.value);
+  }
+  if (p.verbatim?.broker_terms?.value) {
+    set('broker_terms_verbatim', p.verbatim.broker_terms.value);
+  }
 
   if (usable(p.load.equipment_type) === 'reefer') {
     put('reefer_temp_f', p.reefer.temp_f, 'Reefer temperature');
@@ -332,6 +342,7 @@ export function applyParsedToForm(
       appointment_start: take(s.appointment_start, 'appointment start'),
       appointment_end: take(s.appointment_end, 'appointment end'),
       stop_notes: take(s.notes, 'notes'),
+      stop_notes_verbatim: s.notes_verbatim?.value ?? '',
       reference_number: ref && ref.confidence !== 'low' ? ref.value : '',
       reference_label: ref && ref.confidence !== 'low' ? ref.label : '',
       stopoff_charge_amount: '',
@@ -363,6 +374,26 @@ export function applyParsedToForm(
     }
     unassigned.push({ ...line, id });
   });
+
+  // ---- references --------------------------------------------------------
+  // Classification decides what is an identifier and what is an attribute
+  // wearing a reference label. `Mode: TL` routes to the load's own column;
+  // storing it as a reference would fire duplicate warnings across every
+  // truckload tender in the system.
+  const classified = classifyReferences([
+    ...(p.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: null })),
+    ...sorted.flatMap(st =>
+      (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
+  ]);
+  const modeRow = classified.routed.find(r => r.routeTo === 'loads.mode');
+  if (modeRow) set('mode', modeRow.value);
+  else if (p.load.mode?.value) set('mode', String(p.load.mode.value));
+  set('references', classified.references.map(r => ({
+    reference_class: r.clazz,
+    label: r.label,
+    value: r.value,
+    citations: r.citations,
+  })));
 
   set('stops', stops);
 
