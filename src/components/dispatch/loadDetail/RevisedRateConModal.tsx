@@ -79,6 +79,9 @@ export default function RevisedRateConModal({
   });
   const [note, setNote] = useState('');
   const [unlockReason, setUnlockReason] = useState('');
+  /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
+  const uploadedDocId = useRef<string | null>(null);
+
 
   const tier = financialEditTier(load.status as LoadStatus);
   const locked = tier === 'locked';
