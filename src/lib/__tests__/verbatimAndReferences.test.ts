@@ -257,7 +257,10 @@ function loadFromOriginal(): LoadFormValues {
     })),
     stops: [
       {
-        ...emptyStop('pickup'), id: 'stop-a', address_line1: '8901 San Mateo Dr.',
+        // Stored as the form normalized it on the original apply: the street
+        // suffix period is dropped, so the re-parse must not read as a change.
+        ...emptyStop('pickup'), id: 'stop-a', address_line1: '8901 San Mateo Dr',
+
         zip: '78045', city: 'Laredo', state: 'TX', stop_notes_verbatim: BG_STOP1_COMMENT,
       },
       {
