@@ -26,17 +26,39 @@ Measured against a faithful transcription of the original (glyphs read correctly
 | Same, with casing collapsed | 0.993 — **no gain**, so casing stays significant |
 | A condensed paraphrase vs the layer | **0.041** |
 
-So: any containment-based check produces a false negative on this document, 100% of the time, on both files. A similarity check at a 0.90 threshold accepts the faithful transcription with 0.09 of headroom and rejects a paraphrase by a margin of 0.86. On these two documents that is a 0% false-negative and 0% false-positive rate, and the separation is wide enough that the threshold is not delicately tuned. Casing collapse buys nothing here, which settles correction 3 with no cost.
+So: any containment-based check produces a false negative on this document, 100% of the time, on both files. Similarity at 0.90 accepts the faithful transcription and rejects a paraphrase by a wide margin. But it does not catch the failure this work exists to prevent — measured below — so it is now one of two checks, not the check.
 
-## Comparator design (corrections 2 and 3)
+## Token-presence check — measured (correction 1)
+
+You are right, and the numbers are worse than the estimate. Against the ~640-character Special Instructions block of the original:
+
+| Transcription | Similarity | Token check |
+| --- | --- | --- |
+| Faithful | 0.995 pass | **pass** — no missing tokens |
+| Phone `(800) 697-4477` deleted | **0.987 pass** | **fail** — reports `(800) 697-4477` |
+| Phone and `CALAVO@BLUEGRACEGROUP.COM` deleted | **0.972 pass** | **fail** — reports both |
+| Condensed paraphrase | 0.081 fail | fail — reports both plus `2025` |
+
+The exact bug that started this — both contact methods dropped — scores 0.972 and sails through any similarity threshold that a faithful transcription can also survive. Similarity cannot see omission; it is a length-weighted measure and these tokens are 2.8% of the block.
+
+The two checks are complementary rather than redundant, which the other measurements confirm: a sentence-reordered transcription with every token present scores 0.118 and is caught by similarity alone, and a case-collapsed transcription scores 0.071 — so case sensitivity earns its keep and correction 3 costs nothing.
+
+**Design.** From the normalized text layer, extract every email address, every phone number, and every digit run of four or more characters. Assert each appears in the transcription. **Layer → transcription only, never the reverse** — degradation removes content and never adds it, so a layer that lost `53' 102"` to a pilcrow no longer contains those digits and cannot demand them. A field fails if *either* check fails. The report names the missing tokens, not a boolean.
+
+Phone and digit comparison runs on digits-only forms so `(800) 697-4477` matches `800-697-4477`. Digit runs match as substrings of the transcription's digit stream, which is what keeps a truncated layer token safe: the short-field case below extracts `0028606` from a damaged layer, and that is a substring of the correct `00286060`, so it passes rather than firing falsely.
+
+**Short fields.** Stop 1's `PU# IX00286060` is fourteen characters; a single damaged glyph scores 0.929 — above threshold, so similarity alone would call it verified. Degradation scoring runs first and sees an unmappable glyph where the model reports printable text, so the field reports `text_layer_unreliable`, not `verified` and not `verbatim_unverified`. Order of evaluation is therefore load-bearing and is asserted in the tests: degrade → token → similarity.
+
+## Comparator design (corrections 2 and 3, prior pass)
 
 - Normalize **both sides**: collapse whitespace and soft hyphens; unescape HTML entities repeatedly until the string stops changing, so `&amp;amp;…&D` resolves to `&D`.
-- **Keep casing significant.** The transcription rule forbids normalizing case, so the check must be able to catch a violation of it.
-- Compare on similarity, not containment. Threshold 0.90.
-- **Degradation detection, reported separately.** Before judging the transcription, score the layer itself: unmappable glyph substitutions (`¶`, `□`, replacement chars) where the model reports printable text, entity chains, and characters missing against the model's output. A degraded layer yields `text_layer_unreliable` — the field is stored and the review screen says "the document's text layer is unreadable here; transcription not machine-checked." That is a different label from `verbatim_unverified`, which means the comparator ran cleanly and the transcription still did not match — "the model may have gotten this wrong." One label is about the document, the other about the model, and a dispatcher can act on the difference.
+- **Keep casing significant** — measured cost is zero, and it catches a rule violation nothing else would.
+- Similarity at 0.90, **plus** the token-presence check. Either failure fails the field.
+- **Degradation detection, evaluated first and reported separately.** Score the layer itself: unmappable glyph substitutions (`¶`, `□`, replacement chars) where the model reports printable text, entity chains, and characters missing against the model's output. A degraded layer yields `text_layer_unreliable` — stored, and labelled "the document's text layer is unreadable here; transcription not machine-checked." `verbatim_unverified` means the comparator ran cleanly and the transcription still failed — "the model may have gotten this wrong." One label is about the document, the other about the model.
 - No case blocks the save; free-text already defaults unchecked.
 
 Extraction happens client-side with the existing `pdfjs-dist` and is sent as `text_layer` alongside the file. Image uploads and text-free scans report `no_text_layer` — not verifiable, stated as such.
+
 
 ## Fixture (correction 1)
 
