@@ -32,23 +32,39 @@ export type VerbatimVerdict =
   | 'verified'
   | 'unverified'
   | 'layer_unreliable'
-  | 'no_layer';
+  | 'no_layer'
+  | 'region_unresolved';
 
 export interface VerbatimVerification {
   /** Field this verdict is about, e.g. `special_instructions_verbatim`. */
   field: string;
   verdict: VerbatimVerdict;
-  /** Dice bigram similarity against the best window of the text layer, 0..1. */
-  similarity: number;
-  /** High-signal tokens found on the page but absent from the transcription. */
-  missingTokens: string[];
-  /** Share of the compared layer window that was damaged glyphs / entity noise. */
-  layerDegradation: number;
+  /**
+   * Dice bigram similarity against the best window *inside the resolved region*,
+   * 0..1. Null only when no region resolved — a number computed against an
+   * unanchored window looks precise and means nothing.
+   */
+  similarity: number | null;
+  /** High-signal tokens the region prints but the transcription dropped. */
+  missingTokens: string[] | null;
+  /** Damage of the region's own raw lines. One figure per field per document. */
+  layerDegradation: number | null;
+  /** Reported even when the headline verdict is `layer_unreliable`. */
+  similarityPass: boolean | null;
+  /** Reported even when the headline verdict is `layer_unreliable`. */
+  tokenPass: boolean | null;
+  /** How the compared region was chosen. Never a whole-layer fallback. */
+  regionSource: 'anchor' | 'none';
+  /** Which printed anchor matched, when one did. */
+  anchorId: string | null;
+  /** Why no region resolved, when none did. */
+  regionFailure: RegionFailure | null;
 }
 
 export const VERBATIM_SIMILARITY_THRESHOLD = 0.99;
 /** Above this share of damaged characters the layer cannot arbitrate a near miss. */
 export const LAYER_DEGRADATION_LIMIT = 0.02;
+
 
 /* ------------------------------------------------------------------ */
 /* Normalization                                                        */
