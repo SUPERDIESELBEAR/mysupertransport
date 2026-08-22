@@ -662,7 +662,11 @@ export function buildRevisionDiff(
 
   const totalDelta = Math.round(financial.reduce((s, f) => s + f.delta, 0) * 100) / 100;
 
-  return { nonFinancial, financial, stopMatches: resolved, unresolved, totalDelta };
+  return {
+    nonFinancial, financial, stopMatches: resolved, unresolved, totalDelta,
+    referencesComparable,
+  };
+
 }
 
 /** Accept/reject defaults, and the pre-selected classification for each money row. */
