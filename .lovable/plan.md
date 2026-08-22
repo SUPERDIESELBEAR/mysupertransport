@@ -114,17 +114,22 @@ Classes, matched after lowercasing and stripping `#`, `no.`, `number`, punctuati
 
 All three dedup passes re-key on **class + value**, and are now scope-aware:
 
-- load-level pass: a stop reference collapses into a load-level reference only when class *and* value match, so Stop 1's `PU# IX00286060` and the table's `Pickup Number IX00286060` end as **one row at load scope**, while PRO no longer dies against BOL;
+- load-level pass: a stop reference collapses into a load-level reference only when class *and* value match, so Stop 1's `PU# IX00286060` and the table's `Pickup Number IX00286060` end as **one row at load scope with the citation from Stop 1 recorded** (below), while PRO no longer dies against BOL;
 - cross-stop pass: a repeat under a mapped class is kept on every stop (a shipment number at both ends is what the guard asks for); only `unclassified` repeats are dropped, and logged;
 - the `refCore` near-duplicate collapse — the pass that actually killed the PRO row — collapses only within one class, and only within one scope.
 
-### 4. Reference storage and diffing (correction 2)
+### 4. Reference storage, citations and diffing
 
 The References block on page 2 is load-level — it belongs to no stop — while stop Comments carry stop-level references. Both scopes are real, so one table carries both: `load_references` with `id`, `load_id` FK (not null), `load_stop_id` FK (**nullable — null means load-level**), `reference_class`, `printed_label`, `value`, standard audit columns. Indexes on `value`, on `(load_id, reference_class)` and on `(load_stop_id, reference_class)`. One table rather than two so an AP lookup by value hits a single index regardless of scope. No JSON column. GRANTs and RLS mirror `load_stops`, scoped through `load_id`.
 
-References diff as a **scope-aware set**: each row is keyed on `(scope, class, value)`, and every added, removed or changed row surfaces as its own non-financial change carrying its scope, printed label and value. A reference that moves between load-level and stop-level is reported as a single **scope change**, not a removal plus an addition. `pickReference` still chooses the primary gate reference a stop form displays, now falling back to a matching load-level reference when the stop has none of its own.
+**Citations.** When a stop's printed reference collapses into a load-level row, the association is recorded rather than discarded — printing `PU# IX00286060` in Stop 1's comments is how the broker distinguishes it from the other pickup number (`562117`) on the same load, and on a multi-pick load that is not recoverable by inference. This uses a small join table, `load_reference_citations` (`load_reference_id`, `load_stop_id`, `printed_label`, unique on the pair), not a nullable `referenced_by_stop_id` column. Reason: the same value legitimately appears in more than one stop's comment block — a shipment number cited at both ends is the exact case the cross-stop guard is being loosened for — and a single nullable column silently keeps only the first citation, reintroducing the class of bug this pass exists to remove. The join also carries the label as that stop printed it (`PU#` versus `Pickup Number`), which a column on the reference row cannot hold per stop. The access pattern is a small read alongside the stop, and stop-scoped lookup is indexed on `load_stop_id`.
 
-On the Blue Grace pair this surfaces exactly one change — `PRO BG969676425` added at load scope — with no phantom pickup number and no duplicate of the pickup reference that exists at both scopes.
+**Fallback.** `pickReference` still chooses the primary gate reference a stop form displays. For a stop with no reference of its own it falls back to a load-level reference of the right class, and **prefers one this stop cited** over one it did not. A stop that cited nothing still falls back to any load-level reference of the right class, as designed.
+
+References diff as a **scope-aware set**: each row is keyed on `(scope, class, value)`, and every added, removed or changed row surfaces as its own non-financial change carrying its scope, printed label and value. A reference that moves between load-level and stop-level reports as a single **scope change**, not a removal plus an addition. Citations diff too: a reference that stops being cited by a stop, while remaining at load scope, surfaces as a **citation change** naming the stop — never silence.
+
+On the Blue Grace pair this surfaces exactly one change — `PRO BG969676425` added at load scope — with no phantom pickup number, no duplicate of the pickup reference that exists at both scopes, and Stop 1's citation of `IX00286060` preserved and unchanged.
+
 
 
 ### 5. Retention
