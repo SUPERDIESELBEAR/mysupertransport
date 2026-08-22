@@ -1,6 +1,6 @@
 import type { LoadFormValues, StopFormValues } from '@/pages/dispatch/loadFormSchema';
 import type { Confidence, Field, ParsedRateConfirmation, ParsedStop } from '@/lib/rateConfirmation';
-import { pickReference } from '@/lib/rateConfirmation';
+
 import {
   classifyReferences, referenceKey, type ReferenceClass,
 } from '@/lib/referenceClasses';
