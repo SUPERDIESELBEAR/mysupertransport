@@ -95,9 +95,17 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     special_instructions_verbatim: text(l.special_instructions_verbatim),
     broker_terms_verbatim: text(l.broker_terms_verbatim),
     mode: text(l.mode),
-    // References are not edited on this form; the save path leaves existing
-    // rows untouched when the array is empty.
-    references: [],
+    // Stored reference rows are the baseline a revised document is diffed
+    // against. Hydrating them as `[]` made every number on the document read as
+    // an addition, and the save path then wrote nothing back, so the baseline
+    // never appeared.
+    references: (data.references ?? []).map(r => ({
+      reference_class: r.reference_class,
+      label: r.label,
+      value: r.value,
+      citations: r.citations,
+    })),
+
     is_team_load: !!l.is_team_load,
     co_driver_name: text(l.co_driver_name),
     is_hazmat: !!l.is_hazmat,
