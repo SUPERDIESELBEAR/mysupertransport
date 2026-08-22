@@ -193,6 +193,28 @@ export interface VerifyOptions {
 }
 
 /**
+ * Damage rate of the raw lines that fed the matched window. A block rendered
+ * through mangled glyphs is a document problem; averaging it over two pages of
+ * clean text would report it as a transcription problem instead.
+ */
+export function localDamage(rawLayer: string, normalizedWindow: string): number {
+  if (!normalizedWindow) return 0;
+  let damaged = 0;
+  let kept = 0;
+  rawLayer.split('\n').forEach((line) => {
+    const n = normalizeForVerbatim(line);
+    if (!n.text) return;
+    // A line counts as part of the window if a decent run of it appears there.
+    const probe = n.text.slice(0, Math.min(24, n.text.length));
+    if (probe.length >= 8 && !normalizedWindow.includes(probe)) return;
+    if (probe.length < 8 && !normalizedWindow.includes(n.text)) return;
+    damaged += n.degradation * line.length;
+    kept += line.length;
+  });
+  return kept ? damaged / kept : 0;
+}
+
+/**
  * @param field       name reported back with the verdict
  * @param transcribed the model's verbatim capture
  * @param layer       the raw PDF text layer for the whole document
@@ -218,8 +240,12 @@ export function verifyVerbatim(
   const normValue = normalizeForVerbatim(value);
   const { score, window } = bestWindow(normLayer.text, normValue.text);
 
-  const windowDamage = normalizeForVerbatim(window).degradation;
+  // `window` is already normalized, so re-normalizing it reports zero damage.
+  // Measure damage on the raw source lines the window actually came from —
+  // a two-page layer's average hides a block that is locally mangled.
+  const windowDamage = localDamage(layer, window);
   const degradation = Math.max(windowDamage, normLayer.degradation);
+
 
   // Tokens the page prints inside the matched window must survive transcription.
   const have = new Set(extractSignalTokens(normValue.text).map(tokenKey));

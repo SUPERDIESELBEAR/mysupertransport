@@ -28,6 +28,14 @@ Date: 2026-08-22
 - **Internal capitals are preserved in names.** McCree, MacArthur, O'Brien, DeSoto. `Mc`/`O'` use a general rule; `Mac`/`De`/`La`/`Van` split only against an inclusion list, so ordinary words like Macon and Delaware stay flat.
 - **Broker address extraction.** One address only, preferring remit-to over bill-to over letterhead, never assembled from two blocks. The dialog names the source heading, and a provenance line is appended to the broker's notes so the stored address's origin survives the save.
 
+### Verbatim capture, references and accept defaults
+
+- **Broker-authored text is stored as printed.** `loads.special_instructions_verbatim` and `loads.broker_terms_verbatim` are separate columns; `load_stops.stop_notes_verbatim` holds the printed stop comment. The terms paragraph is never concatenated into the Special Instructions block. Condensed text, if ever wanted, is a render-time derivation — never the stored value.
+- **Transcriptions are checked against the PDF text layer.** `src/lib/verbatimVerify.ts` normalizes layer damage (entity chains, control glyphs, typographic quotes) without collapsing casing, scores a sliding window with Sørensen–Dice at a 0.99 threshold, and additionally requires every high-signal token in the matched window (emails, phones, money, long digit runs) to survive. Verdicts distinguish `layer_unreliable` (the document cannot render the block) from `unverified` (the model rewrote it) and `no_layer`.
+- **References are rows, not a JSON blob.** `load_references` (class, label, value) with `load_reference_citations` recording which stop printed each one. Keyed on class + value, so a PRO that repeats the BOL value is its own row. Labels resolve through `src/lib/referenceClasses.ts`, which maps `PU#` and `Pickup Number` to one class.
+- **Categorical labels are not references.** `Mode` routes to `loads.mode`; identifying classes only are eligible for duplicate detection.
+- **Free-text changes arrive unchecked.** Structured before/after changes — dates, numbers, addresses, reference rows — stay checked; broker prose requires a deliberate accept.
+
 ## Key architectural decisions
 
 - **`load_charges` is the authoritative charge record.** `stopoff_charge_amount` on `load_stops` is a display mirror used for quick rendering; write-time logic uses `load_charges`.
@@ -38,14 +46,14 @@ Date: 2026-08-22
 
 ## Test baselines
 
-Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-08-21). Both files agree. Every skip is named and counted; no silent `it.skip` or `test.skip`.
+Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-08-22). Both files agree. Every skip is named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 514 passed, 2 skipped (67 files passed, 1 skipped).
-- **Without database:** 495 passed, 13 skipped (64 files passed, 4 skipped).
+- **With database attached:** 535 passed, 2 skipped (68 files passed, 1 skipped).
+- **Without database:** 516 passed, 13 skipped (65 files passed, 4 skipped).
 
 ## Open items
 
-- **Unparsed rate confirmations:** Blue Grace revised, Rolling River, MegaCorp, and Nationwide still need parser coverage.
+- **Unparsed rate confirmations:** Rolling River, MegaCorp, and Nationwide still need parser coverage.
 - **33 query sites in `src/components/inspection/` swallow errors;** failures are not surfaced to the UI.
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
