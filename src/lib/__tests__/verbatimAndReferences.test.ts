@@ -274,14 +274,32 @@ describe('reference classification', () => {
     expect(out.routed).toContainEqual({ clazz: 'mode', value: 'TL', routeTo: 'loads.mode' });
   });
 
-  it('keeps a number printed on several stops as one reference with citations', () => {
+  it('keeps a number printed on several stops as one reference, each citation keeping its printed label', () => {
     const out = classifyReferences([
       { label: 'Pickup Number', value: 'IX00286060', stopSequence: 1 },
       { label: 'PU#', value: 'IX00286060', stopSequence: 2 },
     ]);
     expect(out.references).toHaveLength(1);
-    expect(out.references[0].citations).toEqual([1, 2]);
+    // One reference, two citations: the stops disagree on the label, and that
+    // disagreement is what the citation records. Collapsing to bare sequence
+    // numbers loses the only evidence of how each stop printed it.
+    expect(out.references[0].citations).toEqual([
+      { stopSequence: 1, printedLabel: 'Pickup Number' },
+      { stopSequence: 2, printedLabel: 'PU#' },
+    ]);
   });
+
+  it('does not fragment one reference into two rows because the labels differ', () => {
+    const out = classifyReferences([
+      { label: 'PU#', value: 'IX00286060', stopSequence: 1 },
+      { label: 'Pickup Number', value: 'ix00286060', stopSequence: 2 },
+    ]);
+    // Identity is class + normalized value. The printed label lives on the
+    // citation precisely so it cannot split the dedup key.
+    expect(out.references).toHaveLength(1);
+    expect(out.references[0].citations).toHaveLength(2);
+  });
+
 
   it('does not merge two different pickup numbers', () => {
     const out = classifyReferences([
