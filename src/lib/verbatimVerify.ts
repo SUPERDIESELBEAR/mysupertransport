@@ -206,34 +206,60 @@ export function extractSignalTokens(s: string): string[] {
 export interface VerifyOptions {
   threshold?: number;
   degradationLimit?: number;
+  /** Required for `stop_notes_verbatim`: the printed stop number. */
+  stopNumber?: number;
+  /** Set false to inspect a region without adding to the miss log. */
+  log?: boolean;
 }
 
 /**
- * Damage rate of the raw lines that fed the matched window. A block rendered
- * through mangled glyphs is a document problem; averaging it over two pages of
- * clean text would report it as a transcription problem instead.
+ * Damage of a region's own raw lines, weighted by line length.
+ *
+ * This is a property of the document, not of the transcription: the same field
+ * on the same PDF yields one figure no matter what the model wrote about it.
+ * Averaging over the whole layer instead would hide a locally mangled block
+ * behind two pages of clean text.
  */
-export function localDamage(rawLayer: string, normalizedWindow: string): number {
-  if (!normalizedWindow) return 0;
+export function regionDamage(rawLines: string[]): number {
   let damaged = 0;
   let kept = 0;
-  rawLayer.split('\n').forEach((line) => {
+  rawLines.forEach((line) => {
     const n = normalizeForVerbatim(line);
     if (!n.text) return;
-    // A line counts as part of the window if a decent run of it appears there.
-    const probe = n.text.slice(0, Math.min(24, n.text.length));
-    if (probe.length >= 8 && !normalizedWindow.includes(probe)) return;
-    if (probe.length < 8 && !normalizedWindow.includes(n.text)) return;
     damaged += n.degradation * line.length;
     kept += line.length;
   });
   return kept ? damaged / kept : 0;
 }
 
+const unresolved = (
+  field: string,
+  regionFailure: RegionFailure,
+): VerbatimVerification => ({
+  field,
+  verdict: 'region_unresolved',
+  similarity: null,
+  missingTokens: null,
+  layerDegradation: null,
+  similarityPass: null,
+  tokenPass: null,
+  regionSource: 'none',
+  anchorId: null,
+  regionFailure,
+});
+
 /**
- * @param field       name reported back with the verdict
+ * @param field       one of the verbatim fields; also selects the printed anchors
  * @param transcribed the model's verbatim capture
  * @param layer       the raw PDF text layer for the whole document
+ *
+ * All three signals — similarity, token presence, region damage — are computed
+ * and reported whenever a region resolves. `layer_unreliable` remains the
+ * headline when the region is too damaged to arbitrate, but it no longer
+ * short-circuits the other two: a field that is both layer-unreliable and
+ * missing a phone number the damaged layer still prints is a materially
+ * different situation from one that is merely unreadable, and the two used to
+ * look identical.
  */
 export function verifyVerbatim(
   field: string,
@@ -245,38 +271,78 @@ export function verifyVerbatim(
   const degradationLimit = opts.degradationLimit ?? LAYER_DEGRADATION_LIMIT;
 
   const value = (transcribed ?? '').trim();
-  if (!value) {
-    return { field, verdict: 'verified', similarity: 1, missingTokens: [], layerDegradation: 0 };
-  }
+  const base = {
+    field,
+    similarity: 1,
+    missingTokens: [] as string[],
+    layerDegradation: 0,
+    similarityPass: true,
+    tokenPass: true,
+    regionSource: 'none' as const,
+    anchorId: null,
+    regionFailure: null,
+  };
+  if (!value) return { ...base, verdict: 'verified' };
   if (!layer || !layer.trim()) {
-    return { field, verdict: 'no_layer', similarity: 0, missingTokens: [], layerDegradation: 1 };
+    return {
+      ...base,
+      verdict: 'no_layer',
+      similarity: null,
+      missingTokens: null,
+      layerDegradation: null,
+      similarityPass: null,
+      tokenPass: null,
+    };
   }
 
-  const normLayer = normalizeForVerbatim(layer);
+  const resolved = resolveFieldRegion(layer, field as VerbatimField, { stopNumber: opts.stopNumber });
+  if (!resolved.ok) {
+    if (opts.log !== false) {
+      recordAnchorMiss(
+        field as VerbatimField,
+        resolved.failure,
+        layer,
+        resolved.occurrences,
+        opts.stopNumber ?? null,
+      );
+    }
+    return unresolved(field, resolved.failure);
+  }
+
+  const { region } = resolved;
+  const normRegion = normalizeForVerbatim(region.text);
   const normValue = normalizeForVerbatim(value);
-  const { score, window } = bestWindow(normLayer.text, normValue.text);
 
-  // `window` is already normalized, so re-normalizing it reports zero damage.
-  // Measure damage on the raw source lines the window actually came from —
-  // a two-page layer's average hides a block that is locally mangled.
-  const windowDamage = localDamage(layer, window);
-  const degradation = Math.max(windowDamage, normLayer.degradation);
+  // The window slides inside the region only. The region itself came from the
+  // document, so the transcription can no longer choose what it is judged against.
+  const { score } = bestWindow(normRegion.text, normValue.text);
+  const degradation = regionDamage(region.rawLines);
 
-
-  // Tokens the page prints inside the matched window must survive transcription.
+  // Tokens the region prints must survive transcription. Safe to demand on a
+  // damaged layer by construction: it only asks for what the layer still holds.
   const have = new Set(extractSignalTokens(normValue.text).map(tokenKey));
-  const missingTokens = extractSignalTokens(window)
-    .filter((t) => !have.has(tokenKey(t)));
+  const missingTokens = extractSignalTokens(normRegion.text).filter((t) => !have.has(tokenKey(t)));
 
-  if (score >= threshold && missingTokens.length === 0) {
-    return { field, verdict: 'verified', similarity: score, missingTokens, layerDegradation: degradation };
-  }
+  const similarityPass = score >= threshold;
+  const tokenPass = missingTokens.length === 0;
 
-  // A near miss on a visibly damaged layer, with every signal token intact, is
-  // the document's fault rather than the model's.
-  if (missingTokens.length === 0 && degradation > degradationLimit && score >= threshold - 0.05) {
-    return { field, verdict: 'layer_unreliable', similarity: score, missingTokens, layerDegradation: degradation };
-  }
+  const verdict: VerbatimVerdict = similarityPass && tokenPass
+    ? 'verified'
+    : degradation > degradationLimit
+      ? 'layer_unreliable'
+      : 'unverified';
 
-  return { field, verdict: 'unverified', similarity: score, missingTokens, layerDegradation: degradation };
+  return {
+    field,
+    verdict,
+    similarity: score,
+    missingTokens,
+    layerDegradation: degradation,
+    similarityPass,
+    tokenPass,
+    regionSource: 'anchor',
+    anchorId: region.anchorId,
+    regionFailure: null,
+  };
 }
+
