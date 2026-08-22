@@ -538,6 +538,18 @@ Deno.serve(async (req) => {
       },
       stops,
       special_instructions: str(parsed.special_instructions),
+      verbatim: {
+        broker_terms: str(parsed.verbatim?.broker_terms),
+        special_instructions: str(parsed.verbatim?.special_instructions),
+      },
+      references: (Array.isArray(parsed.references) ? parsed.references : [])
+        .map((r: any) => ({
+          label: String(r?.label ?? '').trim(),
+          value: String(r?.value ?? '').trim(),
+          confidence: conf(r?.confidence),
+        }))
+        .filter((r: any) => r.value.length > 0 && r.value.length <= 60)
+        .slice(0, 24),
       loadout_signals: {
         no_bol_mentioned: plainBool(ls.no_bol_mentioned),
         photo_pod_required: plainBool(ls.photo_pod_required),
