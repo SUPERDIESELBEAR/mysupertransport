@@ -301,8 +301,11 @@ const STOP_FIELDS: StopFieldSpec[] = [
     read: p => p.notes_verbatim?.value ?? null,
     freeText: true,
   },
-  { key: 'reference_number', label: 'Reference number', read: p => pickReference(p.references ?? [])?.value ?? null },
-  { key: 'reference_label', label: 'Reference label', read: p => pickReference(p.references ?? [])?.label ?? null },
+  // Stop references are diffed structurally against load_references /
+  // load_reference_citations, keyed on class + value. The old single-slot
+  // reference_number / reference_label pair only ever held the first row, so
+  // diffing it here double-reported one reference and hid the rest.
+
 ];
 
 function nz(v: string | null, fn: (s: string) => string): string | null {
