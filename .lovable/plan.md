@@ -1,67 +1,53 @@
 # Revised rate confirmation — verbatim capture, accept defaults, reference diffing
 
-Approved scope: items 1–3 plus reference diffing build now. The reimbursement pay class is specified below but **not built** pending the funding-source decision.
+Approved scope: verbatim capture, free-text accept defaults, reference class map + reference diffing, and revised-document retention. The reimbursement pay class stays **specified but unbuilt**.
 
-Answers to the five additions come first, because two of them change what gets built.
+The text-layer measurement you asked for was run first, on both Blue Grace PDFs. Results below; they changed the comparator design.
 
 ---
 
-## A. Golden-text assertion (addition 1)
+## Text-layer results (both Blue Grace documents)
 
-Agreed — the zero-change test only proves stability. Both tests ship:
+Both PDFs pulled from the load's documents and text-extracted. The layer is degraded exactly where you said, and in one more place:
 
-- **Fidelity:** a checked-in Blue Grace fixture (`src/lib/__tests__/fixtures/bluegrace-BG969676425.*`) holding the exact printed strings. Assert `special_instructions_verbatim`, `broker_terms_verbatim` and each stop's `notes_verbatim` equal those strings byte for byte, including `(800) 697-4477`, `CALAVO@BLUEGRACEGROUP.COM` and `ALL ORDER#S MUST BE USED TO CAN GET NEED TIH.`
-- **Stability:** re-parse the unmodified fixture through `buildRevisionDiff` against the load built from it and assert zero changes.
+- `53' 102"` extracts as a single pilcrow `¶` in **both** documents. The model reads it correctly, so a faithful transcription will never match the layer at that spot.
+- `OS&D` inside Special Instructions extracts as `OS&amp;amp;amp;amp;amp;amp;amp;amp;D` — an eight-deep escape chain. The *same* `OS&D` in the BGLF terms paragraph one block above extracts clean. Same document, same word, two different fidelities.
+- The two documents do not agree on the same printed sentence: original has `REQUIRED ¶  SWING`, revised has `REQUIRED ¶SWING`. Whitespace-collapsing still leaves them one space apart, because the difference sits against the unmappable glyph.
+- `**CAN GET NEED TIH.**` — the double asterisks **are** in the text layer. Your correction is right and the fixture will carry them.
 
-The fidelity fixture is the parser's expected output, so the assertion runs against the normalizer without an API call; the live model path stays covered by the stability test.
+Measured against a faithful transcription of the original (glyphs read correctly, everything else as printed):
 
-## B. Text-layer verification — yes, it is possible (addition 2)
-
-The pipeline is not image-only. The client sends the raw file as base64 (`file_base64` + `mime_type`) and the edge function forwards it to the gateway as a document part. The full PDF bytes are therefore in hand at parse time, and `pdfjs-dist` is already a project dependency used by `src/lib/pdfToImages.ts`.
-
-Design:
-
-- The client extracts the text layer with the pdfjs it already loads and sends it as `text_layer` alongside the file. Doing it client-side reuses the existing worker rather than adding a PDF library to the Deno runtime.
-- After extraction, each verbatim string is checked for presence in that text layer with whitespace, casing and soft-hyphen differences collapsed.
-- A string that does not appear is **not silently stored**: it comes back with `verbatim_verified: false` and a reason, the review screen marks the field "could not be verified against the document", and it defaults to unchecked in any diff.
-- Two cases have no text layer at all — an uploaded image, and a scanned PDF whose pages carry no text. Those report `verbatim_verified: null` ("not verifiable — no text layer") rather than false. Not verified is stated, never faked.
-
-## C. Reference label class map (addition 3)
-
-Explicit class map, applied to the printed label after lowercasing and stripping `#`, `no.`, `number`, punctuation and whitespace:
-
-| Class | Labels mapped |
+| Comparator | Result |
 | --- | --- |
-| `bol` | bol, bl, b/l, bill of lading, bol number |
-| `pro` | pro, pro number, pronumber, pro# |
-| `pickup` | pu, pu#, pickup, pickup number, pick up number, pickup ref, shipment pickup |
-| `delivery` | del, dl, delivery, delivery number, drop number |
-| `po` | po, po number, purchase order |
-| `order` | order, order number, load, load number, load id, shipment, shipment number, so, si, lo, ref, reference |
-| `seal` | seal, seal number |
-| `appointment` | appt, appointment, confirmation, conf, appointment number |
-| `mode` | mode |
+| Exact containment in the raw layer | **fails** — false negative |
+| Containment after whitespace + entity normalization | **fails** — the pilcrow alone still breaks containment |
+| Similarity, whitespace only | 0.969 |
+| Similarity, whitespace + entity chains | **0.993** |
+| Same, with casing collapsed | 0.993 — **no gain**, so casing stays significant |
+| A condensed paraphrase vs the layer | **0.041** |
 
-`PU# IX00286060` in Stop 1's comment and `Pickup Number IX00286060` in the References table both normalize to `pickup`, so they collapse to one row and the revised document does not surface a phantom new pickup number.
+So: any containment-based check produces a false negative on this document, 100% of the time, on both files. A similarity check at a 0.90 threshold accepts the faithful transcription with 0.09 of headroom and rejects a paraphrase by a margin of 0.86. On these two documents that is a 0% false-negative and 0% false-positive rate, and the separation is wide enough that the threshold is not delicately tuned. Casing collapse buys nothing here, which settles correction 3 with no cost.
 
-**Unseen labels:** a label that matches no class does **not** become its own class from its raw string. It resolves to class `unclassified` and carries its printed label. Every `unclassified` reference is logged with its label and value in the function's parse log so a genuinely new broker label shows up and can be added to the map. Dedup for `unclassified` falls back to the current value-only behaviour, which is the conservative side — worst case an unmapped label collapses with a same-valued sibling, exactly today's behaviour, and the log says it happened.
+## Comparator design (corrections 2 and 3)
 
-## D. The multi-stop heuristic (addition 4)
+- Normalize **both sides**: collapse whitespace and soft hyphens; unescape HTML entities repeatedly until the string stops changing, so `&amp;amp;…&D` resolves to `&D`.
+- **Keep casing significant.** The transcription rule forbids normalizing case, so the check must be able to catch a violation of it.
+- Compare on similarity, not containment. Threshold 0.90.
+- **Degradation detection, reported separately.** Before judging the transcription, score the layer itself: unmappable glyph substitutions (`¶`, `□`, replacement chars) where the model reports printable text, entity chains, and characters missing against the model's output. A degraded layer yields `text_layer_unreliable` — the field is stored and the review screen says "the document's text layer is unreadable here; transcription not machine-checked." That is a different label from `verbatim_unverified`, which means the comparator ran cleanly and the transcription still did not match — "the model may have gotten this wrong." One label is about the document, the other about the model, and a dispatcher can act on the difference.
+- No case blocks the save; free-text already defaults unchecked.
 
-What it was protecting against: brokers printing an internal routing or account code identically in every stop block — the prompt's own framing, "the same value appears on more than one stop… almost certainly an internal broker code." Warehouse door and lot codes are the same shape.
+Extraction happens client-side with the existing `pdfjs-dist` and is sent as `text_layer` alongside the file. Image uploads and text-free scans report `no_text_layer` — not verifiable, stated as such.
 
-It is already narrower than it looks: any label matching the shipment/order whitelist (`SO SI PRO ORDER SHIPMENT BOL PO PU PICKUP DELIVERY DL RELEASE SEAL APPT CONFIRMATION`) is exempted and kept. What it actually drops today is a repeated value under an **opaque or unlabelled** code.
+## Fixture (correction 1)
 
-Change: re-key that pass on class + value and let the whitelist become the class map — a repeat under a mapped class is kept on every stop it appears on, since a shipment number printed at both the pickup and the delivery is exactly what a guard asks for. Only `unclassified` repeats are dropped, and each drop is logged.
+The fixture is **extracted from the PDF, never retyped**. A checked-in script pulls the printed text from `Blue_Grace_Rate_Con.pdf` into `src/lib/__tests__/fixtures/bluegrace-BG969676425.txt`, and the extracted file is read back and asserted to contain `**CAN GET NEED TIH.**` with the asterisks intact before it is used as an expectation. Where the layer is degraded (`¶`, the entity chain) the fixture records both the raw extraction and the corrected printed string, with a comment naming the degradation — the corrected form is what the verbatim assertion uses, and it is the only hand-touched text in the file.
 
-There is a **third** pass that also has to change, and it is the one that actually killed the PRO row: a near-duplicate collapse keyed on `refCore(value)` — the value stripped of leading and trailing letters — which merges two references sharing a core number and keeps the "more explicit" label. PRO `BG969676425` and BOL `BG969676425` share a core and get collapsed. Plus the load-level pass drops any stop reference whose normalized value matches the load's BOL/PO/broker load number, which removes PRO a second time. Both get re-keyed on class + value: same class, same value collapses; different classes with the same value both survive.
+Two tests:
 
-## E. Retention and backfill (addition 5)
+- **Fidelity** — `special_instructions_verbatim`, `broker_terms_verbatim` and each stop's `notes_verbatim` equal the fixture strings exactly, including `(800) 697-4477`, `CALAVO@BLUEGRACEGROUP.COM` and the asterisks. Run against the normalizer with canned parser output for CI determinism.
+- **Stability** — re-parsing the unmodified fixture through `buildRevisionDiff` yields zero changes.
 
-Both checked in the code:
-
-- **Original rate confirmation: retained.** `CreateLoadPage` uploads the parsed source file as a `rate_confirmation` `load_documents` row when the load saves. A backfill of verbatim text from stored PDFs is therefore possible later. Low-priority cleanup, not built now. Until then, pre-change loads hold a paraphrase and will diff against their own document on re-parse; the review screen will label a field whose stored value predates verbatim capture as "stored before verbatim capture — compare manually" so the dispatcher is not told the broker changed something they did not.
-- **Revised document on cancel: NOT retained today.** `RevisedRateConModal` uploads the `revised_rate_confirmation` only inside the apply path, after `updateLoadWithStops` succeeds. Cancelling calls `reset()`, which clears the file, and it is never written. **This is in scope and gets fixed:** the revised file uploads on selection, once the document-identity check passes, so it is on the load whether or not the dispatcher applies anything. When the review is cancelled the document stays with a note recording that it was reviewed and not applied. Both files are retained regardless of which supersedes the other, which is the only way to tell them apart on a broker that stamps no revision marker.
+Your note is taken: no test exercises the live model, so the runtime text-layer check is the only thing between a drifting summarizer and the database. That is why the comparator is tuned for a low false-negative rate rather than strictness.
 
 ---
 
@@ -71,45 +57,75 @@ Both checked in the code:
 
 Extraction contract gains, alongside the existing condensed field:
 
-- `special_instructions_verbatim` — the printed Special Instructions / Comments block only.
-- `broker_terms_verbatim` — the terms/agreement paragraph, a separate field, never concatenated with the above.
-- per stop `notes_verbatim` — the stop's comment field as printed.
+- `special_instructions_verbatim` — the printed Special Instructions block only.
+- `broker_terms_verbatim` — the BGLF terms paragraph, separate, never concatenated.
+- per stop `notes_verbatim` — the stop's Comments field as printed.
 
-Prompt rule for all three: transcribe exactly as printed — same wording, order, line breaks, casing and punctuation. Never summarize, reorder, or drop a phone number, email address or sentence. Absent block returns null, not an empty summary. Each carries its own `verbatim_verified` result from section B.
+Prompt rule: transcribe exactly as printed — same wording, order, line breaks, casing, punctuation. Never summarize, reorder, or drop a phone number, email address or sentence. Absent block returns null. Each field carries its verification result (`verified`, `verbatim_unverified`, `text_layer_unreliable`, `no_text_layer`).
 
-Stored values on `loads` and `load_stops` are the verbatim strings. The condensed one-line-per-term view stays, derived at render time by a `condenseInstructions` helper — never the stored value.
+Stored values are the verbatim strings. The condensed one-line-per-term view survives only as a render-time `condenseInstructions` derivation.
 
 ### 2. Accept defaults
 
-Non-financial diff rows get a `freeText` flag. Free-text rows — special instructions, broker terms, stop notes, descriptions, and any field flagged unverified — default **unchecked** and are labelled as needing a read. Structured rows — dates, times, numbers, addresses, city/state/ZIP, contact, equipment, commodity, references — keep default-accept, still forced unchecked when the stop carries driver check-in data.
+Non-financial diff rows carry a `freeText` flag. Free-text rows — special instructions, broker terms, stop notes, descriptions, and anything not `verified` — default **unchecked**. Structured rows — dates, times, numbers, addresses, city/state/ZIP, contact, equipment, commodity, references — keep default-accept, still forced unchecked when the stop has driver check-in data.
 
-### 3. Reference diffing
+### 3. Reference class map and dedup
 
-References are diffed as a set per stop, not through the single `pickReference` winner. Added, removed and changed references each surface as their own non-financial change showing the printed label and value. The primary gate reference the stop form displays is still chosen by `pickReference`. Combined with the class-keyed dedup above, the added `PRO BG969676425` appears as one new reference and the pickup number does not appear at all.
+Classes, matched after lowercasing and stripping `#`, `no.`, `number`, punctuation and whitespace:
 
-### 4. Reimbursement pay class — specified, NOT built
+| Class | Labels |
+| --- | --- |
+| `bol` | bol, bl, b/l, bill of lading |
+| `pro` | pro, pro number |
+| `pickup` | pu, pickup, pick up, pickup ref, shipment pickup |
+| `delivery` | del, dl, delivery, drop number |
+| `po` | po, purchase order |
+| `order` | order, load, load id, shipment, so, si, lo, ref, reference |
+| `seal` | seal |
+| `appointment` | appt, appointment, confirmation, conf |
+| `mode` | mode |
 
-Current classifications and their treatment under the active company policy ("SUPERTRANSPORT Standard"): linehaul 72%, fuel surcharge 72%, detention 100%, layover 100%, stop-off 72%, TONU 72%, lumper 100% (`lumper_reimbursement_pct`), **other 72%** (`other_accessorial_pct`). `other` is the dropdown default, so a driver-funded washout defaults to a 72% payout on money he fronted in full.
+`PU# IX00286060` in Stop 1's Comments and `Pickup Number IX00286060` in the References table both resolve to `pickup` and collapse to one row. An unmapped label becomes `unclassified` — never its own class from the raw string — keeps its printed label, falls back to value-only dedup, and every occurrence is logged with label and value.
 
-Specified design, held until the funding-source question is resolved: every charge type carries a pay class — `revenue` (split at the policy percentage) or `reimbursement` (passes through whole, excluded from the revenue split). Lumper's 100% comes from the class rather than a bespoke column. Nothing in this section is implemented in this pass; the dropdown and pay math are untouched.
+All three dedup passes re-key on **class + value**:
+
+- load-level pass: a stop reference is dropped only when it matches a load id *of the same class*, so PRO no longer dies against BOL;
+- cross-stop pass: a repeat under a mapped class is kept on every stop (a shipment number at both ends is what the guard asks for); only `unclassified` repeats are dropped, and logged;
+- the `refCore` near-duplicate collapse — the pass that actually killed the PRO row — collapses only within one class.
+
+### 4. Reference diffing and storage
+
+References move to a proper table, `load_stop_references`: `id`, `load_stop_id` FK, `reference_class`, `printed_label`, `value`, standard audit columns, indexed on `value` and on `(load_stop_id, reference_class)`. No JSON column — AP asks for a PRO number by value, and duplicate detection already keys on broker reference, so both need an indexed lookup. GRANTs and RLS mirror `load_stops`.
+
+References diff as a set per stop: added, removed and changed rows each surface as their own non-financial change with printed label and value. `pickReference` still chooses the primary gate reference the stop form displays. On the Blue Grace pair this surfaces exactly one new reference — `PRO BG969676425` — and no phantom pickup number.
+
+### 5. Retention
+
+- Original rate confirmation: already retained on load save, so a later backfill of verbatim text is possible. Not built now. Pre-change loads show "stored before verbatim capture — compare manually" on those fields instead of claiming the broker changed something.
+- Revised document: currently uploaded only inside the apply path, so cancelling discards it. Fixed — it uploads on selection once the document-identity check passes, and a cancelled review leaves it attached with a note that it was reviewed and not applied.
+
+### 6. Reimbursement pay class — specified, not built
+
+Current treatment under "SUPERTRANSPORT Standard": linehaul 72, fuel surcharge 72, detention 100, layover 100, stop-off 72, TONU 72, lumper 100 (`lumper_reimbursement_pct`), **other 72** — and `other` is the default. Design on hold: every charge type carries a pay class, `revenue` (split at policy percentage) or `reimbursement` (passes through whole, excluded from the split), with lumper's 100% coming from the class rather than a bespoke column. Nothing in this section ships in this pass.
 
 ---
 
 ## Tests
 
-- Golden text: verbatim fields equal the checked-in Blue Grace strings exactly.
+- Golden text: verbatim fields equal the PDF-extracted fixture exactly, asterisks intact.
 - Stability: re-parsing the unmodified fixture produces zero diff rows.
-- Verification: a verbatim string absent from the text layer is flagged, not stored silently; an image upload reports not-verifiable rather than false.
-- Label classes: `PU#` and `Pickup Number` resolve to one class; `PRO` and `BOL` sharing a value both survive; an unmapped label lands in `unclassified` and is logged.
-- Reference diff: the added PRO row appears as a non-financial change; a removed reference appears as a removal.
-- Defaults: free-text rows unchecked, structured rows checked.
-- Retention: cancelling the revision review leaves the revised document attached to the load.
+- Comparator: faithful transcription against the degraded Blue Grace layer passes; a paraphrase fails; a case-only alteration fails; the pilcrow and entity-chain lines report `text_layer_unreliable`, not `verbatim_unverified`; an image upload reports `no_text_layer`.
+- Classes: `PU#` and `Pickup Number` resolve alike; `PRO` and `BOL` sharing a value both survive all three passes; an unmapped label lands in `unclassified` and is logged.
+- Reference diff: the added PRO row appears as a change; a removed reference appears as a removal.
+- Defaults: free-text unchecked, structured checked.
+- Retention: cancelling the review leaves the revised document attached.
 
 ## Technical notes
 
-- `supabase/functions/parse-rate-confirmation/index.ts` — verbatim fields in the JSON contract and prompt; `text_layer` verification; reference class map replacing the three raw-value dedup passes; `unclassified` logging.
-- `src/lib/pdfToText.ts` (new) — text-layer extraction via the existing `pdfjs-dist`, returning null for image/scan input.
-- `src/lib/rateConfirmation.ts` — extended `ParsedRateConfirmation` / `ParsedStop`, reference class type, `condenseInstructions`.
+- `supabase/functions/parse-rate-confirmation/index.ts` — verbatim fields in contract and prompt; `text_layer` comparator with entity/whitespace normalization, case-sensitive, 0.90 similarity, degradation scoring; class-keyed dedup across all three passes; `unclassified` logging.
+- `src/lib/pdfToText.ts` (new) — text-layer extraction via the existing `pdfjs-dist`; null for image/scan input.
+- `src/lib/verbatimVerify.ts` (new) — normalization, similarity, degradation scoring, shared by the function and the tests.
+- `src/lib/rateConfirmation.ts` — extended types, reference class, `condenseInstructions`.
 - `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; reference-set diffing.
-- `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — upload the revised document on selection rather than on apply.
-- Migration: verbatim text columns on `loads` and `load_stops`, and a per-stop reference table or JSON column to hold the full reference set. No RLS change — existing table policies cover new columns.
+- `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — upload the revised document on selection.
+- Migration: verbatim text columns on `loads` and `load_stops`; `load_stop_references` table with GRANTs, RLS and indexes.
