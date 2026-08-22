@@ -23,7 +23,9 @@ import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { fetchLoadForEdit, updateLoadWithStops, type LoadDetail } from '@/lib/loadDetail';
 import { loadToFormValues } from '@/lib/loadEdit';
 import { buildLoadSavePayload } from '@/lib/loadSavePayload';
-import { uploadLoadDocument } from '@/lib/loadDocuments';
+import { setLoadDocumentNotes, uploadLoadDocument } from '@/lib/loadDocuments';
+import { saveLoadReferences } from '@/lib/loadReferences';
+
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import { formatCurrency, type LoadStatus } from '@/lib/loadFormat';
 import {
