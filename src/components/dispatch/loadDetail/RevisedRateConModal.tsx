@@ -243,6 +243,64 @@ export default function RevisedRateConModal({
   const needsUnlock = locked && acceptedFinancial.length > 0;
   const unlockBlocked = needsUnlock && (!isOwner || !unlockReason.trim());
 
+  /**
+   * Files the document's reference numbers as the load's baseline.
+   *
+   * Deliberately separate from accepting rows and from Apply: the load had no
+   * record of these numbers, so filing them is not a change the broker made and
+   * should not be mixed into a revision. Nothing else on the load is written.
+   */
+  const fileBaseline = async () => {
+    if (!parsed || !baseValues) return;
+    const refs = documentReferences(parsed);
+    if (!refs.length) return;
+    setFilingBaseline(true);
+    try {
+      await fileReferenceBaseline({
+        loadId: load.id,
+        refs,
+        documentId: uploadedDocId.current,
+        documentLabel: file?.name
+          ? `revised rate confirmation ${file.name}`
+          : 'this revised rate confirmation',
+      });
+
+      // The screen re-diffs against the filed baseline, so the reference rows
+      // disappear: the document now matches what is on file.
+      const next = { ...baseValues, references: refs };
+      setBaseValues(next);
+      setDecisions(d => {
+        const fresh = initialDecisions(buildRevisionDiff(next, parsed, d.stopResolutions));
+        // Decisions the dispatcher already made on other rows survive the re-diff.
+        return {
+          ...fresh,
+          accepted: { ...fresh.accepted, ...d.accepted },
+          classifications: { ...fresh.classifications, ...d.classifications },
+          descriptions: { ...d.descriptions },
+          stopResolutions: { ...d.stopResolutions },
+        };
+      });
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['load-detail', load.id] }),
+        qc.invalidateQueries({ queryKey: ['load-edit', load.id] }),
+        qc.invalidateQueries({ queryKey: ['load-change-history', load.id] }),
+      ]);
+      toast({
+        description: `${refs.length} reference number${refs.length === 1 ? '' : 's'} filed on ${load.load_number}.`,
+      });
+    } catch (e) {
+      logDbError('file reference baseline', e, { loadId: load.id });
+      toast({
+        variant: 'destructive',
+        title: 'Reference numbers not filed',
+        description: getDbErrorMessage(e, 'The reference numbers could not be saved.'),
+      });
+    } finally {
+      setFilingBaseline(false);
+    }
+  };
+
   const apply = async () => {
     if (!diff || !baseValues) return;
     setSaving(true);
@@ -622,7 +680,8 @@ export default function RevisedRateConModal({
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Non-financial changes</h3>
                 {!diff.referencesComparable ? (
-                  <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <p>
                     This load has no reference numbers on file, so the numbers printed on this
                     document cannot be compared against anything. They are listed as found, not
                     as changes, and none are pre-selected.
