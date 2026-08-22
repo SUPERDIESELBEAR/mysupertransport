@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { fetchLoadReferences, type StoredReference } from '@/lib/loadReferences';
 import type { Database } from '@/integrations/supabase/types';
+
 
 type LoadsRow = Database['public']['Tables']['loads']['Row'];
 type StopRow = Database['public']['Tables']['load_stops']['Row'];
