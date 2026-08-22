@@ -172,8 +172,26 @@ export interface NonFinancialDiff {
   value: unknown;
   /** The driver already checked in or out at this stop. */
   hasDriverData: boolean;
-  /** Reject-by-default when the driver has already worked the stop. */
+  /**
+   * Reject-by-default when the driver has already worked the stop, and for any
+   * free-text field. A dispatcher clicking Apply on a pre-checked list should
+   * never be accepting a silent rewrite of broker-authored prose they have not
+   * read; structured before/after values (dates, numbers, addresses) are safe
+   * to arrive checked because the change is legible at a glance.
+   */
   defaultAccept: boolean;
+  /** Broker-authored prose. Always requires a deliberate accept. */
+  freeText?: boolean;
+  /** Set on reference rows; applied to `references`, not through `setPath`. */
+  reference?: ReferenceDiffOp;
+}
+
+export interface ReferenceDiffOp {
+  op: 'added' | 'removed';
+  reference_class: string;
+  label: string;
+  value: string;
+  citations: number[];
 }
 
 export type ClassificationKey =
@@ -249,6 +267,8 @@ interface StopFieldSpec {
   key: keyof StopFormValues;
   label: string;
   read: (p: ParsedStop) => string | null;
+  /** Broker-authored prose: never pre-checked. */
+  freeText?: boolean;
 }
 
 const STOP_FIELDS: StopFieldSpec[] = [
@@ -269,7 +289,15 @@ const STOP_FIELDS: StopFieldSpec[] = [
   { key: 'contact_phone', label: 'Contact phone', read: p => nz(use(p.contact_phone), normalizePhone) },
   { key: 'appointment_start', label: 'Appointment start', read: p => nz(use(p.appointment_start), toLocalInput) },
   { key: 'appointment_end', label: 'Appointment end', read: p => nz(use(p.appointment_end), toLocalInput) },
-  { key: 'stop_notes', label: 'Stop notes', read: p => use(p.notes) },
+  { key: 'stop_notes', label: 'Stop notes', read: p => use(p.notes), freeText: true },
+  {
+    key: 'stop_notes_verbatim',
+    label: 'Stop comment (as printed)',
+    // No `use()` gate: a transcription is not an inference, so confidence does
+    // not decide whether it is offered. The dispatcher decides.
+    read: p => p.notes_verbatim?.value ?? null,
+    freeText: true,
+  },
   { key: 'reference_number', label: 'Reference number', read: p => pickReference(p.references ?? [])?.value ?? null },
   { key: 'reference_label', label: 'Reference label', read: p => pickReference(p.references ?? [])?.label ?? null },
 ];
@@ -285,6 +313,8 @@ interface LoadFieldSpec {
   key: keyof LoadFormValues;
   label: string;
   read: (p: ParsedRateConfirmation) => string | boolean | number | null;
+  /** Broker-authored prose: never pre-checked. */
+  freeText?: boolean;
 }
 
 const LOAD_FIELDS: LoadFieldSpec[] = [
@@ -297,7 +327,25 @@ const LOAD_FIELDS: LoadFieldSpec[] = [
   { key: 'weight_lbs', label: 'Weight', read: p => use(p.load.weight_lbs) },
   { key: 'is_hazmat', label: 'Hazmat', read: p => use(p.load.is_hazmat) },
   { key: 'is_team_load', label: 'Team load', read: p => use(p.load.is_team_load) },
-  { key: 'special_instructions', label: 'Special instructions', read: p => use(p.special_instructions) },
+  { key: 'mode', label: 'Mode', read: p => use(p.load.mode) },
+  {
+    key: 'special_instructions',
+    label: 'Special instructions (display summary)',
+    read: p => use(p.special_instructions),
+    freeText: true,
+  },
+  {
+    key: 'special_instructions_verbatim',
+    label: 'Special instructions (as printed)',
+    read: p => p.verbatim?.special_instructions?.value ?? null,
+    freeText: true,
+  },
+  {
+    key: 'broker_terms_verbatim',
+    label: 'Broker terms (as printed)',
+    read: p => p.verbatim?.broker_terms?.value ?? null,
+    freeText: true,
+  },
 ];
 
 const sameText = (a: unknown, b: unknown) => text(a).trim() === text(b).trim();
@@ -324,7 +372,7 @@ export function buildRevisionDiff(
       nonFinancial.push({
         id: `load.${spec.key}`, label: spec.label, path: String(spec.key), stopIndex: null,
         current: cur ? 'Yes' : 'No', revised: revised ? 'Yes' : 'No', value: revised,
-        hasDriverData: false, defaultAccept: true,
+        hasDriverData: false, defaultAccept: !spec.freeText, freeText: spec.freeText,
       });
       return;
     }
@@ -332,7 +380,7 @@ export function buildRevisionDiff(
     nonFinancial.push({
       id: `load.${spec.key}`, label: spec.label, path: String(spec.key), stopIndex: null,
       current: text(cur) || '—', revised: text(revised), value: String(revised),
-      hasDriverData: false, defaultAccept: true,
+      hasDriverData: false, defaultAccept: !spec.freeText, freeText: spec.freeText,
     });
   });
 
@@ -399,8 +447,10 @@ export function buildRevisionDiff(
         revised: text(revised),
         value: String(revised),
         hasDriverData,
-        // A stop the driver has already worked is never rewritten by default.
-        defaultAccept: !hasDriverData,
+        // A stop the driver has already worked is never rewritten by default,
+        // and neither is prose the dispatcher would have to read to judge.
+        defaultAccept: !hasDriverData && !spec.freeText,
+        freeText: spec.freeText,
       });
     });
   });
