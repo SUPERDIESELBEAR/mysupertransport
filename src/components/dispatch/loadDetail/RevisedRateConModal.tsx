@@ -574,14 +574,25 @@ export default function RevisedRateConModal({
                             >
                               <SelectTrigger><SelectValue placeholder="Select a classification" /></SelectTrigger>
                               <SelectContent>
-                                {CLASSIFICATION_OPTIONS.map(k => (
-                                  <SelectItem key={k} value={k}>{CLASSIFICATION_LABELS[k]}</SelectItem>
-                                ))}
+                                {CLASSIFICATION_OPTIONS.map(k => {
+                                  const t = payTreatment(k, payPolicy);
+                                  return (
+                                    <SelectItem key={k} value={k}>
+                                      <span className="flex w-full items-center justify-between gap-6">
+                                        <span>{CLASSIFICATION_LABELS[k]}</span>
+                                        {t.label ? (
+                                          <span className="text-xs text-muted-foreground">{t.label}</span>
+                                        ) : null}
+                                      </span>
+                                    </SelectItem>
+                                  );
+                                })}
                               </SelectContent>
                             </Select>
-                            {klass && FULL_PAY_CLASSIFICATIONS.includes(klass) ? (
+                            {klass && payTreatment(klass, payPolicy).label ? (
                               <p className="text-xs text-muted-foreground">
-                                Settles at 100% to the driver under the default pay policy.
+                                Settles {payTreatment(klass, payPolicy).label} under
+                                {payPolicy ? ` the ${payPolicy.name} pay policy.` : ' the active pay policy.'}
                               </p>
                             ) : null}
                           </div>
