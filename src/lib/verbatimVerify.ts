@@ -28,6 +28,13 @@
  *                        (document issue — do not blame the transcription)
  */
 
+import {
+  recordAnchorMiss,
+  resolveFieldRegion,
+  type RegionFailure,
+  type VerbatimField,
+} from '@/lib/verbatimRegions';
+
 export type VerbatimVerdict =
   | 'verified'
   | 'unverified'
