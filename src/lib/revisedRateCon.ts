@@ -206,6 +206,28 @@ export interface ReferenceDiffOp {
   citations: ReferenceCitation[];
 }
 
+/**
+ * Zod infers the stored/form citation shape with optional members. Citations
+ * without a stop sequence cannot be placed, so they are dropped rather than
+ * defaulted to stop 1.
+ */
+const toCitations = (
+  list: { stopSequence?: number; printedLabel?: string }[] | null | undefined,
+): ReferenceCitation[] =>
+  (list ?? [])
+    .filter((c): c is { stopSequence: number; printedLabel?: string } =>
+      typeof c.stopSequence === 'number')
+    .map(c => ({ stopSequence: c.stopSequence, printedLabel: (c.printedLabel ?? '').trim() }));
+
+/** Human phrasing of where a reference is printed, including the stop's label. */
+const describeCitations = (citations: ReferenceCitation[]): string => {
+  if (!citations.length) return 'Load level';
+  return [...citations]
+    .sort((a, b) => a.stopSequence - b.stopSequence)
+    .map(c => (c.printedLabel ? `Stop ${c.stopSequence} (${c.printedLabel})` : `Stop ${c.stopSequence}`))
+    .join(', ');
+};
+
 
 export type ClassificationKey =
   | 'linehaul' | 'fsc' | 'detention' | 'stopoff' | 'lumper' | 'layover' | 'tonu' | 'other';
