@@ -338,7 +338,10 @@ const STOP_FIELDS: StopFieldSpec[] = [
   { key: 'contact_phone', label: 'Contact phone', read: p => nz(use(p.contact_phone), normalizePhone) },
   { key: 'appointment_start', label: 'Appointment start', read: p => nz(use(p.appointment_start), toLocalInput) },
   { key: 'appointment_end', label: 'Appointment end', read: p => nz(use(p.appointment_end), toLocalInput) },
-  { key: 'stop_notes', label: 'Stop notes', read: p => use(p.notes), freeText: true },
+  // `stop_notes` is deliberately absent, for the same reason `special_instructions`
+  // is: it is a model-written summary of the stop's printed comment, reworded on
+  // every parse of an unchanged document. `stop_notes_verbatim` below is the
+  // compared artifact; the summary is a render-time derivation, never a diff row.
   {
     key: 'stop_notes_verbatim',
     label: 'Stop comment (as printed)',
@@ -435,14 +438,15 @@ export function buildRevisionDiff(
       return;
     }
     if (sameText(cur, revised)) return;
-    const firstCapture = !!spec.verbatim && text(cur).trim() === '';
+    const firstCapture = text(cur).trim() === '' && text(revised).trim() !== '';
     nonFinancial.push({
       id: `load.${spec.key}`,
       label: firstCapture ? `${spec.label} — first capture` : spec.label,
       path: String(spec.key), stopIndex: null,
       current: firstCapture ? 'Not previously stored' : (text(cur) || '—'),
       revised: text(revised), value: String(revised),
-      hasDriverData: false, defaultAccept: !spec.freeText, freeText: spec.freeText,
+      hasDriverData: false, defaultAccept: !spec.freeText && !firstCapture,
+      freeText: spec.freeText,
       firstCapture,
     });
   });
@@ -502,7 +506,7 @@ export function buildRevisionDiff(
       if (revised === null) return;
       const cur = e[spec.key];
       if (sameText(cur, revised)) return;
-      const firstCapture = !!spec.verbatim && text(cur).trim() === '';
+      const firstCapture = text(cur).trim() === '' && text(revised).trim() !== '';
       nonFinancial.push({
         id: `stop.${m.existingIndex}.${String(spec.key)}`,
         label: `Stop ${(m.existingIndex as number) + 1} — ${spec.label}`
@@ -515,7 +519,7 @@ export function buildRevisionDiff(
         hasDriverData,
         // A stop the driver has already worked is never rewritten by default,
         // and neither is prose the dispatcher would have to read to judge.
-        defaultAccept: !hasDriverData && !spec.freeText,
+        defaultAccept: !hasDriverData && !spec.freeText && !firstCapture,
         freeText: spec.freeText,
         firstCapture,
       });
@@ -677,7 +681,10 @@ export function initialDecisions(diff: RevisionDiff): DiffDecisions {
   diff.financial.forEach(d => {
     // Money is never accepted until the dispatcher confirms what it is.
     accepted[d.id] = false;
-    if (d.suggested) classifications[d.id] = d.suggested;
+    // "Other" is the parser's fallback, not a category the document gave. It is
+    // never pre-selected: it settles at the residual accessorial rate, and a
+    // dispatcher clicking through a pre-filled dropdown would never see that.
+    if (d.suggested && d.suggested !== 'other') classifications[d.id] = d.suggested;
   });
   return { accepted, classifications, descriptions: {}, stopResolutions: {} };
 }
@@ -848,4 +855,29 @@ export function buildRevisionReason(input: ReasonInput): string {
   const extra = (input.addition ?? '').trim();
   if (extra) parts.push(extra);
   return parts.join(' — ');
+}
+
+/**
+ * Every reference the document prints, classified and deduped, in the shape the
+ * load form and `saveLoadReferences` use. Used to file a baseline for a load
+ * that has no reference rows on file.
+ */
+export function documentReferences(parsed: ParsedRateConfirmation): {
+  reference_class: string; label: string; value: string;
+  citations: { stopSequence: number; printedLabel: string }[];
+}[] {
+  const stops = [...(parsed.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const classified = classifyReferences([
+    ...(parsed.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: null })),
+    ...stops.flatMap(st =>
+      (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
+  ]);
+  return classified.references.map(r => ({
+    reference_class: r.clazz,
+    label: r.label,
+    value: r.value,
+    citations: r.citations.map(c => ({
+      stopSequence: c.stopSequence, printedLabel: c.printedLabel,
+    })),
+  }));
 }

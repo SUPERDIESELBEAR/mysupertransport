@@ -24,7 +24,10 @@ import { fetchLoadForEdit, updateLoadWithStops, type LoadDetail } from '@/lib/lo
 import { loadToFormValues } from '@/lib/loadEdit';
 import { buildLoadSavePayload } from '@/lib/loadSavePayload';
 import { setLoadDocumentNotes, uploadLoadDocument } from '@/lib/loadDocuments';
-import { saveLoadReferences } from '@/lib/loadReferences';
+import { fileReferenceBaseline, saveLoadReferences } from '@/lib/loadReferences';
+import {
+  fetchEffectivePayPolicy, payTreatment, type PayPolicyRates,
+} from '@/lib/payTreatment';
 
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import { formatCurrency, type LoadStatus } from '@/lib/loadFormat';
@@ -33,7 +36,7 @@ import {
 } from '@/lib/rateConfirmation';
 import {
   applyRevision, buildRevisionDiff, buildRevisionReason, checkDocumentIdentity,
-  CLASSIFICATION_LABELS, CLASSIFICATION_OPTIONS, financialRowReady, FULL_PAY_CLASSIFICATIONS,
+  CLASSIFICATION_LABELS, CLASSIFICATION_OPTIONS, documentReferences, financialRowReady,
   initialDecisions,
   type ClassificationKey, type DiffDecisions, type IdentityCheck, type RevisionDiff,
   type StopResolution,
@@ -81,6 +84,9 @@ export default function RevisedRateConModal({
   });
   const [note, setNote] = useState('');
   const [unlockReason, setUnlockReason] = useState('');
+  /** Pay policy in force for this load's driver — drives the settlement hints. */
+  const [payPolicy, setPayPolicy] = useState<PayPolicyRates | null>(null);
+  const [filingBaseline, setFilingBaseline] = useState(false);
   /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
   const uploadedDocId = useRef<string | null>(null);
 
@@ -103,6 +109,7 @@ export default function RevisedRateConModal({
     setDecisions({ accepted: {}, classifications: {}, descriptions: {}, stopResolutions: {} });
     setNote('');
     setUnlockReason('');
+    setFilingBaseline(false);
     // The retained document stays on the load; only the session pointer clears.
     uploadedDocId.current = null;
     handedOver.current = null;
@@ -139,6 +146,15 @@ export default function RevisedRateConModal({
     if (!target) return;
     setBusy(true);
     try {
+      void fetchEffectivePayPolicy(load.operator_id)
+        .then(setPayPolicy)
+        .catch(policyError => {
+          // A missing policy costs the hint, not the review: the options render
+          // without percentages rather than showing a number we cannot stand behind.
+          logDbError('pay policy for revision review', policyError, { loadId: load.id });
+          setPayPolicy(null);
+        });
+
       const [{ data, error }, editData] = await Promise.all([
         supabase.functions.invoke('parse-rate-confirmation', {
           body: {
@@ -226,6 +242,64 @@ export default function RevisedRateConModal({
     .some(f => !financialRowReady(f, decisions));
   const needsUnlock = locked && acceptedFinancial.length > 0;
   const unlockBlocked = needsUnlock && (!isOwner || !unlockReason.trim());
+
+  /**
+   * Files the document's reference numbers as the load's baseline.
+   *
+   * Deliberately separate from accepting rows and from Apply: the load had no
+   * record of these numbers, so filing them is not a change the broker made and
+   * should not be mixed into a revision. Nothing else on the load is written.
+   */
+  const fileBaseline = async () => {
+    if (!parsed || !baseValues) return;
+    const refs = documentReferences(parsed);
+    if (!refs.length) return;
+    setFilingBaseline(true);
+    try {
+      await fileReferenceBaseline({
+        loadId: load.id,
+        refs,
+        documentId: uploadedDocId.current,
+        documentLabel: file?.name
+          ? `revised rate confirmation ${file.name}`
+          : 'this revised rate confirmation',
+      });
+
+      // The screen re-diffs against the filed baseline, so the reference rows
+      // disappear: the document now matches what is on file.
+      const next = { ...baseValues, references: refs };
+      setBaseValues(next);
+      setDecisions(d => {
+        const fresh = initialDecisions(buildRevisionDiff(next, parsed, d.stopResolutions));
+        // Decisions the dispatcher already made on other rows survive the re-diff.
+        return {
+          ...fresh,
+          accepted: { ...fresh.accepted, ...d.accepted },
+          classifications: { ...fresh.classifications, ...d.classifications },
+          descriptions: { ...d.descriptions },
+          stopResolutions: { ...d.stopResolutions },
+        };
+      });
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['load-detail', load.id] }),
+        qc.invalidateQueries({ queryKey: ['load-edit', load.id] }),
+        qc.invalidateQueries({ queryKey: ['load-change-history', load.id] }),
+      ]);
+      toast({
+        description: `${refs.length} reference number${refs.length === 1 ? '' : 's'} filed on ${load.load_number}.`,
+      });
+    } catch (e) {
+      logDbError('file reference baseline', e, { loadId: load.id });
+      toast({
+        variant: 'destructive',
+        title: 'Reference numbers not filed',
+        description: getDbErrorMessage(e, 'The reference numbers could not be saved.'),
+      });
+    } finally {
+      setFilingBaseline(false);
+    }
+  };
 
   const apply = async () => {
     if (!diff || !baseValues) return;
@@ -558,14 +632,25 @@ export default function RevisedRateConModal({
                             >
                               <SelectTrigger><SelectValue placeholder="Select a classification" /></SelectTrigger>
                               <SelectContent>
-                                {CLASSIFICATION_OPTIONS.map(k => (
-                                  <SelectItem key={k} value={k}>{CLASSIFICATION_LABELS[k]}</SelectItem>
-                                ))}
+                                {CLASSIFICATION_OPTIONS.map(k => {
+                                  const t = payTreatment(k, payPolicy);
+                                  return (
+                                    <SelectItem key={k} value={k}>
+                                      <span className="flex w-full items-center justify-between gap-6">
+                                        <span>{CLASSIFICATION_LABELS[k]}</span>
+                                        {t.label ? (
+                                          <span className="text-xs text-muted-foreground">{t.label}</span>
+                                        ) : null}
+                                      </span>
+                                    </SelectItem>
+                                  );
+                                })}
                               </SelectContent>
                             </Select>
-                            {klass && FULL_PAY_CLASSIFICATIONS.includes(klass) ? (
+                            {klass && payTreatment(klass, payPolicy).label ? (
                               <p className="text-xs text-muted-foreground">
-                                Settles at 100% to the driver under the default pay policy.
+                                Settles {payTreatment(klass, payPolicy).label} under
+                                {payPolicy ? ` the ${payPolicy.name} pay policy.` : ' the active pay policy.'}
                               </p>
                             ) : null}
                           </div>
@@ -595,11 +680,28 @@ export default function RevisedRateConModal({
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Non-financial changes</h3>
                 {!diff.referencesComparable ? (
-                  <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                    This load has no reference numbers on file, so the numbers printed on this
-                    document cannot be compared against anything. They are listed as found, not
-                    as changes, and none are pre-selected.
-                  </p>
+                  <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <p>
+                      This load has no reference numbers on file, so the numbers printed on this
+                      document cannot be compared against anything. They are listed as found, not
+                      as changes, and none are pre-selected.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={filingBaseline}
+                      onClick={fileBaseline}
+                      className="gap-1.5"
+                    >
+                      {filingBaseline ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      File these as the load's reference numbers
+                    </Button>
+                    <p>
+                      Files them as the load's record, not as a change — the history keeps which
+                      document they came from and who filed them. This is separate from applying
+                      the revision.
+                    </p>
+                  </div>
                 ) : null}
                 <div className="divide-y divide-border rounded-lg border border-border">
                   {diff.nonFinancial.map(n => (

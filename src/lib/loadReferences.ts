@@ -124,3 +124,32 @@ export async function fetchLoadReferences(loadId: string): Promise<StoredReferen
   }));
 
 }
+
+/**
+ * Files the references a document printed as the load's baseline.
+ *
+ * Not a revision: the load had no reference rows, and now it has the ones the
+ * document shows. The provenance entry records which document established them
+ * and who filed it, so a baseline taken from a REVISED rate confirmation rather
+ * than the original stays visible in the load's history.
+ */
+export async function fileReferenceBaseline(args: {
+  loadId: string;
+  refs: ReferenceFormValues[];
+  documentId: string | null;
+  documentLabel: string;
+}): Promise<void> {
+  const usable = args.refs.filter(r => (r.value ?? '').trim());
+  if (!usable.length) return;
+
+  await saveLoadReferences(args.loadId, usable, { source: 'reference_baseline' });
+
+  const summary = usable.map(r => `${r.label}: ${r.value}`).join('; ');
+  const { error } = await supabase.rpc('record_load_reference_baseline', {
+    p_load_id: args.loadId,
+    p_document_id: args.documentId,
+    p_document_label: args.documentLabel,
+    p_summary: summary,
+  });
+  if (error) throw error;
+}
