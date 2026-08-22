@@ -35,6 +35,8 @@ const LAYER = [
   BG_SPECIAL_INSTRUCTIONS_LAYER,
   'Stop 1 (pickup)',
   BG_STOP1_COMMENT,
+  'Stop 2 (drop)',
+  'Comments: PO# 001000562117',
 ].join('\n');
 
 /* ------------------------------------------------------------------ */
