@@ -253,7 +253,9 @@ export interface UploadLoadDocumentInput {
 }
 
 /** Uploads one file and records it. `uploaded_by` is stamped server-side. */
-export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promise<void> {
+/** Uploads a load document and returns the new `load_documents` row id. */
+export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promise<string> {
+
   const {
     loadId, documentType, loadStopId, notes, file,
     photoLabel, photoSequence, damageNoted, damageNotes,
