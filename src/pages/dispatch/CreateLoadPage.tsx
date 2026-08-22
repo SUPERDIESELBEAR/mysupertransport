@@ -242,6 +242,26 @@ export default function CreateLoadPage({
 
       const newId = savedId;
 
+      // References are written after the RPC because a citation points at a
+      // stop row, and stop ids only exist once the RPC has run. Without this
+      // call the load has no reference baseline, and a later revised document
+      // reports every number it prints as an addition.
+      if (referencesPayload?.length) {
+        try {
+          await saveLoadReferences(newId, referencesPayload);
+        } catch (refError) {
+          logDbError('save_load_references', refError, { loadId: newId });
+          toast({
+            variant: 'destructive',
+            title: 'Reference numbers not saved',
+            description:
+              'The load was saved, but its reference numbers were not. Re-parse the rate confirmation to store them.',
+          });
+        }
+      }
+
+
+
       // A duplicate created knowingly is recorded on BOTH loads, so either one
       // explains the relationship later. A failure here must not lose the load.
       const override = duplicateOverride.current;
