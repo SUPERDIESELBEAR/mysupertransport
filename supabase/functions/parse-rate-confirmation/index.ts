@@ -8,6 +8,20 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 const AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1';
 const CHAT_MODEL = 'google/gemini-3-flash-preview';
 
+/**
+ * Contract identity of this build. Bump `contract` whenever the response SHAPE
+ * changes. The client compares it against the shape it was written for and
+ * warns on divergence: a stale deploy silently returning an older contract
+ * presented once as three unrelated-looking bugs, and catching that from a
+ * stray log string was luck, not a control.
+ */
+const PARSER_BUILD = {
+  contract: 3,
+  built_at: '2026-08-22T18:00:00Z',
+  notes: 'document-level references table + verbatim block + line item logging',
+};
+
+
 interface RequestBody {
   file_base64: string;
   mime_type: string;
@@ -480,7 +494,43 @@ Deno.serve(async (req) => {
       console.log('parse-rate-confirmation: shared references kept —', keptRefs.join(' | '));
     }
 
+    // Money and reference evidence, logged every run. Without this the only way
+    // to tell "the model never returned the line" from "the diff dropped it" is
+    // inference, and money rows are the last place to be inferring.
+    const docRefsRaw = Array.isArray(parsed.references) ? parsed.references : [];
+    console.log(
+      `parse-rate-confirmation: build contract=${PARSER_BUILD.contract} built_at=${PARSER_BUILD.built_at}`,
+    );
+    console.log(
+      'parse-rate-confirmation: line_items —',
+      lineItems.length
+        ? lineItems
+            .map((it: any) => `"${it.description}" $${it.amount} [${it.category}] (${it.confidence})`)
+            .join(' | ')
+        : '(none)',
+    );
+    console.log(
+      'parse-rate-confirmation: rate —',
+      `linehaul=${parsed.rate?.linehaul?.value ?? null} fsc=${parsed.rate?.fsc_amount?.value ?? null} total=${parsed.rate?.total?.value ?? null}`,
+    );
+    console.log(
+      'parse-rate-confirmation: document references —',
+      docRefsRaw.length
+        ? docRefsRaw
+            .map((r: any) => `"${String(r?.label ?? '').trim()}"=${String(r?.value ?? '').trim()}`)
+            .join(' | ')
+        : '(none)',
+    );
+    console.log(
+      'parse-rate-confirmation: verbatim —',
+      `special_instructions=${(parsed.verbatim?.special_instructions?.value ?? '').length} chars, ` +
+        `broker_terms=${(parsed.verbatim?.broker_terms?.value ?? '').length} chars`,
+    );
+
+
     const result = {
+      parser_build: PARSER_BUILD,
+
       broker: {
         company_name: str(parsed.broker?.company_name),
         mc_number: (() => {
