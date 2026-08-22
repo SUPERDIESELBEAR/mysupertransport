@@ -471,6 +471,115 @@ describe('accept defaults', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* 4b. A load with no baseline is not a load whose document changed     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ST26034 reported five reference additions when only PRO was new. Its
+ * `load_references` rows were empty, so the diff compared the document against
+ * nothing and every printed number read as an addition. Empty is not the same
+ * as "the broker added these": the review screen has to say it cannot compare.
+ */
+describe('a load with no references on file', () => {
+  const bare = (): LoadFormValues => ({ ...loadFromOriginal(), references: [] });
+
+  it('reports references as uncomparable rather than as additions', () => {
+    const diff = buildRevisionDiff(bare(), doc(BG_REFERENCES_REVISED));
+    expect(diff.referencesComparable).toBe(false);
+  });
+
+  it('leaves every reference row unchecked so nothing is applied by momentum', () => {
+    const diff = buildRevisionDiff(bare(), doc(BG_REFERENCES_REVISED));
+    const decisions = initialDecisions(diff);
+    const refRows = diff.nonFinancial.filter(d => d.reference);
+    expect(refRows.length).toBeGreaterThan(0);
+    expect(refRows.every(d => decisions.accepted[d.id] === false)).toBe(true);
+  });
+
+  it('still compares references normally once the load has a baseline', () => {
+    const diff = buildRevisionDiff(loadFromOriginal(), doc(BG_REFERENCES_REVISED));
+    expect(diff.referencesComparable).toBe(true);
+    const decisions = initialDecisions(diff);
+    const added = diff.nonFinancial.filter(d => d.reference?.op === 'added');
+    expect(added).toHaveLength(1);
+    expect(decisions.accepted[added[0].id]).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 4c. First capture is not a revision                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Loads created before verbatim capture have null verbatim columns. Reading
+ * `— → [the broker's terms]` on those loads implies the broker rewrote
+ * something; nothing was rewritten, the field had simply never been stored.
+ */
+describe('verbatim fields on a load that predates verbatim capture', () => {
+  const preCapture = (): LoadFormValues => ({
+    ...loadFromOriginal(),
+    special_instructions_verbatim: '',
+    broker_terms_verbatim: '',
+    stops: loadFromOriginal().stops.map(s => ({ ...s, stop_notes_verbatim: '' })),
+  });
+
+  it('labels null-to-content as a first capture, not a change', () => {
+    const diff = buildRevisionDiff(preCapture(), doc(BG_REFERENCES_ORIGINAL));
+    const rows = diff.nonFinancial.filter(d => d.path?.includes('verbatim'));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every(d => d.firstCapture === true)).toBe(true);
+  });
+
+  it('does not label a genuine rewrite as a first capture', () => {
+    const revised = doc(BG_REFERENCES_ORIGINAL);
+    revised.verbatim.broker_terms = f('ENTIRELY DIFFERENT TERMS APPLY TO THIS TENDER.');
+    const diff = buildRevisionDiff(loadFromOriginal(), revised);
+    const row = diff.nonFinancial.find(d => d.path === 'broker_terms_verbatim');
+    expect(row).toBeDefined();
+    expect(row?.firstCapture).toBeFalsy();
+  });
+
+  it('keeps first captures unchecked — transcription is still the broker\'s prose', () => {
+    const diff = buildRevisionDiff(preCapture(), doc(BG_REFERENCES_ORIGINAL));
+    const decisions = initialDecisions(diff);
+    const rows = diff.nonFinancial.filter(d => d.firstCapture);
+    expect(rows.every(d => decisions.accepted[d.id] === false)).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 4d. The display summary never generates a change row                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The same printed block produced three different summaries across three runs
+ * ("Driver must pay $30 wash out fee on site", "Washout mandatory at shipper
+ * for $30", ...). A model-authored paraphrase is not stable enough to diff.
+ * The verbatim field is the compared artifact; the summary is display only.
+ */
+describe('the display summary', () => {
+  it('produces no diff row even when the paraphrase differs wildly', () => {
+    const current = {
+      ...loadFromOriginal(),
+      special_instructions: BG_SPECIAL_INSTRUCTIONS_PARAPHRASE,
+    };
+    const revised = doc(BG_REFERENCES_ORIGINAL);
+    revised.special_instructions = f('Washout mandatory at shipper for $30.');
+
+    const diff = buildRevisionDiff(current, revised);
+    expect(diff.nonFinancial.find(d => d.path === 'special_instructions')).toBeUndefined();
+  });
+
+  it('still reports the verbatim field when the printed text really changes', () => {
+    const revised = doc(BG_REFERENCES_ORIGINAL);
+    revised.verbatim.special_instructions = f('DRIVER MUST WASH OUT AT SHIPPER. $45 FEE.');
+    const diff = buildRevisionDiff(loadFromOriginal(), revised);
+    expect(diff.nonFinancial.find(d => d.path === 'special_instructions_verbatim')).toBeDefined();
+  });
+});
+
+
+/* ------------------------------------------------------------------ */
 /* 2c. Misordered layers refuse stop-level verification                 */
 /* ------------------------------------------------------------------ */
 
