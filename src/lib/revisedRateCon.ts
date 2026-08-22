@@ -304,7 +304,14 @@ interface StopFieldSpec {
   read: (p: ParsedStop) => string | null;
   /** Broker-authored prose: never pre-checked. */
   freeText?: boolean;
+  /**
+   * A verbatim transcription slot. On a load stored before verbatim capture
+   * existed, an empty stored side means "never captured", not "the broker
+   * deleted it" — those rows are labelled as first captures.
+   */
+  verbatim?: boolean;
 }
+
 
 const STOP_FIELDS: StopFieldSpec[] = [
   { key: 'facility_name', label: 'Facility', read: p => nz(use(p.facility_name), normalizeImportedName) },
