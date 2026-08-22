@@ -111,7 +111,18 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       ]
     }
   ],
-  "special_instructions": FIELD(string - see the special_instructions rule below),
+  "references": [
+    {
+      "label": "exact Reference Type label printed in the document-level References table (e.g. BOL, PRO, Pickup Number, PO Number, Mode)",
+      "value": "the value printed next to it",
+      "confidence": "high"|"medium"|"low"
+    }
+  ],
+  "special_instructions": FIELD(string - a SHORT condensed summary for display only; the stored value is the verbatim capture below),
+  "verbatim": {
+    "broker_terms": FIELD(string - the broker's terms/conditions paragraph, copied EXACTLY as printed),
+    "special_instructions": FIELD(string - the block printed under the "Special Instructions" heading, copied EXACTLY as printed)
+  },
   "loadout_signals": {
     "no_bol_mentioned": boolean - true if the document never mentions a BOL or bill of lading,
     "photo_pod_required": boolean - true if photos are named as proof of delivery,
