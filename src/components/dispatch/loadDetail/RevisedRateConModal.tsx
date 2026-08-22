@@ -158,8 +158,32 @@ export default function RevisedRateConModal({
       setIdentity(check);
       setDecisions(initialDecisions(buildRevisionDiff(values, result, {})));
 
+      // The document is attached as soon as it parses, not when it is applied.
+      // A dispatcher who reviews a revision and cancels has still received a
+      // document from the broker, and losing it leaves no record that it came
+      // in. It is filed as reviewed-not-applied and relabelled if applied.
+      if (!uploadedDocId.current) {
+        try {
+          uploadedDocId.current = await uploadLoadDocument({
+            loadId: load.id,
+            documentType: 'revised_rate_confirmation',
+            file: target,
+            notes: `Received and reviewed ${new Date().toLocaleString('en-US')} — not applied.`,
+          });
+          void qc.invalidateQueries({ queryKey: ['load-documents', load.id] });
+        } catch (uploadError) {
+          logDbError('revised rate confirmation retain', uploadError, { loadId: load.id });
+          toast({
+            variant: 'destructive',
+            title: 'Document not attached',
+            description: 'The comparison is ready, but the file did not upload. Add it from Documents.',
+          });
+        }
+      }
+
       if (check.brokerMismatch || check.referenceMismatch) setPhase('identity');
       else setPhase('review');
+
     } catch (e) {
       logDbError('parse-rate-confirmation (revision)', e, { loadId: load.id });
       toast({
