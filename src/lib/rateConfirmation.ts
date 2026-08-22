@@ -24,6 +24,8 @@ export interface ParsedStop {
   appointment_start: Field<string>;
   appointment_end: Field<string>;
   notes: Field<string>;
+  /** The stop's comment line exactly as printed. Never summarised. */
+  notes_verbatim: Field<string>;
   references: ParsedReference[];
 }
 
