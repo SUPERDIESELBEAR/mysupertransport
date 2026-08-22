@@ -33,7 +33,7 @@ There are exactly two shapes. Anything else is a signal.
 
 ```text
 Test Files  68 passed | 1 skipped (69)
-     Tests  544 passed | 2 skipped (546)
+     Tests  551 passed | 2 skipped (553)
 
 skipped:
   roadside bundle
@@ -46,7 +46,7 @@ skipped:
 
 ```text
 Test Files  65 passed | 4 skipped (69)
-     Tests  525 passed | 13 skipped (538)
+     Tests  532 passed | 13 skipped (545)
 
 skipped: the two above, plus
   share token throttling             no PGHOST, live catalog unreadable

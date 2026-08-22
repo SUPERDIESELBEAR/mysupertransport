@@ -33,7 +33,13 @@ export type RegionFailure =
   | 'anchor_not_found'
   | 'anchor_ambiguous'
   | 'stop_not_found'
-  | 'empty_region';
+  | 'empty_region'
+  /**
+   * The layer emits a stop's comment line outside the slice its printed heading
+   * owns, so no stop slice on this document can be trusted. Distinct from
+   * `anchor_not_found` on purpose: the anchor is there, the ordering is not.
+   */
+  | 'comment_precedes_heading';
 
 export interface FieldRegion {
   field: VerbatimField;
@@ -126,6 +132,8 @@ const TERMINATORS: RegExp[] = [
 ];
 
 const STOP_HEADING = /^\s*stop\s+(\d+)\b/i;
+/** A labelled stop-comment line, in any of the forms the stop anchors accept. */
+const STOP_COMMENT_LINE = /^\s*(?:comments|stop\s+notes|stop\s+instructions)\s*:\s*\S/i;
 const MAX_REGION_LINES = 40;
 
 const isBlank = (l: string) => !l.trim();
@@ -153,6 +161,62 @@ export function stopSlices(layer: string): Map<number, { start: number; end: num
     out.set(h.n, { start: h.at, end });
   });
   return out;
+}
+
+export interface StopOrdering {
+  /** Line index of every printed `Stop N` heading, with its number. */
+  headings: { stop: number; line: number }[];
+  /** Line index of every labelled stop-comment line. */
+  comments: number[];
+  /** Comment lines emitted before the first stop heading. */
+  orphanComments: number[];
+}
+
+/**
+ * What the layer says about stop ordering. Read from the whole layer, never
+ * from a slice — a slice cannot see the line that fell outside it.
+ */
+export function stopOrdering(layer: string): StopOrdering {
+  const lines = layer.split('\n');
+  const headings: { stop: number; line: number }[] = [];
+  const comments: number[] = [];
+  lines.forEach((l, i) => {
+    const m = l.match(STOP_HEADING);
+    if (m) headings.push({ stop: Number(m[1]), line: i });
+    else if (STOP_COMMENT_LINE.test(l)) comments.push(i);
+  });
+  const first = headings.length ? headings[0].line : Number.POSITIVE_INFINITY;
+  return { headings, comments, orphanComments: comments.filter((c) => c < first) };
+}
+
+/**
+ * True when stop slices cannot be trusted on this document.
+ *
+ * pdf.js emits Blue Grace's first `Comments:` line *above* its `Stop 1 (pickup)`
+ * heading, which leaves slice 1 holding stop 2's comment — a stop verified,
+ * confidently, against its neighbour's text. Reconstructing reading order from
+ * text-run positions would be extractor-specific and layout-specific, and a
+ * subtle error there is worse than this failure because it does not announce
+ * itself. So the document is refused instead.
+ *
+ * The refusal covers EVERY stop, not only the detected one: a layer that
+ * misplaces one comment has an ordering none of its slices can be trusted
+ * against, and verifying the rest would reintroduce exactly the silent
+ * mis-attribution this guards.
+ */
+export function stopSlicesUntrustworthy(layer: string): boolean {
+  const { headings, comments, orphanComments } = stopOrdering(layer);
+  if (!headings.length || !comments.length) return false;
+
+  // One comment per stop is the shape these tenders print, so a stop left with
+  // none is the tell. A comment above the first heading is not enough on its
+  // own: Blue Grace prints a legitimate load-level `Comments:` there while every
+  // stop still keeps its own. The shift only shows when an orphan (or a slice
+  // holding two) is paired with a slice holding none.
+  const slices = [...stopSlices(layer).values()];
+  const counts = slices.map((s) => comments.filter((c) => c >= s.start && c <= s.end).length);
+  if (!counts.some((n) => n === 0)) return false;
+  return orphanComments.length > 0 || counts.some((n) => n > 1);
 }
 
 /** Heading-shaped lines, for the miss log: short, non-empty, not sentence prose. */
@@ -231,6 +295,7 @@ export function resolveFieldRegion(
 
   if (field === 'stop_notes_verbatim') {
     const n = opts.stopNumber;
+    if (stopSlicesUntrustworthy(source)) return miss('comment_precedes_heading');
     const slice = n == null ? undefined : stopSlices(source).get(n);
     if (!slice) return miss('stop_not_found');
     from = slice.start;
@@ -284,6 +349,12 @@ export interface AnchorMiss {
   stopNumber: number | null;
   /** The document's heading-shaped lines, so a new anchor can be read off it. */
   headings: string[];
+  /**
+   * Observed stop-heading and comment line positions, recorded for
+   * `comment_precedes_heading`. This log is the data for deciding later whether
+   * a bounded look-back is safe; nothing reads it automatically today.
+   */
+  ordering: StopOrdering | null;
   at: string;
 }
 
@@ -306,6 +377,7 @@ export function recordAnchorMiss(
     occurrences,
     stopNumber,
     headings: documentHeadings(layer ?? ''),
+    ordering: failure === 'comment_precedes_heading' ? stopOrdering(layer ?? '') : null,
     at: new Date().toISOString(),
   });
   if (misses.length > 200) misses.shift();

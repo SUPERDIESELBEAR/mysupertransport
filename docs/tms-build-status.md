@@ -67,22 +67,61 @@ heading and the block it owns — so damage is one figure per field per document
 regardless of what the model wrote. All three signals (similarity, tokens,
 damage) are always reported, even when `layer_unreliable` is the headline.
 
-Blue Grace, browser worker (pdf.js), page-1 fields:
+### Final measurements, Blue Grace, both extractors
 
-| Field | Damage | Faithful similarity | Paraphrase similarity |
-| --- | --- | --- | --- |
-| Special Instructions | 5.71% | 0.9929 (verified) | 0.0436 (layer_unreliable) |
-| Broker terms | 0.00% | 1.0000 (verified) | — |
+| Field | pdftotext | pdf.js (browser worker) |
+| --- | --- | --- |
+| Special Instructions | 5.84% damage, similarity 0.9929, verified | 5.71% damage, similarity 0.9929, verified |
+| Broker terms | 0.00% damage, similarity 1.0000, verified | 0.00% damage, similarity 1.0000, verified |
+| Stop notes | 0.00% damage, verified | refused (`region_unresolved`) |
 
-The paraphrase scores 0.0436 because the comparator does not collapse casing and
-the printed block is upper-case; that is the specified behaviour, not a defect.
+The condensed paraphrase of the Special Instructions block scores **0.0436**
+against its resolved region and fails both signals, dropping
+`CALAVO@BLUEGRACEGROUP.COM` and `(800) 697-4477`. It is that low because the
+comparator deliberately does not collapse casing and the printed block is
+upper-case. Before regions were cut from the page it selected a cleaner window
+in the broker-terms paragraph and scored 0.5531 against text it does not
+correspond to.
 
-Blank lines cannot bound a region: `pdftotext` emits them, pdf.js does not.
-Boundaries are printed structures both extractors produce (`Comments:`,
-`Contact Information:`, appointment-window lines, `Stop N`).
+`layer_unreliable` is rarer than the isolated measurement suggested. Damage only
+decides the headline when a check actually fails: a faithful transcription of a
+5.71%-damaged block still verifies. Damage is reported on every result either
+way, so a damaged region is visible without being an accusation.
 
-**Open — stop-level notes are not verifiable on this document.** pdf.js emits the
-first stop's `Comments:` line *before* its `Stop 1 (pickup)` heading, so the slice
-for stop 1 contains stop 2's comment. Load-level fields are unaffected. Slicing by
-printed heading is correct against `pdftotext` ordering and wrong against pdf.js
-ordering here; this needs a decision rather than a silent adjustment.
+### Region boundaries
+
+Blank lines cannot be the only boundary — `pdftotext` emits them, pdf.js does
+not. Terminators are printed structures both extractors produce: `References`,
+`Freight Terms`, `Items`, `Charge Details`, `Equipment & Services`, `Stop N`,
+`Page N / M`, `Comments` (bare), `Comments:` (labelled), `Contact Information:`,
+`Special Instructions`, `Bill To:`, and the appointment-window line
+(`MM/DD/YYYY hh:mmAM …`). A 40-line cap is the backstop when none appears.
+
+Two caveats, named rather than left to surface on the next broker:
+
+- A blank line following content is still a secondary boundary, so `pdftotext`
+  can end a region earlier than pdf.js on a document with no terminator between
+  two blocks. That is the 5.84% / 5.71% difference on the same field.
+- `Stop N` and the appointment-window line depend on ordering, which is what
+  differs between extractors. For load-level fields the exposure is bounded — a
+  misplaced line ends a region early or late, which surfaces as a similarity or
+  token failure, never as a confident verification against another field's text.
+  For stop-level fields it is not bounded, which is why they refuse.
+
+### Open: stop-level verification is refused on misordered layers
+
+pdf.js emits Blue Grace's first `Comments:` line *above* its `Stop 1 (pickup)`
+heading, so slice 1 holds stop 2's comment. Rather than reconstruct reading
+order from text-run positions — extractor-specific, layout-specific, and a
+subtle error there verifies a field confidently against the wrong text — the
+document is refused: `region_unresolved` with reason `comment_precedes_heading`,
+for **every** stop on that document, not only the detected one.
+
+Detection needs a stop left with no comment of its own, paired with an orphan
+comment above the first heading or a slice holding two. A load-level `Comments:`
+line while every stop still keeps its own is legitimate and is not refused.
+
+The verbatim text is still captured and stored; only the verification is
+refused. Every occurrence is logged through `recordAnchorMiss` with the observed
+`Stop N` and `Comments:` line positions. That log is the data for deciding later
+whether a bounded look-back is safe — nothing reads it automatically today.

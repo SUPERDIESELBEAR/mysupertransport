@@ -451,3 +451,85 @@ describe('accept defaults', () => {
     expect(decisions.accepted[addedRef!.id]).toBe(true);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* 2c. Misordered layers refuse stop-level verification                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * pdf.js emits Blue Grace's first `Comments:` line above its `Stop 1 (pickup)`
+ * heading. Slicing by printed heading then hands stop 1 its neighbour's text.
+ * The decision is to refuse rather than to reconstruct reading order: a subtle
+ * re-sequencing error verifies a field confidently against the wrong text,
+ * which is worse than a failure that announces itself.
+ */
+const MISORDERED = [
+  'Carrier Load Tender',
+  'Special Instructions',
+  'PRECOOL TRAILER PRIOR TO CHECKIN IN AT SHIPPER.',
+  'Comments: PU# IX00286060',
+  'Stop 1 (pickup)',
+  '06/18/2025 08:00AM - 06/18/2025 05:00PM',
+  'Comments: PO# 001000562117',
+  'Stop 2 (drop)',
+  '06/19/2025 07:00AM - 06/19/2025 03:00PM',
+].join('\n');
+
+describe('a layer that misorders a stop comment against its heading', () => {
+  beforeEach(() => clearAnchorMisses());
+
+  it('names the condition instead of producing a bad slice', () => {
+    const r = resolveFieldRegion(MISORDERED, 'stop_notes_verbatim', { stopNumber: 1 });
+    expect(r.region).toBeNull();
+    expect(r.failure).toBe('comment_precedes_heading');
+  });
+
+  it('refuses every stop on the document, not only the detected one', () => {
+    expect(resolveFieldRegion(MISORDERED, 'stop_notes_verbatim', { stopNumber: 2 }).failure)
+      .toBe('comment_precedes_heading');
+  });
+
+  it('reports region_unresolved with nothing computed', () => {
+    const r = verifyVerbatim('stop_notes_verbatim', 'Comments: PU# IX00286060', MISORDERED, { stopNumber: 1 });
+    expect(r.verdict).toBe('region_unresolved');
+    expect(r.regionFailure).toBe('comment_precedes_heading');
+    expect(r.similarity).toBeNull();
+    expect(r.missingTokens).toBeNull();
+    expect(r.layerDegradation).toBeNull();
+    expect(r.similarityPass).toBeNull();
+    expect(r.tokenPass).toBeNull();
+  });
+
+  /** The specific silent failure this guards: stop 1 scored against stop 2. */
+  it('does not score stop 1 against the neighbouring stop it was handed', () => {
+    const r = verifyVerbatim('stop_notes_verbatim', 'Comments: PO# 001000562117', MISORDERED, { stopNumber: 1 });
+    expect(r.verdict).toBe('region_unresolved');
+    expect(r.similarity).toBeNull();
+  });
+
+  it('logs the reason and the observed line ordering', () => {
+    verifyVerbatim('stop_notes_verbatim', 'Comments: PU# IX00286060', MISORDERED, { stopNumber: 1 });
+    const [logged] = anchorMisses();
+    expect(logged.failure).toBe('comment_precedes_heading');
+    expect(logged.stopNumber).toBe(1);
+    expect(logged.ordering?.headings.map(h => h.stop)).toEqual([1, 2]);
+    expect(logged.ordering?.orphanComments).toEqual([3]);
+    expect(logged.ordering?.comments).toEqual([3, 6]);
+  });
+
+  it('leaves load-level fields on the same document verifiable', () => {
+    const r = verifyVerbatim(
+      'special_instructions_verbatim',
+      'PRECOOL TRAILER PRIOR TO CHECKIN IN AT SHIPPER.',
+      MISORDERED,
+    );
+    expect(r.verdict).toBe('verified');
+    expect(r.similarity).toBe(1);
+    expect(r.anchorId).toBe('special_instructions');
+  });
+
+  it('does not refuse a well-ordered document', () => {
+    expect(resolveFieldRegion(LAYER, 'stop_notes_verbatim', { stopNumber: 1 }).failure).toBeNull();
+    expect(resolveFieldRegion(LAYER, 'stop_notes_verbatim', { stopNumber: 2 }).failure).toBeNull();
+  });
+});
