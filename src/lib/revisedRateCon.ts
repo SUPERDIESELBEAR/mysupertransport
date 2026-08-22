@@ -362,6 +362,8 @@ interface LoadFieldSpec {
   read: (p: ParsedRateConfirmation) => string | boolean | number | null;
   /** Broker-authored prose: never pre-checked. */
   freeText?: boolean;
+  /** Verbatim transcription slot — see StopFieldSpec.verbatim. */
+  verbatim?: boolean;
 }
 
 const LOAD_FIELDS: LoadFieldSpec[] = [
@@ -375,25 +377,27 @@ const LOAD_FIELDS: LoadFieldSpec[] = [
   { key: 'is_hazmat', label: 'Hazmat', read: p => use(p.load.is_hazmat) },
   { key: 'is_team_load', label: 'Team load', read: p => use(p.load.is_team_load) },
   { key: 'mode', label: 'Mode', read: p => use(p.load.mode) },
-  {
-    key: 'special_instructions',
-    label: 'Special instructions (display summary)',
-    read: p => use(p.special_instructions),
-    freeText: true,
-  },
+  // `special_instructions` is deliberately absent. It is a model-written summary
+  // of the same printed block the verbatim field now stores, and it was reworded
+  // on every parse of an unchanged document — three distinct sentences for one
+  // block. It is a render-time derivation, not a change the broker made, so it
+  // generates no diff row.
   {
     key: 'special_instructions_verbatim',
     label: 'Special instructions (as printed)',
     read: p => p.verbatim?.special_instructions?.value ?? null,
     freeText: true,
+    verbatim: true,
   },
   {
     key: 'broker_terms_verbatim',
     label: 'Broker terms (as printed)',
     read: p => p.verbatim?.broker_terms?.value ?? null,
     freeText: true,
+    verbatim: true,
   },
 ];
+
 
 const sameText = (a: unknown, b: unknown) => text(a).trim() === text(b).trim();
 
