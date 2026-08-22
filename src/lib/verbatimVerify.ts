@@ -193,6 +193,28 @@ export interface VerifyOptions {
 }
 
 /**
+ * Damage rate of the raw lines that fed the matched window. A block rendered
+ * through mangled glyphs is a document problem; averaging it over two pages of
+ * clean text would report it as a transcription problem instead.
+ */
+export function localDamage(rawLayer: string, normalizedWindow: string): number {
+  if (!normalizedWindow) return 0;
+  let damaged = 0;
+  let kept = 0;
+  rawLayer.split('\n').forEach((line) => {
+    const n = normalizeForVerbatim(line);
+    if (!n.text) return;
+    // A line counts as part of the window if a decent run of it appears there.
+    const probe = n.text.slice(0, Math.min(24, n.text.length));
+    if (probe.length >= 8 && !normalizedWindow.includes(probe)) return;
+    if (probe.length < 8 && !normalizedWindow.includes(n.text)) return;
+    damaged += n.degradation * line.length;
+    kept += line.length;
+  });
+  return kept ? damaged / kept : 0;
+}
+
+/**
  * @param field       name reported back with the verdict
  * @param transcribed the model's verbatim capture
  * @param layer       the raw PDF text layer for the whole document
