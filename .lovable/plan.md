@@ -29,19 +29,31 @@ Other                          72% to driver
 
 The same line repeats under the closed dropdown for the chosen option, replacing the current 100%-only hint, so the consequence is visible without opening the menu. The dropdown no longer preselects `Other`: the dispatcher picks deliberately, and the parser's suggested category is offered as a pre-selection only when the document gave one.
 
-Where the policy cannot be read, the options render without percentages rather than showing a guessed number.
+The label is produced by the pay class, not formatted from a percentage at the call site. Each class returns its own treatment description; the percentage classes return "72% to driver" and so on, and a class whose treatment is not a percentage — the reimbursement class, when it ships — returns its own wording such as "reimbursed at cost" without any change to the dropdown. Where the policy cannot be read, options render without a treatment line rather than a guessed number.
 
-No reimbursement class is added — that spec is still coming.
+No reimbursement class is added now — that spec is still coming.
+
+## 4. File the document's references as the load's baseline
+
+A separate action on the no-baseline note: "File these as the load's reference numbers." It is not an accept and not an Apply — it can be used on its own and leaves the per-row decisions and the change count untouched.
+
+What it does:
+
+- Writes every reference the document printed, with its citations and each stop's printed label, as the load's reference rows. Nothing else on the load is written.
+- Records provenance: which document established the baseline, when, and which staff member did it — stored on the load's change history as a baseline event, distinct from a revision, and surfaced on the load so it is later visible that the references came from a revised rate confirmation rather than the original.
+- Refreshes the review screen in place: the note is replaced by the filed baseline, and the reference rows disappear because the document now matches what is on file.
+
+Once filed, the same document re-reviewed produces no reference rows at all. That is the assertion the test asserts.
 
 ## Answer on the reference question
 
-Confirmed: with all five reference rows unchecked, applying writes no reference rows. `applyRevision` only pushes a reference into the form values for a row the dispatcher accepted, and the modal calls the reference save only when that array is non-empty. The load keeps zero rows on file, and the next revision review shows the same no-baseline note and the same five uncomparable rows.
-
-If you want a baseline established without treating the numbers as broker changes, the natural place is a single "these are the numbers on this document — file them as the baseline" action on the no-baseline note, separate from the per-row accept. Say the word and it goes in this pass; it is not in scope as written.
+Confirmed: with all five rows unchecked, applying writes no reference rows. `applyRevision` only pushes a reference into the form values for an accepted row, and the modal saves references only when that array is non-empty. Before this change the load kept zero rows on file and the next review repeated the same no-baseline note; the baseline action above is what closes that.
 
 ## Technical notes
 
 - `src/lib/revisedRateCon.ts`: drop the `stop_notes` entry from `STOP_FIELDS`; move the `firstCapture` test off `spec.verbatim` onto the empty-stored-side condition in both the load and stop diff loops.
-- `src/components/dispatch/loadDetail/RevisedRateConModal.tsx`: render pay treatment per option and under the trigger; remove the `Other` default.
-- New helper for resolving the effective pay policy for a load (assignment then company default), queried by the modal.
-- Tests: stop-notes churn produces no row; empty-to-content non-verbatim row is labelled and uncounted; percentage labels follow a non-default policy.
+- `src/components/dispatch/loadDetail/RevisedRateConModal.tsx`: render pay treatment per option and under the trigger; remove the `Other` default; add the baseline action to the no-baseline note with its own confirm and busy state.
+- New helper resolving the effective pay policy for a load (driver assignment, then company default) and returning a per-class treatment descriptor rather than a raw number.
+- Baseline write reuses `saveLoadReferences` with the document's classified references, plus a `load_change_history` entry of a new baseline kind carrying the document id and actor.
+- Tests: stop-notes churn produces no row; an empty-to-content non-verbatim row is labelled and uncounted; treatment labels follow a non-default policy and a non-percentage class; filing the baseline then re-diffing the same document yields zero reference rows.
+
