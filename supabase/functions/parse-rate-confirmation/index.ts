@@ -423,73 +423,35 @@ Deno.serve(async (req) => {
         appointment_start: dateTime(s?.appointment_start),
         appointment_end: dateTime(s?.appointment_end),
         notes: str(s?.notes),
+        notes_verbatim: str(s?.notes_verbatim),
         references,
       };
     });
 
-    // A reference that repeats verbatim across stops, or restates a load-level id,
-    // is an internal broker code — not something a guard shack asks for.
+    // Cross-stop and load-level collapsing used to happen here, keyed on the
+    // VALUE alone. That is what silently dropped a legitimate shipment number
+    // printed on more than one stop, and what hid a `PRO` row whose value also
+    // appears as the `BOL`. Both are now handled downstream by
+    // `classifyReferences` in src/lib/referenceClasses.ts, keyed on
+    // (class, value) with one citation per stop the value was printed against.
+    // Only the per-row noise filters above run in here.
     const normRef = (v: string) => v.replace(/[^0-9a-z]/gi, '').toLowerCase();
-    const refCounts = new Map<string, number>();
+    /** Rows kept that would previously have been discarded, logged for visibility. */
+    const keptRefs: string[] = [];
+    const seenValues = new Map<string, number>();
     stops.forEach((s: any) =>
       new Set(s.references.map((r: any) => normRef(r.value))).forEach((k) =>
-        refCounts.set(k as string, (refCounts.get(k as string) ?? 0) + 1),
+        seenValues.set(k as string, (seenValues.get(k as string) ?? 0) + 1),
       ),
     );
-    const loadIds = new Set(
-      [parsed.load?.bol_number?.value, parsed.load?.po_number?.value, parsed.load?.broker_load_number?.value]
-        .filter((v) => v !== null && v !== undefined && String(v).trim().length)
-        .map((v) => normRef(String(v))),
-    );
-    /** References deliberately kept despite repeating across stops, and collapsed near-duplicates. */
-    const keptRefs: string[] = [];
     stops.forEach((s: any, i: number) => {
-      s.references = s.references.filter((r: any) => {
-        const key = normRef(r.value);
-        if (!key) return true;
-        // A load-level id already has a home on the load — never a stop reference.
-        if (loadIds.has(key)) {
-          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [duplicates a load-level id]`);
-          return false;
+      s.references.forEach((r: any) => {
+        if ((seenValues.get(normRef(r.value)) ?? 0) > 1) {
+          keptRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [printed on multiple stops: kept, cited per stop]`);
         }
-        if ((refCounts.get(key) ?? 0) > 1) {
-          if (SHIPMENT_REF.test(r.label)) {
-            keptRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [recognized shipment/order label]`);
-            return true;
-          }
-          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [same value on multiple stops: internal broker code]`);
-          return false;
-        }
-        return true;
       });
     });
 
-    // Two survivors that differ only by a leading/trailing alphabetic prefix or
-    // suffix are one reference written twice (SI R2633450554 vs SO 2633450554).
-    const refCore = (v: string) => normRef(v).replace(/^[a-z]+/, '').replace(/[a-z]+$/, '');
-    /** More explicit label wins; ties go to the shorter, unprefixed value. */
-    const better = (a: any, b: any) => {
-      const ax = EXPLICIT_REF_LABEL.test(a.label) ? 0 : SHIPMENT_REF.test(a.label) ? 1 : 2;
-      const bx = EXPLICIT_REF_LABEL.test(b.label) ? 0 : SHIPMENT_REF.test(b.label) ? 1 : 2;
-      if (ax !== bx) return ax < bx ? a : b;
-      return normRef(a.value).length <= normRef(b.value).length ? a : b;
-    };
-    stops.forEach((s: any, i: number) => {
-      const byCore = new Map<string, any>();
-      s.references.forEach((r: any) => {
-        const core = refCore(r.value);
-        if (!core) { byCore.set(`~${byCore.size}`, r); return; }
-        const held = byCore.get(core);
-        if (!held) { byCore.set(core, r); return; }
-        const win = better(held, r);
-        const lose = win === held ? r : held;
-        byCore.set(core, win);
-        keptRefs.push(
-          `stop ${i + 1}: "${lose.label}"=${lose.value.slice(0, 24)} collapsed into "${win.label}"=${win.value.slice(0, 24)} [same reference written twice]`,
-        );
-      });
-      s.references = Array.from(byCore.values());
-    });
 
     const rawItems = Array.isArray(parsed.rate?.line_items) ? parsed.rate.line_items : [];
 
