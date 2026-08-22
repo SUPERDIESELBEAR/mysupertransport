@@ -28,6 +28,25 @@ export const stopSchema = z.object({
   reference_label: z.string().trim().max(60).optional().or(z.literal('')),
   stopoff_charge_amount: optionalNumber,
   stop_notes: z.string().trim().max(2000).optional().or(z.literal('')),
+  /**
+   * The stop's comment line exactly as printed on the rate confirmation.
+   * `stop_notes` may be a condensed rendering; this is the system of record.
+   */
+  stop_notes_verbatim: z.string().trim().max(4000).optional().or(z.literal('')),
+});
+
+/**
+ * A reference number printed on the document, kept as (class, label, value).
+ * One value printed as BOL, PRO and load number is three rows, because a
+ * broker's AP and tracing desks look each one up separately.
+ */
+export const referenceSchema = z.object({
+  reference_class: z.string().trim().max(40),
+  /** The label as printed ("PU#"), not the canonical class label. */
+  label: z.string().trim().max(60),
+  value: z.string().trim().max(120),
+  /** Stop sequences (1-based) this reference is printed against. */
+  citations: z.array(z.number().int().positive()).optional(),
 });
 
 export const chargeSchema = z.object({
@@ -86,6 +105,12 @@ export const loadFormSchema = z
     internal_notes: z.string().trim().max(4000).optional().or(z.literal('')),
     driver_facing_notes: z.string().trim().max(4000).optional().or(z.literal('')),
     special_instructions: z.string().trim().max(4000).optional().or(z.literal('')),
+    /** Broker-authored text as printed. Never a rewrite; display condenses at render time. */
+    special_instructions_verbatim: z.string().trim().max(8000).optional().or(z.literal('')),
+    broker_terms_verbatim: z.string().trim().max(8000).optional().or(z.literal('')),
+    /** Categorical attribute ("TL"). Recognised as a reference label, stored as a load field. */
+    mode: z.string().trim().max(40).optional().or(z.literal('')),
+    references: z.array(referenceSchema),
     is_team_load: z.boolean(),
     co_driver_name: optionalText,
     is_hazmat: z.boolean(),
@@ -117,6 +142,7 @@ export const loadFormSchema = z
     }
   });
 
+export type ReferenceFormValues = z.infer<typeof referenceSchema>;
 export type LoadFormValues = z.infer<typeof loadFormSchema>;
 export type StopFormValues = z.infer<typeof stopSchema>;
 export type ChargeFormValues = z.infer<typeof chargeSchema>;
@@ -141,6 +167,7 @@ export const emptyStop = (stop_type: StopFormValues['stop_type']): StopFormValue
   reference_label: '',
   stopoff_charge_amount: '',
   stop_notes: '',
+  stop_notes_verbatim: '',
 });
 
 export const loadFormDefaults = (): LoadFormValues => ({
@@ -181,6 +208,10 @@ export const loadFormDefaults = (): LoadFormValues => ({
   internal_notes: '',
   driver_facing_notes: '',
   special_instructions: '',
+  special_instructions_verbatim: '',
+  broker_terms_verbatim: '',
+  mode: '',
+  references: [],
   is_team_load: false,
   co_driver_name: '',
   is_hazmat: false,

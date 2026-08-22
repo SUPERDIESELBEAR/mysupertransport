@@ -11,6 +11,12 @@ export interface LoadSavePayload {
   load: Record<string, unknown>;
   stops: Record<string, unknown>[];
   charges: Record<string, unknown>[];
+  /**
+   * Reference rows. The RPCs do not take these — `load_references` is written
+   * separately by `saveLoadReferences` once stop ids exist, because a citation
+   * points at a stop row.
+   */
+  references: LoadFormValues['references'];
 }
 
 const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
@@ -73,6 +79,9 @@ export function buildLoadSavePayload(
     internal_notes: v.internal_notes ?? '',
     driver_facing_notes: v.driver_facing_notes ?? '',
     special_instructions: v.special_instructions ?? '',
+    special_instructions_verbatim: v.special_instructions_verbatim ?? '',
+    broker_terms_verbatim: v.broker_terms_verbatim ?? '',
+    mode: v.mode ?? '',
     is_team_load: v.is_team_load,
     co_driver_name: v.is_team_load ? (v.co_driver_name ?? '') : '',
     is_hazmat: v.is_hazmat,
@@ -99,6 +108,7 @@ export function buildLoadSavePayload(
     reference_label: s.reference_label ?? '',
     stopoff_charge_amount: s.stopoff_charge_amount ?? '',
     stop_notes: s.stop_notes ?? '',
+    stop_notes_verbatim: s.stop_notes_verbatim ?? '',
   }));
 
   // load_charges is the authoritative record of every charge on the load.
@@ -126,5 +136,5 @@ export function buildLoadSavePayload(
       })),
   ];
 
-  return { load, stops, charges };
+  return { load, stops, charges, references: v.references ?? [] };
 }
