@@ -103,7 +103,11 @@ export default function RevisedRateConModal({
     setDecisions({ accepted: {}, classifications: {}, descriptions: {}, stopResolutions: {} });
     setNote('');
     setUnlockReason('');
+    // The retained document stays on the load; only the session pointer clears.
+    uploadedDocId.current = null;
+    handedOver.current = null;
   };
+
 
   const close = (next: boolean) => {
     if (!next) reset();
