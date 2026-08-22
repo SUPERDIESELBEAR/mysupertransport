@@ -23,7 +23,9 @@ import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { fetchLoadForEdit, updateLoadWithStops, type LoadDetail } from '@/lib/loadDetail';
 import { loadToFormValues } from '@/lib/loadEdit';
 import { buildLoadSavePayload } from '@/lib/loadSavePayload';
-import { uploadLoadDocument } from '@/lib/loadDocuments';
+import { setLoadDocumentNotes, uploadLoadDocument } from '@/lib/loadDocuments';
+import { saveLoadReferences } from '@/lib/loadReferences';
+
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import { formatCurrency, type LoadStatus } from '@/lib/loadFormat';
 import {
@@ -79,6 +81,9 @@ export default function RevisedRateConModal({
   });
   const [note, setNote] = useState('');
   const [unlockReason, setUnlockReason] = useState('');
+  /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
+  const uploadedDocId = useRef<string | null>(null);
+
 
   const tier = financialEditTier(load.status as LoadStatus);
   const locked = tier === 'locked';
@@ -98,7 +103,11 @@ export default function RevisedRateConModal({
     setDecisions({ accepted: {}, classifications: {}, descriptions: {}, stopResolutions: {} });
     setNote('');
     setUnlockReason('');
+    // The retained document stays on the load; only the session pointer clears.
+    uploadedDocId.current = null;
+    handedOver.current = null;
   };
+
 
   const close = (next: boolean) => {
     if (!next) reset();
@@ -158,8 +167,32 @@ export default function RevisedRateConModal({
       setIdentity(check);
       setDecisions(initialDecisions(buildRevisionDiff(values, result, {})));
 
+      // The document is attached as soon as it parses, not when it is applied.
+      // A dispatcher who reviews a revision and cancels has still received a
+      // document from the broker, and losing it leaves no record that it came
+      // in. It is filed as reviewed-not-applied and relabelled if applied.
+      if (!uploadedDocId.current) {
+        try {
+          uploadedDocId.current = await uploadLoadDocument({
+            loadId: load.id,
+            documentType: 'revised_rate_confirmation',
+            file: target,
+            notes: `Received and reviewed ${new Date().toLocaleString('en-US')} — not applied.`,
+          });
+          void qc.invalidateQueries({ queryKey: ['load-documents', load.id] });
+        } catch (uploadError) {
+          logDbError('revised rate confirmation retain', uploadError, { loadId: load.id });
+          toast({
+            variant: 'destructive',
+            title: 'Document not attached',
+            description: 'The comparison is ready, but the file did not upload. Add it from Documents.',
+          });
+        }
+      }
+
       if (check.brokerMismatch || check.referenceMismatch) setPhase('identity');
       else setPhase('review');
+
     } catch (e) {
       logDbError('parse-rate-confirmation (revision)', e, { loadId: load.id });
       toast({
@@ -219,24 +252,42 @@ export default function RevisedRateConModal({
         acknowledgeStopDataLoss: false,
       });
 
-      if (file) {
-        try {
-          // The original rate confirmation stays exactly where it is.
+      // The file was attached at parse time; applying only relabels it. The
+      // original rate confirmation stays exactly where it is.
+      try {
+        if (uploadedDocId.current) {
+          await setLoadDocumentNotes(uploadedDocId.current, reason);
+        } else if (file) {
           await uploadLoadDocument({
             loadId: load.id,
             documentType: 'revised_rate_confirmation',
             file,
             notes: reason,
           });
-        } catch (uploadError) {
-          logDbError('revised rate confirmation attach', uploadError, { loadId: load.id });
+        }
+      } catch (uploadError) {
+        logDbError('revised rate confirmation attach', uploadError, { loadId: load.id });
+        toast({
+          variant: 'destructive',
+          title: 'Document note not updated',
+          description: 'The changes saved, but the document note did not update.',
+        });
+      }
+
+      // References the revision established become the baseline for the next one.
+      if (payload.references?.length) {
+        try {
+          await saveLoadReferences(load.id, payload.references);
+        } catch (refError) {
+          logDbError('save_load_references (revision)', refError, { loadId: load.id });
           toast({
             variant: 'destructive',
-            title: 'Document not attached',
-            description: 'The changes saved, but the file did not upload. Add it from Documents.',
+            title: 'Reference numbers not saved',
+            description: 'The changes saved, but reference numbers were not stored.',
           });
         }
       }
+
 
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['load-detail', load.id] }),
@@ -543,6 +594,13 @@ export default function RevisedRateConModal({
             {diff.nonFinancial.length > 0 ? (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Non-financial changes</h3>
+                {!diff.referencesComparable ? (
+                  <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    This load has no reference numbers on file, so the numbers printed on this
+                    document cannot be compared against anything. They are listed as found, not
+                    as changes, and none are pre-selected.
+                  </p>
+                ) : null}
                 <div className="divide-y divide-border rounded-lg border border-border">
                   {diff.nonFinancial.map(n => (
                     <div key={n.id} className="flex flex-wrap items-start gap-3 p-3">
@@ -555,10 +613,16 @@ export default function RevisedRateConModal({
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground">{n.label}</p>
                         <p className="flex flex-wrap items-center gap-2 break-words text-sm text-muted-foreground">
-                          <span className="line-through">{n.current}</span>
+                          <span className={n.firstCapture ? 'italic' : 'line-through'}>{n.current}</span>
                           <ArrowRight className="h-3.5 w-3.5 shrink-0" />
                           <span className="text-foreground">{n.revised}</span>
                         </p>
+                        {n.firstCapture ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Captured from this document — this field was never stored on the load,
+                            so this is a first capture rather than a change the broker made.
+                          </p>
+                        ) : null}
                         {n.hasDriverData ? (
                           <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-600">
                             <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -572,6 +636,7 @@ export default function RevisedRateConModal({
                 </div>
               </section>
             ) : null}
+
 
             {diff.nonFinancial.length > 0 || diff.financial.length > 0 ? (
               <div className="space-y-1.5">

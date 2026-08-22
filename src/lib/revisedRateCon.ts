@@ -2,8 +2,10 @@ import type { LoadFormValues, StopFormValues } from '@/pages/dispatch/loadFormSc
 import type { Confidence, Field, ParsedRateConfirmation, ParsedStop } from '@/lib/rateConfirmation';
 
 import {
-  classifyReferences, referenceKey, type ReferenceClass,
+  citationKey, classifyReferences, referenceKey,
+  type ReferenceCitation, type ReferenceClass,
 } from '@/lib/referenceClasses';
+
 import { normalizeAddressKey, normalizeZipKey } from '@/lib/facilityMatch';
 import { toLocalInput } from '@/lib/loadEdit';
 import {
@@ -185,6 +187,13 @@ export interface NonFinancialDiff {
   defaultAccept: boolean;
   /** Broker-authored prose. Always requires a deliberate accept. */
   freeText?: boolean;
+  /**
+   * The stored side is empty and the document has content: this is the first
+   * time the field has ever been captured, not a revision of something. Framed
+   * and counted separately — a load that predates verbatim capture would
+   * otherwise report every transcription as a change the broker made.
+   */
+  firstCapture?: boolean;
   /** Set on reference rows; applied to `references`, not through `setPath`. */
   reference?: ReferenceDiffOp;
 }
@@ -194,8 +203,31 @@ export interface ReferenceDiffOp {
   reference_class: string;
   label: string;
   value: string;
-  citations: number[];
+  citations: ReferenceCitation[];
 }
+
+/**
+ * Zod infers the stored/form citation shape with optional members. Citations
+ * without a stop sequence cannot be placed, so they are dropped rather than
+ * defaulted to stop 1.
+ */
+const toCitations = (
+  list: { stopSequence?: number; printedLabel?: string }[] | null | undefined,
+): ReferenceCitation[] =>
+  (list ?? [])
+    .filter((c): c is { stopSequence: number; printedLabel?: string } =>
+      typeof c.stopSequence === 'number')
+    .map(c => ({ stopSequence: c.stopSequence, printedLabel: (c.printedLabel ?? '').trim() }));
+
+/** Human phrasing of where a reference is printed, including the stop's label. */
+const describeCitations = (citations: ReferenceCitation[]): string => {
+  if (!citations.length) return 'Load level';
+  return [...citations]
+    .sort((a, b) => a.stopSequence - b.stopSequence)
+    .map(c => (c.printedLabel ? `Stop ${c.stopSequence} (${c.printedLabel})` : `Stop ${c.stopSequence}`))
+    .join(', ');
+};
+
 
 export type ClassificationKey =
   | 'linehaul' | 'fsc' | 'detention' | 'stopoff' | 'lumper' | 'layover' | 'tonu' | 'other';
@@ -244,7 +276,14 @@ export interface RevisionDiff {
   unresolved: number[];
   /** Sum of accepted-at-face-value deltas, for the header line. */
   totalDelta: number;
+  /**
+   * False when the load has no reference rows on file, so document references
+   * cannot be diffed against anything. The review screen says so rather than
+   * presenting every printed number as an addition.
+   */
+  referencesComparable: boolean;
 }
+
 
 export interface DiffDecisions {
   accepted: Record<string, boolean>;
@@ -272,7 +311,14 @@ interface StopFieldSpec {
   read: (p: ParsedStop) => string | null;
   /** Broker-authored prose: never pre-checked. */
   freeText?: boolean;
+  /**
+   * A verbatim transcription slot. On a load stored before verbatim capture
+   * existed, an empty stored side means "never captured", not "the broker
+   * deleted it" — those rows are labelled as first captures.
+   */
+  verbatim?: boolean;
 }
+
 
 const STOP_FIELDS: StopFieldSpec[] = [
   { key: 'facility_name', label: 'Facility', read: p => nz(use(p.facility_name), normalizeImportedName) },
@@ -300,7 +346,9 @@ const STOP_FIELDS: StopFieldSpec[] = [
     // not decide whether it is offered. The dispatcher decides.
     read: p => p.notes_verbatim?.value ?? null,
     freeText: true,
+    verbatim: true,
   },
+
   // Stop references are diffed structurally against load_references /
   // load_reference_citations, keyed on class + value. The old single-slot
   // reference_number / reference_label pair only ever held the first row, so
@@ -321,6 +369,8 @@ interface LoadFieldSpec {
   read: (p: ParsedRateConfirmation) => string | boolean | number | null;
   /** Broker-authored prose: never pre-checked. */
   freeText?: boolean;
+  /** Verbatim transcription slot — see StopFieldSpec.verbatim. */
+  verbatim?: boolean;
 }
 
 const LOAD_FIELDS: LoadFieldSpec[] = [
@@ -334,25 +384,27 @@ const LOAD_FIELDS: LoadFieldSpec[] = [
   { key: 'is_hazmat', label: 'Hazmat', read: p => use(p.load.is_hazmat) },
   { key: 'is_team_load', label: 'Team load', read: p => use(p.load.is_team_load) },
   { key: 'mode', label: 'Mode', read: p => use(p.load.mode) },
-  {
-    key: 'special_instructions',
-    label: 'Special instructions (display summary)',
-    read: p => use(p.special_instructions),
-    freeText: true,
-  },
+  // `special_instructions` is deliberately absent. It is a model-written summary
+  // of the same printed block the verbatim field now stores, and it was reworded
+  // on every parse of an unchanged document — three distinct sentences for one
+  // block. It is a render-time derivation, not a change the broker made, so it
+  // generates no diff row.
   {
     key: 'special_instructions_verbatim',
     label: 'Special instructions (as printed)',
     read: p => p.verbatim?.special_instructions?.value ?? null,
     freeText: true,
+    verbatim: true,
   },
   {
     key: 'broker_terms_verbatim',
     label: 'Broker terms (as printed)',
     read: p => p.verbatim?.broker_terms?.value ?? null,
     freeText: true,
+    verbatim: true,
   },
 ];
+
 
 const sameText = (a: unknown, b: unknown) => text(a).trim() === text(b).trim();
 
@@ -383,12 +435,18 @@ export function buildRevisionDiff(
       return;
     }
     if (sameText(cur, revised)) return;
+    const firstCapture = !!spec.verbatim && text(cur).trim() === '';
     nonFinancial.push({
-      id: `load.${spec.key}`, label: spec.label, path: String(spec.key), stopIndex: null,
-      current: text(cur) || '—', revised: text(revised), value: String(revised),
+      id: `load.${spec.key}`,
+      label: firstCapture ? `${spec.label} — first capture` : spec.label,
+      path: String(spec.key), stopIndex: null,
+      current: firstCapture ? 'Not previously stored' : (text(cur) || '—'),
+      revised: text(revised), value: String(revised),
       hasDriverData: false, defaultAccept: !spec.freeText, freeText: spec.freeText,
+      firstCapture,
     });
   });
+
 
   // Loaded miles only move money on a per-mile load; elsewhere they are informational.
   const revisedMiles = use(parsed.load.loaded_miles);
@@ -444,12 +502,14 @@ export function buildRevisionDiff(
       if (revised === null) return;
       const cur = e[spec.key];
       if (sameText(cur, revised)) return;
+      const firstCapture = !!spec.verbatim && text(cur).trim() === '';
       nonFinancial.push({
         id: `stop.${m.existingIndex}.${String(spec.key)}`,
-        label: `Stop ${(m.existingIndex as number) + 1} — ${spec.label}`,
+        label: `Stop ${(m.existingIndex as number) + 1} — ${spec.label}`
+          + (firstCapture ? ' — first capture' : ''),
         path: `stops.${m.existingIndex}.${String(spec.key)}`,
         stopIndex: m.existingIndex,
-        current: text(cur) || '—',
+        current: firstCapture ? 'Not previously stored' : (text(cur) || '—'),
         revised: text(revised),
         value: String(revised),
         hasDriverData,
@@ -457,15 +517,18 @@ export function buildRevisionDiff(
         // and neither is prose the dispatcher would have to read to judge.
         defaultAccept: !hasDriverData && !spec.freeText,
         freeText: spec.freeText,
+        firstCapture,
       });
     });
   });
+
 
   const unresolved = resolved
     .filter(m => m.existingIndex === null && resolutions[m.parsedIndex] !== 'ignore')
     .map(m => m.parsedIndex);
 
   // ---- references --------------------------------------------------------
+
   // Reference rows were not diffed at all before this: a PRO number the revised
   // document added went in silently. They are keyed on class + normalized value,
   // never value alone — one number printed as BOL, PRO and load number is three
@@ -478,8 +541,13 @@ export function buildRevisionDiff(
       (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
   ]);
 
+  // A load saved before references were written back has no rows on file. That
+  // is not the same as a document that added five numbers, so the whole set is
+  // reported as uncomparable and nothing is pre-accepted.
+  const currentRefs = current.references ?? [];
+  const referencesComparable = currentRefs.length > 0;
+
   if (classified.references.length) {
-    const currentRefs = current.references ?? [];
     const currentKeys = new Map(currentRefs.map(r =>
       [referenceKey(r.reference_class as ReferenceClass, r.value), r]));
     const revisedKeys = new Set<string>();
@@ -489,16 +557,17 @@ export function buildRevisionDiff(
       revisedKeys.add(key);
       const existing = currentKeys.get(key);
       if (existing) {
-        // Same identifier, different citation set: the number moved stops.
-        const before = [...(existing.citations ?? [])].sort((a, b) => a - b).join(',');
-        const after = [...r.citations].sort((a, b) => a - b).join(',');
+        // Same identifier, different citation set: the number moved stops, or a
+        // stop changed how it prints the label.
+        const before = citationKey(toCitations(existing.citations));
+        const after = citationKey(r.citations);
         if (before === after) return;
         nonFinancial.push({
           id: `ref.cite.${key}`,
           label: `Reference printed on — ${r.label}`,
           path: 'references', stopIndex: null,
-          current: before ? `Stops ${before}` : 'Load level',
-          revised: after ? `Stops ${after}` : 'Load level',
+          current: describeCitations(toCitations(existing.citations)),
+          revised: describeCitations(r.citations),
           value: null, hasDriverData: false, defaultAccept: true,
           reference: { op: 'added', reference_class: r.clazz, label: r.label, value: r.value, citations: r.citations },
         });
@@ -506,10 +575,14 @@ export function buildRevisionDiff(
       }
       nonFinancial.push({
         id: `ref.add.${key}`,
-        label: `Reference added — ${r.label}`,
+        label: referencesComparable
+          ? `Reference added — ${r.label}`
+          : `Reference on document — ${r.label}`,
         path: 'references', stopIndex: null,
-        current: '—', revised: `${r.label}: ${r.value}`,
-        value: null, hasDriverData: false, defaultAccept: true,
+        current: referencesComparable ? '—' : 'Not on file',
+        revised: `${r.label}: ${r.value}`,
+        value: null, hasDriverData: false,
+        defaultAccept: referencesComparable,
         reference: { op: 'added', reference_class: r.clazz, label: r.label, value: r.value, citations: r.citations },
       });
     });
@@ -525,11 +598,12 @@ export function buildRevisionDiff(
         value: null, hasDriverData: false, defaultAccept: true,
         reference: {
           op: 'removed', reference_class: r.reference_class, label: r.label,
-          value: r.value, citations: r.citations ?? [],
+          value: r.value, citations: toCitations(r.citations),
         },
       });
     });
   }
+
 
   // ---- money -------------------------------------------------------------
   const revisedLinehaul = use(parsed.rate.linehaul);
@@ -588,7 +662,11 @@ export function buildRevisionDiff(
 
   const totalDelta = Math.round(financial.reduce((s, f) => s + f.delta, 0) * 100) / 100;
 
-  return { nonFinancial, financial, stopMatches: resolved, unresolved, totalDelta };
+  return {
+    nonFinancial, financial, stopMatches: resolved, unresolved, totalDelta,
+    referencesComparable,
+  };
+
 }
 
 /** Accept/reject defaults, and the pre-selected classification for each money row. */

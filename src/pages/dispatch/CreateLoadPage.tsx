@@ -33,6 +33,8 @@ import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchLoadForEdit, updateLoadWithStops } from '@/lib/loadDetail';
+import { saveLoadReferences } from '@/lib/loadReferences';
+
 import { loadToFormValues, financialChanges, removedStops } from '@/lib/loadEdit';
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import type { LoadStatus } from '@/lib/loadFormat';
@@ -207,10 +209,12 @@ export default function CreateLoadPage({
     try {
       const {
         load: loadPayload, stops: stopsPayload, charges: chargesPayload,
+        references: referencesPayload,
       } = buildLoadSavePayload(v, { isEdit });
 
       loadPayloadForLog = loadPayload;
       stopsPayloadForLog = stopsPayload;
+
 
 
       let savedId: string;
@@ -239,6 +243,26 @@ export default function CreateLoadPage({
       }
 
       const newId = savedId;
+
+      // References are written after the RPC because a citation points at a
+      // stop row, and stop ids only exist once the RPC has run. Without this
+      // call the load has no reference baseline, and a later revised document
+      // reports every number it prints as an addition.
+      if (referencesPayload?.length) {
+        try {
+          await saveLoadReferences(newId, referencesPayload);
+        } catch (refError) {
+          logDbError('save_load_references', refError, { loadId: newId });
+          toast({
+            variant: 'destructive',
+            title: 'Reference numbers not saved',
+            description:
+              'The load was saved, but its reference numbers were not. Re-parse the rate confirmation to store them.',
+          });
+        }
+      }
+
+
 
       // A duplicate created knowingly is recorded on BOTH loads, so either one
       // explains the relationship later. A failure here must not lose the load.

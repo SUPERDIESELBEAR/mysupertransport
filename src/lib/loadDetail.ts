@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { fetchLoadReferences, type StoredReference } from '@/lib/loadReferences';
 import type { Database } from '@/integrations/supabase/types';
+
 
 type LoadsRow = Database['public']['Tables']['loads']['Row'];
 type StopRow = Database['public']['Tables']['load_stops']['Row'];
@@ -425,6 +427,8 @@ export interface LoadEditData {
   load: LoadsRow;
   stops: StopRow[];
   charges: LoadChargeRow[];
+  /** Stored reference rows with their per-stop citations. */
+  references: StoredReference[];
 }
 
 /** Everything the load form needs to hydrate in edit mode. */
@@ -434,10 +438,14 @@ export async function fetchLoadForEdit(loadId: string): Promise<LoadEditData | n
   if (error) throw error;
   if (!load) return null;
 
-  const [{ data: stops, error: stopsError }, { data: charges, error: chargesError }] =
+  // References are fetched here, not lazily: the form hydrates synchronously
+  // from this payload, and a baseline that arrives after the diff is built is
+  // the same as no baseline at all.
+  const [{ data: stops, error: stopsError }, { data: charges, error: chargesError }, references] =
     await Promise.all([
       supabase.from('load_stops').select('*').eq('load_id', loadId).order('stop_sequence'),
       supabase.from('load_charges').select('*').eq('load_id', loadId).order('created_at'),
+      fetchLoadReferences(loadId),
     ]);
   if (stopsError) throw stopsError;
   if (chargesError) throw chargesError;
@@ -446,8 +454,10 @@ export async function fetchLoadForEdit(loadId: string): Promise<LoadEditData | n
     load: load as LoadsRow,
     stops: (stops ?? []) as StopRow[],
     charges: (charges ?? []) as LoadChargeRow[],
+    references,
   };
 }
+
 
 export interface UpdateLoadInput {
   loadId: string;

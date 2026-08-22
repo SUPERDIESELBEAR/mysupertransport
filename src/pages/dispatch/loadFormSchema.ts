@@ -40,14 +40,22 @@ export const stopSchema = z.object({
  * One value printed as BOL, PRO and load number is three rows, because a
  * broker's AP and tracing desks look each one up separately.
  */
+export const referenceCitationSchema = z.object({
+  /** Stop sequence (1-based) this reference is printed against. */
+  stopSequence: z.number().int().positive(),
+  /** The label as that stop printed it ("PU#"), which may differ from the row's. */
+  printedLabel: z.string().trim().max(60),
+});
+
 export const referenceSchema = z.object({
   reference_class: z.string().trim().max(40),
-  /** The label as printed ("PU#"), not the canonical class label. */
+  /** The load-level printed label ("Pickup Number"), or the class label. */
   label: z.string().trim().max(60),
   value: z.string().trim().max(120),
-  /** Stop sequences (1-based) this reference is printed against. */
-  citations: z.array(z.number().int().positive()).optional(),
+  /** Every stop that printed this reference, with its own printed label. */
+  citations: z.array(referenceCitationSchema).optional(),
 });
+
 
 export const chargeSchema = z.object({
   charge_type: z.string().trim().max(60),

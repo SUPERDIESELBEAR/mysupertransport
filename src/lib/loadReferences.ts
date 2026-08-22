@@ -14,14 +14,20 @@ import type { ReferenceFormValues } from '@/pages/dispatch/loadFormSchema';
  * rate confirmation established.
  */
 
+export interface StoredCitation {
+  stopSequence: number;
+  printedLabel: string;
+}
+
 export interface StoredReference {
   id: string;
   reference_class: string;
   label: string;
   value: string;
   value_key: string;
-  citations: number[];
+  citations: StoredCitation[];
 }
+
 
 export async function saveLoadReferences(
   loadId: string,
@@ -65,11 +71,14 @@ export async function saveLoadReferences(
   const citations = refs.flatMap(r => {
     const refId = idByKey.get(`${r.reference_class}:${referenceValueKey(r.value)}`);
     if (!refId) return [];
-    return (r.citations ?? []).map(seq => ({
+    return (r.citations ?? []).map(c => ({
       reference_id: refId,
-      load_stop_id: stopIdBySeq.get(seq) ?? null,
-      stop_sequence: seq,
-      printed_label: r.label || null,
+      load_stop_id: stopIdBySeq.get(c.stopSequence) ?? null,
+      stop_sequence: c.stopSequence,
+      // The label as THAT stop printed it — `PU#`, not the row's
+      // `Pickup Number`. Taking it from the row would erase the difference the
+      // citation exists to record.
+      printed_label: (c.printedLabel ?? '').trim() || r.label || null,
     }));
   });
 
@@ -93,7 +102,7 @@ export async function saveLoadReferences(
 export async function fetchLoadReferences(loadId: string): Promise<StoredReference[]> {
   const { data, error } = await supabase
     .from('load_references')
-    .select('id, reference_class, label, value, value_key, load_reference_citations(stop_sequence)')
+    .select('id, reference_class, label, value, value_key, load_reference_citations(stop_sequence, printed_label)')
     .eq('load_id', loadId)
     .order('reference_class');
   if (error) throw error;
@@ -104,9 +113,14 @@ export async function fetchLoadReferences(loadId: string): Promise<StoredReferen
     label: r.label as string,
     value: r.value as string,
     value_key: r.value_key as string,
-    citations: ((r.load_reference_citations ?? []) as { stop_sequence: number | null }[])
-      .map(c => c.stop_sequence)
-      .filter((n): n is number => typeof n === 'number')
-      .sort((a, b) => a - b),
+    citations: ((r.load_reference_citations ?? []) as
+      { stop_sequence: number | null; printed_label: string | null }[])
+      .filter(c => typeof c.stop_sequence === 'number')
+      .map(c => ({
+        stopSequence: c.stop_sequence as number,
+        printedLabel: c.printed_label ?? (r.label as string),
+      }))
+      .sort((a, b) => a.stopSequence - b.stopSequence),
   }));
+
 }

@@ -274,14 +274,32 @@ describe('reference classification', () => {
     expect(out.routed).toContainEqual({ clazz: 'mode', value: 'TL', routeTo: 'loads.mode' });
   });
 
-  it('keeps a number printed on several stops as one reference with citations', () => {
+  it('keeps a number printed on several stops as one reference, each citation keeping its printed label', () => {
     const out = classifyReferences([
       { label: 'Pickup Number', value: 'IX00286060', stopSequence: 1 },
       { label: 'PU#', value: 'IX00286060', stopSequence: 2 },
     ]);
     expect(out.references).toHaveLength(1);
-    expect(out.references[0].citations).toEqual([1, 2]);
+    // One reference, two citations: the stops disagree on the label, and that
+    // disagreement is what the citation records. Collapsing to bare sequence
+    // numbers loses the only evidence of how each stop printed it.
+    expect(out.references[0].citations).toEqual([
+      { stopSequence: 1, printedLabel: 'Pickup Number' },
+      { stopSequence: 2, printedLabel: 'PU#' },
+    ]);
   });
+
+  it('does not fragment one reference into two rows because the labels differ', () => {
+    const out = classifyReferences([
+      { label: 'PU#', value: 'IX00286060', stopSequence: 1 },
+      { label: 'Pickup Number', value: 'ix00286060', stopSequence: 2 },
+    ]);
+    // Identity is class + normalized value. The printed label lives on the
+    // citation precisely so it cannot split the dedup key.
+    expect(out.references).toHaveLength(1);
+    expect(out.references[0].citations).toHaveLength(2);
+  });
+
 
   it('does not merge two different pickup numbers', () => {
     const out = classifyReferences([
@@ -451,6 +469,115 @@ describe('accept defaults', () => {
     expect(decisions.accepted[addedRef!.id]).toBe(true);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* 4b. A load with no baseline is not a load whose document changed     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ST26034 reported five reference additions when only PRO was new. Its
+ * `load_references` rows were empty, so the diff compared the document against
+ * nothing and every printed number read as an addition. Empty is not the same
+ * as "the broker added these": the review screen has to say it cannot compare.
+ */
+describe('a load with no references on file', () => {
+  const bare = (): LoadFormValues => ({ ...loadFromOriginal(), references: [] });
+
+  it('reports references as uncomparable rather than as additions', () => {
+    const diff = buildRevisionDiff(bare(), doc(BG_REFERENCES_REVISED));
+    expect(diff.referencesComparable).toBe(false);
+  });
+
+  it('leaves every reference row unchecked so nothing is applied by momentum', () => {
+    const diff = buildRevisionDiff(bare(), doc(BG_REFERENCES_REVISED));
+    const decisions = initialDecisions(diff);
+    const refRows = diff.nonFinancial.filter(d => d.reference);
+    expect(refRows.length).toBeGreaterThan(0);
+    expect(refRows.every(d => decisions.accepted[d.id] === false)).toBe(true);
+  });
+
+  it('still compares references normally once the load has a baseline', () => {
+    const diff = buildRevisionDiff(loadFromOriginal(), doc(BG_REFERENCES_REVISED));
+    expect(diff.referencesComparable).toBe(true);
+    const decisions = initialDecisions(diff);
+    const added = diff.nonFinancial.filter(d => d.reference?.op === 'added');
+    expect(added).toHaveLength(1);
+    expect(decisions.accepted[added[0].id]).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 4c. First capture is not a revision                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Loads created before verbatim capture have null verbatim columns. Reading
+ * `— → [the broker's terms]` on those loads implies the broker rewrote
+ * something; nothing was rewritten, the field had simply never been stored.
+ */
+describe('verbatim fields on a load that predates verbatim capture', () => {
+  const preCapture = (): LoadFormValues => ({
+    ...loadFromOriginal(),
+    special_instructions_verbatim: '',
+    broker_terms_verbatim: '',
+    stops: loadFromOriginal().stops.map(s => ({ ...s, stop_notes_verbatim: '' })),
+  });
+
+  it('labels null-to-content as a first capture, not a change', () => {
+    const diff = buildRevisionDiff(preCapture(), doc(BG_REFERENCES_ORIGINAL));
+    const rows = diff.nonFinancial.filter(d => d.path?.includes('verbatim'));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every(d => d.firstCapture === true)).toBe(true);
+  });
+
+  it('does not label a genuine rewrite as a first capture', () => {
+    const revised = doc(BG_REFERENCES_ORIGINAL);
+    revised.verbatim.broker_terms = f('ENTIRELY DIFFERENT TERMS APPLY TO THIS TENDER.');
+    const diff = buildRevisionDiff(loadFromOriginal(), revised);
+    const row = diff.nonFinancial.find(d => d.path === 'broker_terms_verbatim');
+    expect(row).toBeDefined();
+    expect(row?.firstCapture).toBeFalsy();
+  });
+
+  it('keeps first captures unchecked — transcription is still the broker\'s prose', () => {
+    const diff = buildRevisionDiff(preCapture(), doc(BG_REFERENCES_ORIGINAL));
+    const decisions = initialDecisions(diff);
+    const rows = diff.nonFinancial.filter(d => d.firstCapture);
+    expect(rows.every(d => decisions.accepted[d.id] === false)).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 4d. The display summary never generates a change row                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The same printed block produced three different summaries across three runs
+ * ("Driver must pay $30 wash out fee on site", "Washout mandatory at shipper
+ * for $30", ...). A model-authored paraphrase is not stable enough to diff.
+ * The verbatim field is the compared artifact; the summary is display only.
+ */
+describe('the display summary', () => {
+  it('produces no diff row even when the paraphrase differs wildly', () => {
+    const current = {
+      ...loadFromOriginal(),
+      special_instructions: BG_SPECIAL_INSTRUCTIONS_PARAPHRASE,
+    };
+    const revised = doc(BG_REFERENCES_ORIGINAL);
+    revised.special_instructions = f('Washout mandatory at shipper for $30.');
+
+    const diff = buildRevisionDiff(current, revised);
+    expect(diff.nonFinancial.find(d => d.path === 'special_instructions')).toBeUndefined();
+  });
+
+  it('still reports the verbatim field when the printed text really changes', () => {
+    const revised = doc(BG_REFERENCES_ORIGINAL);
+    revised.verbatim.special_instructions = f('DRIVER MUST WASH OUT AT SHIPPER. $45 FEE.');
+    const diff = buildRevisionDiff(loadFromOriginal(), revised);
+    expect(diff.nonFinancial.find(d => d.path === 'special_instructions_verbatim')).toBeDefined();
+  });
+});
+
 
 /* ------------------------------------------------------------------ */
 /* 2c. Misordered layers refuse stop-level verification                 */
