@@ -33,20 +33,22 @@ function makeClient() {
         _selected: null as Row[] | null,
         select(_cols: string) {
           const base = this._selected ?? rows.filter(r => this._filters.every(f => f(r)));
-          const withEmbeds = base.map(r => ({
+          const embed = (list: Row[]) => list.map(r => ({
             ...r,
             load_reference_citations: tables.load_reference_citations
               .filter(c => c.reference_id === r.id)
               .map(c => ({ stop_sequence: c.stop_sequence, printed_label: c.printed_label })),
           }));
-          const result = { data: withEmbeds, error: null };
-          return Object.assign(Promise.resolve(result), {
-            eq: (col: string, val: unknown) => Promise.resolve({
-              data: withEmbeds.filter(r => r[col] === val), error: null,
-            }),
-            order: () => Promise.resolve(result),
-          });
+          const resolved = (list: Row[]) => {
+            const result = { data: embed(list), error: null };
+            return Object.assign(Promise.resolve(result), {
+              eq: (col: string, val: unknown) => resolved(list.filter(r => r[col] === val)),
+              order: () => resolved(list),
+            });
+          };
+          return resolved(base);
         },
+
         eq(col: string, val: unknown) {
           this._filters.push(r => r[col] === val);
           return this;
