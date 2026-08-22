@@ -428,12 +428,18 @@ export function buildRevisionDiff(
       return;
     }
     if (sameText(cur, revised)) return;
+    const firstCapture = !!spec.verbatim && text(cur).trim() === '';
     nonFinancial.push({
-      id: `load.${spec.key}`, label: spec.label, path: String(spec.key), stopIndex: null,
-      current: text(cur) || '—', revised: text(revised), value: String(revised),
+      id: `load.${spec.key}`,
+      label: firstCapture ? `${spec.label} — first capture` : spec.label,
+      path: String(spec.key), stopIndex: null,
+      current: firstCapture ? 'Not previously stored' : (text(cur) || '—'),
+      revised: text(revised), value: String(revised),
       hasDriverData: false, defaultAccept: !spec.freeText, freeText: spec.freeText,
+      firstCapture,
     });
   });
+
 
   // Loaded miles only move money on a per-mile load; elsewhere they are informational.
   const revisedMiles = use(parsed.load.loaded_miles);
