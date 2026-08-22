@@ -99,6 +99,7 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       "appointment_start": FIELD("YYYY-MM-DDTHH:mm" local time as printed; null if no time printed),
       "appointment_end": FIELD("YYYY-MM-DDTHH:mm"; null unless a closing/end time is printed),
       "notes": FIELD(string - driver-relevant instructions for this stop only),
+      "notes_verbatim": FIELD(string - the stop's printed comment/notes line copied EXACTLY as printed, character for character; see the verbatim rule),
       "reference_numbers": [
         {
           "label": "exact label printed (e.g. PU#, Delivery #, BOL#, PO#, Appt #, LO, SI, SO)",
@@ -110,7 +111,18 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       ]
     }
   ],
-  "special_instructions": FIELD(string - see the special_instructions rule below),
+  "references": [
+    {
+      "label": "exact Reference Type label printed in the document-level References table (e.g. BOL, PRO, Pickup Number, PO Number, Mode)",
+      "value": "the value printed next to it",
+      "confidence": "high"|"medium"|"low"
+    }
+  ],
+  "special_instructions": FIELD(string - a SHORT condensed summary for display only; the stored value is the verbatim capture below),
+  "verbatim": {
+    "broker_terms": FIELD(string - the broker's terms/conditions paragraph, copied EXACTLY as printed),
+    "special_instructions": FIELD(string - the block printed under the "Special Instructions" heading, copied EXACTLY as printed)
+  },
   "loadout_signals": {
     "no_bol_mentioned": boolean - true if the document never mentions a BOL or bill of lading,
     "photo_pod_required": boolean - true if photos are named as proof of delivery,
@@ -139,7 +151,7 @@ Rules:
   - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
   - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
   - Treat a BARE two-letter or unexplained code (e.g. "DJ", "XR") with suspicion: mark it useful = false unless the surrounding text clearly shows a driver would present it at the gate.
-  - If the SAME value appears on more than one stop, it is almost certainly an internal broker code, not a gate reference: mark it useful = false on every stop and say so in "reason".
+  - A value repeating on several stops is NOT by itself a reason to reject it: one shipment or PO number printed on every stop is normal. Judge each row on its label and value; report the repeat in "reason" and let the system record it.
   - Never invent a stop reference. If a stop prints no gate reference, return an empty reference_numbers array — a blank field is correct.
   - Judge the value, not just the label: a signed decimal such as -83.6779 is a coordinate however it is labelled; a long digit string labelled LO is a load reference.
   - Always give a short "reason" for the judgement.
@@ -152,6 +164,11 @@ Rules:
   - EXCLUDE general legal boilerplate: double-brokering prohibitions, insurance and coverage requirements, liability allocation, indemnification, cargo damage responsibility, governing law and venue, signature blocks, and anything restating standard broker-carrier agreement language with no load-specific consequence.
   - The governing distinction: capture anything that tells the driver or dispatcher what to do on this load, whether or not a penalty is attached; skip anything that only allocates legal responsibility. "Detention $40/hr after 3 hours free" passes. "No touch freight; call dispatch on arrival" passes. "Carrier is responsible for any damage to product" does not.
   - Format as one short line per term, quoting printed amounts and thresholds verbatim. Omit anything not printed. Do not pad with prose.
+- VERBATIM CAPTURE (verbatim.broker_terms, verbatim.special_instructions, stops[].notes_verbatim): these are transcriptions, not summaries. Copy the printed text EXACTLY: same wording, same order, same punctuation, same capitalisation, same asterisks and symbols. Do not reword, reorder, shorten, expand, de-duplicate, fix spelling or fix grammar. Do not drop phone numbers, email addresses, dollar amounts or order numbers. Do not add anything that is not printed.
+  - Keep the blocks SEPARATE. The broker's terms paragraph and the block printed under a "Special Instructions" heading are two different sources: never concatenate them, and never move text between them. If a document has only one of the two, the other is null.
+  - Preserve printed line breaks as "\\n". Preserve doubled asterisks (**) exactly where they appear.
+  - special_instructions (the condensed field) is for display only. If you cannot produce a faithful verbatim copy of a block, return null for that verbatim field rather than a paraphrase.
+- references: transcribe the document-level References table rows exactly as printed, one entry per printed row, label and value unchanged. Include EVERY row, including categorical rows such as "Mode: TL" — the system decides what is an identifier. Do not merge rows that share a value under different Reference Types: "BOL BG969676425" and "PRO BG969676425" are two rows. If the document has no such table, return an empty array.
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
 
 
@@ -406,73 +423,35 @@ Deno.serve(async (req) => {
         appointment_start: dateTime(s?.appointment_start),
         appointment_end: dateTime(s?.appointment_end),
         notes: str(s?.notes),
+        notes_verbatim: str(s?.notes_verbatim),
         references,
       };
     });
 
-    // A reference that repeats verbatim across stops, or restates a load-level id,
-    // is an internal broker code — not something a guard shack asks for.
+    // Cross-stop and load-level collapsing used to happen here, keyed on the
+    // VALUE alone. That is what silently dropped a legitimate shipment number
+    // printed on more than one stop, and what hid a `PRO` row whose value also
+    // appears as the `BOL`. Both are now handled downstream by
+    // `classifyReferences` in src/lib/referenceClasses.ts, keyed on
+    // (class, value) with one citation per stop the value was printed against.
+    // Only the per-row noise filters above run in here.
     const normRef = (v: string) => v.replace(/[^0-9a-z]/gi, '').toLowerCase();
-    const refCounts = new Map<string, number>();
+    /** Rows kept that would previously have been discarded, logged for visibility. */
+    const keptRefs: string[] = [];
+    const seenValues = new Map<string, number>();
     stops.forEach((s: any) =>
       new Set(s.references.map((r: any) => normRef(r.value))).forEach((k) =>
-        refCounts.set(k as string, (refCounts.get(k as string) ?? 0) + 1),
+        seenValues.set(k as string, (seenValues.get(k as string) ?? 0) + 1),
       ),
     );
-    const loadIds = new Set(
-      [parsed.load?.bol_number?.value, parsed.load?.po_number?.value, parsed.load?.broker_load_number?.value]
-        .filter((v) => v !== null && v !== undefined && String(v).trim().length)
-        .map((v) => normRef(String(v))),
-    );
-    /** References deliberately kept despite repeating across stops, and collapsed near-duplicates. */
-    const keptRefs: string[] = [];
     stops.forEach((s: any, i: number) => {
-      s.references = s.references.filter((r: any) => {
-        const key = normRef(r.value);
-        if (!key) return true;
-        // A load-level id already has a home on the load — never a stop reference.
-        if (loadIds.has(key)) {
-          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [duplicates a load-level id]`);
-          return false;
+      s.references.forEach((r: any) => {
+        if ((seenValues.get(normRef(r.value)) ?? 0) > 1) {
+          keptRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [printed on multiple stops: kept, cited per stop]`);
         }
-        if ((refCounts.get(key) ?? 0) > 1) {
-          if (SHIPMENT_REF.test(r.label)) {
-            keptRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [recognized shipment/order label]`);
-            return true;
-          }
-          droppedRefs.push(`stop ${i + 1}: "${r.label}"=${r.value.slice(0, 24)} [same value on multiple stops: internal broker code]`);
-          return false;
-        }
-        return true;
       });
     });
 
-    // Two survivors that differ only by a leading/trailing alphabetic prefix or
-    // suffix are one reference written twice (SI R2633450554 vs SO 2633450554).
-    const refCore = (v: string) => normRef(v).replace(/^[a-z]+/, '').replace(/[a-z]+$/, '');
-    /** More explicit label wins; ties go to the shorter, unprefixed value. */
-    const better = (a: any, b: any) => {
-      const ax = EXPLICIT_REF_LABEL.test(a.label) ? 0 : SHIPMENT_REF.test(a.label) ? 1 : 2;
-      const bx = EXPLICIT_REF_LABEL.test(b.label) ? 0 : SHIPMENT_REF.test(b.label) ? 1 : 2;
-      if (ax !== bx) return ax < bx ? a : b;
-      return normRef(a.value).length <= normRef(b.value).length ? a : b;
-    };
-    stops.forEach((s: any, i: number) => {
-      const byCore = new Map<string, any>();
-      s.references.forEach((r: any) => {
-        const core = refCore(r.value);
-        if (!core) { byCore.set(`~${byCore.size}`, r); return; }
-        const held = byCore.get(core);
-        if (!held) { byCore.set(core, r); return; }
-        const win = better(held, r);
-        const lose = win === held ? r : held;
-        byCore.set(core, win);
-        keptRefs.push(
-          `stop ${i + 1}: "${lose.label}"=${lose.value.slice(0, 24)} collapsed into "${win.label}"=${win.value.slice(0, 24)} [same reference written twice]`,
-        );
-      });
-      s.references = Array.from(byCore.values());
-    });
 
     const rawItems = Array.isArray(parsed.rate?.line_items) ? parsed.rate.line_items : [];
 
@@ -559,6 +538,18 @@ Deno.serve(async (req) => {
       },
       stops,
       special_instructions: str(parsed.special_instructions),
+      verbatim: {
+        broker_terms: str(parsed.verbatim?.broker_terms),
+        special_instructions: str(parsed.verbatim?.special_instructions),
+      },
+      references: (Array.isArray(parsed.references) ? parsed.references : [])
+        .map((r: any) => ({
+          label: String(r?.label ?? '').trim(),
+          value: String(r?.value ?? '').trim(),
+          confidence: conf(r?.confidence),
+        }))
+        .filter((r: any) => r.value.length > 0 && r.value.length <= 60)
+        .slice(0, 24),
       loadout_signals: {
         no_bol_mentioned: plainBool(ls.no_bol_mentioned),
         photo_pod_required: plainBool(ls.photo_pod_required),

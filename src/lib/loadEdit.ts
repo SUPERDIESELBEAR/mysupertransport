@@ -41,6 +41,7 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
       reference_label: text(row.reference_label),
       stopoff_charge_amount: text(row.stopoff_charge_amount),
       stop_notes: text(row.stop_notes),
+      stop_notes_verbatim: text(row.stop_notes_verbatim),
     };
   });
 
@@ -91,6 +92,12 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     internal_notes: text(l.internal_notes),
     driver_facing_notes: text(l.driver_facing_notes),
     special_instructions: text(l.special_instructions),
+    special_instructions_verbatim: text(l.special_instructions_verbatim),
+    broker_terms_verbatim: text(l.broker_terms_verbatim),
+    mode: text(l.mode),
+    // References are not edited on this form; the save path leaves existing
+    // rows untouched when the array is empty.
+    references: [],
     is_team_load: !!l.is_team_load,
     co_driver_name: text(l.co_driver_name),
     is_hazmat: !!l.is_hazmat,
