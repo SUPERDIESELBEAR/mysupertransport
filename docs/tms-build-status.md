@@ -8,7 +8,7 @@ Date: 2026-08-22
 |---|---|
 | Loads list | List view with search, filters, and saved view preferences. |
 | Create load | Full form with facility normalization, configurable load numbering, and broker/facility quick-add affordances. |
-| Rate confirmation parsing | Separate AI-assisted parser on the Create Load form; extracts stops, charges, broker address, and reference numbers. |
+| Rate confirmation parsing | Separate AI-assisted parser on the Create Load form; extracts stops, charges, broker details, and reference numbers. Refinement pass built and verified — see below. |
 | Load detail — Pass 1 | Read-only detail view. |
 | Load detail — Pass 2A | Status controls and history timeline. |
 | Load detail — Pass 2B | Driver assignment with eligibility checks. |
@@ -19,6 +19,14 @@ Date: 2026-08-22
 | Load editing | `update_load_with_stops` RPC; tiered financial locking, audit history, and stop reconciliation to preserve driver check-in data. Financial change reason + classification required. |
 | Revised rate con re-parse | Comparison review screen for revised documents. |
 | Duplicate detection | Broker reference/MC duplicate warnings at parse and save time; overrides are audit-logged. |
+
+### Rate confirmation parsing — refinements
+
+- **Broker creation is confirmed, not automatic.** The extracted broker opens a pre-filled, fully editable dialog; the record is written only on explicit confirm. There is no one-click insert path.
+- **Monetary inputs carry a currency prefix.** Display only — value handling, validation, and the submitted payload are unchanged.
+- **Street suffix abbreviations drop trailing periods.** `ST.` renders as `St`, so addresses stay consistent regardless of how the broker printed them.
+- **Internal capitals are preserved in names.** McCree, MacArthur, O'Brien, DeSoto. `Mc`/`O'` use a general rule; `Mac`/`De`/`La`/`Van` split only against an inclusion list, so ordinary words like Macon and Delaware stay flat.
+- **Broker address extraction.** One address only, preferring remit-to over bill-to over letterhead, never assembled from two blocks. The dialog names the source heading, and a provenance line is appended to the broker's notes so the stored address's origin survives the save.
 
 ## Key architectural decisions
 
@@ -39,6 +47,6 @@ Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-
 
 - **Unparsed rate confirmations:** Blue Grace revised, Rolling River, MegaCorp, and Nationwide still need parser coverage.
 - **33 query sites in `src/components/inspection/` swallow errors;** failures are not surfaced to the UI.
-- **Broker address is not offered** when a parsed document contains an address but the linked broker record does not.
+- **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
 - **`certify_rods_day` live RPC execution arm** cannot run in this environment and is one of the two permanent named skips.
