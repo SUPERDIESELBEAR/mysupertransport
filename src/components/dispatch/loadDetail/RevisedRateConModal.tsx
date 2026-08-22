@@ -682,10 +682,26 @@ export default function RevisedRateConModal({
                 {!diff.referencesComparable ? (
                   <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
                     <p>
-                    This load has no reference numbers on file, so the numbers printed on this
-                    document cannot be compared against anything. They are listed as found, not
-                    as changes, and none are pre-selected.
-                  </p>
+                      This load has no reference numbers on file, so the numbers printed on this
+                      document cannot be compared against anything. They are listed as found, not
+                      as changes, and none are pre-selected.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={filingBaseline}
+                      onClick={fileBaseline}
+                      className="gap-1.5"
+                    >
+                      {filingBaseline ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      File these as the load's reference numbers
+                    </Button>
+                    <p>
+                      Files them as the load's record, not as a change — the history keeps which
+                      document they came from and who filed them. This is separate from applying
+                      the revision.
+                    </p>
+                  </div>
                 ) : null}
                 <div className="divide-y divide-border rounded-lg border border-border">
                   {diff.nonFinancial.map(n => (
