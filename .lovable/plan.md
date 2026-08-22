@@ -169,5 +169,5 @@ Current treatment under "SUPERTRANSPORT Standard": linehaul 72, fuel surcharge 7
 - `src/lib/rateConfirmation.ts` — extended types, reference class, scope and citations, `condenseInstructions`; citation-preferring `pickReference`.
 - `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; scope- and citation-aware reference-set diffing.
 - `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — upload the revised document on selection.
-- Migration: verbatim text columns on `loads` and `load_stops`; `load_references` table (`load_id` not null, `load_stop_id` nullable) and `load_reference_citations` join table, with GRANTs, RLS and indexes.
+- Migration: verbatim text columns on `loads` and `load_stops`; `mode` column on `loads`; `load_references` table (`load_id` not null, `load_stop_id` nullable) and `load_reference_citations` join table, with GRANTs, RLS and indexes.
 
