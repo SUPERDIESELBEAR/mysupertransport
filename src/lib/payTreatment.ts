@@ -91,5 +91,5 @@ export async function fetchEffectivePayPolicy(
     .limit(1)
     .maybeSingle();
 
-  return (def as PayPolicyRates | null) ?? null;
+  return (def as unknown as PayPolicyRates | null) ?? null;
 }
