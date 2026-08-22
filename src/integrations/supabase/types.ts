@@ -4235,6 +4235,99 @@ export type Database = {
         }
         Relationships: []
       }
+      load_reference_citations: {
+        Row: {
+          created_at: string
+          id: string
+          load_stop_id: string | null
+          printed_label: string | null
+          reference_id: string
+          stop_sequence: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          load_stop_id?: string | null
+          printed_label?: string | null
+          reference_id: string
+          stop_sequence?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          load_stop_id?: string | null
+          printed_label?: string | null
+          reference_id?: string
+          stop_sequence?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_reference_citations_load_stop_id_fkey"
+            columns: ["load_stop_id"]
+            isOneToOne: false
+            referencedRelation: "load_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_reference_citations_reference_id_fkey"
+            columns: ["reference_id"]
+            isOneToOne: false
+            referencedRelation: "load_references"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_references: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          load_id: string
+          reference_class: string
+          source: string
+          value: string
+          value_key: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          load_id: string
+          reference_class: string
+          source?: string
+          value: string
+          value_key: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          load_id?: string
+          reference_class?: string
+          source?: string
+          value?: string
+          value_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_references_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_references_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       load_status_history: {
         Row: {
           change_source: string | null
@@ -4310,6 +4403,7 @@ export type Database = {
           reference_number: string | null
           state: string | null
           stop_notes: string | null
+          stop_notes_verbatim: string | null
           stop_sequence: number
           stop_type: Database["public"]["Enums"]["stop_type"]
           stopoff_charge_amount: number | null
@@ -4340,6 +4434,7 @@ export type Database = {
           reference_number?: string | null
           state?: string | null
           stop_notes?: string | null
+          stop_notes_verbatim?: string | null
           stop_sequence: number
           stop_type: Database["public"]["Enums"]["stop_type"]
           stopoff_charge_amount?: number | null
@@ -4370,6 +4465,7 @@ export type Database = {
           reference_number?: string | null
           state?: string | null
           stop_notes?: string | null
+          stop_notes_verbatim?: string | null
           stop_sequence?: number
           stop_type?: Database["public"]["Enums"]["stop_type"]
           stopoff_charge_amount?: number | null
@@ -4399,6 +4495,7 @@ export type Database = {
           bol_number: string | null
           broker_id: string | null
           broker_reference_number: string | null
+          broker_terms_verbatim: string | null
           co_driver_name: string | null
           commodity: string | null
           confirmed_tons: number | null
@@ -4436,6 +4533,7 @@ export type Database = {
           loadout_use_period_days: number | null
           loadout_use_period_end: string | null
           loadout_use_period_start: string | null
+          mode: string | null
           operator_id: string | null
           permit_cost: number | null
           permit_recovery_method: string | null
@@ -4452,6 +4550,7 @@ export type Database = {
           reefer_temp_max_f: number | null
           reefer_temp_min_f: number | null
           special_instructions: string | null
+          special_instructions_verbatim: string | null
           status: Database["public"]["Enums"]["load_status"]
           total_load_value: number | null
           updated_at: string
@@ -4462,6 +4561,7 @@ export type Database = {
           bol_number?: string | null
           broker_id?: string | null
           broker_reference_number?: string | null
+          broker_terms_verbatim?: string | null
           co_driver_name?: string | null
           commodity?: string | null
           confirmed_tons?: number | null
@@ -4499,6 +4599,7 @@ export type Database = {
           loadout_use_period_days?: number | null
           loadout_use_period_end?: string | null
           loadout_use_period_start?: string | null
+          mode?: string | null
           operator_id?: string | null
           permit_cost?: number | null
           permit_recovery_method?: string | null
@@ -4515,6 +4616,7 @@ export type Database = {
           reefer_temp_max_f?: number | null
           reefer_temp_min_f?: number | null
           special_instructions?: string | null
+          special_instructions_verbatim?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           total_load_value?: number | null
           updated_at?: string
@@ -4525,6 +4627,7 @@ export type Database = {
           bol_number?: string | null
           broker_id?: string | null
           broker_reference_number?: string | null
+          broker_terms_verbatim?: string | null
           co_driver_name?: string | null
           commodity?: string | null
           confirmed_tons?: number | null
@@ -4562,6 +4665,7 @@ export type Database = {
           loadout_use_period_days?: number | null
           loadout_use_period_end?: string | null
           loadout_use_period_start?: string | null
+          mode?: string | null
           operator_id?: string | null
           permit_cost?: number | null
           permit_recovery_method?: string | null
@@ -4578,6 +4682,7 @@ export type Database = {
           reefer_temp_max_f?: number | null
           reefer_temp_min_f?: number | null
           special_instructions?: string | null
+          special_instructions_verbatim?: string | null
           status?: Database["public"]["Enums"]["load_status"]
           total_load_value?: number | null
           updated_at?: string
