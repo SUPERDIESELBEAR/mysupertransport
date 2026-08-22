@@ -20,6 +20,14 @@ Date: 2026-08-22
 | Revised rate con re-parse | Comparison review screen for revised documents. |
 | Duplicate detection | Broker reference/MC duplicate warnings at parse and save time; overrides are audit-logged. |
 
+### Rate confirmation parsing — refinements
+
+- **Broker creation is confirmed, not automatic.** The extracted broker opens a pre-filled, fully editable dialog; the record is written only on explicit confirm. There is no one-click insert path.
+- **Monetary inputs carry a currency prefix.** Display only — value handling, validation, and the submitted payload are unchanged.
+- **Street suffix abbreviations drop trailing periods.** `ST.` renders as `St`, so addresses stay consistent regardless of how the broker printed them.
+- **Internal capitals are preserved in names.** McCree, MacArthur, O'Brien, DeSoto. `Mc`/`O'` use a general rule; `Mac`/`De`/`La`/`Van` split only against an inclusion list, so ordinary words like Macon and Delaware stay flat.
+- **Broker address extraction.** One address only, preferring remit-to over bill-to over letterhead, never assembled from two blocks. The dialog names the source heading, and a provenance line is appended to the broker's notes so the stored address's origin survives the save.
+
 ## Key architectural decisions
 
 - **`load_charges` is the authoritative charge record.** `stopoff_charge_amount` on `load_stops` is a display mirror used for quick rendering; write-time logic uses `load_charges`.
