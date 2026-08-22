@@ -33,6 +33,8 @@ import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchLoadForEdit, updateLoadWithStops } from '@/lib/loadDetail';
+import { saveLoadReferences } from '@/lib/loadReferences';
+
 import { loadToFormValues, financialChanges, removedStops } from '@/lib/loadEdit';
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import type { LoadStatus } from '@/lib/loadFormat';
