@@ -185,6 +185,13 @@ export interface NonFinancialDiff {
   defaultAccept: boolean;
   /** Broker-authored prose. Always requires a deliberate accept. */
   freeText?: boolean;
+  /**
+   * The stored side is empty and the document has content: this is the first
+   * time the field has ever been captured, not a revision of something. Framed
+   * and counted separately — a load that predates verbatim capture would
+   * otherwise report every transcription as a change the broker made.
+   */
+  firstCapture?: boolean;
   /** Set on reference rows; applied to `references`, not through `setPath`. */
   reference?: ReferenceDiffOp;
 }
@@ -194,8 +201,9 @@ export interface ReferenceDiffOp {
   reference_class: string;
   label: string;
   value: string;
-  citations: number[];
+  citations: ReferenceCitation[];
 }
+
 
 export type ClassificationKey =
   | 'linehaul' | 'fsc' | 'detention' | 'stopoff' | 'lumper' | 'layover' | 'tonu' | 'other';
