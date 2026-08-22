@@ -246,24 +246,42 @@ export default function RevisedRateConModal({
         acknowledgeStopDataLoss: false,
       });
 
-      if (file) {
-        try {
-          // The original rate confirmation stays exactly where it is.
+      // The file was attached at parse time; applying only relabels it. The
+      // original rate confirmation stays exactly where it is.
+      try {
+        if (uploadedDocId.current) {
+          await setLoadDocumentNotes(uploadedDocId.current, reason);
+        } else if (file) {
           await uploadLoadDocument({
             loadId: load.id,
             documentType: 'revised_rate_confirmation',
             file,
             notes: reason,
           });
-        } catch (uploadError) {
-          logDbError('revised rate confirmation attach', uploadError, { loadId: load.id });
+        }
+      } catch (uploadError) {
+        logDbError('revised rate confirmation attach', uploadError, { loadId: load.id });
+        toast({
+          variant: 'destructive',
+          title: 'Document note not updated',
+          description: 'The changes saved, but the document note did not update.',
+        });
+      }
+
+      // References the revision established become the baseline for the next one.
+      if (payload.references?.length) {
+        try {
+          await saveLoadReferences(load.id, payload.references);
+        } catch (refError) {
+          logDbError('save_load_references (revision)', refError, { loadId: load.id });
           toast({
             variant: 'destructive',
-            title: 'Document not attached',
-            description: 'The changes saved, but the file did not upload. Add it from Documents.',
+            title: 'Reference numbers not saved',
+            description: 'The changes saved, but reference numbers were not stored.',
           });
         }
       }
+
 
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['load-detail', load.id] }),
