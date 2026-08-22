@@ -9179,6 +9179,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_load_reference_baseline: {
+        Args: {
+          p_document_id: string
+          p_document_label: string
+          p_load_id: string
+          p_summary: string
+        }
+        Returns: undefined
+      }
       record_retention_export: {
         Args: {
           _artifact_count: number
