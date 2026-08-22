@@ -98,7 +98,16 @@ const FIELD_ANCHORS: Record<VerbatimField, Anchor[]> = {
   ],
 };
 
-/** A printed heading that ends whatever block preceded it. */
+/**
+ * A printed heading that ends whatever block preceded it.
+ *
+ * Blank lines cannot be the only boundary: `pdftotext` separates blocks with
+ * them, the browser's pdf.js worker does not. On the same document the browser
+ * layer ran the Special Instructions block four lines into the first stop's
+ * appointment window and address, which pulled a stray ZIP into the demanded
+ * tokens and dropped the damage figure by a point. The boundary has to be a
+ * printed structure both extractors emit.
+ */
 const TERMINATORS: RegExp[] = [
   /^\s*references\s*$/i,
   /^\s*freight\s+terms/i,
@@ -108,8 +117,12 @@ const TERMINATORS: RegExp[] = [
   /^\s*stop\s+\d+\b/i,
   /^\s*page\s+\d+\s*\/\s*\d+\s*$/i,
   /^\s*comments\s*$/i,
+  /^\s*comments\s*:/i,
+  /^\s*contact\s+information\s*:/i,
   /^\s*special\s+instructions\s*$/i,
   /^\s*bill\s+to\s*:/i,
+  // Appointment window line that opens a stop block: `06/18/2025 08:00AM - …`
+  /^\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}\s*[AP]M\b/i,
 ];
 
 const STOP_HEADING = /^\s*stop\s+(\d+)\b/i;
