@@ -114,17 +114,22 @@ Classes, matched after lowercasing and stripping `#`, `no.`, `number`, punctuati
 
 All three dedup passes re-key on **class + value**, and are now scope-aware:
 
-- load-level pass: a stop reference collapses into a load-level reference only when class *and* value match, so Stop 1's `PU# IX00286060` and the table's `Pickup Number IX00286060` end as **one row at load scope**, while PRO no longer dies against BOL;
+- load-level pass: a stop reference collapses into a load-level reference only when class *and* value match, so Stop 1's `PU# IX00286060` and the table's `Pickup Number IX00286060` end as **one row at load scope with the citation from Stop 1 recorded** (below), while PRO no longer dies against BOL;
 - cross-stop pass: a repeat under a mapped class is kept on every stop (a shipment number at both ends is what the guard asks for); only `unclassified` repeats are dropped, and logged;
 - the `refCore` near-duplicate collapse — the pass that actually killed the PRO row — collapses only within one class, and only within one scope.
 
-### 4. Reference storage and diffing (correction 2)
+### 4. Reference storage, citations and diffing
 
 The References block on page 2 is load-level — it belongs to no stop — while stop Comments carry stop-level references. Both scopes are real, so one table carries both: `load_references` with `id`, `load_id` FK (not null), `load_stop_id` FK (**nullable — null means load-level**), `reference_class`, `printed_label`, `value`, standard audit columns. Indexes on `value`, on `(load_id, reference_class)` and on `(load_stop_id, reference_class)`. One table rather than two so an AP lookup by value hits a single index regardless of scope. No JSON column. GRANTs and RLS mirror `load_stops`, scoped through `load_id`.
 
-References diff as a **scope-aware set**: each row is keyed on `(scope, class, value)`, and every added, removed or changed row surfaces as its own non-financial change carrying its scope, printed label and value. A reference that moves between load-level and stop-level is reported as a single **scope change**, not a removal plus an addition. `pickReference` still chooses the primary gate reference a stop form displays, now falling back to a matching load-level reference when the stop has none of its own.
+**Citations.** When a stop's printed reference collapses into a load-level row, the association is recorded rather than discarded — printing `PU# IX00286060` in Stop 1's comments is how the broker distinguishes it from the other pickup number (`562117`) on the same load, and on a multi-pick load that is not recoverable by inference. This uses a small join table, `load_reference_citations` (`load_reference_id`, `load_stop_id`, `printed_label`, unique on the pair), not a nullable `referenced_by_stop_id` column. Reason: the same value legitimately appears in more than one stop's comment block — a shipment number cited at both ends is the exact case the cross-stop guard is being loosened for — and a single nullable column silently keeps only the first citation, reintroducing the class of bug this pass exists to remove. The join also carries the label as that stop printed it (`PU#` versus `Pickup Number`), which a column on the reference row cannot hold per stop. The access pattern is a small read alongside the stop, and stop-scoped lookup is indexed on `load_stop_id`.
 
-On the Blue Grace pair this surfaces exactly one change — `PRO BG969676425` added at load scope — with no phantom pickup number and no duplicate of the pickup reference that exists at both scopes.
+**Fallback.** `pickReference` still chooses the primary gate reference a stop form displays. For a stop with no reference of its own it falls back to a load-level reference of the right class, and **prefers one this stop cited** over one it did not. A stop that cited nothing still falls back to any load-level reference of the right class, as designed.
+
+References diff as a **scope-aware set**: each row is keyed on `(scope, class, value)`, and every added, removed or changed row surfaces as its own non-financial change carrying its scope, printed label and value. A reference that moves between load-level and stop-level reports as a single **scope change**, not a removal plus an addition. Citations diff too: a reference that stops being cited by a stop, while remaining at load scope, surfaces as a **citation change** naming the stop — never silence.
+
+On the Blue Grace pair this surfaces exactly one change — `PRO BG969676425` added at load scope — with no phantom pickup number, no duplicate of the pickup reference that exists at both scopes, and Stop 1's citation of `IX00286060` preserved and unchanged.
+
 
 
 ### 5. Retention
@@ -145,7 +150,7 @@ Current treatment under "SUPERTRANSPORT Standard": linehaul 72, fuel surcharge 7
 - Token check: faithful transcription passes; the same transcription with `(800) 697-4477` removed **fails the token check while passing similarity at 0.987**; removing the email too fails and names both; a layer token lost to degradation (`53' 102"`) never demands digits the transcription must supply.
 - Comparator: faithful transcription passes; a paraphrase fails; a reordered transcription fails; a case-only alteration fails; the pilcrow and entity-chain fields report `text_layer_unreliable`, not `verbatim_unverified`; a short field with one damaged glyph reports `text_layer_unreliable` rather than passing on 0.929 similarity; an image upload reports `no_text_layer`. Evaluation order degrade → token → similarity is asserted.
 - Classes: `PU#` and `Pickup Number` resolve alike; `PRO` and `BOL` sharing a value both survive all three passes; an unmapped label lands in `unclassified` and is logged.
-- References: the stop-level `PU# IX00286060` collapses into the load-level pickup row and is stored once at load scope; the added `PRO` surfaces as one load-scope addition; a reference moved between scopes reports as one scope change, not a remove plus an add.
+- References: the stop-level `PU# IX00286060` collapses into the load-level pickup row, stored once at load scope **with a Stop 1 citation recorded**; the added `PRO` surfaces as one load-scope addition; a reference moved between scopes reports as one scope change, not a remove plus an add; a dropped citation on a still-present load-level reference surfaces as a citation change; `pickReference` prefers a cited load-level reference over an uncited one of the same class, and still falls back for a stop that cited nothing.
 - Defaults: free-text unchecked, structured checked.
 - Retention: cancelling the review leaves the revised document attached.
 
@@ -154,8 +159,8 @@ Current treatment under "SUPERTRANSPORT Standard": linehaul 72, fuel surcharge 7
 - `supabase/functions/parse-rate-confirmation/index.ts` — verbatim fields in contract and prompt; `text_layer` verification (entity/whitespace normalization, case-sensitive, degradation scoring, token-presence, 0.90 similarity, in that order); class- and scope-keyed dedup across all three passes; `unclassified` logging.
 - `src/lib/pdfToText.ts` (new) — text-layer extraction via the existing `pdfjs-dist`; null for image/scan input.
 - `src/lib/verbatimVerify.ts` (new) — normalization, degradation scoring, token extraction and presence check, similarity; shared by the function and the tests.
-- `src/lib/rateConfirmation.ts` — extended types, reference class and scope, `condenseInstructions`.
-- `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; scope-aware reference-set diffing.
+- `src/lib/rateConfirmation.ts` — extended types, reference class, scope and citations, `condenseInstructions`; citation-preferring `pickReference`.
+- `src/lib/revisedRateCon.ts` — `freeText` flag driving `defaultAccept`; scope- and citation-aware reference-set diffing.
 - `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` — upload the revised document on selection.
-- Migration: verbatim text columns on `loads` and `load_stops`; `load_references` table (`load_id` not null, `load_stop_id` nullable) with GRANTs, RLS and the three indexes.
+- Migration: verbatim text columns on `loads` and `load_stops`; `load_references` table (`load_id` not null, `load_stop_id` nullable) and `load_reference_citations` join table, with GRANTs, RLS and indexes.
 
