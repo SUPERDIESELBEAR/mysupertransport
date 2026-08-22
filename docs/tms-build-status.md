@@ -38,14 +38,14 @@ Date: 2026-08-22
 
 ## Test baselines
 
-Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-08-21). Both files agree. Every skip is named and counted; no silent `it.skip` or `test.skip`.
+Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-08-22). Both files agree. Every skip is named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 514 passed, 2 skipped (67 files passed, 1 skipped).
-- **Without database:** 495 passed, 13 skipped (64 files passed, 4 skipped).
+- **With database attached:** 535 passed, 2 skipped (68 files passed, 1 skipped).
+- **Without database:** 516 passed, 13 skipped (65 files passed, 4 skipped).
 
 ## Open items
 
-- **Unparsed rate confirmations:** Blue Grace revised, Rolling River, MegaCorp, and Nationwide still need parser coverage.
+- **Unparsed rate confirmations:** Rolling River, MegaCorp, and Nationwide still need parser coverage.
 - **33 query sites in `src/components/inspection/` swallow errors;** failures are not surfaced to the UI.
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
