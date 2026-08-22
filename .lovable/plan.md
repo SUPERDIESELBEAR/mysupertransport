@@ -64,3 +64,29 @@ Once the redeploy lands, the correct behaviour is: the verbatim field is what ge
 - Load save path — call `saveLoadReferences` with the payload's reference array after the RPC returns the load id.
 - `src/lib/revisedRateCon.ts` — display-summary row suppression, and any charge-diff fix Step 1 justifies. Not touched before the re-run.
 - No schema changes. `load_references` and `load_reference_citations` already exist and are correct.
+
+---
+
+# Addendum — approved with two additions
+
+## Addition 1 — close the write-path gap as a test gap
+
+Step 2 gains an integration-level test, not another unit test: build a load through the real save path, read it back through `loadToFormValues`, and assert the reference rows and their citations come back with the right class, value and stop scope. Deleting either the `saveLoadReferences` call or the read in `loadToFormValues` must turn it red. Unit tests that call the functions directly cannot catch a missing call site, which is precisely how a green suite reported working references while no row had ever been written.
+
+**Wiring audit.** Alongside that, every function introduced in this pass gets checked for a production call site, and I will report each as wired or test-only before touching the charge diff. First pass from the source (to be confirmed against the runtime paths):
+
+- `verifyVerbatim`, `resolveFieldRegion`, `recordAnchorMiss`, `extractPdfText` — reachable from `RateConfirmationParser`, so wired on the create path; still to confirm whether the revision path reaches them.
+- `classifyReferences` — reachable from `rateConfirmation.ts`.
+- `saveLoadReferences`, `fetchLoadReferences` — test-only today. This is the gap being closed.
+
+Anything else found test-only is reported with the same verdict rather than quietly wired.
+
+## Addition 2 — build identity in the parse response
+
+The parser returns its build identity (commit hash where available, build timestamp otherwise) in the parse response. The client compares it against the contract version it was built for and warns on divergence, on screen and in the log, naming both values. A stale function silently returning an older contract shape presented here as three unrelated-looking bugs; the warning turns that into one obvious message. Detection only — it does not block the parse.
+
+## Sequencing, unchanged
+
+Step 1 runs first. I report what the parse actually returns for `line_items` and the document-level `references`, and whether the verbatim block comes back, before any change to the charge diff or to which field the special-instructions row reports. If the display summary still produces its own diff row once the verbatim block returns, it is suppressed.
+
+Backfill stays off the table, with the review-screen note for loads that have no reference rows on file.
