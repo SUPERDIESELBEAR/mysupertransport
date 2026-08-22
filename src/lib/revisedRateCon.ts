@@ -276,7 +276,14 @@ export interface RevisionDiff {
   unresolved: number[];
   /** Sum of accepted-at-face-value deltas, for the header line. */
   totalDelta: number;
+  /**
+   * False when the load has no reference rows on file, so document references
+   * cannot be diffed against anything. The review screen says so rather than
+   * presenting every printed number as an addition.
+   */
+  referencesComparable: boolean;
 }
+
 
 export interface DiffDecisions {
   accepted: Record<string, boolean>;
