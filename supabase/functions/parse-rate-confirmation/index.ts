@@ -151,7 +151,7 @@ Rules:
   - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
   - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
   - Treat a BARE two-letter or unexplained code (e.g. "DJ", "XR") with suspicion: mark it useful = false unless the surrounding text clearly shows a driver would present it at the gate.
-  - If the SAME value appears on more than one stop, it is almost certainly an internal broker code, not a gate reference: mark it useful = false on every stop and say so in "reason".
+  - A value repeating on several stops is NOT by itself a reason to reject it: one shipment or PO number printed on every stop is normal. Judge each row on its label and value; report the repeat in "reason" and let the system record it.
   - Never invent a stop reference. If a stop prints no gate reference, return an empty reference_numbers array — a blank field is correct.
   - Judge the value, not just the label: a signed decimal such as -83.6779 is a coordinate however it is labelled; a long digit string labelled LO is a load reference.
   - Always give a short "reason" for the judgement.
