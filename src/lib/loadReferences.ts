@@ -14,14 +14,20 @@ import type { ReferenceFormValues } from '@/pages/dispatch/loadFormSchema';
  * rate confirmation established.
  */
 
+export interface StoredCitation {
+  stopSequence: number;
+  printedLabel: string;
+}
+
 export interface StoredReference {
   id: string;
   reference_class: string;
   label: string;
   value: string;
   value_key: string;
-  citations: number[];
+  citations: StoredCitation[];
 }
+
 
 export async function saveLoadReferences(
   loadId: string,
