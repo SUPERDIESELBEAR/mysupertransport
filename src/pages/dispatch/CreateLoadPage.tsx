@@ -207,10 +207,12 @@ export default function CreateLoadPage({
     try {
       const {
         load: loadPayload, stops: stopsPayload, charges: chargesPayload,
+        references: referencesPayload,
       } = buildLoadSavePayload(v, { isEdit });
 
       loadPayloadForLog = loadPayload;
       stopsPayloadForLog = stopsPayload;
+
 
 
       let savedId: string;
