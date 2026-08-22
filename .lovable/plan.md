@@ -60,9 +60,12 @@ Phone and digit comparison runs on digits-only forms so `(800) 697-4477` matches
 Extraction happens client-side with the existing `pdfjs-dist` and is sent as `text_layer` alongside the file. Image uploads and text-free scans report `no_text_layer` — not verifiable, stated as such.
 
 
-## Fixture (correction 1)
+## Fixture
 
 The fixture is **extracted from the PDF, never retyped**. A checked-in script pulls the printed text from `Blue_Grace_Rate_Con.pdf` into `src/lib/__tests__/fixtures/bluegrace-BG969676425.txt`, and the extracted file is read back and asserted to contain `**CAN GET NEED TIH.**` with the asterisks intact before it is used as an expectation. Where the layer is degraded (`¶`, the entity chain) the fixture records both the raw extraction and the corrected printed string, with a comment naming the degradation — the corrected form is what the verbatim assertion uses, and it is the only hand-touched text in the file.
+
+Both hand-corrected spots — exactly two, the pilcrow standing in for `53' 102"` and the `OS&D` entity chain — are read off the **rendered page image**, not the extraction, before check-in, and the check-in note records that they were verified visually.
+
 
 Two tests:
 
