@@ -71,10 +71,16 @@ function splitTop(s: string): string[] {
 
 export type ActorKind = 'profile' | 'auth_uid' | 'unknown';
 
-export function classifyActorExpression(expr: string): ActorKind {
-  const e = expr.toLowerCase();
+export function classifyActorExpression(expr: string, body = ''): ActorKind {
+  const e = expr.toLowerCase().trim();
   if (/current_profile_id\s*\(/.test(e)) return 'profile';
   if (/auth\.uid\s*\(/.test(e)) return 'auth_uid';
+  // plpgsql assigns through a local: `v_profile uuid := public.current_profile_id();`
+  const ident = /^([a-z_][a-z0-9_]*)$/.exec(e)?.[1];
+  if (ident && body) {
+    const decl = new RegExp(`\\b${ident}\\s+uuid\\s*:=\\s*([^;]+);`, 'i').exec(body);
+    if (decl) return classifyActorExpression(decl[1], '');
+  }
   return 'unknown';
 }
 
@@ -109,14 +115,14 @@ export function actorExpressionFor(
     const at = cols.indexOf(column);
     if (at >= 0 && vals[at] !== undefined) {
       const expr = vals[at].trim();
-      return { kind: classifyActorExpression(expr), expr };
+      return { kind: classifyActorExpression(expr, body), expr };
     }
   }
 
   const setRe = new RegExp(`\\b${column}\\s*=\\s*([^,\\n]+)`, 'gi');
   const updateSection = body.slice(body.toLowerCase().indexOf(`update public.${table}`));
   const s = setRe.exec(updateSection);
-  if (s) return { kind: classifyActorExpression(s[1]), expr: s[1].trim() };
+  if (s) return { kind: classifyActorExpression(s[1], body), expr: s[1].trim() };
 
   return null;
 }
