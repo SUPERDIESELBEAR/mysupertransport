@@ -33,6 +33,7 @@ import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchLoadForEdit, updateLoadWithStops } from '@/lib/loadDetail';
+import { saveVerbatimVerification } from '@/lib/verbatimPersist';
 import { saveLoadReferences } from '@/lib/loadReferences';
 
 import { loadToFormValues, financialChanges, removedStops } from '@/lib/loadEdit';
@@ -261,6 +262,25 @@ export default function CreateLoadPage({
           });
         }
       }
+
+      // The verdicts ride with the captures. A load that stores broker-authored
+      // text also stores how that text was judged and whether a person had to
+      // retype a span the model copied out of a broken text layer.
+      if (parsedRateCon?.verbatim_verification?.length) {
+        try {
+          await saveVerbatimVerification(newId, parsedRateCon.verbatim_verification);
+        } catch (verifyError) {
+          logDbError('set_load_verbatim_verification', verifyError, { loadId: newId });
+          toast({
+            variant: 'destructive',
+            title: 'Verification record not saved',
+            description:
+              'The load saved, but the record of how its captured text was checked did not. Re-parse the document to store it.',
+          });
+        }
+      }
+
+
 
 
 

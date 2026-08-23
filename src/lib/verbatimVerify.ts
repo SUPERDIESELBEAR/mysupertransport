@@ -37,10 +37,23 @@ import {
 
 export type VerbatimVerdict =
   | 'verified'
+  | 'transcription_damaged'
   | 'unverified'
   | 'layer_unreliable'
   | 'no_layer'
   | 'region_unresolved';
+
+/** One piece of text-layer corruption found inside the model's own output. */
+export interface TranscriptionArtifact {
+  /** What kind of corruption: a pilcrow, a control character, an entity chain. */
+  kind: 'pilcrow' | 'control_character' | 'entity_chain' | 'replacement_character';
+  /** The literal characters, so the log and the UI agree on what was seen. */
+  match: string;
+  /** Character offset into the raw transcription. */
+  offset: number;
+  /** Surrounding printed words, e.g. `REQUIRED ¶ SWING DOOR REEFER`. */
+  context: string;
+}
 
 export interface VerbatimVerification {
   /** Field this verdict is about, e.g. `special_instructions_verbatim`. */
@@ -66,11 +79,23 @@ export interface VerbatimVerification {
   anchorId: string | null;
   /** Why no region resolved, when none did. */
   regionFailure: RegionFailure | null;
+  /**
+   * Layer corruption found in the *transcription itself*. Null when the capture
+   * is clean. Non-empty means the model copied the broken text layer instead of
+   * reading the printed glyphs, and no similarity score can redeem that.
+   */
+  transcriptionDamage: TranscriptionArtifact[] | null;
+  /** Inclusive line indices of the resolved region, for locating it on a page. */
+  regionStartLine: number | null;
+  regionEndLine: number | null;
+  /** Where the value came from. A hand-repaired capture is never a transcription. */
+  source: 'parsed' | 'manual_repair';
 }
 
 export const VERBATIM_SIMILARITY_THRESHOLD = 0.99;
 /** Above this share of damaged characters the layer cannot arbitrate a near miss. */
 export const LAYER_DEGRADATION_LIMIT = 0.02;
+
 
 
 /* ------------------------------------------------------------------ */
@@ -217,6 +242,9 @@ export interface VerifyOptions {
   stopNumber?: number;
   /** Set false to inspect a region without adding to the miss log. */
   log?: boolean;
+  /** `manual_repair` when the value was typed off the rendered page by a human. */
+  source?: 'parsed' | 'manual_repair';
+
 }
 
 /**
@@ -239,12 +267,73 @@ export function regionDamage(rawLines: string[]): number {
   return kept ? damaged / kept : 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Damage in the transcription                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Corruption markers, looked for in the model's own output.
+ *
+ * Normalizing these away on the *layer* side is right — the layer is the damaged
+ * artifact. Normalizing them away on the *transcription* side is what let a
+ * pilcrow where `53' 102"` is printed score a perfect 1.0 and read `verified`.
+ * The printed page has none of these glyphs, so their presence in a transcription
+ * can only mean the model copied the broken text layer instead of reading the
+ * page. That is a defect signal, and it outranks every similarity score.
+ */
+const DAMAGE_PATTERNS: { kind: TranscriptionArtifact['kind']; re: RegExp }[] = [
+  { kind: 'pilcrow', re: /\u00B6+/g },
+  // eslint-disable-next-line no-control-regex
+  { kind: 'control_character', re: /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]+/g },
+  { kind: 'entity_chain', re: /&(?:amp;){1,}/gi },
+  { kind: 'replacement_character', re: /\uFFFD+/g },
+];
+
+const CONTEXT_RADIUS = 28;
+
+const contextAround = (raw: string, at: number, length: number): string => {
+  const from = Math.max(0, at - CONTEXT_RADIUS);
+  const to = Math.min(raw.length, at + length + CONTEXT_RADIUS);
+  const slice = raw.slice(from, to).replace(/\s+/g, ' ').trim();
+  return `${from > 0 ? '…' : ''}${slice}${to < raw.length ? '…' : ''}`;
+};
+
+/** Every corruption marker in a capture, in the order it appears. */
+export function detectTranscriptionDamage(raw: string | null | undefined): TranscriptionArtifact[] {
+  const source = raw ?? '';
+  if (!source) return [];
+  const found: TranscriptionArtifact[] = [];
+  DAMAGE_PATTERNS.forEach(({ kind, re }) => {
+    const rx = new RegExp(re.source, re.flags);
+    let m = rx.exec(source);
+    while (m) {
+      found.push({
+        kind,
+        match: m[0],
+        offset: m.index,
+        context: contextAround(source, m.index, m[0].length),
+      });
+      m = rx.exec(source);
+    }
+  });
+  return found.sort((a, b) => a.offset - b.offset);
+}
+
+/** Content-free fingerprint for logs: how much damage, of what kind. */
+export function damageFingerprint(artifacts: TranscriptionArtifact[]): string {
+  if (!artifacts.length) return 'clean';
+  const counts = new Map<string, number>();
+  artifacts.forEach((a) => counts.set(a.kind, (counts.get(a.kind) ?? 0) + 1));
+  return [...counts.entries()].map(([k, n]) => `${k}=${n}`).join(' ');
+}
+
 const unresolved = (
   field: string,
   regionFailure: RegionFailure,
+  transcriptionDamage: TranscriptionArtifact[],
 ): VerbatimVerification => ({
   field,
-  verdict: 'region_unresolved',
+  verdict: transcriptionDamage.length ? 'transcription_damaged' : 'region_unresolved',
   similarity: null,
   missingTokens: null,
   layerDegradation: null,
@@ -253,6 +342,10 @@ const unresolved = (
   regionSource: 'none',
   anchorId: null,
   regionFailure,
+  transcriptionDamage: transcriptionDamage.length ? transcriptionDamage : null,
+  regionStartLine: null,
+  regionEndLine: null,
+  source: 'parsed',
 });
 
 /**
@@ -267,6 +360,10 @@ const unresolved = (
  * missing a phone number the damaged layer still prints is a materially
  * different situation from one that is merely unreadable, and the two used to
  * look identical.
+ *
+ * `transcription_damaged` outranks all of them. A capture carrying layer
+ * corruption is not verified no matter how well it scores, because what it
+ * scores well against is the corruption itself.
  */
 export function verifyVerbatim(
   field: string,
@@ -278,6 +375,10 @@ export function verifyVerbatim(
   const degradationLimit = opts.degradationLimit ?? LAYER_DEGRADATION_LIMIT;
 
   const value = (transcribed ?? '').trim();
+  const source: 'parsed' | 'manual_repair' = opts.source ?? 'parsed';
+  // A hand-repaired capture was typed off the rendered page, so it is not a
+  // transcription of the layer and carries no layer damage to detect.
+  const damage = source === 'manual_repair' ? [] : detectTranscriptionDamage(value);
   const base = {
     field,
     similarity: 1,
@@ -288,17 +389,22 @@ export function verifyVerbatim(
     regionSource: 'none' as const,
     anchorId: null,
     regionFailure: null,
+    transcriptionDamage: null,
+    regionStartLine: null,
+    regionEndLine: null,
+    source,
   };
   if (!value) return { ...base, verdict: 'verified' };
   if (!layer || !layer.trim()) {
     return {
       ...base,
-      verdict: 'no_layer',
+      verdict: damage.length ? 'transcription_damaged' : 'no_layer',
       similarity: null,
       missingTokens: null,
       layerDegradation: null,
       similarityPass: null,
       tokenPass: null,
+      transcriptionDamage: damage.length ? damage : null,
     };
   }
 
@@ -313,7 +419,7 @@ export function verifyVerbatim(
         opts.stopNumber ?? null,
       );
     }
-    return unresolved(field, resolved.failure as RegionFailure);
+    return unresolved(field, resolved.failure as RegionFailure, damage);
   }
 
   const region = resolved.region;
@@ -333,11 +439,15 @@ export function verifyVerbatim(
   const similarityPass = score >= threshold;
   const tokenPass = missingTokens.length === 0;
 
-  const verdict: VerbatimVerdict = similarityPass && tokenPass
-    ? 'verified'
-    : degradation > degradationLimit
-      ? 'layer_unreliable'
-      : 'unverified';
+  // Ranked above everything else on purpose: the layer cannot be the arbiter of
+  // a capture that reproduces the layer's own damage.
+  const verdict: VerbatimVerdict = damage.length
+    ? 'transcription_damaged'
+    : similarityPass && tokenPass
+      ? 'verified'
+      : degradation > degradationLimit
+        ? 'layer_unreliable'
+        : 'unverified';
 
   return {
     field,
@@ -350,6 +460,11 @@ export function verifyVerbatim(
     regionSource: 'anchor',
     anchorId: region.anchorId,
     regionFailure: null,
+    transcriptionDamage: damage.length ? damage : null,
+    regionStartLine: region.startLine,
+    regionEndLine: region.endLine,
+    source,
   };
 }
+
 
