@@ -62,6 +62,26 @@ interface Props {
 type Phase = 'upload' | 'identity' | 'review';
 
 /**
+ * Un-checks any row whose new value is a corrupted capture.
+ *
+ * A damaged transcription is not a change the broker made; accepting one would
+ * write the PDF's own breakage onto the load as if the document said it.
+ */
+function rejectDamaged(
+  decisions: DiffDecisions, diff: RevisionDiff, checks: VerbatimCheck[],
+): DiffDecisions {
+  const damaged = new Set(
+    checks.filter(c => c.verdict === 'transcription_damaged').map(c => c.value),
+  );
+  if (!damaged.size) return decisions;
+  const accepted = { ...decisions.accepted };
+  diff.nonFinancial.forEach(row => {
+    if (typeof row.value === 'string' && damaged.has(row.value)) accepted[row.id] = false;
+  });
+  return { ...decisions, accepted };
+}
+
+/**
  * Applies a revised rate confirmation to an existing load.
  *
  * Reuses the same parser edge function as the create form and the same
@@ -199,9 +219,8 @@ export default function RevisedRateConModal({
       setParsed(result);
       setVerbatim(checks);
       setIdentity(check);
-      setDecisions(rejectDamaged(initialDecisions(
-        buildRevisionDiff(values, result, {}),
-      ), buildRevisionDiff(values, result, {}), checks));
+      const firstDiff = buildRevisionDiff(values, result, {});
+      setDecisions(rejectDamaged(initialDecisions(firstDiff), firstDiff, checks));
 
       // The document is attached as soon as it parses, not when it is applied.
       // A dispatcher who reviews a revision and cancels has still received a
