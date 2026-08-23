@@ -8794,6 +8794,7 @@ export type Database = {
           p_document_label?: string
           p_load_id: string
           p_refs: Json
+          p_removals?: Json
           p_source?: string
           p_summary?: string
         }
