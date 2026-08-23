@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { takeAnchorMisses } from '@/lib/verbatimRegions';
 import type { ClassifyResult } from '@/lib/referenceClasses';
+import type { Json } from '@/integrations/supabase/types';
 
 /**
  * Durable record of everything the rate-confirmation parser failed to recognise.
@@ -35,7 +36,7 @@ interface DiagnosticRow {
   occurrences?: number;
   stop_number?: number | null;
   headings?: string[];
-  ordering?: unknown;
+  ordering?: Record<string, unknown> | null;
   label?: string | null;
   reference_class?: string | null;
 }
@@ -58,7 +59,7 @@ export function collectParserDiagnostics(args: {
       occurrences: m.occurrences,
       stop_number: m.stopNumber,
       headings: m.headings ?? [],
-      ordering: m.ordering ?? null,
+      ordering: (m.ordering ?? null) as Record<string, unknown> | null,
     });
   });
 
@@ -108,6 +109,7 @@ export async function logParserDiagnostics(
 
     const payload = rows.map(r => ({
       ...r,
+      ordering: (r.ordering ?? null) as Json,
       load_id: ctx.loadId ?? null,
       load_number: ctx.loadNumber ?? null,
       document_id: ctx.documentId ?? null,
