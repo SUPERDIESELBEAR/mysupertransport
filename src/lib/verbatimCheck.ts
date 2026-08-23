@@ -73,3 +73,25 @@ export async function verifyParsedVerbatim(
 
   return { checks: out, layer };
 }
+
+/**
+ * Returns a copy of the parse with one verbatim capture replaced by the
+ * dispatcher's reading of the printed page.
+ *
+ * A copy, not a mutation, so the revision diff recomputes off the repaired
+ * value and the screen stops offering the corrupted one.
+ */
+export function withRepairedCapture(
+  result: ParsedRateConfirmation, check: VerbatimCheck, text: string,
+): ParsedRateConfirmation {
+  const next = structuredClone(result) as ParsedRateConfirmation;
+  if (check.parsedStopIndex === null) {
+    const key = check.field === 'broker_terms_verbatim' ? 'broker_terms' : 'special_instructions';
+    const slot = next.verbatim?.[key];
+    if (slot) slot.value = text;
+  } else {
+    const slot = next.stops?.[check.parsedStopIndex]?.notes_verbatim;
+    if (slot) slot.value = text;
+  }
+  return next;
+}

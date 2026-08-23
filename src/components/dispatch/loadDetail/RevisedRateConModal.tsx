@@ -42,7 +42,9 @@ import {
   type StopResolution,
 } from '@/lib/revisedRateCon';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
-import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import {
+  verifyParsedVerbatim, withRepairedCapture, type VerbatimCheck,
+} from '@/lib/verbatimCheck';
 import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import { saveVerbatimVerification } from '@/lib/verbatimPersist';
