@@ -19,6 +19,12 @@ export interface VerbatimCheck extends VerbatimVerification {
   parsedStopIndex: number | null;
   /** The capture this verdict is about, as it stands (repairs included). */
   value: string;
+  /**
+   * Heading-shaped lines the parser saw, carried only when the region failed to
+   * resolve. This is the same payload `parser_diagnostics` stores; it rides on
+   * the check so the reason is legible without leaving an unsaved parse.
+   */
+  documentHeadings?: string[] | null;
 }
 
 export interface VerbatimCheckResult {
