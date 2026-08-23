@@ -49,6 +49,12 @@ import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import { saveVerbatimVerification } from '@/lib/verbatimPersist';
 import VerbatimRepairField from '@/components/dispatch/loadForm/VerbatimRepairField';
+import DuplicateBrokerRefDialog from '@/components/dispatch/loadForm/DuplicateBrokerRefDialog';
+import {
+  checkForDuplicateBrokerReference, recordDuplicateOverride, type DuplicateMatch,
+} from '@/lib/duplicateBrokerRef';
+import { logParserDiagnostics } from '@/lib/parserDiagnostics';
+import { classifyDocumentReferences } from '@/lib/revisedRateCon';
 
 interface Props {
   load: LoadDetail;
@@ -222,6 +228,17 @@ export default function RevisedRateConModal({
       }
       result.verbatim_verification = checks;
 
+      // The revision path files the same diagnostics the create path does. A
+      // broker who prints an unknown heading is just as unknown on a revised
+      // document, and this is the path most revised documents arrive on.
+      await logParserDiagnostics(classifyDocumentReferences(result), {
+        loadId: load.id,
+        loadNumber: load.load_number,
+        documentId: uploadedDocId.current,
+        documentLabel: target.name,
+        parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
+      });
+
       setBaseValues(values);
       setParsed(result);
       setVerbatim(checks);
@@ -376,8 +393,44 @@ export default function RevisedRateConModal({
     setVerbatim(checks);
   };
 
+  /**
+   * The create path warns when a broker reference already belongs to another
+   * load. A revision that CHANGES the reference can produce the same wrong-load
+   * condition, so it runs the same check with the same warn-and-override
+   * behaviour — the current load excluded, since matching itself is not a clash.
+   */
+  const referenceDuplicates = async (reference: string): Promise<DuplicateMatch[]> => {
+    const key = reference.trim().toUpperCase();
+    if (!key || duplicateCleared.current.has(key)) return [];
+    try {
+      return await checkForDuplicateBrokerReference({
+        reference,
+        brokerId: load.broker?.id ?? baseValues?.broker_id ?? null,
+        extractedBrokerName: parsed?.broker?.company_name?.value ?? null,
+        excludeLoadId: load.id,
+      });
+    } catch (e) {
+      // A failed check never stands between a dispatcher and a revision.
+      logDbError('duplicate broker reference check (revision)', e, { loadId: load.id });
+      return [];
+    }
+  };
+
   const apply = async () => {
     if (!diff || !baseValues) return;
+
+    const nextRef = (applyRevision(baseValues, diff, decisions).values.broker_reference_number ?? '').trim();
+    const priorRef = (baseValues.broker_reference_number ?? '').trim();
+    if (nextRef && nextRef.toUpperCase() !== priorRef.toUpperCase()) {
+      const matches = await referenceDuplicates(nextRef);
+      if (matches.length) {
+        setDuplicates(matches);
+        setDuplicateRef(nextRef);
+        setDuplicateOpen(true);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const { values, financialSummary } = applyRevision(baseValues, diff, decisions);
@@ -453,6 +506,18 @@ export default function RevisedRateConModal({
         qc.invalidateQueries({ queryKey: ['load-change-history', load.id] }),
         qc.invalidateQueries({ queryKey: ['load-documents', load.id] }),
       ]);
+
+      if (duplicateOverride.current) {
+        try {
+          await recordDuplicateOverride({
+            newLoadId: load.id,
+            existingLoadId: duplicateOverride.current.existingLoadId,
+            reason: duplicateOverride.current.reason,
+          });
+        } catch (overrideError) {
+          logDbError('record duplicate override (revision)', overrideError, { loadId: load.id });
+        }
+      }
 
       toast({ description: `Revision applied to ${load.load_number}.` });
       close(false);
