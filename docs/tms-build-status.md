@@ -190,3 +190,36 @@ The revision path does not yet do these things the create path does:
 Duplicate broker-reference detection is no longer on this list: a revision that
 changes `broker_reference_number` now runs the same check as the create path
 (current load excluded) and warns with the same override-with-audit behaviour.
+
+## Standing rule: the actor is resolved server-side (2026-08-23)
+
+`created_by` / `updated_by` / `changed_by` / `resolved_by` on the TMS tables are
+foreign keys to `profiles(id)`. `auth.uid()` is the auth USER id — a different
+uuid. Sending one where the other belongs raises 23503 at insert time, which is
+how "File these as the load's reference numbers" failed on ST26034 with the whole
+suite green.
+
+- **No client write sends an actor id.** The database resolves it with
+  `current_profile_id()`, either inside the RPC or as a column default.
+- **A write that stamps an actor and also writes history is one RPC.** The
+  baseline write was two round trips, so the failed history insert left ST26034
+  with five reference rows and no history entry. `file_load_references` now does
+  references, citations and the history entry in a single transaction; it
+  replaces `record_load_reference_baseline`, which has been dropped.
+- **`src/test/actor-stamp-fk.test.ts` enforces this.** It scans the resolved
+  migration set for any `profiles(id)` column assigned `auth.uid()`, scans client
+  writes for an actor sent from the browser, and drives the real save path
+  against a fake that enforces the foreign keys and takes its RPC behaviour from
+  the checked-in SQL (`src/test/helpers/pgFake.ts`). Mocks that accept any uuid
+  are what let this class of bug through.
+
+Audit of the writes introduced with the parser work:
+
+| Write | Before | Now |
+| --- | --- | --- |
+| `record_load_reference_baseline` → `load_change_history.changed_by` | `auth.uid()` — failed 23503 | dropped; superseded |
+| `file_load_references` → references, citations, history | did not exist | `current_profile_id()`, one transaction |
+| `load_references.created_by` | never set | `current_profile_id()` |
+| `set_load_verbatim_verification` → `loads.updated_by`, `checked_by`, `repaired_by` | `auth.uid()` — latent 23503 on `updated_by` | `current_profile_id()` |
+| `parser_diagnostics.created_by` / `resolved_by` | client-sent `auth.uid()`, no FK | column default `current_profile_id()`, FKs added, `resolve_parser_diagnostic` RPC |
+| `record_duplicate_broker_reference` | already `current_profile_id()` | unchanged |

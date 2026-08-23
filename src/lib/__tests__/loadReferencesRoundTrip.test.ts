@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPgFake } from '@/test/helpers/pgFake';
 
 /**
  * REFERENCE WRITE-PATH ROUND TRIP.
@@ -10,100 +11,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * numbers it printed as additions — four of them phantoms.
  *
  * A test that only checks classification cannot see that. This one drives the
- * write and the read against a fake PostgREST that stores what it is given, so
- * the assertion is "what went in comes back out", including the per-stop printed
- * label that the first version of the write silently replaced with the row label.
+ * write and the read against a Postgres-shaped fake that stores what it is
+ * given, so the assertion is "what went in comes back out", including the
+ * per-stop printed label that the first version of the write silently replaced
+ * with the row label.
+ *
+ * The fake now also enforces the `profiles(id)` foreign keys and takes the
+ * `file_load_references` behaviour from the checked-in SQL, so the write is
+ * exercised the way the database will run it.
  */
 
-interface Row { [k: string]: unknown }
-
-const tables: Record<string, Row[]> = {
-  load_stops: [],
-  load_references: [],
-  load_reference_citations: [],
-};
-
-/** Minimal stand-in for the query builder shapes loadReferences.ts uses. */
-function makeClient() {
-  return {
-    from(table: string) {
-      const rows = tables[table];
-      const api = {
-        _filters: [] as ((r: Row) => boolean)[],
-        _selected: null as Row[] | null,
-        select(_cols: string) {
-          const base = this._selected ?? rows.filter(r => this._filters.every(f => f(r)));
-          const embed = (list: Row[]) => list.map(r => ({
-            ...r,
-            load_reference_citations: tables.load_reference_citations
-              .filter(c => c.reference_id === r.id)
-              .map(c => ({ stop_sequence: c.stop_sequence, printed_label: c.printed_label })),
-          }));
-          const resolved = (list: Row[]) => {
-            const result = { data: embed(list), error: null };
-            return Object.assign(Promise.resolve(result), {
-              eq: (col: string, val: unknown) => resolved(list.filter(r => r[col] === val)),
-              order: () => resolved(list),
-            });
-          };
-          return resolved(base);
-        },
-
-        eq(col: string, val: unknown) {
-          this._filters.push(r => r[col] === val);
-          return this;
-        },
-        in(col: string, vals: unknown[]) {
-          this._filters.push(r => vals.includes(r[col]));
-          return this;
-        },
-        upsert(payload: Row[], opts: { onConflict: string }) {
-          const keys = opts.onConflict.split(',');
-          payload.forEach(p => {
-            const at = rows.findIndex(r => keys.every(k => r[k] === p[k]));
-            if (at >= 0) rows[at] = { ...rows[at], ...p };
-            else rows.push({ id: `ref-${rows.length + 1}`, ...p });
-          });
-          this._selected = payload.map(p =>
-            rows.find(r => keys.every(k => r[k] === p[k])) as Row);
-          return this;
-        },
-        insert(payload: Row[]) {
-          payload.forEach(p => rows.push({ id: `row-${rows.length + 1}`, ...p }));
-          return Promise.resolve({ data: null, error: null });
-        },
-        delete() {
-          const self = api;
-          return {
-            in(col: string, vals: unknown[]) {
-              for (let i = rows.length - 1; i >= 0; i -= 1) {
-                if (vals.includes(rows[i][col])) rows.splice(i, 1);
-              }
-              void self;
-              return Promise.resolve({ data: null, error: null });
-            },
-          };
-        },
-        order() { return this.select('*'); },
-      };
-      return api;
-    },
-  };
-}
-
-vi.mock('@/integrations/supabase/client', () => ({ supabase: makeClient() }));
+const fake = createPgFake();
+const holder = globalThis as unknown as { __refFake: { client: unknown } };
+holder.__refFake = fake;
+vi.mock('@/integrations/supabase/client', () => ({
+  get supabase() { return holder.__refFake.client; },
+}));
 
 const LOAD_ID = 'load-1';
 
-beforeEach(() => {
-  tables.load_references.length = 0;
-  tables.load_reference_citations.length = 0;
-  tables.load_stops.length = 0;
-  tables.load_stops.push(
-    { id: 'stop-a', load_id: LOAD_ID, stop_sequence: 1 },
-    { id: 'stop-b', load_id: LOAD_ID, stop_sequence: 2 },
-  );
-});
+beforeEach(() => fake.reset());
 
 describe('load reference write path', () => {
   it('writes rows that read back with the same values and citations', async () => {
@@ -120,7 +47,7 @@ describe('load reference write path', () => {
         ],
       },
       { reference_class: 'bol', label: 'BOL', value: '562117', citations: [] },
-    ]);
+    ] as never);
 
     const back = await fetchLoadReferences(LOAD_ID);
     expect(back).toHaveLength(2);
@@ -140,15 +67,15 @@ describe('load reference write path', () => {
     await saveLoadReferences(LOAD_ID, [{
       reference_class: 'pickup_number', label: 'Pickup Number', value: 'A1',
       citations: [{ stopSequence: 2, printedLabel: 'PU#' }],
-    }]);
-    expect(tables.load_reference_citations[0].load_stop_id).toBe('stop-b');
+    }] as never);
+    expect(fake.tables.load_reference_citations[0].load_stop_id).toBe('stop-b');
   });
 
   it('treats an empty array as a no-op, not a wipe', async () => {
     const { saveLoadReferences, fetchLoadReferences } = await import('@/lib/loadReferences');
     await saveLoadReferences(LOAD_ID, [{
       reference_class: 'bol', label: 'BOL', value: '562117', citations: [],
-    }]);
+    }] as never);
     // A plain load-form save carries no references; it must not delete what the
     // rate confirmation established.
     await saveLoadReferences(LOAD_ID, []);
@@ -161,10 +88,10 @@ describe('load reference write path', () => {
       reference_class: 'pickup_number', label: 'Pickup Number', value: 'IX00286060',
       citations: [{ stopSequence: 1, printedLabel: 'PU#' }],
     };
-    await saveLoadReferences(LOAD_ID, [row]);
+    await saveLoadReferences(LOAD_ID, [row] as never);
     await saveLoadReferences(LOAD_ID, [{
       ...row, citations: [{ stopSequence: 2, printedLabel: 'Pickup Number' }],
-    }]);
+    }] as never);
     const back = await fetchLoadReferences(LOAD_ID);
     expect(back).toHaveLength(1);
     expect(back[0].citations).toEqual([{ stopSequence: 2, printedLabel: 'Pickup Number' }]);
