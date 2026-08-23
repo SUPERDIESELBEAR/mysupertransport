@@ -79,7 +79,11 @@ interface Props {
 export default function VerbatimRepairField({ check, file, value, onRepair, subtitle }: Props) {
   const copy = VERDICT_COPY[check.verdict] ?? VERDICT_COPY.region_unresolved;
   const damaged = (check.transcriptionDamage?.length ?? 0) > 0;
-  const repairable = damaged && !!onRepair;
+  const invented = (check.unknownWords?.length ?? 0) > 0;
+  // A word the page does not print is repairable off the page in exactly the
+  // same way a corrupted span is, and for the same reason.
+  const repairable = (damaged || invented) && !!onRepair;
+
 
   const [pageImage, setPageImage] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
