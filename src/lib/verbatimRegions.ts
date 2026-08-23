@@ -385,3 +385,17 @@ export function recordAnchorMiss(
 
 export const anchorMisses = (): AnchorMiss[] => [...misses];
 export const clearAnchorMisses = (): void => { misses.length = 0; };
+
+/**
+ * Reads the misses and empties the log in one step.
+ *
+ * The in-memory array is a staging buffer, not the record: it is drained after
+ * every parse and written to `parser_diagnostics`, because a diagnostic that
+ * dies with the page reload cannot answer "what headings has the parser failed
+ * to recognise".
+ */
+export const takeAnchorMisses = (): AnchorMiss[] => {
+  const out = [...misses];
+  misses.length = 0;
+  return out;
+};
