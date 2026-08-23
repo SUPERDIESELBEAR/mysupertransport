@@ -6120,6 +6120,87 @@ export type Database = {
           },
         ]
       }
+      parser_diagnostics: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          document_label: string | null
+          failure: string | null
+          field: string | null
+          headings: string[]
+          id: string
+          kind: string
+          label: string | null
+          load_id: string | null
+          load_number: string | null
+          occurrences: number
+          ordering: Json | null
+          parser_contract: number | null
+          reference_class: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          stop_number: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          document_label?: string | null
+          failure?: string | null
+          field?: string | null
+          headings?: string[]
+          id?: string
+          kind: string
+          label?: string | null
+          load_id?: string | null
+          load_number?: string | null
+          occurrences?: number
+          ordering?: Json | null
+          parser_contract?: number | null
+          reference_class?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          stop_number?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          document_label?: string | null
+          failure?: string | null
+          field?: string | null
+          headings?: string[]
+          id?: string
+          kind?: string
+          label?: string | null
+          load_id?: string | null
+          load_number?: string | null
+          occurrences?: number
+          ordering?: Json | null
+          parser_contract?: number | null
+          reference_class?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          stop_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parser_diagnostics_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "load_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parser_diagnostics_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       passenger_authorizations: {
         Row: {
           carrier_signature_url: string | null
