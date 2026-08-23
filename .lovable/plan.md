@@ -22,7 +22,18 @@ No threshold change. A new, independent signal alongside similarity and tokens.
 - Ranking: `transcription_damaged` still outranks everything. Below it, a non-empty `unknownWords` list fails the field to `unverified` (or `layer_unreliable` when the region's own damage exceeds the limit, same as today) regardless of similarity. A word the page does not print cannot be a verbatim transcription of it.
 - This is a two-way check by construction: `missingTokens` catches what the page prints and the capture dropped; `unknownWords` catches what the capture prints and the page does not. The dropped phone number and the invented syllable are the two halves of the same hole.
 
-Measured before the ranking is wired: the faithful ST26035 captures must produce an empty `unknownWords` list against their own regions. If the real documents produce noise words (a hyphen break, a ligature), the normalization is tightened until they do not — a check that cries wolf on clean captures is worse than no check.
+### Measured against a damaged region before the ranking is wired
+
+The empty-list check is run on **both** fields on **both** documents — special instructions as well as broker terms — and the actual lists are reported.
+
+Special instructions is the case that can break it: that region carries 5.7% page damage, `53' 102"` renders as a pilcrow, so the layer's word set is missing words a faithful capture correctly contains. If `102` or an adjacent word is absent from the layer, a correct transcription yields a non-empty list and fails a field that is right.
+
+If that happens, the check is not loosened. Word membership is **skipped for spans the degradation scoring has already flagged as damaged** — the layer cannot be an authority on words it did not render. Words falling inside a flagged span are excluded from the unknown list; everything outside it is still demanded.
+
+This preserves the asymmetry that makes the token check safe: the layer can only lose content, never invent it, so it can be trusted to demand words it has, but not to reject words it lost.
+
+Which of the two outcomes occurred is stated explicitly in the report, with the lists.
+
 
 ## 2. Surface it where the value is accepted
 
