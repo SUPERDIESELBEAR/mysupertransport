@@ -29,6 +29,10 @@ export interface StoredReference {
 }
 
 
+/**
+ * @parser-check
+ * Stores the document's reference numbers on the load.
+ */
 export async function saveLoadReferences(
   loadId: string,
   refs: ReferenceFormValues[],

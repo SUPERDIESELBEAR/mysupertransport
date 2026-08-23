@@ -858,6 +858,20 @@ export function buildRevisionReason(input: ReasonInput): string {
 }
 
 /**
+ * Every reference the document prints, classified. Exported separately from
+ * `documentReferences` so the revision path can hand the diagnostic side of the
+ * result (unrecognised labels, dropped rows) to the parser diagnostics log.
+ */
+export function classifyDocumentReferences(parsed: ParsedRateConfirmation) {
+  const stops = [...(parsed.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
+  return classifyReferences([
+    ...(parsed.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: null })),
+    ...stops.flatMap(st =>
+      (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
+  ]);
+}
+
+/**
  * Every reference the document prints, classified and deduped, in the shape the
  * load form and `saveLoadReferences` use. Used to file a baseline for a load
  * that has no reference rows on file.
@@ -866,13 +880,7 @@ export function documentReferences(parsed: ParsedRateConfirmation): {
   reference_class: string; label: string; value: string;
   citations: { stopSequence: number; printedLabel: string }[];
 }[] {
-  const stops = [...(parsed.stops ?? [])].sort((a, b) => a.sequence - b.sequence);
-  const classified = classifyReferences([
-    ...(parsed.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: null })),
-    ...stops.flatMap(st =>
-      (st.references ?? []).map(r => ({ label: r.label, value: r.value, stopSequence: st.sequence }))),
-  ]);
-  return classified.references.map(r => ({
+  return classifyDocumentReferences(parsed).references.map(r => ({
     reference_class: r.clazz,
     label: r.label,
     value: r.value,

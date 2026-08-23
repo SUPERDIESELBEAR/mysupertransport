@@ -29,6 +29,7 @@ import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import { logParserDiagnostics } from '@/lib/parserDiagnostics';
 import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import VerbatimRepairField from './VerbatimRepairField';
@@ -186,6 +187,16 @@ export default function RateConfirmationParser({
       const { checks } = await verifyParsedVerbatim(file, result);
       result.verbatim_verification = checks;
       setVerbatim(checks);
+
+      // Anchor and label misses are filed here, on the create path. The same
+      // call runs on the revision path — a check that exists on only one of the
+      // two is the failure mode this wiring is guarding against.
+      await logParserDiagnostics(applied.classified, {
+        documentLabel: file.name,
+        parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
+      });
+
+
 
 
       setParsed(result);

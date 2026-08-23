@@ -1,4 +1,4 @@
-import { classifyReferences } from '@/lib/referenceClasses';
+import { classifyReferences, type ClassifyResult } from '@/lib/referenceClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
@@ -273,6 +273,12 @@ export interface ApplyResult {
   /** Rate lines that could not be placed automatically. */
   unassigned: UnassignedRateLine[];
   stopCount: number;
+  /**
+   * The reference classification, returned so the caller can log the labels the
+   * class map did not recognise. Keeping it internal is how those misses went
+   * unreported for as long as they did.
+   */
+  classified: ClassifyResult;
 }
 
 const numStr = (n: number | null) => (n === null ? '' : String(n));
@@ -414,7 +420,7 @@ export function applyParsedToForm(
 
   set('stops', stops);
 
-  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length };
+  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length, classified };
 }
 
 /** Loadout fields, applied only after the dispatcher confirms the load is a loadout. */

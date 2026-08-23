@@ -33,7 +33,8 @@ export type ReferenceClass =
   | 'mode'
   | 'equipment'
   | 'service'
-  | 'other';
+  | 'other'
+  | 'unclassified';
 
 export interface ReferenceClassSpec {
   clazz: ReferenceClass;
@@ -42,6 +43,13 @@ export interface ReferenceClassSpec {
   identifying: boolean;
   /** Where a non-identifying class is routed instead of `load_references`. */
   routeTo?: 'loads.mode';
+  /**
+   * The printed label is the only label this class has, so it is kept verbatim
+   * and the class label is never substituted for it.
+   */
+  keepsPrintedLabel?: boolean;
+  /** The parser did not recognise the printed label; surfaced as such in the UI. */
+  unrecognized?: boolean;
 }
 
 export const REFERENCE_CLASSES: Record<ReferenceClass, ReferenceClassSpec> = {
@@ -59,6 +67,14 @@ export const REFERENCE_CLASSES: Record<ReferenceClass, ReferenceClassSpec> = {
   equipment:   { clazz: 'equipment',   label: 'Equipment',        identifying: false },
   service:     { clazz: 'service',     label: 'Service Level',    identifying: false },
   other:       { clazz: 'other',       label: 'Reference',        identifying: true },
+  // A label the map does not know. Kept out of `other` on purpose: `other` is a
+  // real class carrying genuine order numbers, and an unknown label landing there
+  // is indistinguishable from one and dedups as though it were one. This class
+  // keeps the printed label, dedups on value alone, and is shown as unrecognised.
+  unclassified: {
+    clazz: 'unclassified', label: 'Unrecognised Label', identifying: true,
+    keepsPrintedLabel: true, unrecognized: true,
+  },
 };
 
 /** Printed label -> class. Keys are normalized by `labelKey`. */
@@ -86,17 +102,38 @@ export function labelKey(label: string | null | undefined): string {
   return (label ?? '').toUpperCase().replace(/[^A-Z]/g, '');
 }
 
+/**
+ * An ABSENT label and an UNRECOGNISED label are different things:
+ *   - absent      -> `other`, a genuinely unlabelled reference
+ *   - unrecognised-> `unclassified`, a label this map has never been taught
+ * Collapsing the second into the first is the silent-wrong this class exists to
+ * end: an unfamiliar broker would otherwise parse clean with no signal anywhere.
+ */
 export function classifyReferenceLabel(label: string | null | undefined): ReferenceClass {
   const key = labelKey(label);
   if (!key) return 'other';
   if (LABEL_MAP[key]) return LABEL_MAP[key];
   // `PU# (Shipper)` style suffixes: fall back to a prefix hit.
   const hit = Object.keys(LABEL_MAP).find((k) => k.length >= 3 && key.startsWith(k));
-  return hit ? LABEL_MAP[hit] : 'other';
+  return hit ? LABEL_MAP[hit] : 'unclassified';
 }
 
 export const isIdentifyingClass = (c: ReferenceClass): boolean =>
   REFERENCE_CLASSES[c].identifying;
+
+/** True when the parser could not place the printed label. */
+export const isUnrecognizedClass = (c: ReferenceClass): boolean =>
+  REFERENCE_CLASSES[c].unrecognized === true;
+
+/** How a reference row should be labelled in the UI. */
+export function referenceDisplayLabel(
+  clazz: ReferenceClass, printedLabel: string | null | undefined,
+): string {
+  const printed = (printedLabel ?? '').trim();
+  const spec = REFERENCE_CLASSES[clazz];
+  if (spec.keepsPrintedLabel) return printed || spec.label;
+  return printed || spec.label;
+}
 
 /** Comparison key for a value: case and punctuation insensitive, content preserved. */
 export const referenceValueKey = (value: string | null | undefined): string =>
@@ -140,9 +177,21 @@ export interface ClassifyResult {
   /** Categorical rows routed out of references. */
   routed: { clazz: ReferenceClass; value: string; routeTo?: string }[];
   dropped: { clazz: ReferenceClass; label: string; value: string }[];
+  /**
+   * Printed labels the map does not know, kept so they can be logged and taught.
+   * The LABEL only — never the value. This list feeds a diagnostic, and a
+   * diagnostic must not become a second copy of broker-authored identifiers.
+   */
+  unrecognized: { label: string; stopSequence: number | null }[];
 }
 
-/** Identity of a reference row for diffing and dedup: class + normalized value. */
+/**
+ * Identity of a reference row for diffing and dedup: class + normalized value.
+ *
+ * `unclassified` is a single constant class, so rows in it dedup on the value
+ * alone — two differently-printed unknown labels carrying the same number
+ * collapse — while staying isolated from every recognised class.
+ */
 export const referenceKey = (clazz: ReferenceClass, value: string | null | undefined): string =>
   `${clazz}:${referenceValueKey(value)}`;
 
@@ -167,22 +216,30 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
   const byKey = new Map<string, ClassifiedReference>();
   const routed: ClassifyResult['routed'] = [];
   const dropped: ClassifyResult['dropped'] = [];
+  const unrecognized: ClassifyResult['unrecognized'] = [];
+  const seenLabels = new Set<string>();
 
   rows.forEach((row) => {
     const value = (row.value ?? '').trim();
     if (!value) return;
     const clazz = classifyReferenceLabel(row.label);
     const spec = REFERENCE_CLASSES[clazz];
+    const printedRaw = (row.label ?? '').trim();
+
+    if (spec.unrecognized && printedRaw && !seenLabels.has(labelKey(printedRaw))) {
+      seenLabels.add(labelKey(printedRaw));
+      unrecognized.push({ label: printedRaw, stopSequence: row.stopSequence ?? null });
+    }
 
     if (!spec.identifying) {
       if (spec.routeTo) routed.push({ clazz, value, routeTo: spec.routeTo });
-      else dropped.push({ clazz, label: (row.label ?? '').trim(), value });
+      else dropped.push({ clazz, label: printedRaw, value });
       return;
     }
 
     const key = referenceKey(clazz, value);
     const seq = row.stopSequence ?? null;
-    const printed = (row.label ?? '').trim() || spec.label;
+    const printed = printedRaw || spec.label;
     const existing = byKey.get(key);
 
     if (existing) {
@@ -190,6 +247,9 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
         const already = existing.citations
           .some(c => c.stopSequence === seq && labelKey(c.printedLabel) === labelKey(printed));
         if (!already) existing.citations.push({ stopSequence: seq, printedLabel: printed });
+        // An unrecognised row has no canonical label to fall back on, so the
+        // first printed form it was seen with stands as the row's label.
+        if (spec.keepsPrintedLabel && existing.label === spec.label) existing.label = printed;
       } else {
         // The load-level table is the authority on the row's own label.
         existing.loadLevel = true;
@@ -201,8 +261,9 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
     byKey.set(key, {
       clazz,
       // A stop-only row keeps the canonical class label at row level; its
-      // printed form lives on the citation.
-      label: seq === null ? printed : spec.label,
+      // printed form lives on the citation. An unrecognised row has no
+      // canonical label, so it keeps what the document printed.
+      label: seq === null || spec.keepsPrintedLabel ? printed : spec.label,
       value,
       valueKey: referenceValueKey(value),
       citations: seq === null ? [] : [{ stopSequence: seq, printedLabel: printed }],
@@ -210,6 +271,6 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
     });
   });
 
-  return { references: [...byKey.values()], routed, dropped };
+  return { references: [...byKey.values()], routed, dropped, unrecognized };
 }
 

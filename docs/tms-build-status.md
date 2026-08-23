@@ -125,3 +125,68 @@ The verbatim text is still captured and stored; only the verification is
 refused. Every occurrence is logged through `recordAnchorMiss` with the observed
 `Stop N` and `Comments:` line positions. That log is the data for deciding later
 whether a bounded look-back is safe — nothing reads it automatically today.
+
+---
+
+## Parser diagnostics are persisted
+
+`recordAnchorMiss` used to write to a module-level array that nothing read and
+a page reload erased. Misses are now drained after every parse and written to
+`public.parser_diagnostics`, with the field, the failure reason, the
+heading-shaped lines the document printed, and the load and document they came
+from. Readable at **/dispatch/parser-diagnostics** (Dispatch → Parser
+Diagnostics), grouped by kind, with a "Mark taught" action once an anchor or a
+label has been added to the map.
+
+Three kinds are logged:
+
+- `anchor_miss` — no heading matched the anchor set, or the region was ambiguous
+  or empty.
+- `reference_label_unrecognized` — a printed reference label the class map has
+  never been taught. These now classify as `unclassified`, not `other`; an
+  ABSENT label is still `other`, since an unlabelled reference is a real thing
+  and not a miss.
+- `reference_row_dropped` — a reference row the classifier discarded.
+
+Only labels and headings are stored, never reference values: this log must not
+become a second copy of broker-authored identifiers.
+
+## Verification and references are read back on Load Detail
+
+Stored verdicts render on Load Detail for any capture that is not plainly
+`verified`, with the artifact list on expand, and a manually repaired span is
+marked as such with who repaired it and when (server-stamped by
+`set_load_verbatim_verification`). The load's reference rows render with their
+class and stop citations, so a filed baseline is visible on the load itself
+rather than inferable from a review screen showing no changes.
+
+## Standing rule: verify every check is reachable from BOTH paths
+
+Three gaps of the same shape surfaced in one night — `saveLoadReferences` with
+no caller, verification absent from the revision path, and a log nothing read.
+Each was a correct implementation with no invocation on the path that mattered,
+and unit tests missed all three because they call the functions directly.
+
+Every check is therefore tagged `@parser-check` in its JSDoc, and
+`src/lib/__tests__/parserPathWiring.test.ts` discovers the tagged exports from
+the tree, walks the import graph out from the create path
+(`CreateLoadPage.tsx`) and the revision path (`RevisedRateConModal.tsx`), and
+fails when a tagged function is not called anywhere reachable from either.
+**A new check is not done until it is tagged and the wiring test passes.**
+
+## Known revision-path gaps (deferred, not forgotten)
+
+The revision path does not yet do these things the create path does:
+
+- **Facility directory matching on an added stop.** A stop added by a revision
+  is stored as the document printed it, with no suggestion from the facility
+  directory.
+- **Broker address prefill and provenance.** A revision that changes broker
+  details does not prefill or record where the address came from.
+- **Broker candidate matching or creation from a revision.** A revised document
+  naming a broker not on file cannot link or create one; the load keeps its
+  existing broker link.
+
+Duplicate broker-reference detection is no longer on this list: a revision that
+changes `broker_reference_number` now runs the same check as the create path
+(current load excluded) and warns with the same override-with-audit behaviour.
