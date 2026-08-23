@@ -953,6 +953,23 @@ export default function RevisedRateConModal({
           </div>
         ) : null}
       </DialogContent>
+
+      <DuplicateBrokerRefDialog
+        open={duplicateOpen}
+        matches={duplicates}
+        reference={duplicateRef}
+        canRevise={false}
+        createLabel="Apply revision anyway"
+        onOpenChange={setDuplicateOpen}
+        onViewExisting={(id) => { setDuplicateOpen(false); window.open(`/dispatch/loads/${id}`, '_blank'); }}
+        onUpdateExisting={(id) => { setDuplicateOpen(false); window.open(`/dispatch/loads/${id}`, '_blank'); }}
+        onCreateAnyway={(existingLoadId, reason) => {
+          duplicateOverride.current = { existingLoadId, reason };
+          duplicateCleared.current.add(duplicateRef.trim().toUpperCase());
+          setDuplicateOpen(false);
+          void apply();
+        }}
+      />
     </Dialog>
   );
 }
