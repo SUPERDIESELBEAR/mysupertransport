@@ -598,14 +598,20 @@ export function buildRevisionDiff(
         id: `ref.remove.${key}`,
         label: `Reference removed — ${r.label}`,
         path: 'references', stopIndex: null,
-        current: `${r.label}: ${r.value}`, revised: '—',
-        value: null, hasDriverData: false, defaultAccept: true,
+        current: `${r.label}: ${r.value}`,
+        revised: 'Not printed on this document',
+        // Never pre-accepted. A number missing from a revised document has two
+        // readings — the broker dropped it, or the parser failed to read it this
+        // time — and only a person looking at the page can tell them apart.
+        // Deleting a live BOL number on the parser's word is the worse mistake.
+        value: null, hasDriverData: false, defaultAccept: false,
         reference: {
           op: 'removed', reference_class: r.reference_class, label: r.label,
           value: r.value, citations: toCitations(r.citations),
         },
       });
     });
+
   }
 
 
