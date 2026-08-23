@@ -14,6 +14,18 @@ import type { VerbatimCheck } from '@/lib/verbatimCheck';
  * a span they cannot see would just move the guess from the model to them.
  */
 
+/**
+ * Why a region did not resolve, in words, at the place the failure is seen.
+ * Keys are the `RegionFailure` codes the resolver returns.
+ */
+export const REGION_FAILURE_COPY: Record<string, string> = {
+  anchor_not_found: 'No printed heading on the page matched the anchors for this field',
+  anchor_ambiguous: 'Several headings matched, so the region could not be chosen',
+  stop_not_found: 'This stop has no printed “Stop N” heading to cut a region from',
+  empty_region: 'The heading matched but the block beneath it was empty',
+  comment_precedes_heading: 'A stop comment is printed above its stop heading, so no stop slice is trustworthy',
+};
+
 export const VERDICT_COPY: Record<string, { label: string; tone: string; hint: string }> = {
   verified: {
     label: 'Matches the page',
