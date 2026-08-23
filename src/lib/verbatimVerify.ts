@@ -69,12 +69,21 @@ export interface VerbatimVerification {
   similarity: number | null;
   /** High-signal tokens the region prints but the transcription dropped. */
   missingTokens: string[] | null;
+  /**
+   * Words the transcription prints that the region does not. The mirror of
+   * `missingTokens`: one catches what the page prints and the capture dropped,
+   * this catches what the capture prints and the page does not.
+   */
+  unknownWords: string[] | null;
   /** Damage of the region's own raw lines. One figure per field per document. */
   layerDegradation: number | null;
   /** Reported even when the headline verdict is `layer_unreliable`. */
   similarityPass: boolean | null;
   /** Reported even when the headline verdict is `layer_unreliable`. */
   tokenPass: boolean | null;
+  /** Reported even when the headline verdict is `layer_unreliable`. */
+  wordPass: boolean | null;
+
   /** How the compared region was chosen. Never a whole-layer fallback. */
   regionSource: 'anchor' | 'none';
   /** Which printed anchor matched, when one did. */
