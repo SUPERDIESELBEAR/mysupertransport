@@ -217,6 +217,10 @@ export async function fetchDuplicateCandidates(
 
 
 /** Runs the whole check: candidates + name fallback + the pure classifier. */
+/**
+ * @parser-check
+ * Warns when a broker reference already belongs to another load.
+ */
 export async function checkForDuplicateBrokerReference(args: {
   reference: string | null | undefined;
   brokerId: string | null | undefined;
