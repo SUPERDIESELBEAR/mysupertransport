@@ -121,15 +121,13 @@ export async function logParserDiagnostics(
   } catch (err) {
     // Still never interrupts a parse — but never silent either. A swallowed
     // write is indistinguishable from a clean parse, which is how an insert
-    // policy that could never pass went unnoticed for a day.
-    logDbError('log parser diagnostics', err, { rows: rowCount });
+    // policy that could never pass went unnoticed.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[parser-diagnostics] could not record diagnostics', err);
     toast({
       variant: 'destructive',
       title: 'Parser diagnostics could not be recorded',
-      description: getDbErrorMessage(
-        err,
-        'The unrecognised headings from this parse were not saved. The parse itself is unaffected.',
-      ),
+      description: `${message}. The unrecognised headings from this parse were not saved; the parse itself is unaffected.`,
     });
     return 0;
   }
