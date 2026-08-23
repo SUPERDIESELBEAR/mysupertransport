@@ -36,6 +36,12 @@ export async function verifyParsedVerbatim(
   const text = layer?.text ?? '';
   const out: VerbatimCheck[] = [];
 
+  // The heading-shaped lines are carried on the check itself, so the reason a
+  // field did not resolve is readable on the parse screen. It used to be
+  // reachable only from the diagnostics page, which meant discarding an unsaved
+  // parse to learn why the parse failed.
+  const headings = documentHeadings(text);
+
   const withPage = (
     v: VerbatimVerification, parsedStopIndex: number | null, value: string,
   ): VerbatimCheck => ({
@@ -43,6 +49,7 @@ export async function verifyParsedVerbatim(
     page: pageForLine(layer, v.regionStartLine),
     parsedStopIndex,
     value,
+    documentHeadings: v.regionFailure ? headings : null,
   });
 
   const si = result.verbatim?.special_instructions?.value;
