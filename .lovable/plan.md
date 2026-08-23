@@ -12,13 +12,21 @@ The write is reached, the misses are collected, and the insert fails. Confirmed 
 
 Ruled out: `logParserDiagnostics` is reached on the create path after verification; `takeAnchorMisses()` is drained only inside that call, so nothing else emptied the buffer; and the Rolling River failures are ordinary `anchor_miss` shapes the collector handles.
 
+### Widened policy audit — already run, results below
+
+Two catalog sweeps across the whole `public` schema, not just this family:
+
+1. **Every RLS policy whose expression compares a `profiles(id)` foreign-key column directly to `auth.uid()`** (checked in both operand orders, all commands, all tables): exactly one hit — `parser_diagnostics` / `Dispatch staff log parser diagnostics` / INSERT / `created_by = auth.uid()`. No other table has this mismatch.
+2. **Every column in `public` whose default calls `current_profile_id()`**: exactly one — `parser_diagnostics.created_by`.
+
+Verdict: the actor-stamp work left one default/policy pair disagreeing, and it is this one. Every other policy touching a profiles-FK column gates on `has_role(auth.uid(), …)` only and never equates the column to a uid, so it is unaffected. Both sweeps are re-run and reported after the fix migration.
+
 Fix, before anything else is built:
 
 1. Migration: replace the INSERT policy's `created_by = auth.uid()` with `created_by = current_profile_id()`, matching the column default and the server-side-actor rule.
-2. Audit every other policy in this family for the same uid/profile-id mismatch and correct any found in the same migration.
-3. Make the failure loud: `logParserDiagnostics` still never interrupts a parse, but a failed write now raises a toast on the parse screen ("Parser diagnostics could not be recorded") and logs through `logDbError`.
+2. Make the failure loud: `logParserDiagnostics` still never interrupts a parse, but a failed write now raises a toast on the parse screen ("Parser diagnostics could not be recorded") and logs through `logDbError`.
+3. Regression test over the whole actor-default set, not just this table: for every column in `public` whose default stamps an actor via `current_profile_id()`, assert the table's insert policy accepts a row carrying that default — and assert no policy in `public` equates a `profiles(id)` FK column to `auth.uid()`. Both sweeps live in the test, so a new table added later is covered without editing the test.
 4. Verification: re-run the Rolling River document, confirm rows land, and report what they captured — failure codes and heading lines — before section 5's anchor report is finalised.
-5. Regression test asserting the insert policy accepts a row stamped with the column default, so a default and its policy can never disagree silently again.
 
 ## Answers to the other questions
 
