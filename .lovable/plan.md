@@ -1,12 +1,30 @@
-# Rolling River parse: rate preservation, loadout use window, inline diagnostics, placeholder references
+# Rolling River parse: diagnostics write failure, rate preservation, loadout use window, inline detail
 
-## Answers first
+## Step zero — cause found: every diagnostic insert is rejected by RLS and the rejection is swallowed
 
-**Sidebar entry — it already exists.** The Dispatch portal sidebar has a `Tools` divider and a `Parser Diagnostics` item routing to `/dispatch/parser-diagnostics` (`DispatchPortal.tsx`, nav items list). It is Dispatch-only; Management has no entry. If you are not seeing it, that is a rendering/permission issue to reproduce rather than a missing menu — the plan includes verifying it renders for your role, and adding the same entry to the Management portal sidebar.
+The write is reached, the misses are collected, and the insert fails. Confirmed against the live database:
 
-**Trailer use window — there is no field for it.** The loadout section stores `loadout_use_period_days` (a plain number of days). There is no start date, no end date, nothing the parser can fill from "08/17/2026 through 08/24/2026". This plan adds one.
+- `parser_diagnostics.created_by` defaults to `current_profile_id()` — a `profiles.id`.
+- The INSERT policy `Dispatch staff log parser diagnostics` requires `created_by = auth.uid()`.
+- Across all 165 profiles, `profiles.id` never equals the auth uid (0 matches). That check can never pass: **every insert returns 42501.**
+- The two surviving Blue Grace rows were written at 17:58 UTC, before the actor-stamp migrations later that afternoon changed the default to `current_profile_id()`. Their `created_by` is a profile id. Nothing has been written since.
+- `logParserDiagnostics` catches the error and calls `console.warn` only, which is why the failure was indistinguishable from never being called.
 
-**What parser_diagnostics captured for the Rolling River parse: nothing.** The table currently holds only two rows, both from `Blue Grace Revised.pdf` (`ST26034`), kind `anchor_miss`, field `stop_notes_verbatim`, failure `comment_precedes_heading`, stops 1 and 2. No Rolling River rows exist. The create path does call `logParserDiagnostics` after a parse, so the reason the three misses on this document produced no rows is unconfirmed — diagnosing that is the first step below, before anything is built on top of it.
+Ruled out: `logParserDiagnostics` is reached on the create path after verification; `takeAnchorMisses()` is drained only inside that call, so nothing else emptied the buffer; and the Rolling River failures are ordinary `anchor_miss` shapes the collector handles.
+
+Fix, before anything else is built:
+
+1. Migration: replace the INSERT policy's `created_by = auth.uid()` with `created_by = current_profile_id()`, matching the column default and the server-side-actor rule.
+2. Audit every other policy in this family for the same uid/profile-id mismatch and correct any found in the same migration.
+3. Make the failure loud: `logParserDiagnostics` still never interrupts a parse, but a failed write now raises a toast on the parse screen ("Parser diagnostics could not be recorded") and logs through `logDbError`.
+4. Verification: re-run the Rolling River document, confirm rows land, and report what they captured — failure codes and heading lines — before section 5's anchor report is finalised.
+5. Regression test asserting the insert policy accepts a row stamped with the column default, so a default and its policy can never disagree silently again.
+
+## Answers to the other questions
+
+**Sidebar entry.** It exists in the Dispatch portal under a `Tools` divider (`/dispatch/parser-diagnostics`). Management has no entry — that is why you could not find it. The same entry is added to the Management portal sidebar.
+
+**Trailer use window — there is no field for it.** The loadout section stores only `loadout_use_period_days`, a plain number of days. No start date, no end date, nothing the parser can fill from "08/17/2026 through 08/24/2026". This plan adds them.
 
 ## 1. A load type change must not discard a parsed amount
 
