@@ -25,6 +25,11 @@ export const VERDICT_COPY: Record<string, { label: string; tone: string; hint: s
     tone: 'border-destructive/50 bg-destructive/10',
     hint: 'The capture contains characters the page does not print, so the model copied the PDF\u2019s broken text instead of reading the page. Type what the document shows.',
   },
+  repaired: {
+    label: 'Repaired by hand',
+    tone: 'border-primary/40 bg-primary/10',
+    hint: 'Typed off the printed page by a person, so the PDF\u2019s text layer no longer decides it.',
+  },
   unverified: {
     label: 'Does not match the page',
     tone: 'border-destructive/40 bg-destructive/10',
