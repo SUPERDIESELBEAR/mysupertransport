@@ -42,6 +42,11 @@ import {
   type StopResolution,
 } from '@/lib/revisedRateCon';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
+import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import { verifyVerbatim } from '@/lib/verbatimVerify';
+import { textLayerFor } from '@/lib/pdfTextLayer';
+import { saveVerbatimVerification } from '@/lib/verbatimPersist';
+import VerbatimRepairField from '@/components/dispatch/loadForm/VerbatimRepairField';
 
 interface Props {
   load: LoadDetail;
@@ -87,6 +92,8 @@ export default function RevisedRateConModal({
   /** Pay policy in force for this load's driver — drives the settlement hints. */
   const [payPolicy, setPayPolicy] = useState<PayPolicyRates | null>(null);
   const [filingBaseline, setFilingBaseline] = useState(false);
+  /** How each verbatim capture in this document was judged. */
+  const [verbatim, setVerbatim] = useState<VerbatimCheck[]>([]);
   /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
   const uploadedDocId = useRef<string | null>(null);
 
@@ -178,10 +185,23 @@ export default function RevisedRateConModal({
         loadReference: values.broker_reference_number || null,
       });
 
+      // Judge the transcriptions before the diff is offered. A capture the
+      // model copied out of a broken text layer must not arrive pre-accepted.
+      let checks: VerbatimCheck[] = [];
+      try {
+        checks = (await verifyParsedVerbatim(target, result)).checks;
+      } catch (verifyError) {
+        logDbError('verbatim verification (revision)', verifyError, { loadId: load.id });
+      }
+      result.verbatim_verification = checks;
+
       setBaseValues(values);
       setParsed(result);
+      setVerbatim(checks);
       setIdentity(check);
-      setDecisions(initialDecisions(buildRevisionDiff(values, result, {})));
+      setDecisions(rejectDamaged(initialDecisions(
+        buildRevisionDiff(values, result, {}),
+      ), buildRevisionDiff(values, result, {}), checks));
 
       // The document is attached as soon as it parses, not when it is applied.
       // A dispatcher who reviews a revision and cancels has still received a
@@ -301,6 +321,35 @@ export default function RevisedRateConModal({
     }
   };
 
+  /**
+   * Replaces a corrupted capture with what the dispatcher reads off the page.
+   *
+   * The repaired text is judged as `manual_repair`: it is never scored against
+   * the text layer, because the layer is the thing that was wrong.
+   */
+  const repairVerbatim = async (v: VerbatimCheck, text: string) => {
+    if (!parsed) return;
+    const next = withRepairedCapture(parsed, v, text);
+
+    const layer = file ? await textLayerFor(file).catch(() => null) : null;
+    const recheck: VerbatimCheck = {
+      ...verifyVerbatim(v.field, text, layer?.text ?? '', {
+        stopNumber: v.parsedStopIndex === null ? undefined : v.parsedStopIndex + 1,
+        source: 'manual_repair',
+        log: false,
+      }),
+      page: v.page,
+      parsedStopIndex: v.parsedStopIndex,
+      value: text,
+    };
+    const checks = verbatim.map(c =>
+      c.field === v.field && c.parsedStopIndex === v.parsedStopIndex ? recheck : c);
+    next.verbatim_verification = checks;
+
+    setParsed(next);
+    setVerbatim(checks);
+  };
+
   const apply = async () => {
     if (!diff || !baseValues) return;
     setSaving(true);
@@ -325,6 +374,15 @@ export default function RevisedRateConModal({
         // No stop is ever removed by a revision, so there is no data loss to acknowledge.
         acknowledgeStopDataLoss: false,
       });
+
+      // The verdicts follow the captures onto the load, repairs included.
+      if (verbatim.length) {
+        try {
+          await saveVerbatimVerification(load.id, verbatim);
+        } catch (verifyError) {
+          logDbError('set_load_verbatim_verification (revision)', verifyError, { loadId: load.id });
+        }
+      }
 
       // The file was attached at parse time; applying only relabels it. The
       // original rate confirmation stays exactly where it is.
