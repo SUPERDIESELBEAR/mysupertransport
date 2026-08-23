@@ -187,6 +187,16 @@ export default function RateConfirmationParser({
       result.verbatim_verification = checks;
       setVerbatim(checks);
 
+      // Anchor and label misses are filed here, on the create path. The same
+      // call runs on the revision path — a check that exists on only one of the
+      // two is the failure mode this wiring is guarding against.
+      await logParserDiagnostics(applied.classified, {
+        documentLabel: file.name,
+        parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
+      });
+
+
+
 
       setParsed(result);
       onParsed?.(result);
