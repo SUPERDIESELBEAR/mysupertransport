@@ -16,9 +16,9 @@ const CHAT_MODEL = 'google/gemini-3-flash-preview';
  * stray log string was luck, not a control.
  */
 const PARSER_BUILD = {
-  contract: 3,
-  built_at: '2026-08-22T18:00:00Z',
-  notes: 'document-level references table + verbatim block + line item logging',
+  contract: 4,
+  built_at: '2026-08-24T00:00:00Z',
+  notes: 'contract 3 + anti text-layer-artifact transcription rule',
 };
 
 
@@ -181,6 +181,8 @@ Rules:
 - VERBATIM CAPTURE (verbatim.broker_terms, verbatim.special_instructions, stops[].notes_verbatim): these are transcriptions, not summaries. Copy the printed text EXACTLY: same wording, same order, same punctuation, same capitalisation, same asterisks and symbols. Do not reword, reorder, shorten, expand, de-duplicate, fix spelling or fix grammar. Do not drop phone numbers, email addresses, dollar amounts or order numbers. Do not add anything that is not printed.
   - Keep the blocks SEPARATE. The broker's terms paragraph and the block printed under a "Special Instructions" heading are two different sources: never concatenate them, and never move text between them. If a document has only one of the two, the other is null.
   - Preserve printed line breaks as "\\n". Preserve doubled asterisks (**) exactly where they appear.
+  - READ THE PRINTED PAGE, NOT THE PDF'S EMBEDDED TEXT. Some documents carry a broken text layer where a printed span such as 53' 102" comes through as a paragraph mark, a control character, an escaped entity (&#182;) or a replacement character. Never reproduce those: they are not printed on the page. Transcribe the glyphs a reader sees. If a span is genuinely illegible, write what you can read and leave the illegible part out rather than inserting a symbol.
+  - Never emit the characters \u00b6 (pilcrow), \ufffd (replacement character), or any control character inside a verbatim field.
   - special_instructions (the condensed field) is for display only. If you cannot produce a faithful verbatim copy of a block, return null for that verbatim field rather than a paraphrase.
 - references: transcribe the document-level References table rows exactly as printed, one entry per printed row, label and value unchanged. Include EVERY row, including categorical rows such as "Mode: TL" — the system decides what is an identifier. Do not merge rows that share a value under different Reference Types: "BOL BG969676425" and "PRO BG969676425" are two rows. If the document has no such table, return an empty array.
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;

@@ -4555,6 +4555,7 @@ export type Database = {
           total_load_value: number | null
           updated_at: string
           updated_by: string | null
+          verbatim_verification: Json | null
           weight_lbs: number | null
         }
         Insert: {
@@ -4621,6 +4622,7 @@ export type Database = {
           total_load_value?: number | null
           updated_at?: string
           updated_by?: string | null
+          verbatim_verification?: Json | null
           weight_lbs?: number | null
         }
         Update: {
@@ -4687,6 +4689,7 @@ export type Database = {
           total_load_value?: number | null
           updated_at?: string
           updated_by?: string | null
+          verbatim_verification?: Json | null
           weight_lbs?: number | null
         }
         Relationships: [
@@ -9407,6 +9410,10 @@ export type Database = {
       }
       set_go_live_with_override: {
         Args: { _go_live_date: string; _operator_id: string; _reason?: string }
+        Returns: undefined
+      }
+      set_load_verbatim_verification: {
+        Args: { p_load_id: string; p_records: Json }
         Returns: undefined
       }
       show_limit: { Args: never; Returns: number }

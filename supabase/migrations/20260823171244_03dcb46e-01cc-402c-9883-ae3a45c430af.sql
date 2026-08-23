@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.set_load_verbatim_verification(uuid, jsonb) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.record_load_reference_baseline(uuid, uuid, text, text) FROM anon, PUBLIC;

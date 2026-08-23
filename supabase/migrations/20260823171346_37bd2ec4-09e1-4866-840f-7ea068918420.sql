@@ -1,0 +1,2 @@
+ALTER FUNCTION public.set_load_verbatim_verification(uuid, jsonb) SET search_path TO 'public', 'extensions';
+ALTER FUNCTION public.record_load_reference_baseline(uuid, uuid, text, text) SET search_path TO 'public', 'extensions';

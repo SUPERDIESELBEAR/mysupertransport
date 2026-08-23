@@ -32,7 +32,7 @@ import {
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import { formatCurrency, type LoadStatus } from '@/lib/loadFormat';
 import {
-  fileToBase64, validateRateConFile, type ParsedRateConfirmation,
+  fileToBase64, parserContractWarning, validateRateConFile, type ParsedRateConfirmation,
 } from '@/lib/rateConfirmation';
 import {
   applyRevision, buildRevisionDiff, buildRevisionReason, checkDocumentIdentity,
@@ -42,6 +42,13 @@ import {
   type StopResolution,
 } from '@/lib/revisedRateCon';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
+import {
+  verifyParsedVerbatim, withRepairedCapture, type VerbatimCheck,
+} from '@/lib/verbatimCheck';
+import { verifyVerbatim } from '@/lib/verbatimVerify';
+import { textLayerFor } from '@/lib/pdfTextLayer';
+import { saveVerbatimVerification } from '@/lib/verbatimPersist';
+import VerbatimRepairField from '@/components/dispatch/loadForm/VerbatimRepairField';
 
 interface Props {
   load: LoadDetail;
@@ -55,6 +62,26 @@ interface Props {
 }
 
 type Phase = 'upload' | 'identity' | 'review';
+
+/**
+ * Un-checks any row whose new value is a corrupted capture.
+ *
+ * A damaged transcription is not a change the broker made; accepting one would
+ * write the PDF's own breakage onto the load as if the document said it.
+ */
+function rejectDamaged(
+  decisions: DiffDecisions, diff: RevisionDiff, checks: VerbatimCheck[],
+): DiffDecisions {
+  const damaged = new Set(
+    checks.filter(c => c.verdict === 'transcription_damaged').map(c => c.value),
+  );
+  if (!damaged.size) return decisions;
+  const accepted = { ...decisions.accepted };
+  diff.nonFinancial.forEach(row => {
+    if (typeof row.value === 'string' && damaged.has(row.value)) accepted[row.id] = false;
+  });
+  return { ...decisions, accepted };
+}
 
 /**
  * Applies a revised rate confirmation to an existing load.
@@ -87,6 +114,8 @@ export default function RevisedRateConModal({
   /** Pay policy in force for this load's driver — drives the settlement hints. */
   const [payPolicy, setPayPolicy] = useState<PayPolicyRates | null>(null);
   const [filingBaseline, setFilingBaseline] = useState(false);
+  /** How each verbatim capture in this document was judged. */
+  const [verbatim, setVerbatim] = useState<VerbatimCheck[]>([]);
   /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
   const uploadedDocId = useRef<string | null>(null);
 
@@ -178,10 +207,27 @@ export default function RevisedRateConModal({
         loadReference: values.broker_reference_number || null,
       });
 
+      const contractWarning = parserContractWarning(result);
+      if (contractWarning) {
+        toast({ variant: 'destructive', title: 'Parser version mismatch', description: contractWarning });
+      }
+
+      // Judge the transcriptions before the diff is offered. A capture the
+      // model copied out of a broken text layer must not arrive pre-accepted.
+      let checks: VerbatimCheck[] = [];
+      try {
+        checks = (await verifyParsedVerbatim(target, result)).checks;
+      } catch (verifyError) {
+        logDbError('verbatim verification (revision)', verifyError, { loadId: load.id });
+      }
+      result.verbatim_verification = checks;
+
       setBaseValues(values);
       setParsed(result);
+      setVerbatim(checks);
       setIdentity(check);
-      setDecisions(initialDecisions(buildRevisionDiff(values, result, {})));
+      const firstDiff = buildRevisionDiff(values, result, {});
+      setDecisions(rejectDamaged(initialDecisions(firstDiff), firstDiff, checks));
 
       // The document is attached as soon as it parses, not when it is applied.
       // A dispatcher who reviews a revision and cancels has still received a
@@ -301,6 +347,35 @@ export default function RevisedRateConModal({
     }
   };
 
+  /**
+   * Replaces a corrupted capture with what the dispatcher reads off the page.
+   *
+   * The repaired text is judged as `manual_repair`: it is never scored against
+   * the text layer, because the layer is the thing that was wrong.
+   */
+  const repairVerbatim = async (v: VerbatimCheck, text: string) => {
+    if (!parsed) return;
+    const next = withRepairedCapture(parsed, v, text);
+
+    const layer = file ? await textLayerFor(file).catch(() => null) : null;
+    const recheck: VerbatimCheck = {
+      ...verifyVerbatim(v.field, text, layer?.text ?? '', {
+        stopNumber: v.parsedStopIndex === null ? undefined : v.parsedStopIndex + 1,
+        source: 'manual_repair',
+        log: false,
+      }),
+      page: v.page,
+      parsedStopIndex: v.parsedStopIndex,
+      value: text,
+    };
+    const checks = verbatim.map(c =>
+      c.field === v.field && c.parsedStopIndex === v.parsedStopIndex ? recheck : c);
+    next.verbatim_verification = checks;
+
+    setParsed(next);
+    setVerbatim(checks);
+  };
+
   const apply = async () => {
     if (!diff || !baseValues) return;
     setSaving(true);
@@ -325,6 +400,15 @@ export default function RevisedRateConModal({
         // No stop is ever removed by a revision, so there is no data loss to acknowledge.
         acknowledgeStopDataLoss: false,
       });
+
+      // The verdicts follow the captures onto the load, repairs included.
+      if (verbatim.length) {
+        try {
+          await saveVerbatimVerification(load.id, verbatim);
+        } catch (verifyError) {
+          logDbError('set_load_verbatim_verification (revision)', verifyError, { loadId: load.id });
+        }
+      }
 
       // The file was attached at parse time; applying only relabels it. The
       // original rate confirmation stays exactly where it is.
@@ -499,6 +583,30 @@ export default function RevisedRateConModal({
                 The revised document matches this load. Nothing to apply.
               </div>
             ) : null}
+
+            {verbatim.some(v => v.verdict === 'transcription_damaged' || v.verdict === 'unverified') ? (
+              <section className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Captured text to check</h4>
+                <p className="text-xs text-muted-foreground">
+                  These transcriptions did not pass the check against the printed page. Repair a
+                  corrupted capture before accepting its row.
+                </p>
+                {verbatim
+                  .filter(v => v.verdict === 'transcription_damaged' || v.verdict === 'unverified')
+                  .map((v, i) => (
+                    <VerbatimRepairField
+                      key={`${v.field}-${v.parsedStopIndex ?? 'load'}-${i}`}
+                      check={v}
+                      file={file}
+                      value={v.value}
+                      subtitle={v.parsedStopIndex === null ? undefined : `Stop ${v.parsedStopIndex + 1}`}
+                      onRepair={text => repairVerbatim(v, text)}
+                    />
+                  ))}
+              </section>
+            ) : null}
+
+
 
             {diff.unresolved.length > 0 ? (
               <section className="space-y-2">

@@ -120,6 +120,23 @@ export interface ParsedRateConfirmation {
    * layer. Absent when the caller did not supply a text layer.
    */
   verbatim_verification?: VerbatimVerification[];
+  /** Identity of the deployed parser that produced this result. */
+  parser_build?: { contract: number; built_at: string; notes: string };
+}
+
+/**
+ * The parser contract this client is written against.
+ *
+ * A stale deploy answering with an older contract once surfaced as three
+ * unrelated-looking bugs, so divergence is reported rather than inferred.
+ */
+export const EXPECTED_PARSER_CONTRACT = 4;
+
+/** Warning text when the deployed parser is not the one this build expects. */
+export function parserContractWarning(result: ParsedRateConfirmation | null): string | null {
+  const got = result?.parser_build?.contract;
+  if (got === undefined || got === EXPECTED_PARSER_CONTRACT) return null;
+  return `This app expects rate-confirmation parser contract ${EXPECTED_PARSER_CONTRACT}, but the deployed parser answered with contract ${got}. Extracted fields may be missing or shaped differently.`;
 }
 
 /** A rate line the dispatcher still has to place (or deliberately drop). */

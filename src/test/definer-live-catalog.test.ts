@@ -280,6 +280,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role management|owner|dispatcher; writes the paired duplicate-broker-
   // reference notes to load_change_history on both loads. No other effect.
   "public.record_duplicate_broker_reference(uuid,uuid,text)",
+  // has_role management|owner|dispatcher|onboarding_staff; files a document's
+  // references as the load's baseline, with provenance. No financial effect.
+  "public.record_load_reference_baseline(uuid,uuid,text,text)",
+  // has_role management|owner|dispatcher|onboarding_staff; stores the verdicts
+  // for this load's verbatim captures. Writes one jsonb column, nothing else.
+  "public.set_load_verbatim_verification(uuid,jsonb)",
+
   // Token-gated public endpoints that also hold the authenticated grant; see
   // the KNOWN_ANON_EXECUTABLE entries above for the gate each one enforces.
   "public.get_ica_review_link(text)",
@@ -295,7 +302,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + the eight load-management RPCs and the three token-gated public
 // endpoints registered 2026-08-20, plus update_load_with_stops and
 // record_duplicate_broker_reference.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 86;
+// + record_load_reference_baseline and set_load_verbatim_verification.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 88;
+
 
 /**
  * The entries appearing more than once, by name. A bare count mismatch on a
