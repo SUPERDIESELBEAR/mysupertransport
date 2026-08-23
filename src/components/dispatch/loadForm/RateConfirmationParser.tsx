@@ -23,6 +23,7 @@ import {
   validateRateConFile,
   type BrokerCandidate, type LoadoutAssessment, type ParsedRateConfirmation,
   type UnassignedRateLine,
+  parserContractWarning,
 } from '@/lib/rateConfirmation';
 import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
@@ -176,6 +177,11 @@ export default function RateConfirmationParser({
 
       const applied = applyParsedToForm(result, (name, value) =>
         form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
+
+      const contractWarning = parserContractWarning(result);
+      if (contractWarning) {
+        toast({ variant: 'destructive', title: 'Parser version mismatch', description: contractWarning });
+      }
 
       const { checks } = await verifyParsedVerbatim(file, result);
       result.verbatim_verification = checks;

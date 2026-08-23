@@ -32,7 +32,7 @@ import {
 import { financialEditTier } from '@/lib/loadStatusFlow';
 import { formatCurrency, type LoadStatus } from '@/lib/loadFormat';
 import {
-  fileToBase64, validateRateConFile, type ParsedRateConfirmation,
+  fileToBase64, parserContractWarning, validateRateConFile, type ParsedRateConfirmation,
 } from '@/lib/rateConfirmation';
 import {
   applyRevision, buildRevisionDiff, buildRevisionReason, checkDocumentIdentity,
@@ -206,6 +206,11 @@ export default function RevisedRateConModal({
         loadBrokerName: load.broker?.company_name ?? null,
         loadReference: values.broker_reference_number || null,
       });
+
+      const contractWarning = parserContractWarning(result);
+      if (contractWarning) {
+        toast({ variant: 'destructive', title: 'Parser version mismatch', description: contractWarning });
+      }
 
       // Judge the transcriptions before the diff is offered. A capture the
       // model copied out of a broken text layer must not arrive pre-accepted.
