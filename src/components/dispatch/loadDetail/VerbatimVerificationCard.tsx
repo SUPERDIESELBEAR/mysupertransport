@@ -151,9 +151,11 @@ export default function VerbatimVerificationCard({ load }: { load: LoadDetail })
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {notable.map(r => (
+        {/* Per-stop captures repeat the same field name, so the field alone is
+            not unique; the position within the stored envelope is. */}
+        {notable.map((r, i) => (
           <VerificationRow
-            key={`${r.field}-${r.verdict}`}
+            key={`${r.field}-${r.stop_number ?? 'load'}-${i}`}
             record={r}
             repairedByName={r.repaired_by ? names?.[r.repaired_by] ?? null : null}
             checkedAt={checkedAt}
