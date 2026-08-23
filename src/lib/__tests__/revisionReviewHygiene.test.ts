@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildRevisionDiff, documentReferences, initialDecisions,
+  applyRevision, buildRevisionDiff, documentReferences, initialDecisions,
 } from '@/lib/revisedRateCon';
 import { payTreatment, type PayPolicyRates } from '@/lib/payTreatment';
 import { loadFormDefaults, emptyStop, type LoadFormValues } from '@/pages/dispatch/loadFormSchema';
@@ -195,5 +195,55 @@ describe('filing the document references as a baseline', () => {
     const after = buildRevisionDiff(filed, doc);
     expect(after.referencesComparable).toBe(true);
     expect(after.nonFinancial.filter(n => n.path === 'references')).toHaveLength(0);
+  });
+});
+
+describe('a reference the revised document no longer prints', () => {
+  const withRef = () => baseLoad({
+    references: [{
+      reference_class: 'bol', label: 'BOL', value: 'IX00286060',
+      citations: [{ stopSequence: 1, printedLabel: 'BOL#' }],
+    }],
+  } as Partial<LoadFormValues>);
+
+  // A number missing from a revision has two readings: the broker dropped it,
+  // or the parser failed to read it this run. Only a person looking at the page
+  // can tell them apart, and deleting a live BOL number is the worse mistake.
+  it('is never pre-accepted', () => {
+    const doc = parsedDoc({ references: [{ label: 'PRO', value: '778812' }] } as never);
+    const diff = buildRevisionDiff(withRef(), doc);
+    const row = diff.nonFinancial.find(n => n.id.startsWith('ref.remove.'));
+    expect(row).toBeDefined();
+    expect(row!.defaultAccept).toBe(false);
+    expect(initialDecisions(diff).accepted[row!.id]).toBe(false);
+  });
+
+  // Dropping the row out of the form values deletes nothing: the save path
+  // treats an absent reference as "not carried by this form". An accepted
+  // removal has to be stated explicitly or the number stays on file and the
+  // same row reappears on every later review.
+  it('is reported as an explicit removal once accepted', async () => {
+    const { applyRevision } = await import('@/lib/revisedRateCon');
+    const doc = parsedDoc({ references: [{ label: 'PRO', value: '778812' }] } as never);
+    const current = withRef();
+    const diff = buildRevisionDiff(current, doc);
+    const row = diff.nonFinancial.find(n => n.id.startsWith('ref.remove.'))!;
+    const decisions = initialDecisions(diff);
+    decisions.accepted[row.id] = true;
+
+    const result = applyRevision(current, diff, decisions);
+    expect(result.values.references?.some(r => r.value === 'IX00286060')).toBe(false);
+    expect(result.removedReferences).toEqual([
+      { reference_class: 'bol', label: 'BOL', value: 'IX00286060', value_key: 'IX00286060' },
+    ]);
+  });
+
+  it('reports nothing to remove when the row is left rejected', () => {
+    const doc = parsedDoc({ references: [{ label: 'PRO', value: '778812' }] } as never);
+    const current = withRef();
+    const diff = buildRevisionDiff(current, doc);
+    const result = applyRevision(current, diff, initialDecisions(diff));
+    expect(result.removedReferences).toEqual([]);
+    expect(result.values.references?.some(r => r.value === 'IX00286060')).toBe(true);
   });
 });
