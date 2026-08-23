@@ -16,6 +16,8 @@ export interface VerbatimCheck extends VerbatimVerification {
   page: number | null;
   /** Index into the *parsed* stops for a stop-level capture; null at load level. */
   parsedStopIndex: number | null;
+  /** The capture this verdict is about, as it stands (repairs included). */
+  value: string;
 }
 
 export interface VerbatimCheckResult {
@@ -30,17 +32,20 @@ export async function verifyParsedVerbatim(
   const text = layer?.text ?? '';
   const out: VerbatimCheck[] = [];
 
-  const withPage = (v: VerbatimVerification, parsedStopIndex: number | null): VerbatimCheck => ({
+  const withPage = (
+    v: VerbatimVerification, parsedStopIndex: number | null, value: string,
+  ): VerbatimCheck => ({
     ...v,
     page: pageForLine(layer, v.regionStartLine),
     parsedStopIndex,
+    value,
   });
 
   const si = result.verbatim?.special_instructions?.value;
-  if (si) out.push(withPage(verifyVerbatim('special_instructions_verbatim', si, text), null));
+  if (si) out.push(withPage(verifyVerbatim('special_instructions_verbatim', si, text), null, si));
 
   const bt = result.verbatim?.broker_terms?.value;
-  if (bt) out.push(withPage(verifyVerbatim('broker_terms_verbatim', bt, text), null));
+  if (bt) out.push(withPage(verifyVerbatim('broker_terms_verbatim', bt, text), null, bt));
 
   (result.stops ?? []).forEach((stop, i) => {
     const notes = stop.notes_verbatim?.value;
@@ -48,6 +53,7 @@ export async function verifyParsedVerbatim(
       out.push(withPage(
         verifyVerbatim('stop_notes_verbatim', notes, text, { stopNumber: i + 1 }),
         i,
+        notes,
       ));
     }
   });
