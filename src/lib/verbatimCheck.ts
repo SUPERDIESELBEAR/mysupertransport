@@ -25,6 +25,10 @@ export interface VerbatimCheckResult {
   layer: PdfTextLayer | null;
 }
 
+/**
+ * @parser-check
+ * Judges every verbatim capture in a parsed document against the printed page.
+ */
 export async function verifyParsedVerbatim(
   f: File, result: ParsedRateConfirmation,
 ): Promise<VerbatimCheckResult> {
