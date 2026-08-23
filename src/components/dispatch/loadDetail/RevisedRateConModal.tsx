@@ -443,7 +443,7 @@ export default function RevisedRateConModal({
 
     setSaving(true);
     try {
-      const { values, financialSummary } = applyRevision(baseValues, diff, decisions);
+      const { values, financialSummary, removedReferences } = applyRevision(baseValues, diff, decisions);
       const payload = buildLoadSavePayload(values, { isEdit: true });
       const reason = buildRevisionReason({
         financialSummary,
