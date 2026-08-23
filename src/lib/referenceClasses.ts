@@ -33,7 +33,8 @@ export type ReferenceClass =
   | 'mode'
   | 'equipment'
   | 'service'
-  | 'other';
+  | 'other'
+  | 'unclassified';
 
 export interface ReferenceClassSpec {
   clazz: ReferenceClass;
