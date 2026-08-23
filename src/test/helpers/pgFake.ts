@@ -84,12 +84,18 @@ export function classifyActorExpression(expr: string, body = ''): ActorKind {
   return 'unknown';
 }
 
+let bodyCache: Map<string, string> | null = null;
+
 /** Body of a function, resolved to its LAST definition across the migrations. */
 export function functionBody(name: string): string | null {
-  const hit = [...resolveMigrationFunctions().values()].find(
-    f => f.name === `public.${name}` || f.name === name,
-  );
-  return hit ? stripComments(hit.block) : null;
+  if (!bodyCache) {
+    // Resolving the whole migration set is expensive; do it once per process.
+    bodyCache = new Map();
+    for (const f of resolveMigrationFunctions().values()) {
+      bodyCache.set(f.name.replace(/^public\./, ''), stripComments(f.block));
+    }
+  }
+  return bodyCache.get(name.replace(/^public\./, '')) ?? null;
 }
 
 /**
@@ -103,6 +109,15 @@ export function actorExpressionFor(
 ): { kind: ActorKind; expr: string } | null {
   const body = functionBody(fnName);
   if (!body) return null;
+  return actorExpressionInBody(body, table, column);
+}
+
+/** Same read, against a body the caller already has. */
+export function actorExpressionInBody(
+  body: string,
+  table: string,
+  column: string,
+): { kind: ActorKind; expr: string } | null {
 
   const insertRe = new RegExp(
     `insert\\s+into\\s+(?:public\\.)?${table}\\s*\\(([\\s\\S]*?)\\)\\s*values\\s*\\(([\\s\\S]*?)\\)\\s*(?:on\\s+conflict|returning|;)`,

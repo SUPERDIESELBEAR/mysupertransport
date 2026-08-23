@@ -6,6 +6,7 @@ import {
   PROFILE_ID,
   PROFILE_FK_COLUMNS,
   actorExpressionFor,
+  actorExpressionInBody,
   createPgFake,
   functionBody,
 } from './helpers/pgFake';
@@ -52,7 +53,7 @@ describe('SQL functions resolve the actor server-side', () => {
       for (const [table, cols] of Object.entries(PROFILE_FK_COLUMNS)) {
         if (!new RegExp(`\\b${table}\\b`, 'i').test(body)) continue;
         for (const col of cols) {
-          const found = actorExpressionFor(fn.name.replace(/^public\./, ''), table, col);
+          const found = actorExpressionInBody(body, table, col);
           if (found?.kind === 'auth_uid') {
             offenders.push(`${fn.name} → ${table}.${col} = ${found.expr}`);
           }
