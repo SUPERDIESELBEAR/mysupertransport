@@ -1,65 +1,97 @@
-# Path-coverage audit: which checks are create-path-only
+# Close the three path-coverage gaps
 
-No code changes. This is the list you asked for, from reading the call sites.
+## First, the confirmation you asked for on unclassified reference labels
 
-## Your three specific questions
+Worse than in-memory. `classifyReferences` returns a `dropped` array for categorical
+rows it routes out of references, and **no caller reads it** — not the create path,
+not the revision path, not a log line despite the comment in `referenceClasses.ts`
+claiming one. There is no in-memory log to persist; the rows are discarded at the
+call site. Separately, a printed label the map does not know does not announce
+itself at all: it silently becomes class `other` and is stored as a reference, so a
+broker printing an unfamiliar label looks like a successful parse. Both get logged
+by this work.
 
-**Region resolution — now on both.** `resolveFieldRegion` is reached only through
-`verifyVerbatim`, which is reached only through `verifyParsedVerbatim`. Until this
-change the revision modal imported neither, so region resolution was create-only.
-It now runs on both paths through the same shared entry point.
+## 1. Persist the anchor miss log (and the reference-label misses)
 
-**Text-layer extraction — now on both, same story.** `textLayerFor` was imported by
-the parser only; the modal now imports it and gets the layer through
-`verifyParsedVerbatim`. Before this change the revision screen never opened the PDF's
-text layer at all, so it had no arbiter to judge a capture against.
+**New table `parser_diagnostics`**, one row per thing the parser failed to recognise:
 
-**Anchor miss log — neither path reads it. This is the third one.**
-`recordAnchorMiss` fires from `verifyVerbatim`, so both paths now *write* to it. But
-`anchorMisses()` has no caller anywhere in `src/` outside `verbatimAndReferences.test.ts`.
-It is a module-level in-memory array: never rendered, never persisted, never logged, and
-cleared on page reload. Its stated purpose — surfacing an unrecognised printed heading so
-the anchor set can be grown — is not served on any path, including create. Same shape as
-`saveLoadReferences` before it had a caller, except this one is a read-side gap.
+- `kind` — `anchor_miss`, `reference_label_unrecognized`, or `reference_row_dropped`
+- `field`, `failure`, `occurrences`, `stop_number` (anchor misses)
+- `headings text[]`, `ordering jsonb` — the document's heading-shaped lines, which is
+  the payload you actually need to grow the anchor set
+- `label`, `reference_class` (reference misses; the label only, never the value —
+  the log must not become a second copy of broker-authored identifiers)
+- `load_id`, `load_number`, `document_id`, `document_label`, `parser_contract`
+- `resolved_at` / `resolved_by`, so a heading you have since taught the parser stops
+  showing up as open
+- Staff-only RLS (dispatcher/management/owner/onboarding read and insert;
+  dispatcher/management/owner resolve). Operators have no access.
 
-## Other checks that are still create-path-only
+**New `src/lib/parserDiagnostics.ts`** — drains `anchorMisses()` after a parse,
+collects unrecognised and dropped reference labels from the same parse, and inserts
+them with the document and load context. A failure to log never interrupts a parse.
 
-These are real create-only gaps, listed so you have the full set rather than finding
-them one at a time.
+**Wired on both paths**, which is the whole point of the exercise: the create form's
+parser (load id unknown, so `document_label` = file name, backfilled on save) and the
+revision modal (load id known). `classifyReferences` gains an `unrecognized` array so
+label misses are reportable at all.
 
-1. **Duplicate broker-reference detection.** `runDuplicateCheck` /
-   `DuplicateBrokerRefDialog` are wired in `CreateLoadPage` only, and the save-time
-   backstop is explicitly `if (!isEdit)`. A revised document that changes
-   `broker_reference_number` is an accepted diff row with no duplicate check — the
-   modal touches that field only to pass it to `checkDocumentIdentity`.
-2. **Facility directory matching.** `matchFacilities` runs in the parser and
-   `StopsSection`. `revisedRateCon` imports `facilityMatch` only for
-   `normalizeAddressKey` / `normalizeZipKey`, which are used for stop reconciliation.
-   An added stop applied from a revision carries facility text with no directory
-   suggestion and no `facility_id` link.
-3. **Broker address prefill and provenance note.** `brokerAddressPrefill` is imported
-   by the parser only. A revised document carrying a corrected remit-to address updates
-   nothing in the broker directory and records no provenance line.
-4. **Broker candidate matching / create-broker flow.** `BrokerCandidateRow` and
-   `BrokerDialog` (which carries `brokerDuplicates`) are parser-side only. The revision
-   path cannot resolve or create a broker.
+**Read view** — `Parser Diagnostics` under Tools in the dispatch sidebar at
+`/dispatch/parser-diagnostics`: grouped by kind, newest first, showing the failure,
+the field, the document, the load, the timestamp, the heading lines on expand, and a
+"mark resolved" action. Survives reload, which the array did not.
 
-## Checks confirmed present on both paths
+## 2. Read the verification record and the references back on Load Detail
 
-Parser contract warning (`parserContractWarning`, both at line ~181 and ~210),
-verbatim damage detection and repair (`VerbatimRepairField`, `withRepairedCapture`),
-verification persistence (`saveVerbatimVerification`), reference writes
-(`saveLoadReferences`), page rendering for repair (`pdfToImages`, via the repair field).
+**New `VerificationCard`** on the load detail page, staff-only, reading
+`loads.verbatim_verification`:
 
-## One read-side gap worth naming
+- Nothing shown when every stored verdict is `verified` — a clean load stays quiet.
+- Any other verdict lists the field, the verdict in plain language, and on expand the
+  artifact list (kind, the literal characters, the surrounding words), the similarity,
+  the missing tokens, and the anchor or region failure.
+- A `manual_repair` span is marked as repaired with **who and when**. That attribution
+  does not exist today, so `set_load_verbatim_verification` is changed to stamp
+  `repaired_by` / `repaired_at` server-side onto `manual_repair` records — the browser
+  is not trusted to say who did the repair.
 
-Nothing reads `loads.verbatim_verification` or the reference rows back out on
-`LoadDetailPage` / `loadDetail.ts`. Both are written correctly and displayed nowhere,
-so a verdict or a repaired span is invisible once the review screen closes.
+**New `ReferencesCard`** — the load's `load_references` rows via the existing
+`fetchLoadReferences`, each with its class, printed label, value, and the stop
+citations with the label as that stop printed it. A filed baseline becomes visible on
+the load instead of only inferable from a review screen showing no changes.
 
-## Suggested order if you want these closed
+## 3. Duplicate broker-reference detection on the revision path
 
-Anchor-miss surfacing first (it is the diagnostic that tells you when a new broker
-template needs an anchor), then duplicate broker-reference on the revision path
-(it can create a wrong-load condition), then facility matching, then the read-side
-display. Awaiting your call — nothing here is being changed yet.
+`checkForDuplicateBrokerReference` already accepts `excludeLoadId`, so the revision
+path runs the same check with the load itself excluded:
+
+- Fires when the parsed document's broker reference differs from the load's, at the
+  identity step, and again as a backstop before Apply.
+- Same `DuplicateBrokerRefDialog`, same warn-never-block behaviour, with the wording
+  adjusted for "apply anyway" rather than "create anyway".
+- Proceeding writes the same paired change-history entries through
+  `record_duplicate_broker_reference`, so both loads carry the record.
+
+## Documentation
+
+`docs/tms-build-status.md` gains:
+
+- **Known revision-path gaps (deferred)** — facility directory matching on an added
+  stop, broker address prefill and provenance, broker candidate matching/creation.
+- **Standing rule** — every check must be verified reachable from both the create and
+  the revision path, not assumed. Names the three found tonight (`saveLoadReferences`
+  with no caller, verification absent from the revision path, a log nothing read) and
+  the reason the suite missed them: unit tests call the functions directly, so a
+  function with no invocation still passes.
+
+## Technical notes
+
+- One migration: the `parser_diagnostics` table with grants and RLS, plus the
+  `set_load_verbatim_verification` change for repair attribution.
+- Tests: a wiring test asserting each check is invoked on both paths (the shape of
+  failure the suite currently cannot see), plus unit tests for diagnostics collection
+  and for duplicate detection excluding the load being revised.
+- No change to parser behaviour, verdict ranking, or the diff engine.
+
+Approve and I will build these in the order listed, with the read-side landing before
+anything else that would make you wait on it.
