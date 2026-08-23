@@ -338,6 +338,83 @@ export function damageFingerprint(artifacts: TranscriptionArtifact[]): string {
   return [...counts.entries()].map(([k, n]) => `${k}=${n}`).join(' ');
 }
 
+/* ------------------------------------------------------------------ */
+/* Words the page does not print                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Alphabetic words of 4+ characters. Digits and punctuation are excluded from
+ * membership: `102`, `24HRS` and `$30` are the token check's business, and
+ * treating them as words would turn ordinary formatting into false alarms.
+ */
+const WORD_RE = /[A-Za-z][A-Za-z'’-]{3,}/g;
+
+const wordKey = (w: string) => w.replace(/[^A-Za-z]/g, '').toUpperCase();
+
+function wordsOf(s: string): string[] {
+  return (s.match(WORD_RE) ?? []).map(w => w.trim()).filter(Boolean);
+}
+
+/**
+ * Words next to layer damage in the region's own raw text.
+ *
+ * The layer can only LOSE content, never invent it, so it may be trusted to
+ * demand words it still holds but not to reject words it dropped. Where the
+ * region prints a pilcrow — the Blue Grace layer's rendering of `53' 102"` —
+ * a faithful transcription necessarily contains words the layer does not, and
+ * failing it for that would punish the correct capture. The words flanking each
+ * damage marker mark the span the layer cannot arbitrate.
+ */
+export function damagedSpanAnchors(rawRegionText: string): Set<string> {
+  const anchors = new Set<string>();
+  const damage = detectTranscriptionDamage(rawRegionText);
+  if (!damage.length) return anchors;
+
+  damage.forEach((a) => {
+    const before = wordsOf(rawRegionText.slice(Math.max(0, a.offset - 60), a.offset)).slice(-2);
+    const after = wordsOf(
+      rawRegionText.slice(a.offset + a.match.length, a.offset + a.match.length + 60),
+    ).slice(0, 2);
+    [...before, ...after].forEach(w => anchors.add(wordKey(w)));
+  });
+  return anchors;
+}
+
+/**
+ * Words the capture prints that the region does not.
+ *
+ * The mirror of `missingTokens`, and the signal similarity cannot supply: a
+ * single inserted syllable in an 833-character block scores 0.9982, comfortably
+ * above the 0.99 threshold, while `detentention` is plainly a word the page
+ * never printed.
+ *
+ * Words inside a span the layer itself rendered as damage are skipped — see
+ * `damagedSpanAnchors`.
+ */
+export function unknownWords(
+  transcription: string,
+  regionText: string,
+  rawRegionText?: string,
+): string[] {
+  const known = new Set(wordsOf(regionText).map(wordKey));
+  const anchors = rawRegionText ? damagedSpanAnchors(rawRegionText) : new Set<string>();
+  const words = wordsOf(transcription);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  words.forEach((w, i) => {
+    const key = wordKey(w);
+    if (!key || known.has(key) || seen.has(key)) return;
+    // Adjacent to a span the layer lost: the layer is not an authority here.
+    const prev = i > 0 ? wordKey(words[i - 1]) : '';
+    const next = i + 1 < words.length ? wordKey(words[i + 1]) : '';
+    if (anchors.has(prev) || anchors.has(next)) return;
+    seen.add(key);
+    out.push(w);
+  });
+  return out;
+}
+
 const unresolved = (
   field: string,
   regionFailure: RegionFailure,
@@ -347,9 +424,11 @@ const unresolved = (
   verdict: transcriptionDamage.length ? 'transcription_damaged' : 'region_unresolved',
   similarity: null,
   missingTokens: null,
+  unknownWords: null,
   layerDegradation: null,
   similarityPass: null,
   tokenPass: null,
+  wordPass: null,
   regionSource: 'none',
   anchorId: null,
   regionFailure,
@@ -358,6 +437,7 @@ const unresolved = (
   regionEndLine: null,
   source: 'parsed',
 });
+
 
 /**
  * @param field       one of the verbatim fields; also selects the printed anchors
