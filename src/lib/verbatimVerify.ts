@@ -474,9 +474,11 @@ export function verifyVerbatim(
     field,
     similarity: 1,
     missingTokens: [] as string[],
+    unknownWords: [] as string[],
     layerDegradation: 0,
     similarityPass: true,
     tokenPass: true,
+    wordPass: true,
     regionSource: 'none' as const,
     anchorId: null,
     regionFailure: null,
@@ -492,9 +494,11 @@ export function verifyVerbatim(
       verdict: damage.length ? 'transcription_damaged' : 'no_layer',
       similarity: null,
       missingTokens: null,
+      unknownWords: null,
       layerDegradation: null,
       similarityPass: null,
       tokenPass: null,
+      wordPass: null,
       transcriptionDamage: damage.length ? damage : null,
     };
   }
@@ -527,8 +531,15 @@ export function verifyVerbatim(
   const have = new Set(extractSignalTokens(normValue.text).map(tokenKey));
   const missingTokens = extractSignalTokens(normRegion.text).filter((t) => !have.has(tokenKey(t)));
 
+  // The mirror: words the capture prints that the region does not. Skipped
+  // inside spans the layer itself rendered as damage.
+  const unknown = source === 'manual_repair'
+    ? []
+    : unknownWords(normValue.text, normRegion.text, region.text);
+
   const similarityPass = score >= threshold;
   const tokenPass = missingTokens.length === 0;
+  const wordPass = unknown.length === 0;
 
   // Ranked above everything else on purpose: the layer cannot be the arbiter of
   // a capture that reproduces the layer's own damage.
@@ -539,7 +550,7 @@ export function verifyVerbatim(
     ? 'repaired'
     : damage.length
     ? 'transcription_damaged'
-    : similarityPass && tokenPass
+    : similarityPass && tokenPass && wordPass
       ? 'verified'
       : degradation > degradationLimit
         ? 'layer_unreliable'
@@ -550,10 +561,13 @@ export function verifyVerbatim(
     verdict,
     similarity: score,
     missingTokens,
+    unknownWords: unknown,
     layerDegradation: degradation,
     similarityPass,
     tokenPass,
+    wordPass,
     regionSource: 'anchor',
+
     anchorId: region.anchorId,
     regionFailure: null,
     transcriptionDamage: damage.length ? damage : null,
