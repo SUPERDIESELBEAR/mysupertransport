@@ -103,10 +103,6 @@ export async function logParserDiagnostics(
     });
     if (!rows.length) return 0;
 
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth?.user?.id ?? null;
-    if (!uid) return 0;
-
     const payload = rows.map(r => ({
       ...r,
       ordering: (r.ordering ?? null) as Json,
@@ -115,7 +111,8 @@ export async function logParserDiagnostics(
       document_id: ctx.documentId ?? null,
       document_label: ctx.documentLabel ?? null,
       parser_contract: ctx.parserContract ?? null,
-      created_by: uid,
+      // No actor from the client: the column defaults to current_profile_id(),
+      // which is a profiles(id) — an auth uid here is the wrong uuid entirely.
     }));
 
     const { error } = await supabase.from('parser_diagnostics').insert(payload);
@@ -166,11 +163,8 @@ export async function fetchParserDiagnostics(
 
 /** Marks a miss as taught, so it stops showing as open. */
 export async function resolveParserDiagnostic(id: string): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from('parser_diagnostics')
-    .update({ resolved_at: new Date().toISOString(), resolved_by: auth?.user?.id ?? null })
-    .eq('id', id);
+  // Server-side RPC so `resolved_by` is the resolver's profile id.
+  const { error } = await supabase.rpc('resolve_parser_diagnostic', { p_id: id });
   if (error) throw error;
 }
 
