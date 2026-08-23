@@ -221,7 +221,7 @@ function VerificationRow({ record, repairedByName, checkedAt }: {
               <Fact label="Region failure" value={record.regionFailure ?? '—'} />
               <Fact label="Layer degradation" value={
                 record.layerDegradation === null ? '—' : `${Math.round(record.layerDegradation * 1000) / 10}%`} />
-              <Fact label="Checked" value={when(record.verified_at) ?? '—'} />
+              <Fact label="Checked" value={when(record.verified_at) ?? when(checkedAt) ?? '—'} />
             </dl>
 
             {record.missingTokens?.length ? (
