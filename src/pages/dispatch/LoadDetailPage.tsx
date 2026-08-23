@@ -18,6 +18,8 @@ import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection'
 import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
 import ChangeHistoryCard from '@/components/dispatch/loadDetail/ChangeHistoryCard';
+import VerbatimVerificationCard from '@/components/dispatch/loadDetail/VerbatimVerificationCard';
+import LoadReferencesCard from '@/components/dispatch/loadDetail/LoadReferencesCard';
 import RevisedRateConModal from '@/components/dispatch/loadDetail/RevisedRateConModal';
 import { takeRateConForLoad } from '@/lib/rateConHandoff';
 import { fetchLoadClaims, fetchLoadDetail } from '@/lib/loadDetail';
@@ -176,6 +178,8 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       <LoadoutBlock load={load} />
       <FlagsBlock load={load} />
       <StopsTimeline stops={load.stops} />
+      {isStaff ? <LoadReferencesCard loadId={load.id} /> : null}
+      {isStaff ? <VerbatimVerificationCard load={load} /> : null}
       <DocumentsSection load={load} canManage={isStaff} canSeeInternal={isStaff} />
       {isStaff ? (
         <ClaimsSection
