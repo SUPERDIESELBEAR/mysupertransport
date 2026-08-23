@@ -273,6 +273,12 @@ export interface ApplyResult {
   /** Rate lines that could not be placed automatically. */
   unassigned: UnassignedRateLine[];
   stopCount: number;
+  /**
+   * The reference classification, returned so the caller can log the labels the
+   * class map did not recognise. Keeping it internal is how those misses went
+   * unreported for as long as they did.
+   */
+  classified: ClassifyResult;
 }
 
 const numStr = (n: number | null) => (n === null ? '' : String(n));
