@@ -11,6 +11,38 @@ itself at all: it silently becomes class `other` and is stored as a reference, s
 broker printing an unfamiliar label looks like a successful parse. Both get logged
 by this work.
 
+## 0. The `unclassified` class — specified, never built (do this first)
+
+Confirmed by search: `unclassified` appears nowhere in `src/`. The only trace is the
+parser's `drop('unclassified label')` for categorical rows and a comment in
+`verbatimRegions.ts` referring to a pattern that does not exist. It was specified and
+never built, and you are right that logging alone does not close it — today
+`classifyReferenceLabel` returns `'other'` both for "no printed label" and for "label
+the map does not know", and `other` is a real identifying class that dedups on
+`(class, value)` alongside genuine order numbers.
+
+Build it:
+
+- New class `unclassified` in `ReferenceClass` and `REFERENCE_CLASSES`:
+  `identifying: true`, display label taken from the **printed label**, not a fixed one.
+- `classifyReferenceLabel` returns `unclassified` for a label the map and the prefix
+  fallback both miss. An **absent** label still returns `other` — that is a genuinely
+  unlabelled reference, a different thing from an unrecognised one.
+- Dedup falls back to value-only: `unclassified` rows key on the value alone, so two
+  differently-printed unknown labels carrying the same number collapse, and an unknown
+  label never collides with or masquerades as a recognised class. No schema change —
+  `load_references.reference_class` is text and the unique key is
+  `(load_id, reference_class, value_key)`, so a constant `unclassified` class already
+  gives value-only dedup within the class and isolation from every other class.
+- Visibly distinct everywhere references render — the revision review rows, the new
+  Load Detail references card, and the reference chips on the create form: shown as
+  the printed label with an "unrecognised label" marker, so a dispatcher can tell
+  "this is a PO number" from "this is something printed as XYZ Ref that the parser
+  did not recognise".
+- Every `unclassified` resolution also writes a `reference_label_unrecognized`
+  diagnostic row (label only, never the value), so the three unfamiliar brokers you
+  are about to run leave a readable trail of the labels to teach the map.
+
 ## 1. Persist the anchor miss log (and the reference-label misses)
 
 **New table `parser_diagnostics`**, one row per thing the parser failed to recognise:
@@ -88,9 +120,16 @@ path runs the same check with the load itself excluded:
 
 - One migration: the `parser_diagnostics` table with grants and RLS, plus the
   `set_load_verbatim_verification` change for repair attribution.
-- Tests: a wiring test asserting each check is invoked on both paths (the shape of
-  failure the suite currently cannot see), plus unit tests for diagnostics collection
-  and for duplicate detection excluding the load being revised.
+- **Wiring test — structural, not a fixed list.** It is practical, so that is what I
+  will build. Each check function carries a `@parser-check` JSDoc tag. The test reads
+  the source tree, discovers every tagged export (so the set is whatever the code
+  says, not what the test remembers), then walks the import graph from both entry
+  points — the create parser and the revision modal — and fails naming any tagged
+  check with no call site on either path. Adding a new tagged check without wiring it
+  fails immediately; that is the fourth instance caught before it ships. The fixed
+  list is not used.
+- Plus unit tests for `unclassified` resolution and its value-only dedup, diagnostics
+  collection, and duplicate detection excluding the load being revised.
 - No change to parser behaviour, verdict ranking, or the diff engine.
 
 Approve and I will build these in the order listed, with the read-side landing before
