@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import { SectionErrorBoundary } from '@/components/shared/SectionErrorBoundary';
 import LoadStatusControls from '@/components/dispatch/loadDetail/LoadStatusControls';
 import StatusHistoryCard from '@/components/dispatch/loadDetail/StatusHistoryCard';
 import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
@@ -172,26 +173,59 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
         </div>
       ) : null}
 
-      <LoadSummaryCard load={load} canAssign={canChangeStatus} canOverride={isManagement} />
-      <RateDetailsCard load={load} />
-      <ReeferBlock load={load} />
-      <LoadoutBlock load={load} />
-      <FlagsBlock load={load} />
-      <StopsTimeline stops={load.stops} />
-      {isStaff ? <LoadReferencesCard loadId={load.id} /> : null}
-      {isStaff ? <VerbatimVerificationCard load={load} /> : null}
-      <DocumentsSection load={load} canManage={isStaff} canSeeInternal={isStaff} />
+      {/* Each card is isolated: a render fault degrades that section, never the load. */}
+      <SectionErrorBoundary name="Load summary">
+        <LoadSummaryCard load={load} canAssign={canChangeStatus} canOverride={isManagement} />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary name="Rate details">
+        <RateDetailsCard load={load} />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary name="Reefer requirements">
+        <ReeferBlock load={load} />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary name="Loadout details">
+        <LoadoutBlock load={load} />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary name="Flags">
+        <FlagsBlock load={load} />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary name="Stops">
+        <StopsTimeline stops={load.stops} />
+      </SectionErrorBoundary>
       {isStaff ? (
-        <ClaimsSection
-          loadId={load.id}
-          claims={claims ?? []}
-          canManage={canManageClaims}
-          canReopen={isManagement}
-        />
+        <SectionErrorBoundary name="Reference numbers">
+          <LoadReferencesCard loadId={load.id} />
+        </SectionErrorBoundary>
       ) : null}
-      <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
-      <NotesSection load={load} canSeeInternal={isStaff} />
-      {isStaff ? <ChangeHistoryCard loadId={load.id} /> : null}
+      {isStaff ? (
+        <SectionErrorBoundary name="Verbatim capture verification">
+          <VerbatimVerificationCard load={load} />
+        </SectionErrorBoundary>
+      ) : null}
+      <SectionErrorBoundary name="Documents">
+        <DocumentsSection load={load} canManage={isStaff} canSeeInternal={isStaff} />
+      </SectionErrorBoundary>
+      {isStaff ? (
+        <SectionErrorBoundary name="Claims">
+          <ClaimsSection
+            loadId={load.id}
+            claims={claims ?? []}
+            canManage={canManageClaims}
+            canReopen={isManagement}
+          />
+        </SectionErrorBoundary>
+      ) : null}
+      <SectionErrorBoundary name="Status history">
+        <StatusHistoryCard loadId={load.id} canSeeNotes={isStaff} />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary name="Notes">
+        <NotesSection load={load} canSeeInternal={isStaff} />
+      </SectionErrorBoundary>
+      {isStaff ? (
+        <SectionErrorBoundary name="Change history">
+          <ChangeHistoryCard loadId={load.id} />
+        </SectionErrorBoundary>
+      ) : null}
       {canRevise ? (
         <RevisedRateConModal
           load={load}

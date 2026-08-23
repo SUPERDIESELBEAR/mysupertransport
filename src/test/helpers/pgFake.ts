@@ -281,9 +281,27 @@ export function createPgFake(): PgFake {
         const upd = actorExpressionFor(fn, 'loads', 'updated_by');
         const load = tables.loads.find(l => l.id === args.p_load_id);
         if (!load) throw new Error('load not found');
-        const next = { ...load, updated_by: actorValue(upd?.kind ?? 'unknown') };
+        const records = args.p_records as unknown;
+        if (records != null && !Array.isArray(records)) {
+          throw new Error('verbatim verification must be an array of field records');
+        }
+        const actor = actorValue(upd?.kind ?? 'unknown');
+        const next = { ...load, updated_by: actor };
         enforce('loads', next);
-        Object.assign(load, next, { verbatim_verification: args.p_records });
+        // The SQL does NOT store the array as given: it wraps it in the
+        // envelope the reader has to understand. A fake that stored the array
+        // verbatim is exactly the fiction that let the reader ship broken.
+        Object.assign(load, next, {
+          verbatim_verification: {
+            checked_at: new Date().toISOString(),
+            checked_by: actor,
+            fields: ((records ?? []) as Row[]).map(rec =>
+              rec.source === 'manual_repair' && rec.repaired_at == null
+                ? { ...rec, repaired_at: new Date().toISOString(), repaired_by: actor }
+                : rec,
+            ),
+          },
+        });
         return { data: null, error: null };
       }
 
