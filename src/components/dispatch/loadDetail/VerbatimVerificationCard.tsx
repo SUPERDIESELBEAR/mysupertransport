@@ -155,7 +155,7 @@ export default function VerbatimVerificationCard({ load }: { load: LoadDetail })
             not unique; the position within the stored envelope is. */}
         {notable.map((r, i) => (
           <VerificationRow
-            key={`${r.field}-${r.stop_number ?? 'load'}-${i}`}
+            key={`${r.field}-${i}`}
             record={r}
             repairedByName={r.repaired_by ? names?.[r.repaired_by] ?? null : null}
             checkedAt={checkedAt}
