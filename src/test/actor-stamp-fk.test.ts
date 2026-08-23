@@ -30,10 +30,11 @@ import { resolveMigrationFunctions, stripComments } from './helpers/migrationFun
  */
 
 const fake = createPgFake();
+const holder = globalThis as unknown as { __pgFake: { client: unknown } };
+holder.__pgFake = fake;
 vi.mock('@/integrations/supabase/client', () => ({
-  get supabase() { return (globalThis as { __pgFake: { client: unknown } }).__pgFake.client; },
+  get supabase() { return holder.__pgFake.client; },
 }));
-(globalThis as unknown as { __pgFake: unknown }).__pgFake = fake;
 
 beforeEach(() => fake.reset());
 
