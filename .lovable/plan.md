@@ -47,3 +47,41 @@ Closing it:
 ## Technical notes
 
 Files touched: `src/components/dispatch/loadDetail/VerbatimVerificationCard.tsx` (normalizer), a new `src/components/shared/SectionErrorBoundary.tsx`, `src/pages/dispatch/LoadDetailPage.tsx` (wrap sections), and new tests under `src/components/dispatch/loadDetail/__tests__/`. No migration and no data change — the stored shape is unchanged.
+
+## 5. Reader-boundary rule in docs/tms-build-status.md
+
+Add a third standing rule beside the both-paths and actor-resolution rules:
+
+> **A persisted shape must be tested at both the writing and the reading
+> boundary, and the reader's fixture must be derived from the writer's actual
+> output, never authored independently.** A hand-built fixture only proves the
+> reader agrees with the test author.
+
+Name the four instances together so the pattern reads as one defect class, not
+four unrelated bugs: `saveLoadReferences` with no caller; verification absent
+from the revision path; the anchor-miss log nothing read; and
+`VerbatimVerificationCard` never rendered against the envelope the writer
+stores. Each was correct code, untested at the seam where it is consumed.
+
+## 6. Exposure audit of the other new read-side components
+
+Report, not just patch. Current state: there is no test file anywhere under
+`src/components/dispatch/loadDetail/` or for `ParserDiagnosticsPage`, so every
+read-side component from this build is unrendered by the suite —
+`LoadReferencesCard` (reads `load_references` with embedded
+`load_reference_citations`), `ParserDiagnosticsPage` (reads
+`parser_diagnostics`), plus the load detail cards generally.
+
+The audit will enumerate each new read-side component, what it reads, and
+whether a rendering test exists, and rendering tests will be added for the two
+that consume a persisted shape with a non-trivial mapping — `LoadReferencesCard`
+and `ParserDiagnosticsPage` — driven by raw query-shaped rows through the real
+fetch functions, not by pre-mapped objects. Components whose only input is
+already-typed props are listed in the report as lower exposure rather than
+padded with tests.
+
+## Reporting
+
+Final report: the exposure table, full suite results, and whether the
+"function components cannot be given refs" warning still fires on a freshly
+loaded Load Detail page.
