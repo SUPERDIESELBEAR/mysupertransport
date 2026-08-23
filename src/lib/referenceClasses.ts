@@ -43,6 +43,13 @@ export interface ReferenceClassSpec {
   identifying: boolean;
   /** Where a non-identifying class is routed instead of `load_references`. */
   routeTo?: 'loads.mode';
+  /**
+   * The printed label is the only label this class has, so it is kept verbatim
+   * and the class label is never substituted for it.
+   */
+  keepsPrintedLabel?: boolean;
+  /** The parser did not recognise the printed label; surfaced as such in the UI. */
+  unrecognized?: boolean;
 }
 
 export const REFERENCE_CLASSES: Record<ReferenceClass, ReferenceClassSpec> = {
@@ -60,6 +67,14 @@ export const REFERENCE_CLASSES: Record<ReferenceClass, ReferenceClassSpec> = {
   equipment:   { clazz: 'equipment',   label: 'Equipment',        identifying: false },
   service:     { clazz: 'service',     label: 'Service Level',    identifying: false },
   other:       { clazz: 'other',       label: 'Reference',        identifying: true },
+  // A label the map does not know. Kept out of `other` on purpose: `other` is a
+  // real class carrying genuine order numbers, and an unknown label landing there
+  // is indistinguishable from one and dedups as though it were one. This class
+  // keeps the printed label, dedups on value alone, and is shown as unrecognised.
+  unclassified: {
+    clazz: 'unclassified', label: 'Unrecognised Label', identifying: true,
+    keepsPrintedLabel: true, unrecognized: true,
+  },
 };
 
 /** Printed label -> class. Keys are normalized by `labelKey`. */
