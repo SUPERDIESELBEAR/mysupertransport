@@ -277,3 +277,19 @@ Every Load Detail section is additionally wrapped in
 `SectionErrorBoundary`: a card that throws degrades to an inline fallback with
 the section name, the error and a Retry, and the rest of the load stays
 readable. A render fault must never unmount the route again.
+
+### The ref warning is dev tooling, not the app (2026-08-23)
+
+`Function components cannot be given refs … check the render method of
+DocumentsSection` is not a Load Detail defect. `lovable-tagger` — the
+`mode === "development"` plugin in `vite.config.ts` — attaches a `ref` callback
+to every tagged JSX element, so any function component without `forwardRef`
+produces the warning. It fires 21 times on `/login`, which renders no load
+code at all, and it is absent from production builds because the plugin is
+not applied there. No ref is passed to `DocumentsSection` (or any other Load
+Detail card) from application code; there is nothing to remove. Do not
+`forwardRef` shadcn primitives to silence it.
+
+A real duplicate-key warning was found in the same log and fixed: per-stop
+captures repeat the field name, so `VerbatimVerificationCard` keyed rows on a
+non-unique `field`-`verdict` pair.
