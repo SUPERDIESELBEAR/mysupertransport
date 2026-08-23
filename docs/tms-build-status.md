@@ -223,3 +223,57 @@ Audit of the writes introduced with the parser work:
 | `set_load_verbatim_verification` → `loads.updated_by`, `checked_by`, `repaired_by` | `auth.uid()` — latent 23503 on `updated_by` | `current_profile_id()` |
 | `parser_diagnostics.created_by` / `resolved_by` | client-sent `auth.uid()`, no FK | column default `current_profile_id()`, FKs added, `resolve_parser_diagnostic` RPC |
 | `record_duplicate_broker_reference` | already `current_profile_id()` | unchanged |
+
+## Standing rule: test a persisted shape at BOTH boundaries (2026-08-23)
+
+**A persisted shape must be tested at both the writing and the reading
+boundary, and the reader's fixture must be derived from the writer's actual
+output, never authored independently.** A hand-built fixture only proves the
+reader agrees with the test author.
+
+`loads.verbatim_verification` is the case that forced the rule.
+`set_load_verbatim_verification` stores an envelope —
+`{ checked_at, checked_by, fields: [...] }` — because the load-level audit
+stamp cannot live inside a bare array. `VerbatimVerificationCard` read the
+column as if it were the array. Every writer-side test passed; the first load
+with a real record (ST26035) threw `records.map is not a function` during
+render and blanked the whole Load Detail route.
+
+The envelope is canonical. The card normalises from it (and still accepts a
+bare array, which is what in-memory review results are before they are
+written). `src/components/dispatch/loadDetail/__tests__/verbatimVerificationCard.test.tsx`
+builds its fixture by driving the real save path through `pgFake`, whose RPC
+behaviour comes from the checked-in SQL, and reading the stored column back —
+plus a contract test that the envelope keys the card reads are the keys the
+migration writes. The fake used to store the array as given; that fiction is
+what let the reader ship broken, and it now builds the envelope.
+
+### One defect class, four instances
+
+These read as four unrelated bugs and are not. Each is correct code, untested
+at the seam where it is consumed:
+
+1. `saveLoadReferences` — written, unit-tested, never called.
+2. Verbatim verification — implemented, absent from the revision path entirely.
+3. The anchor-miss log — written to memory, read by nothing, erased on reload.
+4. `VerbatimVerificationCard` — rendered against a shape the writer never
+   produces, because no `loadDetail` component had a test file at all.
+
+The common failure is that unit tests exercise a function directly and never
+the seam: the call site, the other path, the consumer. Wiring is covered by the
+both-paths rule above; shape is covered by this one.
+
+### Read-side rendering cover (2026-08-23)
+
+| Component | Reads | Rendering test |
+|---|---|---|
+| `VerbatimVerificationCard` | `loads.verbatim_verification` | yes — fixture from the writer |
+| `LoadReferencesCard` | `load_references` + embedded citations | yes — via the real fetch |
+| `ParserDiagnosticsPage` | `parser_diagnostics` | yes — via the real fetch |
+| `StatusHistoryCard`, `ChangeHistoryCard`, `ClaimsSection`, `DocumentsSection` | own queries | no — lower exposure, no shape translation |
+| `LoadSummaryCard`, `RateDetailsCard`, `StopsTimeline`, `NotesSection`, conditional blocks | typed props from `fetchLoadDetail` | no — no persisted shape of their own |
+
+Every Load Detail section is additionally wrapped in
+`SectionErrorBoundary`: a card that throws degrades to an inline fallback with
+the section name, the error and a Retry, and the rest of the load stays
+readable. A render fault must never unmount the route again.
