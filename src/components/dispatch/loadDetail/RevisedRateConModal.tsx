@@ -544,6 +544,7 @@ export default function RevisedRateConModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
@@ -953,6 +954,7 @@ export default function RevisedRateConModal({
           </div>
         ) : null}
       </DialogContent>
+    </Dialog>
 
       <DuplicateBrokerRefDialog
         open={duplicateOpen}
@@ -970,7 +972,7 @@ export default function RevisedRateConModal({
           void apply();
         }}
       />
-    </Dialog>
+    </>
   );
 }
 
