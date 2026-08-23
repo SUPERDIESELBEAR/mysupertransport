@@ -105,7 +105,7 @@ export function actorExpressionFor(
   if (!body) return null;
 
   const insertRe = new RegExp(
-    `insert\\s+into\\s+(?:public\\.)?${table}\\s*\\(([\\s\\S]*?)\\)\\s*values\\s*\\(([\\s\\S]*?)\\)\\s*;`,
+    `insert\\s+into\\s+(?:public\\.)?${table}\\s*\\(([\\s\\S]*?)\\)\\s*values\\s*\\(([\\s\\S]*?)\\)\\s*(?:on\\s+conflict|returning|;)`,
     'gi',
   );
   let m: RegExpExecArray | null;
