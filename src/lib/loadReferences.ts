@@ -107,6 +107,10 @@ export async function fetchLoadReferences(loadId: string): Promise<StoredReferen
  * document shows. The provenance entry records which document established them
  * and who filed it, so a baseline taken from a REVISED rate confirmation rather
  * than the original stays visible in the load's history.
+ *
+ * References, citations and that history entry go in ONE transaction. Splitting
+ * them left ST26034 with five reference rows and no history entry when the
+ * history insert failed.
  */
 export async function fileReferenceBaseline(args: {
   loadId: string;
@@ -117,14 +121,13 @@ export async function fileReferenceBaseline(args: {
   const usable = args.refs.filter(r => (r.value ?? '').trim());
   if (!usable.length) return;
 
-  await saveLoadReferences(args.loadId, usable, { source: 'reference_baseline' });
-
-  const summary = usable.map(r => `${r.label}: ${r.value}`).join('; ');
-  const { error } = await supabase.rpc('record_load_reference_baseline', {
+  const { error } = await supabase.rpc('file_load_references', {
     p_load_id: args.loadId,
+    p_refs: usable.map(toRpcRef) as never,
+    p_source: 'reference_baseline',
     p_document_id: args.documentId,
     p_document_label: args.documentLabel,
-    p_summary: summary,
+    p_summary: usable.map(r => `${r.label}: ${r.value}`).join('; '),
   });
   if (error) throw error;
 }
