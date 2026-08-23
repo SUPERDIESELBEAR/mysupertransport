@@ -245,6 +245,7 @@ export default function RateConfirmationParser({
       }),
       page: v.page,
       parsedStopIndex: v.parsedStopIndex,
+      value: text,
     };
 
     setVerbatim(prev => {
