@@ -233,6 +233,14 @@ function VerificationRow({ record, repairedByName, checkedAt }: {
               </p>
             ) : null}
 
+            {record.unknownWords?.length ? (
+              <p>
+                <span className="font-medium text-[#2C2C2C]">Words the capture prints but the page does not: </span>
+                {record.unknownWords.join(', ')}
+              </p>
+            ) : null}
+
+
             {artifacts.length ? (
               <div className="space-y-1">
                 <p className="font-medium text-[#2C2C2C]">Artifacts found in the capture</p>
