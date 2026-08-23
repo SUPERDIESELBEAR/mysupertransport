@@ -124,6 +124,16 @@ export default function RevisedRateConModal({
   const [verbatim, setVerbatim] = useState<VerbatimCheck[]>([]);
   /** `load_documents` id of the retained file, so applying relabels it instead of uploading twice. */
   const uploadedDocId = useRef<string | null>(null);
+  /** Loads already carrying the reference this revision wants to move onto this load. */
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicateRef, setDuplicateRef] = useState('');
+  /** References the dispatcher has already been warned about and accepted. */
+  const duplicateCleared = useRef<Set<string>>(new Set());
+  /** Set only when the dispatcher overrode the warning; written after the save. */
+  const duplicateOverride = useRef<{ existingLoadId: string; reason: string } | null>(null);
+
+
 
 
   const tier = financialEditTier(load.status as LoadStatus);
