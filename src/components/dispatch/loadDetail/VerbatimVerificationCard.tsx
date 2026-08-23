@@ -156,6 +156,7 @@ export default function VerbatimVerificationCard({ load }: { load: LoadDetail })
             key={`${r.field}-${r.verdict}`}
             record={r}
             repairedByName={r.repaired_by ? names?.[r.repaired_by] ?? null : null}
+            checkedAt={checkedAt}
           />
         ))}
       </CardContent>
@@ -163,9 +164,11 @@ export default function VerbatimVerificationCard({ load }: { load: LoadDetail })
   );
 }
 
-function VerificationRow({ record, repairedByName }: {
+function VerificationRow({ record, repairedByName, checkedAt }: {
   record: StoredVerification;
   repairedByName: string | null;
+  /** Envelope-level stamp, used when a record carries no `verified_at`. */
+  checkedAt: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const spec = VERDICTS[record.verdict] ?? VERDICTS.unverified;
