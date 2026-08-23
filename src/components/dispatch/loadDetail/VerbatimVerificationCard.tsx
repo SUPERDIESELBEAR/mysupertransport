@@ -78,9 +78,45 @@ const when = (v: string | null | undefined) => {
     : d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
+/**
+ * The stored shape is the ENVELOPE the writer builds, not a bare array.
+ *
+ * `set_load_verbatim_verification` writes
+ * `{ checked_at, checked_by, fields: [...] }` — the load-level audit stamp an
+ * array cannot carry. The card read the column as the array itself, so the
+ * first load with a real record threw `records.map is not a function` and took
+ * the whole page down with it. The envelope stays canonical; this derives the
+ * list from it.
+ *
+ * A bare array is still accepted: in-memory review results have that shape
+ * before they are ever written.
+ */
+export function normalizeVerification(raw: unknown): {
+  records: StoredVerification[];
+  checkedAt: string | null;
+} {
+  const asRecords = (v: unknown): StoredVerification[] =>
+    (Array.isArray(v) ? v : []).filter(
+      (r): r is StoredVerification => !!r && typeof r === 'object' && !Array.isArray(r),
+    );
+
+  if (Array.isArray(raw)) return { records: asRecords(raw), checkedAt: null };
+
+  if (raw && typeof raw === 'object') {
+    const env = raw as { fields?: unknown; checked_at?: unknown };
+    return {
+      records: asRecords(env.fields),
+      checkedAt: typeof env.checked_at === 'string' ? env.checked_at : null,
+    };
+  }
+
+  return { records: [], checkedAt: null };
+}
+
 export default function VerbatimVerificationCard({ load }: { load: LoadDetail }) {
-  const records = ((load as unknown as { verbatim_verification?: StoredVerification[] })
-    .verbatim_verification ?? []) as StoredVerification[];
+  const { records, checkedAt } = normalizeVerification(
+    (load as unknown as { verbatim_verification?: unknown }).verbatim_verification,
+  );
 
   const repairerIds = Array.from(new Set(
     records.map(r => r.repaired_by).filter((v): v is string => !!v),
