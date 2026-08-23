@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import { SectionErrorBoundary } from '@/components/shared/SectionErrorBoundary';
 import LoadStatusControls from '@/components/dispatch/loadDetail/LoadStatusControls';
 import StatusHistoryCard from '@/components/dispatch/loadDetail/StatusHistoryCard';
 import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
