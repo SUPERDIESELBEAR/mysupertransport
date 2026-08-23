@@ -142,6 +142,33 @@ export default function VerbatimRepairField({ check, file, value, onRepair, subt
 
       <p className="mt-0.5 text-[11px] text-muted-foreground">{copy.hint}</p>
 
+      {check.regionFailure && (
+        <details className="mt-2 rounded border border-border bg-background/70 p-2">
+          <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+            {REGION_FAILURE_COPY[check.regionFailure] ?? check.regionFailure}
+            <span className="ml-1 font-mono font-normal text-muted-foreground">
+              ({check.regionFailure})
+            </span>
+          </summary>
+          {check.documentHeadings?.length ? (
+            <div className="mt-1.5">
+              <p className="text-[11px] text-muted-foreground">
+                Heading-shaped lines the parser saw and did not recognise:
+              </p>
+              <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-foreground">
+                {check.documentHeadings.map((h, i) => <li key={`${h}-${i}`}>{h}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              No heading-shaped lines were found in this document&rsquo;s text layer.
+            </p>
+          )}
+        </details>
+      )}
+
+
+
 
       {damaged && (
         <div className="mt-2 space-y-1 rounded border border-destructive/30 bg-background/70 p-2">
