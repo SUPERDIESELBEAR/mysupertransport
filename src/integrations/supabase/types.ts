@@ -6186,6 +6186,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "parser_diagnostics_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "parser_diagnostics_document_id_fkey"
             columns: ["document_id"]
             isOneToOne: false
@@ -6197,6 +6204,13 @@ export type Database = {
             columns: ["load_id"]
             isOneToOne: false
             referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parser_diagnostics_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -8774,6 +8788,17 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      file_load_references: {
+        Args: {
+          p_document_id?: string
+          p_document_label?: string
+          p_load_id: string
+          p_refs: Json
+          p_source?: string
+          p_summary?: string
+        }
+        Returns: undefined
+      }
       generate_load_number: { Args: never; Returns: string }
       get_application_by_draft_token: {
         Args: { p_token: string }
@@ -9263,15 +9288,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      record_load_reference_baseline: {
-        Args: {
-          p_document_id: string
-          p_document_label: string
-          p_load_id: string
-          p_summary: string
-        }
-        Returns: undefined
-      }
       record_retention_export: {
         Args: {
           _artifact_count: number
@@ -9359,6 +9375,7 @@ export type Database = {
           storage_path: string
         }[]
       }
+      resolve_parser_diagnostic: { Args: { p_id: string }; Returns: undefined }
       resolve_share_bundle: {
         Args: { p_token: string }
         Returns: {
