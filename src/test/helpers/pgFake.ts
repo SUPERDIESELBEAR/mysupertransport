@@ -282,8 +282,18 @@ export function createPgFake(): PgFake {
       const rows = (tables[table] ??= []);
       const api = {
         _filters: [] as ((r: Row) => boolean)[],
-        select(_cols?: string) {
-          const list = rows.filter(r => this._filters.every(f => f(r)));
+        select(cols?: string) {
+          const embedCitations = !!cols && cols.includes('load_reference_citations(');
+          const list = rows
+            .filter(r => this._filters.every(f => f(r)))
+            .map(r => (embedCitations
+              ? {
+                ...r,
+                load_reference_citations: tables.load_reference_citations
+                  .filter(c => c.reference_id === r.id)
+                  .map(c => ({ stop_sequence: c.stop_sequence, printed_label: c.printed_label })),
+              }
+              : r));
           const resolved = (l: Row[]): unknown => Object.assign(
             Promise.resolve({ data: l, error: null }),
             {
