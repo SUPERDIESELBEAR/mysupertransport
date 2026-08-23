@@ -1,4 +1,4 @@
-import { classifyReferences } from '@/lib/referenceClasses';
+import { classifyReferences, type ClassifyResult } from '@/lib/referenceClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
@@ -420,7 +420,7 @@ export function applyParsedToForm(
 
   set('stops', stops);
 
-  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length };
+  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length, classified };
 }
 
 /** Loadout fields, applied only after the dispatcher confirms the load is a loadout. */

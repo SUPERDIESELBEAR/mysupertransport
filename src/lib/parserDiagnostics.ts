@@ -59,7 +59,7 @@ export function collectParserDiagnostics(args: {
       occurrences: m.occurrences,
       stop_number: m.stopNumber,
       headings: m.headings ?? [],
-      ordering: (m.ordering ?? null) as Record<string, unknown> | null,
+      ordering: (m.ordering ?? null) as unknown as Record<string, unknown> | null,
     });
   });
 
