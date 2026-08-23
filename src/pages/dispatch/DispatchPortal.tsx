@@ -40,6 +40,7 @@ import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
+import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -172,6 +173,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const loadsRoute = location.pathname.startsWith('/dispatch/loads');
   const facilitiesRoute = location.pathname.startsWith('/dispatch/facilities');
   const brokersRoute = location.pathname.startsWith('/dispatch/brokers');
+  const diagnosticsRoute = location.pathname.startsWith('/dispatch/parser-diagnostics');
   const loadDetailId = loadsRoute
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
@@ -598,7 +600,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    if (loadsRoute || facilitiesRoute || brokersRoute) return;
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -609,7 +611,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
@@ -621,13 +623,17 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       navigate('/dispatch/facilities');
       return;
     }
+    if (path === 'dispatch-parser-diagnostics') {
+      navigate('/dispatch/parser-diagnostics');
+      return;
+    }
     if (path === 'dispatch-brokers') {
       navigate('/dispatch/brokers');
       return;
     }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
-    if (loadsRoute || facilitiesRoute || brokersRoute) {
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute) {
       navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
     }
     if (p === 'dispatch-messages') {
@@ -2410,6 +2416,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
     { label: 'Notifications',  icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications',  badge: unreadNotifCount || undefined },
+    { label: 'Parser Diagnostics', icon: <AlertTriangle className="h-4 w-4" />, path: 'dispatch-parser-diagnostics' },
   ];
 
   // ── Quick-compose modal ────────────────────────────────────────────────────
@@ -2512,7 +2519,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : activePage}
+        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : activePage}
         onNavigate={handleNavigate}
         title="Dispatch Board"
         notificationsPath="/dispatch?tab=notifications"
@@ -2527,7 +2534,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         }
       >
         {quickComposeModal}
-        {brokersRoute
+        {diagnosticsRoute
+          ? <ParserDiagnosticsPage />
+          : brokersRoute
           ? <BrokersListPage />
           : facilitiesRoute
           ? <FacilitiesListPage />
