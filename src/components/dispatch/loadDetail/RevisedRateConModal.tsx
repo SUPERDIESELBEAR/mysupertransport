@@ -579,6 +579,30 @@ export default function RevisedRateConModal({
               </div>
             ) : null}
 
+            {verbatim.some(v => v.verdict === 'transcription_damaged' || v.verdict === 'unverified') ? (
+              <section className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Captured text to check</h4>
+                <p className="text-xs text-muted-foreground">
+                  These transcriptions did not pass the check against the printed page. Repair a
+                  corrupted capture before accepting its row.
+                </p>
+                {verbatim
+                  .filter(v => v.verdict === 'transcription_damaged' || v.verdict === 'unverified')
+                  .map((v, i) => (
+                    <VerbatimRepairField
+                      key={`${v.field}-${v.parsedStopIndex ?? 'load'}-${i}`}
+                      check={v}
+                      file={file}
+                      value={v.value}
+                      subtitle={v.parsedStopIndex === null ? undefined : `Stop ${v.parsedStopIndex + 1}`}
+                      onRepair={text => repairVerbatim(v, text)}
+                    />
+                  ))}
+              </section>
+            ) : null}
+
+
+
             {diff.unresolved.length > 0 ? (
               <section className="space-y-2">
                 <Alert>
