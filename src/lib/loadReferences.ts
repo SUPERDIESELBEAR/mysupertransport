@@ -29,9 +29,32 @@ export interface StoredReference {
 }
 
 
+/** Shape the `file_load_references` RPC expects for one reference row. */
+function toRpcRef(r: ReferenceFormValues) {
+  return {
+    reference_class: r.reference_class,
+    label: r.label || r.reference_class,
+    value: r.value.trim(),
+    value_key: referenceValueKey(r.value),
+    citations: (r.citations ?? []).map(c => ({
+      stopSequence: c.stopSequence,
+      // The label as THAT stop printed it — `PU#`, not the row's
+      // `Pickup Number`. Substituting the row label erases the difference the
+      // citation exists to record.
+      printedLabel: (c.printedLabel ?? '').trim() || r.label || r.reference_class,
+    })),
+  };
+}
+
 /**
  * @parser-check
  * Stores the document's reference numbers on the load.
+ *
+ * One RPC, not three round trips. Stop lookup, the reference rows, their
+ * citations and (for a baseline) the history entry all happen inside a single
+ * database transaction, and the actor is resolved there with
+ * `current_profile_id()` — `created_by` / `changed_by` are foreign keys to
+ * `profiles(id)`, and an auth uid sent from the client raises 23503.
  */
 export async function saveLoadReferences(
   loadId: string,
@@ -39,67 +62,15 @@ export async function saveLoadReferences(
   opts: { source?: string } = {},
 ): Promise<void> {
   if (!refs.length) return;
-  const source = opts.source ?? 'rate_confirmation';
+  const usable = refs.filter(r => (r.value ?? '').trim());
+  if (!usable.length) return;
 
-  const { data: stopRows, error: stopErr } = await supabase
-    .from('load_stops')
-    .select('id, stop_sequence')
-    .eq('load_id', loadId);
-  if (stopErr) throw stopErr;
-  const stopIdBySeq = new Map<number, string>(
-    (stopRows ?? []).map(r => [r.stop_sequence as number, r.id as string]),
-  );
-
-  const rows = refs
-    .filter(r => (r.value ?? '').trim())
-    .map(r => ({
-      load_id: loadId,
-      reference_class: r.reference_class,
-      label: r.label || r.reference_class,
-      value: r.value.trim(),
-      value_key: referenceValueKey(r.value),
-      source,
-    }));
-  if (!rows.length) return;
-
-  const { data: saved, error } = await supabase
-    .from('load_references')
-    .upsert(rows, { onConflict: 'load_id,reference_class,value_key' })
-    .select('id, reference_class, value_key');
-  if (error) throw error;
-
-  const idByKey = new Map<string, string>(
-    (saved ?? []).map(r => [`${r.reference_class}:${r.value_key}`, r.id as string]),
-  );
-
-  const citations = refs.flatMap(r => {
-    const refId = idByKey.get(`${r.reference_class}:${referenceValueKey(r.value)}`);
-    if (!refId) return [];
-    return (r.citations ?? []).map(c => ({
-      reference_id: refId,
-      load_stop_id: stopIdBySeq.get(c.stopSequence) ?? null,
-      stop_sequence: c.stopSequence,
-      // The label as THAT stop printed it — `PU#`, not the row's
-      // `Pickup Number`. Taking it from the row would erase the difference the
-      // citation exists to record.
-      printed_label: (c.printedLabel ?? '').trim() || r.label || null,
-    }));
+  const { error } = await supabase.rpc('file_load_references', {
+    p_load_id: loadId,
+    p_refs: usable.map(toRpcRef) as never,
+    p_source: opts.source ?? 'rate_confirmation',
   });
-
-  if (citations.length) {
-    // Citations are rewritten wholesale for the references being saved: the
-    // document is the authority on where a number is printed.
-    const refIds = [...new Set(citations.map(c => c.reference_id))];
-    const { error: delErr } = await supabase
-      .from('load_reference_citations')
-      .delete()
-      .in('reference_id', refIds);
-    if (delErr) throw delErr;
-    const { error: insErr } = await supabase
-      .from('load_reference_citations')
-      .insert(citations);
-    if (insErr) throw insErr;
-  }
+  if (error) throw error;
 }
 
 /** Reads a load's references with their stop citations, for display and diffing. */
