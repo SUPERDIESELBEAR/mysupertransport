@@ -38,6 +38,8 @@ import {
 export type VerbatimVerdict =
   | 'verified'
   | 'transcription_damaged'
+  /** Typed by a person off the printed page; not judged against the text layer. */
+  | 'repaired'
   | 'unverified'
   | 'layer_unreliable'
   | 'no_layer'
@@ -441,7 +443,12 @@ export function verifyVerbatim(
 
   // Ranked above everything else on purpose: the layer cannot be the arbiter of
   // a capture that reproduces the layer's own damage.
-  const verdict: VerbatimVerdict = damage.length
+  // A hand-repaired span was read off the rendered page by a person. Scoring it
+  // against the text layer would fail it for disagreeing with the very source
+  // the repair exists to overrule.
+  const verdict: VerbatimVerdict = source === 'manual_repair'
+    ? 'repaired'
+    : damage.length
     ? 'transcription_damaged'
     : similarityPass && tokenPass
       ? 'verified'
