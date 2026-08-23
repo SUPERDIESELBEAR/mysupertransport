@@ -1,6 +1,7 @@
 import { pageForLine, textLayerFor, type PdfTextLayer } from '@/lib/pdfTextLayer';
 import { damageFingerprint, verifyVerbatim, type VerbatimVerification } from '@/lib/verbatimVerify';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
+import { documentHeadings } from '@/lib/verbatimRegions';
 
 /**
  * Runs the verbatim check in the browser, where the PDF's own text layer is
