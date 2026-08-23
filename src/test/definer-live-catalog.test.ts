@@ -285,7 +285,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // the actor resolved by current_profile_id(). Replaces
   // record_load_reference_baseline, whose split write left half-filed
   // baselines. No financial effect.
-  "public.file_load_references(uuid,jsonb,text,uuid,text,text)",
+  // Gained `p_removals` (2026-08-23): a revised rate confirmation must be able
+  // to delete a reference the document no longer prints. The 6-argument form
+  // was dropped in the same migration so no caller can reach a version that
+  // silently ignores removals.
+  "public.file_load_references(uuid,jsonb,text,uuid,text,text,jsonb)",
+
   // has_role management|owner|dispatcher; marks one parser diagnostic resolved
   // and stamps the resolver's profile id. Two columns on one row.
   "public.resolve_parser_diagnostic(uuid)",
