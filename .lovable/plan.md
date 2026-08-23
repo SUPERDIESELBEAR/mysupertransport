@@ -65,6 +65,12 @@ no-op, never a wipe.
 
 - `created_by` and `resolved_by` get defaults of `current_profile_id()` and FKs to
   `profiles(id)`, so the type is enforced rather than trusted.
+- **Both columns stay nullable, and neither gets a NOT NULL constraint.** A Postgres FK
+  never rejects a null, so when `current_profile_id()` returns null — a service-role
+  insert, or an authenticated user with no profile row — the default evaluates to null
+  and the row is written unattributed. A diagnostic never fails to log because the
+  actor could not be resolved. The diagnostics page renders a missing actor as
+  "unattributed" rather than a blank.
 - The two existing rows carry auth uids; they are remapped to the matching profile ids
   in the same migration (falling back to null if no profile matches) so the FK can be
   added.
@@ -72,12 +78,14 @@ no-op, never a wipe.
   sending `created_by` / `resolved_by` at all. `resolveParserDiagnostic` sets only
   `resolved_at` and lets the column default stamp the actor.
 
-### 5. Repair ST26034
+### 5. Clear ST26034 — delete, do not backfill
 
-A one-off statement writes the missing `references.baseline` history entry for the
-5 rows already filed, attributed to the profile that filed them, so the load stops
-being half-filed. If you would rather re-run the action from the UI instead, say so
-and I will delete the 5 rows and 2 citations instead and leave the load clean.
+The 5 `load_references` rows and their 2 citations are deleted. No history entry is
+synthesized, so the provenance record comes from the action itself when you re-run it.
+After the delete I confirm and report: zero rows in `load_references`, zero in
+`load_reference_citations`, and no `references.baseline` entry in
+`load_change_history` for the load.
+
 
 ## The test that catches this class
 
