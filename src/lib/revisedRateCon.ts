@@ -2,9 +2,10 @@ import type { LoadFormValues, StopFormValues } from '@/pages/dispatch/loadFormSc
 import type { Confidence, Field, ParsedRateConfirmation, ParsedStop } from '@/lib/rateConfirmation';
 
 import {
-  citationKey, classifyReferences, referenceKey,
+  citationKey, classifyReferences, referenceKey, referenceValueKey,
   type ReferenceCitation, type ReferenceClass,
 } from '@/lib/referenceClasses';
+
 
 import { normalizeAddressKey, normalizeZipKey } from '@/lib/facilityMatch';
 import { toLocalInput } from '@/lib/loadEdit';
