@@ -722,11 +722,28 @@ const setPath = (values: LoadFormValues, path: string, value: unknown): LoadForm
   return { ...values, [parts[0]]: value } as LoadFormValues;
 };
 
+export interface RemovedReference {
+  reference_class: string;
+  label: string;
+  value: string;
+  value_key: string;
+}
+
 export interface ApplyRevisionResult {
   values: LoadFormValues;
   /** One line per applied money change, for the automatic change reason. */
   financialSummary: string[];
+  /**
+   * References the dispatcher accepted as removed.
+   *
+   * Dropping them out of `values.references` is not enough: the save path
+   * treats an absent reference as "not carried by this form" and leaves the row
+   * on file, so an accepted removal changed nothing and the same row came back
+   * on every later review. These are deleted explicitly.
+   */
+  removedReferences: RemovedReference[];
 }
+
 
 /**
  * Folds the accepted decisions into the current form values.
