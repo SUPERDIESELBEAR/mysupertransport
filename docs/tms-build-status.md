@@ -293,3 +293,50 @@ Detail card) from application code; there is nothing to remove. Do not
 A real duplicate-key warning was found in the same log and fixed: per-stop
 captures repeat the field name, so `VerbatimVerificationCard` keyed rows on a
 non-unique `field`-`verdict` pair.
+
+## Word-level fidelity and reference removal (2026-08-23)
+
+### Similarity cannot see a corrupted word
+
+On the ST26035 revision run the model transcribed `detention` as
+`detentention` in an 833-character broker-terms block. Measured Dice bigram
+similarity for that single inserted syllable: **0.9982**, against a 0.99
+threshold. The capture read **verified**. Token presence did not help either —
+`detention` is a word, not a token type the presence check extracts (numbers,
+money, times, dimensions).
+
+The fix is a membership check, not a lower threshold: `unknownWords` in
+`src/lib/verbatimVerify.ts` extracts alphabetic words of 4+ characters from the
+capture and flags any the region does not print. A non-empty list fails the
+field regardless of similarity.
+
+Asymmetry is deliberate. The text layer can only LOSE content, never invent it,
+so it may be trusted to *demand* words it holds but not to *reject* words it
+dropped. Where the layer renders damage — the Blue Grace pilcrow standing in for
+`53' 102"` — a faithful capture necessarily contains words the layer lacks.
+`damagedSpanAnchors` skips word checks adjacent to each damage marker, so the
+faithful special-instructions capture on the same document still reads verified.
+
+Measured after the change: broker terms with the typo → `unverified`, listing
+`detentention`; special instructions (damaged region, faithful capture) →
+`verified`. A word-by-word diff of the two captures of the same block found the
+typo span and nothing else: no re-casing, no reflow, no paraphrase. The
+"read the printed glyphs" prompt instruction is not producing edits beyond the
+artifact spans, at least on this document.
+
+### Removals write now, and are never pre-accepted
+
+`file_load_references` takes `p_removals` and deletes those rows inside the same
+transaction as the writes, logging each to `load_change_history`. Previously an
+accepted "Reference removed" row only dropped the entry out of the form payload,
+and the save path treats an absent reference as *not carried by this form*, so
+the outdated number stayed on file and the row reappeared on every later review.
+This is the same shape as the earlier write-path gap: **additions wrote and
+removals did not.** Citations were checked for the same shape — the RPC rewrites
+a reference's citations wholesale on every file, so a citation that disappears
+from a revised document is deleted rather than lingering.
+
+Removal rows now default to **reject**. A number missing from a revision has two
+readings — the broker dropped it, or the parser failed to read it this run — and
+the `detentention` capture shows the second is not hypothetical. Deleting a live
+BOL number on the parser's unconfirmed word is the worse of the two mistakes.
