@@ -109,11 +109,17 @@ After the delete I confirm and report: zero rows in `load_references`, zero in
 
 ## Technical notes
 
-- One migration: the two function rewrites, the new `file_load_references` function
-  with `EXECUTE` granted to `authenticated`, the `parser_diagnostics` column defaults
-  plus backfill plus FKs, and the ST26034 history repair.
+- One migration, schema only: the two function rewrites, the new `file_load_references`
+  function with `EXECUTE` granted to `authenticated`, and the `parser_diagnostics`
+  column defaults plus actor backfill plus FKs. The ST26034 cleanup is **not** in it —
+  a migration should not carry a fix for one load's data, so the delete runs as a
+  one-off statement.
 - No schema change to `load_references`, `load_reference_citations`, or
   `load_change_history`.
+- The test is run against the pre-fix code first, so `actor-stamp-fk.test.ts` is seen
+  to fail on the current `record_load_reference_baseline`, the verification RPC, and
+  the client-side diagnostics stamps before any of them are changed. Both the failing
+  and the passing runs are reported.
 - `docs/tms-build-status.md` gains the actor-resolution rule as a standing item next to
   the both-paths rule: an actor is resolved server-side by `current_profile_id()`, and
   a client never sends an actor id.
