@@ -120,9 +120,16 @@ path runs the same check with the load itself excluded:
 
 - One migration: the `parser_diagnostics` table with grants and RLS, plus the
   `set_load_verbatim_verification` change for repair attribution.
-- Tests: a wiring test asserting each check is invoked on both paths (the shape of
-  failure the suite currently cannot see), plus unit tests for diagnostics collection
-  and for duplicate detection excluding the load being revised.
+- **Wiring test — structural, not a fixed list.** It is practical, so that is what I
+  will build. Each check function carries a `@parser-check` JSDoc tag. The test reads
+  the source tree, discovers every tagged export (so the set is whatever the code
+  says, not what the test remembers), then walks the import graph from both entry
+  points — the create parser and the revision modal — and fails naming any tagged
+  check with no call site on either path. Adding a new tagged check without wiring it
+  fails immediately; that is the fourth instance caught before it ships. The fixed
+  list is not used.
+- Plus unit tests for `unclassified` resolution and its value-only dedup, diagnostics
+  collection, and duplicate detection excluding the load being revised.
 - No change to parser behaviour, verdict ranking, or the diff engine.
 
 Approve and I will build these in the order listed, with the read-side landing before
