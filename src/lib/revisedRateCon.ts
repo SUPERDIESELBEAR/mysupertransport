@@ -762,14 +762,22 @@ export function applyRevision(
   // References are a list operation, not a field write, so they are folded in
   // before the generic path writes and skipped by them.
   const refs = [...(values.references ?? [])];
+  const removedReferences: RemovedReference[] = [];
   diff.nonFinancial.forEach(d => {
     if (!d.reference || !decisions.accepted[d.id]) return;
     const key = referenceKey(d.reference.reference_class as ReferenceClass, d.reference.value);
     const at = refs.findIndex(r => referenceKey(r.reference_class as ReferenceClass, r.value) === key);
     if (d.reference.op === 'removed') {
       if (at >= 0) refs.splice(at, 1);
+      removedReferences.push({
+        reference_class: d.reference.reference_class,
+        label: d.reference.label,
+        value: d.reference.value,
+        value_key: referenceValueKey(d.reference.value),
+      });
       return;
     }
+
     const row = {
       reference_class: d.reference.reference_class,
       label: d.reference.label,
