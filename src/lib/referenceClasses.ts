@@ -177,9 +177,21 @@ export interface ClassifyResult {
   /** Categorical rows routed out of references. */
   routed: { clazz: ReferenceClass; value: string; routeTo?: string }[];
   dropped: { clazz: ReferenceClass; label: string; value: string }[];
+  /**
+   * Printed labels the map does not know, kept so they can be logged and taught.
+   * The LABEL only — never the value. This list feeds a diagnostic, and a
+   * diagnostic must not become a second copy of broker-authored identifiers.
+   */
+  unrecognized: { label: string; stopSequence: number | null }[];
 }
 
-/** Identity of a reference row for diffing and dedup: class + normalized value. */
+/**
+ * Identity of a reference row for diffing and dedup: class + normalized value.
+ *
+ * `unclassified` is a single constant class, so rows in it dedup on the value
+ * alone — two differently-printed unknown labels carrying the same number
+ * collapse — while staying isolated from every recognised class.
+ */
 export const referenceKey = (clazz: ReferenceClass, value: string | null | undefined): string =>
   `${clazz}:${referenceValueKey(value)}`;
 
@@ -204,22 +216,30 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
   const byKey = new Map<string, ClassifiedReference>();
   const routed: ClassifyResult['routed'] = [];
   const dropped: ClassifyResult['dropped'] = [];
+  const unrecognized: ClassifyResult['unrecognized'] = [];
+  const seenLabels = new Set<string>();
 
   rows.forEach((row) => {
     const value = (row.value ?? '').trim();
     if (!value) return;
     const clazz = classifyReferenceLabel(row.label);
     const spec = REFERENCE_CLASSES[clazz];
+    const printedRaw = (row.label ?? '').trim();
+
+    if (spec.unrecognized && printedRaw && !seenLabels.has(labelKey(printedRaw))) {
+      seenLabels.add(labelKey(printedRaw));
+      unrecognized.push({ label: printedRaw, stopSequence: row.stopSequence ?? null });
+    }
 
     if (!spec.identifying) {
       if (spec.routeTo) routed.push({ clazz, value, routeTo: spec.routeTo });
-      else dropped.push({ clazz, label: (row.label ?? '').trim(), value });
+      else dropped.push({ clazz, label: printedRaw, value });
       return;
     }
 
     const key = referenceKey(clazz, value);
     const seq = row.stopSequence ?? null;
-    const printed = (row.label ?? '').trim() || spec.label;
+    const printed = printedRaw || spec.label;
     const existing = byKey.get(key);
 
     if (existing) {
@@ -227,6 +247,9 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
         const already = existing.citations
           .some(c => c.stopSequence === seq && labelKey(c.printedLabel) === labelKey(printed));
         if (!already) existing.citations.push({ stopSequence: seq, printedLabel: printed });
+        // An unrecognised row has no canonical label to fall back on, so the
+        // first printed form it was seen with stands as the row's label.
+        if (spec.keepsPrintedLabel && existing.label === spec.label) existing.label = printed;
       } else {
         // The load-level table is the authority on the row's own label.
         existing.loadLevel = true;
@@ -238,8 +261,9 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
     byKey.set(key, {
       clazz,
       // A stop-only row keeps the canonical class label at row level; its
-      // printed form lives on the citation.
-      label: seq === null ? printed : spec.label,
+      // printed form lives on the citation. An unrecognised row has no
+      // canonical label, so it keeps what the document printed.
+      label: seq === null || spec.keepsPrintedLabel ? printed : spec.label,
       value,
       valueKey: referenceValueKey(value),
       citations: seq === null ? [] : [{ stopSequence: seq, printedLabel: printed }],
@@ -247,6 +271,6 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
     });
   });
 
-  return { references: [...byKey.values()], routed, dropped };
+  return { references: [...byKey.values()], routed, dropped, unrecognized };
 }
 
