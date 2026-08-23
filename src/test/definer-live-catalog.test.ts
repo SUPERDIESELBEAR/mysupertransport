@@ -280,9 +280,15 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role management|owner|dispatcher; writes the paired duplicate-broker-
   // reference notes to load_change_history on both loads. No other effect.
   "public.record_duplicate_broker_reference(uuid,uuid,text)",
-  // has_role management|owner|dispatcher|onboarding_staff; files a document's
-  // references as the load's baseline, with provenance. No financial effect.
-  "public.record_load_reference_baseline(uuid,uuid,text,text)",
+  // has_role management|owner|dispatcher; files a document's references, their
+  // stop citations and the baseline provenance entry in ONE transaction, with
+  // the actor resolved by current_profile_id(). Replaces
+  // record_load_reference_baseline, whose split write left half-filed
+  // baselines. No financial effect.
+  "public.file_load_references(uuid,jsonb,text,uuid,text,text)",
+  // has_role management|owner|dispatcher; marks one parser diagnostic resolved
+  // and stamps the resolver's profile id. Two columns on one row.
+  "public.resolve_parser_diagnostic(uuid)",
   // has_role management|owner|dispatcher|onboarding_staff; stores the verdicts
   // for this load's verbatim captures. Writes one jsonb column, nothing else.
   "public.set_load_verbatim_verification(uuid,jsonb)",
@@ -302,8 +308,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + the eight load-management RPCs and the three token-gated public
 // endpoints registered 2026-08-20, plus update_load_with_stops and
 // record_duplicate_broker_reference.
-// + record_load_reference_baseline and set_load_verbatim_verification.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 88;
+// + set_load_verbatim_verification, then file_load_references and
+// resolve_parser_diagnostic (record_load_reference_baseline dropped).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 89;
 
 
 /**
