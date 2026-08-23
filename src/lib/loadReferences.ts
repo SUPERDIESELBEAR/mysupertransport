@@ -59,19 +59,29 @@ function toRpcRef(r: ReferenceFormValues) {
 export async function saveLoadReferences(
   loadId: string,
   refs: ReferenceFormValues[],
-  opts: { source?: string } = {},
+  opts: {
+    source?: string;
+    /**
+     * References the dispatcher confirmed the revised document no longer
+     * prints. Absence from `refs` does NOT delete a row — an empty array is a
+     * no-op here by design — so a removal has to be stated.
+     */
+    removals?: { reference_class: string; label: string; value: string; value_key: string }[];
+  } = {},
 ): Promise<void> {
-  if (!refs.length) return;
   const usable = refs.filter(r => (r.value ?? '').trim());
-  if (!usable.length) return;
+  const removals = (opts.removals ?? []).filter(r => (r.value_key ?? '').trim());
+  if (!usable.length && !removals.length) return;
 
   const { error } = await supabase.rpc('file_load_references', {
     p_load_id: loadId,
     p_refs: usable.map(toRpcRef) as never,
     p_source: opts.source ?? 'rate_confirmation',
+    p_removals: removals as never,
   });
   if (error) throw error;
 }
+
 
 /** Reads a load's references with their stop citations, for display and diffing. */
 export async function fetchLoadReferences(loadId: string): Promise<StoredReference[]> {

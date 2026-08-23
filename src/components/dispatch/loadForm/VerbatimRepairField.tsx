@@ -79,7 +79,11 @@ interface Props {
 export default function VerbatimRepairField({ check, file, value, onRepair, subtitle }: Props) {
   const copy = VERDICT_COPY[check.verdict] ?? VERDICT_COPY.region_unresolved;
   const damaged = (check.transcriptionDamage?.length ?? 0) > 0;
-  const repairable = damaged && !!onRepair;
+  const invented = (check.unknownWords?.length ?? 0) > 0;
+  // A word the page does not print is repairable off the page in exactly the
+  // same way a corrupted span is, and for the same reason.
+  const repairable = (damaged || invented) && !!onRepair;
+
 
   const [pageImage, setPageImage] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
@@ -121,6 +125,7 @@ export default function VerbatimRepairField({ check, file, value, onRepair, subt
         Similarity {pct(check.similarity)}
         {check.similarityPass === null ? '' : check.similarityPass ? ' (pass)' : ' (fail)'}
         {' \u00b7 '}Tokens {check.tokenPass === null ? '\u2014' : check.tokenPass ? 'all present' : `${check.missingTokens?.length ?? 0} missing`}
+        {' \u00b7 '}Words {check.wordPass === null ? '\u2014' : check.wordPass ? 'all on the page' : `${check.unknownWords?.length ?? 0} not on the page`}
         {' \u00b7 '}Page damage {pct(check.layerDegradation)}
         {page ? ` \u00b7 Page ${page}` : ''}
       </p>
@@ -129,7 +134,14 @@ export default function VerbatimRepairField({ check, file, value, onRepair, subt
         <p className="mt-0.5 text-[11px] text-foreground">Dropped: {check.missingTokens.join(', ')}</p>
       )}
 
+      {invented && (
+        <p className="mt-0.5 text-[11px] text-foreground">
+          Contains words the page does not print — {check.unknownWords!.join(', ')}
+        </p>
+      )}
+
       <p className="mt-0.5 text-[11px] text-muted-foreground">{copy.hint}</p>
+
 
       {damaged && (
         <div className="mt-2 space-y-1 rounded border border-destructive/30 bg-background/70 p-2">

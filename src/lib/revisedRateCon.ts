@@ -2,9 +2,10 @@ import type { LoadFormValues, StopFormValues } from '@/pages/dispatch/loadFormSc
 import type { Confidence, Field, ParsedRateConfirmation, ParsedStop } from '@/lib/rateConfirmation';
 
 import {
-  citationKey, classifyReferences, referenceKey,
+  citationKey, classifyReferences, referenceKey, referenceValueKey,
   type ReferenceCitation, type ReferenceClass,
 } from '@/lib/referenceClasses';
+
 
 import { normalizeAddressKey, normalizeZipKey } from '@/lib/facilityMatch';
 import { toLocalInput } from '@/lib/loadEdit';
@@ -598,14 +599,20 @@ export function buildRevisionDiff(
         id: `ref.remove.${key}`,
         label: `Reference removed — ${r.label}`,
         path: 'references', stopIndex: null,
-        current: `${r.label}: ${r.value}`, revised: '—',
-        value: null, hasDriverData: false, defaultAccept: true,
+        current: `${r.label}: ${r.value}`,
+        revised: 'Not printed on this document',
+        // Never pre-accepted. A number missing from a revised document has two
+        // readings — the broker dropped it, or the parser failed to read it this
+        // time — and only a person looking at the page can tell them apart.
+        // Deleting a live BOL number on the parser's word is the worse mistake.
+        value: null, hasDriverData: false, defaultAccept: false,
         reference: {
           op: 'removed', reference_class: r.reference_class, label: r.label,
           value: r.value, citations: toCitations(r.citations),
         },
       });
     });
+
   }
 
 
@@ -715,11 +722,28 @@ const setPath = (values: LoadFormValues, path: string, value: unknown): LoadForm
   return { ...values, [parts[0]]: value } as LoadFormValues;
 };
 
+export interface RemovedReference {
+  reference_class: string;
+  label: string;
+  value: string;
+  value_key: string;
+}
+
 export interface ApplyRevisionResult {
   values: LoadFormValues;
   /** One line per applied money change, for the automatic change reason. */
   financialSummary: string[];
+  /**
+   * References the dispatcher accepted as removed.
+   *
+   * Dropping them out of `values.references` is not enough: the save path
+   * treats an absent reference as "not carried by this form" and leaves the row
+   * on file, so an accepted removal changed nothing and the same row came back
+   * on every later review. These are deleted explicitly.
+   */
+  removedReferences: RemovedReference[];
 }
+
 
 /**
  * Folds the accepted decisions into the current form values.
@@ -738,14 +762,22 @@ export function applyRevision(
   // References are a list operation, not a field write, so they are folded in
   // before the generic path writes and skipped by them.
   const refs = [...(values.references ?? [])];
+  const removedReferences: RemovedReference[] = [];
   diff.nonFinancial.forEach(d => {
     if (!d.reference || !decisions.accepted[d.id]) return;
     const key = referenceKey(d.reference.reference_class as ReferenceClass, d.reference.value);
     const at = refs.findIndex(r => referenceKey(r.reference_class as ReferenceClass, r.value) === key);
     if (d.reference.op === 'removed') {
       if (at >= 0) refs.splice(at, 1);
+      removedReferences.push({
+        reference_class: d.reference.reference_class,
+        label: d.reference.label,
+        value: d.reference.value,
+        value_key: referenceValueKey(d.reference.value),
+      });
       return;
     }
+
     const row = {
       reference_class: d.reference.reference_class,
       label: d.reference.label,
@@ -825,7 +857,7 @@ export function applyRevision(
   });
 
   values = { ...values, charges };
-  return { values, financialSummary };
+  return { values, financialSummary, removedReferences };
 }
 
 const signed = (n: number) => `${n >= 0 ? '+' : '-'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
