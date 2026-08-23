@@ -102,17 +102,38 @@ export function labelKey(label: string | null | undefined): string {
   return (label ?? '').toUpperCase().replace(/[^A-Z]/g, '');
 }
 
+/**
+ * An ABSENT label and an UNRECOGNISED label are different things:
+ *   - absent      -> `other`, a genuinely unlabelled reference
+ *   - unrecognised-> `unclassified`, a label this map has never been taught
+ * Collapsing the second into the first is the silent-wrong this class exists to
+ * end: an unfamiliar broker would otherwise parse clean with no signal anywhere.
+ */
 export function classifyReferenceLabel(label: string | null | undefined): ReferenceClass {
   const key = labelKey(label);
   if (!key) return 'other';
   if (LABEL_MAP[key]) return LABEL_MAP[key];
   // `PU# (Shipper)` style suffixes: fall back to a prefix hit.
   const hit = Object.keys(LABEL_MAP).find((k) => k.length >= 3 && key.startsWith(k));
-  return hit ? LABEL_MAP[hit] : 'other';
+  return hit ? LABEL_MAP[hit] : 'unclassified';
 }
 
 export const isIdentifyingClass = (c: ReferenceClass): boolean =>
   REFERENCE_CLASSES[c].identifying;
+
+/** True when the parser could not place the printed label. */
+export const isUnrecognizedClass = (c: ReferenceClass): boolean =>
+  REFERENCE_CLASSES[c].unrecognized === true;
+
+/** How a reference row should be labelled in the UI. */
+export function referenceDisplayLabel(
+  clazz: ReferenceClass, printedLabel: string | null | undefined,
+): string {
+  const printed = (printedLabel ?? '').trim();
+  const spec = REFERENCE_CLASSES[clazz];
+  if (spec.keepsPrintedLabel) return printed || spec.label;
+  return printed || spec.label;
+}
 
 /** Comparison key for a value: case and punctuation insensitive, content preserved. */
 export const referenceValueKey = (value: string | null | undefined): string =>
