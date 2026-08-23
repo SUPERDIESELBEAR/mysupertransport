@@ -29,6 +29,7 @@ import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import { logParserDiagnostics } from '@/lib/parserDiagnostics';
 import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import VerbatimRepairField from './VerbatimRepairField';
