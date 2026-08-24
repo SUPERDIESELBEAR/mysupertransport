@@ -705,3 +705,35 @@ Rules that follow from it:
   `pgFake` in the same change**, mirroring the migration. A fake that stores
   what the caller sent rather than what the SQL writes is how the
   `verbatim_verification` envelope shipped unreadable.
+- **Fixtures are derived from a real stored parse, never authored.** The Blue
+  Grace fixture is the stored parse of load ST26035 — MIXED PRODUCTS,
+  1224 / 176 / 1400, Laredo TX to Garland TX, reefer at 38F. An earlier version
+  invented seven fields, including a `DEL#` stop label the document never
+  prints, so the stop-citation assertion was passing against a case that does
+  not occur. A fixture value is never tuned to make an assertion pass; it is
+  re-derived from the stored row.
+
+### What this test does NOT cover
+
+The end-to-end test stops at the database row. It asserts the shape the
+**writer** stores, and React rendering is stubbed, so **no component renders
+against stored data anywhere in the end-to-end suite.**
+
+That is why it would **not** have caught the `verbatim_verification` envelope
+bug: the writer was correct and the *reader* assumed a bare array. What catches
+that class is a reader-boundary test —
+`src/components/dispatch/loadDetail/__tests__/verbatimVerificationCard.test.tsx`
+renders the card against the writer's own output — and that covers exactly one
+card. Reader correctness for every other component that consumes stored parse
+state is uncovered. Stated here as a known limit, not counted as coverage.
+
+### Why Blue Grace's special instructions read `verified`
+
+The text layer renders `53' 102"` as `¶`; the model resolved it back. So the
+damage is in the LAYER and not in the transcription: `layerDegradation` is
+non-zero, `transcriptionDamage` is null, and the verdict is `verified` at
+similarity 0.9929. A damaged layer refuses **adoption** — the value is kept from
+the model rather than taken from the page — it does not condemn the capture.
+Both halves are pinned in the end-to-end test so a later change that starts
+flagging the transcription fails there.
+
