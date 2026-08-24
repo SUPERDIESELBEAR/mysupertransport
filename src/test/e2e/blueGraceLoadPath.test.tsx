@@ -132,23 +132,28 @@ describe('create path — Blue Grace rate confirmation to database rows', () => 
     const load = fake.tables.loads.find(l => l.id === loadId) as Record<string, unknown>;
     expect(load.load_number).toBe(values.load_number);
     expect(load.equipment_type).toBe('reefer');
-    expect(load.commodity).toBe('Avocados');
-    expect(load.linehaul_rate).toBe(3200);
-    expect(load.fsc_amount).toBe(400);
-    expect(load.total_load_value).toBe(3600);
-    expect(load.reefer_temp_f).toBe(34);
+    // The real tender's values, read back off the stored parse of ST26035.
+    expect(load.commodity).toBe('MIXED PRODUCTS');
+    expect(load.linehaul_rate).toBe(1224);
+    expect(load.fsc_amount).toBe(176);
+    expect(load.total_load_value).toBe(1400);
+    expect(load.reefer_temp_f).toBe(38);
     expect(load.mode).toBe('TL');
     // Stamped with the profile id, never the auth uid.
     expect(load.created_by).toBe(PROFILE_ID);
 
     const stops = fake.tables.load_stops.filter(s => s.load_id === loadId);
     expect(stops).toHaveLength(2);
-    expect(stops[0].city).toBe('Santa Paula');
+    expect(stops[0].city).toBe('Laredo');
     expect(stops[0].stop_sequence).toBe(1);
-    expect(stops[1].city).toBe('Cincinnati');
+    expect(stops[1].city).toBe('Garland');
     // The stop's printed comment line survives the save. It is captured,
     // verified and carried in the payload; only the write proves it lands.
     expect(stops[0].stop_notes_verbatim).toBe('Comments: PU# IX00286060');
+    // The document prints `PO#` on the delivery, not `DEL#`. The invented
+    // fixture exercised a label this tender never prints, so the citation
+    // assertion below was passing against a case that does not occur.
+    expect(stops[1].stop_notes_verbatim).toBe('Comments: PO# 001000562117');
   });
 
   it('stores every reference the document printed, with its stop citation', async () => {
@@ -268,7 +273,7 @@ describe('revision path — revised tender applied to the stored load', () => {
 
     // --- the load itself
     const load = fake.tables.loads.find(l => l.id === loadId) as Record<string, unknown>;
-    expect(load.linehaul_rate).toBe(3450);
+    expect(load.linehaul_rate).toBe(1350);
     expect(load.updated_by).toBe(PROFILE_ID);
 
     // --- the stop that moved, and the one that did not
