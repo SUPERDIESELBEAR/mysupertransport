@@ -231,6 +231,15 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
       unrecognized.push({ label: printedRaw, stopSequence: row.stopSequence ?? null });
     }
 
+    // "Assign at pickup" is an instruction printed where a number goes. Stored
+    // as a value it becomes a permanent phantom reference that shows up in every
+    // later diff, so it is dropped — and logged, so the vocabulary can grow.
+    if (isPlaceholderReferenceValue(value)) {
+      dropped.push({ clazz, label: printedRaw, value });
+      return;
+    }
+
+
     if (!spec.identifying) {
       if (spec.routeTo) routed.push({ clazz, value, routeTo: spec.routeTo });
       else dropped.push({ clazz, label: printedRaw, value });
