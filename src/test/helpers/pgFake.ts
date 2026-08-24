@@ -75,12 +75,19 @@ export function classifyActorExpression(expr: string, body = ''): ActorKind {
   const e = expr.toLowerCase().trim();
   if (/current_profile_id\s*\(/.test(e)) return 'profile';
   if (/auth\.uid\s*\(/.test(e)) return 'auth_uid';
-  // plpgsql assigns through a local: `v_profile uuid := public.current_profile_id();`
+  // plpgsql assigns through a local, either at declaration
+  // (`v_profile uuid := public.current_profile_id();`) or in the body
+  // (`v_profile := public.current_profile_id();`). Both forms occur in the
+  // checked-in SQL, and reading only the first made `create_load_with_stops`
+  // look like it stamped nobody.
   const ident = /^([a-z_][a-z0-9_]*)$/.exec(e)?.[1];
   if (ident && body) {
     const decl = new RegExp(`\\b${ident}\\s+uuid\\s*:=\\s*([^;]+);`, 'i').exec(body);
     if (decl) return classifyActorExpression(decl[1], '');
+    const assign = new RegExp(`\\b${ident}\\s*:=\\s*([^;]+);`, 'i').exec(body);
+    if (assign) return classifyActorExpression(assign[1], '');
   }
+
   return 'unknown';
 }
 
@@ -149,9 +156,81 @@ export function actorValue(kind: ActorKind): string | null {
   return null;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Column coercion, as the save RPCs perform it                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `NULLIF(p_load->>'k','')`. Every value the load form sends is a string, and
+ * the empty string means "not set" — a fake that stored `''` would report a
+ * change on every field the form leaves blank.
+ */
+export const txt = (v: unknown): string | null => {
+  if (v === null || v === undefined) return null;
+  const s = typeof v === 'string' ? v : String(v);
+  return s === '' ? null : s;
+};
+
+/** `NULLIF(...,'')::numeric`. */
+export const numOrNull = (v: unknown): number | null => {
+  const s = txt(v);
+  if (s === null) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+const boolOrFalse = (v: unknown): boolean => v === true || v === 'true';
+
+/** Load columns the RPCs cast to numeric. */
+export const NUMERIC_LOAD_KEYS = [
+  'weight_lbs', 'linehaul_rate', 'fsc_amount', 'rate_per_mile', 'rate_per_ton',
+  'estimated_tons', 'total_load_value', 'loaded_miles', 'deadhead_miles',
+  'reefer_temp_f', 'reefer_temp_min_f', 'reefer_temp_max_f', 'permit_cost',
+  'loadout_relocation_fee', 'loadout_use_period_days',
+];
+
+const BOOLEAN_LOAD_KEYS = [
+  'fsc_bundled_into_linehaul', 'reefer_precool_required', 'reefer_continuous_run',
+  'is_team_load', 'is_hazmat', 'permit_required',
+];
+
+/** The keys `update_load_with_stops` treats as moving money. */
+export const FINANCIAL_LOAD_KEYS = [
+  'rate_type', 'linehaul_rate', 'rate_per_mile', 'rate_per_ton', 'estimated_tons',
+  'fsc_bundled_into_linehaul', 'fsc_amount', 'loadout_relocation_fee', 'permit_cost',
+  'permit_recovery_method', 'loaded_miles',
+];
+
+/** Every load column the save payload carries, in the RPCs' own coercions. */
+export function coerceLoadColumns(p: Row): Row {
+  const out: Row = {};
+  Object.keys(p).forEach(k => {
+    if (BOOLEAN_LOAD_KEYS.includes(k)) out[k] = boolOrFalse(p[k]);
+    else if (NUMERIC_LOAD_KEYS.includes(k)) out[k] = numOrNull(p[k]);
+    else out[k] = txt(p[k]);
+  });
+  if (out.load_type == null) out.load_type = 'standard';
+  if (out.rate_type == null) out.rate_type = 'flat';
+  return out;
+}
+
+/** Stop columns, minus the sequence and stop-off fields the caller decides. */
+export function coerceStopColumns(s: Row): Row {
+  const out: Row = {};
+  ['stop_type', 'facility_id', 'facility_name', 'address_line1', 'address_line2',
+    'city', 'state', 'zip', 'contact_name', 'contact_phone',
+    'appointment_start', 'appointment_end', 'reference_number', 'reference_label',
+    'stop_notes', 'stop_notes_verbatim'].forEach(k => { out[k] = txt(s[k]); });
+  if (out.stop_type == null) out.stop_type = 'pickup';
+  if (txt(s.id)) out.id = txt(s.id);
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* The client                                                          */
 /* ------------------------------------------------------------------ */
+
 
 export interface PgFake {
   tables: Record<string, Row[]>;
@@ -167,7 +246,11 @@ export function createPgFake(): PgFake {
     load_reference_citations: [],
     load_change_history: [],
     loads: [],
+    load_charges: [],
+    load_documents: [],
+    facilities: [],
     parser_diagnostics: [],
+
   };
 
   const seed = () => {
@@ -276,6 +359,42 @@ export function createPgFake(): PgFake {
             });
           }
 
+          // Removals, in the same transaction as the writes. A reference the
+          // revised document no longer prints is deleted and the deletion is
+          // explained in the load's history — an accepted "reference removed"
+          // that changed nothing is the bug this mirrors.
+          const removals = (args.p_removals ?? []) as {
+            reference_class: string; value_key: string;
+          }[];
+          removals.forEach(rm => {
+            const at = tables.load_references.findIndex(
+              r => r.load_id === args.p_load_id
+                && r.reference_class === rm.reference_class
+                && r.value_key === rm.value_key,
+            );
+            if (at < 0) return;
+            const [gone] = tables.load_references.splice(at, 1);
+            // ON DELETE CASCADE.
+            for (let i = tables.load_reference_citations.length - 1; i >= 0; i -= 1) {
+              if (tables.load_reference_citations[i].reference_id === gone.id) {
+                tables.load_reference_citations.splice(i, 1);
+              }
+            }
+            const changed = actorExpressionFor(fn, 'load_change_history', 'changed_by');
+            insertRows('load_change_history', {
+              load_id: args.p_load_id,
+              field_path: `references.${String(gone.reference_class)}`,
+              previous_value: `${String(gone.label)}: ${String(gone.value)}`,
+              new_value: null,
+              is_financial: false,
+              reason: `Reference removed from ${(args.p_document_label as string) || 'a revised rate confirmation'}`,
+              change_source: (args.p_source as string) || 'rate_confirmation',
+              changed_by: actorValue(changed?.kind ?? 'unknown'),
+            }, 'hist');
+          });
+
+
+
           if (args.p_summary) {
             const changed = actorExpressionFor(fn, 'load_change_history', 'changed_by');
             insertRows('load_change_history', {
@@ -324,7 +443,188 @@ export function createPgFake(): PgFake {
         return { data: null, error: null };
       }
 
+
+      /* ---------------------------------------------------------------- */
+      /* The load save path                                                */
+      /* ---------------------------------------------------------------- */
+
+      if (fn === 'generate_load_number') {
+        const cfg = (tables.load_number_config ??= []);
+        if (!cfg.length) cfg.push({ id: 'cfg-1', prefix: 'ST', separator: '', include_year: true, sequence_padding: 3, next_sequence: 1 });
+        const c = cfg[0];
+        const seq = Number(c.next_sequence);
+        c.next_sequence = seq + 1;
+        const yr = String(new Date().getFullYear()).slice(2);
+        return {
+          data: `${c.prefix}${c.include_year ? String(c.separator) + yr : ''}${String(c.separator)}${String(seq).padStart(Math.max(Number(c.sequence_padding), 1), '0')}`,
+          error: null,
+        };
+      }
+
+      if (fn === 'create_load_with_stops') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error('create_load_with_stops is not in the migration set');
+        const actor = actorValue(classifyActorExpression('v_profile', body));
+        const p = (args.p_load ?? {}) as Row;
+        const stopsIn = (args.p_stops ?? []) as Row[];
+        const chargesIn = (args.p_charges ?? []) as Row[];
+        if (stopsIn.length < 2) throw new Error('A load requires at least two stops');
+
+        const load: Row = {
+          ...coerceLoadColumns(p),
+          status: 'available',
+          dispatcher_id: actor,
+          created_by: actor,
+          updated_by: actor,
+        };
+        const loadId = insertRows('loads', load, 'load')[0].id as string;
+
+        const stopIds: string[] = [];
+        stopsIn.forEach((s, i) => {
+          const middle = i > 0 && i < stopsIn.length - 1;
+          const row = insertRows('load_stops', {
+            load_id: loadId,
+            stop_sequence: i + 1,
+            ...coerceStopColumns(s),
+            stopoff_charge_eligible: middle,
+            stopoff_charge_amount: middle ? numOrNull(s.stopoff_charge_amount) : null,
+          }, 'stop')[0];
+          stopIds.push(row.id as string);
+        });
+
+        chargesIn.forEach(c => {
+          const at = txt(c.stop_index) === null ? null : Number(c.stop_index);
+          insertRows('load_charges', {
+            load_id: loadId,
+            load_stop_id: at !== null && stopIds[at] ? stopIds[at] : null,
+            charge_type: txt(c.charge_type) ?? 'other',
+            description: txt(c.description),
+            amount: numOrNull(c.amount) ?? 0,
+            source: txt(c.source) ?? 'manual',
+          }, 'charge');
+        });
+
+        return { data: loadId, error: null };
+      }
+
+      if (fn === 'update_load_with_stops') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error('update_load_with_stops is not in the migration set');
+        const actor = actorValue(classifyActorExpression('v_profile', body));
+        const loadId = args.p_load_id as string;
+        const load = tables.loads.find(l => l.id === loadId);
+        if (!load) throw new Error('Load not found');
+        const p = (args.p_load ?? {}) as Row;
+        const stopsIn = (args.p_stops ?? []) as Row[];
+        const chargesIn = (args.p_charges ?? []) as Row[];
+        const reason = ((args.p_reason as string) ?? '').trim() || null;
+        if (stopsIn.length < 2) throw new Error('A load requires at least two stops');
+        if (txt(p.load_number) && txt(p.load_number) !== load.load_number) {
+          throw new Error('The load number cannot be changed');
+        }
+
+        const next = coerceLoadColumns(p);
+        const changes: { f: string; a: unknown; b: unknown; fin: boolean }[] = [];
+        let financial = false;
+        Object.keys(next).forEach(k => {
+          if (k === 'load_number') return;
+          const a = load[k] ?? null;
+          const b = next[k] ?? null;
+          const same = NUMERIC_LOAD_KEYS.includes(k)
+            ? Number(a ?? NaN) === Number(b ?? NaN) || (a == null && b == null)
+            : a === b;
+          if (same) return;
+          const fin = FINANCIAL_LOAD_KEYS.includes(k);
+          if (fin) financial = true;
+          changes.push({ f: k, a, b, fin });
+        });
+
+        const oldCharges = tables.load_charges
+          .filter(c => c.load_id === loadId)
+          .reduce((s, c) => s + Number(c.amount ?? 0), 0);
+        const newCharges = chargesIn.reduce((s, c) => s + (numOrNull(c.amount) ?? 0), 0);
+        if (oldCharges !== newCharges) {
+          financial = true;
+          changes.push({ f: 'charges_total', a: String(oldCharges), b: String(newCharges), fin: true });
+        }
+
+        // The database refuses a money change with no written reason. A fake
+        // that accepted one would let the revision test pass a payload the
+        // real save rejects.
+        if (financial && !reason) {
+          throw new Error('A reason is required when a change affects the value of the load');
+        }
+
+        const kept = stopsIn.map(s => txt(s.id)).filter(Boolean) as string[];
+        for (let i = tables.load_stops.length - 1; i >= 0; i -= 1) {
+          const s = tables.load_stops[i];
+          if (s.load_id !== loadId || kept.includes(s.id as string)) continue;
+          insertRows('load_change_history', {
+            load_id: loadId,
+            field_path: 'stop_removed',
+            previous_value: `Stop ${String(s.stop_sequence)}: ${String(s.facility_name ?? '')}`,
+            new_value: null,
+            is_financial: false,
+            reason,
+            changed_by: actor,
+          }, 'hist');
+          tables.load_charges.forEach(c => { if (c.load_stop_id === s.id) c.load_stop_id = null; });
+          tables.load_stops.splice(i, 1);
+        }
+
+        stopsIn.forEach((s, i) => {
+          const middle = i > 0 && i < stopsIn.length - 1;
+          const patch = {
+            stop_sequence: i + 1,
+            ...coerceStopColumns(s),
+            stopoff_charge_eligible: middle,
+            stopoff_charge_amount: middle ? numOrNull(s.stopoff_charge_amount) : null,
+          };
+          const id = txt(s.id);
+          const existing = id ? tables.load_stops.find(x => x.id === id && x.load_id === loadId) : null;
+          if (id && !existing) throw new Error('A stop being edited no longer exists on this load');
+          if (existing) Object.assign(existing, patch);
+          else insertRows('load_stops', { load_id: loadId, ...patch }, 'stop');
+        });
+
+        for (let i = tables.load_charges.length - 1; i >= 0; i -= 1) {
+          if (tables.load_charges[i].load_id === loadId) tables.load_charges.splice(i, 1);
+        }
+        const seq = tables.load_stops
+          .filter(s => s.load_id === loadId)
+          .sort((a, b) => Number(a.stop_sequence) - Number(b.stop_sequence));
+        chargesIn.forEach(c => {
+          const at = txt(c.stop_index) === null ? null : Number(c.stop_index);
+          insertRows('load_charges', {
+            load_id: loadId,
+            load_stop_id: at !== null && seq[at] ? seq[at].id : null,
+            charge_type: txt(c.charge_type) ?? 'other',
+            description: txt(c.description),
+            amount: numOrNull(c.amount) ?? 0,
+            source: txt(c.source) ?? 'manual',
+          }, 'charge');
+        });
+
+        changes.forEach(c => {
+          insertRows('load_change_history', {
+            load_id: loadId,
+            field_path: c.f,
+            previous_value: c.a === null ? null : String(c.a),
+            new_value: c.b === null ? null : String(c.b),
+            is_financial: c.fin,
+            reason,
+            changed_by: actor,
+          }, 'hist');
+        });
+
+        const merged = { ...load, ...next, updated_by: actor };
+        enforce('loads', merged);
+        Object.assign(load, merged);
+        return { data: loadId, error: null };
+      }
+
       return { data: null, error: { message: `unhandled rpc ${fn}`, code: 'P0001' } };
+
     } catch (err) {
       const e = err as FkViolation;
       return { data: null, error: { message: e.message, code: e.code ?? 'P0001', details: '', hint: '' } };
@@ -359,8 +659,22 @@ export function createPgFake(): PgFake {
               is: (c: string, v: unknown) => resolved(l.filter(r => (r[c] ?? null) === v)),
               order: () => resolved(l),
               limit: (n: number) => resolved(l.slice(0, n)),
+              maybeSingle: () => Promise.resolve({ data: l[0] ?? null, error: null }),
+              // PostgREST fails a `.single()` that does not match exactly one row,
+              // and code branches on that error. A fake that returned the first
+              // row regardless would hide the branch.
+              single: () => Promise.resolve(l.length === 1
+                ? { data: l[0], error: null }
+                : {
+                  data: null,
+                  error: {
+                    code: 'PGRST116',
+                    message: `JSON object requested, multiple (or no) rows returned (${l.length})`,
+                  },
+                }),
             },
           );
+
           return resolved(list);
         },
         eq(col: string, val: unknown) { this._filters.push(r => r[col] === val); return this; },

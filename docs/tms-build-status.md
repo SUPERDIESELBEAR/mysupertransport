@@ -684,3 +684,24 @@ cannot be more reliable than the extraction. The document side now answers from
 label scan (commodity / commodities / freight description / description of goods
 / product) only when nothing was extracted, and stays `null` when there is
 neither — unknown never silences a model signal.
+
+## Standing rule — one test drives the whole path
+
+`src/test/e2e/blueGraceLoadPath.test.tsx` runs the Blue Grace tender through the
+real create path (verification → adoption → form population with the real zod
+resolver → `create_load_with_stops` → references → verbatim envelope →
+diagnostics) and the real revision path (diff → decisions → `update_load_with_stops`
+→ reference removal), and asserts on **rows in `pgFake`**, which enforces the
+real foreign keys and takes its RPC behaviour from the checked-in SQL.
+
+Rules that follow from it:
+
+- **Assert on stored state, not on the return of the function you just called.**
+  Every joint defect so far passed its own unit test and failed at the boundary.
+- **Only the network may be stubbed.** In this file that is the parse edge
+  function, the pdf.js text layer, storage, and React rendering of the two
+  screens — nothing else, and everything downstream of each stub is real.
+- **When a save path gains a column, an RPC, or a list operation, it is added to
+  `pgFake` in the same change**, mirroring the migration. A fake that stores
+  what the caller sent rather than what the SQL writes is how the
+  `verbatim_verification` envelope shipped unreadable.
