@@ -568,6 +568,14 @@ export default function RateConfirmationParser({
             Loadout score {loadout.score} of {loadout.maxScore} — threshold 4.
             {loadout.documentRead ? ' Scored from the model and the printed page.' : ' Scored from the model only: no text layer was readable.'}
           </p>
+          {loadout.suppressedPoints > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {loadout.suppressedPoints} point{loadout.suppressedPoints === 1 ? '' : 's'} withheld from{' '}
+              {loadout.signals.filter(s => s.contradicted).map(s => s.key).join(', ')} — the model reported{' '}
+              {loadout.suppressedPoints === 1 ? 'it' : 'them'} but the printed page says otherwise. It would have
+              scored {loadout.unsuppressedScore} of {loadout.maxScore} if contradicted signals counted.
+            </p>
+          )}
           {loadout.reasons.length > 0 ? (
             <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
               {loadout.reasons.map(r => <li key={r}>{r}</li>)}
