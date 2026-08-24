@@ -162,7 +162,7 @@ export function adoptVerbatim(
 
   const signals = truncationSignals(layerValue, model);
   if (signals.length) {
-    return { ...withLayer, origin: 'model', reason: 'region_truncated', truncationSignals: signals };
+    return { ...withLayer, origin: 'model', reason: 'region_boundary_uncertain', truncationSignals: signals };
   }
 
   return { ...withLayer, origin: 'text_layer', reason: 'layer_clean', value: layerValue };
