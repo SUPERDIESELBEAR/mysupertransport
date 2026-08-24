@@ -114,6 +114,8 @@ export interface ParsedRateConfirmation {
     trailer_owner_company: Field<string>;
     relocation_fee: Field<number>;
     use_period_days: Field<number>;
+    use_start_date?: Field<string>;
+    use_end_date?: Field<string>;
   };
   /**
    * Per-field result of checking the verbatim captures against the PDF text
@@ -434,6 +436,8 @@ export function applyLoadoutFields(
   if (usable(s.trailer_owner_company) !== null) set('loadout_trailer_owner_company', String(s.trailer_owner_company.value));
   if (usable(s.relocation_fee) !== null) set('loadout_relocation_fee', String(s.relocation_fee.value));
   if (usable(s.use_period_days) !== null) set('loadout_use_period_days', String(s.use_period_days.value));
+  if (s.use_start_date && usable(s.use_start_date) !== null) set('loadout_use_start', String(s.use_start_date.value));
+  if (s.use_end_date && usable(s.use_end_date) !== null) set('loadout_use_end', String(s.use_end_date.value));
 }
 
 export function fileToBase64(file: File): Promise<string> {
