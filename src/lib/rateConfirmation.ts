@@ -350,10 +350,14 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
     {
       key: 'no_commodity',
       points: 1,
-      reason: 'No commodity is listed.',
+      reason: extractedCommodity
+        ? `No commodity is listed — the parse extracted "${extractedCommodity}", so the document side says one is.`
+        : 'No commodity is listed.',
       model: !!s?.no_commodity,
-      document: documentRead ? !DOC_COMMODITY.test(text) : null,
+      // Inverted: the helper answers "is one listed", this signal asks the opposite.
+      document: listed === null ? null : !listed,
     },
+
     {
       key: 'trailer_number',
       points: 1,
