@@ -666,15 +666,27 @@ export default function RevisedRateConModal({
               </div>
             ) : null}
 
-            {verbatim.some(v => v.verdict === 'transcription_damaged' || v.verdict === 'unverified') ? (
+            {/*
+              Only corrupted captures are surfaced, and only here. This is the one
+              path where accepting a row overwrites text already stored on the
+              load, so a capture carrying characters the page does not print is a
+              decision the dispatcher is actually making — and the repair is a few
+              visible characters typed off the rendered page. A similarity or
+              token score is not: it cannot be interpreted, and its repair box
+              asks for a legal terms block to be retyped by eye. Those verdicts
+              still compute, still persist, and are read on the verification card
+              and in Parser Diagnostics.
+            */}
+            {verbatim.some(v => v.verdict === 'transcription_damaged') ? (
               <section className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground">Captured text to check</h4>
+                <h4 className="text-sm font-semibold text-foreground">Corrupted captures to repair</h4>
                 <p className="text-xs text-muted-foreground">
-                  These transcriptions did not pass the check against the printed page. Repair a
-                  corrupted capture before accepting its row.
+                  These transcriptions contain characters the printed page does not show. Repair a
+                  capture before accepting its row, so the corruption does not replace the text
+                  already stored on this load.
                 </p>
                 {verbatim
-                  .filter(v => v.verdict === 'transcription_damaged' || v.verdict === 'unverified')
+                  .filter(v => v.verdict === 'transcription_damaged')
                   .map((v, i) => (
                     <VerbatimRepairField
                       key={`${v.field}-${v.parsedStopIndex ?? 'load'}-${i}`}
