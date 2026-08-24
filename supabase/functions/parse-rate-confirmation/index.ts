@@ -17,12 +17,22 @@ const SAMPLING = { temperature: 0, seed: 20260823 } as const;
  * warns on divergence: a stale deploy silently returning an older contract
  * presented once as three unrelated-looking bugs, and catching that from a
  * stray log string was luck, not a control.
+ *
+ * That control was still blind once: the `run` envelope was added to the
+ * response WITHOUT bumping `contract` or `built_at`, so a deploy frozen before
+ * that change answered "contract 4" and passed the check while returning no
+ * `run` at all — which read on screen as "model unknown · no run id". Two rules
+ * come out of it. The contract number moves in the same change as the shape.
+ * And `code_hash` below is derived from the build's own content, so a build
+ * identity is never something a human types and can therefore never be stale
+ * while the code around it moves.
  */
-const PARSER_BUILD = {
-  contract: 4,
-  built_at: '2026-08-24T00:00:00Z',
-  notes: 'contract 3 + anti text-layer-artifact transcription rule',
+const PARSER_BUILD_META = {
+  contract: 5,
+  built_at: '2026-08-24T14:50:00Z',
+  notes: 'contract 4 + run envelope (model/seed/seed_echoed/system_fingerprint) required',
 };
+
 
 
 interface RequestBody {
@@ -195,7 +205,28 @@ Rules:
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
 
 
+/**
+ * FNV-1a over the parts of this build that decide what it returns. Content
+ * derived, so it moves when the build moves and cannot be left stale by hand.
+ */
+function fnv1a(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+const PARSER_BUILD = {
+  ...PARSER_BUILD_META,
+  code_hash: fnv1a(
+    `${PARSER_BUILD_META.contract}|${CHAT_MODEL}|${JSON.stringify(SAMPLING)}|${SYSTEM_PROMPT}|${USER_PROMPT}`,
+  ),
+};
+
 type Conf = 'high' | 'medium' | 'low';
+
 
 /** Known-good labels: kept no matter what the model judged. */
 const KEEP_REF = /(^|\b)(pu|pick\s*up|pickup|delivery|del|dl|drop|bol|bill\s*of\s*lading|po|purchase\s*order|appt|appointment|confirmation|conf|pro|order|release|seal|ref|lo|si|so)\b/i;

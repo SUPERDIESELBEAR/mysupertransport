@@ -207,6 +207,12 @@ export default function RateConfirmationParser({
       // read the raw values and the form read them through the confidence gate.
       setFingerprint(buildParseFingerprint({ layer, checks, parsed: result, discarded: applied.discarded }));
 
+      // The loadout assessment is scored from the model's signals AND the
+      // printed text layer, because one model answer was not a stable enough
+      // basis for a feature to exist: the same document scored above the
+      // threshold three times and below it once, and below it the banner
+      // rendered nothing at all.
+      const loadoutAssessment = assessLoadout(result, layer?.text ?? null);
 
       // Anchor and label misses are filed here, on the create path. The same
       // call runs on the revision path — a check that exists on only one of the
@@ -217,8 +223,10 @@ export default function RateConfirmationParser({
       const result_ = await logParserDiagnostics(applied.classified, {
         documentLabel: file.name,
         parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
-      });
+      }, loadoutAssessment);
       setDiagnostics(result_);
+
+
 
 
 
@@ -229,7 +237,7 @@ export default function RateConfirmationParser({
       onExtractedBroker?.(result.broker?.company_name?.value?.trim() || null);
       setVerify(applied.verify);
       setUnassigned(applied.unassigned);
-      setLoadout(assessLoadout(result));
+      setLoadout(loadoutAssessment);
       setLoadoutAnswer(null);
 
       // Suggest-only: never rewrite what the broker printed, just point at our record.
@@ -495,6 +503,15 @@ export default function RateConfirmationParser({
               {/* Same document, two runs: a matching layer hash with different
                   field outcomes means the model moved, not the extraction. */}
               <p className="font-mono break-all">{fingerprintSummary(fingerprint)}</p>
+              {/* Which builds produced this line. Three "missing content" reports
+                  in this panel turned out to be one stale bundle plus one stale
+                  edge deploy, and nothing on screen could have told them apart. */}
+              <p className="font-mono break-all">
+                client build {typeof __BUILD_VERSION__ === 'string' ? __BUILD_VERSION__ : 'dev'}
+                {' · '}parser build {parsed?.parser_build
+                  ? `contract ${parsed.parser_build.contract} @ ${parsed.parser_build.built_at}${parsed.parser_build.code_hash ? ` · ${parsed.parser_build.code_hash}` : ''}`
+                  : 'unknown'}
+              </p>
               <ul className="space-y-0.5">
                 {fingerprint.fields.map(f => (
                   <li key={f.field} className="font-mono">{f.field}: {f.verdict}</li>
@@ -532,17 +549,39 @@ export default function RateConfirmationParser({
       )}
 
 
-      {parsed && loadout?.suspected && (
-        <div className="rounded-md border border-warning/40 bg-warning/10 p-3 space-y-2">
+      {/* Rendered on EVERY parse, suspected or not. Gating the whole block on
+          `suspected` meant a score that drifted one point below the threshold
+          deleted the only route to the Loadout switch — and with it the derived
+          use window, which runs inside the load-type change. An assessment that
+          ran always says so, and the switch is always reachable. */}
+      {parsed && loadout && (
+        <div className={`rounded-md border p-3 space-y-2 ${
+          loadout.suspected ? 'border-warning/40 bg-warning/10' : 'border-border bg-muted/30'
+        }`}>
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <AlertTriangle className="h-4 w-4 text-warning" />
-            This looks like a loadout (trailer relocation)
+            <AlertTriangle className={`h-4 w-4 ${loadout.suspected ? 'text-warning' : 'text-muted-foreground'}`} />
+            {loadout.suspected
+              ? 'This looks like a loadout (trailer relocation)'
+              : 'This does not look like a loadout'}
           </div>
-          <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
-            {loadout.reasons.map(r => <li key={r}>{r}</li>)}
-          </ul>
+          <p className="text-xs text-muted-foreground">
+            Loadout score {loadout.score} of {loadout.maxScore} — threshold 4.
+            {loadout.documentRead ? ' Scored from the model and the printed page.' : ' Scored from the model only: no text layer was readable.'}
+          </p>
+          {loadout.reasons.length > 0 ? (
+            <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
+              {loadout.reasons.map(r => <li key={r}>{r}</li>)}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">No loadout signals fired on this document.</p>
+          )}
+          {loadout.disagreements.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Model and printed page disagree on: {loadout.disagreements.map(d => d.key).join(', ')}.
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {loadoutAnswer === null && (
+            {loadoutAnswer === null && loadout.suspected && (
               <>
                 <Button type="button" size="sm" className="bg-gold text-surface-dark hover:bg-gold-light" onClick={confirmLoadout}>
                   Yes — switch to Loadout
@@ -551,6 +590,14 @@ export default function RateConfirmationParser({
                   No — keep as is
                 </Button>
               </>
+            )}
+            {loadoutAnswer === null && !loadout.suspected && (
+              <Button
+                type="button" size="sm" variant="outline"
+                onClick={() => { confirmLoadout(); setLoadoutAnswer('yes'); }}
+              >
+                Switch to Loadout anyway
+              </Button>
             )}
             {loadoutAnswer === 'yes' && (
               <>

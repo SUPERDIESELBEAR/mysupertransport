@@ -23,7 +23,8 @@ export type DbErrorParts = Required<DbErrorShape>;
 export type ParserDiagnosticKind =
   | 'anchor_miss'
   | 'reference_label_unrecognized'
-  | 'reference_row_dropped';
+  | 'reference_row_dropped'
+  | 'loadout_assessment';
 
 export interface DiagnosticContext {
   loadId?: string | null;
@@ -53,8 +54,37 @@ interface DiagnosticRow {
 export function collectParserDiagnostics(args: {
   anchorMisses: ReturnType<typeof takeAnchorMisses>;
   classified?: Pick<ClassifyResult, 'unrecognized' | 'dropped'> | null;
+  /**
+   * The loadout assessment for this parse. Recorded on EVERY parse, fired or
+   * not: the same document scoring 4 three times and under 4 once was invisible
+   * because only failures were logged, so score drift had no record to read.
+   */
+  loadout?: {
+    score: number;
+    maxScore: number;
+    suspected: boolean;
+    documentRead: boolean;
+    signals: { key: string; fired: boolean; source: string | null; model: boolean; document: boolean | null }[];
+  } | null;
 }): DiagnosticRow[] {
   const rows: DiagnosticRow[] = [];
+
+  if (args.loadout) {
+    const l = args.loadout;
+    rows.push({
+      kind: 'loadout_assessment',
+      field: 'loadout_signals',
+      failure: l.suspected ? 'loadout_suspected' : 'loadout_not_suspected',
+      occurrences: l.score,
+      headings: [
+        `score ${l.score} of ${l.maxScore}`,
+        `text layer ${l.documentRead ? 'read' : 'unavailable'}`,
+        ...l.signals.map(sig => `${sig.key}: ${sig.fired ? (sig.source ?? 'fired') : 'not fired'}${
+          sig.document !== null && sig.model !== sig.document ? ' (model/document disagree)' : ''
+        }`),
+      ],
+    });
+  }
 
   args.anchorMisses.forEach(m => {
     rows.push({
@@ -158,12 +188,14 @@ export function normalizeDiagnosticRows(
 export async function logParserDiagnostics(
   classified: Pick<ClassifyResult, 'unrecognized' | 'dropped'> | null | undefined,
   ctx: DiagnosticContext = {},
+  loadout: Parameters<typeof collectParserDiagnostics>[0]['loadout'] = null,
 ): Promise<DiagnosticWriteResult> {
   let collected = 0;
   try {
     const rows = collectParserDiagnostics({
       anchorMisses: takeAnchorMisses(),
       classified: classified ?? null,
+      loadout: loadout ?? null,
     });
     collected = rows.length;
     if (!rows.length) return { collected: 0, written: 0, error: null };
@@ -253,6 +285,7 @@ export const DIAGNOSTIC_KIND_LABELS: Record<ParserDiagnosticKind, string> = {
   anchor_miss: 'Unrecognised heading',
   reference_label_unrecognized: 'Unrecognised reference label',
   reference_row_dropped: 'Reference row dropped',
+  loadout_assessment: 'Loadout assessment',
 };
 
 export const REGION_FAILURE_LABELS: Record<string, string> = {

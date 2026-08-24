@@ -78,9 +78,10 @@ describe('repairing a capture', () => {
 });
 
 describe('parser build identity', () => {
-  it('says nothing when the deployed contract is the expected one', () => {
+  it('says nothing when the contract matches AND the run envelope arrived', () => {
     expect(parserContractWarning({
       parser_build: { contract: EXPECTED_PARSER_CONTRACT, built_at: '', notes: '' },
+      run: { model: 'google/gemini-3-flash-preview', seed: 1, seed_echoed: false },
     } as ParsedRateConfirmation)).toBeNull();
   });
 
@@ -91,7 +92,9 @@ describe('parser build identity', () => {
     expect(msg).toContain('contract 2');
   });
 
-  it('stays quiet when the parser reports no build at all', () => {
-    expect(parserContractWarning({} as ParsedRateConfirmation)).toBeNull();
+  // Previously this asserted silence, which is precisely how a deploy frozen
+  // behind its source passed the guard built to catch it.
+  it('warns when the parser reports no build at all', () => {
+    expect(parserContractWarning({} as ParsedRateConfirmation)).toMatch(/no build identity/);
   });
 });
