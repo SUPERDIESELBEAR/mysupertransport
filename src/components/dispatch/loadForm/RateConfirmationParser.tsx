@@ -547,11 +547,20 @@ export default function RateConfirmationParser({
 
       {parsed && !brokerResolved && (
         <div className="rounded-md border border-border bg-background p-3 space-y-2">
-          <p className="text-sm font-semibold text-foreground">Broker on the document</p>
-          <p className="text-xs text-muted-foreground">
-            {parsed.broker.company_name.value ?? 'No name found'}
-            {parsed.broker.mc_number.value ? ` · MC ${parsed.broker.mc_number.value}` : ''}
+          {/* The broker is who pays the invoice — it is the headline of this
+              card, not a caption under its own section label. */}
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Broker on the document
           </p>
+          <div className="space-y-0.5">
+            <p className="text-base font-semibold leading-tight text-foreground">
+              {parsed.broker.company_name.value ?? 'No name found'}
+            </p>
+            {parsed.broker.mc_number.value && (
+              <p className="text-xs text-muted-foreground">MC {parsed.broker.mc_number.value}</p>
+            )}
+          </div>
+
           {candidates.length > 0 ? (
             <div className="space-y-1.5">
               {candidates.map(c => (
