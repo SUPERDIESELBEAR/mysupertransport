@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { takeAnchorMisses } from '@/lib/verbatimRegions';
 import type { ClassifyResult } from '@/lib/referenceClasses';
 import type { Json } from '@/integrations/supabase/types';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * Durable record of everything the rate-confirmation parser failed to recognise.
