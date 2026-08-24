@@ -559,3 +559,40 @@ shown with its reason and scores zero.**
 Auto-deploy has now missed `parse-rate-confirmation` **twice**. Treat an explicit deploy as
 required, not optional, and confirm it with a live request that reads `parser_build.contract`,
 `parser_build.code_hash` and the `run` envelope back.
+
+## A check the reader cannot act on belongs in diagnostics, not on the parse screen (2026-08-24)
+
+Four broker documents parsed cleanly and the verbatim verification block produced one
+actionable message out of four: a pilcrow standing in for `53' 102"` on Blue Grace.
+The other three were a missing-token failure naming a dollar figure that was correctly
+extracted and visible in a field on the same screen (Nationwide), a 72.2% similarity
+failure whose repair box asked a dispatcher to retype ~1,700 words of legal terms
+(MegaCorp), and three "field not found on the page" verdicts with no available action
+(Rolling River).
+
+Standing rules:
+
+- **A warning the reader can neither interpret nor act on degrades trust in the output
+  around it.** It is worse than showing nothing. Audience is part of the design of a
+  check, not an afterthought.
+- **Verbatim verification is operator-facing, not dispatcher-facing.** It still runs on
+  every parse, still persists to `loads.verbatim_verification`, and still writes
+  `parser_diagnostics` rows. It is read on the Load Detail verification card and the
+  Parser Diagnostics page, which staff open deliberately.
+- **The parse screen shows only what is actionable or diagnostic-by-request**: extracted
+  values, the "Verify these against the document" chips, the broker card, rate lines
+  needing a decision, the loadout assessment, the diagnostics count, and the parse run
+  fingerprint behind a toggle.
+- **The repair affordance lives on the revision path only, gated on
+  `transcription_damaged`.** That is the only path where accepting a capture overwrites
+  text already stored on the load. On the create path a capture replaces nothing.
+- **The stored verbatim text is a convenience copy for search and display, never the
+  authority.** The rate confirmation PDF is attached to every load and is what staff open
+  when a charge is disputed.
+- **A parser-bookkeeping line must not read as a dispatcher error.** The diagnostics count
+  is toned as a warning, not a failure, and says explicitly that the extracted fields and
+  the load in progress are unaffected when the log itself did not record.
+
+Nothing was deleted: `verbatimVerify.ts`, `verbatimRegions.ts`, `verbatimCheck.ts`,
+`VerbatimRepairField.tsx` and every test remain. The checks found four real defects this
+week; they were aimed at the wrong audience, not wrong.

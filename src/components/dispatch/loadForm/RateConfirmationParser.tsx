@@ -34,9 +34,6 @@ import {
   buildParseFingerprint, fingerprintSummary, type ParseRunFingerprint,
 } from '@/lib/parseFingerprint';
 
-import { verifyVerbatim } from '@/lib/verbatimVerify';
-import { textLayerFor } from '@/lib/pdfTextLayer';
-import VerbatimRepairField from './VerbatimRepairField';
 import { useLoadTypeChange, type LoadoutField } from './useLoadTypeChange';
 
 
@@ -268,58 +265,17 @@ export default function RateConfirmationParser({
     }
   };
 
-  /** The capture as the form currently holds it — repairs live on the form. */
-  const verbatimValue = (v: VerbatimCheck): string => {
-    const name = v.parsedStopIndex === null
-      ? v.field
-      : `stops.${v.parsedStopIndex}.${v.field}`;
-    return (form.getValues(name as never) as string) ?? '';
-  };
-
-  /**
-   * A hand-typed correction replaces the capture on the form and is re-checked
-   * as a repair, never as a transcription: the human read the rendered page, so
-   * the damaged text layer has no standing to judge what they typed.
+  /*
+   * Verbatim verification still runs on every parse and still persists with the
+   * load — it is simply not shown here. Nothing a dispatcher is creating depends
+   * on it: a capture on the create path replaces no stored value, and the rate
+   * confirmation PDF stays attached as the authority for any disputed charge.
+   * The verdicts are read on Load Detail and in Parser Diagnostics, which staff
+   * open deliberately. The repair affordance lives on the revision path, where a
+   * corrupted capture would overwrite a good stored value.
    */
-  const repairVerbatim = async (v: VerbatimCheck, text: string) => {
-    const name = v.parsedStopIndex === null
-      ? v.field
-      : `stops.${v.parsedStopIndex}.${v.field}`;
-    form.setValue(name as never, text as never, { shouldDirty: true });
 
-    const layer = file ? await textLayerFor(file).catch(() => null) : null;
-    const recheck: VerbatimCheck = {
-      ...verifyVerbatim(v.field, text, layer?.text ?? '', {
-        stopNumber: v.parsedStopIndex === null ? undefined : v.parsedStopIndex + 1,
-        source: 'manual_repair',
-        log: false,
-      }),
-      page: v.page,
-      parsedStopIndex: v.parsedStopIndex,
-      value: text,
-    };
 
-    setVerbatim(prev => {
-      const next = prev.map(c =>
-        c.field === v.field && c.parsedStopIndex === v.parsedStopIndex ? recheck : c);
-      if (parsed) parsed.verbatim_verification = next;
-      return next;
-    });
-
-    // Keep the parsed payload in step so the saved load carries the repair too.
-    if (parsed) {
-      if (v.field === 'special_instructions_verbatim' && parsed.verbatim?.special_instructions) {
-        parsed.verbatim.special_instructions.value = text;
-      } else if (v.field === 'broker_terms_verbatim' && parsed.verbatim?.broker_terms) {
-        parsed.verbatim.broker_terms.value = text;
-      } else if (v.parsedStopIndex !== null && parsed.stops?.[v.parsedStopIndex]?.notes_verbatim) {
-        parsed.stops[v.parsedStopIndex].notes_verbatim.value = text;
-      }
-      onParsed?.(parsed);
-    }
-
-    toast({ description: 'Correction saved to the field. It will save with the load.' });
-  };
 
 
   const chooseBroker = (id: string) => {
@@ -454,19 +410,32 @@ export default function RateConfirmationParser({
         // Zero recorded is only a clean document when nothing was collected AND
         // nothing on screen is unresolved. Anything else is a failure to log,
         // and the two numbers are stated so the gap is the message.
+        //
+        // This line is a record of the parser's own bookkeeping, so it is worded
+        // and toned as such. A region the parser could not locate is a parser
+        // problem, never a dispatcher's: it writes nothing to the load, the
+        // extracted fields above stand on their own, and the attached PDF remains
+        // the authority. Hence a warning tone rather than a destructive one, and
+        // an explicit sentence that the load in progress is unaffected.
         const failed = lost > 0 || (diagnostics.written === 0 && unresolved > 0);
         return (
           <div className={failed
-            ? 'rounded-md border border-destructive/40 bg-destructive/10 p-2.5 space-y-1'
+            ? 'rounded-md border border-warning/40 bg-warning/10 p-2.5 space-y-1'
             : 'space-y-1'}>
             <p className={failed ? 'text-xs font-medium text-foreground' : 'text-xs text-muted-foreground'}>
               {failed
-                ? `Diagnostics were not recorded: ${diagnostics.collected} unrecognised item${diagnostics.collected === 1 ? '' : 's'} collected, ${diagnostics.written} recorded` +
-                  (unresolved > 0 ? `, with ${unresolved} unresolved field${unresolved === 1 ? '' : 's'} on this parse.` : '.')
+                ? `The parser's own log did not record: ${diagnostics.collected} unrecognised item${diagnostics.collected === 1 ? '' : 's'} collected, ${diagnostics.written} recorded` +
+                  (unresolved > 0 ? `, with ${unresolved} field${unresolved === 1 ? '' : 's'} the parser could not locate on the page.` : '.')
                 : diagnostics.collected === 0
                   ? 'No parser diagnostics recorded — nothing on this document went unrecognised.'
-                  : `${diagnostics.written} parser diagnostic${diagnostics.written === 1 ? '' : 's'} recorded from this parse.`}
+                  : `${diagnostics.written} parser diagnostic${diagnostics.written === 1 ? '' : 's'} recorded from this parse — a note for staff, not something to act on here.`}
             </p>
+            {failed && (
+              <p className="text-xs text-muted-foreground">
+                This is about the parser&rsquo;s logging, not this load. The extracted fields above are
+                unaffected and the rate confirmation stays attached as the record.
+              </p>
+            )}
             {failed && diagnostics.error && (
               // Each part on its own line. The code identifies the class of
               // failure, so it leads; a flattened sentence hid it before.
@@ -726,23 +695,6 @@ export default function RateConfirmationParser({
         </div>
       )}
 
-      {verbatim.length > 0 && (
-        <div className="rounded-md border border-border bg-background p-3 space-y-2">
-          <p className="text-sm font-semibold text-foreground">Verbatim capture checked against the page</p>
-          <div className="space-y-1.5">
-            {verbatim.map((v, i) => (
-              <VerbatimRepairField
-                key={`${v.field}-${v.parsedStopIndex ?? 'load'}-${i}`}
-                check={v}
-                file={file}
-                value={verbatimValue(v)}
-                subtitle={v.parsedStopIndex === null ? undefined : `Stop ${v.parsedStopIndex + 1}`}
-                onRepair={text => repairVerbatim(v, text)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
 
 
       {previewUrl && (
