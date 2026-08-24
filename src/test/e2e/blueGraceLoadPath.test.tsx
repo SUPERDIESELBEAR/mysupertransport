@@ -85,8 +85,10 @@ async function createFromBlueGrace() {
   result.verbatim_verification = checks;
 
   const form = await makeForm();
-  const { data: number } = await (supabase as { rpc: (f: string) => Promise<{ data: unknown }> })
-    .rpc('generate_load_number');
+  const rpc = (supabase as unknown as {
+    rpc: (f: string, a?: unknown) => Promise<{ data: unknown; error: unknown }>;
+  }).rpc.bind(supabase);
+  const { data: number } = await rpc('generate_load_number');
   let applied!: ReturnType<typeof applyParsedToForm>;
   await act(async () => {
     form.current.setValue('load_number', number as string, { shouldValidate: true });
@@ -104,9 +106,7 @@ async function createFromBlueGrace() {
   const values = form.current.getValues();
   const payload = buildLoadSavePayload(values, { isEdit: false });
 
-  const { data: loadId, error } = await (supabase as {
-    rpc: (f: string, a: unknown) => Promise<{ data: unknown; error: unknown }>
-  }).rpc('create_load_with_stops', {
+  const { data: loadId, error } = await rpc('create_load_with_stops', {
     p_load: payload.load, p_stops: payload.stops, p_charges: payload.charges,
   });
   if (error) throw error;
