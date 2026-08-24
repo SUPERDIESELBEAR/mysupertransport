@@ -19,7 +19,7 @@ import type { Facility } from '@/lib/facilities';
 import { matchFacilities } from '@/lib/facilityMatch';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
-  applyLoadoutFields, applyParsedToForm, assessLoadout, fileToBase64, matchBroker,
+  collectLoadoutFields, applyParsedToForm, assessLoadout, fileToBase64, matchBroker,
   validateRateConFile,
   type BrokerCandidate, type LoadoutAssessment, type ParsedRateConfirmation,
   type UnassignedRateLine,
@@ -33,6 +33,7 @@ import { logParserDiagnostics } from '@/lib/parserDiagnostics';
 import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import VerbatimRepairField from './VerbatimRepairField';
+import { useLoadTypeChange, type LoadoutField } from './useLoadTypeChange';
 
 
 interface Props {
@@ -97,6 +98,10 @@ export default function RateConfirmationParser({
   const [brokerAddressSource, setBrokerAddressSource] = useState<string | null>(null);
   const { data: facilities } = useFacilities();
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
+  /** null = unanswered; the banner stays visible after an answer so it can be reversed. */
+  const [loadoutAnswer, setLoadoutAnswer] = useState<'yes' | 'no' | null>(null);
+  const [diagnosticCount, setDiagnosticCount] = useState<number | null>(null);
+  const { changeLoadType, undoLastChange, redoLastChange, canUndo, canRedo } = useLoadTypeChange(form);
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
@@ -191,10 +196,14 @@ export default function RateConfirmationParser({
       // Anchor and label misses are filed here, on the create path. The same
       // call runs on the revision path — a check that exists on only one of the
       // two is the failure mode this wiring is guarding against.
-      await logParserDiagnostics(applied.classified, {
+      // A diagnostics write that reports nothing is indistinguishable from a
+      // parse that had nothing to report, which is exactly why the missing rows
+      // went unnoticed. The count is stated on the panel either way.
+      const written = await logParserDiagnostics(applied.classified, {
         documentLabel: file.name,
         parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
       });
+      setDiagnosticCount(written);
 
 
 
@@ -205,6 +214,7 @@ export default function RateConfirmationParser({
       setVerify(applied.verify);
       setUnassigned(applied.unassigned);
       setLoadout(assessLoadout(result));
+      setLoadoutAnswer(null);
 
       // Suggest-only: never rewrite what the broker printed, just point at our record.
       const filled = form.getValues('stops') ?? [];
@@ -343,11 +353,16 @@ export default function RateConfirmationParser({
     setUnassigned(prev => prev.filter(l => l.id !== line.id));
   };
 
+  /**
+   * The banner answers through the same hook the Load Type buttons use, so the
+   * parsed amount carries into the relocation fee here exactly as it does there.
+   */
   const confirmLoadout = () => {
     if (!parsed) return;
-    applyLoadoutFields(parsed, (name, value) =>
-      form.setValue(name as never, value as never, { shouldDirty: true }));
-    setLoadout(null);
+    changeLoadType('loadout', {
+      fields: collectLoadoutFields(parsed) as Partial<Record<LoadoutField, string>>,
+    });
+    setLoadoutAnswer('yes');
     toast({ description: 'Switched to Loadout and filled the trailer details.' });
   };
 
@@ -409,6 +424,14 @@ export default function RateConfirmationParser({
         </p>
       )}
 
+      {diagnosticCount !== null && (
+        <p className="text-xs text-muted-foreground">
+          {diagnosticCount === 0
+            ? 'No parser diagnostics recorded — nothing on this document went unrecognised.'
+            : `${diagnosticCount} parser diagnostic${diagnosticCount === 1 ? '' : 's'} recorded from this parse.`}
+        </p>
+      )}
+
       {parsed && loadout?.suspected && (
         <div className="rounded-md border border-warning/40 bg-warning/10 p-3 space-y-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -418,13 +441,44 @@ export default function RateConfirmationParser({
           <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
             {loadout.reasons.map(r => <li key={r}>{r}</li>)}
           </ul>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" size="sm" className="bg-gold text-surface-dark hover:bg-gold-light" onClick={confirmLoadout}>
-              Yes — switch to Loadout
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => setLoadout(null)}>
-              No — keep as is
-            </Button>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {loadoutAnswer === null && (
+              <>
+                <Button type="button" size="sm" className="bg-gold text-surface-dark hover:bg-gold-light" onClick={confirmLoadout}>
+                  Yes — switch to Loadout
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setLoadoutAnswer('no')}>
+                  No — keep as is
+                </Button>
+              </>
+            )}
+            {loadoutAnswer === 'yes' && (
+              <>
+                <span className="text-xs font-medium text-foreground">Switched to Loadout.</span>
+                <Button
+                  type="button" size="sm" variant="outline" disabled={!canUndo}
+                  onClick={() => { undoLastChange(); setLoadoutAnswer('no'); }}
+                >
+                  Undo
+                </Button>
+              </>
+            )}
+            {loadoutAnswer === 'no' && (
+              <>
+                <span className="text-xs font-medium text-foreground">Kept as is.</span>
+                <Button
+                  type="button" size="sm" variant="outline"
+                  onClick={() => {
+                    // Redo replays the recorded snapshot — the trailer details
+                    // and the use window come back without a re-parse.
+                    if (canRedo) redoLastChange(); else confirmLoadout();
+                    setLoadoutAnswer('yes');
+                  }}
+                >
+                  Switch to Loadout
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -28,7 +28,7 @@ import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
   RATE_TYPES, RATE_TYPE_LABELS, calcTotalLoadValue,
 } from '@/lib/loadRateMath';
-import { planLoadTypeCarry } from '@/lib/loadTypeCarry';
+import { useLoadTypeChange } from '@/components/dispatch/loadForm/useLoadTypeChange';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -142,37 +142,12 @@ export default function CreateLoadPage({
   const handlingLocked = values.equipment_type === 'flatbed' || values.equipment_type === 'hopper_bottom';
 
   /**
-   * A load-type change must never silently discard an amount the parser read
-   * from the document. Carry it into the new type's amount field; when that
-   * field already holds a different number, leave it and say so.
+   * A load-type change is one operation, owned by the hook: the write, the
+   * carry of the amount, and the record of what changed for undo. Nothing on
+   * this page writes `load_type` itself.
    */
-  const changeLoadType = (
-    from: LoadFormValues['load_type'],
-    to: LoadFormValues['load_type'],
-    onChange: (v: LoadFormValues['load_type']) => void,
-  ) => {
-    if (from === to) return;
-    const carry = planLoadTypeCarry(from, to, {
-      linehaul_rate: values.linehaul_rate,
-      loadout_relocation_fee: values.loadout_relocation_fee,
-    });
-    onChange(to);
-    if (!carry.toField) return;
+  const { changeLoadType } = useLoadTypeChange(form);
 
-    if (carry.conflicts) {
-      toast({
-        title: `${LOAD_TYPE_LABELS[to]} keeps its existing amount`,
-        description: `$${carry.amount} was entered as the ${LOAD_TYPE_LABELS[from].toLowerCase()} amount and was not carried over, because this load type already has a different amount.`,
-      });
-      return;
-    }
-
-    form.setValue(carry.toField, carry.amount, { shouldDirty: true });
-    form.setValue(carry.fromField!, '', { shouldDirty: true });
-    toast({
-      description: `Carried $${carry.amount} over as the ${to === 'loadout' ? 'relocation fee' : 'linehaul rate'}.`,
-    });
-  };
 
 
   const generateNumber = async () => {
@@ -650,7 +625,7 @@ export default function CreateLoadPage({
                         <button
                           key={t}
                           type="button"
-                          onClick={() => changeLoadType(field.value, t, field.onChange)}
+                          onClick={() => changeLoadType(t)}
                           className={`rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
                             field.value === t
                               ? 'border-gold bg-gold/10 text-foreground'
@@ -1030,6 +1005,17 @@ export default function CreateLoadPage({
 
                   {values.rate_type === 'per_ton' && (
                     <>
+                      {/* Per-Ton Bulk hides the flat amount and zeroes the total.
+                          Showing the retained figure is what stops it reading as
+                          a rate the switch threw away. */}
+                      {String(values.linehaul_rate ?? '').trim() !== '' && (
+                        <div className="sm:col-span-2 lg:col-span-3 rounded-md border border-info/40 bg-info/10 px-3 py-2 text-xs text-foreground">
+                          Flat amount kept from the document:{' '}
+                          <span className="font-semibold">{formatCurrency(Number(values.linehaul_rate) || 0)}</span>.
+                          Per-Ton Bulk bills tonnage, so the load total uses Rate Per Ton x Estimated Tons.
+                        </div>
+                      )}
+
                       <FormField
                         control={form.control}
                         name="rate_per_ton"
