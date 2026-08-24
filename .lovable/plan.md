@@ -21,10 +21,17 @@ Today the window is filled only from `loadout_signals.use_start_date` / `use_end
 New derivation, applied inside `useLoadTypeChange` so it belongs to the same single reversible operation (and is therefore covered by the existing Undo):
 
 - If the document states a window, use it. Otherwise derive **from the first stop's appointment date through the last stop's appointment date**.
-- The derived rows are marked as needing verification and carry a visible provenance line: *Derived from the pickup and delivery dates on the document — confirm with the broker.*
+- The two dates are the authoritative display, shown prominently. Each derived row carries the provenance line verbatim: *Derived from the pickup and delivery dates on the document — confirm with the broker.* The wording stays exactly that — it names the inference instead of implying the broker granted a window they never stated.
+- The provenance is **persisted with the load**, not held only in the parse session: a `loadout_use_window_source` value of `document` or `derived` on `loads`, so Load Detail shows the same line every time the load is opened, on the create path and the revision path alike. A window a dispatcher edits by hand flips the source to `document` (a human confirmed it) and the line disappears.
 - Derivation only runs when the parse actually has both dates. No dates, no guess.
 
-**Day count:** it is currently a free-standing input. It becomes derived from the two dates (inclusive day count) and read-only while both dates are present, with an explicit override if a dispatcher needs to type a different number. So: no separate entry required.
+**Day count — resolved to informational, per your note.** A broker saying "you can keep it eight days" and a broker saying "the 17th through the 24th" are not reliably the same count, and inclusive vs. elapsed differs by one. So the count is not authoritative anywhere:
+
+- The dates are the record. The count renders beside them as informational text — *8 days (17th through 24th, inclusive)* — with the convention stated in the text itself so it can't be misread.
+- When the document states `use_period_days` outright, that number is authoritative and is shown as stated, with no derived count competing with it.
+- The dispatcher can still type a count; a typed count is authoritative and stops being derived.
+- If the stated days and the stated dates disagree, both are shown with the disagreement named rather than one silently winning.
+
 
 ## 3. Fingerprint reports model unknown, no run id, sampling unknown
 
@@ -53,13 +60,25 @@ Confirmed read from the document, not assumed. "The carrier may keep the trailer
 - `src/lib/parseFingerprint.ts` — read the `run` envelope; record appointment confidence; add the discarded-by-gate list.
 - `src/lib/rateConfirmation.ts` — `applyParsedToForm` returns the fields the confidence gate discarded so the panel can name them.
 - `supabase/functions/parse-rate-confirmation/index.ts` — `dateTime` floors a parseable value to `medium`; parser contract bumped and the client's `EXPECTED_PARSER_CONTRACT` bumped with it.
-- `src/components/dispatch/loadForm/useLoadTypeChange.ts` — derived use window and day count as part of the single load-type change.
-- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`, `src/pages/dispatch/CreateLoadPage.tsx`, Load Detail cards — labels and the new panel lines.
+- `src/components/dispatch/loadForm/useLoadTypeChange.ts` — derived use window and informational day count as part of the single load-type change.
+- Migration: `loadout_use_window_source` on `loads` (`document` | `derived`), plus the `loadout_relocation_fee` column comment recording that it is carrier revenue of which the driver is paid a percentage.
+- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`, `src/pages/dispatch/CreateLoadPage.tsx`, Load Detail rate/conditional cards — labels, the provenance line, and the new panel lines.
+
+## New standing rule for docs/tms-build-status.md
+
+Item 1 is a pattern, not an incident: **two readers of the same parsed field must share one gate.** A diagnostic reader that reports a value the form writer discarded produces a report that contradicts the screen, which is what cost this round-trip. When a gate cannot be shared, the diagnostic must report the gate's verdict alongside the value — it may never print a value without saying whether it survived.
 
 ## Tests
 
 - A stop appointment returned at `low` with a parseable value fills the form after the normalizer floor, and the panel lists nothing as discarded.
 - A genuinely discarded field appears in the discarded list with its value — the fingerprint can no longer show a value the form lacks without reporting it.
 - The fingerprint reads model, run id and seed from the `run` envelope, and reports determinism unverified when `seed_echoed` is false.
-- Loadout switch with no stated window derives 08/17 through 08/24 and a day count of 8; with no parsed dates it leaves all three empty; Undo restores all three.
-- Both paths: the derived window and the discarded-field report are asserted reachable from the create path and the revision path, per the standing rule.
+- Loadout switch with no stated window derives 08/17 through 08/24, marks the source `derived`, and renders the count as informational text with its convention; with no parsed dates all three stay empty; Undo restores all three.
+- A document-stated `use_period_days` is shown as stated and no derived count competes with it; a stated count that disagrees with stated dates surfaces both.
+- The provenance line renders on Load Detail from the persisted source, not only during the parse.
+- Both paths: the derived window, its provenance, and the discarded-field report are asserted reachable from the create path and the revision path, per the standing rule.
+
+## Reporting back after the re-parse
+
+Reported plainly, whichever way it lands: the confidence shown for both appointments, whether both fields filled, whether the derived window populated, and the literal `seed_echoed` value. If the provider does not acknowledge the seed or return a run id, the report says the determinism work is unverifiable on this provider and the build status doc records it as unverified rather than done.
+
