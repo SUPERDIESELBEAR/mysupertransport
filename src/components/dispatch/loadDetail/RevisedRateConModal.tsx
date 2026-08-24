@@ -45,6 +45,8 @@ import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
   verifyParsedVerbatim, withRepairedCapture, type VerbatimCheck,
 } from '@/lib/verbatimCheck';
+import { VerbatimSourceRows } from '@/components/dispatch/loadForm/VerbatimSourceRows';
+
 import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import { saveVerbatimVerification } from '@/lib/verbatimPersist';
@@ -711,6 +713,21 @@ export default function RevisedRateConModal({
                   ))}
               </section>
             ) : null}
+
+            {/* Same origin rows as the create path, behind a disclosure: a
+                reachability rule, not a second implementation. */}
+            {verbatim.length ? (
+              <details className="rounded-md border border-border bg-muted/30 p-2.5">
+                <summary className="cursor-pointer text-xs font-medium text-foreground">
+                  Verbatim source per field
+                </summary>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <VerbatimSourceRows checks={verbatim} />
+                </div>
+              </details>
+            ) : null}
+
+
 
 
 

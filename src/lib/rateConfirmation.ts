@@ -265,7 +265,35 @@ const DOC_RELOCATION = /(relocat\w*|reposition\w*|trailer\s+move|move\s+(the\s+|
 const DOC_BOL = /(bill\s*of\s*lading|\bbols?\b)/i;
 const DOC_PHOTO_POD = /(photo\w*[^.\n]{0,60}(proof|pod|delivery)|(proof\s*of\s*delivery|pod)[^.\n]{0,60}photo\w*)/i;
 const DOC_MULTI_DAY = /(\b\d{1,2}\s*(?:calendar\s*|business\s*)?days?\b[^.\n]{0,60}(use|keep|possession|retain|utiliz)|use\s*period|days?\s*of\s*trailer\s*use)/i;
-const DOC_COMMODITY = /commodity\s*[:#-]?\s*\S/i;
+/**
+ * Fallback only. The document side of `no_commodity` is answered by the parse's
+ * own extraction where there is one — a second scan re-deriving a fact the parse
+ * already established cannot be more reliable than the extraction, and this
+ * signal was wrong in both directions while it was the only source: it fired
+ * from `(document)` on MegaCorp, where the model had already extracted
+ * `Plastics`, and was right on Rolling River only because that page happens to
+ * print `Commodity: paper rolls` inline. The label vocabulary is widened because
+ * "Commodity" is not the only word a broker prints over that column.
+ */
+const DOC_COMMODITY =
+  /(commodity|commodities|freight\s+description|description\s+of\s+goods|product|product\s+description)\s*[:#-]?\s*\S/i;
+
+/** Printed where a value goes, but not a value. */
+const COMMODITY_PLACEHOLDER = /^(n\/?a|na|none|tbd|tba|unknown|--?|n\/a\.?)$/i;
+
+/**
+ * Three-state answer to "does this document list a commodity?", best source first.
+ * `null` means unknown, and unknown must never silence the model's signal.
+ */
+export function commodityListed(
+  commodity: Field<string> | null | undefined, text: string, documentRead: boolean,
+): boolean | null {
+  const value = (commodity?.value ?? '').trim();
+  if (value && !COMMODITY_PLACEHOLDER.test(value)) return true;
+  if (!documentRead) return null;
+  return DOC_COMMODITY.test(text);
+}
+
 const DOC_TRAILER_NUMBER = /trailer\s*(?:#|no\.?|number)\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{2,})/i;
 
 /**
@@ -289,6 +317,12 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
   const documentRead = text.length > 0;
   const doc = (re: RegExp): boolean | null => (documentRead ? re.test(text) : null);
   const trailerFromDoc = documentRead ? (text.match(DOC_TRAILER_NUMBER)?.[1] ?? null) : null;
+  const commodity = p?.load?.commodity ?? null;
+  const listed = commodityListed(commodity, text, documentRead);
+  const extractedCommodity = listed === true && (commodity?.value ?? '').trim()
+    ? (commodity!.value as string).trim()
+    : null;
+
 
   const defs: Omit<LoadoutSignal, 'fired' | 'source' | 'contradicted'>[] = [
     {
@@ -322,10 +356,14 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
     {
       key: 'no_commodity',
       points: 1,
-      reason: 'No commodity is listed.',
+      reason: extractedCommodity
+        ? `No commodity is listed — the parse extracted "${extractedCommodity}", so the document side says one is.`
+        : 'No commodity is listed.',
       model: !!s?.no_commodity,
-      document: documentRead ? !DOC_COMMODITY.test(text) : null,
+      // Inverted: the helper answers "is one listed", this signal asks the opposite.
+      document: listed === null ? null : !listed,
     },
+
     {
       key: 'trailer_number',
       points: 1,

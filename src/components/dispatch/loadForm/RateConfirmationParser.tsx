@@ -29,6 +29,8 @@ import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import { VerbatimSourceRows } from '@/components/dispatch/loadForm/VerbatimSourceRows';
+
 import { logParserDiagnostics, type DiagnosticWriteResult } from '@/lib/parserDiagnostics';
 import {
   buildParseFingerprint, fingerprintSummary, type ParseRunFingerprint,
@@ -515,6 +517,11 @@ export default function RateConfirmationParser({
                   </ul>
                 </div>
               )}
+
+              {/* Origin, not verdict. The verdict judges the model's reading of
+                  the page; this says which text the load will actually hold. */}
+              <VerbatimSourceRows checks={verbatim} />
+
 
             </div>
           )}

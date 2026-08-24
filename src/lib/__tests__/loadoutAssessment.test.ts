@@ -113,3 +113,47 @@ describe('parserContractWarning', () => {
     expect(warning).toBeNull();
   });
 });
+
+/**
+ * The document side of `no_commodity` used to be an independent regex scan, and
+ * it was wrong in both directions on real documents. It now answers from the
+ * parse's own extraction where there is one.
+ */
+describe('no_commodity reads the parse', () => {
+  const withCommodity = (value: string | null, signals = { no_commodity: true }) => ({
+    ...base(signals),
+    load: { commodity: { value, confidence: 'high' } },
+  }) as unknown as ParsedRateConfirmation;
+
+  it('MegaCorp: an extracted commodity contradicts the model, whatever the layout prints', () => {
+    // Table layout: the label is a column header, the value is elsewhere.
+    const text = 'RATE CONFIRMATION\nCommodity   Weight   Pieces\nPlastics  42000  18';
+    const a = assessLoadout(withCommodity('Plastics'), text);
+    const sig = a.signals.find(s => s.key === 'no_commodity')!;
+    expect(sig.document).toBe(false);
+    expect(sig.contradicted).toBe(true);
+    expect(sig.reason).toContain('Plastics');
+    // The point is withheld: only the no-BOL signal scores on this text.
+    expect(a.unsuppressedScore - a.score).toBe(1);
+  });
+
+  it('falls back to the page only when nothing was extracted', () => {
+    const listed = assessLoadout(withCommodity(null), 'Commodity: paper rolls');
+    expect(listed.signals.find(s => s.key === 'no_commodity')!.document).toBe(false);
+
+    const none = assessLoadout(withCommodity(null), 'Trailer relocation. No freight named.');
+    expect(none.signals.find(s => s.key === 'no_commodity')!.document).toBe(true);
+  });
+
+  it('a placeholder commodity value is not a commodity', () => {
+    const a = assessLoadout(withCommodity('N/A'), 'Trailer relocation agreement');
+    expect(a.signals.find(s => s.key === 'no_commodity')!.document).toBe(true);
+  });
+
+  it('unknown stays null when there is no layer and no extraction', () => {
+    const a = assessLoadout(withCommodity(null), null);
+    const sig = a.signals.find(s => s.key === 'no_commodity')!;
+    expect(sig.document).toBeNull();
+    expect(sig.contradicted).toBe(false);
+  });
+});
