@@ -132,7 +132,7 @@ export async function verifyParsedVerbatim(
     }
   });
 
-  return { checks: out, layer };
+  return { checks: out, layer, adopted };
 }
 
 /**
