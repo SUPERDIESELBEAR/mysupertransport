@@ -187,10 +187,16 @@ describe('create path — Blue Grace rate confirmation to database rows', () => 
     const terms = env.fields.find(r => r.field === 'broker_terms_verbatim')!;
     // The damaged region keeps the model's transcription; the clean one is
     // taken from the page itself.
-    console.log('SI', JSON.stringify(si, null, 1), 'TERMS', JSON.stringify({o:terms.valueOrigin,r:terms.originReason,v:terms.verdict}));
     expect(si.valueOrigin).toBe('model');
-    expect(si.verdict).toBe('transcription_damaged');
+    expect(si.originReason).toBe('layer_damaged');
+    // The model resolved the layer's `¶` back to `53' 102"`, so the CAPTURE is
+    // sound even though the page it came from is not — a damaged layer refuses
+    // adoption, it does not condemn the transcription.
+    expect(si.verdict).toBe('verified');
+    expect(String(si.value)).toContain('53\' 102"');
+    expect(String(si.value)).toContain('OS&D');
     expect(terms.valueOrigin).toBe('text_layer');
+    expect(terms.originReason).toBe('layer_clean');
   });
 
   it('reports the diagnostics it collected and the rows the server took', async () => {
