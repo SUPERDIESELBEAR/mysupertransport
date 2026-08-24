@@ -123,7 +123,15 @@ export interface ParsedRateConfirmation {
    */
   verbatim_verification?: VerbatimVerification[];
   /** Identity of the deployed parser that produced this result. */
-  parser_build?: { contract: number; built_at: string; notes: string };
+  parser_build?: { contract: number; built_at: string; notes: string; code_hash?: string };
+  /** What produced the parse. Required from contract 5 on. */
+  run?: {
+    model?: string | null;
+    temperature?: number | null;
+    seed?: number | null;
+    seed_echoed?: boolean | null;
+    system_fingerprint?: string | null;
+  };
 }
 
 /**
@@ -132,14 +140,33 @@ export interface ParsedRateConfirmation {
  * A stale deploy answering with an older contract once surfaced as three
  * unrelated-looking bugs, so divergence is reported rather than inferred.
  */
-export const EXPECTED_PARSER_CONTRACT = 4;
+export const EXPECTED_PARSER_CONTRACT = 5;
 
-/** Warning text when the deployed parser is not the one this build expects. */
+/**
+ * Warning text when the deployed parser is not the one this build expects.
+ *
+ * The contract number alone was not enough. The `run` envelope was added to the
+ * response without bumping the contract, so a deploy frozen before that change
+ * answered "4" — the number this client expected — while returning no `run`,
+ * and the guard built for exactly this passed. The envelope this client reads
+ * is therefore checked for PRESENCE, not just for a version number: a missing
+ * envelope is a divergence report of its own.
+ */
 export function parserContractWarning(result: ParsedRateConfirmation | null): string | null {
-  const got = result?.parser_build?.contract;
-  if (got === undefined || got === EXPECTED_PARSER_CONTRACT) return null;
-  return `This app expects rate-confirmation parser contract ${EXPECTED_PARSER_CONTRACT}, but the deployed parser answered with contract ${got}. Extracted fields may be missing or shaped differently.`;
+  if (!result) return null;
+  const got = result.parser_build?.contract;
+  if (got === undefined) {
+    return `The deployed rate-confirmation parser returned no build identity. This app expects contract ${EXPECTED_PARSER_CONTRACT}. Treat this parse as coming from an unknown build.`;
+  }
+  if (got !== EXPECTED_PARSER_CONTRACT) {
+    return `This app expects rate-confirmation parser contract ${EXPECTED_PARSER_CONTRACT}, but the deployed parser answered with contract ${got}. Extracted fields may be missing or shaped differently.`;
+  }
+  if (!result.run) {
+    return `The deployed parser answered with contract ${EXPECTED_PARSER_CONTRACT} but returned no run envelope, so the model, seed and provider run id for this parse are unknown. The deployed function is behind its source — deploy it before trusting run-to-run comparisons.`;
+  }
+  return null;
 }
+
 
 /** A rate line the dispatcher still has to place (or deliberately drop). */
 export interface UnassignedRateLine extends ParsedRateLine { id: string }
@@ -194,20 +221,134 @@ export function pickReference(refs: ParsedReference[]): ParsedReference | null {
 }
 
 
-export interface LoadoutAssessment { score: number; reasons: string[]; suspected: boolean }
+/** Where a fired signal came from. A disagreement is information, not noise. */
+export type LoadoutSignalSource = 'model' | 'document' | 'both';
 
-/** Trailer relocations look nothing like freight: score the tells, never auto-switch. */
-export function assessLoadout(p: ParsedRateConfirmation): LoadoutAssessment {
-  const s = p.loadout_signals;
-  const reasons: string[] = [];
-  let score = 0;
-  if (s.trailer_relocation_language) { score += 3; reasons.push('The document describes relocating a trailer, not hauling freight.'); }
-  if (s.no_bol_mentioned) { score += 1; reasons.push('No bill of lading is mentioned anywhere.'); }
-  if (s.photo_pod_required) { score += 2; reasons.push('Photos are named as the proof of delivery.'); }
-  if (s.multi_day_use_period) { score += 2; reasons.push('The carrier may keep the trailer for a period of days.'); }
-  if (s.no_commodity) { score += 1; reasons.push('No commodity is listed.'); }
-  if (s.trailer_number.value) { score += 1; reasons.push(`A specific trailer is named (${s.trailer_number.value}).`); }
-  return { score, reasons, suspected: score >= 4 };
+export interface LoadoutSignal {
+  key: string;
+  points: number;
+  reason: string;
+  /** True when the model reported it. */
+  model: boolean;
+  /** True when the printed text layer shows it. Null when no layer was read. */
+  document: boolean | null;
+  fired: boolean;
+  source: LoadoutSignalSource | null;
+}
+
+export interface LoadoutAssessment {
+  score: number;
+  maxScore: number;
+  reasons: string[];
+  signals: LoadoutSignal[];
+  suspected: boolean;
+  /** Whether a text layer was available to score from. */
+  documentRead: boolean;
+  /** Signals where the model and the printed page disagree. */
+  disagreements: LoadoutSignal[];
+}
+
+const LOADOUT_THRESHOLD = 4;
+
+/** Printed-page tells. Deterministic: the same text layer always scores the same. */
+const DOC_RELOCATION = /(relocat\w*|reposition\w*|trailer\s+move|move\s+(the\s+|this\s+|a\s+)?trailer|loadout|load\s?out|deadhead\s+trailer|trailer\s+transfer|drop\s+the\s+trailer\s+at)/i;
+const DOC_BOL = /(bill\s*of\s*lading|\bbols?\b)/i;
+const DOC_PHOTO_POD = /(photo\w*[^.\n]{0,60}(proof|pod|delivery)|(proof\s*of\s*delivery|pod)[^.\n]{0,60}photo\w*)/i;
+const DOC_MULTI_DAY = /(\b\d{1,2}\s*(?:calendar\s*|business\s*)?days?\b[^.\n]{0,60}(use|keep|possession|retain|utiliz)|use\s*period|days?\s*of\s*trailer\s*use)/i;
+const DOC_COMMODITY = /commodity\s*[:#-]?\s*\S/i;
+const DOC_TRAILER_NUMBER = /trailer\s*(?:#|no\.?|number)\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{2,})/i;
+
+/**
+ * Trailer relocations look nothing like freight: score the tells, never auto-switch.
+ *
+ * This used to be a pure function of the model's `loadout_signals`, which meant
+ * the banner was exactly as stable as one model answer. On the same Rolling
+ * River document it scored 4 on three runs and under 4 on a fourth, and below
+ * the threshold the UI rendered nothing at all — so a working feature looked
+ * deleted and nothing recorded that an assessment had even run. The printed text
+ * layer now scores alongside the model rather than instead of it: prose the text
+ * layer mangles is where the model reads better, and a keyword scan is where the
+ * model's judgement wobbles. A signal fires if EITHER source sees it, and every
+ * fired signal reports which source saw it so a disagreement is visible.
+ */
+export function assessLoadout(p: ParsedRateConfirmation, documentText?: string | null): LoadoutAssessment {
+  // A response without the signals object degrades to a scored-zero assessment
+  // with a stated reason. It used to throw, taking the whole parse screen down.
+  const s = p?.loadout_signals ?? null;
+  const text = (documentText ?? '').trim();
+  const documentRead = text.length > 0;
+  const doc = (re: RegExp): boolean | null => (documentRead ? re.test(text) : null);
+  const trailerFromDoc = documentRead ? (text.match(DOC_TRAILER_NUMBER)?.[1] ?? null) : null;
+
+  const defs: Omit<LoadoutSignal, 'fired' | 'source'>[] = [
+    {
+      key: 'trailer_relocation_language',
+      points: 3,
+      reason: 'The document describes relocating a trailer, not hauling freight.',
+      model: !!s?.trailer_relocation_language,
+      document: doc(DOC_RELOCATION),
+    },
+    {
+      key: 'no_bol_mentioned',
+      points: 1,
+      reason: 'No bill of lading is mentioned anywhere.',
+      model: !!s?.no_bol_mentioned,
+      document: documentRead ? !DOC_BOL.test(text) : null,
+    },
+    {
+      key: 'photo_pod_required',
+      points: 2,
+      reason: 'Photos are named as the proof of delivery.',
+      model: !!s?.photo_pod_required,
+      document: doc(DOC_PHOTO_POD),
+    },
+    {
+      key: 'multi_day_use_period',
+      points: 2,
+      reason: 'The carrier may keep the trailer for a period of days.',
+      model: !!s?.multi_day_use_period,
+      document: doc(DOC_MULTI_DAY),
+    },
+    {
+      key: 'no_commodity',
+      points: 1,
+      reason: 'No commodity is listed.',
+      model: !!s?.no_commodity,
+      document: documentRead ? !DOC_COMMODITY.test(text) : null,
+    },
+    {
+      key: 'trailer_number',
+      points: 1,
+      reason: `A specific trailer is named${s?.trailer_number?.value || trailerFromDoc ? ` (${s?.trailer_number?.value ?? trailerFromDoc})` : ''}.`,
+      model: !!s?.trailer_number?.value,
+      document: documentRead ? !!trailerFromDoc : null,
+    },
+  ];
+
+  const signals: LoadoutSignal[] = defs.map(d => {
+    const fired = d.model || d.document === true;
+    const source: LoadoutSignalSource | null = !fired
+      ? null
+      : d.model && d.document === true ? 'both' : d.model ? 'model' : 'document';
+    return { ...d, fired, source };
+  });
+
+  const score = signals.reduce((sum, sig) => sum + (sig.fired ? sig.points : 0), 0);
+  const maxScore = signals.reduce((sum, sig) => sum + sig.points, 0);
+  const reasons = signals.filter(sig => sig.fired).map(sig => `${sig.reason} (${sig.source})`);
+  const disagreements = signals.filter(sig => sig.document !== null && sig.model !== sig.document);
+
+  if (!s) reasons.push('The parser returned no loadout signals, so only the printed page was scored.');
+
+  return {
+    score,
+    maxScore,
+    reasons,
+    signals,
+    suspected: score >= LOADOUT_THRESHOLD,
+    documentRead,
+    disagreements,
+  };
 }
 
 const normName = (s: string) =>
