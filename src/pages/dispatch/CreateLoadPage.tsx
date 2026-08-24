@@ -28,6 +28,7 @@ import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
   RATE_TYPES, RATE_TYPE_LABELS, calcTotalLoadValue,
 } from '@/lib/loadRateMath';
+import { planLoadTypeCarry } from '@/lib/loadTypeCarry';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
