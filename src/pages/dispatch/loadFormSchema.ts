@@ -95,6 +95,10 @@ export const loadFormSchema = z
     loadout_trailer_type: optionalText,
     loadout_relocation_fee: optionalNumber,
     loadout_use_period_days: optionalNumber,
+    // Agreed trailer use window, printed on the rate confirmation and
+    // overridable by dispatch. Not derivable from the stop dates.
+    loadout_use_start: optionalText,
+    loadout_use_end: optionalText,
 
     rate_type: z.enum(['flat', 'per_mile', 'per_ton', 'percentage_of_load']),
     linehaul_rate: optionalNumber,
@@ -202,6 +206,8 @@ export const loadFormDefaults = (): LoadFormValues => ({
   loadout_trailer_type: '',
   loadout_relocation_fee: '',
   loadout_use_period_days: '',
+  loadout_use_start: '',
+  loadout_use_end: '',
   rate_type: 'flat',
   linehaul_rate: '',
   rate_per_mile: '',

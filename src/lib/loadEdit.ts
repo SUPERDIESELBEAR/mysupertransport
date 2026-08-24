@@ -70,6 +70,8 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     loadout_trailer_type: text(l.loadout_trailer_type),
     loadout_relocation_fee: text(l.loadout_relocation_fee),
     loadout_use_period_days: text(l.loadout_use_period_days),
+    loadout_use_start: text(l.loadout_use_start),
+    loadout_use_end: text(l.loadout_use_end),
     rate_type: (l.rate_type as LoadFormValues['rate_type']) ?? 'flat',
     linehaul_rate: text(l.linehaul_rate),
     rate_per_mile: text(l.rate_per_mile),
