@@ -29,7 +29,11 @@ import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
-import { logParserDiagnostics } from '@/lib/parserDiagnostics';
+import { logParserDiagnostics, type DiagnosticWriteResult } from '@/lib/parserDiagnostics';
+import {
+  buildParseFingerprint, fingerprintSummary, type ParseRunFingerprint,
+} from '@/lib/parseFingerprint';
+
 import { verifyVerbatim } from '@/lib/verbatimVerify';
 import { textLayerFor } from '@/lib/pdfTextLayer';
 import VerbatimRepairField from './VerbatimRepairField';
@@ -100,7 +104,10 @@ export default function RateConfirmationParser({
   const [loadout, setLoadout] = useState<LoadoutAssessment | null>(null);
   /** null = unanswered; the banner stays visible after an answer so it can be reversed. */
   const [loadoutAnswer, setLoadoutAnswer] = useState<'yes' | 'no' | null>(null);
-  const [diagnosticCount, setDiagnosticCount] = useState<number | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticWriteResult | null>(null);
+  const [fingerprint, setFingerprint] = useState<ParseRunFingerprint | null>(null);
+  const [showFingerprint, setShowFingerprint] = useState(false);
+
   const { changeLoadType, undoLastChange, redoLastChange, canUndo, canRedo } = useLoadTypeChange(form);
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
