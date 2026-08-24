@@ -21,10 +21,17 @@ Today the window is filled only from `loadout_signals.use_start_date` / `use_end
 New derivation, applied inside `useLoadTypeChange` so it belongs to the same single reversible operation (and is therefore covered by the existing Undo):
 
 - If the document states a window, use it. Otherwise derive **from the first stop's appointment date through the last stop's appointment date**.
-- The derived rows are marked as needing verification and carry a visible provenance line: *Derived from the pickup and delivery dates on the document — confirm with the broker.*
+- The two dates are the authoritative display, shown prominently. Each derived row carries the provenance line verbatim: *Derived from the pickup and delivery dates on the document — confirm with the broker.* The wording stays exactly that — it names the inference instead of implying the broker granted a window they never stated.
+- The provenance is **persisted with the load**, not held only in the parse session: a `loadout_use_window_source` value of `document` or `derived` on `loads`, so Load Detail shows the same line every time the load is opened, on the create path and the revision path alike. A window a dispatcher edits by hand flips the source to `document` (a human confirmed it) and the line disappears.
 - Derivation only runs when the parse actually has both dates. No dates, no guess.
 
-**Day count:** it is currently a free-standing input. It becomes derived from the two dates (inclusive day count) and read-only while both dates are present, with an explicit override if a dispatcher needs to type a different number. So: no separate entry required.
+**Day count — resolved to informational, per your note.** A broker saying "you can keep it eight days" and a broker saying "the 17th through the 24th" are not reliably the same count, and inclusive vs. elapsed differs by one. So the count is not authoritative anywhere:
+
+- The dates are the record. The count renders beside them as informational text — *8 days (17th through 24th, inclusive)* — with the convention stated in the text itself so it can't be misread.
+- When the document states `use_period_days` outright, that number is authoritative and is shown as stated, with no derived count competing with it.
+- The dispatcher can still type a count; a typed count is authoritative and stops being derived.
+- If the stated days and the stated dates disagree, both are shown with the disagreement named rather than one silently winning.
+
 
 ## 3. Fingerprint reports model unknown, no run id, sampling unknown
 
