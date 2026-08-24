@@ -85,54 +85,104 @@ export function collectParserDiagnostics(args: {
   return rows;
 }
 
+/** What a diagnostics write actually did, so the panel can tell the truth. */
+export interface DiagnosticWriteResult {
+  /** Rows the resolver produced for this parse. */
+  collected: number;
+  /** Rows the insert confirmed. */
+  written: number;
+  /** Why the rest did not land, when they did not. */
+  error: string | null;
+}
+
+/**
+ * The key set every payload row must expose.
+ *
+ * PostgREST rejects a bulk insert whose objects have differing keys
+ * (PGRST102, "All object keys must match"). A parse that produced only anchor
+ * misses (headings, occurrences) inserted fine; a parse that also produced a
+ * dropped reference row (label, reference_class) failed as a batch and wrote
+ * nothing. A fix in one area silently disabled a diagnostic in another.
+ */
+const FULL_ROW_KEYS = [
+  'kind', 'field', 'failure', 'occurrences', 'stop_number',
+  'headings', 'ordering', 'label', 'reference_class',
+] as const;
+
+/** The key set a payload row must expose, for the wiring guard. */
+export const diagnosticRowKeys = (): readonly string[] => FULL_ROW_KEYS;
+
+/** Widens every row to the full key set so a mixed batch is still one shape. */
+export function normalizeDiagnosticRows(
+  rows: DiagnosticRow[],
+  ctx: DiagnosticContext = {},
+): Record<string, unknown>[] {
+  return rows.map(r => ({
+    kind: r.kind,
+    field: r.field ?? null,
+    failure: r.failure ?? null,
+    occurrences: r.occurrences ?? 0,
+    stop_number: r.stop_number ?? null,
+    headings: r.headings ?? [],
+    ordering: (r.ordering ?? null) as Json,
+    label: r.label ?? null,
+    reference_class: r.reference_class ?? null,
+    load_id: ctx.loadId ?? null,
+    load_number: ctx.loadNumber ?? null,
+    document_id: ctx.documentId ?? null,
+    document_label: ctx.documentLabel ?? null,
+    parser_contract: ctx.parserContract ?? null,
+    // No actor from the client: the column defaults to current_profile_id(),
+    // which is a profiles(id) — an auth uid here is the wrong uuid entirely.
+  }));
+}
+
 /**
  * @parser-check
  * Drains the anchor miss buffer and files it, with the reference-label misses
  * from the same parse, against the load and document they came from.
  *
  * Never throws: a diagnostic that interrupts a parse is worse than a diagnostic
- * that is lost, so a failure here is swallowed after a console warning.
+ * that is lost. It never reports success it did not have either — the caller
+ * gets the collected count and the written count separately, because a write
+ * that reports nothing is otherwise indistinguishable from a clean parse.
  */
 export async function logParserDiagnostics(
   classified: Pick<ClassifyResult, 'unrecognized' | 'dropped'> | null | undefined,
   ctx: DiagnosticContext = {},
-): Promise<number> {
+): Promise<DiagnosticWriteResult> {
+  let collected = 0;
   try {
     const rows = collectParserDiagnostics({
       anchorMisses: takeAnchorMisses(),
       classified: classified ?? null,
     });
-    if (!rows.length) return 0;
+    collected = rows.length;
+    if (!rows.length) return { collected: 0, written: 0, error: null };
 
-    const payload = rows.map(r => ({
-      ...r,
-      ordering: (r.ordering ?? null) as Json,
-      load_id: ctx.loadId ?? null,
-      load_number: ctx.loadNumber ?? null,
-      document_id: ctx.documentId ?? null,
-      document_label: ctx.documentLabel ?? null,
-      parser_contract: ctx.parserContract ?? null,
-      // No actor from the client: the column defaults to current_profile_id(),
-      // which is a profiles(id) — an auth uid here is the wrong uuid entirely.
-    }));
-
-    const { error } = await supabase.from('parser_diagnostics').insert(payload);
+    const payload = normalizeDiagnosticRows(rows, ctx);
+    const { data, error } = await supabase
+      .from('parser_diagnostics')
+      .insert(payload as never)
+      .select('id');
     if (error) throw error;
-    return payload.length;
+    return { collected, written: data?.length ?? 0, error: null };
   } catch (err) {
-    // Still never interrupts a parse — but never silent either. A swallowed
-    // write is indistinguishable from a clean parse, which is how an insert
-    // policy that could never pass went unnoticed.
     const message = err instanceof Error ? err.message : String(err);
     console.error('[parser-diagnostics] could not record diagnostics', err);
     toast({
       variant: 'destructive',
       title: 'Parser diagnostics could not be recorded',
-      description: `${message}. The unrecognised headings from this parse were not saved; the parse itself is unaffected.`,
+      description:
+        `${collected} unrecognised item${collected === 1 ? '' : 's'} from this parse were not saved: ` +
+        `${message}. The parse itself is unaffected.`,
+      // A logging failure that scrolls away is the failure repeating itself.
+      duration: Number.POSITIVE_INFINITY,
     });
-    return 0;
+    return { collected, written: 0, error: message };
   }
 }
+
 
 export interface ParserDiagnosticRecord {
   id: string;

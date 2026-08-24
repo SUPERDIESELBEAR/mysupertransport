@@ -7,6 +7,9 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1';
 const CHAT_MODEL = 'google/gemini-3-flash-preview';
+/** Pinned sampling. Changing either value changes what "same run" means. */
+const SAMPLING = { temperature: 0, seed: 20260823 } as const;
+
 
 /**
  * Contract identity of this build. Bump `contract` whenever the response SHAPE
@@ -110,7 +113,7 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       "zip": FIELD(string),
       "contact_name": FIELD(string),
       "contact_phone": FIELD(string),
-      "appointment_start": FIELD("YYYY-MM-DDTHH:mm" local time as printed; null if no time printed),
+      "appointment_start": FIELD("YYYY-MM-DDTHH:mm" local time as printed; if a DATE is printed with no clock time, return the date alone as "YYYY-MM-DD" at "medium" confidence - never null),
       "appointment_end": FIELD("YYYY-MM-DDTHH:mm"; null unless a closing/end time is printed),
       "notes": FIELD(string - driver-relevant instructions for this stop only),
       "notes_verbatim": FIELD(string - the stop's printed comment/notes line copied EXACTLY as printed, character for character; see the verbatim rule),
@@ -162,7 +165,9 @@ Rules:
   - NEVER take the broker address from a shipper, consignee, facility or stop block, from a page footer, from fine-print legal terms, or from a factoring / lockbox / third-party payment notice.
   - NEVER infer an address. A logo, a phone area code, a website, an email domain or a bare city name is NOT an address — return null. A blank address is the correct answer when no addressed broker block is printed.
 - Dates: normalize every date to a 4-digit year. If the year is not printed, use the year that keeps the stop dates in ascending order relative to any printed date; if that is still unclear, return null.
-- Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence.
+- Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence. A date printed with NO time at all is still a date the document states: return "YYYY-MM-DD" at "medium" confidence and never null - the system fills midnight and asks the dispatcher to confirm the time.
+- CONFIDENCE IS A GATE, NOT A LABEL. "low" does not mean "flagged for review" - the system DISCARDS every low-confidence value, so a field you return at low confidence is a field the dispatcher never sees. Use "medium" for anything the document states but you cannot fully qualify: it fills the field AND lists it for verification. Reserve "low" for values you would rather were blank.
+
 - reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
   - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
   - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
@@ -300,10 +305,17 @@ Deno.serve(async (req) => {
           { role: 'user', content: contentBlocks },
         ],
         response_format: { type: 'json_object' },
+        // Two runs of one document returned different fields. Sampling is
+        // pinned so a difference between runs means the document or the
+        // extraction moved, not the dice. Whether the provider honours the
+        // seed is reported back on the response, never assumed.
+        temperature: SAMPLING.temperature,
+        seed: SAMPLING.seed,
         // Terms sweeps run long; leave room so a dense list is never clipped.
         max_tokens: 8000,
       }),
     });
+
 
     // 429/5xx from the gateway are transient — retry with bounded backoff.
     let aiRes = await callGateway();
@@ -372,17 +384,34 @@ Deno.serve(async (req) => {
       const s = str(f);
       return s.value && allowed.includes(s.value) ? s : { value: null, confidence: 'low' as Conf };
     };
-    /** Local datetime, no timezone shifting. Times are never guessed. */
+    /**
+     * Local datetime, no timezone shifting. Times are never guessed — but a
+     * DATE printed without a clock time is a date the document really states,
+     * and returning null for it dropped both Rolling River appointment dates.
+     *
+     * CONFIDENCE IS A GATE, NOT A LABEL: the form writer DISCARDS every value
+     * returned at `low`. A date-only appointment therefore comes back at
+     * `medium`, which fills the field and lists it for the dispatcher to
+     * verify. `low` here would be silent deletion.
+     */
     const dateTime = (f: any) => {
       const s = str(f);
       if (!s.value) return { value: null, confidence: 'low' as Conf };
-      const m = s.value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      const withTime = s.value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      const dateOnly = withTime ? null : s.value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const m = withTime ?? dateOnly;
       if (!m) return { value: null, confidence: 'low' as Conf };
-      const [, y, mo, d, h, mi] = m;
+      const [, y, mo, d] = m;
+      const h = withTime ? m[4] : '00';
+      const mi = withTime ? m[5] : '00';
       if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31 || +h > 23 || +mi > 59) {
         return { value: null, confidence: 'low' as Conf };
       }
-      return { value: `${y}-${mo}-${d}T${h}:${mi}`, confidence: s.confidence };
+      const confidence: Conf = withTime
+        ? s.confidence
+        : (s.confidence === 'low' ? 'medium' : s.confidence === 'high' ? 'medium' : s.confidence);
+      return { value: `${y}-${mo}-${d}T${h}:${mi}`, confidence };
+
     };
     const plainBool = (v: unknown) => v === true || v === 'true';
 
@@ -643,7 +672,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // What produced this parse, carried back so two runs are comparable.
+    // `seed_echoed` reports whether the provider acknowledged the seed rather
+    // than claiming determinism the gateway may not actually offer.
+    (result as Record<string, unknown>).run = {
+      model: CHAT_MODEL,
+      temperature: SAMPLING.temperature,
+      seed: SAMPLING.seed,
+      seed_echoed: data?.seed === SAMPLING.seed || data?.system_fingerprint != null,
+      system_fingerprint: data?.system_fingerprint ?? null,
+    };
+
     return json(200, result);
+
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('parse-rate-confirmation error', msg);

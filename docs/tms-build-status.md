@@ -392,3 +392,61 @@ time:
   anchors on this document.
 - Standing note: an anchor set that assumes stop headings exist cannot serve
   documents that number their stops only inside a table.
+
+## An empty audit query is not evidence (2026-08-23)
+
+`information_schema.role_table_grants` shows only grants the *querying role* is
+party to. Queried as a limited role it returns almost nothing, and reading that
+emptiness as "no table has grants" produced a defect report where there was no
+defect. A migration was nearly written on top of it.
+
+- Rule: an audit query that returns empty for almost every object is a
+  suspected bad source, not a finding. Prove the query can see a case you
+  already know is true before trusting the negatives.
+- For privileges, ask the catalog a direct question:
+  `has_table_privilege(role, oid, 'SELECT')`. That is what
+  `public.grant_parity_report()` uses, evaluated at call time, so it cannot go
+  stale the way a checked-in snapshot or migration-text scan does.
+- `src/test/grant-parity-live.test.ts` runs that function against the live
+  database and asserts zero offenders. A snapshot would inherit exactly the
+  weakness this rule exists to name.
+
+## The real cause: a bulk insert must have one key set (2026-08-23)
+
+Zero diagnostics rows landed for Rolling River. The cause was not permissions.
+The placeholder-reference work added a *second row shape* (dropped references)
+to the same diagnostics batch as anchor misses, and PostgREST rejects a bulk
+insert whose objects do not share a key set (PGRST102). The whole batch failed.
+
+- A fix in one area silently disabled a diagnostic in another, and the panel
+  read the resulting zero as success.
+- `normalizeDiagnosticRows` now widens every row to `FULL_ROW_KEYS` before the
+  insert, so a mixed batch is still one shape.
+- `logParserDiagnostics` returns `{ collected, written, error }`. The panel
+  states both numbers. Zero written is reported as success only when zero were
+  collected and nothing on screen is unresolved; otherwise it is a failure with
+  a persistent message, not a toast that flashes and vanishes.
+
+## Low confidence means DISCARD, not flag (2026-08-23)
+
+The form writer drops every value returned at `low` confidence. A field the
+model returns at low confidence is therefore a field that is silently deleted —
+the dispatcher never learns it existed. This is why both Rolling River stop
+appointment dates disappeared between runs: a date printed without a clock time
+came back low.
+
+- `medium` is the correct level for anything the document states but the model
+  cannot fully qualify: it fills the field *and* lists it for verification.
+- Reserve `low` for values that would be better blank.
+- Anywhere the prompt assigns confidence, this must be stated in the prompt
+  itself. The name does not communicate the behaviour.
+- Date-only appointments now normalise to midnight at `medium` rather than null.
+
+## Runs are pinned and fingerprinted (2026-08-23)
+
+Sampling is pinned (`temperature: 0`, fixed seed) so a difference between two
+runs of one document means the document or the extraction moved, not the dice.
+Whether the provider honours the seed is *reported* (`seed_echoed`), never
+assumed. Each run carries a fingerprint — text-layer hash plus per-field
+outcomes — so two runs can be compared directly, and a matching layer hash with
+differing field outcomes isolates the model as the variable.

@@ -9089,6 +9089,16 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
       }
+      grant_parity_report: {
+        Args: never
+        Returns: {
+          command: string
+          detail: string
+          issue: string
+          role_name: string
+          table_name: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
