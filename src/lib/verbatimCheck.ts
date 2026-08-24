@@ -2,6 +2,12 @@ import { pageForLine, textLayerFor, type PdfTextLayer } from '@/lib/pdfTextLayer
 import { damageFingerprint, verifyVerbatim, type VerbatimVerification } from '@/lib/verbatimVerify';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
 import { documentHeadings } from '@/lib/verbatimRegions';
+import {
+  adoptVerbatim,
+  type TruncationSignal,
+  type VerbatimOrigin,
+  type VerbatimOriginReason,
+} from '@/lib/verbatimAdopt';
 
 /**
  * Runs the verbatim check in the browser, where the PDF's own text layer is
@@ -17,7 +23,7 @@ export interface VerbatimCheck extends VerbatimVerification {
   page: number | null;
   /** Index into the *parsed* stops for a stop-level capture; null at load level. */
   parsedStopIndex: number | null;
-  /** The capture this verdict is about, as it stands (repairs included). */
+  /** The capture this verdict is about, as it stands (repairs and adoption included). */
   value: string;
   /**
    * Heading-shaped lines the parser saw, carried only when the region failed to
@@ -25,16 +31,39 @@ export interface VerbatimCheck extends VerbatimVerification {
    * the check so the reason is legible without leaving an unsaved parse.
    */
   documentHeadings?: string[] | null;
+
+  /**
+   * Where the STORED value came from. Note the distinction from `verdict`, which
+   * always judges the MODEL's transcription against the page: a field can read
+   * `unverified` and still store the page's own text, and that combination is the
+   * point — the score describes the model, the origin describes the load.
+   */
+  valueOrigin: VerbatimOrigin;
+  originReason: VerbatimOriginReason;
+  /** The model's transcription, kept even when the layer was stored instead. */
+  modelValue: string;
+  /** Region length over model length, so a short region is legible after the fact. */
+  layerLengthRatio: number | null;
+  /** Which sanity checks refused the region, when any did. */
+  truncationSignals: TruncationSignal[] | null;
 }
 
 export interface VerbatimCheckResult {
   checks: VerbatimCheck[];
   layer: PdfTextLayer | null;
+  /**
+   * The parse with every adopted capture replaced by the page's own text. The
+   * caller must apply THIS to the form and to the diff — the stored value is the
+   * adopted one, and a screen fed from the original would show a value the load
+   * will not hold.
+   */
+  adopted: ParsedRateConfirmation;
 }
 
 /**
  * @parser-check
- * Judges every verbatim capture in a parsed document against the printed page.
+ * Judges every verbatim capture in a parsed document against the printed page,
+ * and takes the value from the page where the page is clean.
  */
 export async function verifyParsedVerbatim(
   f: File, result: ParsedRateConfirmation,
@@ -42,6 +71,7 @@ export async function verifyParsedVerbatim(
   const layer = await textLayerFor(f).catch(() => null);
   const text = layer?.text ?? '';
   const out: VerbatimCheck[] = [];
+  let adopted = structuredClone(result) as ParsedRateConfirmation;
 
   // The heading-shaped lines are carried on the check itself, so the reason a
   // field did not resolve is readable on the parse screen. It used to be
@@ -49,31 +79,44 @@ export async function verifyParsedVerbatim(
   // parse to learn why the parse failed.
   const headings = documentHeadings(text);
 
-  const withPage = (
-    v: VerbatimVerification, parsedStopIndex: number | null, value: string,
-  ): VerbatimCheck => ({
-    ...v,
-    page: pageForLine(layer, v.regionStartLine),
-    parsedStopIndex,
-    value,
-    documentHeadings: v.regionFailure ? headings : null,
-  });
+  /**
+   * Verify the model's capture, then decide what to store. Both run for every
+   * field: the verdict is about the transcription and stays comparable across
+   * documents whether or not the layer was adopted.
+   */
+  const judge = (
+    field: string, modelValue: string, parsedStopIndex: number | null, stopNumber?: number,
+  ): VerbatimCheck => {
+    const v: VerbatimVerification = verifyVerbatim(field, modelValue, text, { stopNumber });
+    const a = adoptVerbatim(field, modelValue, text, { stopNumber });
+    if (a.origin === 'text_layer') {
+      adopted = withRepairedCapture(
+        adopted, { field, parsedStopIndex } as VerbatimCheck, a.value,
+      );
+    }
+    return {
+      ...v,
+      page: pageForLine(layer, v.regionStartLine),
+      parsedStopIndex,
+      value: a.value,
+      documentHeadings: v.regionFailure ? headings : null,
+      valueOrigin: a.origin,
+      originReason: a.reason,
+      modelValue: a.modelValue,
+      layerLengthRatio: a.layerLengthRatio,
+      truncationSignals: a.truncationSignals,
+    };
+  };
 
   const si = result.verbatim?.special_instructions?.value;
-  if (si) out.push(withPage(verifyVerbatim('special_instructions_verbatim', si, text), null, si));
+  if (si) out.push(judge('special_instructions_verbatim', si, null));
 
   const bt = result.verbatim?.broker_terms?.value;
-  if (bt) out.push(withPage(verifyVerbatim('broker_terms_verbatim', bt, text), null, bt));
+  if (bt) out.push(judge('broker_terms_verbatim', bt, null));
 
   (result.stops ?? []).forEach((stop, i) => {
     const notes = stop.notes_verbatim?.value;
-    if (notes) {
-      out.push(withPage(
-        verifyVerbatim('stop_notes_verbatim', notes, text, { stopNumber: i + 1 }),
-        i,
-        notes,
-      ));
-    }
+    if (notes) out.push(judge('stop_notes_verbatim', notes, i, i + 1));
   });
 
   // Content-free recurrence signal. The artifacts themselves are stored on the
@@ -89,7 +132,7 @@ export async function verifyParsedVerbatim(
     }
   });
 
-  return { checks: out, layer };
+  return { checks: out, layer, adopted };
 }
 
 /**

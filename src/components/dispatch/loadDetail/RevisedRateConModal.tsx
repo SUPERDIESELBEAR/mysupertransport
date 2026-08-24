@@ -213,7 +213,7 @@ export default function RevisedRateConModal({
       if (error) throw error;
       if (!editData) throw new Error('This load could not be re-read for comparison.');
 
-      const result = data as ParsedRateConfirmation;
+      let result = data as ParsedRateConfirmation;
       if (!result?.stops) throw new Error('No load data could be extracted from that document.');
 
       const values = loadToFormValues(editData);
@@ -230,9 +230,15 @@ export default function RevisedRateConModal({
 
       // Judge the transcriptions before the diff is offered. A capture the
       // model copied out of a broken text layer must not arrive pre-accepted.
+      // Where the page's text layer is clean, the stored value comes from the
+      // page rather than from the model. The diff has to be built from the
+      // adopted parse, or the dispatcher would approve a value the load will not
+      // hold.
       let checks: VerbatimCheck[] = [];
       try {
-        checks = (await verifyParsedVerbatim(target, result)).checks;
+        const verified = await verifyParsedVerbatim(target, result);
+        checks = verified.checks;
+        result = verified.adopted;
       } catch (verifyError) {
         logDbError('verbatim verification (revision)', verifyError, { loadId: load.id });
       }
@@ -394,6 +400,12 @@ export default function RevisedRateConModal({
       page: v.page,
       parsedStopIndex: v.parsedStopIndex,
       value: text,
+      // A hand-typed span is neither the layer nor the model.
+      valueOrigin: 'model',
+      originReason: 'manual_repair',
+      modelValue: v.modelValue,
+      layerLengthRatio: v.layerLengthRatio,
+      truncationSignals: null,
     };
     const checks = verbatim.map(c =>
       c.field === v.field && c.parsedStopIndex === v.parsedStopIndex ? recheck : c);

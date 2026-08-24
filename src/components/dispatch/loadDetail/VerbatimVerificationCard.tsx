@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, ChevronDown, PenLine, ShieldQuestion } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, FileText, PenLine, ShieldQuestion } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,29 @@ type StoredVerification = VerbatimVerification & {
   repaired_by?: string | null;
   repaired_at?: string | null;
   verified_at?: string | null;
+  /**
+   * Where the stored text came from. Older records predate source selection and
+   * carry nothing, which reads as the model — that is what they were.
+   */
+  valueOrigin?: 'text_layer' | 'model' | null;
+  originReason?: string | null;
+  layerLengthRatio?: number | null;
+  truncationSignals?: string[] | null;
+};
+
+const ORIGIN_BLURBS: Record<string, string> = {
+  layer_clean: 'Stored from the document\u2019s own text layer: the region resolved, carried no corruption markers, and passed the truncation check. The verdict above still describes the model\u2019s transcription of the same block.',
+  layer_damaged: 'Stored from the model\u2019s transcription because the region\u2019s text layer carries corruption the printed page does not have.',
+  region_truncated: 'Stored from the model\u2019s transcription because the resolved region did not look like the whole printed block.',
+  region_unresolved: 'Stored from the model\u2019s transcription because no printed heading placed this field on the page.',
+  no_layer: 'Stored from the model\u2019s transcription because the document has no usable text layer.',
+  manual_repair: 'Stored as typed by a person from the rendered page.',
+};
+
+const TRUNCATION_LABELS: Record<string, string> = {
+  shorter_than_model: 'region materially shorter than the model\u2019s capture',
+  model_continues_past_region: 'the model\u2019s capture continues past the region\u2019s end',
+  ends_mid_sentence: 'the region\u2019s last line breaks mid-sentence',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -139,7 +162,10 @@ export default function VerbatimVerificationCard({ load }: { load: LoadDetail })
   });
 
   // A load with every capture verified needs no card: the flag is the point.
-  const notable = records.filter(r => r.verdict !== 'verified' || r.source === 'manual_repair');
+  // A capture taken from the page instead of the model is notable too — the
+  // origin of stored broker-authored text has to be answerable later.
+  const notable = records.filter(r =>
+    r.verdict !== 'verified' || r.source === 'manual_repair' || r.valueOrigin === 'text_layer');
   if (!records.length || !notable.length) return null;
 
   return (
@@ -196,7 +222,12 @@ function VerificationRow({ record, repairedByName, checkedAt }: {
               <PenLine className="mr-1 h-3 w-3" />
               Manually repaired
             </Badge>
-          ) : null}
+          ) : (
+            <Badge variant="outline" className="border-slate-300 bg-[#E8F0FF] text-slate-700">
+              <FileText className="mr-1 h-3 w-3" />
+              {record.valueOrigin === 'text_layer' ? 'Stored from the page' : 'Stored from the model'}
+            </Badge>
+          )}
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="ml-auto gap-1 text-xs">
               Details
@@ -224,7 +255,22 @@ function VerificationRow({ record, repairedByName, checkedAt }: {
               <Fact label="Layer degradation" value={
                 record.layerDegradation === null ? '—' : `${Math.round(record.layerDegradation * 1000) / 10}%`} />
               <Fact label="Checked" value={when(record.verified_at) ?? when(checkedAt) ?? '—'} />
+              <Fact label="Stored value from" value={record.valueOrigin === 'text_layer' ? 'Document text layer' : 'Model transcription'} />
+              <Fact label="Region / model length" value={
+                record.layerLengthRatio === null || record.layerLengthRatio === undefined
+                  ? '—' : `${Math.round(record.layerLengthRatio * 100)}%`} />
             </dl>
+
+            {record.originReason && ORIGIN_BLURBS[record.originReason] ? (
+              <p>{ORIGIN_BLURBS[record.originReason]}</p>
+            ) : null}
+
+            {record.truncationSignals?.length ? (
+              <p>
+                <span className="font-medium text-[#2C2C2C]">Region rejected because: </span>
+                {record.truncationSignals.map(s => TRUNCATION_LABELS[s] ?? s).join('; ')}
+              </p>
+            ) : null}
 
             {record.missingTokens?.length ? (
               <p>

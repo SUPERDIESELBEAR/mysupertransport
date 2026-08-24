@@ -596,3 +596,52 @@ Standing rules:
 Nothing was deleted: `verbatimVerify.ts`, `verbatimRegions.ts`, `verbatimCheck.ts`,
 `VerbatimRepairField.tsx` and every test remain. The checks found four real defects this
 week; they were aimed at the wrong audience, not wrong.
+
+## The page is the source where the page is clean (2026-08-24)
+
+Stored verbatim text now comes from the PDF's own text layer whenever the field's
+region resolves, carries no corruption marker, and passes a truncation check. The
+model's transcription is the fallback, not the default.
+
+### The layer is not automatically better
+
+Blue Grace's Special Instructions block is the standing counterexample: the layer
+renders `53' 102"` as a pilcrow, the model reads it correctly. Adopting the layer
+there would store the exact corruption the `transcription_damaged` verdict was
+built to catch, so adoption is refused on ANY corruption marker in the region —
+pilcrow, control character, entity chain, replacement character — not on a damage
+share alone. One pilcrow in an 800-character block is 0.1% damage and would have
+cleared a share-based limit. Measured on that document: special instructions
+falls back (region damage 4.98%, artifacts present), broker terms adopts (0%).
+
+### Region boundaries are now the stored value's boundaries
+
+A region cut two lines short used to cost a similarity point. Under adoption it
+would cost stored text, silently, because the value matches the page by
+construction. Three sanity checks refuse the region, any one of them sufficient:
+
+- `shorter_than_model` — region under 90% of the model's normalized length
+- `model_continues_past_region` — the model's last 30 characters are not inside
+  the region, i.e. the model read past the boundary
+- `ends_mid_sentence` — the region's last line breaks on a comma, colon, or a
+  dangling function word
+
+A refused region falls back to the model, which is the previous behaviour, so the
+failure mode of this guard is "no improvement", never "worse than before".
+
+### Origin is recorded per field
+
+Every check carries `valueOrigin`, `originReason`, `modelValue`,
+`layerLengthRatio` and `truncationSignals`, persisted with the rest of the
+verification record and rendered on Load Detail. Note the deliberate split:
+`verdict` always judges the MODEL's transcription against the page, while
+`valueOrigin` says what the load actually stores. A field can read `unverified`
+and still store the page's own text — that combination is informative, not
+contradictory.
+
+### Standing rule
+
+Adoption runs BEFORE the parse is applied to the form and before the revision
+diff is built. A screen fed from the pre-adoption parse would show a dispatcher a
+value the load will not hold, and their approval would then attach to text that
+was never stored.
