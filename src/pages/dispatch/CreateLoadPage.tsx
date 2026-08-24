@@ -615,7 +615,7 @@ export default function CreateLoadPage({
                         <button
                           key={t}
                           type="button"
-                          onClick={() => field.onChange(t)}
+                          onClick={() => changeLoadType(field.value, t, field.onChange)}
                           className={`rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
                             field.value === t
                               ? 'border-gold bg-gold/10 text-foreground'
