@@ -645,3 +645,27 @@ Adoption runs BEFORE the parse is applied to the form and before the revision
 diff is built. A screen fed from the pre-adoption parse would show a dispatcher a
 value the load will not hold, and their approval would then attach to text that
 was never stored.
+
+### Origin is readable off a run, without saving
+
+The origin rows render inside the collapsed parse-run fingerprint on both the
+create path (`RateConfirmationParser`) and the revision path
+(`RevisedRateConModal`), via one shared `VerbatimSourceRows`. Per field: source,
+reason, region/model length ratio, truncation signals, and a stored-text preview
+that quotes a window around the first dollar amount and the first email address
+in the stored value. Those two matches are quoted specifically because a dropped
+amount or address is what adoption exists to recover, and confirming it must not
+require saving a load.
+
+### Standing rule: a signal must not re-derive what the parse already extracted
+
+`no_commodity`'s document side used to be an independent regex over the text
+layer. It was wrong in both directions on real documents — it fired from
+`(document)` on MegaCorp, where the model had already extracted `Plastics`, and
+was correct on Rolling River only because that page prints `Commodity: paper
+rolls` inline. A second scan re-deriving a fact the parse already established
+cannot be more reliable than the extraction. The document side now answers from
+`load.commodity` where a non-placeholder value exists, falls back to a widened
+label scan (commodity / commodities / freight description / description of goods
+/ product) only when nothing was extracted, and stays `null` when there is
+neither — unknown never silences a model signal.
