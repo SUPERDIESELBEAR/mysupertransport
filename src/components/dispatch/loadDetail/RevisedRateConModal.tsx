@@ -712,6 +712,21 @@ export default function RevisedRateConModal({
               </section>
             ) : null}
 
+            {/* Same origin rows as the create path, behind a disclosure: a
+                reachability rule, not a second implementation. */}
+            {verbatim.length ? (
+              <details className="rounded-md border border-border bg-muted/30 p-2.5">
+                <summary className="cursor-pointer text-xs font-medium text-foreground">
+                  Verbatim source per field
+                </summary>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <VerbatimSourceRows checks={verbatim} />
+                </div>
+              </details>
+            ) : null}
+
+
+
 
 
             {diff.unresolved.length > 0 ? (
