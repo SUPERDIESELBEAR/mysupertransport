@@ -156,9 +156,81 @@ export function actorValue(kind: ActorKind): string | null {
   return null;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Column coercion, as the save RPCs perform it                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `NULLIF(p_load->>'k','')`. Every value the load form sends is a string, and
+ * the empty string means "not set" — a fake that stored `''` would report a
+ * change on every field the form leaves blank.
+ */
+export const txt = (v: unknown): string | null => {
+  if (v === null || v === undefined) return null;
+  const s = typeof v === 'string' ? v : String(v);
+  return s === '' ? null : s;
+};
+
+/** `NULLIF(...,'')::numeric`. */
+export const numOrNull = (v: unknown): number | null => {
+  const s = txt(v);
+  if (s === null) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+const boolOrFalse = (v: unknown): boolean => v === true || v === 'true';
+
+/** Load columns the RPCs cast to numeric. */
+export const NUMERIC_LOAD_KEYS = [
+  'weight_lbs', 'linehaul_rate', 'fsc_amount', 'rate_per_mile', 'rate_per_ton',
+  'estimated_tons', 'total_load_value', 'loaded_miles', 'deadhead_miles',
+  'reefer_temp_f', 'reefer_temp_min_f', 'reefer_temp_max_f', 'permit_cost',
+  'loadout_relocation_fee', 'loadout_use_period_days',
+];
+
+const BOOLEAN_LOAD_KEYS = [
+  'fsc_bundled_into_linehaul', 'reefer_precool_required', 'reefer_continuous_run',
+  'is_team_load', 'is_hazmat', 'permit_required',
+];
+
+/** The keys `update_load_with_stops` treats as moving money. */
+export const FINANCIAL_LOAD_KEYS = [
+  'rate_type', 'linehaul_rate', 'rate_per_mile', 'rate_per_ton', 'estimated_tons',
+  'fsc_bundled_into_linehaul', 'fsc_amount', 'loadout_relocation_fee', 'permit_cost',
+  'permit_recovery_method', 'loaded_miles',
+];
+
+/** Every load column the save payload carries, in the RPCs' own coercions. */
+export function coerceLoadColumns(p: Row): Row {
+  const out: Row = {};
+  Object.keys(p).forEach(k => {
+    if (BOOLEAN_LOAD_KEYS.includes(k)) out[k] = boolOrFalse(p[k]);
+    else if (NUMERIC_LOAD_KEYS.includes(k)) out[k] = numOrNull(p[k]);
+    else out[k] = txt(p[k]);
+  });
+  if (out.load_type == null) out.load_type = 'standard';
+  if (out.rate_type == null) out.rate_type = 'flat';
+  return out;
+}
+
+/** Stop columns, minus the sequence and stop-off fields the caller decides. */
+export function coerceStopColumns(s: Row): Row {
+  const out: Row = {};
+  ['stop_type', 'facility_id', 'facility_name', 'address_line1', 'address_line2',
+    'city', 'state', 'zip', 'contact_name', 'contact_phone',
+    'appointment_start', 'appointment_end', 'reference_number', 'reference_label',
+    'stop_notes', 'stop_notes_verbatim'].forEach(k => { out[k] = txt(s[k]); });
+  if (out.stop_type == null) out.stop_type = 'pickup';
+  if (txt(s.id)) out.id = txt(s.id);
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* The client                                                          */
 /* ------------------------------------------------------------------ */
+
 
 export interface PgFake {
   tables: Record<string, Row[]>;
