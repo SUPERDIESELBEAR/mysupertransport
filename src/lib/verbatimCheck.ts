@@ -79,31 +79,44 @@ export async function verifyParsedVerbatim(
   // parse to learn why the parse failed.
   const headings = documentHeadings(text);
 
-  const withPage = (
-    v: VerbatimVerification, parsedStopIndex: number | null, value: string,
-  ): VerbatimCheck => ({
-    ...v,
-    page: pageForLine(layer, v.regionStartLine),
-    parsedStopIndex,
-    value,
-    documentHeadings: v.regionFailure ? headings : null,
-  });
+  /**
+   * Verify the model's capture, then decide what to store. Both run for every
+   * field: the verdict is about the transcription and stays comparable across
+   * documents whether or not the layer was adopted.
+   */
+  const judge = (
+    field: string, modelValue: string, parsedStopIndex: number | null, stopNumber?: number,
+  ): VerbatimCheck => {
+    const v: VerbatimVerification = verifyVerbatim(field, modelValue, text, { stopNumber });
+    const a = adoptVerbatim(field, modelValue, text, { stopNumber });
+    if (a.origin === 'text_layer') {
+      adopted = withRepairedCapture(
+        adopted, { field, parsedStopIndex } as VerbatimCheck, a.value,
+      );
+    }
+    return {
+      ...v,
+      page: pageForLine(layer, v.regionStartLine),
+      parsedStopIndex,
+      value: a.value,
+      documentHeadings: v.regionFailure ? headings : null,
+      valueOrigin: a.origin,
+      originReason: a.reason,
+      modelValue: a.modelValue,
+      layerLengthRatio: a.layerLengthRatio,
+      truncationSignals: a.truncationSignals,
+    };
+  };
 
   const si = result.verbatim?.special_instructions?.value;
-  if (si) out.push(withPage(verifyVerbatim('special_instructions_verbatim', si, text), null, si));
+  if (si) out.push(judge('special_instructions_verbatim', si, null));
 
   const bt = result.verbatim?.broker_terms?.value;
-  if (bt) out.push(withPage(verifyVerbatim('broker_terms_verbatim', bt, text), null, bt));
+  if (bt) out.push(judge('broker_terms_verbatim', bt, null));
 
   (result.stops ?? []).forEach((stop, i) => {
     const notes = stop.notes_verbatim?.value;
-    if (notes) {
-      out.push(withPage(
-        verifyVerbatim('stop_notes_verbatim', notes, text, { stopNumber: i + 1 }),
-        i,
-        notes,
-      ));
-    }
+    if (notes) out.push(judge('stop_notes_verbatim', notes, i, i + 1));
   });
 
   // Content-free recurrence signal. The artifacts themselves are stored on the
