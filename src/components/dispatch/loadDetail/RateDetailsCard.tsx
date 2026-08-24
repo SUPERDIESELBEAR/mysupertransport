@@ -1,5 +1,9 @@
 import { DetailSection, Field, FieldGrid } from './DetailPrimitives';
-import { formatCurrency, formatShortDate } from '@/lib/loadFormat';
+import { formatCurrency } from '@/lib/loadFormat';
+import {
+  DERIVED_USE_WINDOW_NOTE, describeDayCount, formatUseWindow,
+} from '@/lib/loadoutUseWindow';
+
 import { formatNumber, type LoadDetail } from '@/lib/loadDetail';
 import { RATE_TYPE_LABELS, type RateType } from '@/lib/loadRateMath';
 
@@ -30,18 +34,22 @@ export default function RateDetailsCard({ load }: { load: LoadDetail }) {
       <FieldGrid>
         {isLoadout ? (
           <>
-            <Field label="Relocation Fee" value={formatCurrency(n(load.loadout_relocation_fee))} />
+            <Field label="Relocation Pay" value={formatCurrency(n(load.loadout_relocation_fee))} />
             <Field
-              label="Trailer Use Period"
-              value={load.loadout_use_period_days ? `${load.loadout_use_period_days} days` : '—'}
-              hint={
-                load.loadout_use_period_start || load.loadout_use_period_end
-                  ? `${formatShortDate(load.loadout_use_period_start)} – ${formatShortDate(load.loadout_use_period_end)}`
-                  : undefined
-              }
+              label="Trailer Use Window"
+              value={formatUseWindow(load.loadout_use_start, load.loadout_use_end) || '—'}
+              hint={describeDayCount({
+                statedDays: load.loadout_use_period_days,
+                start: load.loadout_use_start,
+                end: load.loadout_use_end,
+              }).text || undefined}
             />
+            {load.loadout_use_window_source === 'derived' && (
+              <Field label="Window Source" value={DERIVED_USE_WINDOW_NOTE} className="sm:col-span-2" />
+            )}
           </>
         ) : (
+
           <>
             <Field label="Rate Type" value={RATE_TYPE_LABELS[rateType] ?? '—'} />
             {rateType === 'flat' && (
