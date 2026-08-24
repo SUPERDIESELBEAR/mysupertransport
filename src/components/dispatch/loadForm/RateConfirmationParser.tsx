@@ -178,24 +178,28 @@ export default function RateConfirmationParser({
       });
       if (error) throw error;
 
-      const result = data as ParsedRateConfirmation;
-      if (!result?.stops || isEmptyResult(result)) {
+      const parsedResult = data as ParsedRateConfirmation;
+      if (!parsedResult?.stops || isEmptyResult(parsedResult)) {
         throw new Error(
           'The document was read but no load data could be extracted from it. Enter the load manually, or try a clearer copy of the rate confirmation.',
         );
       }
 
-      const applied = applyParsedToForm(result, (name, value) =>
-        form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
-
-      const contractWarning = parserContractWarning(result);
+      const contractWarning = parserContractWarning(parsedResult);
       if (contractWarning) {
         toast({ variant: 'destructive', title: 'Parser version mismatch', description: contractWarning });
       }
 
-      const { checks, layer } = await verifyParsedVerbatim(file, result);
+      // Verification and source selection run BEFORE the form is filled: where
+      // the page's own text layer is clean it is the better source than a
+      // transcription of it, so the value the form receives is the adopted one.
+      const { checks, layer, adopted } = await verifyParsedVerbatim(file, parsedResult);
+      const result = adopted;
       result.verbatim_verification = checks;
       setVerbatim(checks);
+
+      const applied = applyParsedToForm(result, (name, value) =>
+        form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
 
       // One comparable record per run. Two runs of the same document diverged
       // with nothing kept to say whether the text layer or the model moved.
