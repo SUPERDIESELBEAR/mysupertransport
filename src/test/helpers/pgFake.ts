@@ -623,8 +623,22 @@ export function createPgFake(): PgFake {
               is: (c: string, v: unknown) => resolved(l.filter(r => (r[c] ?? null) === v)),
               order: () => resolved(l),
               limit: (n: number) => resolved(l.slice(0, n)),
+              maybeSingle: () => Promise.resolve({ data: l[0] ?? null, error: null }),
+              // PostgREST fails a `.single()` that does not match exactly one row,
+              // and code branches on that error. A fake that returned the first
+              // row regardless would hide the branch.
+              single: () => Promise.resolve(l.length === 1
+                ? { data: l[0], error: null }
+                : {
+                  data: null,
+                  error: {
+                    code: 'PGRST116',
+                    message: `JSON object requested, multiple (or no) rows returned (${l.length})`,
+                  },
+                }),
             },
           );
+
           return resolved(list);
         },
         eq(col: string, val: unknown) { this._filters.push(r => r[col] === val); return this; },
