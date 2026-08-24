@@ -359,6 +359,42 @@ export function createPgFake(): PgFake {
             });
           }
 
+          // Removals, in the same transaction as the writes. A reference the
+          // revised document no longer prints is deleted and the deletion is
+          // explained in the load's history — an accepted "reference removed"
+          // that changed nothing is the bug this mirrors.
+          const removals = (args.p_removals ?? []) as {
+            reference_class: string; value_key: string;
+          }[];
+          removals.forEach(rm => {
+            const at = tables.load_references.findIndex(
+              r => r.load_id === args.p_load_id
+                && r.reference_class === rm.reference_class
+                && r.value_key === rm.value_key,
+            );
+            if (at < 0) return;
+            const [gone] = tables.load_references.splice(at, 1);
+            // ON DELETE CASCADE.
+            for (let i = tables.load_reference_citations.length - 1; i >= 0; i -= 1) {
+              if (tables.load_reference_citations[i].reference_id === gone.id) {
+                tables.load_reference_citations.splice(i, 1);
+              }
+            }
+            const changed = actorExpressionFor(fn, 'load_change_history', 'changed_by');
+            insertRows('load_change_history', {
+              load_id: args.p_load_id,
+              field_path: `references.${String(gone.reference_class)}`,
+              previous_value: `${String(gone.label)}: ${String(gone.value)}`,
+              new_value: null,
+              is_financial: false,
+              reason: `Reference removed from ${(args.p_document_label as string) || 'a revised rate confirmation'}`,
+              change_source: (args.p_source as string) || 'rate_confirmation',
+              changed_by: actorValue(changed?.kind ?? 'unknown'),
+            }, 'hist');
+          });
+
+
+
           if (args.p_summary) {
             const changed = actorExpressionFor(fn, 'load_change_history', 'changed_by');
             insertRows('load_change_history', {
