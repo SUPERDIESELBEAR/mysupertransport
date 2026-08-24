@@ -95,10 +95,13 @@ export const loadFormSchema = z
     loadout_trailer_type: optionalText,
     loadout_relocation_fee: optionalNumber,
     loadout_use_period_days: optionalNumber,
-    // Agreed trailer use window, printed on the rate confirmation and
-    // overridable by dispatch. Not derivable from the stop dates.
+    // Agreed trailer use window. Stated on the rate confirmation when the
+    // broker prints it; otherwise inferred from the first and last stop
+    // appointment dates. The inference is never presented as a broker
+    // commitment, so its provenance travels with the load.
     loadout_use_start: optionalText,
     loadout_use_end: optionalText,
+    loadout_use_window_source: z.enum(['document', 'derived']).or(z.literal('')),
 
     rate_type: z.enum(['flat', 'per_mile', 'per_ton', 'percentage_of_load']),
     linehaul_rate: optionalNumber,
@@ -139,7 +142,7 @@ export const loadFormSchema = z
     }
 
     if (v.load_type === 'loadout') {
-      if (!v.loadout_relocation_fee) need('loadout_relocation_fee', 'Relocation fee is required');
+      if (!v.loadout_relocation_fee) need('loadout_relocation_fee', 'Relocation pay is required');
       return;
     }
 
@@ -208,6 +211,7 @@ export const loadFormDefaults = (): LoadFormValues => ({
   loadout_use_period_days: '',
   loadout_use_start: '',
   loadout_use_end: '',
+  loadout_use_window_source: '' as const,
   rate_type: 'flat',
   linehaul_rate: '',
   rate_per_mile: '',

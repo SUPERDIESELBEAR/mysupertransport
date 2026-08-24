@@ -18,7 +18,7 @@ const FIELD_LABELS: Record<string, string> = {
   loaded_miles: 'Loaded miles',
   deadhead_miles: 'Deadhead miles',
   total_load_value: 'Total load value',
-  loadout_relocation_fee: 'Loadout relocation fee',
+  loadout_relocation_fee: 'Loadout relocation pay',
 };
 
 const fieldLabel = (path: string) =>
