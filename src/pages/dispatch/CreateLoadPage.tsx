@@ -939,6 +939,34 @@ export default function CreateLoadPage({
                       </FormItem>
                     )}
                   />
+                  {/*
+                    The use window is negotiated per load and printed on the rate
+                    confirmation, so it is captured as the agreed dates rather than
+                    a fixed duration. Freight can be hauled on the trailer inside
+                    it, which makes it a dispatch planning input.
+                  */}
+                  <FormField
+                    control={form.control}
+                    name="loadout_use_start"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trailer use from</FormLabel>
+                        <FormControl><Input type="date" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="loadout_use_end"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trailer use through</FormLabel>
+                        <FormControl><Input type="date" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </Section>
             )}
