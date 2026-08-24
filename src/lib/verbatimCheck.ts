@@ -23,7 +23,7 @@ export interface VerbatimCheck extends VerbatimVerification {
   page: number | null;
   /** Index into the *parsed* stops for a stop-level capture; null at load level. */
   parsedStopIndex: number | null;
-  /** The capture this verdict is about, as it stands (repairs included). */
+  /** The capture this verdict is about, as it stands (repairs and adoption included). */
   value: string;
   /**
    * Heading-shaped lines the parser saw, carried only when the region failed to
@@ -31,16 +31,39 @@ export interface VerbatimCheck extends VerbatimVerification {
    * the check so the reason is legible without leaving an unsaved parse.
    */
   documentHeadings?: string[] | null;
+
+  /**
+   * Where the STORED value came from. Note the distinction from `verdict`, which
+   * always judges the MODEL's transcription against the page: a field can read
+   * `unverified` and still store the page's own text, and that combination is the
+   * point — the score describes the model, the origin describes the load.
+   */
+  valueOrigin: VerbatimOrigin;
+  originReason: VerbatimOriginReason;
+  /** The model's transcription, kept even when the layer was stored instead. */
+  modelValue: string;
+  /** Region length over model length, so a short region is legible after the fact. */
+  layerLengthRatio: number | null;
+  /** Which sanity checks refused the region, when any did. */
+  truncationSignals: TruncationSignal[] | null;
 }
 
 export interface VerbatimCheckResult {
   checks: VerbatimCheck[];
   layer: PdfTextLayer | null;
+  /**
+   * The parse with every adopted capture replaced by the page's own text. The
+   * caller must apply THIS to the form and to the diff — the stored value is the
+   * adopted one, and a screen fed from the original would show a value the load
+   * will not hold.
+   */
+  adopted: ParsedRateConfirmation;
 }
 
 /**
  * @parser-check
- * Judges every verbatim capture in a parsed document against the printed page.
+ * Judges every verbatim capture in a parsed document against the printed page,
+ * and takes the value from the page where the page is clean.
  */
 export async function verifyParsedVerbatim(
   f: File, result: ParsedRateConfirmation,
@@ -48,6 +71,7 @@ export async function verifyParsedVerbatim(
   const layer = await textLayerFor(f).catch(() => null);
   const text = layer?.text ?? '';
   const out: VerbatimCheck[] = [];
+  let adopted = structuredClone(result) as ParsedRateConfirmation;
 
   // The heading-shaped lines are carried on the check itself, so the reason a
   // field did not resolve is readable on the parse screen. It used to be
