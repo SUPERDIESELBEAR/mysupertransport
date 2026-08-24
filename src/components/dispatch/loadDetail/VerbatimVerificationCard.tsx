@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, ChevronDown, PenLine, ShieldQuestion } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, FileText, PenLine, ShieldQuestion } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -255,7 +255,22 @@ function VerificationRow({ record, repairedByName, checkedAt }: {
               <Fact label="Layer degradation" value={
                 record.layerDegradation === null ? '—' : `${Math.round(record.layerDegradation * 1000) / 10}%`} />
               <Fact label="Checked" value={when(record.verified_at) ?? when(checkedAt) ?? '—'} />
+              <Fact label="Stored value from" value={record.valueOrigin === 'text_layer' ? 'Document text layer' : 'Model transcription'} />
+              <Fact label="Region / model length" value={
+                record.layerLengthRatio === null || record.layerLengthRatio === undefined
+                  ? '—' : `${Math.round(record.layerLengthRatio * 100)}%`} />
             </dl>
+
+            {record.originReason && ORIGIN_BLURBS[record.originReason] ? (
+              <p>{ORIGIN_BLURBS[record.originReason]}</p>
+            ) : null}
+
+            {record.truncationSignals?.length ? (
+              <p>
+                <span className="font-medium text-[#2C2C2C]">Region rejected because: </span>
+                {record.truncationSignals.map(s => TRUNCATION_LABELS[s] ?? s).join('; ')}
+              </p>
+            ) : null}
 
             {record.missingTokens?.length ? (
               <p>
