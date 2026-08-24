@@ -317,6 +317,12 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
   const documentRead = text.length > 0;
   const doc = (re: RegExp): boolean | null => (documentRead ? re.test(text) : null);
   const trailerFromDoc = documentRead ? (text.match(DOC_TRAILER_NUMBER)?.[1] ?? null) : null;
+  const commodity = p?.load?.commodity ?? null;
+  const listed = commodityListed(commodity, text, documentRead);
+  const extractedCommodity = listed === true && (commodity?.value ?? '').trim()
+    ? (commodity!.value as string).trim()
+    : null;
+
 
   const defs: Omit<LoadoutSignal, 'fired' | 'source' | 'contradicted'>[] = [
     {
