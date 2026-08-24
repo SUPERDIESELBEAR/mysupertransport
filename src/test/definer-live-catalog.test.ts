@@ -204,6 +204,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.list_my_group_threads()",
   "public.list_staff_auto_assigned_drivers(uuid)",
   "public.log_ica_event(text,uuid,uuid,jsonb)",
+  // Definer BECAUSE the caller may not evaluate the actor. `current_profile_id()`
+  // is deliberately not executable by `authenticated` (revoked 2026-08-20), so a
+  // direct client insert stamping created_by could only ever fail 42501. The
+  // function stamps the actor itself and authorises dispatch/staff internally;
+  // the table's client INSERT grant is revoked, making this the only writer.
+  "public.log_parser_diagnostics(jsonb)",
   "public.log_pei_manual_send(uuid,timestamp with time zone,text,text)",
   "public.log_pei_phone_attempt(uuid,timestamp with time zone,text,text)",
   "public.mark_operator_seen(boolean)",
@@ -315,7 +321,8 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // record_duplicate_broker_reference.
 // + set_load_verbatim_verification, then file_load_references and
 // resolve_parser_diagnostic (record_load_reference_baseline dropped).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 89;
+// + log_parser_diagnostics, which replaced the direct client insert.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 90;
 
 
 /**

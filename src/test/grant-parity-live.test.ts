@@ -62,12 +62,18 @@ describe("live grant / policy parity", () => {
     expect(offenders, offenders.join("\n")).toEqual([]);
   });
 
-  itLive("parser_diagnostics is writable by signed-in staff", () => {
-    // The table the bad audit accused. Asserted directly so the record of what
-    // was actually true is executable, not a sentence in a doc.
+  itLive("parser_diagnostics is written only through the definer RPC", () => {
+    // The table the bad audit accused of missing grants. It had them; the real
+    // 42501 came from the column default calling current_profile_id(), which a
+    // default evaluates as the CALLER and `authenticated` may not execute. The
+    // fix moved the write behind a definer RPC, so the correct end state is the
+    // INVERSE of what this test used to assert: no client INSERT, EXECUTE on
+    // the function instead. Kept executable rather than written as prose.
     const rows = psql(
-      "select has_table_privilege('authenticated', 'public.parser_diagnostics', 'INSERT')::text",
+      "select has_table_privilege('authenticated', 'public.parser_diagnostics', 'INSERT')::text " +
+        "|| ' ' || has_function_privilege('authenticated', 'public.log_parser_diagnostics(jsonb)', 'EXECUTE')::text " +
+        "|| ' ' || has_function_privilege('authenticated', 'public.current_profile_id()', 'EXECUTE')::text",
     );
-    expect(rows).toEqual(["true"]);
+    expect(rows).toEqual(["false true false"]);
   });
 });

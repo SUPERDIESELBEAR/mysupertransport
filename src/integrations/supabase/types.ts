@@ -9181,6 +9181,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_parser_diagnostics: { Args: { p_rows: Json }; Returns: number }
       log_pei_manual_send: {
         Args: {
           _date_sent: string
