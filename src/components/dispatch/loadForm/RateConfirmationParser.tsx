@@ -202,7 +202,11 @@ export default function RateConfirmationParser({
 
       // One comparable record per run. Two runs of the same document diverged
       // with nothing kept to say whether the text layer or the model moved.
-      setFingerprint(buildParseFingerprint({ layer, checks, parsed: result }));
+      // The discards from THIS apply travel with it: the fingerprint printed
+      // both appointment windows while both form fields were empty, because it
+      // read the raw values and the form read them through the confidence gate.
+      setFingerprint(buildParseFingerprint({ layer, checks, parsed: result, discarded: applied.discarded }));
+
 
       // Anchor and label misses are filed here, on the create path. The same
       // call runs on the revision path — a check that exists on only one of the
