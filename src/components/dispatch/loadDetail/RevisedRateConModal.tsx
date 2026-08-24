@@ -394,6 +394,12 @@ export default function RevisedRateConModal({
       page: v.page,
       parsedStopIndex: v.parsedStopIndex,
       value: text,
+      // A hand-typed span is neither the layer nor the model.
+      valueOrigin: 'model',
+      originReason: 'manual_repair',
+      modelValue: v.modelValue,
+      layerLengthRatio: v.layerLengthRatio,
+      truncationSignals: null,
     };
     const checks = verbatim.map(c =>
       c.field === v.field && c.parsedStopIndex === v.parsedStopIndex ? recheck : c);
