@@ -1,114 +1,65 @@
-# Cause 4 on the diagnostics write path: a caller-evaluated default the caller cannot execute
+# Rolling River pass — appointments, trailer use window, run metadata, naming
 
-## Was the Aug 20 revoke deliberate?
+Four items. Two are reader/writer disagreements the fingerprint separated; one is a fill rule; one is naming.
 
-Yes — and it is documented as such. Migration `20260820012017` line 405-408 carries the comment:
+## 1. Appointment dates parsed then lost
+
+Verified in the code, not assumed: `buildParseFingerprint` reads `stop.appointment_start.value` **unconditionally** (`src/lib/parseFingerprint.ts`), while the form writer `applyParsedToForm` reads it through `usable()`, which returns null for `confidence: 'low'` (`src/lib/rateConfirmation.ts`). So a value can print in the fingerprint and never reach the form. That is the only divergence between the two readers of the same field, and it matches the symptom exactly: both windows present in the fingerprint, both fields empty.
+
+What is not yet confirmed is which confidence came back for these two stops. The 12:00 AM to 11:59 PM shape is the model synthesising a full-day window from a printed date with no clock time, and the edge function's `dateTime` normalizer only floors date-only strings to `medium` — a value that already carries a time (`00:00`, `23:59`) keeps whatever confidence the model assigned, including `low`. That is the likely path.
+
+Fixes, in order:
+
+- **Make the drop visible.** The fingerprint records the confidence alongside each appointment value, and any field the confidence gate discarded is listed in the panel as *read but discarded* with the field name and the value that was thrown away. A silent discard is what cost this round-trip; the fingerprint should not be able to show a value the form does not have without saying so.
+- **Floor appointment confidence in the normalizer.** An appointment value that survives date/time validation is a value the document states. `dateTime` never returns `low` when it has a parseable value — `low` becomes `medium` (fills, and lists for verification). `low` stays reserved for unparseable or absent.
+- **Verify by re-parse** on the fixed build and report the confidences the fingerprint now shows next to whether both fields filled.
+
+## 2. Trailer use window on the loadout switch
+
+Today the window is filled only from `loadout_signals.use_start_date` / `use_end_date` / `use_period_days`, and only at non-low confidence. Rolling River prints no explicit window, so all three stay empty.
+
+New derivation, applied inside `useLoadTypeChange` so it belongs to the same single reversible operation (and is therefore covered by the existing Undo):
+
+- If the document states a window, use it. Otherwise derive **from the first stop's appointment date through the last stop's appointment date**.
+- The derived rows are marked as needing verification and carry a visible provenance line: *Derived from the pickup and delivery dates on the document — confirm with the broker.*
+- Derivation only runs when the parse actually has both dates. No dates, no guess.
+
+**Day count:** it is currently a free-standing input. It becomes derived from the two dates (inclusive day count) and read-only while both dates are present, with an explicit override if a dispatcher needs to type a different number. So: no separate entry required.
+
+## 3. Fingerprint reports model unknown, no run id, sampling unknown
+
+This is a reader/writer shape mismatch, not a missing gateway field. The edge function attaches everything under a single `run` object:
 
 ```text
--- Internal helper. Called only from inside other SECURITY DEFINER bodies (which
--- run as the owner) and by no RLS policy, so no client role needs EXECUTE.
-REVOKE ALL ON FUNCTION public.current_profile_id() FROM PUBLIC, anon, authenticated;
+result.run = { model, temperature, seed, seed_echoed, system_fingerprint }
 ```
 
-It sits in a block of ~15 deliberate revokes on trigger and helper functions, immediately
-followed by explicit `GRANT EXECUTE ... TO authenticated` on the RPCs that clients *are*
-meant to call. This is intentional hardening with a stated rationale, and the rationale was
-correct on Aug 20 — it stopped being correct on Aug 23 when `parser_diagnostics` gained a
-default (and an RLS policy) that call it from the caller's context.
+`buildParseFingerprint` looks for `parsed.model`, `parsed.system_fingerprint` and `parsed.sampling.pinned/seed` — three keys that do not exist on the response. So the values are being sent and not read.
 
-## Recommendation: the RPC, not the re-grant
+Fix: read `run`, and surface `seed_echoed` as its own line. That flag is the honest answer to whether the gateway acknowledged the seed — if it comes back false, the panel says *the provider did not acknowledge the seed or return a run id, so determinism is unverified on this provider* rather than implying pinning is working. Whichever way it reports on the re-parse, that is what gets recorded in the build status doc.
 
-Move the diagnostics write behind a `SECURITY DEFINER` RPC. Reasons:
+## 4. Rename "Relocation fee" to "Relocation pay"
 
-1. Re-granting `EXECUTE` to `authenticated` hands every signed-in user, including operators,
-   a probe that maps auth uid to profile id. Small, but it is a deliberate revoke and undoing
-   it to fix one insert is the wrong trade.
-2. The re-grant does not even fully fix the write. Verified against the live catalog: the
-   insert policy is
-   `with_check: (created_by = current_profile_id()) AND (has_role(...))`.
-   RLS policy expressions also evaluate as the caller, so `current_profile_id()` is called
-   **twice** in the caller's context here — once by the default, once by the policy. And the
-   policy compares `created_by` to it, which means the client would have to either send an
-   actor id (banned by the standing rule) or rely on the default it cannot evaluate.
-3. Every other actor-stamped write in the project already goes through a definer RPC. This
-   table is the lone exception, which is exactly why it is the lone failure.
+Renamed in every user-facing surface: the create/edit form label, the day-count and window labels' surrounding copy, the load type carry toast ("Carried $150 over as the relocation pay"), Load Detail rate and conditional blocks, and the change-history field label.
 
-## The fix
+**The database column stays `loadout_relocation_fee`.** Renaming it would touch the loads table, the save payload, the edit hydrator, the revision diff field map, the change-history key map and existing history rows whose stored field names would stop resolving to a label. The column comment is updated to state it is revenue paid to SUPERTRANSPORT, of which the driver receives a percentage.
 
-**Migration (schema only):**
+## The banner evidence line you asked about
 
-- `CREATE FUNCTION public.log_parser_diagnostics(p_rows jsonb) RETURNS integer`,
-  `SECURITY DEFINER`, `SET search_path = public`. It:
-  - authorizes the caller: dispatcher / management / owner / onboarding_staff, else raise;
-  - inserts one row per element of `p_rows`, reading only the known payload keys
-    (`kind, field, failure, occurrences, stop_number, headings, ordering, label,
-    reference_class, load_id, load_number, document_id, document_label, parser_contract`)
-    so a client can never smuggle `created_by` / `resolved_by` in;
-  - stamps `created_by = current_profile_id()` inside the body (owner context, so the revoke
-    stands);
-  - returns the number of rows actually inserted, which is what the panel reports.
-  - `REVOKE ALL FROM PUBLIC, anon` / `GRANT EXECUTE TO authenticated`.
-- Drop the caller-evaluated default: `ALTER TABLE public.parser_diagnostics ALTER COLUMN
-  created_by DROP DEFAULT`. `created_by` stays nullable — a diagnostic must never fail to log
-  because an actor could not be resolved.
-- Replace the insert policy with one that does not call `current_profile_id()`; the table's
-  `INSERT` grant to `authenticated` is revoked since the RPC is the only writer.
-  `SELECT`/`UPDATE` for staff are unchanged, so the diagnostics page and
-  `resolve_parser_diagnostic` keep working.
+Confirmed read from the document, not assumed. "The carrier may keep the trailer for a period of days" is printed only when `loadout_signals.multi_day_use_period` is true, which the parser prompt defines as *true if the carrier may keep/use the trailer for a period of days* — a per-document boolean, absent by default. It is not a constant for all loadouts.
 
-**Client:**
+## Technical notes
 
-- `src/lib/parserDiagnostics.ts` — `logParserDiagnostics` calls
-  `supabase.rpc('log_parser_diagnostics', { p_rows: payload })` instead of
-  `.from('parser_diagnostics').insert(...)`. `written` becomes the RPC's returned count.
-  The `getDbErrorParts` error reporting added last turn is unchanged and still surfaces code,
-  message, details and hint if this ever fails again.
-- `normalizeDiagnosticRows` keeps widening every row to `FULL_ROW_KEYS` (one key set is still
-  required for a clean jsonb array), and still sends no actor id.
+- `src/lib/parseFingerprint.ts` — read the `run` envelope; record appointment confidence; add the discarded-by-gate list.
+- `src/lib/rateConfirmation.ts` — `applyParsedToForm` returns the fields the confidence gate discarded so the panel can name them.
+- `supabase/functions/parse-rate-confirmation/index.ts` — `dateTime` floors a parseable value to `medium`; parser contract bumped and the client's `EXPECTED_PARSER_CONTRACT` bumped with it.
+- `src/components/dispatch/loadForm/useLoadTypeChange.ts` — derived use window and day count as part of the single load-type change.
+- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`, `src/pages/dispatch/CreateLoadPage.tsx`, Load Detail cards — labels and the new panel lines.
 
-## The exposure audit
+## Tests
 
-Queried live: every `public` column default, every function named in an RLS policy, and
-`has_function_privilege` for `anon` / `authenticated`.
-
-**Function defaults on public columns:** exactly one project function is used as a default —
-`parser_diagnostics.created_by → current_profile_id()`. The only other non-trivial defaults
-are `gen_random_uuid()`, `now()` variants, `encode(extensions.gen_random_bytes(24),'hex')` on
-`onboard_assignment_sheets.access_token` and `ica_review_links.token`, and simple expressions.
-The two token tables are written only from edge functions (`send-osas-to-operator`,
-`send-ica-review-link`) under `service_role`, so no caller-context evaluation happens; they are
-not exposed.
-
-**Functions used in RLS policies that the calling role cannot execute:**
-
-| Function | authenticated EXECUTE | anon EXECUTE | Verdict |
-| --- | --- | --- | --- |
-| `current_profile_id` | no | no | **The bug** — used in the `parser_diagnostics` insert policy |
-| `has_role`, `is_staff`, `is_thread_participant`, `is_own_rods_operator`, `is_truck_owner_for_operator`, `operator_awaiting_return`, `operator_return_requested` | yes | yes | fine |
-
-So the exposure is a set of exactly one, on both axes, and both instances are the same table.
-No other fix is needed anywhere else.
-
-**Direct client inserts vs RPC:** many tables are still written by direct client insert; that
-is fine on its own. The failure mode is narrower than "direct insert" — it is *direct insert
-into a table whose default or policy calls a function the caller cannot execute*, and after
-this change that set is empty. The audit query is preserved as a test rather than a one-off
-(below).
-
-## The test that catches this class
-
-Extend the live-catalog approach already used by `grant-parity-live.test.ts`: a new assertion
-that, for every `public` column default and every function named in a `public` RLS policy,
-`has_function_privilege` is true for each role the table's own grants allow to write. Reads the
-catalog at call time, so it cannot go stale the way checked-in migration text does.
-
-## Docs
-
-`docs/tms-build-status.md` gains cause 4 on this write path (write with no reader → RLS policy
-mismatch → mixed row shapes → caller cannot execute the column default's function) and the
-standing rule:
-
-> A column default runs as the *caller*, not the table owner, and so does an RLS policy
-> expression. A function used in either must be executable by every role that inserts — or the
-> write must go through a `SECURITY DEFINER` RPC. A default the caller cannot evaluate makes a
-> table that can only fail, and it is invisible to both a table-grant check and an RLS check.
+- A stop appointment returned at `low` with a parseable value fills the form after the normalizer floor, and the panel lists nothing as discarded.
+- A genuinely discarded field appears in the discarded list with its value — the fingerprint can no longer show a value the form lacks without reporting it.
+- The fingerprint reads model, run id and seed from the `run` envelope, and reports determinism unverified when `seed_echoed` is false.
+- Loadout switch with no stated window derives 08/17 through 08/24 and a day count of 8; with no parsed dates it leaves all three empty; Undo restores all three.
+- Both paths: the derived window and the discarded-field report are asserted reachable from the create path and the revision path, per the standing rule.
