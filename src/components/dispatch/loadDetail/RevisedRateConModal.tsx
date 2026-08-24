@@ -213,7 +213,7 @@ export default function RevisedRateConModal({
       if (error) throw error;
       if (!editData) throw new Error('This load could not be re-read for comparison.');
 
-      const result = data as ParsedRateConfirmation;
+      let result = data as ParsedRateConfirmation;
       if (!result?.stops) throw new Error('No load data could be extracted from that document.');
 
       const values = loadToFormValues(editData);
