@@ -1,53 +1,41 @@
-# Rolling River, round three — a diagnostics message that can be believed, and a parse that repeats itself
+# Parser diagnostics: real cause found, plus determinism and card work
 
-## What I confirmed before writing this
+Investigation before planning changed the diagnosis. Two corrections to what was said last turn:
 
-- **The diagnostics rows are being rejected by the database, and the cause is now named.** `parser_diagnostics` has RLS policies for dispatch staff but **no table GRANTs at all** — `information_schema.role_table_grants` returns zero rows for it. Without a grant, `authenticated` gets a permission error on insert regardless of the policy. That is the red toast that flashed: `logParserDiagnostics` catches the error, toasts it, and returns `0`.
-- **The panel then reads that `0` as good news.** `RateConfirmationParser` renders "No parser diagnostics recorded — nothing on this document went unrecognised" whenever the count is zero, with no knowledge of how many misses the resolver produced. It cannot distinguish "clean document" from "write refused".
-- **Region resolution itself is deterministic given the same text layer** — `resolveFieldRegion` reads only the layer. But it only runs for a field the model actually returned a value for, and the model call in `parse-rate-confirmation` sets no `temperature` and no seed. So run-to-run variation in the model's output is the only moving part on the same file, and that is what the plan measures rather than assumes.
-- **Appointment dates are model-side too.** The prompt says to return `null` when no time is printed; Rolling River prints dates without clock times, which is exactly the case where an unpinned model will answer differently on two runs.
+**1. `parser_diagnostics` grants are fine.** The live catalog shows `authenticated` holding SELECT, INSERT, UPDATE, DELETE and `service_role` holding all four. The earlier "no grants" reading came from querying `information_schema.role_table_grants`, which only shows grants the querying role is party to — it is empty here for almost every table and is not a usable audit source. `has_table_privilege` against the live catalog is.
 
-## What gets built
+**2. The real cause of zero rows: mixed row shapes in one bulk insert.** The two rows that did land are both from the Blue Grace parse and are both `kind = anchor_miss` — a uniform batch. The Rolling River parse produced anchor misses *and* dropped-reference rows (the "Assign at pickup" placeholder drop added last turn). Those two row types carry different keys (`headings`/`occurrences` versus `label`/`reference_class`), and PostgREST rejects a bulk insert whose objects do not all share a key set (PGRST102, "All object keys must match"). The batch failed whole, 0 rows written, and the red toast that flashed by was that rejection.
 
-### 1. The message tells the truth, with both numbers
+Grant audit across the live catalog: one table, `share_token_access_log`, has a SELECT-only policy and no INSERT grant for `authenticated`. That is correct as designed (writes are service-role) and is left alone.
 
-`logParserDiagnostics` stops returning a bare number and returns `{ collected, written, error }`. The panel states:
+## Sections
 
-- collected 0: "Nothing on this document went unrecognised."
-- collected N, written N: "N parser diagnostics recorded."
-- collected N, written 0 (or fewer): a warning line in the panel — "N unrecognised items from this parse were **not** recorded: <error message>" — that stays on screen with the parse, not a toast that can be missed.
+### 1. Diagnostics write that cannot lie
 
-The failure toast also stops auto-dismissing: it becomes persistent with an explicit dismiss, so a logging failure can never scroll past unread again.
+- Every payload row is normalised to the same full key set before insert (missing fields explicit `null`, `headings` `[]`, `occurrences` `0`), so a mixed parse inserts.
+- `logParserDiagnostics` returns `{ collected, written, error }` instead of a bare count.
+- The failure toast becomes persistent and states how many items were lost.
 
-### 2. Grant the table, and audit every recently created table for the same gap
+### 2. Panel message that matches the fields on screen
 
-Migration granting `SELECT, INSERT, UPDATE` on `public.parser_diagnostics` to `authenticated` and `ALL` to `service_role`, matching the three existing policies. Then Rolling River is re-parsed and I report the two counts from the panel and read the resulting rows back — kind, failure code, stop number, captured headings.
+- Zero written with unresolved fields present now reads as a logging failure, naming both numbers: "3 unrecognised items collected, 0 recorded".
+- Zero collected and zero unresolved fields is the only case that reads as a clean document.
 
-Widened audit: every table created in this session — `loads`, `load_stops`, `load_charges`, `load_documents`, `load_references`, `load_reference_citations`, `load_status_history`, `load_change_history`, `brokers`, `broker_documents`, `broker_factoring_history`, `company_documents`, `document_send_log`, `pay_policies`, `pay_policy_assignments`, `facilities`, `parser_diagnostics`, and any other new one — is queried against `information_schema.role_table_grants` and its policies, and reported as a table with a verdict per row, the way the actor-stamp audit was reported. Every gap found is closed in the same migration.
+### 3. Determinism
 
-The parity test stops being per-table: it walks every `CREATE POLICY` in scope and asserts a matching grant exists for each role the policy names, so a table that can only fail is not creatable. The current test already does this for tables created after a cutoff — the gap is that it reads migrations only; it will also be run against the live schema (policies and grants read from the catalog) so a table granted nowhere is caught even when the migration text looks right.
+- Pin the gateway call: `temperature: 0` and a fixed `seed`. Record the returned `system_fingerprint` (or its absence) so whether the gateway honours the seed is observable rather than assumed.
+- Appointment dates: a date printed with no clock time currently returns `null` and is dropped. It will instead return midnight at `medium` confidence — `medium`, not `low`, because low-confidence values are discarded by the form writer, while medium fills the field and adds it to the "verify these" list.
+- A collapsed "parse run fingerprint" on the panel: text-layer hash, line and page counts, model, `system_fingerprint`, and each verbatim field's verdict. Two runs of one document become directly comparable.
 
-### 3. Determinism: pin the model, then report the outcome plainly
+### 4. Broker card
 
-- The gateway call gets `temperature: 0` and a fixed `seed`, so three parses of the same bytes are asked to produce the same answer.
-- I will state whether the gateway **honours** the seed rather than assuming it: the request and response are inspected for seed echo / `system_fingerprint`, and if it is accepted-and-ignored I say so, because then temperature alone reduces variation without eliminating it.
-- The prompt is corrected for date-only appointments: a printed date with no clock time fills `appointment_start` at midnight with `low` confidence instead of dropping to `null`, and I confirm on screen that a low-confidence appointment lands in the "Verify these against the document" list.
-- A **parse run fingerprint** is added to the panel, collapsed by default: text-layer hash, line count, page count, and per-field region outcome (`resolved` with anchor id, or the failure code).
+Parsed broker name becomes the headline of the card — large and bold, above the status line. MC number stays secondary. "No broker in the directory matches this document" drops to a status line under it.
 
-Rolling River is then parsed **three times** on the fixed build and the three fingerprints are reported side by side, with a plain verdict: whether special instructions resolves on all three and whether both appointment dates come back on all three. If they still vary with temperature pinned, that is named as a model-side finding — no anchor is adjusted to compensate, because an anchor change that hides non-determinism makes the next divergence harder to see.
+### 5. Grant parity against the live catalog
 
+- A `public.grant_parity_report()` SQL function that reads `pg_policy` and `has_table_privilege` at call time and returns any public table whose policies and grants disagree. A migration text can read correctly and still have been granted nowhere; only the catalog settles it.
+- A test asserting the checked-in parity snapshot is empty, and a test asserting every diagnostics payload row exposes an identical key set — the specific failure that shipped here.
 
-### 4. Broker card: the name is the headline
+## Verification
 
-In "Broker on the document", the parsed broker name becomes the prominent line — larger, semibold, in body colour — with the MC number secondary beneath or beside it. "No broker in the directory matches this document" drops to a quieter status line below the name and the candidate rows. The section label stays but stops outweighing the fact it labels.
-
-### 5. Findings recorded
-
-`docs/tms-build-status.md` gains:
-
-- Rolling River round three: `parser_diagnostics` shipped with policies and no grants; the panel read the resulting zero as success.
-- Standing rule: **a count of zero is not evidence of success** — a message that reports an outcome must distinguish "nothing to do" from "the write was refused", and know how many items were attempted.
-
-## Technical notes
-
-Files touched: `src/lib/parserDiagnostics.ts` (result object, persistent toast); `src/components/dispatch/loadForm/RateConfirmationParser.tsx` (message logic, run fingerprint, broker card weight); `src/lib/verbatimCheck.ts` (surface per-field region outcome for the fingerprint); `supabase/functions/parse-rate-confirmation/index.ts` (temperature/seed, date-only appointment rule); one migration for the grants; tests for the message logic and grant parity; `docs/tms-build-status.md`.
+Re-parse Rolling River three times on the fixed build; report the three fingerprints side by side, the two diagnostics counts, the rows that landed with failure codes and headings, whether the seed is honoured, and the full suite result.
