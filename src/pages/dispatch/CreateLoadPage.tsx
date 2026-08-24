@@ -140,6 +140,40 @@ export default function CreateLoadPage({
   const isReefer = values.equipment_type === 'reefer';
   const handlingLocked = values.equipment_type === 'flatbed' || values.equipment_type === 'hopper_bottom';
 
+  /**
+   * A load-type change must never silently discard an amount the parser read
+   * from the document. Carry it into the new type's amount field; when that
+   * field already holds a different number, leave it and say so.
+   */
+  const changeLoadType = (
+    from: LoadFormValues['load_type'],
+    to: LoadFormValues['load_type'],
+    onChange: (v: LoadFormValues['load_type']) => void,
+  ) => {
+    if (from === to) return;
+    const carry = planLoadTypeCarry(from, to, {
+      linehaul_rate: values.linehaul_rate,
+      loadout_relocation_fee: values.loadout_relocation_fee,
+    });
+    onChange(to);
+    if (!carry.toField) return;
+
+    if (carry.conflicts) {
+      toast({
+        title: `${LOAD_TYPE_LABELS[to]} keeps its existing amount`,
+        description: `$${carry.amount} was entered as the ${LOAD_TYPE_LABELS[from].toLowerCase()} amount and was not carried over, because this load type already has a different amount.`,
+      });
+      return;
+    }
+
+    form.setValue(carry.toField, carry.amount, { shouldDirty: true });
+    form.setValue(carry.fromField!, '', { shouldDirty: true });
+    toast({
+      description: `Carried $${carry.amount} over as the ${to === 'loadout' ? 'relocation fee' : 'linehaul rate'}.`,
+    });
+  };
+
+
   const generateNumber = async () => {
     setNumberLoading(true);
     const { data, error } = await supabase.rpc('generate_load_number');
