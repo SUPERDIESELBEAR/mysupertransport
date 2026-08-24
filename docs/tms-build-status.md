@@ -627,7 +627,22 @@ construction. Three sanity checks refuse the region, any one of them sufficient:
   dangling function word
 
 A refused region falls back to the model, which is the previous behaviour, so the
-failure mode of this guard is "no improvement", never "worse than before".
+failure mode of this guard is "no improvement", never "worse than before". The
+verdict for a refused region is `region_boundary_uncertain` (stored as
+`region_truncated` before 2026-08-24; both tokens still render). It was renamed
+because the condition is not shortness: MegaCorp's broker terms region is 335% of
+the model's length and is still refused, on `model_continues_past_region` plus
+`ends_mid_sentence`.
+
+### There is no upper bound on the length ratio, by design
+
+`MIN_RATIO = 0.9` is a floor only, and it exists to tolerate whitespace reflow. A
+region LONGER than the model's transcription is never refused for that reason
+alone — a model that drops 40% of a block produces exactly that shape, and that is
+the case adoption was built for. Nationwide's special instructions adopt at a 167%
+region/model ratio with no signal firing; the model had returned 1,071 characters
+against the page's 1,784 and dropped both `$1,600.00` and a support address that
+the stored page text now carries. Refusal must always name a signal.
 
 ### Origin is recorded per field
 

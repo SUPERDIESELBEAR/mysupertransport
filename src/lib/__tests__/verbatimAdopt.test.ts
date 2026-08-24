@@ -63,7 +63,7 @@ describe('a region cut short never becomes the stored value', () => {
     const cut = layerOf([short, 'Items', 'Charge Details']);
     const a = adoptVerbatim('broker_terms_verbatim', model, cut);
     expect(a.origin).toBe('model');
-    expect(a.reason).toBe('region_truncated');
+    expect(a.reason).toBe('region_boundary_uncertain');
     expect(a.truncationSignals).toContain('shorter_than_model');
     expect(a.truncationSignals).toContain('model_continues_past_region');
   });

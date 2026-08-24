@@ -47,8 +47,13 @@ export type VerbatimOriginReason =
   | 'region_unresolved'
   /** A scan, a photo, or an extraction failure — there is no layer to read. */
   | 'no_layer'
-  /** The region resolved but does not look like the whole block. */
-  | 'region_truncated'
+  /**
+   * The region resolved, but its boundaries do not look like the boundaries of
+   * the whole printed block — so they cannot be trusted as the stored value's
+   * boundaries. Not "the region is short": a region three times longer than the
+   * model's transcription lands here too when the model read past its end.
+   */
+  | 'region_boundary_uncertain'
   /** Typed off the rendered page by a person; nothing overrules that. */
   | 'manual_repair';
 
@@ -157,7 +162,7 @@ export function adoptVerbatim(
 
   const signals = truncationSignals(layerValue, model);
   if (signals.length) {
-    return { ...withLayer, origin: 'model', reason: 'region_truncated', truncationSignals: signals };
+    return { ...withLayer, origin: 'model', reason: 'region_boundary_uncertain', truncationSignals: signals };
   }
 
   return { ...withLayer, origin: 'text_layer', reason: 'layer_clean', value: layerValue };
