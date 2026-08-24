@@ -407,10 +407,15 @@ Deno.serve(async (req) => {
       if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31 || +h > 23 || +mi > 59) {
         return { value: null, confidence: 'low' as Conf };
       }
-      const confidence: Conf = withTime
-        ? s.confidence
-        : (s.confidence === 'low' ? 'medium' : s.confidence === 'high' ? 'medium' : s.confidence);
+      // CONFIDENCE IS A GATE: the form writer discards `low`. A value that
+      // survived validation above is a date the document states, so `low` is
+      // never returned with a value — Rolling River came back with a full-day
+      // window at `low` and both fields were silently deleted on the way to the
+      // form while the fingerprint printed them.
+      const raw: Conf = withTime ? s.confidence : (s.confidence === 'high' ? 'medium' : s.confidence);
+      const confidence: Conf = raw === 'low' ? 'medium' : raw;
       return { value: `${y}-${mo}-${d}T${h}:${mi}`, confidence };
+
 
     };
     const plainBool = (v: unknown) => v === true || v === 'true';
