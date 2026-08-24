@@ -3,6 +3,10 @@ import { takeAnchorMisses } from '@/lib/verbatimRegions';
 import type { ClassifyResult } from '@/lib/referenceClasses';
 import type { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { getDbErrorParts, logDbError, type DbErrorShape } from '@/lib/dbError';
+
+/** Structured Postgres error parts, all keys present. */
+export type DbErrorParts = Required<DbErrorShape>;
 
 /**
  * Durable record of everything the rate-confirmation parser failed to recognise.
