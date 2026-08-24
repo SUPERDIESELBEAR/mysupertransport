@@ -1,84 +1,48 @@
-# Rolling River pass — appointments, trailer use window, run metadata, naming
+# Rolling River, round three — prove what is deployed before changing code
 
-Four items. Two are reader/writer disagreements the fingerprint separated; one is a fill rule; one is naming.
+No fix is proposed for items 2-4 until a parse has actually been run and read. Below is what I verified by reading code, the deployed function's own log, and the diagnostics table, and what is still unproven.
 
-## 1. Appointment dates parsed then lost
+## What I verified (not predicted)
 
-Verified in the code, not assumed: `buildParseFingerprint` reads `stop.appointment_start.value` **unconditionally** (`src/lib/parseFingerprint.ts`), while the form writer `applyParsedToForm` reads it through `usable()`, which returns null for `confidence: 'low'` (`src/lib/rateConfirmation.ts`). So a value can print in the fingerprint and never reach the form. That is the only divergence between the two readers of the same field, and it matches the symptom exactly: both windows present in the fingerprint, both fields empty.
+- **Source is correct.** `supabase/functions/parse-rate-confirmation/index.ts` does attach the `run` envelope (`model`, `temperature`, `seed`, `seed_echoed`, `system_fingerprint`) to the 200 response, and `src/lib/parseFingerprint.ts` reads it from `parsed.run`. The panel in `RateConfirmationParser.tsx` renders confidence brackets, the arrow to the end time, and the "Discarded by the low-confidence gate" block. So the shipped source cannot produce the screen you described.
+- **The dev server is serving that new source.** Fetching `/src/lib/parseFingerprint.ts` and `/src/components/dispatch/loadForm/RateConfirmationParser.tsx` off the running server returns the versions with `seedEchoed`, `determinismNote`, and the discarded block. So a stale *server* bundle is ruled out; a stale bundle in your browser (service worker / app-shell cache) is not.
+- **The contract warning could not have fired, by construction.** `EXPECTED_PARSER_CONTRACT = 4` and the deployed function logged `build contract=4 built_at=2026-08-24T00:00:00Z`. The `run` envelope was added *without* bumping `contract` or `built_at`, so a deploy frozen before that change still answers "4" and the divergence check passes. The warning is real but blind to the exact change you are asking about — that is a control gap, and it is the first thing this plan fixes.
+- **Diagnostics landed.** Four rows at 14:32:37 for `Rolling River Logistics.pdf`: `stop_notes_verbatim / stop_not_found (stop 1)`, `special_instructions_verbatim / anchor_not_found`, `broker_terms_verbatim / anchor_not_found`, and one `reference_row_dropped (Pickup #)`. The captured headings include a bare `Comments` line, so the anchor set is not matching a heading that is present in the text layer.
+- **The loadout banner is driven entirely by model output.** `assessLoadout` scores only `parsed.loadout_signals` — trailer-relocation language, no BOL, photo POD, multi-day use, no commodity, trailer number — and shows the banner at score >= 4. Nothing in it reads the document text. So the banner is exactly as stable as the model's answer, which is the same non-determinism as item 5. It also indexes `p.loadout_signals` unguarded, so a response missing that object throws rather than degrading.
 
-What is not yet confirmed is which confidence came back for these two stops. The 12:00 AM to 11:59 PM shape is the model synthesising a full-day window from a printed date with no clock time, and the edge function's `dateTime` normalizer only floors date-only strings to `medium` — a value that already carries a time (`00:00`, `23:59`) keeps whatever confidence the model assigned, including `low`. That is the likely path.
+## Step 1 — Establish what is live, then run a real parse
 
-Fixes, in order:
+1. Bump `PARSER_BUILD` to contract 5 with a fresh `built_at`, and raise `EXPECTED_PARSER_CONTRACT` to 5, so "shape changed" and "deploy is current" stop being separate honour-system claims. Add `run` presence to the client check: a response without a `run` envelope is a contract failure with its own message, not a silent "unknown".
+2. Deploy `parse-rate-confirmation` explicitly (not relying on auto-deploy), then call it directly with the Rolling River PDF and read the raw JSON: whether `run` is present, the literal `seed_echoed`, `system_fingerprint`, and the literal `loadout_signals` object.
+3. Run the parse through the UI in a real browser session, screenshot the fingerprint panel and the banner area, and report what the screen shows — measured, not predicted.
 
-- **Make the drop visible.** The fingerprint records the confidence alongside each appointment value, and any field the confidence gate discarded is listed in the panel as *read but discarded* with the field name and the value that was thrown away. A silent discard is what cost this round-trip; the fingerprint should not be able to show a value the form does not have without saying so.
-- **Floor appointment confidence in the normalizer.** An appointment value that survives date/time validation is a value the document states. `dateTime` never returns `low` when it has a parseable value — `low` becomes `medium` (fills, and lists for verification). `low` stays reserved for unparseable or absent.
-- **Verify by re-parse** on the fixed build and report the confidences the fingerprint now shows next to whether both fields filled.
+**I need the file to do this**: attach `Rolling River Logistics.pdf` (the same copy you parsed). Without it I can only re-read code, which is what has already been wrong three times.
 
-## 2. Trailer use window on the loadout switch
+## Step 2 — Name the cause per item, then fix
 
-Today the window is filled only from `loadout_signals.use_start_date` / `use_end_date` / `use_period_days`, and only at non-low confidence. Rolling River prints no explicit window, so all three stay empty.
+Items 2, 3, 4 get one diagnosis from step 1's raw JSON plus the browser run, and the fix follows the finding:
 
-New derivation, applied inside `useLoadTypeChange` so it belongs to the same single reversible operation (and is therefore covered by the existing Undo):
+- `run` absent from the response -> stale deploy; the contract bump above turns that into a loud message instead of "model unknown".
+- `run` present but the panel still prints the old lines -> stale client bundle in your browser; the fix is a build-stamp check on the parse panel (it prints the app build id next to the layer hash) plus cache handling, so a stale screen announces itself.
+- Missing appointment end -> read from the same JSON: either the model returned no `appointment_end`, or the gate discarded it (in which case it must appear in the discarded list — a value shown without its outcome is already a standing-rule violation).
 
-- If the document states a window, use it. Otherwise derive **from the first stop's appointment date through the last stop's appointment date**.
-- The two dates are the authoritative display, shown prominently. Each derived row carries the provenance line verbatim: *Derived from the pickup and delivery dates on the document — confirm with the broker.* The wording stays exactly that — it names the inference instead of implying the broker granted a window they never stated.
-- The provenance is **persisted with the load**, not held only in the parse session: a `loadout_use_window_source` value of `document` or `derived` on `loads`, so Load Detail shows the same line every time the load is opened, on the create path and the revision path alike. A window a dispatcher edits by hand flips the source to `document` (a human confirmed it) and the line disappears.
-- Derivation only runs when the parse actually has both dates. No dates, no guess.
+## Step 3 — The loadout banner, cause named
 
-**Day count — resolved to informational, per your note.** A broker saying "you can keep it eight days" and a broker saying "the 17th through the 24th" are not reliably the same count, and inclusive vs. elapsed differs by one. So the count is not authoritative anywhere:
+The banner did not break; it was never stable. It is a pure function of `loadout_signals`, so when the model returns a weaker signal set for the same document the score falls under 4 and the block does not render at all — silently, with no trace that a loadout assessment even ran. Because the derived trailer-use window lives inside the load-type change, one flickering model answer takes an unrelated feature offline. Fixes:
 
-- The dates are the record. The count renders beside them as informational text — *8 days (17th through 24th, inclusive)* — with the convention stated in the text itself so it can't be misread.
-- When the document states `use_period_days` outright, that number is authoritative and is shown as stated, with no derived count competing with it.
-- The dispatcher can still type a count; a typed count is authoritative and stops being derived.
-- If the stated days and the stated dates disagree, both are shown with the disagreement named rather than one silently winning.
+1. **Score from the document, not only the model.** Add text-layer evidence to `assessLoadout` (relocation wording, absence of BOL/commodity, a printed trailer number, a stated day count) alongside the model signals, so the assessment is reproducible from the same text layer regardless of what the model says on a given run.
+2. **Never render nothing.** Below the threshold the panel shows a quiet line — "Loadout assessment: score N of 10, not suspected" with the reasons and a "Switch to Loadout anyway" button — so the load-type change and the derived use window are always reachable from the parse screen.
+3. **Log the assessment.** Write one `loadout_assessment` diagnostics row per parse (score, which signals fired, whether it crossed the threshold), so a run-to-run flip is measurable instead of anecdotal.
+4. **Guard the access.** A response missing `loadout_signals` degrades to score 0 with a stated reason instead of throwing.
 
+## Step 4 — Non-determinism, item 5
 
-## 3. Fingerprint reports model unknown, no run id, sampling unknown
-
-This is a reader/writer shape mismatch, not a missing gateway field. The edge function attaches everything under a single `run` object:
-
-```text
-result.run = { model, temperature, seed, seed_echoed, system_fingerprint }
-```
-
-`buildParseFingerprint` looks for `parsed.model`, `parsed.system_fingerprint` and `parsed.sampling.pinned/seed` — three keys that do not exist on the response. So the values are being sent and not read.
-
-Fix: read `run`, and surface `seed_echoed` as its own line. That flag is the honest answer to whether the gateway acknowledged the seed — if it comes back false, the panel says *the provider did not acknowledge the seed or return a run id, so determinism is unverified on this provider* rather than implying pinning is working. Whichever way it reports on the re-parse, that is what gets recorded in the build status doc.
-
-## 4. Rename "Relocation fee" to "Relocation pay"
-
-Renamed in every user-facing surface: the create/edit form label, the day-count and window labels' surrounding copy, the load type carry toast ("Carried $150 over as the relocation pay"), Load Detail rate and conditional blocks, and the change-history field label.
-
-**The database column stays `loadout_relocation_fee`.** Renaming it would touch the loads table, the save payload, the edit hydrator, the revision diff field map, the change-history key map and existing history rows whose stored field names would stop resolving to a label. The column comment is updated to state it is revenue paid to SUPERTRANSPORT, of which the driver receives a percentage.
-
-## The banner evidence line you asked about
-
-Confirmed read from the document, not assumed. "The carrier may keep the trailer for a period of days" is printed only when `loadout_signals.multi_day_use_period` is true, which the parser prompt defines as *true if the carrier may keep/use the trailer for a period of days* — a per-document boolean, absent by default. It is not a constant for all loadouts.
+`special_instructions_verbatim` resolving on one run and not another stays unmeasurable while run metadata reads unknown, so it is deliberately last. Once step 1 proves the `run` envelope reaches the client, I re-parse the same document twice and compare layer hash against field verdicts: same hash with different verdicts is the model, different hash is extraction. Separately, the `Comments` heading is present in the captured headings while the anchor missed it — that is an anchor-vocabulary finding for the three-document design, recorded in `docs/tms-build-status.md`, not patched ad hoc here.
 
 ## Technical notes
 
-- `src/lib/parseFingerprint.ts` — read the `run` envelope; record appointment confidence; add the discarded-by-gate list.
-- `src/lib/rateConfirmation.ts` — `applyParsedToForm` returns the fields the confidence gate discarded so the panel can name them.
-- `supabase/functions/parse-rate-confirmation/index.ts` — `dateTime` floors a parseable value to `medium`; parser contract bumped and the client's `EXPECTED_PARSER_CONTRACT` bumped with it.
-- `src/components/dispatch/loadForm/useLoadTypeChange.ts` — derived use window and informational day count as part of the single load-type change.
-- Migration: `loadout_use_window_source` on `loads` (`document` | `derived`), plus the `loadout_relocation_fee` column comment recording that it is carrier revenue of which the driver is paid a percentage.
-- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`, `src/pages/dispatch/CreateLoadPage.tsx`, Load Detail rate/conditional cards — labels, the provenance line, and the new panel lines.
+Files: `supabase/functions/parse-rate-confirmation/index.ts` (build stamp), `src/lib/rateConfirmation.ts` (`EXPECTED_PARSER_CONTRACT`, `run`-presence check, `assessLoadout` text evidence), `RateConfirmationParser.tsx` (build stamp line, always-rendered loadout assessment), `src/lib/parserDiagnostics.ts` (`loadout_assessment` kind), tests for the sub-threshold render path and the document-side scoring. No schema change beyond allowing the new diagnostics kind.
 
-## New standing rule for docs/tms-build-status.md
+## Standing rule this adds
 
-Item 1 is a pattern, not an incident: **two readers of the same parsed field must share one gate.** A diagnostic reader that reports a value the form writer discarded produces a report that contradicts the screen, which is what cost this round-trip. When a gate cannot be shared, the diagnostic must report the gate's verdict alongside the value — it may never print a value without saying whether it survived.
-
-## Tests
-
-- A stop appointment returned at `low` with a parseable value fills the form after the normalizer floor, and the panel lists nothing as discarded.
-- A genuinely discarded field appears in the discarded list with its value — the fingerprint can no longer show a value the form lacks without reporting it.
-- The fingerprint reads model, run id and seed from the `run` envelope, and reports determinism unverified when `seed_echoed` is false.
-- Loadout switch with no stated window derives 08/17 through 08/24, marks the source `derived`, and renders the count as informational text with its convention; with no parsed dates all three stay empty; Undo restores all three.
-- A document-stated `use_period_days` is shown as stated and no derived count competes with it; a stated count that disagrees with stated dates surfaces both.
-- The provenance line renders on Load Detail from the persisted source, not only during the parse.
-- Both paths: the derived window, its provenance, and the discarded-field report are asserted reachable from the create path and the revision path, per the standing rule.
-
-## Reporting back after the re-parse
-
-Reported plainly, whichever way it lands: the confidence shown for both appointments, whether both fields filled, whether the derived window populated, and the literal `seed_echoed` value. If the provider does not acknowledge the seed or return a run id, the report says the determinism work is unverifiable on this provider and the build status doc records it as unverified rather than done.
-
+A build identity that a human types by hand cannot prove a deploy. The contract number is bumped in the same change as any response-shape change, and the client rejects a response whose envelope it was written to read but did not receive.
