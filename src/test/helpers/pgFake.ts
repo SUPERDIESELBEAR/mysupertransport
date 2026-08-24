@@ -206,6 +206,25 @@ export function createPgFake(): PgFake {
   /** Mimics the RPCs, taking the actor from the SQL's own text. */
   const rpc = async (fn: string, args: Record<string, unknown>) => {
     try {
+      if (fn === 'log_parser_diagnostics') {
+        // The SQL inserts with INSERT ... SELECT, so the actor is read off the
+        // local the body assigns rather than a VALUES position.
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error('log_parser_diagnostics is not in the migration set');
+        const actor = actorValue(classifyActorExpression('v_profile', body));
+        const rowsIn = (args.p_rows ?? []) as Row[];
+        if (!Array.isArray(rowsIn) || rowsIn.length === 0) return { data: 0, error: null };
+        let written = 0;
+        rowsIn.forEach(r => {
+          if (!r.kind) return;
+          // A client-sent actor is ignored: the body never reads those keys.
+          const { created_by: _c, resolved_by: _r, ...rest } = r;
+          insertRows('parser_diagnostics', { ...rest, created_by: actor }, 'diag');
+          written += 1;
+        });
+        return { data: written, error: null };
+      }
+
       if (fn === 'file_load_references' || fn === 'record_load_reference_baseline') {
         const refs = (args.p_refs ?? []) as {
           reference_class: string; label: string; value: string; value_key: string;
