@@ -410,19 +410,32 @@ export default function RateConfirmationParser({
         // Zero recorded is only a clean document when nothing was collected AND
         // nothing on screen is unresolved. Anything else is a failure to log,
         // and the two numbers are stated so the gap is the message.
+        //
+        // This line is a record of the parser's own bookkeeping, so it is worded
+        // and toned as such. A region the parser could not locate is a parser
+        // problem, never a dispatcher's: it writes nothing to the load, the
+        // extracted fields above stand on their own, and the attached PDF remains
+        // the authority. Hence a warning tone rather than a destructive one, and
+        // an explicit sentence that the load in progress is unaffected.
         const failed = lost > 0 || (diagnostics.written === 0 && unresolved > 0);
         return (
           <div className={failed
-            ? 'rounded-md border border-destructive/40 bg-destructive/10 p-2.5 space-y-1'
+            ? 'rounded-md border border-warning/40 bg-warning/10 p-2.5 space-y-1'
             : 'space-y-1'}>
             <p className={failed ? 'text-xs font-medium text-foreground' : 'text-xs text-muted-foreground'}>
               {failed
-                ? `Diagnostics were not recorded: ${diagnostics.collected} unrecognised item${diagnostics.collected === 1 ? '' : 's'} collected, ${diagnostics.written} recorded` +
-                  (unresolved > 0 ? `, with ${unresolved} unresolved field${unresolved === 1 ? '' : 's'} on this parse.` : '.')
+                ? `The parser's own log did not record: ${diagnostics.collected} unrecognised item${diagnostics.collected === 1 ? '' : 's'} collected, ${diagnostics.written} recorded` +
+                  (unresolved > 0 ? `, with ${unresolved} field${unresolved === 1 ? '' : 's'} the parser could not locate on the page.` : '.')
                 : diagnostics.collected === 0
                   ? 'No parser diagnostics recorded — nothing on this document went unrecognised.'
-                  : `${diagnostics.written} parser diagnostic${diagnostics.written === 1 ? '' : 's'} recorded from this parse.`}
+                  : `${diagnostics.written} parser diagnostic${diagnostics.written === 1 ? '' : 's'} recorded from this parse — a note for staff, not something to act on here.`}
             </p>
+            {failed && (
+              <p className="text-xs text-muted-foreground">
+                This is about the parser&rsquo;s logging, not this load. The extracted fields above are
+                unaffected and the rate confirmation stays attached as the record.
+              </p>
+            )}
             {failed && diagnostics.error && (
               // Each part on its own line. The code identifies the class of
               // failure, so it leads; a flattened sentence hid it before.
