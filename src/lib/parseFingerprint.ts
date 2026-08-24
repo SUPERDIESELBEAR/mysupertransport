@@ -63,7 +63,7 @@ export function buildParseFingerprint(args: {
     at: new Date().toISOString(),
     layerHash: text ? hashText(text) : null,
     layerLines: text ? text.split('\n').length : 0,
-    layerPages: args.layer?.pageStarts?.length ?? 0,
+    layerPages: args.layer?.pageCount ?? 0,
     layerChars: text.length,
     model: meta.model ?? null,
     systemFingerprint: meta.system_fingerprint ?? null,
