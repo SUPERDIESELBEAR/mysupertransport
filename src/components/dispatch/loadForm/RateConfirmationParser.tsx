@@ -500,13 +500,32 @@ export default function RateConfirmationParser({
                   <li key={f.field} className="font-mono">{f.field}: {f.verdict}</li>
                 ))}
               </ul>
+              {/* A printed value used to mean nothing about whether the form got
+                  it. Each appointment now carries the confidence the form's gate
+                  reads, and anything the gate refused is listed below. */}
               <ul className="space-y-0.5">
                 {fingerprint.appointments.map(a => (
                   <li key={a.stop} className="font-mono">
-                    stop {a.stop} appt: {a.start ?? 'null'}{a.end ? ` → ${a.end}` : ''}
+                    stop {a.stop} appt: {a.start ?? 'null'} [{a.startConfidence ?? '—'}]
+                    {a.end ? ` → ${a.end} [${a.endConfidence ?? '—'}]` : ''}
                   </li>
                 ))}
               </ul>
+              {fingerprint.discarded.length > 0 && (
+                <div>
+                  <p className="font-medium text-foreground">
+                    Discarded by the low-confidence gate — read from the document but NOT filled in:
+                  </p>
+                  <ul className="space-y-0.5">
+                    {fingerprint.discarded.map(d => (
+                      <li key={d.field} className="font-mono">
+                        {d.field}: {d.value} [{d.confidence}]
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
             </div>
           )}
         </div>
