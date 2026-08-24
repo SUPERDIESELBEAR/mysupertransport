@@ -1,4 +1,4 @@
-import { classifyReferences, type ClassifyResult } from '@/lib/referenceClasses';
+import { classifyReferences, isPlaceholderReferenceValue, type ClassifyResult } from '@/lib/referenceClasses';
 import { supabase } from '@/integrations/supabase/client';
 import { emptyStop, type LoadFormValues, type StopFormValues } from '@/pages/dispatch/loadFormSchema';
 import {
@@ -183,7 +183,13 @@ export function pickReference(refs: ParsedReference[]): ParsedReference | null {
   if (!refs.length) return null;
   const rank: Record<Confidence, number> = { high: 0, medium: 1, low: 2 };
   return [...refs]
-    .filter(r => r.confidence !== 'low' && GATE_LABEL.test(r.label ?? ''))
+    // A stop's reference number goes through the same placeholder vocabulary as
+    // the load-level references. "Assign at pickup" is an instruction printed
+    // where a number goes, not an identifier, and filing it makes every future
+    // load carry a phantom reference that duplicate checks will match on.
+    .filter(r => r.confidence !== 'low'
+      && GATE_LABEL.test(r.label ?? '')
+      && !isPlaceholderReferenceValue(r.value))
     .sort((a, b) => rank[a.confidence] - rank[b.confidence])[0] ?? null;
 }
 
@@ -425,12 +431,25 @@ export function applyParsedToForm(
   return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length, classified };
 }
 
-/** Loadout fields, applied only after the dispatcher confirms the load is a loadout. */
+/**
+ * Loadout fields read off the document, collected — never written directly.
+ *
+ * This used to set `load_type` itself, which is how the banner bypassed the
+ * amount carry. The load type is changed in exactly one place now
+ * (`useLoadTypeChange`), and these fields are handed to it as part of that
+ * single reversible operation.
+ */
+export function collectLoadoutFields(p: ParsedRateConfirmation): Record<string, string> {
+  const out: Record<string, string> = {};
+  applyLoadoutFields(p, (name, value) => { out[name] = String(value); });
+  return out;
+}
+
+/** @deprecated Use collectLoadoutFields + useLoadTypeChange. Fills fields only. */
 export function applyLoadoutFields(
   p: ParsedRateConfirmation,
   set: (name: string, value: unknown) => void,
 ) {
-  set('load_type', 'loadout');
   const s = p.loadout_signals;
   if (usable(s.trailer_number) !== null) set('loadout_trailer_number', String(s.trailer_number.value));
   if (usable(s.trailer_owner_company) !== null) set('loadout_trailer_owner_company', String(s.trailer_owner_company.value));

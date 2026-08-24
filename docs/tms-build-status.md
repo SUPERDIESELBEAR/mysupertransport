@@ -340,3 +340,55 @@ Removal rows now default to **reject**. A number missing from a revision has two
 readings — the broker dropped it, or the parser failed to read it this run — and
 the `detentention` capture shows the second is not hypothetical. Deleting a live
 BOL number on the parser's unconfirmed word is the worse of the two mistakes.
+
+## Rolling River, round two (2026-08-24)
+
+### One writer for the load type
+
+`load_type` is written in exactly one place: `useLoadTypeChange`. The Load Type
+buttons and the parser's loadout banner both call it, so the amount carry, the
+per-ton notice and the undo record apply identically no matter which control the
+dispatcher used. The banner previously wrote `load_type` itself via
+`applyLoadoutFields`, which is why "Yes — switch to Loadout" produced a $0.00
+relocation fee while the Load Type button produced $150 from the same document.
+
+**Standing rule — a state change with a rule attached gets exactly one writer.**
+Reachability from both paths is not enough when the two paths reimplement the
+change; the wiring test proves a check runs, and
+`loadTypeCarry.test.ts` now also proves no file outside the hook writes
+`load_type` through the form.
+
+Undo is snapshot-based: the hook records every tracked field before and after
+the change and restores the recorded values. Fields the parser fills — including
+the trailer use window (`loadout_use_start` / `loadout_use_end` /
+`loadout_use_period_days`) — are covered without being special-cased, and redo
+replays the "after" snapshot so answering the banner twice never costs a
+re-parse.
+
+### Per-Ton Bulk is not a discarded rate
+
+Standard and Per-Ton Bulk share `linehaul_rate`, so switching between them
+carries nothing by design. What Per-Ton Bulk does is force `rate_type =
+'per_ton'`, which hides the flat amount and makes the total `rate_per_ton x
+tons` = $0. That reads as a lost rate. The switch now says so, and the per-ton
+block shows the retained flat amount.
+
+### Placeholder vocabulary reaches stop references
+
+`pickReference` — the stop-level path — now applies
+`isPlaceholderReferenceValue`, which previously only ran inside
+`classifyReferences` on the load-level list. That is why "Assign at pickup" kept
+landing on Stop 1 after the vocabulary was added.
+
+### Anchor findings (recorded, no anchors added)
+
+Held for the three-document anchor design rather than patched one broker at a
+time:
+
+- Rolling River prints **no "Stop N" headings at all** — stop slicing has
+  nothing to cut, which is `stop_not_found`, structurally different from a
+  `Comments` heading missing its colon.
+- `broker_terms` → `anchor_not_found`: no printed heading matched the terms
+  anchors on this document.
+- Standing note: an anchor set that assumes stop headings exist cannot serve
+  documents that number their stops only inside a table.

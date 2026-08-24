@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pickReference } from '@/lib/rateConfirmation';
 import { planLoadTypeCarry } from '@/lib/loadTypeCarry';
 import { isPlaceholderReferenceValue, classifyReferences } from '@/lib/referenceClasses';
 
@@ -45,5 +48,51 @@ describe('placeholder reference values', () => {
     ]);
     expect(out.references.map(r => r.value)).toEqual(['778201']);
     expect(out.dropped.some(d => d.value === 'Assign at pickup')).toBe(true);
+  });
+});
+
+describe('stop reference numbers go through the placeholder vocabulary', () => {
+  const ref = (value: string, label = 'PU Number') => ({
+    label, value, confidence: 'high' as const,
+  });
+
+  it('drops instruction text printed where a stop number goes', () => {
+    expect(pickReference([ref('Assign at pickup')])).toBeNull();
+  });
+
+  it('still returns a real stop reference', () => {
+    expect(pickReference([ref('778201')])?.value).toBe('778201');
+  });
+
+  it('prefers the real reference when both are printed on the stop', () => {
+    expect(pickReference([ref('TBD'), ref('778201')])?.value).toBe('778201');
+  });
+});
+
+describe('the load type has exactly one writer', () => {
+  const SRC = resolve(__dirname, '../..');
+  const HOOK = 'components/dispatch/loadForm/useLoadTypeChange.ts';
+
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules' || entry === '__tests__') continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walk(full, out);
+      else if (/\.(ts|tsx)$/.test(entry) && !entry.endsWith('.d.ts')) out.push(full);
+    }
+    return out;
+  };
+
+  /**
+   * The banner bypassed the amount carry by writing `load_type` itself. A third
+   * caller doing the same would reintroduce it silently, so the single writer
+   * is asserted structurally rather than trusted.
+   */
+  it('no file outside the hook writes load_type through the form', () => {
+    const offenders = walk(SRC)
+      .filter(f => !f.endsWith(HOOK))
+      .filter(f => /set(Value)?\(\s*['"`]load_type['"`]/.test(readFileSync(f, 'utf8')))
+      .map(f => f.slice(SRC.length + 1));
+    expect(offenders).toEqual([]);
   });
 });
