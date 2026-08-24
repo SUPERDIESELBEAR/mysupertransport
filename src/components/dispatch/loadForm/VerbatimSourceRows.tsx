@@ -22,7 +22,11 @@ const ORIGIN_LABEL: Record<string, string> = {
   layer_damaged: 'the region prints corruption the rendered page does not have',
   region_unresolved: 'no printed anchor placed this field on the page',
   no_layer: 'no text layer to read (scan, photo, or extraction failure)',
-  region_truncated: 'the region resolved but does not look like the whole block',
+  region_boundary_uncertain:
+    'the region resolved, but its boundaries do not look like the whole printed block',
+  // Records stored before the rename still carry the old token.
+  region_truncated:
+    'the region resolved, but its boundaries do not look like the whole printed block',
   manual_repair: 'typed off the rendered page by a person',
 };
 
