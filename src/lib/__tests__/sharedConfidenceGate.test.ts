@@ -20,6 +20,7 @@ const field = <T,>(value: T, confidence: 'high' | 'medium' | 'low' = 'high') =>
 function parsed(confidence: 'high' | 'medium' | 'low'): ParsedRateConfirmation {
   return {
     broker: {},
+    load: {},
     rate: {},
     stops: [
       {
