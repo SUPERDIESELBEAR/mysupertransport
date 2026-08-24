@@ -382,17 +382,34 @@ Deno.serve(async (req) => {
       const s = str(f);
       return s.value && allowed.includes(s.value) ? s : { value: null, confidence: 'low' as Conf };
     };
-    /** Local datetime, no timezone shifting. Times are never guessed. */
+    /**
+     * Local datetime, no timezone shifting. Times are never guessed — but a
+     * DATE printed without a clock time is a date the document really states,
+     * and returning null for it dropped both Rolling River appointment dates.
+     *
+     * CONFIDENCE IS A GATE, NOT A LABEL: the form writer DISCARDS every value
+     * returned at `low`. A date-only appointment therefore comes back at
+     * `medium`, which fills the field and lists it for the dispatcher to
+     * verify. `low` here would be silent deletion.
+     */
     const dateTime = (f: any) => {
       const s = str(f);
       if (!s.value) return { value: null, confidence: 'low' as Conf };
-      const m = s.value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      const withTime = s.value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      const dateOnly = withTime ? null : s.value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const m = withTime ?? dateOnly;
       if (!m) return { value: null, confidence: 'low' as Conf };
-      const [, y, mo, d, h, mi] = m;
+      const [, y, mo, d] = m;
+      const h = withTime ? m[4] : '00';
+      const mi = withTime ? m[5] : '00';
       if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31 || +h > 23 || +mi > 59) {
         return { value: null, confidence: 'low' as Conf };
       }
-      return { value: `${y}-${mo}-${d}T${h}:${mi}`, confidence: s.confidence };
+      const confidence: Conf = withTime
+        ? s.confidence
+        : (s.confidence === 'low' ? 'medium' : s.confidence === 'high' ? 'medium' : s.confidence);
+      return { value: `${y}-${mo}-${d}T${h}:${mi}`, confidence };
+
     };
     const plainBool = (v: unknown) => v === true || v === 'true';
 
