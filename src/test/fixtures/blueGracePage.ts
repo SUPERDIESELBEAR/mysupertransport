@@ -4,7 +4,7 @@ import {
 } from '@/test/fixtures/blueGraceRateCon';
 
 /**
- * The Blue Grace tender as a whole page, not as isolated blocks.
+ * The Blue Grace tender BG969676425 as a whole page, not as isolated blocks.
  *
  * The block fixtures next door are enough to test one region in isolation, and
  * that is exactly why they could not catch an anchor resolving against the
@@ -12,6 +12,12 @@ import {
  * page: headings, the References table, the stop headings and the comment lines
  * all decide where a region starts and stops. So the end-to-end test needs the
  * page, with those structures in the order the layer emits them.
+ *
+ * The values printed here are the REAL ones for this tender, taken from the
+ * stored parse (load ST26035): MIXED PRODUCTS, Laredo TX to Garland TX, reefer
+ * at 38F, and stop 2's comment printed as `PO#` — not the `DEL#` an earlier
+ * invented version of this fixture used. Do not hand-edit them to make a test
+ * pass; re-derive from the stored parse instead.
  *
  * The two damage artefacts (`¶` for `53' 102"`, the escaped `OS&D`) are carried
  * in from the block fixture unchanged — they are why the Special Instructions
@@ -45,20 +51,20 @@ export function blueGracePageText(opts: { revised?: boolean } = {}): string {
     ...(opts.revised ? [`PRO                      ${BG_LOAD_NUMBER}`] : []),
     '',
     'Stop 1 (pickup)',
-    '06/18/2025 08:00AM - 06/18/2025 12:00PM',
-    'CALAVO GROWERS',
-    '1141 Cummings Rd',
-    'Santa Paula, CA 93060',
+    '06/18/2025 08:00AM - 06/18/2025 05:00PM',
+    'Calavo Librado Pina',
+    '8901 San Mateo Dr',
+    'Laredo, TX 78045',
     'Comments: PU# IX00286060',
     '',
     'Stop 2 (delivery)',
     opts.revised
-      ? '06/21/2025 06:00AM - 06/21/2025 10:00AM'
-      : '06/20/2025 06:00AM - 06/20/2025 10:00AM',
-    'KROGER DISTRIBUTION CENTER',
-    '2400 Vine St',
-    'Cincinnati, OH 45214',
-    'Comments: DEL# 001000562117',
+      ? '06/21/2025 06:00AM - 06/21/2025 09:00AM'
+      : '06/20/2025 06:00AM - 06/20/2025 09:00AM',
+    'Calavo Texas',
+    '2600 McCree Rd',
+    'Garland, TX 75041',
+    'Comments: PO# 001000562117',
     '',
   ];
   return lines.join('\n');
