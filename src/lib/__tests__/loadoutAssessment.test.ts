@@ -133,7 +133,8 @@ describe('no_commodity reads the parse', () => {
     expect(sig.document).toBe(false);
     expect(sig.contradicted).toBe(true);
     expect(sig.reason).toContain('Plastics');
-    expect(a.score).toBe(0);
+    // The point is withheld: only the no-BOL signal scores on this text.
+    expect(a.unsuppressedScore - a.score).toBe(1);
   });
 
   it('falls back to the page only when nothing was extracted', () => {
