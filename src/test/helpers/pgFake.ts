@@ -174,7 +174,11 @@ export function createPgFake(): PgFake {
     load_reference_citations: [],
     load_change_history: [],
     loads: [],
+    load_charges: [],
+    load_documents: [],
+    facilities: [],
     parser_diagnostics: [],
+
   };
 
   const seed = () => {
