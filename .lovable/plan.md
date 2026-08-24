@@ -19,19 +19,23 @@
 
 The failure toast also stops auto-dismissing: it becomes persistent with an explicit dismiss, so a logging failure can never scroll past unread again.
 
-### 2. Grant the table, then prove the rows land
+### 2. Grant the table, and audit every recently created table for the same gap
 
 Migration granting `SELECT, INSERT, UPDATE` on `public.parser_diagnostics` to `authenticated` and `ALL` to `service_role`, matching the three existing policies. Then Rolling River is re-parsed and I report the two counts from the panel and read the resulting rows back — kind, failure code, stop number, captured headings.
 
-A test in the grant-parity suite asserts every policy on this table has the matching grant, so a table that can only fail cannot ship again.
+Widened audit: every table created in this session — `loads`, `load_stops`, `load_charges`, `load_documents`, `load_references`, `load_reference_citations`, `load_status_history`, `load_change_history`, `brokers`, `broker_documents`, `broker_factoring_history`, `company_documents`, `document_send_log`, `pay_policies`, `pay_policy_assignments`, `facilities`, `parser_diagnostics`, and any other new one — is queried against `information_schema.role_table_grants` and its policies, and reported as a table with a verdict per row, the way the actor-stamp audit was reported. Every gap found is closed in the same migration.
 
-### 3. Determinism: pin the model, then measure the rest
+The parity test stops being per-table: it walks every `CREATE POLICY` in scope and asserts a matching grant exists for each role the policy names, so a table that can only fail is not creatable. The current test already does this for tables created after a cutoff — the gap is that it reads migrations only; it will also be run against the live schema (policies and grants read from the catalog) so a table granted nowhere is caught even when the migration text looks right.
 
-- The gateway call gets `temperature: 0` and a fixed `seed`, so two parses of the same bytes are asked to produce the same answer.
-- The prompt is corrected for date-only appointments: a printed date with no clock time fills `appointment_start` at midnight with `low` confidence (which puts it in the "verify these" list) instead of being dropped to `null`. Losing a printed date is worse than flagging one.
-- A **parse run fingerprint** is added to the panel, collapsed by default: text-layer hash, line count, page count, and per-field region outcome (`resolved` with anchor id, or the failure code). Two runs can then be compared directly, and the fingerprint answers item 2 and item 3 outright — identical layer hash with different field outcomes means the model moved; a different layer hash means extraction moved.
+### 3. Determinism: pin the model, then report the outcome plainly
 
-I will re-parse Rolling River twice on the fixed build and report the fingerprints side by side, plus whether special instructions and the two appointment dates come back on both runs. If they still vary with `temperature: 0`, that is a model-side finding and it gets named as one rather than folded into an anchor change.
+- The gateway call gets `temperature: 0` and a fixed `seed`, so three parses of the same bytes are asked to produce the same answer.
+- I will state whether the gateway **honours** the seed rather than assuming it: the request and response are inspected for seed echo / `system_fingerprint`, and if it is accepted-and-ignored I say so, because then temperature alone reduces variation without eliminating it.
+- The prompt is corrected for date-only appointments: a printed date with no clock time fills `appointment_start` at midnight with `low` confidence instead of dropping to `null`, and I confirm on screen that a low-confidence appointment lands in the "Verify these against the document" list.
+- A **parse run fingerprint** is added to the panel, collapsed by default: text-layer hash, line count, page count, and per-field region outcome (`resolved` with anchor id, or the failure code).
+
+Rolling River is then parsed **three times** on the fixed build and the three fingerprints are reported side by side, with a plain verdict: whether special instructions resolves on all three and whether both appointment dates come back on all three. If they still vary with temperature pinned, that is named as a model-side finding — no anchor is adjusted to compensate, because an anchor change that hides non-determinism makes the next divergence harder to see.
+
 
 ### 4. Broker card: the name is the headline
 
