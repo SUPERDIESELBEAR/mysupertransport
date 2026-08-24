@@ -78,8 +78,11 @@ export function collectParserDiagnostics(args: {
       occurrences: l.score,
       headings: [
         `score ${l.score} of ${l.maxScore}`,
+        `unsuppressed ${l.unsuppressedScore}, withheld ${l.suppressedPoints}`,
         `text layer ${l.documentRead ? 'read' : 'unavailable'}`,
         ...l.signals.map(sig => `${sig.key}: ${sig.fired ? (sig.source ?? 'fired') : 'not fired'}${
+          sig.contradicted ? ' (contradicted by document — not scored)' : ''
+        }${
           sig.document !== null && sig.model !== sig.document ? ' (model/document disagree)' : ''
         }`),
       ],
