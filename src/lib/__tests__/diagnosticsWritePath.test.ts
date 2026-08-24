@@ -45,7 +45,7 @@ describe('the diagnostics write goes through the definer RPC', () => {
     const rpc = vi.spyOn(fake.client as { rpc: (...a: unknown[]) => unknown }, 'rpc');
 
     const result = await logParserDiagnostics(
-      { unrecognized: [], dropped: [{ label: 'Assign at pickup', clazz: 'unclassified' }] },
+      { unrecognized: [], dropped: [{ label: 'Assign at pickup', value: 'Assign at pickup', clazz: 'unclassified' }] },
       { loadId: 'load-1', loadNumber: 'TEST-1', documentLabel: 'rollingriver.pdf', parserContract: 4 },
     );
 
