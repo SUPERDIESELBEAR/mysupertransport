@@ -169,12 +169,15 @@ export async function logParserDiagnostics(
     if (!rows.length) return { collected: 0, written: 0, error: null };
 
     const payload = normalizeDiagnosticRows(rows, ctx);
-    const { data, error } = await supabase
-      .from('parser_diagnostics')
-      .insert(payload as never)
-      .select('id');
+    // Definer RPC, not a direct insert: created_by is stamped inside the
+    // function body. A column default and an RLS policy expression both run as
+    // the CALLER, and current_profile_id() is deliberately not executable by
+    // `authenticated` — a direct insert could only ever fail with 42501.
+    const { data, error } = await supabase.rpc('log_parser_diagnostics', {
+      p_rows: payload as unknown as Json,
+    });
     if (error) throw error;
-    return { collected, written: data?.length ?? 0, error: null };
+    return { collected, written: typeof data === 'number' ? data : 0, error: null };
   } catch (err) {
     // A PostgREST rejection is a plain object, not an Error: reading it with
     // `instanceof Error` produced "[object Object]" and hid four causes in a row.
