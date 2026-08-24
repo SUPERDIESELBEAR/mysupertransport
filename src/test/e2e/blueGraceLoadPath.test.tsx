@@ -187,6 +187,7 @@ describe('create path — Blue Grace rate confirmation to database rows', () => 
     const terms = env.fields.find(r => r.field === 'broker_terms_verbatim')!;
     // The damaged region keeps the model's transcription; the clean one is
     // taken from the page itself.
+    console.log('SI', JSON.stringify(si, null, 1), 'TERMS', JSON.stringify({o:terms.valueOrigin,r:terms.originReason,v:terms.verdict}));
     expect(si.valueOrigin).toBe('model');
     expect(si.verdict).toBe('transcription_damaged');
     expect(terms.valueOrigin).toBe('text_layer');
