@@ -91,8 +91,12 @@ export interface DiagnosticWriteResult {
   collected: number;
   /** Rows the insert confirmed. */
   written: number;
-  /** Why the rest did not land, when they did not. */
-  error: string | null;
+  /**
+   * Why the rest did not land, when they did not — the structured Postgres
+   * parts, not a flattened sentence. The code is what identifies the class of
+   * failure, so it must survive to the screen.
+   */
+  error: DbErrorParts | null;
 }
 
 /**
