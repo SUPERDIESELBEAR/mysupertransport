@@ -62,9 +62,19 @@ export function collectParserDiagnostics(args: {
   loadout?: {
     score: number;
     maxScore: number;
+    /** Score if contradicted signals had counted; withheld = unsuppressed - score. */
+    unsuppressedScore: number;
+    suppressedPoints: number;
     suspected: boolean;
     documentRead: boolean;
-    signals: { key: string; fired: boolean; source: string | null; model: boolean; document: boolean | null }[];
+    signals: {
+      key: string;
+      fired: boolean;
+      source: string | null;
+      model: boolean;
+      document: boolean | null;
+      contradicted: boolean;
+    }[];
   } | null;
 }): DiagnosticRow[] {
   const rows: DiagnosticRow[] = [];
