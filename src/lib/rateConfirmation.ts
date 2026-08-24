@@ -234,6 +234,12 @@ export interface LoadoutSignal {
   document: boolean | null;
   fired: boolean;
   source: LoadoutSignalSource | null;
+  /**
+   * The model claimed it and the printed page says otherwise. It is still shown,
+   * with its reason, but it contributes nothing to the score: a threshold partly
+   * built on a premise the document contradicts is not a measurement.
+   */
+  contradicted: boolean;
 }
 
 export interface LoadoutAssessment {
@@ -246,6 +252,10 @@ export interface LoadoutAssessment {
   documentRead: boolean;
   /** Signals where the model and the printed page disagree. */
   disagreements: LoadoutSignal[];
+  /** Points withheld from contradicted signals. */
+  suppressedPoints: number;
+  /** What the score would have been if contradicted signals counted. */
+  unsuppressedScore: number;
 }
 
 const LOADOUT_THRESHOLD = 4;
