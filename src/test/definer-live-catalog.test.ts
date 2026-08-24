@@ -321,7 +321,8 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // record_duplicate_broker_reference.
 // + set_load_verbatim_verification, then file_load_references and
 // resolve_parser_diagnostic (record_load_reference_baseline dropped).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 89;
+// + log_parser_diagnostics, which replaced the direct client insert.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 90;
 
 
 /**
