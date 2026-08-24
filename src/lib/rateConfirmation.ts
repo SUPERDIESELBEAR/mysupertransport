@@ -290,7 +290,7 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
   const doc = (re: RegExp): boolean | null => (documentRead ? re.test(text) : null);
   const trailerFromDoc = documentRead ? (text.match(DOC_TRAILER_NUMBER)?.[1] ?? null) : null;
 
-  const defs: Omit<LoadoutSignal, 'fired' | 'source'>[] = [
+  const defs: Omit<LoadoutSignal, 'fired' | 'source' | 'contradicted'>[] = [
     {
       key: 'trailer_relocation_language',
       points: 3,
