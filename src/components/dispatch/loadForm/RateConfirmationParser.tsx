@@ -682,23 +682,6 @@ export default function RateConfirmationParser({
         </div>
       )}
 
-      {verbatim.length > 0 && (
-        <div className="rounded-md border border-border bg-background p-3 space-y-2">
-          <p className="text-sm font-semibold text-foreground">Verbatim capture checked against the page</p>
-          <div className="space-y-1.5">
-            {verbatim.map((v, i) => (
-              <VerbatimRepairField
-                key={`${v.field}-${v.parsedStopIndex ?? 'load'}-${i}`}
-                check={v}
-                file={file}
-                value={verbatimValue(v)}
-                subtitle={v.parsedStopIndex === null ? undefined : `Stop ${v.parsedStopIndex + 1}`}
-                onRepair={text => repairVerbatim(v, text)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
 
 
       {previewUrl && (
