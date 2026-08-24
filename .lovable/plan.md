@@ -60,13 +60,25 @@ Confirmed read from the document, not assumed. "The carrier may keep the trailer
 - `src/lib/parseFingerprint.ts` — read the `run` envelope; record appointment confidence; add the discarded-by-gate list.
 - `src/lib/rateConfirmation.ts` — `applyParsedToForm` returns the fields the confidence gate discarded so the panel can name them.
 - `supabase/functions/parse-rate-confirmation/index.ts` — `dateTime` floors a parseable value to `medium`; parser contract bumped and the client's `EXPECTED_PARSER_CONTRACT` bumped with it.
-- `src/components/dispatch/loadForm/useLoadTypeChange.ts` — derived use window and day count as part of the single load-type change.
-- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`, `src/pages/dispatch/CreateLoadPage.tsx`, Load Detail cards — labels and the new panel lines.
+- `src/components/dispatch/loadForm/useLoadTypeChange.ts` — derived use window and informational day count as part of the single load-type change.
+- Migration: `loadout_use_window_source` on `loads` (`document` | `derived`), plus the `loadout_relocation_fee` column comment recording that it is carrier revenue of which the driver is paid a percentage.
+- `src/components/dispatch/loadForm/RateConfirmationParser.tsx`, `src/pages/dispatch/CreateLoadPage.tsx`, Load Detail rate/conditional cards — labels, the provenance line, and the new panel lines.
+
+## New standing rule for docs/tms-build-status.md
+
+Item 1 is a pattern, not an incident: **two readers of the same parsed field must share one gate.** A diagnostic reader that reports a value the form writer discarded produces a report that contradicts the screen, which is what cost this round-trip. When a gate cannot be shared, the diagnostic must report the gate's verdict alongside the value — it may never print a value without saying whether it survived.
 
 ## Tests
 
 - A stop appointment returned at `low` with a parseable value fills the form after the normalizer floor, and the panel lists nothing as discarded.
 - A genuinely discarded field appears in the discarded list with its value — the fingerprint can no longer show a value the form lacks without reporting it.
 - The fingerprint reads model, run id and seed from the `run` envelope, and reports determinism unverified when `seed_echoed` is false.
-- Loadout switch with no stated window derives 08/17 through 08/24 and a day count of 8; with no parsed dates it leaves all three empty; Undo restores all three.
-- Both paths: the derived window and the discarded-field report are asserted reachable from the create path and the revision path, per the standing rule.
+- Loadout switch with no stated window derives 08/17 through 08/24, marks the source `derived`, and renders the count as informational text with its convention; with no parsed dates all three stay empty; Undo restores all three.
+- A document-stated `use_period_days` is shown as stated and no derived count competes with it; a stated count that disagrees with stated dates surfaces both.
+- The provenance line renders on Load Detail from the persisted source, not only during the parse.
+- Both paths: the derived window, its provenance, and the discarded-field report are asserted reachable from the create path and the revision path, per the standing rule.
+
+## Reporting back after the re-parse
+
+Reported plainly, whichever way it lands: the confidence shown for both appointments, whether both fields filled, whether the derived window populated, and the literal `seed_echoed` value. If the provider does not acknowledge the seed or return a run id, the report says the determinism work is unverifiable on this provider and the build status doc records it as unverified rather than done.
+
