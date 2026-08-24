@@ -196,21 +196,26 @@ export default function RateConfirmationParser({
         toast({ variant: 'destructive', title: 'Parser version mismatch', description: contractWarning });
       }
 
-      const { checks } = await verifyParsedVerbatim(file, result);
+      const { checks, layer } = await verifyParsedVerbatim(file, result);
       result.verbatim_verification = checks;
       setVerbatim(checks);
+
+      // One comparable record per run. Two runs of the same document diverged
+      // with nothing kept to say whether the text layer or the model moved.
+      setFingerprint(buildParseFingerprint({ layer, checks, parsed: result }));
 
       // Anchor and label misses are filed here, on the create path. The same
       // call runs on the revision path — a check that exists on only one of the
       // two is the failure mode this wiring is guarding against.
-      // A diagnostics write that reports nothing is indistinguishable from a
-      // parse that had nothing to report, which is exactly why the missing rows
-      // went unnoticed. The count is stated on the panel either way.
-      const written = await logParserDiagnostics(applied.classified, {
+      // Collected and written are reported separately: zero written is only a
+      // clean document when zero were collected, and reading it as success is
+      // how a batch the database rejected passed for a healthy parse.
+      const result_ = await logParserDiagnostics(applied.classified, {
         documentLabel: file.name,
         parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
       });
-      setDiagnosticCount(written);
+      setDiagnostics(result_);
+
 
 
 
