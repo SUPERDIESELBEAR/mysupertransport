@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
+import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
 import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
@@ -98,7 +99,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -126,7 +127,7 @@ const STATUS_COLORS: Record<string, string> = {
 // `load-edit` is deliberately addressable: a dispatcher part-way through
 // editing a load who refreshes should land back on the same load's edit form
 // rather than the overview. The other load views keep the plain ?view= pattern.
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -982,6 +983,7 @@ export default function ManagementPortal() {
     { label: 'Staff Help',        icon: <LifeBuoy className="h-4 w-4" />,        path: 'staff-help' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
     { label: 'Activity Log',      icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
+    { label: 'Parser Diagnostics', icon: <AlertTriangle className="h-4 w-4" />,   path: 'parser-diagnostics' },
     { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
     { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
@@ -1926,6 +1928,7 @@ export default function ManagementPortal() {
 
         {view === 'facilities' && <FacilitiesListPage />}
         {view === 'brokers' && <BrokersListPage />}
+        {view === 'parser-diagnostics' && <ParserDiagnosticsPage />}
 
         {view === 'loads' && (
           <LoadsListPage
