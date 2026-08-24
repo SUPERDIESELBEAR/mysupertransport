@@ -1,0 +1,1 @@
+ALTER FUNCTION public.log_parser_diagnostics(jsonb) SET search_path = public, extensions;
