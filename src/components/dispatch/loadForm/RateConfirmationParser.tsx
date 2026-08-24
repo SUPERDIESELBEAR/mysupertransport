@@ -436,13 +436,63 @@ export default function RateConfirmationParser({
         </p>
       )}
 
-      {diagnosticCount !== null && (
-        <p className="text-xs text-muted-foreground">
-          {diagnosticCount === 0
-            ? 'No parser diagnostics recorded — nothing on this document went unrecognised.'
-            : `${diagnosticCount} parser diagnostic${diagnosticCount === 1 ? '' : 's'} recorded from this parse.`}
-        </p>
+      {diagnostics !== null && (() => {
+        const unresolved = verbatim.filter(v => v.regionFailure).length;
+        const lost = diagnostics.collected - diagnostics.written;
+        // Zero recorded is only a clean document when nothing was collected AND
+        // nothing on screen is unresolved. Anything else is a failure to log,
+        // and the two numbers are stated so the gap is the message.
+        const failed = lost > 0 || (diagnostics.written === 0 && unresolved > 0);
+        return (
+          <div className={failed
+            ? 'rounded-md border border-destructive/40 bg-destructive/10 p-2.5 space-y-1'
+            : 'space-y-1'}>
+            <p className={failed ? 'text-xs font-medium text-foreground' : 'text-xs text-muted-foreground'}>
+              {failed
+                ? `Diagnostics were not recorded: ${diagnostics.collected} unrecognised item${diagnostics.collected === 1 ? '' : 's'} collected, ${diagnostics.written} recorded` +
+                  (unresolved > 0 ? `, with ${unresolved} unresolved field${unresolved === 1 ? '' : 's'} on this parse.` : '.')
+                : diagnostics.collected === 0
+                  ? 'No parser diagnostics recorded — nothing on this document went unrecognised.'
+                  : `${diagnostics.written} parser diagnostic${diagnostics.written === 1 ? '' : 's'} recorded from this parse.`}
+            </p>
+            {failed && diagnostics.error && (
+              <p className="text-xs text-muted-foreground">{diagnostics.error}</p>
+            )}
+          </div>
+        );
+      })()}
+
+      {fingerprint && (
+        <div className="rounded-md border border-border bg-muted/30 p-2.5">
+          <button
+            type="button"
+            className="text-xs font-medium text-foreground underline-offset-2 hover:underline"
+            onClick={() => setShowFingerprint(v => !v)}
+          >
+            {showFingerprint ? 'Hide' : 'Show'} parse run fingerprint
+          </button>
+          {showFingerprint && (
+            <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+              {/* Same document, two runs: a matching layer hash with different
+                  field outcomes means the model moved, not the extraction. */}
+              <p className="font-mono break-all">{fingerprintSummary(fingerprint)}</p>
+              <ul className="space-y-0.5">
+                {fingerprint.fields.map(f => (
+                  <li key={f.field} className="font-mono">{f.field}: {f.verdict}</li>
+                ))}
+              </ul>
+              <ul className="space-y-0.5">
+                {fingerprint.appointments.map(a => (
+                  <li key={a.stop} className="font-mono">
+                    stop {a.stop} appt: {a.start ?? 'null'}{a.end ? ` → ${a.end}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
+
 
       {parsed && loadout?.suspected && (
         <div className="rounded-md border border-warning/40 bg-warning/10 p-3 space-y-2">
