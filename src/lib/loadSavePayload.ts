@@ -76,6 +76,8 @@ export function buildLoadSavePayload(
     loadout_trailer_type: isLoadout ? (v.loadout_trailer_type ?? '') : '',
     loadout_relocation_fee: isLoadout ? (v.loadout_relocation_fee ?? '') : '',
     loadout_use_period_days: isLoadout ? (v.loadout_use_period_days ?? '') : '',
+    loadout_use_start: isLoadout ? (v.loadout_use_start ?? '') : '',
+    loadout_use_end: isLoadout ? (v.loadout_use_end ?? '') : '',
     internal_notes: v.internal_notes ?? '',
     driver_facing_notes: v.driver_facing_notes ?? '',
     special_instructions: v.special_instructions ?? '',

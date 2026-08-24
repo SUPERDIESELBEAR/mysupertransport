@@ -14,6 +14,18 @@ import type { VerbatimCheck } from '@/lib/verbatimCheck';
  * a span they cannot see would just move the guess from the model to them.
  */
 
+/**
+ * Why a region did not resolve, in words, at the place the failure is seen.
+ * Keys are the `RegionFailure` codes the resolver returns.
+ */
+export const REGION_FAILURE_COPY: Record<string, string> = {
+  anchor_not_found: 'No printed heading on the page matched the anchors for this field',
+  anchor_ambiguous: 'Several headings matched, so the region could not be chosen',
+  stop_not_found: 'This stop has no printed “Stop N” heading to cut a region from',
+  empty_region: 'The heading matched but the block beneath it was empty',
+  comment_precedes_heading: 'A stop comment is printed above its stop heading, so no stop slice is trustworthy',
+};
+
 export const VERDICT_COPY: Record<string, { label: string; tone: string; hint: string }> = {
   verified: {
     label: 'Matches the page',
@@ -141,6 +153,33 @@ export default function VerbatimRepairField({ check, file, value, onRepair, subt
       )}
 
       <p className="mt-0.5 text-[11px] text-muted-foreground">{copy.hint}</p>
+
+      {check.regionFailure && (
+        <details className="mt-2 rounded border border-border bg-background/70 p-2">
+          <summary className="cursor-pointer text-[11px] font-medium text-foreground">
+            {REGION_FAILURE_COPY[check.regionFailure] ?? check.regionFailure}
+            <span className="ml-1 font-mono font-normal text-muted-foreground">
+              ({check.regionFailure})
+            </span>
+          </summary>
+          {check.documentHeadings?.length ? (
+            <div className="mt-1.5">
+              <p className="text-[11px] text-muted-foreground">
+                Heading-shaped lines the parser saw and did not recognise:
+              </p>
+              <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-foreground">
+                {check.documentHeadings.map((h, i) => <li key={`${h}-${i}`}>{h}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              No heading-shaped lines were found in this document&rsquo;s text layer.
+            </p>
+          )}
+        </details>
+      )}
+
+
 
 
       {damaged && (

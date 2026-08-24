@@ -146,7 +146,9 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
     "trailer_number": FIELD(string),
     "trailer_owner_company": FIELD(string),
     "relocation_fee": FIELD(number),
-    "use_period_days": FIELD(number)
+    "use_period_days": FIELD(number),
+    "use_start_date": FIELD(string - YYYY-MM-DD, first day of the agreed trailer use window as printed),
+    "use_end_date": FIELD(string - YYYY-MM-DD, last day of the agreed trailer use window as printed)
   }
 }
 
@@ -612,6 +614,10 @@ Deno.serve(async (req) => {
         trailer_owner_company: str(ls.trailer_owner_company),
         relocation_fee: money(ls.relocation_fee),
         use_period_days: num(ls.use_period_days),
+        // The use window is negotiated per load and stated on the document, so
+        // it is read from the page rather than derived from a fixed duration.
+        use_start_date: str(ls.use_start_date),
+        use_end_date: str(ls.use_end_date),
       },
     };
 

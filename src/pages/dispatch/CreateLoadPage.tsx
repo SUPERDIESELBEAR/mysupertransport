@@ -28,6 +28,7 @@ import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
   RATE_TYPES, RATE_TYPE_LABELS, calcTotalLoadValue,
 } from '@/lib/loadRateMath';
+import { planLoadTypeCarry } from '@/lib/loadTypeCarry';
 import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFormSchema';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -139,6 +140,40 @@ export default function CreateLoadPage({
   const isPerTonBulk = values.load_type === 'per_ton';
   const isReefer = values.equipment_type === 'reefer';
   const handlingLocked = values.equipment_type === 'flatbed' || values.equipment_type === 'hopper_bottom';
+
+  /**
+   * A load-type change must never silently discard an amount the parser read
+   * from the document. Carry it into the new type's amount field; when that
+   * field already holds a different number, leave it and say so.
+   */
+  const changeLoadType = (
+    from: LoadFormValues['load_type'],
+    to: LoadFormValues['load_type'],
+    onChange: (v: LoadFormValues['load_type']) => void,
+  ) => {
+    if (from === to) return;
+    const carry = planLoadTypeCarry(from, to, {
+      linehaul_rate: values.linehaul_rate,
+      loadout_relocation_fee: values.loadout_relocation_fee,
+    });
+    onChange(to);
+    if (!carry.toField) return;
+
+    if (carry.conflicts) {
+      toast({
+        title: `${LOAD_TYPE_LABELS[to]} keeps its existing amount`,
+        description: `$${carry.amount} was entered as the ${LOAD_TYPE_LABELS[from].toLowerCase()} amount and was not carried over, because this load type already has a different amount.`,
+      });
+      return;
+    }
+
+    form.setValue(carry.toField, carry.amount, { shouldDirty: true });
+    form.setValue(carry.fromField!, '', { shouldDirty: true });
+    toast({
+      description: `Carried $${carry.amount} over as the ${to === 'loadout' ? 'relocation fee' : 'linehaul rate'}.`,
+    });
+  };
+
 
   const generateNumber = async () => {
     setNumberLoading(true);
@@ -615,7 +650,7 @@ export default function CreateLoadPage({
                         <button
                           key={t}
                           type="button"
-                          onClick={() => field.onChange(t)}
+                          onClick={() => changeLoadType(field.value, t, field.onChange)}
                           className={`rounded-lg border px-4 py-3 text-sm font-medium text-left transition-colors ${
                             field.value === t
                               ? 'border-gold bg-gold/10 text-foreground'
@@ -900,6 +935,34 @@ export default function CreateLoadPage({
                       <FormItem>
                         <FormLabel>Trailer use period (days)</FormLabel>
                         <FormControl><Input inputMode="numeric" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {/*
+                    The use window is negotiated per load and printed on the rate
+                    confirmation, so it is captured as the agreed dates rather than
+                    a fixed duration. Freight can be hauled on the trailer inside
+                    it, which makes it a dispatch planning input.
+                  */}
+                  <FormField
+                    control={form.control}
+                    name="loadout_use_start"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trailer use from</FormLabel>
+                        <FormControl><Input type="date" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="loadout_use_end"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trailer use through</FormLabel>
+                        <FormControl><Input type="date" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

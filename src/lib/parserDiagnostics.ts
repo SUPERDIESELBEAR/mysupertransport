@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { takeAnchorMisses } from '@/lib/verbatimRegions';
 import type { ClassifyResult } from '@/lib/referenceClasses';
 import type { Json } from '@/integrations/supabase/types';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * Durable record of everything the rate-confirmation parser failed to recognise.
@@ -119,7 +120,16 @@ export async function logParserDiagnostics(
     if (error) throw error;
     return payload.length;
   } catch (err) {
-    console.warn('[parser-diagnostics] could not record diagnostics', err);
+    // Still never interrupts a parse — but never silent either. A swallowed
+    // write is indistinguishable from a clean parse, which is how an insert
+    // policy that could never pass went unnoticed.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[parser-diagnostics] could not record diagnostics', err);
+    toast({
+      variant: 'destructive',
+      title: 'Parser diagnostics could not be recorded',
+      description: `${message}. The unrecognised headings from this parse were not saved; the parse itself is unaffected.`,
+    });
     return 0;
   }
 }

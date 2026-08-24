@@ -203,6 +203,25 @@ export const citationKey = (citations: ReferenceCitation[] | null | undefined): 
     .join('|');
 
 /**
+ * Phrases brokers print in a reference field to say a number does not exist yet.
+ * Matched on the whole value only: a real reference that merely contains "TBD"
+ * as a substring is still a reference.
+ */
+export const REFERENCE_PLACEHOLDER_PHRASES = [
+  'assign at pickup', 'assigned at pickup', 'assign at delivery',
+  'to be assigned', 'to be advised', 'to be determined', 'tbd', 'tba',
+  'n/a', 'na', 'none', 'pending', 'unknown',
+  'see bol', 'see bol.', 'on bol', 'per bol', 'see rate con', 'see attached',
+  'driver to obtain', 'at pickup', 'call broker',
+];
+
+export function isPlaceholderReferenceValue(value: string | null | undefined): boolean {
+  const v = (value ?? '').trim().toLowerCase().replace(/[.\s]+$/, '').replace(/\s+/g, ' ');
+  if (!v) return true;
+  return REFERENCE_PLACEHOLDER_PHRASES.includes(v);
+}
+
+/**
  * Collapse a document's reference rows into one row per (class, value), keeping
  * a citation for every stop the value was printed against.
  *
@@ -230,6 +249,15 @@ export function classifyReferences(rows: ParsedReferenceRow[]): ClassifyResult {
       seenLabels.add(labelKey(printedRaw));
       unrecognized.push({ label: printedRaw, stopSequence: row.stopSequence ?? null });
     }
+
+    // "Assign at pickup" is an instruction printed where a number goes. Stored
+    // as a value it becomes a permanent phantom reference that shows up in every
+    // later diff, so it is dropped — and logged, so the vocabulary can grow.
+    if (isPlaceholderReferenceValue(value)) {
+      dropped.push({ clazz, label: printedRaw, value });
+      return;
+    }
+
 
     if (!spec.identifying) {
       if (spec.routeTo) routed.push({ clazz, value, routeTo: spec.routeTo });

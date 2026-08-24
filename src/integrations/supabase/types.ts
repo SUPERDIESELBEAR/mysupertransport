@@ -4530,9 +4530,11 @@ export type Database = {
           loadout_trailer_owner_contact: string | null
           loadout_trailer_type: string | null
           loadout_trailer_vin: string | null
+          loadout_use_end: string | null
           loadout_use_period_days: number | null
           loadout_use_period_end: string | null
           loadout_use_period_start: string | null
+          loadout_use_start: string | null
           mode: string | null
           operator_id: string | null
           permit_cost: number | null
@@ -4597,9 +4599,11 @@ export type Database = {
           loadout_trailer_owner_contact?: string | null
           loadout_trailer_type?: string | null
           loadout_trailer_vin?: string | null
+          loadout_use_end?: string | null
           loadout_use_period_days?: number | null
           loadout_use_period_end?: string | null
           loadout_use_period_start?: string | null
+          loadout_use_start?: string | null
           mode?: string | null
           operator_id?: string | null
           permit_cost?: number | null
@@ -4664,9 +4668,11 @@ export type Database = {
           loadout_trailer_owner_contact?: string | null
           loadout_trailer_type?: string | null
           loadout_trailer_vin?: string | null
+          loadout_use_end?: string | null
           loadout_use_period_days?: number | null
           loadout_use_period_end?: string | null
           loadout_use_period_start?: string | null
+          loadout_use_start?: string | null
           mode?: string | null
           operator_id?: string | null
           permit_cost?: number | null

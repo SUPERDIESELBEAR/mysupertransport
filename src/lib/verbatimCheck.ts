@@ -1,6 +1,7 @@
 import { pageForLine, textLayerFor, type PdfTextLayer } from '@/lib/pdfTextLayer';
 import { damageFingerprint, verifyVerbatim, type VerbatimVerification } from '@/lib/verbatimVerify';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
+import { documentHeadings } from '@/lib/verbatimRegions';
 
 /**
  * Runs the verbatim check in the browser, where the PDF's own text layer is
@@ -18,6 +19,12 @@ export interface VerbatimCheck extends VerbatimVerification {
   parsedStopIndex: number | null;
   /** The capture this verdict is about, as it stands (repairs included). */
   value: string;
+  /**
+   * Heading-shaped lines the parser saw, carried only when the region failed to
+   * resolve. This is the same payload `parser_diagnostics` stores; it rides on
+   * the check so the reason is legible without leaving an unsaved parse.
+   */
+  documentHeadings?: string[] | null;
 }
 
 export interface VerbatimCheckResult {
@@ -36,6 +43,12 @@ export async function verifyParsedVerbatim(
   const text = layer?.text ?? '';
   const out: VerbatimCheck[] = [];
 
+  // The heading-shaped lines are carried on the check itself, so the reason a
+  // field did not resolve is readable on the parse screen. It used to be
+  // reachable only from the diagnostics page, which meant discarding an unsaved
+  // parse to learn why the parse failed.
+  const headings = documentHeadings(text);
+
   const withPage = (
     v: VerbatimVerification, parsedStopIndex: number | null, value: string,
   ): VerbatimCheck => ({
@@ -43,6 +56,7 @@ export async function verifyParsedVerbatim(
     page: pageForLine(layer, v.regionStartLine),
     parsedStopIndex,
     value,
+    documentHeadings: v.regionFailure ? headings : null,
   });
 
   const si = result.verbatim?.special_instructions?.value;
