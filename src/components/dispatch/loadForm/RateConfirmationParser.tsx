@@ -34,9 +34,6 @@ import {
   buildParseFingerprint, fingerprintSummary, type ParseRunFingerprint,
 } from '@/lib/parseFingerprint';
 
-import { verifyVerbatim } from '@/lib/verbatimVerify';
-import { textLayerFor } from '@/lib/pdfTextLayer';
-import VerbatimRepairField from './VerbatimRepairField';
 import { useLoadTypeChange, type LoadoutField } from './useLoadTypeChange';
 
 
