@@ -162,7 +162,10 @@ export default function VerbatimVerificationCard({ load }: { load: LoadDetail })
   });
 
   // A load with every capture verified needs no card: the flag is the point.
-  const notable = records.filter(r => r.verdict !== 'verified' || r.source === 'manual_repair');
+  // A capture taken from the page instead of the model is notable too — the
+  // origin of stored broker-authored text has to be answerable later.
+  const notable = records.filter(r =>
+    r.verdict !== 'verified' || r.source === 'manual_repair' || r.valueOrigin === 'text_layer');
   if (!records.length || !notable.length) return null;
 
   return (
