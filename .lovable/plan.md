@@ -1,49 +1,35 @@
-# Change 1 — Take verbatim verification off the parse screen
+# Verbatim origin visibility + a commodity signal that reads the parse
 
-Verification keeps running, keeps persisting, keeps logging. It stops being something a dispatcher is shown while creating a load.
+## 1. I cannot report MegaCorp / Nationwide origins from here
 
-## What comes off the parse screen
+The origin values you want (`valueOrigin`, `originReason`, `layerLengthRatio`, `truncationSignals`) are produced in the browser from the PDF's own text layer, against the specific file you uploaded. I do not have the MegaCorp or Nationwide PDFs in the project, and the only fixture on disk is Blue Grace. Any table I wrote for those two documents would be a prediction dressed as a measurement — the exact failure mode from the earlier report you called out.
 
-In `RateConfirmationParser.tsx`, remove the whole "Verbatim capture checked against the page" block: the section heading, the per-field verdict cards, the similarity / token / word / page-damage figures, the region-failure expanders, and the `VerbatimRepairField` repair flow with its page render and correction box.
+So the fix is to put the answer on the screen you already have, with no save required:
 
-That also retires from this screen the local repair plumbing that only fed that block (`verbatimValue`, `repairVerbatim`, and the `VerbatimRepairField` import). The `verbatim` state stays, because the results still have to reach the save payload and the diagnostics count.
+- Add an **Verbatim source** section inside the existing collapsed fingerprint block on the parse screen (`RateConfirmationParser.tsx`), listing one row per verbatim field: field name, `Stored from the page` / `Stored from the model`, `originReason`, `layerLengthRatio` (as a percentage, when a region resolved), and the truncation signals that fired.
+- Same rows in the revision review (`RevisedRateConModal.tsx`), so the origin is legible on both paths.
+- For the two cases you named specifically, each row gets an expandable **stored text** preview (first and last ~200 chars, plus a match-highlighted window around any `$` amount and any email address found in the stored value). That is what lets you confirm `Support@triumphpay.freshdesk.com` and `$1,600.00` are in Nationwide's stored special instructions, and read the MegaCorp terms tail to see whether it fell back and what the fallback holds.
 
-## What stays on the parse screen
+Nothing is written to the database by this; it renders the values the current parse already computed.
 
-- Extracted values and the "Verify these against the document" chips
-- Broker card
-- Loadout assessment (score, signals, contradictions, derived window)
-- Diagnostics count, including the count of regions that did not resolve
-- Parse run fingerprint (client build, parser build, contract, model, seed)
-- Source document viewer
+## 2. `no_commodity` reads the parse instead of re-scanning the page
 
-## What keeps working, unchanged
+Today the document side of that signal is a single regex: a `commodity` label followed on the same line by any non-space character. That is why it is wrong in both directions:
 
-- `verifyParsedVerbatim` still runs on every parse
-- Results still ride on `result.verbatim_verification` and still persist to `loads.verbatim_verification` on save
-- Diagnostics rows still write, including anchor misses and region failures
-- `VerbatimVerificationCard` on Load Detail and the Parser Diagnostics page stay exactly as they are — that is where staff go deliberately to ask whether the parser is doing its job
+- **MegaCorp** prints Commodity as a table column with the value on a following line, so the label matches but nothing follows it on that line — the scan concludes "no commodity" and fires the signal *from the document*, on a document where the model extracted `Plastics` correctly.
+- **Rolling River** prints `Commodity: paper rolls` inline, so the scan sees a commodity and contradicts the model — which is the correct outcome there, but by luck of layout, not by evidence.
 
-Nothing is deleted from `verbatimVerify.ts`, `verbatimRegions.ts`, `verbatimCheck.ts`, `VerbatimRepairField.tsx`, or any test.
+Change: the document side of `no_commodity` becomes a read of the parse's own extraction rather than an independent scan.
 
-## Recommendation for the revision review screen
+- If `load.commodity` holds a real value (non-empty, not a placeholder like `TBD`/`N/A`), the document side is `false` — a commodity is listed. The model's `no_commodity` then reads as contradicted and does not score, which is the behaviour you already ratified.
+- If `load.commodity` is empty or discarded by the confidence gate, fall back to a widened text scan that accepts the value on the next line after the label, not just the same line.
+- If there is no text layer and no extracted commodity, the document side stays `null` — unknown never silences the model.
 
-Keep a verdict block there, but narrow it to the one case a dispatcher can act on.
-
-Today `RevisedRateConModal` renders repair cards for both `transcription_damaged` and `unverified`. My recommendation:
-
-- **Keep `transcription_damaged`.** This is the Blue Grace case — four corrupted characters, visually obvious, and the dispatcher is about to accept a change to stored text. The verdict is relevant to a decision they are actually making, and the repair is a few seconds of typing.
-- **Drop `unverified`.** This is the Nationwide and MegaCorp case: a similarity or token score the reader cannot interpret, attached to a repair box that asks for a 1,700-word retype. On the revision path it would sit next to the diff row and cast doubt on a change that is usually correct.
-- **Drop `region_unresolved` / `layer_unreliable` / `no_layer`** from the screen too (they are already not rendered — this just makes it deliberate rather than incidental).
-
-So the section stays, gated on `verdict === 'transcription_damaged'`, and its heading and copy narrow to corrupted captures rather than "did not pass the check". Everything still persists and is still readable on Load Detail.
-
-If you would rather the revision screen also go silent, say so and I will gate it to nothing — but I think losing the pilcrow case there is a real loss, because that is the one path where the corrupted text is about to overwrite good stored text.
+The signal's reason text gains the provenance so the row reads honestly: "No commodity is listed (document — from the extracted commodity field)".
 
 ## Technical notes
 
-- Files touched: `src/components/dispatch/loadForm/RateConfirmationParser.tsx` (remove the section and its repair handlers) and `src/components/dispatch/loadDetail/RevisedRateConModal.tsx` (narrow the filter and copy).
-- `parserPathWiring.test.ts` asserts each `@parser-check` function is *called* somewhere reachable from both entry points. `verifyParsedVerbatim` keeps its call site on both paths, so the guard stays satisfied — I will run that test plus the verbatim suites to confirm.
-- `docs/tms-build-status.md` gets a short standing rule: a check whose output a dispatcher cannot act on belongs in diagnostics and on Load Detail, not on the parse screen. Verification remains an operator-facing diagnostic, and the attached PDF remains the authority for any disputed charge.
-
-Change 2 (taking verbatim text from a clean text layer) is not part of this pass and lands after this ships.
+- `src/lib/rateConfirmation.ts`: `assessLoadout` gains access to `p.load.commodity`; `DOC_COMMODITY` widened to allow a line break between label and value; the `no_commodity` def's `document` becomes a three-state helper (`extracted` → `scan` → `null`).
+- `src/lib/verbatimCheck.ts` / `verbatimAdopt.ts`: unchanged. The origin fields are already on every `VerbatimCheck`; this only renders them.
+- New UI: a small `VerbatimSourceRows` component shared by the parse screen and the revision modal, kept inside the fingerprint disclosure so the parse screen stays a form that filled itself.
+- Tests: extend `loadoutAssessment.test.ts` with the MegaCorp layout (label with the value on the next line, `load.commodity = 'Plastics'`) asserting the signal does not fire from the document, and keep the existing Rolling River 3-of-10 assertion passing.
