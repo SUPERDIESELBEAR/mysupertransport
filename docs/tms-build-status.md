@@ -455,3 +455,57 @@ Whether the provider honours the seed is *reported* (`seed_echoed`), never
 assumed. Each run carries a fingerprint — text-layer hash plus per-field
 outcomes — so two runs can be compared directly, and a matching layer hash with
 differing field outcomes isolates the model as the variable.
+
+## A build identity nobody types, and a feature that does not depend on one model answer (2026-08-24)
+
+Three "missing content" symptoms in the parse panel — model unknown, no confidence
+brackets, no discarded list, appointment end times gone — were one cause: a stale
+bundle plus an edge function frozen behind its source. A fourth symptom, the loadout
+banner disappearing on a document that had shown it three times, was a separate and
+worse problem.
+
+### The contract number must move in the same change as the shape
+
+The `run` envelope was added to the response without bumping `contract`, so a deploy
+frozen before that change answered "contract 4" — exactly what the client expected —
+and the divergence guard passed while returning no run metadata at all. Two rules:
+
+- Bumping `contract` is part of the same edit that changes the response shape, never a
+  follow-up.
+- The guard checks the envelope it reads is PRESENT, not just that a version number
+  matches. `parserContractWarning` now reports a missing `run` as divergence.
+- `parser_build.code_hash` is derived from the build's own content (contract, model,
+  sampling, prompts). A build identity a human types can be stale while the code moves;
+  a derived one cannot.
+- Auto-deploy has now failed to pick up this function twice. Deploy it explicitly and
+  confirm with a real request that reads `parser_build` and `run` back.
+
+### The client build is on screen next to the parse
+
+The fingerprint panel prints the client build id and the parser build. Two stale-build
+reports could not be told apart from the screen; now they can.
+
+### A feature may not be gated on one non-deterministic answer
+
+`assessLoadout` was a pure function of the model's `loadout_signals`, and the UI block
+was gated on `suspected`. The same document scored 4 three times and under 4 once, and
+below the threshold the panel rendered nothing — so the Loadout switch, and with it the
+derived trailer-use window that runs inside the load-type change, became unreachable.
+Standing rule: **a scored assessment renders its result on every run, including "not
+suspected", and the action it guards stays reachable.**
+
+Scoring now reads two independent sources — the model's signals and the printed text
+layer — and a signal fires if either sees it, tagged with which one did. Where they
+disagree, both are shown rather than one winning. Every parse writes a
+`loadout_assessment` diagnostic row with the score and per-signal sources, so drift has
+a record: logging only failures is why the earlier drift was invisible.
+
+### Rolling River, verified against a real parse (not predicted)
+
+Deployed contract 5, code_hash 4f39d6ae. `run` = google/gemini-3-flash-preview,
+temperature 0, seed 20260823, **seed_echoed false** — the provider does not acknowledge
+the seed, so determinism stays UNVERIFIED, not done. Stop appointments came back
+2026-08-17T00:00 and 2026-08-24T00:00, both `medium` (the floor works, both fields fill);
+end times were null this run. Loadout score 4 of 10: relocation language from model and
+document, `no_commodity` from the model only — the printed page shows a Commodity value,
+which is now reported as a model/document disagreement instead of being hidden.
