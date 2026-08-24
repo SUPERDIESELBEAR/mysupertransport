@@ -516,6 +516,11 @@ export default function RateConfirmationParser({
                 </div>
               )}
 
+              {/* Origin, not verdict. The verdict judges the model's reading of
+                  the page; this says which text the load will actually hold. */}
+              <VerbatimSourceRows checks={verbatim} />
+
+
             </div>
           )}
         </div>
