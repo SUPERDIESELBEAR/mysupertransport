@@ -678,15 +678,18 @@ Deno.serve(async (req) => {
     }
 
     // What produced this parse, carried back so two runs are comparable.
-    // `seed_echoed` reports whether the provider acknowledged the seed rather
-    // than claiming determinism the gateway may not actually offer.
+    // `seed_echoed` reports ONLY whether the provider echoed the seed it was
+    // sent. It used to also count a returned run id as acknowledgement, which
+    // conflated two different facts and could report determinism as working on
+    // a provider that ignored the seed entirely.
     (result as Record<string, unknown>).run = {
       model: CHAT_MODEL,
       temperature: SAMPLING.temperature,
       seed: SAMPLING.seed,
-      seed_echoed: data?.seed === SAMPLING.seed || data?.system_fingerprint != null,
+      seed_echoed: data?.seed === SAMPLING.seed,
       system_fingerprint: data?.system_fingerprint ?? null,
     };
+
 
     return json(200, result);
 
