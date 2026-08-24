@@ -21,7 +21,7 @@ function parsed(confidence: 'high' | 'medium' | 'low'): ParsedRateConfirmation {
   return {
     broker: {},
     load: {},
-    rate: {},
+    rate: { line_items: [] },
     stops: [
       {
         sequence: 1,
