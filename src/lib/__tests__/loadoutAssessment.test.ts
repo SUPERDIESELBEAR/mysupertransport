@@ -51,6 +51,36 @@ describe('assessLoadout', () => {
     expect(a.signals.find(s => s.key === 'no_bol_mentioned')?.fired).toBe(false);
   });
 
+  it('withholds the points of a signal the printed page contradicts', () => {
+    const a = assessLoadout(base({ no_commodity: true }), 'Standard dry van load. Bill of lading required. Commodity: paper');
+    const sig = a.signals.find(s => s.key === 'no_commodity')!;
+    expect(sig.fired).toBe(true);
+    expect(sig.contradicted).toBe(true);
+    expect(a.score).toBe(0);
+    expect(a.unsuppressedScore).toBe(1);
+    expect(a.suppressedPoints).toBe(1);
+    expect(a.reasons.some(r => r.includes('not scored'))).toBe(true);
+  });
+
+  it('Rolling River: 3 of 10 once the contradicted signal is excluded, and stays reachable', () => {
+    // Relocation language from both sources (3) + no_commodity from the model
+    // only, on a page that prints a Commodity value (1, withheld) = 3, not 4.
+    const text = 'Trailer relocation. Bill of lading required. Commodity: paper rolls';
+    const a = assessLoadout(base({ trailer_relocation_language: true, no_commodity: true }), text);
+    expect(a.unsuppressedScore).toBe(4);
+    expect(a.score).toBe(3);
+    expect(a.suspected).toBe(false);
+    // The action the assessment guards is not gated on `suspected`.
+    expect(a.signals.length).toBeGreaterThan(0);
+  });
+
+  it('an unreadable text layer never silences a model signal', () => {
+    const a = assessLoadout(base({ no_commodity: true, trailer_relocation_language: true }), null);
+    expect(a.signals.every(s => s.contradicted === false)).toBe(true);
+    expect(a.score).toBe(4);
+    expect(a.suppressedPoints).toBe(0);
+  });
+
   it('never throws when the parser returned no signals', () => {
     const a = assessLoadout({} as ParsedRateConfirmation, LOADOUT_TEXT);
     expect(a.suspected).toBe(true);
