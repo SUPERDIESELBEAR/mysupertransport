@@ -234,6 +234,12 @@ export interface LoadoutSignal {
   document: boolean | null;
   fired: boolean;
   source: LoadoutSignalSource | null;
+  /**
+   * The model claimed it and the printed page says otherwise. It is still shown,
+   * with its reason, but it contributes nothing to the score: a threshold partly
+   * built on a premise the document contradicts is not a measurement.
+   */
+  contradicted: boolean;
 }
 
 export interface LoadoutAssessment {
@@ -246,6 +252,10 @@ export interface LoadoutAssessment {
   documentRead: boolean;
   /** Signals where the model and the printed page disagree. */
   disagreements: LoadoutSignal[];
+  /** Points withheld from contradicted signals. */
+  suppressedPoints: number;
+  /** What the score would have been if contradicted signals counted. */
+  unsuppressedScore: number;
 }
 
 const LOADOUT_THRESHOLD = 4;
@@ -280,7 +290,7 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
   const doc = (re: RegExp): boolean | null => (documentRead ? re.test(text) : null);
   const trailerFromDoc = documentRead ? (text.match(DOC_TRAILER_NUMBER)?.[1] ?? null) : null;
 
-  const defs: Omit<LoadoutSignal, 'fired' | 'source'>[] = [
+  const defs: Omit<LoadoutSignal, 'fired' | 'source' | 'contradicted'>[] = [
     {
       key: 'trailer_relocation_language',
       points: 3,
@@ -330,12 +340,25 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
     const source: LoadoutSignalSource | null = !fired
       ? null
       : d.model && d.document === true ? 'both' : d.model ? 'model' : 'document';
-    return { ...d, fired, source };
+    // Only a layer that was actually read can contradict. document === null means
+    // no text layer, which must never silence a model signal.
+    const contradicted = fired && d.model && d.document === false;
+    return { ...d, fired, source, contradicted };
   });
 
-  const score = signals.reduce((sum, sig) => sum + (sig.fired ? sig.points : 0), 0);
+  // Contradicted signals do not score. On the Rolling River document `no_commodity`
+  // fired from the model while the printed page shows a Commodity value, and that
+  // single point was the difference between 4 (suspected) and 3 (not) — a threshold
+  // reached on a premise the document denies is not a measurement. The withheld
+  // points are reported so a dispatcher can see why a document sits under the line.
+  const scoreOf = (sig: LoadoutSignal) => (sig.fired && !sig.contradicted ? sig.points : 0);
+  const score = signals.reduce((sum, sig) => sum + scoreOf(sig), 0);
+  const unsuppressedScore = signals.reduce((sum, sig) => sum + (sig.fired ? sig.points : 0), 0);
+  const suppressedPoints = unsuppressedScore - score;
   const maxScore = signals.reduce((sum, sig) => sum + sig.points, 0);
-  const reasons = signals.filter(sig => sig.fired).map(sig => `${sig.reason} (${sig.source})`);
+  const reasons = signals
+    .filter(sig => sig.fired)
+    .map(sig => `${sig.reason} (${sig.source}${sig.contradicted ? ', contradicted by the printed page — not scored' : ''})`);
   const disagreements = signals.filter(sig => sig.document !== null && sig.model !== sig.document);
 
   if (!s) reasons.push('The parser returned no loadout signals, so only the printed page was scored.');
@@ -348,6 +371,8 @@ export function assessLoadout(p: ParsedRateConfirmation, documentText?: string |
     suspected: score >= LOADOUT_THRESHOLD,
     documentRead,
     disagreements,
+    suppressedPoints,
+    unsuppressedScore,
   };
 }
 
