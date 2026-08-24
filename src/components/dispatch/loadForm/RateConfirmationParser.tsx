@@ -265,58 +265,17 @@ export default function RateConfirmationParser({
     }
   };
 
-  /** The capture as the form currently holds it — repairs live on the form. */
-  const verbatimValue = (v: VerbatimCheck): string => {
-    const name = v.parsedStopIndex === null
-      ? v.field
-      : `stops.${v.parsedStopIndex}.${v.field}`;
-    return (form.getValues(name as never) as string) ?? '';
-  };
-
-  /**
-   * A hand-typed correction replaces the capture on the form and is re-checked
-   * as a repair, never as a transcription: the human read the rendered page, so
-   * the damaged text layer has no standing to judge what they typed.
+  /*
+   * Verbatim verification still runs on every parse and still persists with the
+   * load — it is simply not shown here. Nothing a dispatcher is creating depends
+   * on it: a capture on the create path replaces no stored value, and the rate
+   * confirmation PDF stays attached as the authority for any disputed charge.
+   * The verdicts are read on Load Detail and in Parser Diagnostics, which staff
+   * open deliberately. The repair affordance lives on the revision path, where a
+   * corrupted capture would overwrite a good stored value.
    */
-  const repairVerbatim = async (v: VerbatimCheck, text: string) => {
-    const name = v.parsedStopIndex === null
-      ? v.field
-      : `stops.${v.parsedStopIndex}.${v.field}`;
-    form.setValue(name as never, text as never, { shouldDirty: true });
 
-    const layer = file ? await textLayerFor(file).catch(() => null) : null;
-    const recheck: VerbatimCheck = {
-      ...verifyVerbatim(v.field, text, layer?.text ?? '', {
-        stopNumber: v.parsedStopIndex === null ? undefined : v.parsedStopIndex + 1,
-        source: 'manual_repair',
-        log: false,
-      }),
-      page: v.page,
-      parsedStopIndex: v.parsedStopIndex,
-      value: text,
-    };
 
-    setVerbatim(prev => {
-      const next = prev.map(c =>
-        c.field === v.field && c.parsedStopIndex === v.parsedStopIndex ? recheck : c);
-      if (parsed) parsed.verbatim_verification = next;
-      return next;
-    });
-
-    // Keep the parsed payload in step so the saved load carries the repair too.
-    if (parsed) {
-      if (v.field === 'special_instructions_verbatim' && parsed.verbatim?.special_instructions) {
-        parsed.verbatim.special_instructions.value = text;
-      } else if (v.field === 'broker_terms_verbatim' && parsed.verbatim?.broker_terms) {
-        parsed.verbatim.broker_terms.value = text;
-      } else if (v.parsedStopIndex !== null && parsed.stops?.[v.parsedStopIndex]?.notes_verbatim) {
-        parsed.stops[v.parsedStopIndex].notes_verbatim.value = text;
-      }
-      onParsed?.(parsed);
-    }
-
-    toast({ description: 'Correction saved to the field. It will save with the load.' });
-  };
 
 
   const chooseBroker = (id: string) => {
