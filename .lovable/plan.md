@@ -1,48 +1,81 @@
-# Rolling River, round three — prove what is deployed before changing code
+# Loadout scoring truthfulness, determinism note, and a measured variance run
 
-No fix is proposed for items 2-4 until a parse has actually been run and read. Below is what I verified by reading code, the deployed function's own log, and the diagnostics table, and what is still unproven.
+## Answers from the current code (read, not predicted)
 
-## What I verified (not predicted)
+**1. Contradicted signals still score today.** In `assessLoadout`, a signal fires when
+`model || document === true`. The document's answer can only *add* a firing, never remove
+one. So `no_commodity` — model true, printed page shows a Commodity value — is reported in
+`disagreements` **and still contributes its 1 point**. Rolling River's 4 is
+`trailer_relocation_language` 3 (both sources) + `no_commodity` 1 (model only, document
+contradicts). Excluding the contradicted signal, this document scores **3 of 10** — below the
+threshold of 4. That is exactly the concern: one point of the qualifying score rests on a
+false premise.
 
-- **Source is correct.** `supabase/functions/parse-rate-confirmation/index.ts` does attach the `run` envelope (`model`, `temperature`, `seed`, `seed_echoed`, `system_fingerprint`) to the 200 response, and `src/lib/parseFingerprint.ts` reads it from `parsed.run`. The panel in `RateConfirmationParser.tsx` renders confidence brackets, the arrow to the end time, and the "Discarded by the low-confidence gate" block. So the shipped source cannot produce the screen you described.
-- **The dev server is serving that new source.** Fetching `/src/lib/parseFingerprint.ts` and `/src/components/dispatch/loadForm/RateConfirmationParser.tsx` off the running server returns the versions with `seedEchoed`, `determinismNote`, and the discarded block. So a stale *server* bundle is ruled out; a stale bundle in your browser (service worker / app-shell cache) is not.
-- **The contract warning could not have fired, by construction.** `EXPECTED_PARSER_CONTRACT = 4` and the deployed function logged `build contract=4 built_at=2026-08-24T00:00:00Z`. The `run` envelope was added *without* bumping `contract` or `built_at`, so a deploy frozen before that change still answers "4" and the divergence check passes. The warning is real but blind to the exact change you are asking about — that is a control gap, and it is the first thing this plan fixes.
-- **Diagnostics landed.** Four rows at 14:32:37 for `Rolling River Logistics.pdf`: `stop_notes_verbatim / stop_not_found (stop 1)`, `special_instructions_verbatim / anchor_not_found`, `broker_terms_verbatim / anchor_not_found`, and one `reference_row_dropped (Pickup #)`. The captured headings include a bare `Comments` line, so the anchor set is not matching a heading that is present in the text layer.
-- **The loadout banner is driven entirely by model output.** `assessLoadout` scores only `parsed.loadout_signals` — trailer-relocation language, no BOL, photo POD, multi-day use, no commodity, trailer number — and shows the banner at score >= 4. Nothing in it reads the document text. So the banner is exactly as stable as the model's answer, which is the same non-determinism as item 5. It also indexes `p.loadout_signals` unguarded, so a response missing that object throws rather than degrading.
+**2. `appointment_end` is optional by contract.** The prompt says null unless a closing time
+is printed; the form schema has it optional; the DB column is nullable. Consumers: the stops
+timeline (displays start-only when end is null) and the loadout use-window derivation, which
+reads start and end and falls back to whichever dates exist. Nothing computes a duration from
+it — detention timing does not read it today. So a run that returns start only is acceptable
+and loses nothing.
 
-## Step 1 — Establish what is live, then run a real parse
+**3. `seed_echoed: false`** means run-to-run variation cannot be eliminated on this gateway,
+so `special_instructions_verbatim` going null on some runs is variance to make visible, not a
+bug to chase.
 
-1. Bump `PARSER_BUILD` to contract 5 with a fresh `built_at`, and raise `EXPECTED_PARSER_CONTRACT` to 5, so "shape changed" and "deploy is current" stop being separate honour-system claims. Add `run` presence to the client check: a response without a `run` envelope is a contract failure with its own message, not a silent "unknown".
-2. Deploy `parse-rate-confirmation` explicitly (not relying on auto-deploy), then call it directly with the Rolling River PDF and read the raw JSON: whether `run` is present, the literal `seed_echoed`, `system_fingerprint`, and the literal `loadout_signals` object.
-3. Run the parse through the UI in a real browser session, screenshot the fingerprint panel and the banner area, and report what the screen shows — measured, not predicted.
+## What to change
 
-**I need the file to do this**: attach `Rolling River Logistics.pdf` (the same copy you parsed). Without it I can only re-read code, which is what has already been wrong three times.
+### Contradicted signals do not score
 
-## Step 2 — Name the cause per item, then fix
+- A signal whose document answer is `false` while the model says true is marked
+  `contradicted` and scores **0**, while still being listed with its reason and the
+  disagreement so nothing is hidden.
+- Only applies when the text layer was actually read (`documentRead`); an unreadable layer
+  (`document === null`) never suppresses a model signal.
+- The panel shows the score as earned plus, when any signal was suppressed, what it would
+  have been — so a dispatcher can see why a document sits just under the line.
+- The `loadout_assessment` diagnostic row records per-signal `contradicted` state alongside
+  source and points.
+- Tests in `src/lib/__tests__/loadoutAssessment.test.ts`: a contradicted signal scores zero;
+  Rolling River's signal set scores 3 and renders "not suspected" with the switch still
+  reachable; a null document answer still scores the model signal.
 
-Items 2, 3, 4 get one diagnosis from step 1's raw JSON plus the browser run, and the fix follows the finding:
+### Documentation (`docs/tms-build-status.md`)
 
-- `run` absent from the response -> stale deploy; the contract bump above turns that into a loud message instead of "model unknown".
-- `run` present but the panel still prints the old lines -> stale client bundle in your browser; the fix is a build-stamp check on the parse panel (it prints the app build id next to the layer hash) plus cache handling, so a stale screen announces itself.
-- Missing appointment end -> read from the same JSON: either the model returned no `appointment_end`, or the gate discarded it (in which case it must appear in the discarded list — a value shown without its outcome is already a standing-rule violation).
+Add, under the existing determinism section:
 
-## Step 3 — The loadout banner, cause named
+- Determinism is **unverified** on this provider: the seed is sent and not echoed. Pinning
+  temperature reduces variance; it does not remove it.
+- The correct response to a field that varies between runs is to make the variance visible
+  (fingerprint + diagnostics), **never** to loosen or retune anchors to compensate.
+- `appointment_end` is optional by contract; a start-only stop is a valid parse. If anything
+  ever needs to compute from an end, it derives it explicitly rather than assuming the parse
+  supplies one.
+- Standing rule: a scored signal the document actively contradicts does not count toward the
+  threshold.
+- Standing operational note: **auto-deploy has missed `parse-rate-confirmation` twice.** An
+  explicit deploy is required for this function, confirmed by a live request that reads
+  `parser_build` and `run` back.
 
-The banner did not break; it was never stable. It is a pure function of `loadout_signals`, so when the model returns a weaker signal set for the same document the score falls under 4 and the block does not render at all — silently, with no trace that a loadout assessment even ran. Because the derived trailer-use window lives inside the load-type change, one flickering model answer takes an unrelated feature offline. Fixes:
+### Measure the actual variance
 
-1. **Score from the document, not only the model.** Add text-layer evidence to `assessLoadout` (relocation wording, absence of BOL/commodity, a printed trailer number, a stated day count) alongside the model signals, so the assessment is reproducible from the same text layer regardless of what the model says on a given run.
-2. **Never render nothing.** Below the threshold the panel shows a quiet line — "Loadout assessment: score N of 10, not suspected" with the reasons and a "Switch to Loadout anyway" button — so the load-type change and the derived use window are always reachable from the parse screen.
-3. **Log the assessment.** Write one `loadout_assessment` diagnostics row per parse (score, which signals fired, whether it crossed the threshold), so a run-to-run flip is measurable instead of anecdotal.
-4. **Guard the access.** A response missing `loadout_signals` degrades to score 0 with a stated reason instead of throwing.
+After deploying, parse the Rolling River rate confirmation **twice more** and report the two
+fingerprints side by side:
 
-## Step 4 — Non-determinism, item 5
+- text-layer hash (expect identical — same file)
+- loadout score, per-signal source and contradicted state
+- per-field verdicts: value present/null, confidence, discarded-by-gate
+- `run` block: model, temperature, seed, `seed_echoed`
+- appointment start/end per stop
 
-`special_instructions_verbatim` resolving on one run and not another stays unmeasurable while run metadata reads unknown, so it is deliberately last. Once step 1 proves the `run` envelope reaches the client, I re-parse the same document twice and compare layer hash against field verdicts: same hash with different verdicts is the model, different hash is extraction. Separately, the `Comments` heading is present in the captured headings while the anchor missed it — that is an anchor-vocabulary finding for the three-document design, recorded in `docs/tms-build-status.md`, not patched ad hoc here.
+Report the measured magnitude of run-to-run difference rather than asserting it, and state
+which fields moved. No anchor or prompt tuning in response to what the two runs show — the
+purpose is measurement.
 
 ## Technical notes
 
-Files: `supabase/functions/parse-rate-confirmation/index.ts` (build stamp), `src/lib/rateConfirmation.ts` (`EXPECTED_PARSER_CONTRACT`, `run`-presence check, `assessLoadout` text evidence), `RateConfirmationParser.tsx` (build stamp line, always-rendered loadout assessment), `src/lib/parserDiagnostics.ts` (`loadout_assessment` kind), tests for the sub-threshold render path and the document-side scoring. No schema change beyond allowing the new diagnostics kind.
-
-## Standing rule this adds
-
-A build identity that a human types by hand cannot prove a deploy. The contract number is bumped in the same change as any response-shape change, and the client rejects a response whose envelope it was written to read but did not receive.
+- Files touched: `src/lib/rateConfirmation.ts` (signal typing + scoring),
+  `src/components/dispatch/loadForm/RateConfirmationParser.tsx` (render suppressed points),
+  `src/lib/parserDiagnostics.ts` (per-signal contradicted state),
+  `src/lib/__tests__/loadoutAssessment.test.ts`, `docs/tms-build-status.md`.
+- Threshold stays 4; only what counts toward it changes.
+- No schema change needed.
