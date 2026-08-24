@@ -407,10 +407,15 @@ Deno.serve(async (req) => {
       if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31 || +h > 23 || +mi > 59) {
         return { value: null, confidence: 'low' as Conf };
       }
-      const confidence: Conf = withTime
-        ? s.confidence
-        : (s.confidence === 'low' ? 'medium' : s.confidence === 'high' ? 'medium' : s.confidence);
+      // CONFIDENCE IS A GATE: the form writer discards `low`. A value that
+      // survived validation above is a date the document states, so `low` is
+      // never returned with a value — Rolling River came back with a full-day
+      // window at `low` and both fields were silently deleted on the way to the
+      // form while the fingerprint printed them.
+      const raw: Conf = withTime ? s.confidence : (s.confidence === 'high' ? 'medium' : s.confidence);
+      const confidence: Conf = raw === 'low' ? 'medium' : raw;
       return { value: `${y}-${mo}-${d}T${h}:${mi}`, confidence };
+
 
     };
     const plainBool = (v: unknown) => v === true || v === 'true';
@@ -673,15 +678,18 @@ Deno.serve(async (req) => {
     }
 
     // What produced this parse, carried back so two runs are comparable.
-    // `seed_echoed` reports whether the provider acknowledged the seed rather
-    // than claiming determinism the gateway may not actually offer.
+    // `seed_echoed` reports ONLY whether the provider echoed the seed it was
+    // sent. It used to also count a returned run id as acknowledgement, which
+    // conflated two different facts and could report determinism as working on
+    // a provider that ignored the seed entirely.
     (result as Record<string, unknown>).run = {
       model: CHAT_MODEL,
       temperature: SAMPLING.temperature,
       seed: SAMPLING.seed,
-      seed_echoed: data?.seed === SAMPLING.seed || data?.system_fingerprint != null,
+      seed_echoed: data?.seed === SAMPLING.seed,
       system_fingerprint: data?.system_fingerprint ?? null,
     };
+
 
     return json(200, result);
 

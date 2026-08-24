@@ -23,6 +23,7 @@ import type { Facility } from '@/lib/facilities';
 import RateConfirmationParser from '@/components/dispatch/loadForm/RateConfirmationParser';
 import { uploadLoadDocument } from '@/lib/loadDocuments';
 import { buildLoadSavePayload } from '@/lib/loadSavePayload';
+import { DERIVED_USE_WINDOW_NOTE } from '@/lib/loadoutUseWindow';
 import { EQUIPMENT_TYPES, formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
 import {
   HANDLING_TYPES, HANDLING_TYPE_LABELS, LOAD_TYPES, LOAD_TYPE_LABELS,
@@ -897,7 +898,13 @@ export default function CreateLoadPage({
                     name="loadout_relocation_fee"
                     render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Relocation fee *</FormLabel>
+                      {/*
+                        This is what SUPERTRANSPORT is paid to move the trailer,
+                        and the driver's share is a percentage of it — "pay"
+                        rather than "fee" is how it is spoken about everywhere
+                        else, so the label matches.
+                      */}
+                      <FormLabel>Relocation pay *</FormLabel>
                       <FormControl><CurrencyInput {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -915,10 +922,11 @@ export default function CreateLoadPage({
                     )}
                   />
                   {/*
-                    The use window is negotiated per load and printed on the rate
-                    confirmation, so it is captured as the agreed dates rather than
-                    a fixed duration. Freight can be hauled on the trailer inside
-                    it, which makes it a dispatch planning input.
+                    The use window is negotiated per load. When the broker prints
+                    it, it is read off the document; when the broker does not — the
+                    common case — it is taken from the pickup and delivery dates and
+                    labelled as inferred. Typing in either date makes it a human
+                    decision, so the provenance flips to stated.
                   */}
                   <FormField
                     control={form.control}
@@ -926,7 +934,16 @@ export default function CreateLoadPage({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Trailer use from</FormLabel>
-                        <FormControl><Input type="date" {...field} /></FormControl>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                            onChange={e => {
+                              field.onChange(e);
+                              form.setValue('loadout_use_window_source', 'document', { shouldDirty: true });
+                            }}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -937,11 +954,26 @@ export default function CreateLoadPage({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Trailer use through</FormLabel>
-                        <FormControl><Input type="date" {...field} /></FormControl>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                            onChange={e => {
+                              field.onChange(e);
+                              form.setValue('loadout_use_window_source', 'document', { shouldDirty: true });
+                            }}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {form.watch('loadout_use_window_source') === 'derived' && (
+                    <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
+                      {DERIVED_USE_WINDOW_NOTE}
+                    </p>
+                  )}
+
                 </div>
               </Section>
             )}

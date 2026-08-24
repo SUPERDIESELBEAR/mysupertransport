@@ -275,12 +275,36 @@ export async function matchBroker(
     .slice(0, 4);
 }
 
+/**
+ * A field the model returned a value for that the confidence gate threw away.
+ *
+ * THE RULE: two readers of the same parsed field must share one gate. The parse
+ * fingerprint read `appointment_start.value` unconditionally while the form
+ * writer read it through `usable()`, so a low-confidence value printed in the
+ * diagnostic and never reached the form — a report that contradicted the screen.
+ * The gate cannot be shared with a diagnostic whose whole job is to show what
+ * came back, so the gate reports its verdict instead: every discard is named,
+ * with the value it discarded.
+ */
+export interface DiscardedField {
+  /** Form field name, e.g. `stops.0.appointment_start`. */
+  field: string;
+  label: string;
+  value: string;
+  confidence: Confidence;
+}
+
 export interface ApplyResult {
   /** Human labels of fields filled at medium confidence — the dispatcher must verify these. */
   verify: string[];
   /** Rate lines that could not be placed automatically. */
   unassigned: UnassignedRateLine[];
   stopCount: number;
+  /**
+   * Values the model returned that the low-confidence gate discarded. Reported
+   * so a diagnostic can never show a value the form does not have.
+   */
+  discarded: DiscardedField[];
   /**
    * The reference classification, returned so the caller can log the labels the
    * class map did not recognise. Keeping it internal is how those misses went
@@ -293,19 +317,30 @@ const numStr = (n: number | null) => (n === null ? '' : String(n));
 
 /**
  * Writes parsed values into the Create Load form. Low-confidence values are left
- * blank on purpose — an empty field is safer than a wrong one.
+ * blank on purpose — an empty field is safer than a wrong one — but every value
+ * left blank is reported in `discarded` rather than vanishing.
  */
 export function applyParsedToForm(
   p: ParsedRateConfirmation,
   set: (name: string, value: unknown) => void,
 ): ApplyResult {
   const verify: string[] = [];
+  const discarded: DiscardedField[] = [];
+
+  /** Records a value the gate refused, so nothing is dropped silently. */
+  const noteDiscard = (field: string, label: string, f?: Field<unknown> | null) => {
+    if (!f || f.value === null || f.value === undefined || f.value === '') return;
+    if (f.confidence !== 'low') return;
+    discarded.push({ field, label, value: String(f.value), confidence: f.confidence });
+  };
+
   const put = (name: string, f: Field<string | number | boolean> | undefined, label: string) => {
     const v = usable(f as Field<unknown>);
-    if (v === null) return;
+    if (v === null) { noteDiscard(name, label, f as Field<unknown>); return; }
     set(name, typeof v === 'boolean' ? v : String(v));
     if (needsCheck(f as Field<unknown>)) verify.push(label);
   };
+
 
   put('broker_reference_number', p.load.broker_load_number, "Broker's load #");
   put('bol_number', p.load.bol_number, 'BOL number');
@@ -340,10 +375,11 @@ export function applyParsedToForm(
   const linehaul = usable(p.rate.linehaul);
   const fsc = usable(p.rate.fsc_amount);
   if (linehaul !== null) set('linehaul_rate', numStr(linehaul));
+  else noteDiscard('linehaul_rate', 'Linehaul rate', p.rate.linehaul as Field<unknown>);
   if (fsc !== null) {
     set('fsc_bundled_into_linehaul', false);
     set('fsc_amount', numStr(fsc));
-  }
+  } else noteDiscard('fsc_amount', 'FSC amount', p.rate.fsc_amount as Field<unknown>);
 
   // ---- stops -------------------------------------------------------------
   const sorted = [...p.stops].sort((a, b) => a.sequence - b.sequence);
@@ -351,28 +387,30 @@ export function applyParsedToForm(
     const base = emptyStop(s.stop_type ?? (i === 0 ? 'pickup' : 'delivery'));
     const ref = pickReference(s.references);
     const label = (name: string) => `Stop ${i + 1} ${name}`;
-    const take = (f: Field<string>, fieldLabel: string) => {
+    const take = (f: Field<string>, key: string, fieldLabel: string) => {
       const v = usable(f);
-      if (v !== null && needsCheck(f)) verify.push(label(fieldLabel));
-      return v ?? '';
+      if (v === null) { noteDiscard(`stops.${i}.${key}`, label(fieldLabel), f); return ''; }
+      if (needsCheck(f)) verify.push(label(fieldLabel));
+      return v;
     };
     return {
       ...base,
       stop_type: s.stop_type ?? base.stop_type,
-      facility_name: normalizeImportedName(take(s.facility_name, 'facility')),
-      address_line1: toTitleCase(take(s.address_line1, 'address')),
-      address_line2: toTitleCase(take(s.address_line2, 'address line 2')),
-      city: toTitleCase(take(s.city, 'city')),
+      facility_name: normalizeImportedName(take(s.facility_name, 'facility_name', 'facility')),
+      address_line1: toTitleCase(take(s.address_line1, 'address_line1', 'address')),
+      address_line2: toTitleCase(take(s.address_line2, 'address_line2', 'address line 2')),
+      city: toTitleCase(take(s.city, 'city', 'city')),
       state: (() => {
-        const st = normalizeWhitespace(take(s.state, 'state'));
+        const st = normalizeWhitespace(take(s.state, 'state', 'state'));
         return st.length <= 2 ? st.toUpperCase() : toTitleCase(st);
       })(),
-      zip: normalizeZip(take(s.zip, 'ZIP')),
-      contact_name: toTitleCase(take(s.contact_name, 'contact')),
-      contact_phone: normalizePhone(take(s.contact_phone, 'phone')),
-      appointment_start: take(s.appointment_start, 'appointment start'),
-      appointment_end: take(s.appointment_end, 'appointment end'),
-      stop_notes: take(s.notes, 'notes'),
+      zip: normalizeZip(take(s.zip, 'zip', 'ZIP')),
+      contact_name: toTitleCase(take(s.contact_name, 'contact_name', 'contact')),
+      contact_phone: normalizePhone(take(s.contact_phone, 'contact_phone', 'phone')),
+      appointment_start: take(s.appointment_start, 'appointment_start', 'appointment start'),
+      appointment_end: take(s.appointment_end, 'appointment_end', 'appointment end'),
+      stop_notes: take(s.notes, 'stop_notes', 'notes'),
+
       stop_notes_verbatim: s.notes_verbatim?.value ?? '',
       reference_number: ref && ref.confidence !== 'low' ? ref.value : '',
       reference_label: ref && ref.confidence !== 'low' ? ref.label : '',
@@ -428,7 +466,7 @@ export function applyParsedToForm(
 
   set('stops', stops);
 
-  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length, classified };
+  return { verify: Array.from(new Set(verify)), unassigned, stopCount: stops.length, discarded, classified };
 }
 
 /**

@@ -72,6 +72,7 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     loadout_use_period_days: text(l.loadout_use_period_days),
     loadout_use_start: text(l.loadout_use_start),
     loadout_use_end: text(l.loadout_use_end),
+    loadout_use_window_source: (text(l.loadout_use_window_source) as 'document' | 'derived' | ''),
     rate_type: (l.rate_type as LoadFormValues['rate_type']) ?? 'flat',
     linehaul_rate: text(l.linehaul_rate),
     rate_per_mile: text(l.rate_per_mile),

@@ -43,6 +43,11 @@ Date: 2026-08-22
 - **Financial changes require a reason and classification.** The form and RPC enforce this before accepting a save that alters what the broker is billed.
 - **Stops reconcile by id.** Driver check-in data (arrival/departure, lat/long) is preserved across edits by matching existing stop ids rather than rebuilding the list.
 - **Duplicate detection warns rather than blocks.** Duplicate broker reference/MC matches are surfaced as warnings; staff can override, and every override is written to the audit log.
+- **Two readers of the same parsed field share one gate, and a diagnostic never prints a value without reporting whether it survived.** The parse fingerprint read `appointment_start.value` raw while the form writer read the same field through the low-confidence gate, so the diagnostic showed both Rolling River appointment windows while both form fields were empty and nobody could see why. Every value a diagnostic prints now carries the confidence the gate reads, and `ApplyResult.discarded` names everything the gate refused. A value shown without its outcome is a bug, not a display choice. Enforced by `src/lib/__tests__/sharedConfidenceGate.test.ts`.
+- **Confidence is a gate, so `low` is never returned with a value that passed validation.** The parser floors a validated appointment date to `medium`: if the document states it and it parses, it is a reading, not a guess. `low` means DISCARD, and returning `low` alongside a good value is how stated dates were deleted silently.
+- **An inferred value carries its provenance in the database, not in the parse session.** `loads.loadout_use_window_source` (`document` | `derived`) travels with the trailer use window, so the "confirm with the broker" note survives a save and a reload. A hand-edit of either date flips it to `document` — a human decision is a stated one.
+- **A pinned seed is not an acknowledged seed.** `run.seed_echoed` reports only whether the provider echoed the seed it was sent. Unacknowledged is reported as determinism unverified, never as pinned.
+
 
 ## Test baselines
 

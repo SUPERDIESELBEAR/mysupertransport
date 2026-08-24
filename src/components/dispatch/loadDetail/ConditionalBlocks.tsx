@@ -1,6 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { DetailSection, Field, FieldGrid } from './DetailPrimitives';
-import { formatCurrency, formatShortDate } from '@/lib/loadFormat';
+import { formatCurrency } from '@/lib/loadFormat';
+import {
+  DERIVED_USE_WINDOW_NOTE, describeDayCount, formatUseWindow,
+} from '@/lib/loadoutUseWindow';
+
 import { formatDateTime, formatNumber, type LoadDetail } from '@/lib/loadDetail';
 
 const yn = (v: boolean | null) => (v ? 'Yes' : 'No');
@@ -47,16 +51,30 @@ export function LoadoutBlock({ load }: { load: LoadDetail }) {
         <Field label="Trailer #" value={dash(load.loadout_trailer_number)} />
         <Field label="Trailer VIN" value={dash(load.loadout_trailer_vin)} />
         <Field label="Trailer Type" value={dash(load.loadout_trailer_type)} />
-        <Field label="Relocation Fee" value={formatCurrency(load.loadout_relocation_fee)} />
+        <Field label="Relocation Pay" value={formatCurrency(load.loadout_relocation_fee)} />
+        {/*
+          One field had two column names: the form wrote loadout_use_start/end
+          while this card read loadout_use_period_start/end, so a saved window
+          always rendered as a dash. The dead pair is gone; the dates are the
+          record and the day count is informational.
+        */}
         <Field
-          label="Use Period"
-          value={load.loadout_use_period_days ? `${load.loadout_use_period_days} days` : '—'}
-          hint={
-            load.loadout_use_period_start || load.loadout_use_period_end
-              ? `${formatShortDate(load.loadout_use_period_start)} – ${formatShortDate(load.loadout_use_period_end)}`
-              : undefined
-          }
+          label="Trailer Use Window"
+          value={formatUseWindow(load.loadout_use_start, load.loadout_use_end) || '—'}
+          hint={describeDayCount({
+            statedDays: load.loadout_use_period_days,
+            start: load.loadout_use_start,
+            end: load.loadout_use_end,
+          }).text || undefined}
         />
+        {load.loadout_use_window_source === 'derived' && (
+          <Field
+            label="Window Source"
+            value={DERIVED_USE_WINDOW_NOTE}
+            className="sm:col-span-2 lg:col-span-3"
+          />
+        )}
+
       </FieldGrid>
     </DetailSection>
   );

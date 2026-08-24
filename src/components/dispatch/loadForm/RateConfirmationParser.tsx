@@ -202,7 +202,11 @@ export default function RateConfirmationParser({
 
       // One comparable record per run. Two runs of the same document diverged
       // with nothing kept to say whether the text layer or the model moved.
-      setFingerprint(buildParseFingerprint({ layer, checks, parsed: result }));
+      // The discards from THIS apply travel with it: the fingerprint printed
+      // both appointment windows while both form fields were empty, because it
+      // read the raw values and the form read them through the confidence gate.
+      setFingerprint(buildParseFingerprint({ layer, checks, parsed: result, discarded: applied.discarded }));
+
 
       // Anchor and label misses are filed here, on the create path. The same
       // call runs on the revision path — a check that exists on only one of the
@@ -496,13 +500,32 @@ export default function RateConfirmationParser({
                   <li key={f.field} className="font-mono">{f.field}: {f.verdict}</li>
                 ))}
               </ul>
+              {/* A printed value used to mean nothing about whether the form got
+                  it. Each appointment now carries the confidence the form's gate
+                  reads, and anything the gate refused is listed below. */}
               <ul className="space-y-0.5">
                 {fingerprint.appointments.map(a => (
                   <li key={a.stop} className="font-mono">
-                    stop {a.stop} appt: {a.start ?? 'null'}{a.end ? ` → ${a.end}` : ''}
+                    stop {a.stop} appt: {a.start ?? 'null'} [{a.startConfidence ?? '—'}]
+                    {a.end ? ` → ${a.end} [${a.endConfidence ?? '—'}]` : ''}
                   </li>
                 ))}
               </ul>
+              {fingerprint.discarded.length > 0 && (
+                <div>
+                  <p className="font-medium text-foreground">
+                    Discarded by the low-confidence gate — read from the document but NOT filled in:
+                  </p>
+                  <ul className="space-y-0.5">
+                    {fingerprint.discarded.map(d => (
+                      <li key={d.field} className="font-mono">
+                        {d.field}: {d.value} [{d.confidence}]
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
             </div>
           )}
         </div>

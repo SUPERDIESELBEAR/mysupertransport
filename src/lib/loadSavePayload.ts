@@ -78,6 +78,7 @@ export function buildLoadSavePayload(
     loadout_use_period_days: isLoadout ? (v.loadout_use_period_days ?? '') : '',
     loadout_use_start: isLoadout ? (v.loadout_use_start ?? '') : '',
     loadout_use_end: isLoadout ? (v.loadout_use_end ?? '') : '',
+    loadout_use_window_source: isLoadout ? (v.loadout_use_window_source ?? '') : '',
     internal_notes: v.internal_notes ?? '',
     driver_facing_notes: v.driver_facing_notes ?? '',
     special_instructions: v.special_instructions ?? '',

@@ -3,6 +3,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { toast } from '@/hooks/use-toast';
 import { LOAD_TYPE_LABELS, type LoadType } from '@/lib/loadRateMath';
 import { planLoadTypeCarry } from '@/lib/loadTypeCarry';
+import { deriveUseWindowFromStops } from '@/lib/loadoutUseWindow';
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 
 /**
@@ -30,6 +31,10 @@ export const LOADOUT_FIELDS = [
   // to reverse, these need no special casing — they are simply tracked.
   'loadout_use_start',
   'loadout_use_end',
+  // Provenance is part of the window, not a separate decision: whoever writes
+  // the dates writes where they came from, so a derived window can never be
+  // saved as if the broker had stated it.
+  'loadout_use_window_source',
 ] as const;
 
 export type LoadoutField = typeof LOADOUT_FIELDS[number];
@@ -113,6 +118,31 @@ export function useLoadTypeChange(form: UseFormReturn<LoadFormValues>) {
         if (value === undefined) return;
         form.setValue(name as never, value as never, { shouldDirty: true });
       });
+
+      // A loadout with no stated use window is the normal case, not an error:
+      // Rolling River prints none. The pickup and delivery dates are the best
+      // available reading, so fill the window from them and record that it was
+      // inferred. A window that came from the document, or from a human, is
+      // never overwritten.
+      if (to === 'loadout') {
+        const haveWindow = str(form.getValues('loadout_use_start')).trim()
+          || str(form.getValues('loadout_use_end')).trim();
+        if (!haveWindow) {
+          const derived = deriveUseWindowFromStops(
+            (form.getValues('stops') ?? []) as { appointment_start?: string | null; appointment_end?: string | null }[],
+          );
+          if (derived) {
+            form.setValue('loadout_use_start' as never, derived.start as never, { shouldDirty: true });
+            form.setValue('loadout_use_end' as never, derived.end as never, { shouldDirty: true });
+            form.setValue('loadout_use_window_source' as never, 'derived' as never, { shouldDirty: true });
+            if (!message) {
+              message = `No trailer use window is printed on the document, so ${derived.start} through ${derived.end} was taken from the pickup and delivery dates. Confirm it with the broker.`;
+            }
+          }
+        } else if (!str(form.getValues('loadout_use_window_source')).trim()) {
+          form.setValue('loadout_use_window_source' as never, 'document' as never, { shouldDirty: true });
+        }
+      }
 
       const change: LoadTypeChange = { from, to, before, after: snapshot() };
       setLastChange(change);
