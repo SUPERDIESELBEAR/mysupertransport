@@ -230,9 +230,15 @@ export default function RevisedRateConModal({
 
       // Judge the transcriptions before the diff is offered. A capture the
       // model copied out of a broken text layer must not arrive pre-accepted.
+      // Where the page's text layer is clean, the stored value comes from the
+      // page rather than from the model. The diff has to be built from the
+      // adopted parse, or the dispatcher would approve a value the load will not
+      // hold.
       let checks: VerbatimCheck[] = [];
       try {
-        checks = (await verifyParsedVerbatim(target, result)).checks;
+        const verified = await verifyParsedVerbatim(target, result);
+        checks = verified.checks;
+        result = verified.adopted;
       } catch (verifyError) {
         logDbError('verbatim verification (revision)', verifyError, { loadId: load.id });
       }
