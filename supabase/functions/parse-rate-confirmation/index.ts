@@ -7,6 +7,9 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const AI_GATEWAY = 'https://ai.gateway.lovable.dev/v1';
 const CHAT_MODEL = 'google/gemini-3-flash-preview';
+/** Pinned sampling. Changing either value changes what "same run" means. */
+const SAMPLING = { temperature: 0, seed: 20260823 } as const;
+
 
 /**
  * Contract identity of this build. Bump `contract` whenever the response SHAPE
@@ -300,10 +303,17 @@ Deno.serve(async (req) => {
           { role: 'user', content: contentBlocks },
         ],
         response_format: { type: 'json_object' },
+        // Two runs of one document returned different fields. Sampling is
+        // pinned so a difference between runs means the document or the
+        // extraction moved, not the dice. Whether the provider honours the
+        // seed is reported back on the response, never assumed.
+        temperature: SAMPLING.temperature,
+        seed: SAMPLING.seed,
         // Terms sweeps run long; leave room so a dense list is never clipped.
         max_tokens: 8000,
       }),
     });
+
 
     // 429/5xx from the gateway are transient — retry with bounded backoff.
     let aiRes = await callGateway();
