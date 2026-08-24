@@ -672,7 +672,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // What produced this parse, carried back so two runs are comparable.
+    // `seed_echoed` reports whether the provider acknowledged the seed rather
+    // than claiming determinism the gateway may not actually offer.
+    (result as Record<string, unknown>).run = {
+      model: CHAT_MODEL,
+      temperature: SAMPLING.temperature,
+      seed: SAMPLING.seed,
+      seed_echoed: data?.seed === SAMPLING.seed || data?.system_fingerprint != null,
+      system_fingerprint: data?.system_fingerprint ?? null,
+    };
+
     return json(200, result);
+
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('parse-rate-confirmation error', msg);
