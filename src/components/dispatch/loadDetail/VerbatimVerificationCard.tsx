@@ -222,7 +222,12 @@ function VerificationRow({ record, repairedByName, checkedAt }: {
               <PenLine className="mr-1 h-3 w-3" />
               Manually repaired
             </Badge>
-          ) : null}
+          ) : (
+            <Badge variant="outline" className="border-slate-300 bg-[#E8F0FF] text-slate-700">
+              <FileText className="mr-1 h-3 w-3" />
+              {record.valueOrigin === 'text_layer' ? 'Stored from the page' : 'Stored from the model'}
+            </Badge>
+          )}
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="ml-auto gap-1 text-xs">
               Details
