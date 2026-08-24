@@ -456,7 +456,22 @@ export default function RateConfirmationParser({
                   : `${diagnostics.written} parser diagnostic${diagnostics.written === 1 ? '' : 's'} recorded from this parse.`}
             </p>
             {failed && diagnostics.error && (
-              <p className="text-xs text-muted-foreground">{diagnostics.error}</p>
+              // Each part on its own line. The code identifies the class of
+              // failure, so it leads; a flattened sentence hid it before.
+              <div className="space-y-0.5 text-xs">
+                <p className="font-medium text-foreground">
+                  {diagnostics.error.code
+                    ? `Insert rejected — ${diagnostics.error.code}`
+                    : 'Insert rejected — no error code returned'}
+                </p>
+                <p className="text-muted-foreground">{diagnostics.error.message}</p>
+                {diagnostics.error.details && diagnostics.error.details !== diagnostics.error.message && (
+                  <p className="text-muted-foreground">Details: {diagnostics.error.details}</p>
+                )}
+                {diagnostics.error.hint && (
+                  <p className="text-muted-foreground">Hint: {diagnostics.error.hint}</p>
+                )}
+              </div>
             )}
           </div>
         );

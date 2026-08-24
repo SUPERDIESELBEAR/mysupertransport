@@ -20,6 +20,38 @@ function asShape(err: unknown): DbErrorShape | null {
   return { message: pick('message'), code: pick('code'), details: pick('details'), hint: pick('hint') };
 }
 
+/**
+ * Structured read of a thrown value, shape-aware.
+ *
+ * supabase-js rejects with a plain object, so `err instanceof Error` is false
+ * and `String(err)` yields "[object Object]" — the code, details and hint are
+ * destroyed exactly when they are needed. Use this whenever the parts have to
+ * be rendered separately; use getDbErrorMessage when one sentence will do.
+ */
+export function getDbErrorParts(
+  err: unknown,
+  fallback = 'Something went wrong.',
+): Required<DbErrorShape> {
+  const empty = { message: fallback, code: null, details: null, hint: null };
+  if (err == null) return empty;
+  if (typeof err === 'string') return { ...empty, message: err.trim() || fallback };
+
+  const s = asShape(err);
+  if (s && (s.message || s.code || s.details || s.hint)) {
+    return {
+      message: s.message || (err instanceof Error ? err.message : null) || fallback,
+      code: s.code ?? null,
+      details: s.details ?? null,
+      hint: s.hint ?? null,
+    };
+  }
+  if (err instanceof Error && err.message) return { ...empty, message: err.message };
+
+  const str = String(err);
+  // "[object Object]" is never information — prefer the fallback over noise.
+  return { ...empty, message: str && str !== '[object Object]' ? str : fallback };
+}
+
 /** Human-readable message including code/details/hint when present. */
 export function getDbErrorMessage(err: unknown, fallback = 'Something went wrong.'): string {
   if (typeof err === 'string' && err.trim()) return err;

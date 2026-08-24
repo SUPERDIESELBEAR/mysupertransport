@@ -3,6 +3,10 @@ import { takeAnchorMisses } from '@/lib/verbatimRegions';
 import type { ClassifyResult } from '@/lib/referenceClasses';
 import type { Json } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { getDbErrorParts, logDbError, type DbErrorShape } from '@/lib/dbError';
+
+/** Structured Postgres error parts, all keys present. */
+export type DbErrorParts = Required<DbErrorShape>;
 
 /**
  * Durable record of everything the rate-confirmation parser failed to recognise.
@@ -91,8 +95,12 @@ export interface DiagnosticWriteResult {
   collected: number;
   /** Rows the insert confirmed. */
   written: number;
-  /** Why the rest did not land, when they did not. */
-  error: string | null;
+  /**
+   * Why the rest did not land, when they did not — the structured Postgres
+   * parts, not a flattened sentence. The code is what identifies the class of
+   * failure, so it must survive to the screen.
+   */
+  error: DbErrorParts | null;
 }
 
 /**
@@ -168,18 +176,28 @@ export async function logParserDiagnostics(
     if (error) throw error;
     return { collected, written: data?.length ?? 0, error: null };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[parser-diagnostics] could not record diagnostics', err);
+    // A PostgREST rejection is a plain object, not an Error: reading it with
+    // `instanceof Error` produced "[object Object]" and hid four causes in a row.
+    const parts = getDbErrorParts(err, 'The insert was rejected with no message.');
+    logDbError('parser-diagnostics insert rejected', err);
+    const detail = [
+      parts.code ? `[${parts.code}]` : null,
+      parts.message,
+      parts.details && parts.details !== parts.message ? parts.details : null,
+      parts.hint ? `Hint: ${parts.hint}` : null,
+    ].filter(Boolean).join(' — ');
     toast({
       variant: 'destructive',
-      title: 'Parser diagnostics could not be recorded',
+      title: parts.code
+        ? `Parser diagnostics could not be recorded — ${parts.code}`
+        : 'Parser diagnostics could not be recorded',
       description:
         `${collected} unrecognised item${collected === 1 ? '' : 's'} from this parse were not saved: ` +
-        `${message}. The parse itself is unaffected.`,
+        `${detail}. The parse itself is unaffected.`,
       // A logging failure that scrolls away is the failure repeating itself.
       duration: Number.POSITIVE_INFINITY,
     });
-    return { collected, written: 0, error: message };
+    return { collected, written: 0, error: parts };
   }
 }
 
