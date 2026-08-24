@@ -75,12 +75,19 @@ export function classifyActorExpression(expr: string, body = ''): ActorKind {
   const e = expr.toLowerCase().trim();
   if (/current_profile_id\s*\(/.test(e)) return 'profile';
   if (/auth\.uid\s*\(/.test(e)) return 'auth_uid';
-  // plpgsql assigns through a local: `v_profile uuid := public.current_profile_id();`
+  // plpgsql assigns through a local, either at declaration
+  // (`v_profile uuid := public.current_profile_id();`) or in the body
+  // (`v_profile := public.current_profile_id();`). Both forms occur in the
+  // checked-in SQL, and reading only the first made `create_load_with_stops`
+  // look like it stamped nobody.
   const ident = /^([a-z_][a-z0-9_]*)$/.exec(e)?.[1];
   if (ident && body) {
     const decl = new RegExp(`\\b${ident}\\s+uuid\\s*:=\\s*([^;]+);`, 'i').exec(body);
     if (decl) return classifyActorExpression(decl[1], '');
+    const assign = new RegExp(`\\b${ident}\\s*:=\\s*([^;]+);`, 'i').exec(body);
+    if (assign) return classifyActorExpression(assign[1], '');
   }
+
   return 'unknown';
 }
 
