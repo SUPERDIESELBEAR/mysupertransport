@@ -509,3 +509,53 @@ the seed, so determinism stays UNVERIFIED, not done. Stop appointments came back
 end times were null this run. Loadout score 4 of 10: relocation language from model and
 document, `no_commodity` from the model only — the printed page shows a Commodity value,
 which is now reported as a model/document disagreement instead of being hidden.
+
+## Determinism is unverified on this provider, and a contradicted signal does not score (2026-08-24)
+
+### Determinism: unverified, not achieved
+
+The seed is sent and the provider does not echo it (`seed_echoed: false`). Pinning
+`temperature: 0` reduces run-to-run variance; it does not eliminate it, and nothing on
+this gateway lets us prove a run is reproducible.
+
+Consequences, and they are rules:
+
+- `special_instructions_verbatim` returning a value on one run and null on the next is
+  **expected variance on this provider**, not a bug to chase.
+- The correct response to a field that varies between runs is to make the variance
+  **visible** — the run fingerprint and the `parser_diagnostics` rows do this — never to
+  loosen, retune, or add anchors to compensate. Tuning against noise moves the noise.
+- Two runs are compared by text-layer hash first. Identical hash with differing field
+  outcomes isolates the model as the variable and needs no further investigation.
+
+### `appointment_end` is optional by contract
+
+A single printed time fills `appointment_start` and leaves `appointment_end` null; a range
+fills both. Nothing computes a duration from the end: the stops timeline displays
+start-only when it is absent, and the loadout use-window derivation reads whatever stop
+dates exist. So a run that returns start only is a valid parse and loses nothing. If
+anything ever needs an end to compute with (a detention clock is the obvious candidate),
+it derives or asks for one explicitly rather than assuming the parse supplied it.
+
+### A signal the document contradicts does not count toward the threshold
+
+`assessLoadout` scored `model || document`, so the printed page could only add a firing,
+never withdraw one. On Rolling River `no_commodity` fired from the model while the page
+prints a Commodity value, and that single point was the difference between 4 (suspected)
+and 3 (not). Standing rule: **a fired signal the read text layer actively contradicts is
+shown with its reason and scores zero.**
+
+- Suppression applies only when a text layer was actually read. `document === null` means
+  no layer, which must never silence a model signal.
+- The withheld points and the score-if-they-counted are printed in the panel, so a
+  dispatcher can see why a document sits under the line, and are written to the
+  `loadout_assessment` diagnostic row per signal.
+- Rolling River now reads an honest 3 of 10, "not suspected", with "Switch to Loadout
+  anyway" reachable — which is what an always-rendered assessment is for. It is a loadout;
+  the printed page does not say so; the human decides.
+
+### Standing operational note: deploy this function explicitly
+
+Auto-deploy has now missed `parse-rate-confirmation` **twice**. Treat an explicit deploy as
+required, not optional, and confirm it with a live request that reads `parser_build.contract`,
+`parser_build.code_hash` and the `run` envelope back.
