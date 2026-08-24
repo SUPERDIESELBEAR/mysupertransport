@@ -113,7 +113,7 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
       "zip": FIELD(string),
       "contact_name": FIELD(string),
       "contact_phone": FIELD(string),
-      "appointment_start": FIELD("YYYY-MM-DDTHH:mm" local time as printed; null if no time printed),
+      "appointment_start": FIELD("YYYY-MM-DDTHH:mm" local time as printed; if a DATE is printed with no clock time, return the date alone as "YYYY-MM-DD" at "medium" confidence - never null),
       "appointment_end": FIELD("YYYY-MM-DDTHH:mm"; null unless a closing/end time is printed),
       "notes": FIELD(string - driver-relevant instructions for this stop only),
       "notes_verbatim": FIELD(string - the stop's printed comment/notes line copied EXACTLY as printed, character for character; see the verbatim rule),
@@ -165,7 +165,9 @@ Rules:
   - NEVER take the broker address from a shipper, consignee, facility or stop block, from a page footer, from fine-print legal terms, or from a factoring / lockbox / third-party payment notice.
   - NEVER infer an address. A logo, a phone area code, a website, an email domain or a bare city name is NOT an address — return null. A blank address is the correct answer when no addressed broker block is printed.
 - Dates: normalize every date to a 4-digit year. If the year is not printed, use the year that keeps the stop dates in ascending order relative to any printed date; if that is still unclear, return null.
-- Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence.
+- Times: use 24-hour local time exactly as printed. A single printed time goes in appointment_start with appointment_end null. A range fills both. "FCFS"/open windows with only business hours printed: fill both from those hours at "medium" confidence. A date printed with NO time at all is still a date the document states: return "YYYY-MM-DD" at "medium" confidence and never null - the system fills midnight and asks the dispatcher to confirm the time.
+- CONFIDENCE IS A GATE, NOT A LABEL. "low" does not mean "flagged for review" - the system DISCARDS every low-confidence value, so a field you return at low confidence is a field the dispatcher never sees. Use "medium" for anything the document states but you cannot fully qualify: it fills the field AND lists it for verification. Reserve "low" for values you would rather were blank.
+
 - reference_numbers: list EVERY labelled number printed in the stop block, including unfamiliar broker shorthand. Never silently omit one — judge it instead and set "useful":
   - useful = true when a driver at a guard shack or a billing clerk would need it: pickup/delivery numbers, load or shipment references, order numbers, BOL, PO, appointment/confirmation numbers, pro numbers, seal and release numbers — including under shorthand labels such as LO, SI, SO, PU, DL, REF.
   - useful = false for operational noise: GPS latitude/longitude, pallet or piece counts, temperatures, weights, distances, page numbers, fax/phone numbers, MC/DOT numbers, quote numbers, carrier pay ids, and the broker's internal routing codes.
