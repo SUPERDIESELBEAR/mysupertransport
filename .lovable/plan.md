@@ -28,7 +28,7 @@ The banner stays after it is answered, showing the answer:
 - Answered "Yes": "Switched to Loadout" with an **Undo** button.
 - Answered "No": "Kept as is" with a **Switch to Loadout** button.
 
-Undo restores the prior load type, reverses the carry (amount back to the field it came from), and clears only the loadout fields this action wrote — tracked in the hook, not guessed from the current form.
+Undo restores the prior load type, reverses the carry (amount back to the field it came from), and restores every loadout field the action wrote — including the trailer use window (`loadout_use_start`, `loadout_use_end`, `loadout_use_period_days`) the parser read off the document. Redo re-applies the whole change from the snapshot, dates included, so answering the banner twice never costs a re-parse. The hook snapshots the tracked fields before and after the change; nothing is inferred from the current form.
 
 ### 4. The placeholder vocabulary covers stop reference numbers
 
@@ -36,7 +36,8 @@ Undo restores the prior load type, reverses the carry (amount back to the field 
 
 ### 5. Prove diagnostics rows land
 
-`logParserDiagnostics` already returns the number of rows written. The parse panel will state it: "N parser diagnostics recorded" on success, and it already toasts on failure. Then re-parse Rolling River and I read the table back and report the exact rows — failure codes, stop numbers and captured heading lines — rather than asserting they landed.
+`logParserDiagnostics` already returns the number of rows written. The parse panel will state it: "N parser diagnostics recorded" on success, and it already toasts on failure. Then Rolling River is re-parsed and I read the table back and state plainly whether the rows landed and what they contain — kind, failure code, stop number, captured heading lines. If they still do not land, that is a second, separate cause and it gets named as its own finding rather than folded back into this item.
+
 
 ### 6. Anchor findings recorded, no anchors added
 
