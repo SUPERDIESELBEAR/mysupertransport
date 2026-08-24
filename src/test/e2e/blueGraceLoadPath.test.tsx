@@ -282,10 +282,9 @@ describe('revision path — revised tender applied to the stored load', () => {
     // --- references: one gone, one new, the rest untouched
     const refs = fake.tables.load_references.filter(r => r.load_id === loadId);
     const stored = refs.map(r => `${String(r.reference_class)}:${String(r.value)}`).sort();
-    console.log('STORED', stored);
-    expect(stored).not.toContain('pickup_number:562117');
+    expect(stored).not.toContain('pickup:562117');
     expect(stored).toContain('pro:BG969676425');
-    expect(stored).toContain('pickup_number:IX00286060');
+    expect(stored).toContain('pickup:IX00286060');
 
     // --- the removal is explained in the load's history, with an actor
     const history = fake.tables.load_change_history.filter(h => h.load_id === loadId);
