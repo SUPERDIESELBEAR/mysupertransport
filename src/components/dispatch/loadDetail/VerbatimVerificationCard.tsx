@@ -38,7 +38,12 @@ type StoredVerification = VerbatimVerification & {
 const ORIGIN_BLURBS: Record<string, string> = {
   layer_clean: 'Stored from the document\u2019s own text layer: the region resolved, carried no corruption markers, and passed the truncation check. The verdict above still describes the model\u2019s transcription of the same block.',
   layer_damaged: 'Stored from the model\u2019s transcription because the region\u2019s text layer carries corruption the printed page does not have.',
-  region_truncated: 'Stored from the model\u2019s transcription because the resolved region did not look like the whole printed block.',
+  region_boundary_uncertain: 'Stored from the model\u2019s transcription because the resolved region\u2019s boundaries did not look like the boundaries of the whole printed block.',
+  /**
+   * Alias: loads stored before the rename hold `region_truncated`. Without it
+   * those records would print the raw token instead of a sentence.
+   */
+  region_truncated: 'Stored from the model\u2019s transcription because the resolved region\u2019s boundaries did not look like the boundaries of the whole printed block.',
   region_unresolved: 'Stored from the model\u2019s transcription because no printed heading placed this field on the page.',
   no_layer: 'Stored from the model\u2019s transcription because the document has no usable text layer.',
   manual_repair: 'Stored as typed by a person from the rendered page.',
