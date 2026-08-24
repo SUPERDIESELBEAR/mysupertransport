@@ -335,7 +335,188 @@ export function createPgFake(): PgFake {
         return { data: null, error: null };
       }
 
+
+      /* ---------------------------------------------------------------- */
+      /* The load save path                                                */
+      /* ---------------------------------------------------------------- */
+
+      if (fn === 'generate_load_number') {
+        const cfg = (tables.load_number_config ??= []);
+        if (!cfg.length) cfg.push({ id: 'cfg-1', prefix: 'ST', separator: '', include_year: true, sequence_padding: 3, next_sequence: 1 });
+        const c = cfg[0];
+        const seq = Number(c.next_sequence);
+        c.next_sequence = seq + 1;
+        const yr = String(new Date().getFullYear()).slice(2);
+        return {
+          data: `${c.prefix}${c.include_year ? String(c.separator) + yr : ''}${String(c.separator)}${String(seq).padStart(Math.max(Number(c.sequence_padding), 1), '0')}`,
+          error: null,
+        };
+      }
+
+      if (fn === 'create_load_with_stops') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error('create_load_with_stops is not in the migration set');
+        const actor = actorValue(classifyActorExpression('v_profile', body));
+        const p = (args.p_load ?? {}) as Row;
+        const stopsIn = (args.p_stops ?? []) as Row[];
+        const chargesIn = (args.p_charges ?? []) as Row[];
+        if (stopsIn.length < 2) throw new Error('A load requires at least two stops');
+
+        const load: Row = {
+          ...coerceLoadColumns(p),
+          status: 'available',
+          dispatcher_id: actor,
+          created_by: actor,
+          updated_by: actor,
+        };
+        const loadId = insertRows('loads', load, 'load')[0].id as string;
+
+        const stopIds: string[] = [];
+        stopsIn.forEach((s, i) => {
+          const middle = i > 0 && i < stopsIn.length - 1;
+          const row = insertRows('load_stops', {
+            load_id: loadId,
+            stop_sequence: i + 1,
+            ...coerceStopColumns(s),
+            stopoff_charge_eligible: middle,
+            stopoff_charge_amount: middle ? numOrNull(s.stopoff_charge_amount) : null,
+          }, 'stop')[0];
+          stopIds.push(row.id as string);
+        });
+
+        chargesIn.forEach(c => {
+          const at = txt(c.stop_index) === null ? null : Number(c.stop_index);
+          insertRows('load_charges', {
+            load_id: loadId,
+            load_stop_id: at !== null && stopIds[at] ? stopIds[at] : null,
+            charge_type: txt(c.charge_type) ?? 'other',
+            description: txt(c.description),
+            amount: numOrNull(c.amount) ?? 0,
+            source: txt(c.source) ?? 'manual',
+          }, 'charge');
+        });
+
+        return { data: loadId, error: null };
+      }
+
+      if (fn === 'update_load_with_stops') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error('update_load_with_stops is not in the migration set');
+        const actor = actorValue(classifyActorExpression('v_profile', body));
+        const loadId = args.p_load_id as string;
+        const load = tables.loads.find(l => l.id === loadId);
+        if (!load) throw new Error('Load not found');
+        const p = (args.p_load ?? {}) as Row;
+        const stopsIn = (args.p_stops ?? []) as Row[];
+        const chargesIn = (args.p_charges ?? []) as Row[];
+        const reason = ((args.p_reason as string) ?? '').trim() || null;
+        if (stopsIn.length < 2) throw new Error('A load requires at least two stops');
+        if (txt(p.load_number) && txt(p.load_number) !== load.load_number) {
+          throw new Error('The load number cannot be changed');
+        }
+
+        const next = coerceLoadColumns(p);
+        const changes: { f: string; a: unknown; b: unknown; fin: boolean }[] = [];
+        let financial = false;
+        Object.keys(next).forEach(k => {
+          if (k === 'load_number') return;
+          const a = load[k] ?? null;
+          const b = next[k] ?? null;
+          const same = NUMERIC_LOAD_KEYS.includes(k)
+            ? Number(a ?? NaN) === Number(b ?? NaN) || (a == null && b == null)
+            : a === b;
+          if (same) return;
+          const fin = FINANCIAL_LOAD_KEYS.includes(k);
+          if (fin) financial = true;
+          changes.push({ f: k, a, b, fin });
+        });
+
+        const oldCharges = tables.load_charges
+          .filter(c => c.load_id === loadId)
+          .reduce((s, c) => s + Number(c.amount ?? 0), 0);
+        const newCharges = chargesIn.reduce((s, c) => s + (numOrNull(c.amount) ?? 0), 0);
+        if (oldCharges !== newCharges) {
+          financial = true;
+          changes.push({ f: 'charges_total', a: String(oldCharges), b: String(newCharges), fin: true });
+        }
+
+        // The database refuses a money change with no written reason. A fake
+        // that accepted one would let the revision test pass a payload the
+        // real save rejects.
+        if (financial && !reason) {
+          throw new Error('A reason is required when a change affects the value of the load');
+        }
+
+        const kept = stopsIn.map(s => txt(s.id)).filter(Boolean) as string[];
+        for (let i = tables.load_stops.length - 1; i >= 0; i -= 1) {
+          const s = tables.load_stops[i];
+          if (s.load_id !== loadId || kept.includes(s.id as string)) continue;
+          insertRows('load_change_history', {
+            load_id: loadId,
+            field_path: 'stop_removed',
+            previous_value: `Stop ${String(s.stop_sequence)}: ${String(s.facility_name ?? '')}`,
+            new_value: null,
+            is_financial: false,
+            reason,
+            changed_by: actor,
+          }, 'hist');
+          tables.load_charges.forEach(c => { if (c.load_stop_id === s.id) c.load_stop_id = null; });
+          tables.load_stops.splice(i, 1);
+        }
+
+        stopsIn.forEach((s, i) => {
+          const middle = i > 0 && i < stopsIn.length - 1;
+          const patch = {
+            stop_sequence: i + 1,
+            ...coerceStopColumns(s),
+            stopoff_charge_eligible: middle,
+            stopoff_charge_amount: middle ? numOrNull(s.stopoff_charge_amount) : null,
+          };
+          const id = txt(s.id);
+          const existing = id ? tables.load_stops.find(x => x.id === id && x.load_id === loadId) : null;
+          if (id && !existing) throw new Error('A stop being edited no longer exists on this load');
+          if (existing) Object.assign(existing, patch);
+          else insertRows('load_stops', { load_id: loadId, ...patch }, 'stop');
+        });
+
+        for (let i = tables.load_charges.length - 1; i >= 0; i -= 1) {
+          if (tables.load_charges[i].load_id === loadId) tables.load_charges.splice(i, 1);
+        }
+        const seq = tables.load_stops
+          .filter(s => s.load_id === loadId)
+          .sort((a, b) => Number(a.stop_sequence) - Number(b.stop_sequence));
+        chargesIn.forEach(c => {
+          const at = txt(c.stop_index) === null ? null : Number(c.stop_index);
+          insertRows('load_charges', {
+            load_id: loadId,
+            load_stop_id: at !== null && seq[at] ? seq[at].id : null,
+            charge_type: txt(c.charge_type) ?? 'other',
+            description: txt(c.description),
+            amount: numOrNull(c.amount) ?? 0,
+            source: txt(c.source) ?? 'manual',
+          }, 'charge');
+        });
+
+        changes.forEach(c => {
+          insertRows('load_change_history', {
+            load_id: loadId,
+            field_path: c.f,
+            previous_value: c.a === null ? null : String(c.a),
+            new_value: c.b === null ? null : String(c.b),
+            is_financial: c.fin,
+            reason,
+            changed_by: actor,
+          }, 'hist');
+        });
+
+        const merged = { ...load, ...next, updated_by: actor };
+        enforce('loads', merged);
+        Object.assign(load, merged);
+        return { data: loadId, error: null };
+      }
+
       return { data: null, error: { message: `unhandled rpc ${fn}`, code: 'P0001' } };
+
     } catch (err) {
       const e = err as FkViolation;
       return { data: null, error: { message: e.message, code: e.code ?? 'P0001', details: '', hint: '' } };
