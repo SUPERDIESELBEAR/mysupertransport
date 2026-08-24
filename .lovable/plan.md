@@ -1,41 +1,41 @@
-# Parser diagnostics: real cause found, plus determinism and card work
+# Make the real diagnostics error visible
 
-Investigation before planning changed the diagnosis. Two corrections to what was said last turn:
+The panel now reports honest counts (4 collected, 0 recorded) but the reason is destroyed before it reaches the screen. `src/lib/parserDiagnostics.ts` line 171 uses `err instanceof Error ? err.message : String(err)`, and a PostgREST error is a plain object, so the message becomes `[object Object]`. Until that is fixed, naming the fourth cause is guesswork — so this plan makes the error visible first and fixes the cause second, in the same session, once the real `code` is on screen.
 
-**1. `parser_diagnostics` grants are fine.** The live catalog shows `authenticated` holding SELECT, INSERT, UPDATE, DELETE and `service_role` holding all four. The earlier "no grants" reading came from querying `information_schema.role_table_grants`, which only shows grants the querying role is party to — it is empty here for almost every table and is not a usable audit source. `has_table_privilege` against the live catalog is.
+The project already has the right helper: `src/lib/dbError.ts` (`getDbErrorMessage`, `logDbError`). It is used on the load-detail surfaces but not on this write path.
 
-**2. The real cause of zero rows: mixed row shapes in one bulk insert.** The two rows that did land are both from the Blue Grace parse and are both `kind = anchor_miss` — a uniform batch. The Rolling River parse produced anchor misses *and* dropped-reference rows (the "Assign at pickup" placeholder drop added last turn). Those two row types carry different keys (`headings`/`occurrences` versus `label`/`reference_class`), and PostgREST rejects a bulk insert whose objects do not all share a key set (PGRST102, "All object keys must match"). The batch failed whole, 0 rows written, and the red toast that flashed by was that rejection.
+## 1. Structured error extraction on the diagnostics write
 
-Grant audit across the live catalog: one table, `share_token_access_log`, has a SELECT-only policy and no INSERT grant for `authenticated`. That is correct as designed (writes are service-role) and is left alone.
+- Extend `src/lib/dbError.ts` with `getDbErrorParts(err)` returning `{ message, code, details, hint }` — the shape-aware read, with fall-through to a real `Error`'s `message`, then `String(err)`. `getDbErrorMessage` keeps working and is expressed in terms of it.
+- In `logParserDiagnostics`, replace the `instanceof Error` line with `getDbErrorParts`, and log the raw object with `logDbError` so the console keeps the untruncated shape.
+- Widen `DiagnosticWriteResult.error` from `string | null` to the parts object (nullable), so callers get the code, not a flattened sentence.
 
-## Sections
+## 2. Render every field in the panel
 
-### 1. Diagnostics write that cannot lie
+In the diagnostics block of `RateConfirmationParser.tsx`: show the code as the headline identifier (`Insert rejected — 42501`), then message, then details and hint as separate lines when present. Keep the persistent (non-dismissing-on-timeout) destructive toast, and include the code in the toast title so it is readable without opening the panel.
 
-- Every payload row is normalised to the same full key set before insert (missing fields explicit `null`, `headings` `[]`, `occurrences` `0`), so a mixed parse inserts.
-- `logParserDiagnostics` returns `{ collected, written, error }` instead of a bare count.
-- The failure toast becomes persistent and states how many items were lost.
+## 3. Name the cause, then fix it
 
-### 2. Panel message that matches the fields on screen
+With the code visible, classify before changing anything: `42501` means RLS/grant on the insert, `PGRST204` an unknown column, `23503` a foreign-key/actor-stamp problem, `23514` a check constraint, `22P02` a bad enum or uuid value. Fix only what the code identifies, and record the named cause in `docs/tms-build-status.md` alongside the previous three causes on this write path.
 
-- Zero written with unresolved fields present now reads as a logging failure, naming both numbers: "3 unrecognised items collected, 0 recorded".
-- Zero collected and zero unresolved fields is the only case that reads as a clean document.
+## 4. Codebase-wide audit of the same pattern
 
-### 3. Determinism
+`err instanceof Error ? err.message : String(err)` appears 98 times. Every occurrence that can receive a Supabase client error produces `[object Object]`.
 
-- Pin the gateway call: `temperature: 0` and a fixed `seed`. Record the returned `system_fingerprint` (or its absence) so whether the gateway honours the seed is observable rather than assumed.
-- Appointment dates: a date printed with no clock time currently returns `null` and is dropped. It will instead return midnight at `medium` confidence — `medium`, not `low`, because low-confidence values are discarded by the form writer, while medium fills the field and adds it to the "verify these" list.
-- A collapsed "parse run fingerprint" on the panel: text-layer hash, line and page counts, model, `system_fingerprint`, and each verbatim field's verdict. Two runs of one document become directly comparable.
+- Replace it with `getDbErrorMessage` / `getDbErrorParts` in client-side files where a `supabase.from(...)`, `.rpc(...)`, `.storage`, or `functions.invoke` result reaches the catch. That is the mutation modals and hooks (equipment, mo-plates, fleet, staff, ICA, drivers, application form, management portal, hooks like `useAutoSaveStatusField` and `useSignatureUrl`).
+- Leave edge-function occurrences that only wrap `fetch`/JSON failures alone, and convert the ones that catch a Supabase admin-client call.
+- Add an ESLint `no-restricted-syntax` rule banning the exact conditional so a new one cannot be introduced, with a message pointing at `getDbErrorMessage`.
 
-### 4. Broker card
+## 5. Tests
 
-Parsed broker name becomes the headline of the card — large and bold, above the status line. MC number stays secondary. "No broker in the directory matches this document" drops to a status line under it.
+- Unit test `getDbErrorParts` against a PostgREST-shaped plain object, a real `Error`, a string, and `null`.
+- Test that `logParserDiagnostics` surfaces `code` on a rejected insert rather than `[object Object]`.
+- Run the full suite and report results.
 
-### 5. Grant parity against the live catalog
+## Noted, not changed
 
-- A `public.grant_parity_report()` SQL function that reads `pg_policy` and `has_table_privilege` at call time and returns any public table whose policies and grants disagree. A migration text can read correctly and still have been granted nowhere; only the catalog settles it.
-- A test asserting the checked-in parity snapshot is empty, and a test asserting every diagnostics payload row exposes an identical key set — the specific failure that shipped here.
+Both appointment windows returned this run (Stop 1 08/17/2026, Stop 2 08/24/2026, each 12:00 AM–11:59 PM). The medium-confidence rule held; no change to that path.
 
-## Verification
+## What I need
 
-Re-parse Rolling River three times on the fixed build; report the three fingerprints side by side, the two diagnostics counts, the rows that landed with failure codes and headings, whether the seed is honoured, and the full suite result.
+Send the console output with the real error object when you have it — if it arrives before section 3, the cause gets named from your run instead of a reproduction.
