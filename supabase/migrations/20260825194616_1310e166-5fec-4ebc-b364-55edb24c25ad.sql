@@ -1,1 +1,0 @@
-select 'never_again';
