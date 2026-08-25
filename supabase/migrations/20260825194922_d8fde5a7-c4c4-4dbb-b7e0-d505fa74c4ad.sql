@@ -1,0 +1,1 @@
+select 'NO_MORE_CALLS2';
