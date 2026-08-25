@@ -115,6 +115,8 @@ export default function BrokerSelect({ value, onChange, optional, provisionalNam
           Read from the rate confirmation — not linked to a broker record yet. Create or select the broker.
         </p>
       )}
+      {selected?.do_not_load && <BrokerDoNotLoadWarning broker={selected} />}
+
 
       <BrokerDialog
         open={addOpen}
