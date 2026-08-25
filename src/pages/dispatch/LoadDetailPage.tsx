@@ -18,6 +18,7 @@ import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
 import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
+import LoadMessagesCard from '@/components/dispatch/loadDetail/LoadMessagesCard';
 import ChangeHistoryCard from '@/components/dispatch/loadDetail/ChangeHistoryCard';
 import VerbatimVerificationCard from '@/components/dispatch/loadDetail/VerbatimVerificationCard';
 import LoadReferencesCard from '@/components/dispatch/loadDetail/LoadReferencesCard';
@@ -212,6 +213,16 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
             claims={claims ?? []}
             canManage={canManageClaims}
             canReopen={isManagement}
+          />
+        </SectionErrorBoundary>
+      ) : null}
+      {isStaff ? (
+        <SectionErrorBoundary name="Messages">
+          <LoadMessagesCard
+            loadId={load.id}
+            driverUserId={load.driver_user_id}
+            driverName={load.driver_name}
+            loadNumber={load.load_number}
           />
         </SectionErrorBoundary>
       ) : null}

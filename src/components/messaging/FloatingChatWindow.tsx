@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { playTruckDownChime } from '@/lib/chime';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
+import { useNavigate } from 'react-router-dom';
+import { onOpenLoadChat } from '@/lib/loadChat';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +145,10 @@ export default function FloatingChatWindow() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [search, setSearch] = useState('');
+  /** Load the open conversation is focused on. Not persisted — a load link is
+   *  per visit, and the conversation itself is never split by load. */
+  const [linkedLoadId, setLinkedLoadId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const windowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
@@ -154,6 +160,16 @@ export default function FloatingChatWindow() {
   useEffect(() => { openRef.current = open; }, [open]);
   const selectedRef = useRef(selectedUserId);
   useEffect(() => { selectedRef.current = selectedUserId; }, [selectedUserId]);
+
+  // ── Open on a driver with a load linked (from Load Detail) ────────────────
+  useEffect(() => onOpenLoadChat(({ driverUserId, loadId }) => {
+    setLinkedLoadId(loadId);
+    setState(prev => clampToViewport({ ...prev, open: true, selectedUserId: driverUserId }));
+  }), []);
+
+  const openLoadRecord = useCallback((loadId: string) => {
+    navigate(`/dispatch/loads/${loadId}`);
+  }, [navigate]);
 
   // Persist state changes
   useEffect(() => { saveState(state); }, [state]);
@@ -507,7 +523,10 @@ export default function FloatingChatWindow() {
                   filteredThreads.map(t => (
                     <button
                       key={t.operatorUserId}
-                      onClick={() => setState(prev => ({ ...prev, selectedUserId: t.operatorUserId }))}
+                      onClick={() => {
+                        if (t.operatorUserId !== selectedUserId) setLinkedLoadId(null);
+                        setState(prev => ({ ...prev, selectedUserId: t.operatorUserId }));
+                      }}
                       title={t.name}
                       className={`w-full text-left ${railCollapsed ? 'px-2 py-2 flex justify-center' : 'px-2.5 py-2'} border-b border-border/50 transition-colors hover:bg-muted/50 ${
                         selectedUserId === t.operatorUserId ? 'bg-primary/10 border-l-2 border-l-primary' : ''
@@ -562,6 +581,9 @@ export default function FloatingChatWindow() {
                   otherAvatarUrl={selectedThread?.avatarUrl ?? null}
                   isStaff={true}
                   placeholder={`Message ${selectedThread?.name ?? 'operator'}…`}
+                  loadId={linkedLoadId}
+                  onClearLoadLink={() => setLinkedLoadId(null)}
+                  onOpenLoad={openLoadRecord}
                   onMessagesChanged={handleMessagesChanged}
                 />
               )}

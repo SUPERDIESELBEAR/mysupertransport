@@ -4851,6 +4851,7 @@ export type Database = {
           edited_at: string | null
           id: string
           is_system: boolean
+          load_id: string | null
           pinned_at: string | null
           pinned_by: string | null
           read_at: string | null
@@ -4871,6 +4872,7 @@ export type Database = {
           edited_at?: string | null
           id?: string
           is_system?: boolean
+          load_id?: string | null
           pinned_at?: string | null
           pinned_by?: string | null
           read_at?: string | null
@@ -4891,6 +4893,7 @@ export type Database = {
           edited_at?: string | null
           id?: string
           is_system?: boolean
+          load_id?: string | null
           pinned_at?: string | null
           pinned_by?: string | null
           read_at?: string | null
@@ -4902,6 +4905,13 @@ export type Database = {
           thread_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_reply_to_id_fkey"
             columns: ["reply_to_id"]

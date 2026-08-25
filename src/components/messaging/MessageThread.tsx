@@ -6,6 +6,8 @@ import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { PinnedMessagesSheet } from './PinnedMessagesSheet';
 import { ChatMessage } from './types';
+import { LoadContextBanner } from './LoadContextBanner';
+import { fetchLoadNumbers } from '@/lib/loadChat';
 
 interface MessageThreadProps {
   myUserId: string | null;
@@ -28,6 +30,12 @@ interface MessageThreadProps {
   isStaff: boolean;
   /** Mobile back button handler — when null, hides the back button */
   onBack?: () => void;
+  /** When set, messages sent from this thread are linked to this load. */
+  loadId?: string | null;
+  /** Unlink the load from this conversation (hides the context strip). */
+  onClearLoadLink?: () => void;
+  /** Open a linked load record — staff only; omit for drivers. */
+  onOpenLoad?: (loadId: string) => void;
   /** Composer placeholder copy */
   placeholder?: string;
   /** Called when an incoming message arrives — used to update the thread list summary */
@@ -43,6 +51,7 @@ import { initials } from '@/lib/initials';
 export function MessageThread({
   myUserId, otherUserId, threadId, isGroup, participantNames, headerAction,
   otherName, otherSubtitle, otherAvatarUrl,
+  loadId, onClearLoadLink, onOpenLoad,
   isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
 }: MessageThreadProps) {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -63,6 +72,7 @@ export function MessageThread({
     myUserId,
     otherUserId: otherUserId ?? null,
     threadId: threadId ?? null,
+    loadId: loadId ?? null,
     onIncomingMessage: handleIncomingMessage,
   });
 
@@ -93,6 +103,20 @@ export function MessageThread({
     }
     return map;
   }, [reactions]);
+
+  // Load numbers for every load-linked message in view, so each bubble can
+  // show which load it belongs to.
+  const [loadNumbers, setLoadNumbers] = useState<Map<string, string>>(new Map());
+  const linkedIds = useMemo(
+    () => Array.from(new Set(messages.map(m => m.load_id).filter(Boolean) as string[])).sort().join(','),
+    [messages],
+  );
+  useEffect(() => {
+    if (!linkedIds) { setLoadNumbers(new Map()); return; }
+    let cancelled = false;
+    void fetchLoadNumbers(linkedIds.split(',')).then(map => { if (!cancelled) setLoadNumbers(map); });
+    return () => { cancelled = true; };
+  }, [linkedIds]);
 
   const jumpToMessage = useCallback((id: string) => {
     const el = document.getElementById(`msg-${id}`);
@@ -244,6 +268,8 @@ export function MessageThread({
                     myUserId={myUserId}
                     isStaff={isStaff}
                     showSenderName={!!isGroup}
+                    loadNumber={m.load_id ? loadNumbers.get(m.load_id) : undefined}
+                    onOpenLoad={onOpenLoad}
                     senderName={participantNames?.[m.sender_id]}
                     onReply={setReplyTo}
                     onEdit={editMessage}
@@ -269,6 +295,10 @@ export function MessageThread({
           </>
         )}
       </div>
+
+      {loadId && (
+        <LoadContextBanner loadId={loadId} onClear={onClearLoadLink} onOpenLoad={onOpenLoad} />
+      )}
 
       <MessageComposer
         placeholder={placeholder ?? `Message ${otherName}…`}

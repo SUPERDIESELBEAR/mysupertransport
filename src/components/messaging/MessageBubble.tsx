@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
-  CheckCheck, MoreVertical, Reply, Pencil, Trash2, Pin, PinOff, Smile, FileText, Download,
+  CheckCheck, MoreVertical, Reply, Pencil, Trash2, Pin, PinOff, Smile, FileText, Download, Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,10 @@ interface Props {
   senderName?: string;
   /** Show the sender name label (groups) */
   showSenderName?: boolean;
+  /** Load number when this message is linked to a load (renders a chip). */
+  loadNumber?: string;
+  /** Open the linked load (staff only). */
+  onOpenLoad?: (loadId: string) => void;
   onReply: (msg: ChatMessage) => void;
   onEdit: (msg: ChatMessage, newBody: string) => Promise<void> | void;
   onDelete: (msg: ChatMessage) => Promise<void> | void;
@@ -39,6 +43,7 @@ interface Props {
 
 export function MessageBubble({
   message, allMessages, reactions, myUserId, isStaff, senderName, showSenderName,
+  loadNumber, onOpenLoad,
   onReply, onEdit, onDelete, onPinToggle, onToggleReaction, onJumpToMessage,
 }: Props) {
   const isMe = message.sender_id === myUserId;
@@ -93,6 +98,26 @@ export function MessageBubble({
             {senderName}
           </div>
         )}
+        {/* Load link — the message still belongs to this conversation; the chip
+            only labels which load it is about. */}
+        {message.load_id && loadNumber && !isDeleted && (
+          onOpenLoad ? (
+            <button
+              type="button"
+              onClick={() => onOpenLoad(message.load_id as string)}
+              className="mb-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <Truck className="h-2.5 w-2.5" />
+              {loadNumber}
+            </button>
+          ) : (
+            <span className="mb-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <Truck className="h-2.5 w-2.5" />
+              {loadNumber}
+            </span>
+          )
+        )}
+
 
         {/* ── Bubble + actions ─────────────────────────────────────────── */}
         <div className={cn('relative flex items-end gap-1', isMe ? 'flex-row-reverse' : 'flex-row')}>

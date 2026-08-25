@@ -24,10 +24,12 @@ export interface ChatMessage {
   attachment_mime: string | null;
   attachment_size_bytes: number | null;
   is_system?: boolean | null;
+  /** Optional link to the load this message is about. */
+  load_id?: string | null;
 }
 
 export const MESSAGE_SELECT =
-  'id, thread_id, sender_id, recipient_id, body, sent_at, read_at, edited_at, deleted_at, pinned_at, pinned_by, reply_to_id, attachment_url, attachment_name, attachment_mime, attachment_size_bytes, is_system';
+  'id, thread_id, sender_id, recipient_id, body, sent_at, read_at, edited_at, deleted_at, pinned_at, pinned_by, reply_to_id, attachment_url, attachment_name, attachment_mime, attachment_size_bytes, is_system, load_id';
 
 export const QUICK_EMOJIS = ['👍', '❤️', '✅', '😂', '🎉', '😮'];
 

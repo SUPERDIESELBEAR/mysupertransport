@@ -16,6 +16,8 @@ export interface LoadDetail extends LoadsRow {
   broker: LoadDetailBroker | null;
   stops: StopRow[];
   driver_name: string | null;
+  /** auth user id of the assigned driver — needed to open a load-linked chat. */
+  driver_user_id: string | null;
   dispatcher_name: string | null;
   created_by_name: string | null;
 }
@@ -97,6 +99,7 @@ export async function fetchLoadDetail(id: string): Promise<LoadDetail | null> {
   const row = data as unknown as Record<string, unknown>;
 
   let driverName: string | null = null;
+  let driverUserId: string | null = null;
   const operatorId = row.operator_id as string | null;
   if (operatorId) {
     const { data: op } = await supabase
@@ -105,6 +108,7 @@ export async function fetchLoadDetail(id: string): Promise<LoadDetail | null> {
       .eq('id', operatorId)
       .maybeSingle();
     if (op?.user_id) {
+      driverUserId = op.user_id;
       const { data: prof } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -123,6 +127,7 @@ export async function fetchLoadDetail(id: string): Promise<LoadDetail | null> {
     broker: (row.broker as LoadDetailBroker | null) ?? null,
     stops,
     driver_name: driverName,
+    driver_user_id: driverUserId,
     dispatcher_name: nameOf(row.dispatcher as never),
     created_by_name: nameOf(row.creator as never),
   };
