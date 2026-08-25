@@ -167,9 +167,16 @@ export default function BrokerDialog({
     });
     setFactoringStatus(broker?.factoring_status ?? '');
     setFactoringReason('');
+    setPacketCompleted(broker?.carrier_packet_completed ?? false);
+    setAgreementSigned(broker?.broker_agreement_signed ?? false);
+    setAgreementDocumentId(broker?.broker_agreement_document_id ?? null);
+    setDoNotLoad(broker?.do_not_load ?? false);
+    setDoNotLoadReason(broker?.do_not_load_reason ?? '');
+    setRating(broker?.rating ?? null);
     setDuplicates([]);
     setOverrideReason('');
   }, [open, initial, broker]);
+
 
   useEffect(() => {
     if (!open || !existingBrokers?.length) return;
