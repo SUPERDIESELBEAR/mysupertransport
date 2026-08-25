@@ -13,6 +13,7 @@ import LoadStatusControls from '@/components/dispatch/loadDetail/LoadStatusContr
 import StatusHistoryCard from '@/components/dispatch/loadDetail/StatusHistoryCard';
 import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
 import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
+import LoadChargesCard from '@/components/dispatch/loadDetail/LoadChargesCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
@@ -180,6 +181,15 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Rate details">
         <RateDetailsCard load={load} />
+      </SectionErrorBoundary>
+      {/* Charges belong with Rate Details; both move under Financials when the
+          Load Detail tab grouping lands with Module 5. */}
+      <SectionErrorBoundary name="Charges">
+        <LoadChargesCard
+          loadId={load.id}
+          operatorId={load.operator_id}
+          canEdit={canChangeStatus}
+        />
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Reefer requirements">
         <ReeferBlock load={load} />

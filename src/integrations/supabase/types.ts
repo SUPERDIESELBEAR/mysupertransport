@@ -4020,40 +4020,49 @@ export type Database = {
       }
       load_charges: {
         Row: {
+          actual_cost: number | null
           amount: number
           charge_type: string
           created_at: string
           created_by: string | null
           description: string | null
+          funding_source: string | null
           id: string
           load_id: string
           load_stop_id: string | null
+          proof_document_id: string | null
           source: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          actual_cost?: number | null
           amount?: number
           charge_type?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
+          funding_source?: string | null
           id?: string
           load_id: string
           load_stop_id?: string | null
+          proof_document_id?: string | null
           source?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          actual_cost?: number | null
           amount?: number
           charge_type?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
+          funding_source?: string | null
           id?: string
           load_id?: string
           load_stop_id?: string | null
+          proof_document_id?: string | null
           source?: string
           updated_at?: string
           updated_by?: string | null
@@ -4078,6 +4087,13 @@ export type Database = {
             columns: ["load_stop_id"]
             isOneToOne: false
             referencedRelation: "load_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_charges_proof_document_id_fkey"
+            columns: ["proof_document_id"]
+            isOneToOne: false
+            referencedRelation: "load_documents"
             referencedColumns: ["id"]
           },
           {
@@ -6370,6 +6386,7 @@ export type Database = {
       }
       pay_policies: {
         Row: {
+          charge_pay_classes: Json
           created_at: string
           created_by: string | null
           description: string | null
@@ -6392,6 +6409,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          charge_pay_classes?: Json
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -6414,6 +6432,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          charge_pay_classes?: Json
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -9641,29 +9660,18 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_load_with_stops:
-        | {
-            Args: {
-              p_charges?: Json
-              p_load: Json
-              p_load_id: string
-              p_reason?: string
-              p_stops: Json
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_ack_stop_data_loss?: boolean
-              p_charges?: Json
-              p_financial_unlock_reason?: string
-              p_load: Json
-              p_load_id: string
-              p_reason?: string
-              p_stops: Json
-            }
-            Returns: string
-          }
+      update_load_with_stops: {
+        Args: {
+          p_ack_stop_data_loss?: boolean
+          p_charges?: Json
+          p_financial_unlock_reason?: string
+          p_load: Json
+          p_load_id: string
+          p_reason?: string
+          p_stops: Json
+        }
+        Returns: string
+      }
       update_pei_archive_category: {
         Args: {
           _application_id: string
@@ -9776,6 +9784,7 @@ export type Database = {
         | "permit"
         | "broker_correspondence"
         | "other"
+        | "reimbursement_proof"
       load_handling_type: "live_load_unload" | "drop_and_hook"
       load_status:
         | "available"
@@ -10092,6 +10101,7 @@ export const Constants = {
         "permit",
         "broker_correspondence",
         "other",
+        "reimbursement_proof",
       ],
       load_handling_type: ["live_load_unload", "drop_and_hook"],
       load_status: [

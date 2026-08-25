@@ -91,6 +91,10 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
         description: text(c.description),
         amount: text(c.amount),
         source: text(c.source) || 'manual',
+        funding_source: (text((c as unknown as Record<string, unknown>).funding_source)
+          || '') as '' | 'driver' | 'company',
+        actual_cost: text((c as unknown as Record<string, unknown>).actual_cost),
+        proof_document_id: text((c as unknown as Record<string, unknown>).proof_document_id),
       })),
     internal_notes: text(l.internal_notes),
     driver_facing_notes: text(l.driver_facing_notes),

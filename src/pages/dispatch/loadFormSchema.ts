@@ -63,6 +63,14 @@ export const chargeSchema = z.object({
   amount: optionalNumber,
   /** Provenance carried through an edit so re-saving does not relabel a parsed line. */
   source: z.string().trim().max(60).optional(),
+  /**
+   * Reimbursement fields. Carried through the form so a load edit — which
+   * rewrites every charge row — does not erase what dispatch confirmed on
+   * Load Detail. Empty until confirmed; never required to save a load.
+   */
+  funding_source: z.enum(['driver', 'company']).optional().or(z.literal('')),
+  actual_cost: optionalNumber,
+  proof_document_id: z.string().optional().or(z.literal('')),
 });
 
 

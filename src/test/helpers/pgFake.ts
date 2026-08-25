@@ -248,6 +248,8 @@ export function createPgFake(): PgFake {
     loads: [],
     load_charges: [],
     load_documents: [],
+    pay_policies: [],
+    pay_policy_assignments: [],
     facilities: [],
     parser_diagnostics: [],
 
@@ -257,6 +259,28 @@ export function createPgFake(): PgFake {
     Object.keys(tables).forEach(k => { tables[k].length = 0; });
     tables.profiles.push({ id: PROFILE_ID, user_id: AUTH_UID, full_name: 'Test Dispatcher' });
     tables.loads.push({ id: 'load-1', load_number: 'TEST-1' });
+    // The company default pay policy, including the charge → pay class map the
+    // reimbursement class is read from.
+    tables.pay_policies.push({
+      id: 'policy-default',
+      name: 'Company default',
+      is_company_default: true,
+      is_active: true,
+      effective_date: '2026-01-01',
+      linehaul_pct: 72,
+      fsc_pct: 72,
+      detention_pct: 100,
+      layover_pct: 100,
+      stopoff_pct: 72,
+      lumper_reimbursement_pct: 100,
+      tonu_pct: 72,
+      other_accessorial_pct: 72,
+      charge_pay_classes: {
+        linehaul: 'revenue', fsc: 'revenue', detention: 'revenue', stopoff: 'revenue',
+        layover: 'revenue', tonu: 'revenue', other: 'revenue',
+        lumper: 'reimbursement', reimbursement: 'reimbursement',
+      },
+    });
     tables.load_stops.push(
       { id: 'stop-a', load_id: 'load-1', stop_sequence: 1 },
       { id: 'stop-b', load_id: 'load-1', stop_sequence: 2 },
@@ -501,7 +525,11 @@ export function createPgFake(): PgFake {
             description: txt(c.description),
             amount: numOrNull(c.amount) ?? 0,
             source: txt(c.source) ?? 'manual',
+            funding_source: txt(c.funding_source),
+            actual_cost: numOrNull(c.actual_cost),
+            proof_document_id: txt(c.proof_document_id),
           }, 'charge');
+
         });
 
         return { data: loadId, error: null };
@@ -602,8 +630,12 @@ export function createPgFake(): PgFake {
             description: txt(c.description),
             amount: numOrNull(c.amount) ?? 0,
             source: txt(c.source) ?? 'manual',
+            funding_source: txt(c.funding_source),
+            actual_cost: numOrNull(c.actual_cost),
+            proof_document_id: txt(c.proof_document_id),
           }, 'charge');
         });
+
 
         changes.forEach(c => {
           insertRows('load_change_history', {

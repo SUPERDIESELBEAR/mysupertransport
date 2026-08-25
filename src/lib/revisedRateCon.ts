@@ -231,7 +231,8 @@ const describeCitations = (citations: ReferenceCitation[]): string => {
 
 
 export type ClassificationKey =
-  | 'linehaul' | 'fsc' | 'detention' | 'stopoff' | 'lumper' | 'layover' | 'tonu' | 'other';
+  | 'linehaul' | 'fsc' | 'detention' | 'stopoff' | 'lumper' | 'layover' | 'tonu'
+  | 'reimbursement' | 'other';
 
 export const CLASSIFICATION_LABELS: Record<ClassificationKey, string> = {
   linehaul: 'Linehaul rate correction',
@@ -241,12 +242,14 @@ export const CLASSIFICATION_LABELS: Record<ClassificationKey, string> = {
   lumper: 'Lumper reimbursement',
   layover: 'Layover',
   tonu: 'TONU',
+  reimbursement: 'Reimbursement — driver-paid cost',
   other: 'Other',
 };
 
 /** Options offered for every money change, in the order the dispatcher reads them. */
 export const CLASSIFICATION_OPTIONS: ClassificationKey[] = [
-  'linehaul', 'fsc', 'detention', 'stopoff', 'lumper', 'layover', 'tonu', 'other',
+  'linehaul', 'fsc', 'detention', 'stopoff', 'lumper', 'layover', 'tonu',
+  'reimbursement', 'other',
 ];
 
 /** Classifications that settle at 100% to the driver — surfaced as a hint in the UI. */
