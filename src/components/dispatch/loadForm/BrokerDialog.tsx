@@ -554,8 +554,47 @@ export default function BrokerDialog({
                     </div>
                   </div>
                 </div>
+
+                {broker && (
+                  <>
+                    <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 p-3">
+                      <BrokerPaperworkSection
+                        brokerId={broker.id}
+                        packetCompleted={packetCompleted}
+                        onPacketCompletedChange={setPacketCompleted}
+                        packetCompletedAt={broker.carrier_packet_completed_at}
+                        agreementSigned={agreementSigned}
+                        onAgreementSignedChange={setAgreementSigned}
+                        agreementSignedAt={broker.broker_agreement_signed_at}
+                        agreementDocumentId={agreementDocumentId}
+                        onAgreementDocumentIdChange={setAgreementDocumentId}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 p-3">
+                      <BrokerDoNotLoadFields
+                        brokerId={broker.id}
+                        doNotLoad={doNotLoad}
+                        onDoNotLoadChange={setDoNotLoad}
+                        reason={doNotLoadReason}
+                        onReasonChange={setDoNotLoadReason}
+                        rating={rating}
+                        onRatingChange={setRating}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 rounded-md border border-border p-3">
+                      <BrokerContactsSection brokerId={broker.id} />
+                    </div>
+
+                    <div className="sm:col-span-2 rounded-md border border-border p-3">
+                      <BrokerNotesSection brokerId={broker.id} legacyNotes={broker.notes} />
+                    </div>
+                  </>
+                )}
               </>
             )}
+
 
             {hasConflict && (
               <div className={`rounded-md border border-warning/40 bg-warning/10 p-3 space-y-2 ${isEdit ? 'sm:col-span-2' : ''}`}>
