@@ -32,9 +32,26 @@ interface NavItem {
   dividerBefore?: string; // optional section label shown above this item
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+  /** Collapsed by default when true (only used the first time, before the user's choice is stored). */
+  defaultCollapsed?: boolean;
+}
+
 interface StaffLayoutProps {
   children: ReactNode;
   navItems: NavItem[];
+  /**
+   * Optional grouped navigation. When provided it replaces the flat `navItems`
+   * list in the sidebar (desktop + mobile drawer). Groups collapse and remember
+   * their state per user; a group with no items renders nothing at all.
+   */
+  navGroups?: NavGroup[];
+  /** Items pinned above the groups (only used together with `navGroups`). */
+  pinnedItems?: NavItem[];
+  /** Items pinned below the groups (only used together with `navGroups`). */
+  footerItems?: NavItem[];
   /** Subset of navItems to show in the mobile bottom bar. Falls back to navItems if omitted. */
   mobileNavItems?: NavItem[];
   currentPath: string;
@@ -48,6 +65,7 @@ interface StaffLayoutProps {
   /** Called when the user clicks "Exit Demo" in the banner */
   onExitDemo?: () => void;
 }
+
 
 /**
  * Role badge color classes. Built on semantic design tokens with a small,
