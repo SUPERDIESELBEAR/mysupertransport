@@ -8999,6 +8999,30 @@ export type Database = {
           name: string
         }[]
       }
+      get_load_linked_messages: {
+        Args: { p_load_id: string }
+        Returns: {
+          attachment_mime: string
+          attachment_name: string
+          attachment_size_bytes: number
+          attachment_url: string
+          body: string
+          deleted_at: string
+          edited_at: string
+          id: string
+          is_system: boolean
+          load_id: string
+          pinned_at: string
+          pinned_by: string
+          read_at: string
+          recipient_id: string
+          reply_to_id: string
+          sender_id: string
+          sender_name: string
+          sent_at: string
+          thread_id: string
+        }[]
+      }
       get_or_create_short_link: {
         Args: { _share_token: string }
         Returns: string
