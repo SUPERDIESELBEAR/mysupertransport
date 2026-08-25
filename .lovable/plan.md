@@ -1,65 +1,57 @@
-# Reimbursement pay class — Phase 1 (Module 2)
+# Phase 1 broker extensions
 
-## Buildability report (asked for before building)
+Broker directory only. No changes to loads, pay policies, settlements, or invoicing. The earlier reverted draft is treated as a starting point, not as approved.
 
-Phase 1 can be built without touching settlement or invoicing logic. Confirmed by reading the code:
+## What already exists (verified against the live database)
 
-- No settlement engine exists yet — there are no settlement tables and nothing computes driver pay. `payTreatment()` in `src/lib/payTreatment.ts` is display-only, and it already returns a descriptor union that includes an `at_cost` kind, so a non-percentage class needs no special casing at the call site.
-- `lumper_reimbursement_pct` stays on `pay_policies`. Nothing is removed this pass.
-- No invoicing code exists, so the Phase 3 review gate is untouched.
+- **brokers** — company name, MC/DOT, single primary contact (name/email/phone), billing email, mailing address, `factoring_status` + reason + timestamp, payment terms, `avg_days_to_pay`, one free-text `notes` blob, `is_active`, created/updated attribution. No packet fields, no agreement fields, no do-not-load flag, no rating, no per-note attribution.
+- **broker_documents** — `broker_id`, `document_category` (plain `text`, not an enum), `document_name`, `file_url`, `file_path`, `expiration_date`, `notes`, `version_number`, `is_current_version`, `created_by`. **Shape fits**: the signed broker-carrier agreement and packet paperwork go here as categories (`carrier_packet`, `signed_broker_agreement`). No parallel document store is needed. Note it has `created_by` but no `updated_by`.
+- **broker_factoring_history** — already the attributed audit trail for factoring status only. It is status-specific (`previous_status`/`new_status` are the factoring enum), so it is not reused for do-not-load or notes.
+- **RLS pattern (confirmed)**: management/owner `ALL`; dispatcher/onboarding_staff `SELECT`/`INSERT`/`UPDATE`; history read-only for staff; operators have no policy at all. New tables mirror this exactly.
+- **Override audit precedent (confirmed)**: `BrokerDialog.tsx` already writes an `audit_log` row with action `broker_duplicate_override` and the matched-broker context. The do-not-load override follows the same shape.
 
-One gap worth naming: **Load Detail does not display charges at all today** (`RateDetailsCard` renders rates only; charges live in `load_charges` and are edited through the load form). Phase 1 therefore has to add a Charges card to Load Detail — that is where the unconfirmed state and the three reimbursement fields belong.
+## Do-not-load warning at load creation — answer
 
-## What gets built
+It can be done **without touching the load save path**. `BrokerSelect.tsx` already holds the full broker record from `useBrokers()`, so the warning renders purely from data already in memory, in the same place the existing provisional-name warning renders. Nothing in the save payload, RPC, parser, or revision code is touched. The warning also appears on the Load Detail broker row.
 
-### 1. Pay class on classifications, policy-configurable
+The override reason is recorded when the user acknowledges the warning at selection time (an `audit_log` row, same pattern as duplicate override), not inside the save transaction. That keeps `create_load_with_stops` / `update_load_with_stops` and the revision path completely untouched. No hard block anywhere.
 
-Every classification carries a pay class: `revenue` (split at the policy percentage) or `reimbursement` (paid at actual cost). The mapping lives on the pay policy, not in code — a carrier that splits washout as revenue configures it that way.
+## Database changes
 
-- New classification `reimbursement` — label "Reimbursement — driver-paid cost" — added to the dropdown.
-- `lumper` remains mapped to `revenue` by the default company policy so existing lumper charges keep their 100% percentage treatment. A driver-paid lumper uses the explicit `reimbursement` classification.
-- `payTreatment()` returns `{ kind: 'at_cost', label: 'reimbursed at cost' }` for any classification whose class is reimbursement, and the existing percentage path otherwise. Call sites render the label unchanged.
+**brokers — new columns**
+- `carrier_packet_completed boolean NOT NULL DEFAULT false`, `carrier_packet_completed_at timestamptz`, `carrier_packet_completed_by uuid` (profiles)
+- `broker_agreement_signed boolean NOT NULL DEFAULT false`, `broker_agreement_signed_at timestamptz`, `broker_agreement_recorded_by uuid` (profiles), `broker_agreement_document_id uuid` referencing `broker_documents(id) ON DELETE SET NULL`
+- `do_not_load boolean NOT NULL DEFAULT false`, `do_not_load_reason text`, `do_not_load_set_at timestamptz`, `do_not_load_set_by uuid` (profiles)
+- `rating smallint` (1–5, nullable, validated in a trigger rather than a CHECK on mutable data)
 
-### 2. Three fields on the charge
+Attribution/timestamp columns are stamped by a `BEFORE INSERT OR UPDATE` trigger using `current_profile_id()`; client payloads that try to set them are ignored/overwritten. Existing `updated_at` trigger stays.
 
-Captured when the classification is a reimbursement, all nullable, none required at classification time:
+**broker_contact_role enum** — `dispatch`, `accounts_payable`, `claims`, `after_hours`, `other`.
 
-- `funding_source` — driver or company
-- `actual_cost` — what was actually spent
-- `proof_document_id` — a load document holding the receipt or Comchek screenshot
+**broker_contacts** (new) — `id`, `broker_id` (cascade), `name`, `role broker_contact_role NOT NULL DEFAULT 'other'`, `phone`, `email`, `notes`, `is_primary boolean NOT NULL DEFAULT false`, `created_at`, `updated_at`, `created_by`, `updated_by`. Partial unique index enforcing one primary per broker; index on `(broker_id, role)`.
 
-All three stay editable until the load is invoiced (same lock the load form already applies to financials).
+**broker_notes** (new) — running attributed record instead of one overwritten blob: `id`, `broker_id` (cascade), `body text NOT NULL`, `created_at`, `created_by` (stamped server-side), plus `updated_at`/`updated_by` for author-only edits. Existing `brokers.notes` is left in place and shown as a legacy note; nothing is migrated automatically.
 
-### 3. Proof document
+**broker_do_not_load_history** (new) — audit trail of do-not-load transitions: `broker_id`, `previous_value boolean`, `new_value boolean`, `reason`, `changed_at`, `changed_by`. Written by an `AFTER UPDATE OF do_not_load` trigger, mirroring the existing factoring-history trigger.
 
-Reuses `load_documents` with a new document type for reimbursement proof. Missing proof routes through the existing document-exception path — no second mechanism.
+Order per new table: `CREATE TABLE` → `GRANT SELECT, INSERT, UPDATE, DELETE TO authenticated` and `ALL TO service_role` (no `anon`) → `ENABLE ROW LEVEL SECURITY` → policies (management/owner `ALL`; dispatcher/onboarding_staff select/insert/update; history tables staff read-only). Verified afterwards with `grant_parity_report()` and the Supabase linter.
 
-### 4. Visible unconfirmed state
+## UI changes
 
-A Charges card on Load Detail lists every charge with its pay treatment. A reimbursement missing funding source, actual cost, or proof is flagged incomplete and names exactly which pieces are missing. No blocking — the settlement hold is Phase 2.
-
-### 5. Disclosure at the point of choice
-
-Where funding source is set: driver-funded reimburses the driver at cost; company-funded is company revenue and does not appear on the driver's settlement.
-
-## Technical detail
-
-Database (one migration):
-
-- `pay_policies`: add `charge_pay_classes jsonb not null default` mapping classification key to `revenue`/`reimbursement`, seeded with `lumper` as revenue, `reimbursement` as reimbursement, and everything else revenue. Backfill existing rows with the same default.
-- `load_charges`: add `funding_source text` (check: `driver`/`company`), `actual_cost numeric`, `proof_document_id uuid references public.load_documents(id) on delete set null`, plus an index on `proof_document_id`.
-- Enum `load_document_type`: add `reimbursement_proof`.
-- In-place edit of `create_load_with_stops` and `update_load_with_stops` to persist the three new charge fields (existing parser/loadout behaviour preserved byte-for-byte otherwise).
-
-Code:
-
-- `src/lib/revisedRateCon.ts` — add `reimbursement` to `ClassificationKey`, `CLASSIFICATION_LABELS`, `CLASSIFICATION_OPTIONS`. `FULL_PAY_CLASSIFICATIONS` keeps meaning "100% percentage class" and keeps `lumper` unless Phase 2 deliberately migrates it.
-- `src/lib/payTreatment.ts` — read `charge_pay_classes` from the policy; return `at_cost` for reimbursement classes.
-- `src/pages/dispatch/loadFormSchema.ts` and `src/lib/loadSavePayload.ts` — carry `funding_source`, `actual_cost`, `proof_document_id` through the charge schema and save payload.
-- New `src/components/dispatch/loadDetail/LoadChargesCard.tsx` — charge list, treatment label, unconfirmed banner, inline reimbursement editor with the disclosure text; wired into `LoadDetailPage` after Rate Details.
-- `src/test/helpers/pgFake.ts` and unit tests extended so the new fields are exercised on **both** the create and revision paths, per the standing reachability rule in `docs/tms-build-status.md`.
-- `docs/tms-build-status.md` — record the pay-class model, the Phase 2 and Phase 3 decisions (settlement reads the class, line-level hold via the -A1 mechanism, overage approval, `lumper_reimbursement_pct` removal in Phase 2, invoicing gate in Phase 3) so they are not relitigated.
+- **Broker Dialog** (`BrokerDialog.tsx`) — new sections: Carrier packet & agreement (completed toggles, dates read-only from stamps, agreement document upload/link into `broker_documents`), Status flags (do-not-load with required reason, showing who set it and when), Rating, Contacts (add/edit/remove, role select, primary toggle), Notes (append-only running list with author and timestamp). Existing factoring history and duplicate-detection flow untouched.
+- **Broker Directory** (`BrokersListPage.tsx` / `brokersColumns.tsx`) — new optional columns: do-not-load, rating, packet status, agreement status, primary contact by role; filters for do-not-load and packet status; do-not-load rows visually flagged.
+- **BrokerSelect** — do-not-load warning with acknowledge-with-reason, audit-logged. Same warning surface on Load Detail's broker row (read-only display).
+- Data access extended in `src/lib/brokers.ts` / `useBrokers.ts` plus a new `src/lib/brokerContacts.ts` and `src/lib/brokerNotes.ts`, so both directory and dialog read the same shapes (both-paths rule).
 
 ## Explicitly not in this pass
 
-No change to any pay percentage, no settlement computation, no invoicing, no blocking gates, and `lumper_reimbursement_pct` is left in place.
+Computed broker scorecard (rate per mile, detention approval rate, short-pay frequency, days to pay) stays Module 9.
+
+## Verification
+
+- `grant_parity_report()` clean for `broker_contacts`, `broker_notes`, `broker_do_not_load_history`; linter clean.
+- Operator role confirmed to have no read path to any broker table.
+- Rendering tests against real query output for the new read-side components (contacts list, notes list, packet/agreement status block), per the reader-boundary rule.
+- Test asserting the do-not-load warning appears in both broker selection and the directory, and that it never blocks a save.
+- Test asserting actor/timestamp columns are ignored when sent from the client and set from `current_profile_id()`.
+- Full test suite run; `docs/tms-build-status.md` updated (Phase 1 broker extensions built; scorecard deferred to Module 9).
