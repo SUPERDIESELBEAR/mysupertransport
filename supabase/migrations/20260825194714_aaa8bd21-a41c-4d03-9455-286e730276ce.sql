@@ -1,1 +1,0 @@
-select 'stop_tool2';
