@@ -32,9 +32,26 @@ interface NavItem {
   dividerBefore?: string; // optional section label shown above this item
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+  /** Collapsed by default when true (only used the first time, before the user's choice is stored). */
+  defaultCollapsed?: boolean;
+}
+
 interface StaffLayoutProps {
   children: ReactNode;
   navItems: NavItem[];
+  /**
+   * Optional grouped navigation. When provided it replaces the flat `navItems`
+   * list in the sidebar (desktop + mobile drawer). Groups collapse and remember
+   * their state per user; a group with no items renders nothing at all.
+   */
+  navGroups?: NavGroup[];
+  /** Items pinned above the groups (only used together with `navGroups`). */
+  pinnedItems?: NavItem[];
+  /** Items pinned below the groups (only used together with `navGroups`). */
+  footerItems?: NavItem[];
   /** Subset of navItems to show in the mobile bottom bar. Falls back to navItems if omitted. */
   mobileNavItems?: NavItem[];
   currentPath: string;
@@ -48,6 +65,7 @@ interface StaffLayoutProps {
   /** Called when the user clicks "Exit Demo" in the banner */
   onExitDemo?: () => void;
 }
+
 
 /**
  * Role badge color classes. Built on semantic design tokens with a small,
@@ -75,7 +93,7 @@ const roleLabels: Record<AppRole, string> = {
   truck_owner: 'Truck Owner',
 };
 
-export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, navGroups, pinnedItems, footerItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut, refreshProfile } = useAuth();
   const { refresh: handleRefresh, refreshing } = useAppRefresh();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -93,6 +111,32 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
 
+  // Collapsed/expanded state for sidebar groups, remembered per user.
+  const groupStateKey = `staff_nav_groups_${profile?.id ?? 'anon'}`;
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(groupStateKey);
+      setCollapsedGroups(stored ? JSON.parse(stored) : {});
+    } catch {
+      setCollapsedGroups({});
+    }
+  }, [groupStateKey]);
+
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem(groupStateKey, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const isGroupOpen = (group: NavGroup) =>
+    collapsedGroups[group.label] != null
+      ? !collapsedGroups[group.label]
+      : !group.defaultCollapsed;
+
   const displayName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : 'User';
   const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
 
@@ -101,6 +145,45 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
     onNavigate(path);
     setMobileSidebarOpen(false); // close mobile drawer on nav
   };
+
+
+  const renderNavItem = (item: NavItem, isMobileDrawer: boolean) => (
+    <Tooltip key={item.path}>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => handleNavClick(item.path)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            currentPath === item.path
+              ? 'bg-gold/15 text-gold border border-gold/25'
+              : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
+          }`}
+        >
+          {/* Icon with optional badge */}
+          <span className="relative shrink-0">
+            {item.icon}
+            {item.badge != null && item.badge > 0 && !(sidebarOpen || isMobileDrawer) && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                {item.badge > 99 ? '99+' : item.badge}
+              </span>
+            )}
+          </span>
+          {(sidebarOpen || isMobileDrawer) && (
+            <span className="flex-1 flex items-center justify-between min-w-0">
+              <span className="truncate">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span className="ml-1.5 shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      {!sidebarOpen && !isMobileDrawer && (
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      )}
+    </Tooltip>
+  );
 
   const sidebarContent = (isMobileDrawer = false) => (
     <>
@@ -127,62 +210,78 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
       {/* Nav items */}
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         <TooltipProvider delayDuration={300}>
-          {navItems.map((item) => (
-            <div key={item.path}>
-              {/* Section divider */}
-              {item.dividerBefore && (
-                <div className="mt-2 mb-1 mx-1">
-                  {(sidebarOpen || isMobileDrawer) ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted/60 whitespace-nowrap">
-                        {item.dividerBefore}
-                      </span>
-                      <div className="flex-1 h-px bg-surface-dark-border/60" />
+          {navGroups && navGroups.length > 0 ? (
+            <>
+              {(pinnedItems ?? []).map((item) => renderNavItem(item, isMobileDrawer))}
+              {navGroups
+                .filter((group) => group.items.length > 0)
+                .map((group) => {
+                  const expanded = !(sidebarOpen || isMobileDrawer) ? true : isGroupOpen(group);
+                  const groupBadge = group.items.reduce((sum, i) => sum + (i.badge ?? 0), 0);
+                  return (
+                    <div key={group.label} className="pt-2">
+                      {(sidebarOpen || isMobileDrawer) ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.label)}
+                          aria-expanded={expanded}
+                          className="w-full flex items-center gap-2 px-2 py-1 mb-1 rounded hover:bg-surface-dark-card/60 transition-colors"
+                        >
+                          <ChevronDown
+                            className={`h-3 w-3 shrink-0 text-surface-dark-muted/70 transition-transform ${expanded ? '' : '-rotate-90'}`}
+                          />
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted/60 whitespace-nowrap">
+                            {group.label}
+                          </span>
+                          <div className="flex-1 h-px bg-surface-dark-border/60" />
+                          {!expanded && groupBadge > 0 && (
+                            <span className="shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                              {groupBadge > 99 ? '99+' : groupBadge}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <div className="h-px bg-surface-dark-border/60 mx-1 my-2" />
+                      )}
+                      {expanded && (
+                        <div className="space-y-1">
+                          {group.items.map((item) => renderNavItem(item, isMobileDrawer))}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="h-px bg-surface-dark-border/60 mx-1" />
-                  )}
+                  );
+                })}
+              {(footerItems ?? []).length > 0 && (
+                <div className="pt-3 mt-2 border-t border-surface-dark-border/60 space-y-1">
+                  {(footerItems ?? []).map((item) => renderNavItem(item, isMobileDrawer))}
                 </div>
               )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleNavClick(item.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      currentPath === item.path
-                        ? 'bg-gold/15 text-gold border border-gold/25'
-                        : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
-                    }`}
-                  >
-                    {/* Icon with optional badge */}
-                    <span className="relative shrink-0">
-                      {item.icon}
-                      {item.badge != null && item.badge > 0 && !(sidebarOpen || isMobileDrawer) && (
-                        <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                          {item.badge > 99 ? '99+' : item.badge}
+            </>
+          ) : (
+            navItems.map((item) => (
+              <div key={item.path}>
+                {/* Section divider */}
+                {item.dividerBefore && (
+                  <div className="mt-2 mb-1 mx-1">
+                    {(sidebarOpen || isMobileDrawer) ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted/60 whitespace-nowrap">
+                          {item.dividerBefore}
                         </span>
-                      )}
-                    </span>
-                    {(sidebarOpen || isMobileDrawer) && (
-                      <span className="flex-1 flex items-center justify-between min-w-0">
-                        <span className="truncate">{item.label}</span>
-                        {item.badge != null && item.badge > 0 && (
-                          <span className="ml-1.5 shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                            {item.badge > 99 ? '99+' : item.badge}
-                          </span>
-                        )}
-                      </span>
+                        <div className="flex-1 h-px bg-surface-dark-border/60" />
+                      </div>
+                    ) : (
+                      <div className="h-px bg-surface-dark-border/60 mx-1" />
                     )}
-                  </button>
-                </TooltipTrigger>
-                {!sidebarOpen && !isMobileDrawer && (
-                  <TooltipContent side="right">{item.label}</TooltipContent>
+                  </div>
                 )}
-              </Tooltip>
-            </div>
-          ))}
+                {renderNavItem(item, isMobileDrawer)}
+              </div>
+            ))
+          )}
         </TooltipProvider>
       </nav>
+
 
       {/* Footer */}
       <div className="p-3 border-t border-surface-dark-border space-y-2 shrink-0">

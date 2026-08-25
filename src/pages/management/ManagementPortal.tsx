@@ -99,7 +99,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -127,7 +127,43 @@ const STATUS_COLORS: Record<string, string> = {
 // `load-edit` is deliberately addressable: a dispatcher part-way through
 // editing a load who refreshes should land back on the same load's edit form
 // rather than the overview. The other load views keep the plain ?view= pattern.
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics'];
+/**
+ * Configure-once screens. They live behind the single "Settings" sidebar entry
+ * and are reached from the sub-navigation on the Settings page. Their existing
+ * `?view=` URLs keep working and land directly on the section.
+ */
+const SETTINGS_SECTIONS: { label: string; path: ManagementView | '__demo__' }[] = [
+  { label: 'Staff Directory',     path: 'staff' },
+  { label: 'Pipeline Config',     path: 'pipeline-config' },
+  { label: 'Carrier Signature',   path: 'carrier-signature' },
+  { label: 'Forms Catalog',       path: 'forms-catalog' },
+  { label: 'Content Manager',     path: 'content-manager' },
+  { label: 'FAQ Manager',         path: 'faq' },
+  { label: 'Resource Center',     path: 'resource-center' },
+  { label: 'Staff Help',          path: 'staff-help' },
+  { label: "What's New",          path: 'whats-new' },
+  { label: 'Email Log',           path: 'email-log' },
+  { label: 'Activity Log',        path: 'activity' },
+  { label: 'Parser Diagnostics',  path: 'parser-diagnostics' },
+  { label: 'Demo Accounts',       path: 'demo-accounts' },
+  { label: 'Demo Mode',           path: '__demo__' },
+];
+
+const SETTINGS_VIEWS = new Set<string>([
+  ...SETTINGS_SECTIONS.map(s => s.path).filter(p => p !== '__demo__'),
+  'email-catalog',
+  'settings',
+]);
+
+/** ELD tooling folded into Onboard Systems as tabs. */
+const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
+  { label: 'Inventory',        path: 'equipment' },
+  { label: 'ELD Malfunctions', path: 'eld-malfunctions' },
+  { label: 'Device Models',    path: 'eld-device-models' },
+];
+const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
+
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -955,45 +991,84 @@ export default function ManagementPortal() {
     }
   };
 
-  const navItems = [
-    { label: 'Management Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview',        dividerBefore: 'Dashboard' },
-    { label: 'Applications',      icon: <ClipboardList className="h-4 w-4" />,   path: 'applications' },
-    { label: 'Onboarding Pipeline', icon: <Users className="h-4 w-4" />,         path: 'pipeline',          badge: criticalExpiryCount || undefined },
-    { label: 'PEI Queue',         icon: <Briefcase className="h-4 w-4" />,       path: 'pei-queue' },
-    { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages',          badge: unreadMsgCount },
-    { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications',     badge: unreadNotifCount },
-    { label: 'Fleet Compliance',  icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance',        badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
-    { label: 'Dispatch Board',    icon: <Container className="h-4 w-4" />,      path: 'dispatch',          badge: truckDownCount || undefined },
-    { label: 'Loads',             icon: <Truck className="h-4 w-4" />,          path: 'loads' },
-    { label: 'Facilities',        icon: <Building2 className="h-4 w-4" />,      path: 'facilities' },
-    { label: 'Brokers',           icon: <Handshake className="h-4 w-4" />,      path: 'brokers' },
-    { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
-    { label: 'Vehicle Hub',       icon: <Truck className="h-4 w-4" />,           path: 'vehicle-hub' },
-    { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,      path: 'inspection-binder' },
-    { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
-    { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />,     path: 'equipment' },
-    { label: 'ELD Malfunctions', icon: <AlertTriangle className="h-4 w-4" />, path: 'eld-malfunctions' },
-    { label: 'ELD Device Models', icon: <HardDrive className="h-4 w-4" />, path: 'eld-device-models' },
-    { label: 'Driver Logs (RODS)', icon: <FileText className="h-4 w-4" />, path: 'eld-logs' },
-    { label: 'Retention Archive', icon: <Library className="h-4 w-4" />, path: 'eld-retention' },
-    { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />,        path: 'mo-plates' },
-    { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
-    { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
-    { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
-    { label: 'Staff Help',        icon: <LifeBuoy className="h-4 w-4" />,        path: 'staff-help' },
-    { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
-    { label: 'Activity Log',      icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
-    { label: 'Parser Diagnostics', icon: <AlertTriangle className="h-4 w-4" />,   path: 'parser-diagnostics' },
-    { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
-    { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
-    { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
-    { label: 'Broadcast Email',   icon: <Mail className="h-4 w-4" />,             path: 'broadcast' },
-    { label: 'Email Log',         icon: <MailPlus className="h-4 w-4" />,         path: 'email-log' },
-    { label: 'Carrier Signature', icon: <Pen className="h-4 w-4" />,             path: 'carrier-signature' },
-    { label: 'Lease Terminations', icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
-    { label: 'Demo Accounts',    icon: <FlaskConical className="h-4 w-4" />,     path: 'demo-accounts' },
-    { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
+  // ── Sidebar structure ───────────────────────────────────────────────
+  // Pinned above the groups: the two screens dispatch keeps open all day.
+  const pinnedNavItems = [
+    { label: 'Overview',  icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Messages',  icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
   ];
+
+  const navGroups = [
+    {
+      label: 'Recruiting',
+      items: [
+        { label: 'Applications',              icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
+        { label: 'Onboarding Pipeline',       icon: <Users className="h-4 w-4" />,         path: 'pipeline', badge: criticalExpiryCount || undefined },
+        { label: 'Previous Employer Checks',  icon: <Briefcase className="h-4 w-4" />,     path: 'pei-queue' },
+      ],
+    },
+    {
+      label: 'Drivers',
+      items: [
+        { label: 'Driver Hub',          icon: <Users2 className="h-4 w-4" />,         path: 'drivers' },
+        { label: 'Compliance Tracking', icon: <ShieldCheck className="h-4 w-4" />,    path: 'compliance', badge: criticalExpiryCount || undefined },
+        { label: 'Document Hub',        icon: <Library className="h-4 w-4" />,        path: 'docs-hub' },
+        { label: 'Driver Logs (RODS)',  icon: <FileText className="h-4 w-4" />,       path: 'eld-logs' },
+        { label: 'Lease Terminations',  icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
+      ],
+    },
+    {
+      label: 'Dispatch',
+      items: [
+        { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
+        { label: 'Loads',          icon: <Truck className="h-4 w-4" />,     path: 'loads' },
+        { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'brokers' },
+        { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'facilities' },
+      ],
+    },
+    // Accounting stays empty until Modules 4 (Settlements) and 7 (Billing).
+    // An empty group renders nothing at all.
+    { label: 'Accounting', items: [] as typeof pinnedNavItems },
+    {
+      label: 'Equipment',
+      items: [
+        { label: 'Vehicle Hub',            icon: <Truck className="h-4 w-4" />,     path: 'vehicle-hub' },
+        { label: 'Onboard Systems',        icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
+        { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />,       path: 'mo-plates' },
+      ],
+    },
+    {
+      label: 'Safety & Compliance',
+      items: [
+        { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,   path: 'inspection-binder' },
+        { label: 'Retention Archive',     icon: <Library className="h-4 w-4" />,  path: 'eld-retention' },
+      ],
+    },
+    {
+      label: 'Communications',
+      items: [
+        { label: 'Notifications',   icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+        { label: 'Broadcast Email', icon: <Mail className="h-4 w-4" />,     path: 'broadcast' },
+      ],
+    },
+  ];
+
+  const footerNavItems = [
+    { label: 'Settings', icon: <Settings2 className="h-4 w-4" />, path: 'settings' },
+  ];
+
+  // Flat list kept for compatibility (mobile fallback / lookups).
+  const navItems = [...pinnedNavItems, ...navGroups.flatMap(g => g.items), ...footerNavItems];
+
+  // Which sidebar entry highlights for the current view.
+  const sidebarCurrentPath =
+    view === 'load-create' || view === 'load-detail' || view === 'load-edit' ? 'loads'
+    : view === 'vehicle-detail' ? 'vehicle-hub'
+    : view === 'operator-detail' ? 'drivers'
+    : ONBOARD_VIEWS.has(view) ? 'equipment'
+    : SETTINGS_VIEWS.has(view) ? 'settings'
+    : view;
+
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
   const mobileNavItems = [
@@ -1019,8 +1094,11 @@ export default function ManagementPortal() {
       />
       <StaffLayout
         navItems={navItems}
+        navGroups={navGroups}
+        pinnedItems={pinnedNavItems}
+        footerItems={footerNavItems}
         mobileNavItems={mobileNavItems}
-        currentPath={view === 'load-create' || view === 'load-detail' || view === 'load-edit' ? 'loads' : view}
+        currentPath={sidebarCurrentPath}
         onNavigate={handleNavigate}
         title="Management"
         notificationsPath="/dashboard?view=notifications"
@@ -1036,6 +1114,60 @@ export default function ManagementPortal() {
             </button>
           }
       >
+        {/* ── SETTINGS SHELL ── */}
+        {SETTINGS_VIEWS.has(view) && (
+          <div className="space-y-5 animate-fade-in mb-6">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <Settings2 className="h-6 w-6 text-gold shrink-0" />
+                Settings
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">Configuration, catalogs and administrative tools</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {SETTINGS_SECTIONS.map((section) => {
+                const active = section.path === view || (section.path === 'content-manager' && view === 'email-catalog');
+                const isDemoToggle = section.path === '__demo__';
+                return (
+                  <button
+                    key={section.path}
+                    onClick={() => handleNavigate(section.path)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      active
+                        ? 'bg-gold/15 text-gold border-gold/30'
+                        : 'bg-white text-muted-foreground border-border hover:text-foreground hover:border-gold/30'
+                    }`}
+                  >
+                    {isDemoToggle ? (isDemo ? 'Exit Demo Mode' : 'Demo Mode') : section.label}
+                  </button>
+                );
+              })}
+            </div>
+            {view === 'settings' && (
+              <p className="text-sm text-muted-foreground">Choose a section above to get started.</p>
+            )}
+          </div>
+        )}
+
+        {/* ── ONBOARD SYSTEMS TABS ── */}
+        {ONBOARD_VIEWS.has(view) && (
+          <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
+            {ONBOARD_TABS.map((tab) => (
+              <button
+                key={tab.path}
+                onClick={() => handleNavigate(tab.path)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  view === tab.path
+                    ? 'bg-gold/15 text-gold border-gold/30'
+                    : 'bg-white text-muted-foreground border-border hover:text-foreground hover:border-gold/30'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
           <div className="space-y-5 sm:space-y-6 animate-fade-in">
