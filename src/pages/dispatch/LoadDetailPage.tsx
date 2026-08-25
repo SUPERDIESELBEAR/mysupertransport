@@ -176,7 +176,7 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
 
       {/* Each card is isolated: a render fault degrades that section, never the load. */}
       <SectionErrorBoundary name="Load summary">
-        <LoadSummaryCard load={load} canAssign={canChangeStatus} canOverride={isManagement} />
+        <LoadSummaryCard load={load} canAssign={canChangeStatus} canOverride={isManagement} canMessage={isStaff} />
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Rate details">
         <RateDetailsCard load={load} />
@@ -193,6 +193,11 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       <SectionErrorBoundary name="Stops">
         <StopsTimeline stops={load.stops} />
       </SectionErrorBoundary>
+      {isStaff ? (
+        <SectionErrorBoundary name="Messages">
+          <LoadMessagesCard loadId={load.id} />
+        </SectionErrorBoundary>
+      ) : null}
       {isStaff ? (
         <SectionErrorBoundary name="Reference numbers">
           <LoadReferencesCard loadId={load.id} />
@@ -213,16 +218,6 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
             claims={claims ?? []}
             canManage={canManageClaims}
             canReopen={isManagement}
-          />
-        </SectionErrorBoundary>
-      ) : null}
-      {isStaff ? (
-        <SectionErrorBoundary name="Messages">
-          <LoadMessagesCard
-            loadId={load.id}
-            driverUserId={load.driver_user_id}
-            driverName={load.driver_name}
-            loadNumber={load.load_number}
           />
         </SectionErrorBoundary>
       ) : null}
