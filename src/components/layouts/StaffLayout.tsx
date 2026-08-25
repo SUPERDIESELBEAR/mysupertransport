@@ -93,7 +93,7 @@ const roleLabels: Record<AppRole, string> = {
   truck_owner: 'Truck Owner',
 };
 
-export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, navGroups, pinnedItems, footerItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut, refreshProfile } = useAuth();
   const { refresh: handleRefresh, refreshing } = useAppRefresh();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
