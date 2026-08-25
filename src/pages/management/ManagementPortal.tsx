@@ -99,7 +99,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -172,7 +172,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -1063,6 +1063,7 @@ export default function ManagementPortal() {
   ];
 
   const footerNavItems = [
+    { label: 'Help', icon: <LifeBuoy className="h-4 w-4" />, path: 'help' },
     { label: 'Settings', icon: <Settings2 className="h-4 w-4" />, path: 'settings' },
   ];
 
@@ -1075,6 +1076,7 @@ export default function ManagementPortal() {
     : view === 'vehicle-detail' ? 'vehicle-hub'
     : view === 'operator-detail' ? 'drivers'
     : ONBOARD_VIEWS.has(view) ? 'equipment'
+    : HELP_VIEWS.has(view) ? 'help'
     : SETTINGS_VIEWS.has(view) ? 'settings'
     : view;
 
@@ -1153,6 +1155,37 @@ export default function ManagementPortal() {
               })}
             </div>
             {view === 'settings' && (
+              <p className="text-sm text-muted-foreground">Choose a section above to get started.</p>
+            )}
+          </div>
+        )}
+
+        {/* ── HELP SHELL ── */}
+        {HELP_VIEWS.has(view) && (
+          <div className="space-y-5 animate-fade-in mb-6">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <LifeBuoy className="h-6 w-6 text-gold shrink-0" />
+                Help
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">Reference material and answers, one click from any page</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {HELP_SECTIONS.map((section) => (
+                <button
+                  key={section.path}
+                  onClick={() => handleNavigate(section.path)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    section.path === view
+                      ? 'bg-gold/15 text-gold border-gold/30'
+                      : 'bg-white text-muted-foreground border-border hover:text-foreground hover:border-gold/30'
+                  }`}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
+            {view === 'help' && (
               <p className="text-sm text-muted-foreground">Choose a section above to get started.</p>
             )}
           </div>
