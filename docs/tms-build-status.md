@@ -17,8 +17,8 @@ Date: 2026-08-22
 | Facilities | Directory with normalization; shared by stop picker and load form. |
 | Brokers | Directory with factoring filters, search, orphan deletion, and in-place edit affordances. |
 | Load editing | `update_load_with_stops` RPC; tiered financial locking, audit history, and stop reconciliation to preserve driver check-in data. Financial change reason + classification required. |
-| Revised rate con re-parse | Comparison review screen for revised documents. |
-| Duplicate detection | Broker reference/MC duplicate warnings at parse and save time; overrides are audit-logged. |
+| Load-linked messaging | `messages.load_id` + unified thread; load context strip in thread header and floating chat. |
+| Load Detail tab layout | Decided: Operations / Financials / Documentation / Audit & Claims; to be built when Module 5 lands. |
 
 ### Rate confirmation parsing — refinements
 
@@ -62,30 +62,42 @@ Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-
 - **33 query sites in `src/components/inspection/` swallow errors;** failures are not surfaced to the UI.
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
+- **Lumper reimbursement pay class** — database `driver_paid_amount` and `at_cost` UI hint are in progress.
 
 ## Build order
 
 The file records what is built and the rules learned; this section records the sequence and why it is the sequence, so the next session does not have to reconstruct it from conversation.
+
+### Load Detail — future tab layout
+
+Tabs will be introduced when Module 5 lands and there is a second financial section to sit beside Rate Details. The agreed grouping is:
+
+1. **Operations (default)** — Load Summary, Stops, Reefer / Loadout / Flags blocks, Messages about this load, Status History.
+2. **Financials** — Rate Details, Pay Policy (Module 4), Accessorials (Module 5), Fuel (Module 6).
+3. **Documentation** — Documents, Reference Numbers, Verbatim Verification.
+4. **Audit & Claims** — Claims, Change History, Internal Notes.
+
+Note: Messages live in Operations while Documents live in Documentation. A document exception and the conversation about it will therefore appear on different tabs. That is acceptable and deliberate; it separates operational threads from the document record itself.
 
 ### Current state
 
 - Module 1 — Owner-Operator Management: ~95% complete.
 - Module 8 — Compliance & Documents: ~90% complete.
 - Module 2 — Load Management: substantially built; parser, revision review, and duplicate detection are complete.
+- Load-linked messaging: unified thread model with load context strip.
 
 ### Remaining sequence
 
-1. **Messaging as a docked panel** — load-contextual threads available where the work is happening.
-2. **Reimbursement pay class (Module 2 portion)** and **Phase 1 broker extensions** — carrier packet and signed broker-carrier agreement on the broker record, multiple broker contacts, do-not-load flag with reason and date, dispatcher notes and rating.
-3. **Module 3 — Dispatch Board**, load-aware.
-4. **Module 5 — Accessorials**.
-5. **Module 6 — Fuel**.
-6. **Module 4 — Settlement Engine**.
-7. **Module 7 — Billing and Invoicing**.
-8. **Module 11 — Driver App** settlement views, check-ins, document capture, expense submission.
-9. **Module 9 — Reporting and Financial Intelligence**.
-10. **Module 10 — Integrations**, except Motive HOS, which is pulled forward into Module 3 for driver availability.
-11. **Driver Qualification Files** — a separate arc after the TMS is complete.
+1. **Reimbursement pay class (Module 2 portion)** and **Phase 1 broker extensions** — carrier packet and signed broker-carrier agreement on the broker record, multiple broker contacts, do-not-load flag with reason and date, dispatcher notes and rating.
+2. **Module 3 — Dispatch Board**, load-aware.
+3. **Module 5 — Accessorials**.
+4. **Module 6 — Fuel**.
+5. **Module 4 — Settlement Engine**.
+6. **Module 7 — Billing and Invoicing**.
+7. **Module 11 — Driver App** settlement views, check-ins, document capture, expense submission.
+8. **Module 9 — Reporting and Financial Intelligence**.
+9. **Module 10 — Integrations**, except Motive HOS, which is pulled forward into Module 3 for driver availability.
+10. **Driver Qualification Files** — a separate arc after the TMS is complete.
 
 ### Dependency reasoning
 

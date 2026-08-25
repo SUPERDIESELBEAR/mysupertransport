@@ -721,6 +721,70 @@ export type Database = {
           },
         ]
       }
+      broker_contacts: {
+        Row: {
+          broker_id: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_primary: boolean
+          name: string | null
+          phone: string | null
+          role: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          broker_id: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          broker_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_contacts_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_contacts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broker_documents: {
         Row: {
           broker_id: string
@@ -844,10 +908,16 @@ export type Database = {
           address_line2: string | null
           avg_days_to_pay: number | null
           billing_email: string | null
+          broker_agreement_status: string | null
+          carrier_packet_status: string | null
           city: string | null
           company_name: string
           created_at: string
           created_by: string | null
+          dispatcher_notes: string | null
+          do_not_load: boolean
+          do_not_load_date: string | null
+          do_not_load_reason: string | null
           dot_number: string | null
           factoring_status: Database["public"]["Enums"]["broker_factoring_status"]
           factoring_status_reason: string | null
@@ -860,6 +930,7 @@ export type Database = {
           primary_contact_email: string | null
           primary_contact_name: string | null
           primary_contact_phone: string | null
+          rating: number | null
           state: string | null
           updated_at: string
           updated_by: string | null
@@ -870,10 +941,16 @@ export type Database = {
           address_line2?: string | null
           avg_days_to_pay?: number | null
           billing_email?: string | null
+          broker_agreement_status?: string | null
+          carrier_packet_status?: string | null
           city?: string | null
           company_name: string
           created_at?: string
           created_by?: string | null
+          dispatcher_notes?: string | null
+          do_not_load?: boolean
+          do_not_load_date?: string | null
+          do_not_load_reason?: string | null
           dot_number?: string | null
           factoring_status?: Database["public"]["Enums"]["broker_factoring_status"]
           factoring_status_reason?: string | null
@@ -886,6 +963,7 @@ export type Database = {
           primary_contact_email?: string | null
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
+          rating?: number | null
           state?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -896,10 +974,16 @@ export type Database = {
           address_line2?: string | null
           avg_days_to_pay?: number | null
           billing_email?: string | null
+          broker_agreement_status?: string | null
+          carrier_packet_status?: string | null
           city?: string | null
           company_name?: string
           created_at?: string
           created_by?: string | null
+          dispatcher_notes?: string | null
+          do_not_load?: boolean
+          do_not_load_date?: string | null
+          do_not_load_reason?: string | null
           dot_number?: string | null
           factoring_status?: Database["public"]["Enums"]["broker_factoring_status"]
           factoring_status_reason?: string | null
@@ -912,6 +996,7 @@ export type Database = {
           primary_contact_email?: string | null
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
+          rating?: number | null
           state?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -4025,6 +4110,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          driver_paid_amount: number | null
           id: string
           load_id: string
           load_stop_id: string | null
@@ -4038,6 +4124,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          driver_paid_amount?: number | null
           id?: string
           load_id: string
           load_stop_id?: string | null
@@ -4051,6 +4138,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          driver_paid_amount?: number | null
           id?: string
           load_id?: string
           load_stop_id?: string | null
@@ -9641,18 +9729,29 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_load_with_stops: {
-        Args: {
-          p_ack_stop_data_loss?: boolean
-          p_charges?: Json
-          p_financial_unlock_reason?: string
-          p_load: Json
-          p_load_id: string
-          p_reason?: string
-          p_stops: Json
-        }
-        Returns: string
-      }
+      update_load_with_stops:
+        | {
+            Args: {
+              p_charges?: Json
+              p_load: Json
+              p_load_id: string
+              p_reason?: string
+              p_stops: Json
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_ack_stop_data_loss?: boolean
+              p_charges?: Json
+              p_financial_unlock_reason?: string
+              p_load: Json
+              p_load_id: string
+              p_reason?: string
+              p_stops: Json
+            }
+            Returns: string
+          }
       update_pei_archive_category: {
         Args: {
           _application_id: string
