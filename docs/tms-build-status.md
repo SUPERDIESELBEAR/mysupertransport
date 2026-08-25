@@ -798,3 +798,43 @@ the model rather than taken from the page — it does not condemn the capture.
 Both halves are pinned in the end-to-end test so a later change that starts
 flagging the transcription fails there.
 
+
+## Broker directory, Phase 1 relationship layer (2026-08-25)
+
+What the broker record now carries, and what it deliberately does not.
+
+**Extends, does not duplicate.** `broker_documents` already had the right shape
+for paperwork, so the carrier packet and the signed broker-carrier agreement are
+rows there under the `carrier_packet` and `signed_broker_agreement` categories.
+`brokers` carries only the state flags — completed / signed, when, by whom, and
+the id of the signed agreement document. No parallel document store was added.
+`broker_factoring_history` was the model for `broker_do_not_load_history`.
+
+**Do-not-load is separate from factoring status.** A broker can be factorable and
+still be one SUPERTRANSPORT refuses to haul for. The warning at load creation is
+rendered by `BrokerSelect` from the record `useBrokers` already holds in memory.
+The load save path, the load RPCs, the parser and the revision code are all
+untouched by this pass — that was the condition for building it here. An override
+is an `audit_log` row with the reason, matching duplicate-broker detection.
+
+**Two note surfaces is one too many.** `brokers.notes` is legacy text with no
+author and no date. It is displayed read-only with a line pointing at the
+attributed note field below it, and is not migrated: inventing an author or a
+date for it would be worse than leaving it labelled. `broker_notes` is a running
+attributed record, not an overwritten opinion blob.
+
+**Actor columns are stamped, not accepted.** `stamp_brokers_actor()` and
+`stamp_broker_child_actor()` overwrite whatever the client sent, per the standing
+server-side actor rule. The rating trigger names the field and the allowed range
+in its message so the dialog surfaces something readable through
+`getDbErrorParts`.
+
+**Author-scoped policies may not call `current_profile_id()`.** `authenticated`
+cannot execute it, so a policy that calls it fails closed and the author can
+neither edit nor delete their own note. The profile is resolved inline in the
+policy instead. `src/test/caller-evaluated-functions.test.ts` is the guard that
+caught this; check it before writing any new author-scoped policy.
+
+**Not in this pass.** The computed scorecard — rate per mile, detention approval
+rate, short-pay frequency, days to pay — is Module 9. It reads load and invoice
+data that does not exist yet. This pass captures the human judgment only.
