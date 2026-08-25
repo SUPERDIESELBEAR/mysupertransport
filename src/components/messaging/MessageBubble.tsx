@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
-  CheckCheck, MoreVertical, Reply, Pencil, Trash2, Pin, PinOff, Smile, FileText, Download,
+  CheckCheck, MoreVertical, Reply, Pencil, Trash2, Pin, PinOff, Smile, FileText, Download, Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,10 @@ interface Props {
   senderName?: string;
   /** Show the sender name label (groups) */
   showSenderName?: boolean;
+  /** Load number when this message is linked to a load (renders a chip). */
+  loadNumber?: string;
+  /** Open the linked load (staff only). */
+  onOpenLoad?: (loadId: string) => void;
   onReply: (msg: ChatMessage) => void;
   onEdit: (msg: ChatMessage, newBody: string) => Promise<void> | void;
   onDelete: (msg: ChatMessage) => Promise<void> | void;
@@ -39,6 +43,7 @@ interface Props {
 
 export function MessageBubble({
   message, allMessages, reactions, myUserId, isStaff, senderName, showSenderName,
+  loadNumber, onOpenLoad,
   onReply, onEdit, onDelete, onPinToggle, onToggleReaction, onJumpToMessage,
 }: Props) {
   const isMe = message.sender_id === myUserId;
