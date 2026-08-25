@@ -297,7 +297,12 @@ export function MessageThread({
       </div>
 
       {loadId && (
-        <LoadContextBanner loadId={loadId} onClear={onClearLoadLink} onOpenLoad={onOpenLoad} />
+        <LoadContextBanner
+          loadId={loadId}
+          onClear={onClearLoadLink}
+          onOpenLoad={onOpenLoad}
+          showStaffVisibilityNotice={isStaff}
+        />
       )}
 
       <MessageComposer

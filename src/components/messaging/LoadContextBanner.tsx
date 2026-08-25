@@ -10,6 +10,8 @@ interface Props {
   onClear?: () => void;
   /** Open the load record (staff only). */
   onOpenLoad?: (loadId: string) => void;
+  /** Staff-facing privacy notice before sending a load-linked message. */
+  showStaffVisibilityNotice?: boolean;
 }
 
 const apptLabel = (iso: string | null) => (iso ? format(new Date(iso), 'MMM d, h:mm a') : 'No appointment');
@@ -18,7 +20,7 @@ const apptLabel = (iso: string | null) => (iso ? format(new Date(iso), 'MMM d, h
  * Shown above the composer while a conversation is focused on a load, so both
  * sides can see which load the next message is about.
  */
-export function LoadContextBanner({ loadId, onClear, onOpenLoad }: Props) {
+export function LoadContextBanner({ loadId, onClear, onOpenLoad, showStaffVisibilityNotice }: Props) {
   const [ctx, setCtx] = useState<LoadChatContext | null>(null);
 
   useEffect(() => {
@@ -56,6 +58,11 @@ export function LoadContextBanner({ loadId, onClear, onOpenLoad }: Props) {
           <p className="text-[10px] text-muted-foreground">
             Pickup {apptLabel(ctx.pickup_at)} · Delivery {apptLabel(ctx.delivery_at)}
           </p>
+          {showStaffVisibilityNotice ? (
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Messages linked to a load are visible to staff on the load record.
+            </p>
+          ) : null}
         </div>
         {onClear && (
           <button
