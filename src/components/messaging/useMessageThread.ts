@@ -17,6 +17,8 @@ interface UseMessageThreadOpts {
   otherUserId: string | null;
   /** When set, operate in group-thread mode. Overrides otherUserId behavior. */
   threadId?: string | null;
+  /** When set, every message sent from this thread is stamped with this load. */
+  loadId?: string | null;
   /** Called once after the initial message load completes */
   onMessagesLoaded?: (msgs: ChatMessage[]) => void;
   /** Called when a new incoming message arrives (for thread-list updates) */
@@ -24,7 +26,7 @@ interface UseMessageThreadOpts {
 }
 
 export function useMessageThread({
-  myUserId, otherUserId, threadId, onMessagesLoaded, onIncomingMessage,
+  myUserId, otherUserId, threadId, loadId, onMessagesLoaded, onIncomingMessage,
 }: UseMessageThreadOpts) {
   const isGroup = !!threadId;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -288,6 +290,7 @@ export function useMessageThread({
       sender_id: myUserId,
       body: clean,
       reply_to_id: opts.replyToId ?? null,
+      load_id: loadId ?? null,
       attachment_url, attachment_name, attachment_mime, attachment_size_bytes,
       ...(isGroup
         ? { thread_id: threadId!, recipient_id: null as unknown as string }
@@ -315,7 +318,7 @@ export function useMessageThread({
       .catch(e => console.warn('[notify-new-message] invoke error:', e));
 
     return msg;
-  }, [myUserId, otherUserId, isGroup, threadId, notifyStoppedTyping]);
+  }, [myUserId, otherUserId, isGroup, threadId, loadId, notifyStoppedTyping]);
 
   // ── Edit (within 5 min) ───────────────────────────────────────────────
   const editMessage = useCallback(async (msg: ChatMessage, newBody: string) => {
