@@ -240,14 +240,34 @@ export default function BrokerDialog({
       toast({ variant: 'destructive', description: 'A reason is required when changing factoring status.' });
       return;
     }
+    if (isEdit && doNotLoad && !doNotLoadReason.trim()) {
+      toast({
+        variant: 'destructive',
+        description: 'A reason is required when a broker is flagged do-not-load.',
+      });
+      return;
+    }
 
-    const writePayload = factoringChanged
-      ? {
-        ...payload,
-        factoring_status: factoringStatus as FactoringStatus,
-        factoring_status_reason: factoringReason.trim(),
-      }
-      : payload;
+    const writePayload = {
+      ...payload,
+      ...(factoringChanged
+        ? {
+          factoring_status: factoringStatus as FactoringStatus,
+          factoring_status_reason: factoringReason.trim(),
+        }
+        : {}),
+      ...(isEdit
+        ? {
+          carrier_packet_completed: packetCompleted,
+          broker_agreement_signed: agreementSigned,
+          broker_agreement_document_id: agreementDocumentId,
+          do_not_load: doNotLoad,
+          do_not_load_reason: doNotLoad ? doNotLoadReason.trim() : null,
+          rating,
+        }
+        : {}),
+    };
+
 
     setSaving(true);
     const query = broker
