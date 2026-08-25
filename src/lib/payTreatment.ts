@@ -33,7 +33,10 @@ export const DEFAULT_CHARGE_PAY_CLASSES: Record<ClassificationKey, PayClass> = {
   fsc: 'revenue',
   detention: 'revenue',
   stopoff: 'revenue',
-  lumper: 'reimbursement',
+  // Lumper stays revenue-classed at its existing 100% so no charge already on a
+  // load changes treatment in this pass. A lumper the driver paid out of pocket
+  // is classified explicitly as "Reimbursement — driver-paid cost".
+  lumper: 'revenue',
   layover: 'revenue',
   tonu: 'revenue',
   reimbursement: 'reimbursement',
