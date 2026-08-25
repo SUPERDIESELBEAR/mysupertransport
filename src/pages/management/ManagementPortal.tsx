@@ -127,6 +127,42 @@ const STATUS_COLORS: Record<string, string> = {
 // `load-edit` is deliberately addressable: a dispatcher part-way through
 // editing a load who refreshes should land back on the same load's edit form
 // rather than the overview. The other load views keep the plain ?view= pattern.
+/**
+ * Configure-once screens. They live behind the single "Settings" sidebar entry
+ * and are reached from the sub-navigation on the Settings page. Their existing
+ * `?view=` URLs keep working and land directly on the section.
+ */
+const SETTINGS_SECTIONS: { label: string; path: ManagementView | '__demo__' }[] = [
+  { label: 'Staff Directory',     path: 'staff' },
+  { label: 'Pipeline Config',     path: 'pipeline-config' },
+  { label: 'Carrier Signature',   path: 'carrier-signature' },
+  { label: 'Forms Catalog',       path: 'forms-catalog' },
+  { label: 'Content Manager',     path: 'content-manager' },
+  { label: 'FAQ Manager',         path: 'faq' },
+  { label: 'Resource Center',     path: 'resource-center' },
+  { label: 'Staff Help',          path: 'staff-help' },
+  { label: "What's New",          path: 'whats-new' },
+  { label: 'Email Log',           path: 'email-log' },
+  { label: 'Activity Log',        path: 'activity' },
+  { label: 'Parser Diagnostics',  path: 'parser-diagnostics' },
+  { label: 'Demo Accounts',       path: 'demo-accounts' },
+  { label: 'Demo Mode',           path: '__demo__' },
+];
+
+const SETTINGS_VIEWS = new Set<string>([
+  ...SETTINGS_SECTIONS.map(s => s.path).filter(p => p !== '__demo__'),
+  'email-catalog',
+  'settings',
+]);
+
+/** ELD tooling folded into Onboard Systems as tabs. */
+const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
+  { label: 'Inventory',        path: 'equipment' },
+  { label: 'ELD Malfunctions', path: 'eld-malfunctions' },
+  { label: 'Device Models',    path: 'eld-device-models' },
+];
+const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
+
 const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings'];
 
 export default function ManagementPortal() {
@@ -1023,6 +1059,15 @@ export default function ManagementPortal() {
 
   // Flat list kept for compatibility (mobile fallback / lookups).
   const navItems = [...pinnedNavItems, ...navGroups.flatMap(g => g.items), ...footerNavItems];
+
+  // Which sidebar entry highlights for the current view.
+  const sidebarCurrentPath =
+    view === 'load-create' || view === 'load-detail' || view === 'load-edit' ? 'loads'
+    : view === 'vehicle-detail' ? 'vehicle-hub'
+    : view === 'operator-detail' ? 'drivers'
+    : ONBOARD_VIEWS.has(view) ? 'equipment'
+    : SETTINGS_VIEWS.has(view) ? 'settings'
+    : view;
 
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
