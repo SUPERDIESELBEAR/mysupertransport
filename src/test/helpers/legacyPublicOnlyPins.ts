@@ -100,7 +100,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260729175715_cfce4671-7913-4ee4-9b2b-ba7b99c8e14c.sql::public.resolve_short_link(text)",
   "20260727194914_a485ef85-e1ec-4d73-a895-01e33553f8b0.sql::public.restore_applicant_pei(uuid)",
   "20260611142920_26a9cd7d-56d0-409f-9ac3-d447b1dd9b88.sql::public.save_application_draft(uuid, jsonb)",
-  "20260515155007_ca090020-ec22-485c-93c1-6c4bad3187c0.sql::public.search_audit_log(text, text, timestamp with time zone, timestamp with time zone, integer, integer, uuid, uuid)",
   "20260309143148_c2d6cd8a-60db-4010-94f9-16894ab39863.sql::public.search_audit_log(text, text, timestamp with time zone, timestamp with time zone, integer, integer)",
   "20260618185610_96052999-3491-4f8a-99b2-032e2cb5cc05.sql::public.set_go_live_with_override(uuid, date, text)",
   "20260515183610_31d9c6cc-8a17-4ba1-adf6-c0daab0222b6.sql::public.submit_application_correction(uuid, text, text, jsonb)",
@@ -127,4 +126,4 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  * function is a new defect: pin it to `public, extensions` instead of
  * widening the exemption.
  */
-export const LEGACY_MAX = 87;
+export const LEGACY_MAX = 86;
