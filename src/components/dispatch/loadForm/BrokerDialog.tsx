@@ -27,6 +27,11 @@ import {
   FACTORING_STATUSES, FACTORING_STATUS_LABELS, type Broker, type FactoringStatus,
 } from '@/lib/brokers';
 import BrokerCandidateRow from './BrokerCandidateRow';
+import BrokerPaperworkSection from '@/components/dispatch/broker/BrokerPaperworkSection';
+import BrokerDoNotLoadFields from '@/components/dispatch/broker/BrokerDoNotLoadFields';
+import BrokerContactsSection from '@/components/dispatch/broker/BrokerContactsSection';
+import BrokerNotesSection from '@/components/dispatch/broker/BrokerNotesSection';
+
 
 export interface BrokerDialogValues {
   company_name: string;
