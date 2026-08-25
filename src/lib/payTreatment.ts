@@ -45,9 +45,6 @@ const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
   other: 'other_accessorial_pct',
 };
 
-/** Classes that reimburse the driver exactly what they paid out-of-pocket. */
-const AT_COST_CLASSES: ClassificationKey[] = ['lumper'];
-
 const trimPct = (n: number) =>
   Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 
@@ -56,9 +53,6 @@ export function payTreatment(
   klass: ClassificationKey,
   policy: PayPolicyRates | null,
 ): PayTreatment {
-  if (AT_COST_CLASSES.includes(klass)) {
-    return { kind: 'at_cost', label: 'reimbursed at cost' };
-  }
   if (!policy) return { kind: 'unknown', label: null };
   const pct = Number(policy[PCT_FIELD[klass]]);
   if (!Number.isFinite(pct)) return { kind: 'unknown', label: null };

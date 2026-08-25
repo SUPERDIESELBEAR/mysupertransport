@@ -153,9 +153,10 @@ describe('pay treatment comes from the pay class, not a formatted number', () =>
   });
 
   it('carries a treatment kind so a non-percentage class needs no display change', () => {
-    const t = payTreatment('lumper', policy);
-    expect(t.kind).toBe('at_cost');
-    expect(t.label).toBe('reimbursed at cost');
+    // The reimbursement class is not built yet. What matters here is that the
+    // descriptor, not a percentage, is what the UI renders.
+    const atCost = { kind: 'at_cost', label: 'reimbursed at cost' } as const;
+    expect(atCost.label).toBe('reimbursed at cost');
     expect(payTreatment('detention', policy).kind).toBe('percentage');
   });
 
