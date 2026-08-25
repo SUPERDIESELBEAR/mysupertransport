@@ -4,7 +4,6 @@ import { MessageSquare, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { openLoadChat } from '@/lib/loadChat';
-import { toast } from '@/hooks/use-toast';
 
 interface Props {
   loadId: string;
@@ -24,22 +23,28 @@ interface LoadMessageRow {
   senderName: string;
 }
 
+interface LoadLinkedMessageRpcRow {
+  id: string;
+  sender_id: string;
+  body: string;
+  sent_at: string;
+  deleted_at: string | null;
+  attachment_name: string | null;
+  sender_name: string;
+}
+
 async function fetchLoadMessages(loadId: string): Promise<LoadMessageRow[]> {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('id, sender_id, body, sent_at, deleted_at, attachment_name')
-    .eq('load_id', loadId)
-    .order('sent_at', { ascending: false });
+  const { data, error } = await supabase.rpc('get_load_linked_messages', { p_load_id: loadId });
   if (error) throw error;
-  const rows = data ?? [];
-  const ids = Array.from(new Set(rows.map(r => r.sender_id)));
-  const { data: profs } = ids.length
-    ? await supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', ids)
-    : { data: [] as { user_id: string; first_name: string | null; last_name: string | null }[] };
-  const nameOf = new Map(
-    (profs ?? []).map(p => [p.user_id, [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown']),
-  );
-  return rows.map(r => ({ ...r, senderName: nameOf.get(r.sender_id) ?? 'Unknown' }));
+  return ((data ?? []) as LoadLinkedMessageRpcRow[]).map(r => ({
+    id: r.id,
+    sender_id: r.sender_id,
+    body: r.body,
+    sent_at: r.sent_at,
+    deleted_at: r.deleted_at,
+    attachment_name: r.attachment_name,
+    senderName: r.sender_name || 'Unknown',
+  }));
 }
 
 /**
@@ -53,16 +58,12 @@ export default function LoadMessagesCard({ loadId, driverUserId, driverName, loa
   });
 
   const startChat = () => {
-    if (!driverUserId) {
-      toast({
-        title: 'No driver assigned',
-        description: 'Assign a driver to this load before messaging about it.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!driverUserId) return;
     openLoadChat({ driverUserId, loadId, loadNumber });
   };
+
+  const hasDriver = !!driverUserId;
+  const messageCount = messages?.length ?? 0;
 
   return (
     <section className="rounded-lg border border-border bg-card p-4">
@@ -71,18 +72,31 @@ export default function LoadMessagesCard({ loadId, driverUserId, driverName, loa
           <MessageSquare className="h-4 w-4 text-primary" />
           Messages about this load
         </h2>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={startChat}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={startChat}
+          disabled={!hasDriver}
+        >
           <MessageSquare className="h-4 w-4" />
-          Message {driverName ? driverName.split(' ')[0] : 'Driver'}
+          {hasDriver ? `Message ${driverName ? driverName.split(' ')[0] : 'Driver'}` : 'Message Driver'}
         </Button>
       </div>
 
+      {!hasDriver ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No driver assigned to this load yet. Messages already linked to this load stay visible here.
+        </p>
+      ) : null}
+
       {isLoading ? (
         <p className="mt-3 text-sm text-muted-foreground">Loading messages…</p>
-      ) : (messages ?? []).length === 0 ? (
+      ) : messageCount === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          No messages linked to this load yet. Messaging from here keeps the conversation in the
-          driver&apos;s inbox and tags it with {loadNumber}.
+          {hasDriver
+            ? `No messages linked to this load yet. Messaging from here keeps the conversation in the driver's inbox and tags it with ${loadNumber}.`
+            : 'No messages linked to this load yet.'}
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-border/60">
