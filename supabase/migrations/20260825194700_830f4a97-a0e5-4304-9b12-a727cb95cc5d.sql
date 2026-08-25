@@ -1,0 +1,1 @@
+select 'stop_tool';
