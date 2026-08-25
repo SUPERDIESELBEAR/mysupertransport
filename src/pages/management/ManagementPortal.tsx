@@ -1114,6 +1114,60 @@ export default function ManagementPortal() {
             </button>
           }
       >
+        {/* ── SETTINGS SHELL ── */}
+        {SETTINGS_VIEWS.has(view) && (
+          <div className="space-y-5 animate-fade-in mb-6">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                <Settings2 className="h-6 w-6 text-gold shrink-0" />
+                Settings
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">Configuration, catalogs and administrative tools</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {SETTINGS_SECTIONS.map((section) => {
+                const active = section.path === view || (section.path === 'content-manager' && view === 'email-catalog');
+                const isDemoToggle = section.path === '__demo__';
+                return (
+                  <button
+                    key={section.path}
+                    onClick={() => handleNavigate(section.path)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      active
+                        ? 'bg-gold/15 text-gold border-gold/30'
+                        : 'bg-white text-muted-foreground border-border hover:text-foreground hover:border-gold/30'
+                    }`}
+                  >
+                    {isDemoToggle ? (isDemo ? 'Exit Demo Mode' : 'Demo Mode') : section.label}
+                  </button>
+                );
+              })}
+            </div>
+            {view === 'settings' && (
+              <p className="text-sm text-muted-foreground">Choose a section above to get started.</p>
+            )}
+          </div>
+        )}
+
+        {/* ── ONBOARD SYSTEMS TABS ── */}
+        {ONBOARD_VIEWS.has(view) && (
+          <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
+            {ONBOARD_TABS.map((tab) => (
+              <button
+                key={tab.path}
+                onClick={() => handleNavigate(tab.path)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  view === tab.path
+                    ? 'bg-gold/15 text-gold border-gold/30'
+                    : 'bg-white text-muted-foreground border-border hover:text-foreground hover:border-gold/30'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
           <div className="space-y-5 sm:space-y-6 animate-fade-in">
