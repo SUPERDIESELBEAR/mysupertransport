@@ -139,8 +139,6 @@ const SETTINGS_SECTIONS: { label: string; path: ManagementView | '__demo__' }[] 
   { label: 'Forms Catalog',       path: 'forms-catalog' },
   { label: 'Content Manager',     path: 'content-manager' },
   { label: 'FAQ Manager',         path: 'faq' },
-  { label: 'Resource Center',     path: 'resource-center' },
-  { label: 'Staff Help',          path: 'staff-help' },
   { label: "What's New",          path: 'whats-new' },
   { label: 'Email Log',           path: 'email-log' },
   { label: 'Activity Log',        path: 'activity' },
