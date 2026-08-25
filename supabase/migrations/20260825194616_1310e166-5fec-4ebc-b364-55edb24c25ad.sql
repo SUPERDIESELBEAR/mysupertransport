@@ -1,0 +1,1 @@
+select 'never_again';

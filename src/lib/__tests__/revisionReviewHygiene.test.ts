@@ -139,6 +139,21 @@ describe('pay treatment comes from the pay class, not a formatted number', () =>
     stopoff_pct: 72, lumper_reimbursement_pct: 100, tonu_pct: 72, other_accessorial_pct: 72,
   } satisfies PayPolicyRates;
 
+  const defaultMappedPolicy = {
+    ...policy,
+    charge_pay_classes: {
+      linehaul: 'revenue',
+      fsc: 'revenue',
+      detention: 'revenue',
+      stopoff: 'revenue',
+      layover: 'revenue',
+      tonu: 'revenue',
+      other: 'revenue',
+      lumper: 'revenue',
+      reimbursement: 'reimbursement',
+    },
+  } satisfies PayPolicyRates;
+
   it('reads each class off the policy in force rather than a hardcoded table', () => {
     const custom = { ...policy, detention_pct: 85, other_accessorial_pct: 65 };
     expect(payTreatment('detention', custom).label).toBe('85% to driver');
@@ -158,6 +173,18 @@ describe('pay treatment comes from the pay class, not a formatted number', () =>
     const atCost = { kind: 'at_cost', label: 'reimbursed at cost' } as const;
     expect(atCost.label).toBe('reimbursed at cost');
     expect(payTreatment('detention', policy).kind).toBe('percentage');
+  });
+
+  it('keeps lumper as the existing 100% percentage class unless reimbursement is chosen explicitly', () => {
+    expect(payTreatment('lumper', defaultMappedPolicy)).toEqual({
+      kind: 'percentage',
+      pct: 100,
+      label: '100% to driver',
+    });
+    expect(payTreatment('reimbursement', defaultMappedPolicy)).toEqual({
+      kind: 'at_cost',
+      label: 'reimbursed at cost',
+    });
   });
 
   it('does not pre-select "other" for a money row', () => {
