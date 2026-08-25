@@ -153,6 +153,17 @@ const SETTINGS_VIEWS = new Set<string>([
   'settings',
 ]);
 
+/**
+ * Lookup material. Pinned at the bottom of the sidebar as a single "Help"
+ * entry — it is reached mid-task from any page, so it does not belong in
+ * Settings (configure-once) or in a working group.
+ */
+const HELP_SECTIONS: { label: string; path: ManagementView }[] = [
+  { label: 'Resource Center', path: 'resource-center' },
+  { label: 'Staff Help',      path: 'staff-help' },
+];
+const HELP_VIEWS = new Set<string>([...HELP_SECTIONS.map(s => s.path), 'help']);
+
 /** ELD tooling folded into Onboard Systems as tabs. */
 const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
   { label: 'Inventory',        path: 'equipment' },
