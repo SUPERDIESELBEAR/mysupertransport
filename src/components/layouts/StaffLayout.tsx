@@ -114,17 +114,14 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
   // Collapsed/expanded state for sidebar groups, remembered per user.
   const groupStateKey = `staff_nav_groups_${profile?.id ?? 'anon'}`;
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  const [groupStateLoaded, setGroupStateLoaded] = useState(false);
 
   useEffect(() => {
-    setGroupStateLoaded(false);
     try {
       const stored = localStorage.getItem(groupStateKey);
       setCollapsedGroups(stored ? JSON.parse(stored) : {});
     } catch {
       setCollapsedGroups({});
     }
-    setGroupStateLoaded(true);
   }, [groupStateKey]);
 
   const toggleGroup = (label: string) => {
