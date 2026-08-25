@@ -278,7 +278,7 @@ export function createPgFake(): PgFake {
       charge_pay_classes: {
         linehaul: 'revenue', fsc: 'revenue', detention: 'revenue', stopoff: 'revenue',
         layover: 'revenue', tonu: 'revenue', other: 'revenue',
-        lumper: 'reimbursement', reimbursement: 'reimbursement',
+        lumper: 'revenue', reimbursement: 'reimbursement',
       },
     });
     tables.load_stops.push(

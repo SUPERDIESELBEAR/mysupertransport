@@ -21,7 +21,7 @@ Date: 2026-08-22
 | Duplicate detection | Broker reference/MC duplicate warnings at parse and save time; overrides are audit-logged. |
 | Load Detail tab layout | Decided: Operations / Financials / Documentation / Audit & Claims; to be built when Module 5 lands. |
 | Charges card placement | Lives after Rate Details today; goes under Financials with the tab work. The card takes only `loadId`, `operatorId` and `canEdit`, reads its own rows and holds no reference to its neighbours, so the move is a change of placement only. |
-| Charge pay class | Every classification carries a pay class: `revenue` (percentage split) or `reimbursement` (paid at actual cost). Defaults live in `DEFAULT_CHARGE_PAY_CLASSES`; a policy may override via `pay_policies.charge_pay_classes`. Lumper stays `revenue` at 100% so no existing charge changed treatment — a driver-paid lumper is classified explicitly as "Reimbursement — driver-paid cost". |
+| Charge pay class | Every classification carries a pay class: `revenue` (percentage split) or `reimbursement` (paid at actual cost). Defaults live in `DEFAULT_CHARGE_PAY_CLASSES`; a policy may override via `pay_policies.charge_pay_classes`. Lumper stays `revenue` at 100% so no existing charge changed treatment — a driver-paid lumper is classified explicitly as "Reimbursement — driver-paid cost". Migrating lumper itself to the reimbursement class is a deliberate Phase 2 data decision, not an automatic reclassification. |
 
 ### Rate confirmation parsing — refinements
 
@@ -110,6 +110,7 @@ A settlement is linehaul plus accessorials minus fuel and deductions, so Modules
 Schema-shaped work is expensive to retrofit; view-shaped work is not. These must ship with the module that owns them:
 
 - **Module 4** — chargebacks with signed authorization attached, the R&M Deposit statement (running balance, deposits, withdrawals), the reimbursement pay class payout rule, and the settlement preview with a driver dispute window.
+- **Module 4 / Phase 2 reimbursement decision** — if lumper should move from the existing 100% percentage treatment to `reimbursement`, make that as an explicit data migration/review step. Do not infer it from the presence of `lumper_reimbursement_pct`, and do not automatically reclassify existing lumper charges.
 - **Module 7** — short-pay tracking (invoiced versus received, with reason) and factoring reconciliation (submitted, funded, reserves held, fees).
 - **Module 9** — broker scorecard, per-truck P&L, cash flow forecast, and Xero sync are view-shaped and can come later once the underlying modules are live.
 

@@ -17,7 +17,7 @@ One gap worth naming: **Load Detail does not display charges at all today** (`Ra
 Every classification carries a pay class: `revenue` (split at the policy percentage) or `reimbursement` (paid at actual cost). The mapping lives on the pay policy, not in code — a carrier that splits washout as revenue configures it that way.
 
 - New classification `reimbursement` — label "Reimbursement — driver-paid cost" — added to the dropdown.
-- `lumper` is mapped to `reimbursement` by the default company policy, not hardcoded.
+- `lumper` remains mapped to `revenue` by the default company policy so existing lumper charges keep their 100% percentage treatment. A driver-paid lumper uses the explicit `reimbursement` classification.
 - `payTreatment()` returns `{ kind: 'at_cost', label: 'reimbursed at cost' }` for any classification whose class is reimbursement, and the existing percentage path otherwise. Call sites render the label unchanged.
 
 ### 2. Three fields on the charge
@@ -46,14 +46,14 @@ Where funding source is set: driver-funded reimburses the driver at cost; compan
 
 Database (one migration):
 
-- `pay_policies`: add `charge_pay_classes jsonb not null default` mapping classification key to `revenue`/`reimbursement`, seeded with `lumper` and `reimbursement` as reimbursement, everything else revenue. Backfill existing rows with the same default.
+- `pay_policies`: add `charge_pay_classes jsonb not null default` mapping classification key to `revenue`/`reimbursement`, seeded with `lumper` as revenue, `reimbursement` as reimbursement, and everything else revenue. Backfill existing rows with the same default.
 - `load_charges`: add `funding_source text` (check: `driver`/`company`), `actual_cost numeric`, `proof_document_id uuid references public.load_documents(id) on delete set null`, plus an index on `proof_document_id`.
 - Enum `load_document_type`: add `reimbursement_proof`.
 - In-place edit of `create_load_with_stops` and `update_load_with_stops` to persist the three new charge fields (existing parser/loadout behaviour preserved byte-for-byte otherwise).
 
 Code:
 
-- `src/lib/revisedRateCon.ts` — add `reimbursement` to `ClassificationKey`, `CLASSIFICATION_LABELS`, `CLASSIFICATION_OPTIONS`. `FULL_PAY_CLASSIFICATIONS` keeps meaning "100% percentage class" and loses `lumper`, since lumper's treatment now comes from the class.
+- `src/lib/revisedRateCon.ts` — add `reimbursement` to `ClassificationKey`, `CLASSIFICATION_LABELS`, `CLASSIFICATION_OPTIONS`. `FULL_PAY_CLASSIFICATIONS` keeps meaning "100% percentage class" and keeps `lumper` unless Phase 2 deliberately migrates it.
 - `src/lib/payTreatment.ts` — read `charge_pay_classes` from the policy; return `at_cost` for reimbursement classes.
 - `src/pages/dispatch/loadFormSchema.ts` and `src/lib/loadSavePayload.ts` — carry `funding_source`, `actual_cost`, `proof_document_id` through the charge schema and save payload.
 - New `src/components/dispatch/loadDetail/LoadChargesCard.tsx` — charge list, treatment label, unconfirmed banner, inline reimbursement editor with the disclosure text; wired into `LoadDetailPage` after Rate Details.

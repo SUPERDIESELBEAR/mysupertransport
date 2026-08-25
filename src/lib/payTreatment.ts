@@ -22,8 +22,8 @@ export type PayTreatment =
  * it, with any difference falling to the company.
  *
  * Which charge types are reimbursements is POLICY, stored on the pay policy —
- * a carrier who splits washout as revenue configures it that way. Lumper being
- * a reimbursement is a default, not a property of the charge type.
+ * a carrier who splits washout as revenue configures it that way. Lumper stays
+ * revenue by default so existing percentage treatment does not change silently.
  */
 export type PayClass = 'revenue' | 'reimbursement';
 
