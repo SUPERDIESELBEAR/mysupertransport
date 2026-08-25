@@ -62,7 +62,53 @@ Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-
 - **33 query sites in `src/components/inspection/` swallow errors;** failures are not surfaced to the UI.
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
-- **`certify_rods_day` live RPC execution arm** cannot run in this environment and is one of the two permanent named skips.
+
+## Build order
+
+The file records what is built and the rules learned; this section records the sequence and why it is the sequence, so the next session does not have to reconstruct it from conversation.
+
+### Current state
+
+- Module 1 — Owner-Operator Management: ~95% complete.
+- Module 8 — Compliance & Documents: ~90% complete.
+- Module 2 — Load Management: substantially built; parser, revision review, and duplicate detection are complete.
+
+### Remaining sequence
+
+1. **Messaging as a docked panel** — load-contextual threads available where the work is happening.
+2. **Reimbursement pay class (Module 2 portion)** and **Phase 1 broker extensions** — carrier packet and signed broker-carrier agreement on the broker record, multiple broker contacts, do-not-load flag with reason and date, dispatcher notes and rating.
+3. **Module 3 — Dispatch Board**, load-aware.
+4. **Module 5 — Accessorials**.
+5. **Module 6 — Fuel**.
+6. **Module 4 — Settlement Engine**.
+7. **Module 7 — Billing and Invoicing**.
+8. **Module 11 — Driver App** settlement views, check-ins, document capture, expense submission.
+9. **Module 9 — Reporting and Financial Intelligence**.
+10. **Module 10 — Integrations**, except Motive HOS, which is pulled forward into Module 3 for driver availability.
+11. **Driver Qualification Files** — a separate arc after the TMS is complete.
+
+### Dependency reasoning
+
+A settlement is linehaul plus accessorials minus fuel and deductions, so Modules 5 and 6 must precede Module 4. Module 7 needs settled loads. Module 11's settlement views need Module 4. Module 9 needs the other modules populated with real data. Building any of these earlier means building against empty tables.
+
+### What must land with its module
+
+Schema-shaped work is expensive to retrofit; view-shaped work is not. These must ship with the module that owns them:
+
+- **Module 4** — chargebacks with signed authorization attached, the R&M Deposit statement (running balance, deposits, withdrawals), the reimbursement pay class payout rule, and the settlement preview with a driver dispute window.
+- **Module 7** — short-pay tracking (invoiced versus received, with reason) and factoring reconciliation (submitted, funded, reserves held, fees).
+- **Module 9** — broker scorecard, per-truck P&L, cash flow forecast, and Xero sync are view-shaped and can come later once the underlying modules are live.
+
+### Deferred
+
+Consciously postponed, not forgotten:
+
+- Safety and compliance operations: accident register, structured roadside inspections, DataQs, drug and alcohol program, FMCSA Clearinghouse, annual MVR reviews.
+- Tax and registration calendar: IFTA, IRP, Form 2290, UCR.
+- Load templates and lane history.
+- Load board integration.
+- Recruiting analytics.
+
 
 ## Verbatim verification: document-determined regions (2026-08-22)
 
