@@ -293,6 +293,8 @@ export default function BrokerDialog({
     await qc.invalidateQueries({ queryKey: ['load-form-brokers'] });
     await qc.invalidateQueries({ queryKey: ['brokers'] });
     await qc.invalidateQueries({ queryKey: ['broker-dialog-existing'] });
+    await qc.invalidateQueries({ queryKey: ['broker-dnl-history', data.id] });
+
     if (isEdit) onSaved?.(); else onCreated?.(data.id);
     onOpenChange(false);
     toast({ description: `${data.company_name} ${isEdit ? 'updated' : 'added'}.` });
