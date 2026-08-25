@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_load_linked_messages(uuid) FROM anon;
