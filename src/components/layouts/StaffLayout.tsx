@@ -150,6 +150,44 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
   };
 
 
+  const renderNavItem = (item: NavItem, isMobileDrawer: boolean) => (
+    <Tooltip key={item.path}>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => handleNavClick(item.path)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            currentPath === item.path
+              ? 'bg-gold/15 text-gold border border-gold/25'
+              : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
+          }`}
+        >
+          {/* Icon with optional badge */}
+          <span className="relative shrink-0">
+            {item.icon}
+            {item.badge != null && item.badge > 0 && !(sidebarOpen || isMobileDrawer) && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                {item.badge > 99 ? '99+' : item.badge}
+              </span>
+            )}
+          </span>
+          {(sidebarOpen || isMobileDrawer) && (
+            <span className="flex-1 flex items-center justify-between min-w-0">
+              <span className="truncate">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span className="ml-1.5 shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      {!sidebarOpen && !isMobileDrawer && (
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      )}
+    </Tooltip>
+  );
+
   const sidebarContent = (isMobileDrawer = false) => (
     <>
       {/* Logo */}
