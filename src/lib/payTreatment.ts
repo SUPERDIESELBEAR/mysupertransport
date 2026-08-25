@@ -16,6 +16,33 @@ export type PayTreatment =
   | { kind: 'at_cost'; label: string }
   | { kind: 'unknown'; label: null };
 
+/**
+ * What a classification does with the money. `revenue` splits the line at the
+ * policy percentage; `reimbursement` pays back the actual cost to whoever spent
+ * it, with any difference falling to the company.
+ *
+ * Which charge types are reimbursements is POLICY, stored on the pay policy —
+ * a carrier who splits washout as revenue configures it that way. Lumper being
+ * a reimbursement is a default, not a property of the charge type.
+ */
+export type PayClass = 'revenue' | 'reimbursement';
+
+/** Fallback used only when a policy row predates the column or fails to load. */
+export const DEFAULT_CHARGE_PAY_CLASSES: Record<ClassificationKey, PayClass> = {
+  linehaul: 'revenue',
+  fsc: 'revenue',
+  detention: 'revenue',
+  stopoff: 'revenue',
+  // Lumper stays revenue-classed at its existing 100% so no charge already on a
+  // load changes treatment in this pass. A lumper the driver paid out of pocket
+  // is classified explicitly as "Reimbursement — driver-paid cost".
+  lumper: 'revenue',
+  layover: 'revenue',
+  tonu: 'revenue',
+  reimbursement: 'reimbursement',
+  other: 'revenue',
+};
+
 export interface PayPolicyRates {
   id: string;
   name: string;
@@ -27,11 +54,13 @@ export interface PayPolicyRates {
   lumper_reimbursement_pct: number;
   tonu_pct: number;
   other_accessorial_pct: number;
+  /** Classification key → pay class, as configured on this policy. */
+  charge_pay_classes?: Record<string, string> | null;
 }
 
 const POLICY_COLUMNS =
   'id, name, linehaul_pct, fsc_pct, detention_pct, layover_pct, stopoff_pct, '
-  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct';
+  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, charge_pay_classes';
 
 /** Percentage column backing each classification. */
 const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
@@ -42,8 +71,21 @@ const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
   lumper: 'lumper_reimbursement_pct',
   layover: 'layover_pct',
   tonu: 'tonu_pct',
+  // Never read while this class is a reimbursement; present so the map stays
+  // exhaustive and a policy that reclassifies it as revenue still resolves.
+  reimbursement: 'other_accessorial_pct',
   other: 'other_accessorial_pct',
 };
+
+/** The pay class in force for a classification under this policy. */
+export function payClassOf(
+  klass: ClassificationKey,
+  policy: PayPolicyRates | null,
+): PayClass {
+  const configured = policy?.charge_pay_classes?.[klass];
+  if (configured === 'revenue' || configured === 'reimbursement') return configured;
+  return DEFAULT_CHARGE_PAY_CLASSES[klass];
+}
 
 const trimPct = (n: number) =>
   Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
@@ -54,6 +96,9 @@ export function payTreatment(
   policy: PayPolicyRates | null,
 ): PayTreatment {
   if (!policy) return { kind: 'unknown', label: null };
+  if (payClassOf(klass, policy) === 'reimbursement') {
+    return { kind: 'at_cost', label: 'reimbursed at cost' };
+  }
   const pct = Number(policy[PCT_FIELD[klass]]);
   if (!Number.isFinite(pct)) return { kind: 'unknown', label: null };
   return { kind: 'percentage', pct, label: `${trimPct(pct)}% to driver` };

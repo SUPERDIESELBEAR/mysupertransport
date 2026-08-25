@@ -20,6 +20,8 @@ Date: 2026-08-22
 | Revised rate con re-parse | Comparison review screen for revised documents. |
 | Duplicate detection | Broker reference/MC duplicate warnings at parse and save time; overrides are audit-logged. |
 | Load Detail tab layout | Decided: Operations / Financials / Documentation / Audit & Claims; to be built when Module 5 lands. |
+| Charges card placement | Lives after Rate Details today; goes under Financials with the tab work. The card takes only `loadId`, `operatorId` and `canEdit`, reads its own rows and holds no reference to its neighbours, so the move is a change of placement only. |
+| Charge pay class | Every classification carries a pay class: `revenue` (percentage split) or `reimbursement` (paid at actual cost). Defaults live in `DEFAULT_CHARGE_PAY_CLASSES`; a policy may override via `pay_policies.charge_pay_classes`. Lumper stays `revenue` at 100% so no existing charge changed treatment — a driver-paid lumper is classified explicitly as "Reimbursement — driver-paid cost". |
 
 ### Rate confirmation parsing — refinements
 

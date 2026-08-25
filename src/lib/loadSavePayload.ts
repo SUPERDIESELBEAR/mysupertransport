@@ -136,6 +136,11 @@ export function buildLoadSavePayload(
         description: c.description || '',
         amount: String(c.amount),
         source: c.source || (opts.isEdit ? 'manual' : 'parsed_rate_confirmation'),
+        // Reimbursement confirmations survive a load edit only because they
+        // travel back out with the charge they belong to.
+        funding_source: c.funding_source || '',
+        actual_cost: c.actual_cost ? String(c.actual_cost) : '',
+        proof_document_id: c.proof_document_id || '',
       })),
   ];
 

@@ -41,6 +41,7 @@ export const DOCUMENT_TYPE_ORDER: LoadDocumentType[] = [
   'pod',
   'scale_ticket',
   'lumper_receipt',
+  'reimbursement_proof',
   'detention_documentation',
   'permit',
   'broker_correspondence',

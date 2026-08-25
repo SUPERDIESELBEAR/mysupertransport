@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.update_load_with_stops(uuid, jsonb, jsonb, jsonb, text);

@@ -303,6 +303,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role management|owner|dispatcher|onboarding_staff; stores the verdicts
   // for this load's verbatim captures. Writes one jsonb column, nothing else.
   "public.set_load_verbatim_verification(uuid,jsonb)",
+  // is_staff, or the operator assigned to the load; returns only messages linked
+  // to that load. Read-only.
+  "public.get_load_linked_messages(uuid)",
+
+
 
   // Token-gated public endpoints that also hold the authenticated grant; see
   // the KNOWN_ANON_EXECUTABLE entries above for the gate each one enforces.
@@ -322,7 +327,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + set_load_verbatim_verification, then file_load_references and
 // resolve_parser_diagnostic (record_load_reference_baseline dropped).
 // + log_parser_diagnostics, which replaced the direct client insert.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 90;
+// + get_load_linked_messages, the staff/assigned-operator reader for messages
+// linked to a load.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 91;
 
 
 /**
