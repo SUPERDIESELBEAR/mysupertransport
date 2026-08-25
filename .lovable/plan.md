@@ -1,55 +1,36 @@
-# Ground the Blue Grace end-to-end fixture in the real document, and correct the coverage claim
+# Messages section on ST26035 — diagnosis and fix
 
-Two corrections accepted. Both are true.
+## Answering your two theories
 
-## 1. The fixture invents the document it is named after
+Neither one is the cause, based on reading the code:
 
-Confirmed against the stored load (ST26035, the real parse of this tender):
+1. **`isStaff` is not excluding you.** In `useAuth`, `isStaff = isManagement || isOnboardingStaff || isDispatcher`, and `isManagement = roles.includes('management') || isOwner`. Owner and management both satisfy `isStaff`. Nothing else needs changing there.
+2. **`LoadMessagesCard` never returns null.** It always renders the heading, the Message button, and one of three bodies (loading / empty / list). With no driver, the button is still rendered and warns via toast on click — exactly as described.
 
-| Field | Fixture asserts | The real document |
-| :-- | :-- | :-- |
-| Commodity | Avocados | MIXED PRODUCTS |
-| Linehaul / FSC / total | 3200 / 400 / 3600 | 1224 / 176 / 1400 |
-| Stop 1 | CALAVO GROWERS, Santa Paula CA 93060 | Calavo Librado Pina, Laredo TX 78045 |
-| Stop 2 | KROGER DISTRIBUTION CENTER, Cincinnati OH 45214 | Calavo Texas, Garland TX 75041 |
-| Reefer setpoint | 34F | 38F |
-| Weight | 42,000 | 43,500 |
-| Stop 2 comment | `Comments: DEL# 001000562117` | `Comments: PO# 001000562117` |
+So the missing section has a third cause that I have not confirmed yet. Confirmed facts about ST26035 (`0b022130…`): no operator assigned, zero rows in `messages` with that `load_id` — so the expected state is heading + "No messages linked to this load yet".
 
-Only the reference numbers, the `¶` / `OS&D` layer artefacts and the two verbatim blocks came from the page. Everything else was invented.
+## Step 1 — Confirm why it is absent (before changing behavior)
 
-Taking the second option: derive the fixture from the real document rather than renaming the file.
+Drive the real page in a headless browser with your session, land on the load, and capture:
+- whether the "Messages about this load" heading exists in the DOM,
+- whether a `SectionErrorBoundary` fallback ("This section could not be displayed") is showing in its place,
+- console errors and the network result of the `messages?load_id=eq.…` request.
 
-### Where the real values come from
-The tender's own parse is stored — load ST26035 with its stops, references and `verbatim_verification` record. That row is the source for the rebuilt fixture, so the fixture is a transcript of a real parse rather than an authored one.
+That distinguishes the three remaining possibilities: a boundary-caught render fault, a stale preview bundle, or the section rendering but visually reading as nothing.
 
-- `blueGraceParseResult.ts` is rebuilt field by field from that stored row: broker, load, reefer, rate and line items, both stops with their real facilities, cities, zips, appointment windows and comment lines, and the reference list in printed order.
-- `blueGracePage.ts` is rebuilt to print those same values, keeping the existing real layer blocks (`BG_SPECIAL_INSTRUCTIONS_LAYER`, `BG_BROKER_TERMS_LAYER`) unchanged and in their printed positions, so anchor resolution still runs against the page structure it runs against in production.
-- The revised variant keeps its three-change shape (financial change, appointment move, `Pickup Number 562117` removed and `PRO` added), now expressed as deltas on the real numbers: linehaul 1224 to a revised figure, stop 2 a day later.
-- A header comment states plainly: these values are the stored parse of the real tender; do not hand-edit them to make a test pass.
-- Everything downstream stays real — the assertions in `blueGraceLoadPath.test.tsx` move to the real numbers, nothing about the path changes.
+## Step 2 — Make the no-driver state self-explanatory
 
-Stop 2's `PO#` label matters: the fixture's invented `DEL#` was exercising a label the document never prints.
+Regardless of Step 1's result, apply your rule to `LoadMessagesCard`:
+- Keep the section heading always.
+- When `driverUserId` is null: render the Message button **disabled** and labeled "Message Driver", with body text "No driver assigned to this load yet. Messages already linked to this load stay visible here." The toast-warning path is then unreachable for this case, so it gets removed.
+- Keep showing any existing load-linked messages even when no driver is currently assigned, so a reassignment or unassignment never hides history.
 
-## 2. The coverage table overstates one row
+## Step 3 — One real gap worth naming
 
-The `verbatim_verification` envelope bug is corrected to **no**. The end-to-end test asserts the shape the *writer* stores; that bug was the *reader* assuming a bare array against a correct writer, and no component renders in this test. It could not have caught it.
+RLS on `messages` limits reads to `sender_id = auth.uid() OR recipient_id = auth.uid()` (plus group threads). So this card only shows load-linked messages **you** were party to — a load with a dispatcher-to-driver conversation will look empty to a different staff member. That is a separate change (a staff-read policy or an RPC scoped to load-linked messages) and I would not fold it into this fix. Say the word and I will plan it next.
 
-What does catch it: `verbatimVerificationCard.test.tsx`, which renders the card against the writer's own output. That covers this one card.
+## Technical notes
 
-The general gap is recorded as a known limit, not as coverage: **no end-to-end test renders a component against stored data.** The e2e test stops at the database row; component correctness against that row is covered only where a reader-boundary test exists for that specific component.
-
-Both corrections go into `docs/tms-build-status.md` alongside the table, so the next reader sees the limit and not a checkmark.
-
-## 3. Record why Blue Grace's special instructions read `verified`
-
-Worth pinning as stated: the layer renders `53' 102"` as `¶`, and the model resolved it back. The damage is in the layer, not in the transcription — so `layerDegradation` is non-zero while `transcriptionDamage` is null, and `verified` at similarity 0.9929 is the correct verdict. Both halves get an assertion and a comment naming the reason, so a later change that starts flagging the transcription fails here.
-
-## Files
-
-- `src/test/fixtures/blueGraceParseResult.ts` — rebuilt from the stored parse
-- `src/test/fixtures/blueGracePage.ts` — page text rebuilt around the real values, real layer blocks unchanged
-- `src/test/e2e/blueGraceLoadPath.test.tsx` — assertions moved to the real values; verdict assertion documented
-- `docs/tms-build-status.md` — corrected coverage row, the rendering-gap limit, the verdict rationale
-
-No production code changes. Nothing is applied or filed on any live load.
+- Files touched: `src/components/dispatch/loadDetail/LoadMessagesCard.tsx` only.
+- No schema, RLS, or `useAuth` changes in this plan.
+- Verification script lives under `/tmp/browser/`, not in the project.
