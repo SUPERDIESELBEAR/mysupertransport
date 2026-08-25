@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BrokerSelect from '@/components/dispatch/loadForm/BrokerSelect';
 import type { Broker } from '@/lib/brokers';
+import { brokerFixture } from '@/test/helpers/brokerFixture';
+
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO;
@@ -13,14 +15,8 @@ vi.mock('@/components/dispatch/loadForm/BrokerDialog', () => ({
   default: () => null,
 }));
 
-const broker: Broker = {
-  id: 'b1', company_name: 'BlueGrace Logistics', mc_number: '123456', dot_number: null,
-  primary_contact_name: null, primary_contact_email: null, primary_contact_phone: null,
-  billing_email: null, address_line1: null, address_line2: null, city: 'Tampa', state: 'FL',
-  zip: null, factoring_status: 'approved', factoring_status_reason: null,
-  factoring_status_updated_at: null, payment_terms: null, avg_days_to_pay: null, notes: null,
-  is_active: true, created_at: null, updated_at: null, load_count: 4,
-};
+const broker: Broker = brokerFixture();
+
 
 vi.mock('@/hooks/useBrokers', () => ({
   BROKERS_QUERY_KEY: ['brokers', 'directory'],

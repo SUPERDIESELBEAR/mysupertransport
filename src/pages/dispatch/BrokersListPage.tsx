@@ -29,6 +29,7 @@ export default function BrokersListPage() {
   const [search, setSearch] = useState('');
   const [factoringFilter, setFactoringFilter] = useState('all');
   const [activeFilter, setActiveFilter] = useState('active');
+  const [relationshipFilter, setRelationshipFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Broker | null>(null);
   const debouncedSearch = useDebouncedValue(search, 200);
@@ -52,6 +53,9 @@ export default function BrokersListPage() {
       if (factoringFilter !== 'all' && (b.factoring_status ?? '') !== factoringFilter) return false;
       if (activeFilter === 'active' && !b.is_active) return false;
       if (activeFilter === 'inactive' && b.is_active) return false;
+      if (relationshipFilter === 'do_not_load' && !b.do_not_load) return false;
+      if (relationshipFilter === 'packet_missing' && b.carrier_packet_completed) return false;
+      if (relationshipFilter === 'agreement_missing' && b.broker_agreement_signed) return false;
       if (!q) return true;
       if (b.company_name.toLowerCase().includes(q)) return true;
       const mc = normalizeMC(b.mc_number);
@@ -62,7 +66,7 @@ export default function BrokersListPage() {
         compareValues(activeColumn.sortValue(a), activeColumn.sortValue(b), sort.direction));
     }
     return rows;
-  }, [brokers, debouncedSearch, factoringFilter, activeFilter, sort, activeColumn]);
+  }, [brokers, debouncedSearch, factoringFilter, activeFilter, relationshipFilter, sort, activeColumn]);
 
   const openAdd = () => { setEditing(null); setDialogOpen(true); };
   const openEdit = (broker: Broker) => { setEditing(broker); setDialogOpen(true); };
@@ -109,6 +113,15 @@ export default function BrokersListPage() {
             <SelectItem value="all">All</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={relationshipFilter} onValueChange={setRelationshipFilter}>
+          <SelectTrigger className="sm:w-52"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Relationships</SelectItem>
+            <SelectItem value="do_not_load">Do Not Load</SelectItem>
+            <SelectItem value="packet_missing">Carrier Packet Missing</SelectItem>
+            <SelectItem value="agreement_missing">Agreement Not Signed</SelectItem>
+          </SelectContent>
+        </Select>
         <ColumnVisibilityMenu
           columns={BROKER_COLUMN_TOGGLES}
           visible={visibleColumns}
@@ -147,7 +160,10 @@ export default function BrokersListPage() {
           <p className="text-sm font-semibold text-foreground">No brokers match the current filters</p>
           <Button
             size="sm" variant="outline" className="mt-4"
-            onClick={() => { setSearch(''); setFactoringFilter('all'); setActiveFilter('all'); }}
+            onClick={() => {
+              setSearch(''); setFactoringFilter('all'); setActiveFilter('all');
+              setRelationshipFilter('all');
+            }}
           >
             Clear filters
           </Button>
@@ -199,6 +215,11 @@ export default function BrokersListPage() {
                   <span className="font-semibold text-sm text-foreground truncate">{b.company_name}</span>
                   <span className="text-[11px] text-muted-foreground shrink-0">{b.load_count} loads</span>
                 </div>
+                {b.do_not_load && (
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-destructive">
+                    Do not load
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {[b.mc_number ? `MC ${b.mc_number}` : 'No MC', [b.city, b.state].filter(Boolean).join(', ')]
                     .filter(Boolean).join(' · ')}

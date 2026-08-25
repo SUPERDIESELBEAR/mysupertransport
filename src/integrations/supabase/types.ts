@@ -721,6 +721,118 @@ export type Database = {
           },
         ]
       }
+      broker_contacts: {
+        Row: {
+          broker_id: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_primary: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          role: Database["public"]["Enums"]["broker_contact_role"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          broker_id: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          role?: Database["public"]["Enums"]["broker_contact_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          broker_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          role?: Database["public"]["Enums"]["broker_contact_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_contacts_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_contacts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_do_not_load_history: {
+        Row: {
+          broker_id: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_value: boolean
+          previous_value: boolean | null
+          reason: string | null
+        }
+        Insert: {
+          broker_id: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_value: boolean
+          previous_value?: boolean | null
+          reason?: string | null
+        }
+        Update: {
+          broker_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_value?: boolean
+          previous_value?: boolean | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_do_not_load_history_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_do_not_load_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broker_documents: {
         Row: {
           broker_id: string
@@ -838,16 +950,79 @@ export type Database = {
           },
         ]
       }
+      broker_notes: {
+        Row: {
+          body: string
+          broker_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body: string
+          broker_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: string
+          broker_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_notes_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_notes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brokers: {
         Row: {
           address_line1: string | null
           address_line2: string | null
           avg_days_to_pay: number | null
           billing_email: string | null
+          broker_agreement_document_id: string | null
+          broker_agreement_recorded_by: string | null
+          broker_agreement_signed: boolean
+          broker_agreement_signed_at: string | null
+          carrier_packet_completed: boolean
+          carrier_packet_completed_at: string | null
+          carrier_packet_completed_by: string | null
           city: string | null
           company_name: string
           created_at: string
           created_by: string | null
+          do_not_load: boolean
+          do_not_load_reason: string | null
+          do_not_load_set_at: string | null
+          do_not_load_set_by: string | null
           dot_number: string | null
           factoring_status: Database["public"]["Enums"]["broker_factoring_status"]
           factoring_status_reason: string | null
@@ -860,6 +1035,7 @@ export type Database = {
           primary_contact_email: string | null
           primary_contact_name: string | null
           primary_contact_phone: string | null
+          rating: number | null
           state: string | null
           updated_at: string
           updated_by: string | null
@@ -870,10 +1046,21 @@ export type Database = {
           address_line2?: string | null
           avg_days_to_pay?: number | null
           billing_email?: string | null
+          broker_agreement_document_id?: string | null
+          broker_agreement_recorded_by?: string | null
+          broker_agreement_signed?: boolean
+          broker_agreement_signed_at?: string | null
+          carrier_packet_completed?: boolean
+          carrier_packet_completed_at?: string | null
+          carrier_packet_completed_by?: string | null
           city?: string | null
           company_name: string
           created_at?: string
           created_by?: string | null
+          do_not_load?: boolean
+          do_not_load_reason?: string | null
+          do_not_load_set_at?: string | null
+          do_not_load_set_by?: string | null
           dot_number?: string | null
           factoring_status?: Database["public"]["Enums"]["broker_factoring_status"]
           factoring_status_reason?: string | null
@@ -886,6 +1073,7 @@ export type Database = {
           primary_contact_email?: string | null
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
+          rating?: number | null
           state?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -896,10 +1084,21 @@ export type Database = {
           address_line2?: string | null
           avg_days_to_pay?: number | null
           billing_email?: string | null
+          broker_agreement_document_id?: string | null
+          broker_agreement_recorded_by?: string | null
+          broker_agreement_signed?: boolean
+          broker_agreement_signed_at?: string | null
+          carrier_packet_completed?: boolean
+          carrier_packet_completed_at?: string | null
+          carrier_packet_completed_by?: string | null
           city?: string | null
           company_name?: string
           created_at?: string
           created_by?: string | null
+          do_not_load?: boolean
+          do_not_load_reason?: string | null
+          do_not_load_set_at?: string | null
+          do_not_load_set_by?: string | null
           dot_number?: string | null
           factoring_status?: Database["public"]["Enums"]["broker_factoring_status"]
           factoring_status_reason?: string | null
@@ -912,6 +1111,7 @@ export type Database = {
           primary_contact_email?: string | null
           primary_contact_name?: string | null
           primary_contact_phone?: string | null
+          rating?: number | null
           state?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -919,8 +1119,36 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "brokers_broker_agreement_document_id_fkey"
+            columns: ["broker_agreement_document_id"]
+            isOneToOne: false
+            referencedRelation: "broker_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brokers_broker_agreement_recorded_by_fkey"
+            columns: ["broker_agreement_recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brokers_carrier_packet_completed_by_fkey"
+            columns: ["carrier_packet_completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "brokers_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brokers_do_not_load_set_by_fkey"
+            columns: ["do_not_load_set_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -9698,6 +9926,12 @@ export type Database = {
         | "cancelled"
         | "expired"
       approval_status: "pending" | "approved" | "denied"
+      broker_contact_role:
+        | "dispatch"
+        | "accounts_payable"
+        | "claims"
+        | "after_hours"
+        | "other"
       broker_factoring_status:
         | "approved"
         | "not_approved"
@@ -10005,6 +10239,13 @@ export const Constants = {
         "expired",
       ],
       approval_status: ["pending", "approved", "denied"],
+      broker_contact_role: [
+        "dispatch",
+        "accounts_payable",
+        "claims",
+        "after_hours",
+        "other",
+      ],
       broker_factoring_status: [
         "approved",
         "not_approved",

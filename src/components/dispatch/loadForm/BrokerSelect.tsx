@@ -9,7 +9,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/hooks/useAuth';
 import { BROKERS_QUERY_KEY, useBrokers } from '@/hooks/useBrokers';
 import { cn } from '@/lib/utils';
+import BrokerDoNotLoadWarning from '@/components/dispatch/broker/BrokerDoNotLoadWarning';
 import BrokerDialog from './BrokerDialog';
+
 
 interface Props {
   value: string;
@@ -115,6 +117,8 @@ export default function BrokerSelect({ value, onChange, optional, provisionalNam
           Read from the rate confirmation — not linked to a broker record yet. Create or select the broker.
         </p>
       )}
+      {selected?.do_not_load && <BrokerDoNotLoadWarning broker={selected} />}
+
 
       <BrokerDialog
         open={addOpen}

@@ -27,6 +27,11 @@ import {
   FACTORING_STATUSES, FACTORING_STATUS_LABELS, type Broker, type FactoringStatus,
 } from '@/lib/brokers';
 import BrokerCandidateRow from './BrokerCandidateRow';
+import BrokerPaperworkSection from '@/components/dispatch/broker/BrokerPaperworkSection';
+import BrokerDoNotLoadFields from '@/components/dispatch/broker/BrokerDoNotLoadFields';
+import BrokerContactsSection from '@/components/dispatch/broker/BrokerContactsSection';
+import BrokerNotesSection from '@/components/dispatch/broker/BrokerNotesSection';
+
 
 export interface BrokerDialogValues {
   company_name: string;
@@ -123,6 +128,15 @@ export default function BrokerDialog({
   const [overrideReason, setOverrideReason] = useState('');
   const [factoringStatus, setFactoringStatus] = useState<FactoringStatus | ''>('');
   const [factoringReason, setFactoringReason] = useState('');
+  // Relationship state (edit mode only). Actor and timestamp columns are never
+  // sent from here — the stamp_brokers_actor() trigger owns them.
+  const [packetCompleted, setPacketCompleted] = useState(false);
+  const [agreementSigned, setAgreementSigned] = useState(false);
+  const [agreementDocumentId, setAgreementDocumentId] = useState<string | null>(null);
+  const [doNotLoad, setDoNotLoad] = useState(false);
+  const [doNotLoadReason, setDoNotLoadReason] = useState('');
+  const [rating, setRating] = useState<number | null>(null);
+
 
   const { data: existingBrokers } = useQuery({
     queryKey: ['broker-dialog-existing'],
@@ -153,9 +167,16 @@ export default function BrokerDialog({
     });
     setFactoringStatus(broker?.factoring_status ?? '');
     setFactoringReason('');
+    setPacketCompleted(broker?.carrier_packet_completed ?? false);
+    setAgreementSigned(broker?.broker_agreement_signed ?? false);
+    setAgreementDocumentId(broker?.broker_agreement_document_id ?? null);
+    setDoNotLoad(broker?.do_not_load ?? false);
+    setDoNotLoadReason(broker?.do_not_load_reason ?? '');
+    setRating(broker?.rating ?? null);
     setDuplicates([]);
     setOverrideReason('');
   }, [open, initial, broker]);
+
 
   useEffect(() => {
     if (!open || !existingBrokers?.length) return;
@@ -219,14 +240,34 @@ export default function BrokerDialog({
       toast({ variant: 'destructive', description: 'A reason is required when changing factoring status.' });
       return;
     }
+    if (isEdit && doNotLoad && !doNotLoadReason.trim()) {
+      toast({
+        variant: 'destructive',
+        description: 'A reason is required when a broker is flagged do-not-load.',
+      });
+      return;
+    }
 
-    const writePayload = factoringChanged
-      ? {
-        ...payload,
-        factoring_status: factoringStatus as FactoringStatus,
-        factoring_status_reason: factoringReason.trim(),
-      }
-      : payload;
+    const writePayload = {
+      ...payload,
+      ...(factoringChanged
+        ? {
+          factoring_status: factoringStatus as FactoringStatus,
+          factoring_status_reason: factoringReason.trim(),
+        }
+        : {}),
+      ...(isEdit
+        ? {
+          carrier_packet_completed: packetCompleted,
+          broker_agreement_signed: agreementSigned,
+          broker_agreement_document_id: agreementDocumentId,
+          do_not_load: doNotLoad,
+          do_not_load_reason: doNotLoad ? doNotLoadReason.trim() : null,
+          rating,
+        }
+        : {}),
+    };
+
 
     setSaving(true);
     const query = broker
@@ -252,6 +293,8 @@ export default function BrokerDialog({
     await qc.invalidateQueries({ queryKey: ['load-form-brokers'] });
     await qc.invalidateQueries({ queryKey: ['brokers'] });
     await qc.invalidateQueries({ queryKey: ['broker-dialog-existing'] });
+    await qc.invalidateQueries({ queryKey: ['broker-dnl-history', data.id] });
+
     if (isEdit) onSaved?.(); else onCreated?.(data.id);
     onOpenChange(false);
     toast({ description: `${data.company_name} ${isEdit ? 'updated' : 'added'}.` });
@@ -449,7 +492,7 @@ export default function BrokerDialog({
               </div>
             )}
 
-            {showAddress && (
+            {showAddress && !isEdit && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="broker-dialog-notes">Notes</Label>
                 <Textarea
@@ -460,6 +503,7 @@ export default function BrokerDialog({
                 />
               </div>
             )}
+
 
             {isEdit && (
               <>
@@ -512,8 +556,47 @@ export default function BrokerDialog({
                     </div>
                   </div>
                 </div>
+
+                {broker && (
+                  <>
+                    <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 p-3">
+                      <BrokerPaperworkSection
+                        brokerId={broker.id}
+                        packetCompleted={packetCompleted}
+                        onPacketCompletedChange={setPacketCompleted}
+                        packetCompletedAt={broker.carrier_packet_completed_at}
+                        agreementSigned={agreementSigned}
+                        onAgreementSignedChange={setAgreementSigned}
+                        agreementSignedAt={broker.broker_agreement_signed_at}
+                        agreementDocumentId={agreementDocumentId}
+                        onAgreementDocumentIdChange={setAgreementDocumentId}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 rounded-md border border-border bg-muted/30 p-3">
+                      <BrokerDoNotLoadFields
+                        brokerId={broker.id}
+                        doNotLoad={doNotLoad}
+                        onDoNotLoadChange={setDoNotLoad}
+                        reason={doNotLoadReason}
+                        onReasonChange={setDoNotLoadReason}
+                        rating={rating}
+                        onRatingChange={setRating}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 rounded-md border border-border p-3">
+                      <BrokerContactsSection brokerId={broker.id} />
+                    </div>
+
+                    <div className="sm:col-span-2 rounded-md border border-border p-3">
+                      <BrokerNotesSection brokerId={broker.id} legacyNotes={broker.notes} />
+                    </div>
+                  </>
+                )}
               </>
             )}
+
 
             {hasConflict && (
               <div className={`rounded-md border border-warning/40 bg-warning/10 p-3 space-y-2 ${isEdit ? 'sm:col-span-2' : ''}`}>

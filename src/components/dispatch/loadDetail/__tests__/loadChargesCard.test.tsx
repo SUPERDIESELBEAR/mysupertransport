@@ -43,9 +43,11 @@ async function seedLoad(): Promise<string> {
         source: 'parsed_rate_confirmation',
         funding_source: '' as const, actual_cost: '', proof_document_id: '',
       },
-      // Fully confirmed, driver-funded.
+      // Fully confirmed, driver-funded. Deliberately NOT a lumper: lumper stays in
+      // the revenue class by default, so a driver-paid lumper only becomes a
+      // reimbursement when someone reclassifies it explicitly.
       {
-        charge_type: 'lumper', description: 'Lumper at receiver', amount: '125',
+        charge_type: 'reimbursement', description: 'Lumper at receiver', amount: '125',
         source: 'manual',
         funding_source: 'driver' as const, actual_cost: '125', proof_document_id: '',
       },
@@ -89,7 +91,7 @@ describe('LoadChargesCard against real query output', () => {
     expect(screen.getByText('Detention at shipper')).toBeInTheDocument();
 
     // Reimbursement reads as a cost, not a percentage; detention keeps its percentage.
-    expect(screen.getAllByText(/reimbursed at cost/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/reimbursed at cost/).length).toBe(2);
     expect(screen.getByText(/100% to driver/)).toBeInTheDocument();
   });
 
