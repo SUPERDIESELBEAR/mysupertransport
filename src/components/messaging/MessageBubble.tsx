@@ -98,6 +98,26 @@ export function MessageBubble({
             {senderName}
           </div>
         )}
+        {/* Load link — the message still belongs to this conversation; the chip
+            only labels which load it is about. */}
+        {message.load_id && loadNumber && !isDeleted && (
+          onOpenLoad ? (
+            <button
+              type="button"
+              onClick={() => onOpenLoad(message.load_id as string)}
+              className="mb-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <Truck className="h-2.5 w-2.5" />
+              {loadNumber}
+            </button>
+          ) : (
+            <span className="mb-1 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <Truck className="h-2.5 w-2.5" />
+              {loadNumber}
+            </span>
+          )
+        )}
+
 
         {/* ── Bubble + actions ─────────────────────────────────────────── */}
         <div className={cn('relative flex items-end gap-1', isMe ? 'flex-row-reverse' : 'flex-row')}>
