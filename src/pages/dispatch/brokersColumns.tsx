@@ -27,6 +27,11 @@ export const BROKER_COLUMNS: BrokerColumnDef[] = [
     render: b => (
       <span className="flex items-center gap-2">
         <span>{b.company_name}</span>
+        {b.do_not_load && (
+          <span className="text-[10px] uppercase tracking-wide rounded bg-destructive/12 px-1.5 py-0.5 text-destructive">
+            Do Not Load
+          </span>
+        )}
         {!b.is_active && (
           <span className="text-[10px] uppercase tracking-wide rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
             Inactive
@@ -141,6 +146,43 @@ export const BROKER_COLUMNS: BrokerColumnDef[] = [
     sortValue: b => b.avg_days_to_pay,
     render: b => b.avg_days_to_pay ?? '—',
     cellClassName: 'text-right tabular-nums text-muted-foreground',
+  },
+  {
+    key: 'do_not_load',
+    label: 'Do Not Load',
+    defaultVisible: false,
+    sortValue: b => (b.do_not_load ? 1 : 0),
+    render: b => (b.do_not_load ? (b.do_not_load_reason ?? 'Yes') : '—'),
+    cellClassName: muted,
+  },
+  {
+    key: 'rating',
+    label: 'Rating',
+    defaultVisible: true,
+    align: 'right',
+    sortValue: b => b.rating,
+    render: b => (b.rating ? `${b.rating}/5` : '—'),
+    cellClassName: 'text-right tabular-nums text-muted-foreground',
+  },
+  {
+    key: 'carrier_packet_completed',
+    label: 'Carrier Packet',
+    defaultVisible: false,
+    sortValue: b => (b.carrier_packet_completed ? 1 : 0),
+    render: b => (b.carrier_packet_completed
+      ? `Completed${formatShortDate(b.carrier_packet_completed_at) !== '—' ? ` ${formatShortDate(b.carrier_packet_completed_at)}` : ''}`
+      : 'Not completed'),
+    cellClassName: `${muted} whitespace-nowrap`,
+  },
+  {
+    key: 'broker_agreement_signed',
+    label: 'Agreement',
+    defaultVisible: false,
+    sortValue: b => (b.broker_agreement_signed ? 1 : 0),
+    render: b => (b.broker_agreement_signed
+      ? `Signed${formatShortDate(b.broker_agreement_signed_at) !== '—' ? ` ${formatShortDate(b.broker_agreement_signed_at)}` : ''}`
+      : 'Not signed'),
+    cellClassName: `${muted} whitespace-nowrap`,
   },
   {
     key: 'created_at',
