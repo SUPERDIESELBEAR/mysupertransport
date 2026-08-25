@@ -1,16 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { MessageSquare, Paperclip } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { openLoadChat } from '@/lib/loadChat';
 
 interface Props {
   loadId: string;
-  /** auth user id of the assigned driver — null when the load is unassigned. */
-  driverUserId: string | null;
-  driverName: string | null;
-  loadNumber: string;
 }
 
 interface LoadMessageRow {
@@ -50,19 +44,15 @@ async function fetchLoadMessages(loadId: string): Promise<LoadMessageRow[]> {
 /**
  * Messages tied to this load. They live in the driver's normal conversation —
  * this card is a view onto the load-linked subset, not a separate thread.
+ * The entry point for sending a new load-linked message is the Message Driver
+ * button on the Load Summary driver field.
  */
-export default function LoadMessagesCard({ loadId, driverUserId, driverName, loadNumber }: Props) {
+export default function LoadMessagesCard({ loadId }: Props) {
   const { data: messages, isLoading } = useQuery({
     queryKey: ['load-messages', loadId],
     queryFn: () => fetchLoadMessages(loadId),
   });
 
-  const startChat = () => {
-    if (!driverUserId) return;
-    openLoadChat({ driverUserId, loadId, loadNumber });
-  };
-
-  const hasDriver = !!driverUserId;
   const messageCount = messages?.length ?? 0;
 
   return (
@@ -72,31 +62,13 @@ export default function LoadMessagesCard({ loadId, driverUserId, driverName, loa
           <MessageSquare className="h-4 w-4 text-primary" />
           Messages about this load
         </h2>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={startChat}
-          disabled={!hasDriver}
-        >
-          <MessageSquare className="h-4 w-4" />
-          {hasDriver ? `Message ${driverName ? driverName.split(' ')[0] : 'Driver'}` : 'Message Driver'}
-        </Button>
       </div>
-
-      {!hasDriver ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          No driver assigned to this load yet. Messages already linked to this load stay visible here.
-        </p>
-      ) : null}
 
       {isLoading ? (
         <p className="mt-3 text-sm text-muted-foreground">Loading messages…</p>
       ) : messageCount === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          {hasDriver
-            ? `No messages linked to this load yet. Messaging from here keeps the conversation in the driver's inbox and tags it with ${loadNumber}.`
-            : 'No messages linked to this load yet.'}
+          No messages linked to this load yet.
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-border/60">
