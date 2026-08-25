@@ -111,6 +111,35 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
 
+  // Collapsed/expanded state for sidebar groups, remembered per user.
+  const groupStateKey = `staff_nav_groups_${profile?.id ?? 'anon'}`;
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [groupStateLoaded, setGroupStateLoaded] = useState(false);
+
+  useEffect(() => {
+    setGroupStateLoaded(false);
+    try {
+      const stored = localStorage.getItem(groupStateKey);
+      setCollapsedGroups(stored ? JSON.parse(stored) : {});
+    } catch {
+      setCollapsedGroups({});
+    }
+    setGroupStateLoaded(true);
+  }, [groupStateKey]);
+
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem(groupStateKey, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const isGroupOpen = (group: NavGroup) =>
+    collapsedGroups[group.label] != null
+      ? !collapsedGroups[group.label]
+      : !group.defaultCollapsed;
+
   const displayName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : 'User';
   const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
 
@@ -119,6 +148,7 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
     onNavigate(path);
     setMobileSidebarOpen(false); // close mobile drawer on nav
   };
+
 
   const sidebarContent = (isMobileDrawer = false) => (
     <>
