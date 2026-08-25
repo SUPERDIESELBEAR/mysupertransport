@@ -2,6 +2,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import type { BrokerContactRole } from '@/lib/brokers';
 
+function personName(p?: { first_name: string | null; last_name: string | null } | null): string | null {
+  const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim();
+  return name || null;
+}
+
 export const BROKER_DOCS_BUCKET = 'broker-documents';
 
 export type BrokerDocumentCategory = 'carrier_packet' | 'signed_broker_agreement' | 'other';
@@ -110,14 +115,14 @@ interface NoteRow {
   created_at: string;
   updated_at: string;
   created_by: string | null;
-  author?: { full_name: string | null } | null;
+  author?: { first_name: string | null; last_name: string | null } | null;
 }
 
 /** Attributed running record — newest first. Never overwritten as a blob. */
 export async function fetchBrokerNotes(brokerId: string): Promise<BrokerNote[]> {
   const { data, error } = await supabase
     .from('broker_notes')
-    .select('id, broker_id, body, created_at, updated_at, created_by, author:profiles!broker_notes_created_by_fkey(full_name)')
+    .select('id, broker_id, body, created_at, updated_at, created_by, author:profiles!broker_notes_created_by_fkey(first_name, last_name)')
     .eq('broker_id', brokerId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -128,7 +133,7 @@ export async function fetchBrokerNotes(brokerId: string): Promise<BrokerNote[]> 
     created_at: r.created_at,
     updated_at: r.updated_at,
     created_by: r.created_by,
-    author_name: r.author?.full_name ?? null,
+    author_name: personName(r.author),
   }));
 }
 
@@ -193,13 +198,13 @@ interface DnlRow {
   new_value: boolean;
   reason: string | null;
   changed_at: string;
-  actor?: { full_name: string | null } | null;
+  actor?: { first_name: string | null; last_name: string | null } | null;
 }
 
 export async function fetchDoNotLoadHistory(brokerId: string): Promise<BrokerDoNotLoadEvent[]> {
   const { data, error } = await supabase
     .from('broker_do_not_load_history')
-    .select('id, previous_value, new_value, reason, changed_at, actor:profiles!broker_do_not_load_history_changed_by_fkey(full_name)')
+    .select('id, previous_value, new_value, reason, changed_at, actor:profiles!broker_do_not_load_history_changed_by_fkey(first_name, last_name)')
     .eq('broker_id', brokerId)
     .order('changed_at', { ascending: false });
   if (error) throw error;
@@ -209,7 +214,7 @@ export async function fetchDoNotLoadHistory(brokerId: string): Promise<BrokerDoN
     new_value: r.new_value,
     reason: r.reason,
     changed_at: r.changed_at,
-    actor_name: r.actor?.full_name ?? null,
+    actor_name: personName(r.actor),
   }));
 }
 
