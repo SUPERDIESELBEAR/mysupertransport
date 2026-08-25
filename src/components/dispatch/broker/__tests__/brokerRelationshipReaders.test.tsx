@@ -52,16 +52,17 @@ const DNL_ROWS = [
 ];
 
 function tableStub(rows: unknown[]) {
-  const chain: Record<string, unknown> = {};
-  const self = () => chain;
-  chain.select = self;
-  chain.eq = self;
-  chain.order = () => ({ ...chain, then: undefined });
-  // Awaiting the builder resolves to { data, error } like the real client.
-  (chain as { then: unknown }).then = (resolve: (v: unknown) => unknown) =>
-    resolve({ data: rows, error: null });
+  // Awaiting the builder resolves to { data, error } like the real client, and
+  // every filter/order call returns the same thenable so chains of any length work.
+  const chain = {
+    select: () => chain,
+    eq: () => chain,
+    order: () => chain,
+    then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(resolve),
+  };
   return chain;
 }
+
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
