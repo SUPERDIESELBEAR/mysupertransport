@@ -61,6 +61,8 @@ export const chargeSchema = z.object({
   charge_type: z.string().trim().max(60),
   description: z.string().trim().max(200),
   amount: optionalNumber,
+  /** The amount the driver actually paid out-of-pocket for a reimbursement class (e.g. lumper). */
+  driver_paid_amount: optionalNumber,
   /** Provenance carried through an edit so re-saving does not relabel a parsed line. */
   source: z.string().trim().max(60).optional(),
 });

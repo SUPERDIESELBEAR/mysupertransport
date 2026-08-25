@@ -135,6 +135,7 @@ export function buildLoadSavePayload(
         charge_type: c.charge_type || 'other',
         description: c.description || '',
         amount: String(c.amount),
+        driver_paid_amount: c.driver_paid_amount ?? '',
         source: c.source || (opts.isEdit ? 'manual' : 'parsed_rate_confirmation'),
       })),
   ];

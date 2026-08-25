@@ -249,8 +249,8 @@ export const CLASSIFICATION_OPTIONS: ClassificationKey[] = [
   'linehaul', 'fsc', 'detention', 'stopoff', 'lumper', 'layover', 'tonu', 'other',
 ];
 
-/** Classifications that settle at 100% to the driver — surfaced as a hint in the UI. */
-export const FULL_PAY_CLASSIFICATIONS: ClassificationKey[] = ['detention', 'lumper', 'layover'];
+/** Classifications that settle at 100% to the driver. Lumper is excluded because it reimburses at cost. */
+export const FULL_PAY_CLASSIFICATIONS: ClassificationKey[] = ['detention', 'layover'];
 
 export interface FinancialDiff {
   id: string;
