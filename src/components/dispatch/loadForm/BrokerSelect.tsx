@@ -9,7 +9,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/hooks/useAuth';
 import { BROKERS_QUERY_KEY, useBrokers } from '@/hooks/useBrokers';
 import { cn } from '@/lib/utils';
+import BrokerDoNotLoadWarning from '@/components/dispatch/broker/BrokerDoNotLoadWarning';
 import BrokerDialog from './BrokerDialog';
+
 
 interface Props {
   value: string;

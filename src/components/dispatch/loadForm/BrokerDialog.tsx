@@ -449,7 +449,7 @@ export default function BrokerDialog({
               </div>
             )}
 
-            {showAddress && (
+            {showAddress && !isEdit && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="broker-dialog-notes">Notes</Label>
                 <Textarea
@@ -460,6 +460,7 @@ export default function BrokerDialog({
                 />
               </div>
             )}
+
 
             {isEdit && (
               <>
