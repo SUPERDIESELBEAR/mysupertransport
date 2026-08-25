@@ -955,45 +955,75 @@ export default function ManagementPortal() {
     }
   };
 
-  const navItems = [
-    { label: 'Management Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview',        dividerBefore: 'Dashboard' },
-    { label: 'Applications',      icon: <ClipboardList className="h-4 w-4" />,   path: 'applications' },
-    { label: 'Onboarding Pipeline', icon: <Users className="h-4 w-4" />,         path: 'pipeline',          badge: criticalExpiryCount || undefined },
-    { label: 'PEI Queue',         icon: <Briefcase className="h-4 w-4" />,       path: 'pei-queue' },
-    { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages',          badge: unreadMsgCount },
-    { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications',     badge: unreadNotifCount },
-    { label: 'Fleet Compliance',  icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance',        badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
-    { label: 'Dispatch Board',    icon: <Container className="h-4 w-4" />,      path: 'dispatch',          badge: truckDownCount || undefined },
-    { label: 'Loads',             icon: <Truck className="h-4 w-4" />,          path: 'loads' },
-    { label: 'Facilities',        icon: <Building2 className="h-4 w-4" />,      path: 'facilities' },
-    { label: 'Brokers',           icon: <Handshake className="h-4 w-4" />,      path: 'brokers' },
-    { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
-    { label: 'Vehicle Hub',       icon: <Truck className="h-4 w-4" />,           path: 'vehicle-hub' },
-    { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,      path: 'inspection-binder' },
-    { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
-    { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />,     path: 'equipment' },
-    { label: 'ELD Malfunctions', icon: <AlertTriangle className="h-4 w-4" />, path: 'eld-malfunctions' },
-    { label: 'ELD Device Models', icon: <HardDrive className="h-4 w-4" />, path: 'eld-device-models' },
-    { label: 'Driver Logs (RODS)', icon: <FileText className="h-4 w-4" />, path: 'eld-logs' },
-    { label: 'Retention Archive', icon: <Library className="h-4 w-4" />, path: 'eld-retention' },
-    { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />,        path: 'mo-plates' },
-    { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
-    { label: 'Staff Directory',   icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
-    { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
-    { label: 'Staff Help',        icon: <LifeBuoy className="h-4 w-4" />,        path: 'staff-help' },
-    { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
-    { label: 'Activity Log',      icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
-    { label: 'Parser Diagnostics', icon: <AlertTriangle className="h-4 w-4" />,   path: 'parser-diagnostics' },
-    { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
-    { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
-    { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
-    { label: 'Broadcast Email',   icon: <Mail className="h-4 w-4" />,             path: 'broadcast' },
-    { label: 'Email Log',         icon: <MailPlus className="h-4 w-4" />,         path: 'email-log' },
-    { label: 'Carrier Signature', icon: <Pen className="h-4 w-4" />,             path: 'carrier-signature' },
-    { label: 'Lease Terminations', icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
-    { label: 'Demo Accounts',    icon: <FlaskConical className="h-4 w-4" />,     path: 'demo-accounts' },
-    { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
+  // ── Sidebar structure ───────────────────────────────────────────────
+  // Pinned above the groups: the two screens dispatch keeps open all day.
+  const pinnedNavItems = [
+    { label: 'Overview',  icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Messages',  icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
   ];
+
+  const navGroups = [
+    {
+      label: 'Recruiting',
+      items: [
+        { label: 'Applications',              icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
+        { label: 'Onboarding Pipeline',       icon: <Users className="h-4 w-4" />,         path: 'pipeline', badge: criticalExpiryCount || undefined },
+        { label: 'Previous Employer Checks',  icon: <Briefcase className="h-4 w-4" />,     path: 'pei-queue' },
+      ],
+    },
+    {
+      label: 'Drivers',
+      items: [
+        { label: 'Driver Hub',          icon: <Users2 className="h-4 w-4" />,         path: 'drivers' },
+        { label: 'Compliance Tracking', icon: <ShieldCheck className="h-4 w-4" />,    path: 'compliance', badge: criticalExpiryCount || undefined },
+        { label: 'Document Hub',        icon: <Library className="h-4 w-4" />,        path: 'docs-hub' },
+        { label: 'Driver Logs (RODS)',  icon: <FileText className="h-4 w-4" />,       path: 'eld-logs' },
+        { label: 'Lease Terminations',  icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
+      ],
+    },
+    {
+      label: 'Dispatch',
+      items: [
+        { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
+        { label: 'Loads',          icon: <Truck className="h-4 w-4" />,     path: 'loads' },
+        { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'brokers' },
+        { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'facilities' },
+      ],
+    },
+    // Accounting stays empty until Modules 4 (Settlements) and 7 (Billing).
+    // An empty group renders nothing at all.
+    { label: 'Accounting', items: [] as typeof pinnedNavItems },
+    {
+      label: 'Equipment',
+      items: [
+        { label: 'Vehicle Hub',            icon: <Truck className="h-4 w-4" />,     path: 'vehicle-hub' },
+        { label: 'Onboard Systems',        icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
+        { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />,       path: 'mo-plates' },
+      ],
+    },
+    {
+      label: 'Safety & Compliance',
+      items: [
+        { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,   path: 'inspection-binder' },
+        { label: 'Retention Archive',     icon: <Library className="h-4 w-4" />,  path: 'eld-retention' },
+      ],
+    },
+    {
+      label: 'Communications',
+      items: [
+        { label: 'Notifications',   icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+        { label: 'Broadcast Email', icon: <Mail className="h-4 w-4" />,     path: 'broadcast' },
+      ],
+    },
+  ];
+
+  const footerNavItems = [
+    { label: 'Settings', icon: <Settings2 className="h-4 w-4" />, path: 'settings' },
+  ];
+
+  // Flat list kept for compatibility (mobile fallback / lookups).
+  const navItems = [...pinnedNavItems, ...navGroups.flatMap(g => g.items), ...footerNavItems];
+
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
   const mobileNavItems = [
