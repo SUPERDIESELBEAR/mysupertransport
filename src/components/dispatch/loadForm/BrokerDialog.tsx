@@ -128,6 +128,15 @@ export default function BrokerDialog({
   const [overrideReason, setOverrideReason] = useState('');
   const [factoringStatus, setFactoringStatus] = useState<FactoringStatus | ''>('');
   const [factoringReason, setFactoringReason] = useState('');
+  // Relationship state (edit mode only). Actor and timestamp columns are never
+  // sent from here — the stamp_brokers_actor() trigger owns them.
+  const [packetCompleted, setPacketCompleted] = useState(false);
+  const [agreementSigned, setAgreementSigned] = useState(false);
+  const [agreementDocumentId, setAgreementDocumentId] = useState<string | null>(null);
+  const [doNotLoad, setDoNotLoad] = useState(false);
+  const [doNotLoadReason, setDoNotLoadReason] = useState('');
+  const [rating, setRating] = useState<number | null>(null);
+
 
   const { data: existingBrokers } = useQuery({
     queryKey: ['broker-dialog-existing'],
