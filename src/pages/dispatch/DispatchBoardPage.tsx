@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Truck } from 'lucide-react';
+import { RefreshCw, Truck, HelpCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import { cn } from '@/lib/utils';
@@ -146,28 +147,58 @@ function lane(load: ChainLoad): string {
   return `${from || '—'} → ${to || '—'}`;
 }
 
-function LoadLine({ load, queued, onOpen }: { load: ChainLoad; queued?: boolean; onOpen: (id: string) => void }) {
+const FALLBACK_SOURCE_NOTE: Record<string, string> = {
+  first_stop: 'No delivery appointment — ordered by the first stop appointment',
+  created_at: 'No delivery appointment — ordered by load creation date',
+};
+
+function DeliveryDate({ load }: { load: ChainLoad }) {
+  const note = FALLBACK_SOURCE_NOTE[load.deliveryTimeSource];
+  return (
+    <span className="inline-flex items-center gap-1">
+      {formatDeliveryDate(load.deliveryTime)}
+      {note && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                role="img"
+                aria-label={note}
+                className="inline-flex text-muted-foreground/70"
+              >
+                <HelpCircle className="h-3 w-3" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{note}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </span>
+  );
+}
+
+function LoadLine({ load, queued, muted, onOpen }: { load: ChainLoad; queued?: boolean; muted?: boolean; onOpen: (id: string) => void }) {
   return (
     <button
       type="button"
       onClick={() => onOpen(load.id)}
       className={cn(
         'w-full text-left flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-1.5 py-1 hover:bg-muted/60 transition-colors',
-        queued ? 'text-xs text-muted-foreground' : 'text-sm text-foreground',
+        queued || muted ? 'text-xs text-muted-foreground' : 'text-sm text-foreground',
+        muted && 'opacity-80',
       )}
     >
       <span className="font-medium">{load.load_number}</span>
       <LoadStatusBadge status={load.status as never} />
       <span className="truncate">{lane(load)}</span>
-      <span className={cn('ml-auto tabular-nums', queued ? '' : 'text-muted-foreground')}>
-        {formatDeliveryDate(load.deliveryTime)}
+      <span className={cn('ml-auto tabular-nums', queued || muted ? '' : 'text-muted-foreground')}>
+        <DeliveryDate load={load} />
       </span>
     </button>
   );
 }
 
 function DriverRow({ row, onOpen }: { row: DriverChain; onOpen: (id: string) => void }) {
-  const [current, ...queue] = row.chain;
   return (
     <TableRow className="align-top">
       <TableCell className="py-3">
@@ -189,10 +220,22 @@ function DriverRow({ row, onOpen }: { row: DriverChain; onOpen: (id: string) => 
           <span className="text-sm text-muted-foreground">No load recorded in SUPERDRIVE</span>
         ) : (
           <div className="space-y-1">
-            <LoadLine load={current} onOpen={onOpen} />
-            {queue.length > 0 && (
+            {row.current ? (
+              <LoadLine load={row.current} onOpen={onOpen} />
+            ) : (
+              <span className="text-sm text-muted-foreground">No load recorded in SUPERDRIVE</span>
+            )}
+            {row.queued.length > 0 && (
               <div className="pl-3 border-l border-border space-y-0.5">
-                {queue.map(l => <LoadLine key={l.id} load={l} queued onOpen={onOpen} />)}
+                {row.queued.map(l => <LoadLine key={l.id} load={l} queued onOpen={onOpen} />)}
+              </div>
+            )}
+            {row.paperworkTail.length > 0 && (
+              <div className="pt-1.5 mt-1 border-t border-dashed border-border space-y-0.5">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                  Awaiting paperwork
+                </div>
+                {row.paperworkTail.map(l => <LoadLine key={l.id} load={l} muted onOpen={onOpen} />)}
               </div>
             )}
           </div>
@@ -225,6 +268,7 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
   };
 
   const anyEmpty = board.rows.some(r => r.state === 'no_chain');
+  const withLoads = board.rows.filter(r => r.state === 'driving' || r.state === 'paperwork_only').length;
   const noDriverCount = board.faults.noDriver.length;
 
   return (
@@ -246,6 +290,12 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           Loads are only shown if they exist in SUPERDRIVE. Drivers dispatched in Alvys appear with no load.
         </div>
+      )}
+
+      {board.rows.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {withLoads} of {board.rows.length} drivers have loads in SUPERDRIVE.
+        </p>
       )}
 
       {noDriverCount > 0 && (
