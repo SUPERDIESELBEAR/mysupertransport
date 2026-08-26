@@ -19,7 +19,9 @@ import {
   fetchLoadDocumentExceptions, fetchLoadDocuments, formatFileSize, isImageDocument, validateLoadDocumentFile,
   type LoadDocument, type LoadDocumentType,
 } from '@/lib/loadDocuments';
+import { evaluateLoadPaperwork, waivedSummary, type PaperworkRequirement, type PaperworkStatus } from '@/lib/loadPaperwork';
 import DocumentThumbnail from './DocumentThumbnail';
+
 import DocumentExceptionsList from './DocumentExceptionsList';
 import LoadoutGalleries from './LoadoutGallery';
 import UploadDocumentsDialog from './UploadDocumentsDialog';
