@@ -360,6 +360,62 @@ A real duplicate-key warning was found in the same log and fixed: per-stop
 captures repeat the field name, so `VerbatimVerificationCard` keyed rows on a
 non-unique `field`-`verdict` pair.
 
+## Standing rule: every page ships with its navigation placement (2026-08-26)
+
+**A new page is not complete until its navigation placement is written down and
+implemented: which portal, which sidebar group, its position in that group, and
+its role visibility.** A page built without a menu entry is unreachable, and a
+page added to a portal the person testing it does not work in is invisible to them.
+
+The Rate Con Inbox is the example: it was built, deployed, and reported as live,
+but it was only added to the Dispatch portal sidebar. An owner testing from the
+Management portal could not see it, so for that role it did not exist until it
+was also placed under Management → Dispatch, after Loads, with the same pending
+count badge.
+
+### Default placement: Management sidebar order
+
+When a page belongs in Management, placement follows the existing groups in this
+order unless there is a reason to deviate:
+
+1. Overview
+2. Messages
+3. Recruiting
+4. Drivers
+5. Dispatch
+6. Accounting
+7. Equipment
+8. Safety & Compliance
+9. Communications
+10. Settings
+11. Help
+
+A page added under Dispatch, for example, is inserted after **Loads** unless the
+feature naturally belongs before it.
+
+### Owner sees every page
+
+**The owner role sees every page.** Owner is the build and oversight role for
+this project. If a page is hidden from owner, that is a defect, not a design
+decision. Role visibility narrows access for other roles; it never excludes
+owner. When documenting role visibility, state which non-owner roles are
+admitted; owner is implicit.
+
+### What to record for each new page
+
+Before marking a page done, confirm and write down:
+
+- **Portal** — e.g., Management, Dispatch, Operator, Staff.
+- **Sidebar group** — e.g., Management → Dispatch.
+- **Position in group** — e.g., after Loads, before Brokers.
+- **Role visibility** — which non-owner roles can see it, and whether access is
+  further gated inside the page.
+- **Direct route** — the URL, so it can be reached while the sidebar change is
+  pending or for support.
+
+A page that is reachable only by direct route is a preview, not a shipped
+feature.
+
 ## Word-level fidelity and reference removal (2026-08-23)
 
 ### Similarity cannot see a corrupted word
