@@ -205,6 +205,13 @@ export default function DocumentsSection({
   const isLoadout = (load.load_type as LoadType) === 'loadout';
   const listCount = all.filter(d => !LOADOUT_PHOTO_TYPES.includes(d.document_type)).length;
 
+  // Called ONCE. Nothing below re-derives any part of this in JSX.
+  const paperwork = useMemo(
+    () => evaluateLoadPaperwork(load.load_type, all, exceptions ?? []),
+    [load.load_type, all, exceptions],
+  );
+
+
   function handleDragEnter(e: React.DragEvent) {
     if (!canManage) return;
     e.preventDefault();
