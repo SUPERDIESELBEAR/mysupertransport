@@ -605,7 +605,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute) return;
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
