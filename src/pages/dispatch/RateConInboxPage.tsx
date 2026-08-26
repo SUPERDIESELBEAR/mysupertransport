@@ -261,7 +261,9 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
                     : 'border-border text-muted-foreground'
                 }
               >
-                {STATUS_LABEL[row.status]}
+                {row.status === 'dismissed' && !row.dismissed_by && /^duplicate/i.test(row.dismiss_reason ?? '')
+                  ? 'Duplicate — collapsed'
+                  : STATUS_LABEL[row.status]}
               </Badge>
               {!row.sender_allowed && (
                 <Badge variant="outline" className="border-destructive/40 text-destructive">
