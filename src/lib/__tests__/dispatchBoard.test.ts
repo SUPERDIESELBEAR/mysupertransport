@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assembleBoard, resolveDeliveryTime, type BoardDriverInput, type BoardLoadInput } from '@/lib/dispatchBoard';
+import { assembleBoard, filterRowsByDispatcher, resolveDeliveryTime, type BoardDriverInput, type BoardLoadInput } from '@/lib/dispatchBoard';
 
 const driver = (id: string, over: Partial<BoardDriverInput> = {}): BoardDriverInput => ({
   operator_id: id,
@@ -186,5 +186,63 @@ describe('driving work vs office work', () => {
       load({ id: n, status: 'dispatched', stops: [delivery(1, `2026-06-0${n}T12:00:00Z`)] })));
     expect(r.rows[0].current?.id).toBe('1');
     expect(r.rows[0].queued.map(l => l.id)).toEqual(['2', '3', '4']);
+  });
+});
+
+describe('dispatcher scoping', () => {
+  const rowsFor = () => run(
+    [
+      load({ id: 'a', operator_id: 'd1', stops: [delivery(1, '2026-07-01T12:00:00Z')] }),
+      load({ id: 'b', operator_id: 'd2', stops: [delivery(1, '2026-07-02T12:00:00Z')] }),
+    ],
+    [
+      driver('d1', { assigned_dispatcher: 'u-me' }),
+      driver('d2', { assigned_dispatcher: 'u-other' }),
+      driver('d3', { assigned_dispatcher: null }),
+    ],
+  ).rows;
+
+  it("'all' returns every row unchanged", () => {
+    const rows = rowsFor();
+    expect(filterRowsByDispatcher(rows, 'all', 'u-me')).toEqual(rows);
+  });
+
+  it("'me' returns only rows assigned to the current user", () => {
+    expect(filterRowsByDispatcher(rowsFor(), 'me', 'u-me').map(r => r.driver.operator_id))
+      .toEqual(['d1']);
+  });
+
+  it('a specific dispatcher id returns only that dispatcher rows', () => {
+    expect(filterRowsByDispatcher(rowsFor(), 'u-other', 'u-me').map(r => r.driver.operator_id))
+      .toEqual(['d2']);
+  });
+
+  it('a null assignment is excluded by me and by a specific id, included by all', () => {
+    const rows = rowsFor();
+    expect(filterRowsByDispatcher(rows, 'me', 'u-me').some(r => r.driver.operator_id === 'd3')).toBe(false);
+    expect(filterRowsByDispatcher(rows, 'u-other', 'u-me').some(r => r.driver.operator_id === 'd3')).toBe(false);
+    expect(filterRowsByDispatcher(rows, 'all', 'u-me').some(r => r.driver.operator_id === 'd3')).toBe(true);
+  });
+
+  it('does not reorder rows or alter chain contents', () => {
+    const rows = run(
+      [
+        load({ id: 'a', operator_id: 'd1', stops: [delivery(1, '2026-07-01T12:00:00Z')] }),
+        load({ id: 'a2', operator_id: 'd1', stops: [delivery(1, '2026-07-05T12:00:00Z')] }),
+        load({ id: 'p', operator_id: 'd1', status: 'delivered', stops: [delivery(1, '2026-06-01T12:00:00Z')] }),
+        load({ id: 'z', operator_id: 'd0', stops: [delivery(1, '2026-07-01T12:00:00Z')] }),
+      ],
+      [
+        driver('d0', { assigned_dispatcher: 'u-me' }),
+        driver('d1', { assigned_dispatcher: 'u-me' }),
+      ],
+    ).rows;
+    const filtered = filterRowsByDispatcher(rows, 'me', 'u-me');
+    expect(filtered.map(r => r.driver.operator_id)).toEqual(['d0', 'd1']);
+    const d1 = filtered[1];
+    expect(d1.current?.id).toBe('a');
+    expect(d1.queued.map(l => l.id)).toEqual(['a2']);
+    expect(d1.paperworkTail.map(l => l.id)).toEqual(['p']);
+    expect(d1).toBe(rows[1]);
   });
 });
