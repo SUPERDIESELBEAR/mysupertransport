@@ -64,11 +64,27 @@ export interface VerbatimCheckResult {
  * @parser-check
  * Judges every verbatim capture in a parsed document against the printed page,
  * and takes the value from the page where the page is clean.
+ *
+ * The File-reading step is split from the judging step (`judgeParsedVerbatimWithLayer`)
+ * so the ingest equivalence test can drive the browser pipeline with a known
+ * layer and assert it agrees with the server-side judge, field for field.
  */
 export async function verifyParsedVerbatim(
   f: File, result: ParsedRateConfirmation,
 ): Promise<VerbatimCheckResult> {
   const layer = await textLayerFor(f).catch(() => null);
+  return judgeParsedVerbatimWithLayer(result, layer);
+}
+
+/**
+ * The judging half of `verifyParsedVerbatim`: pure over (parse, layer), with
+ * adoption applied. The server-side twin is judgeParsedVerbatimServer in
+ * supabase/functions/_shared/verbatimIngest.ts — keep the two in lockstep.
+ */
+export function judgeParsedVerbatimWithLayer(
+  result: ParsedRateConfirmation,
+  layer: PdfTextLayer | null,
+): VerbatimCheckResult {
   const text = layer?.text ?? '';
   const out: VerbatimCheck[] = [];
   let adopted = structuredClone(result) as ParsedRateConfirmation;
