@@ -373,6 +373,9 @@ export default function DocumentsSection({
       </div>
 
       <div className="mt-4 space-y-5">
+        {isLoading ? null : <OutstandingPaperwork paperwork={paperwork} />}
+
+
         {exceptions?.length ? (
           <DocumentExceptionsList
             loadId={load.id}
