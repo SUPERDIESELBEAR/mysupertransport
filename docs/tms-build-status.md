@@ -1001,3 +1001,64 @@ signature, HMAC-SHA256, 5-minute replay tolerance, constant-time compare)
 against `RESEND_WEBHOOK_SECRET`. Attachment bytes are fetched from Resend
 authenticated with the existing outbound `RESEND_API_KEY`, bounded at 30 MB,
 stored in the private `rate-con-ingest` bucket (staff-read via signed URL).
+
+## Module 3 — Dispatch Board, Pass 1: rename and placement
+
+The page previously labelled "Dispatch Board" is a driver availability calendar
+in daily use. It was not replaced. It is now labelled **Driver Status**, and a
+new, separate **Dispatch Board** page was added alongside it as a shell — no
+queries, no state, no database change in this pass.
+
+### Placement (every-page-ships-with-its-navigation)
+
+- **Portal:** Dispatch and Management.
+- **Sidebar group:** Dispatch portal → Operations group; Management → Dispatch.
+- **Position:** FIRST in both groups, above Driver Status. This deviates from the
+  standing default of "inserted after Loads". Reason: the load-aware board is the
+  primary dispatch surface, and both Driver Status and Loads are read from it.
+- **Role visibility:** dispatcher and management. Owner sees it, as owner sees
+  every page.
+- **Direct route:** `/dispatch/board` (Dispatch portal),
+  `/management?view=dispatch-board` (Management portal).
+- The new board uses the `LayoutGrid` icon; Driver Status keeps `Container`, so
+  the two are not confusable in the rail.
+
+### The internal view key stays `dispatch`
+
+Only user-facing strings were renamed. The view key `'dispatch'`, the
+`?page=dispatch` query value, and the localStorage keys `dispatch_view` and
+`dispatch_status_ribbons_open` are unchanged — renaming them is a large blast
+radius for no user benefit. Call sites that depend on that key:
+
+- `ManagementView` union and `ALLOWED_VIEWS` in `ManagementPortal.tsx`
+- the three Management overview dispatch-breakdown tile handlers
+- `DeactivationPage.tsx` nav (flat legacy nav; the new board is deliberately
+  absent from it, since it navigates out to `/management?view=...`)
+- `NotificationBell`
+
+### Scope decisions settled for Pass 2
+
+- **A load stays on a driver's chain until its PAPERWORK is complete,** not until
+  it is delivered. A delivered load still missing a required document is still
+  being worked: the dispatcher is chasing it and the driver is not clear.
+- **"Needs work" is NOT "last load delivered."** It is a driver with no load
+  booked ahead, regardless of whether a delivered load is still awaiting
+  paperwork. The two conditions are independent and a driver can be in both.
+- **OPEN, required before Pass 2 can be built:** nothing in the codebase defines
+  which documents a load requires. `is_required` exists only on the onboarding
+  `documents` catalog; `load_documents` has no required-ness. The predicate has
+  to be defined, it must treat an APPROVED document exception as satisfying the
+  requirement, and the requirement set varies by load type (loadout owes neither
+  BOL nor POD — the guided photo package is the POD). Configurable per the SaaS
+  rule, following the `DEFAULT_CHARGE_PAY_CLASSES` precedent. One predicate, one
+  reader — not re-derived per consumer.
+- **`loads.driver_accepted_at`, `driver_declined_at`, `driver_decline_reason`**
+  exist from Module 2 and contradict the operating model, which states there is
+  no formal offer-and-accept step and that one should not be built. Decision: the
+  columns STAY; no migration removes them. The board must NOT surface them as a
+  gate, a status, or a filter.
+- **Chain feasibility is an honest time-gap readout** plus the two city/state
+  pairs. Only arithmetic-certain cases are flagged (negative or overlapping
+  gaps). No drive-time verdict is computed. Evidence: `facilities` has no
+  coordinates and `load_stops` lat/long are driver check-in points, not facility
+  locations, so distance is not derivable. Do not invent one.
