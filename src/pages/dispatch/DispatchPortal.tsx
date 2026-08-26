@@ -618,6 +618,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
+    if (path === 'dispatch-board') {
+      navigate('/dispatch/board');
+      return;
+    }
     if (path === 'dispatch-loads') {
       navigate('/dispatch/loads');
       return;
