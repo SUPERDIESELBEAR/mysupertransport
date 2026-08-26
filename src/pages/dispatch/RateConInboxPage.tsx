@@ -38,6 +38,21 @@ function canRetry(row: QueueRow): boolean {
   return row.status === 'needs_manual' && row.parse_status === 'failed' && !!row.attachment_storage_path;
 }
 
+/**
+ * "No attachment" used to cover two different situations: an email that never
+ * carried a PDF (a portal-link tender a dispatcher handles by hand) and a
+ * retrieval failure on our side (a bug). Those get different words.
+ */
+export function attachmentLabel(row: Pick<QueueRow, 'attachment_filename' | 'attachment_storage_path' | 'parse_error'>): string {
+  if (row.attachment_filename && row.attachment_storage_path) return row.attachment_filename;
+  if (row.attachment_filename) return `${row.attachment_filename} — retrieval failed`;
+  const err = row.parse_error ?? '';
+  if (/no attachment/i.test(err)) return 'no attachment on the email';
+  if (/retriev|download|unusable|url/i.test(err)) return 'attachment retrieval failed';
+  return 'no attachment on the email';
+}
+
+
 export function formatIngestWhen(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString('en-US', {

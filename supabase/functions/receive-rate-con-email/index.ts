@@ -426,7 +426,7 @@ async function processEmail(admin: AdminClient, args: ProcessArgs): Promise<void
     await finish({
       status: 'needs_manual',
       parse_status: 'not_attempted',
-      parse_error: 'No PDF attachment — retrieve the rate con manually (the broker may have sent a portal link).',
+      parse_error: 'No attachment on the email — the broker likely sent a portal link. Retrieve the rate con manually.',
     });
     return;
   }
