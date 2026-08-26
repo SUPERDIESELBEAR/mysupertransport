@@ -39,6 +39,18 @@ import PassengerAuthSign from "./pages/PassengerAuthSign";
 import PreviewLogin from "./pages/PreviewLogin";
 import PreviewSessionBanner from "@/components/PreviewSessionBanner";
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import PortalErrorBoundary from "@/components/shared/PortalErrorBoundary";
+
+// Labels for the destination named in the portal error fallback.
+const roleLabels: Record<string, string> = {
+  owner: 'Owner',
+  management: 'Management',
+  onboarding_staff: 'Onboarding',
+  dispatcher: 'Dispatch',
+  operator: 'Driver',
+  applicant: 'Applicant',
+  truck_owner: 'Truck Owner',
+};
 
 // Heavy authenticated portals — code-split out of the initial bundle
 const OperatorPortal = lazyWithRetry(() => import("./pages/operator/OperatorPortal"));
@@ -191,15 +203,24 @@ function AppRoutes() {
               <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERDRIVE</p>
             </div>
           </div>
-        ) :
-        activeRole === 'owner' ? <ManagementPortal /> :
-        activeRole === 'management' ? <ManagementPortal /> :
-        activeRole === 'onboarding_staff' ? <StaffPortal /> :
-        activeRole === 'dispatcher' ? <Navigate to="/dispatch" replace /> :
-        activeRole === 'operator' ? <OperatorPortal /> :
-        activeRole === 'truck_owner' ? <OperatorPortal /> :
-        <ApplicationStatus />
+        ) : (
+          // Every role renders its portal in place. Dispatcher used to redirect
+          // to /dispatch, which raced the outgoing portal's own URL writer:
+          // the writer's setSearchParams landed after <Navigate>, the router
+          // location snapped back to /dashboard and nothing rendered — a white
+          // page with no error. Rendering in place removes the race, and the
+          // boundary guarantees a failure shows a message and a way back
+          // instead of an unmounted tree.
+          <PortalErrorBoundary name={`${activeRole ? roleLabels[activeRole] : 'Dashboard'} portal`}>
+            {activeRole === 'owner' || activeRole === 'management' ? <ManagementPortal /> :
+             activeRole === 'onboarding_staff' ? <StaffPortal /> :
+             activeRole === 'dispatcher' ? <DispatchPortal /> :
+             activeRole === 'operator' || activeRole === 'truck_owner' ? <OperatorPortal /> :
+             <ApplicationStatus />}
+          </PortalErrorBoundary>
+        )
       } />
+
 
       {/* Role-specific portals */}
       <Route path="/staff/*" element={
@@ -210,7 +231,7 @@ function AppRoutes() {
       } />
       <Route path="/dispatch/*" element={
         !user ? <LoginRedirect /> :
-        (isDispatcher || isManagement) ? <DispatchPortal /> :
+        (isDispatcher || isManagement) ? <PortalErrorBoundary name="Dispatch portal"><DispatchPortal /></PortalErrorBoundary> :
         !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
