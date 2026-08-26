@@ -72,7 +72,7 @@ async function downloadAttachment(row: QueueRow): Promise<File> {
   );
 }
 
-export default function RateConInboxPage() {
+export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoad?: () => void } = {}) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { session } = useAuth();
@@ -176,7 +176,8 @@ export default function RateConInboxPage() {
         layerAvailable: !!row.text_layer_available,
         pageCount: row.attachment_page_count ?? 0,
       });
-      navigate('/dispatch/loads/new');
+      if (onOpenCreateLoad) onOpenCreateLoad();
+      else navigate('/dispatch/loads/new');
     } catch (e) {
       logDbError('rate con inbox create load', e, { queueId: row.id });
       toast({

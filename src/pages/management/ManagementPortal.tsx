@@ -5,6 +5,8 @@ import StaffApplicationModal from '@/components/management/StaffApplicationModal
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
+import { useRateConInboxCount } from '@/hooks/useRateConInboxCount';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
@@ -36,7 +38,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, SlidersHorizontal, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   Building2, MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy, Handshake,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy, Handshake, Inbox,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -99,7 +101,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -172,7 +174,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -223,6 +225,7 @@ export default function ManagementPortal() {
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [complianceRefreshKey, setComplianceRefreshKey] = useState(0);
   const [truckDownCount, setTruckDownCount] = useState(0);
+  const rateConInboxCount = useRateConInboxCount();
   const [dispatchDefaultFilter, setDispatchDefaultFilter] = useState<'all' | 'dispatched' | 'not_dispatched' | 'home' | 'truck_down'>('all');
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
@@ -1031,6 +1034,7 @@ export default function ManagementPortal() {
       items: [
         { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
         { label: 'Loads',          icon: <Truck className="h-4 w-4" />,     path: 'loads' },
+        { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />,     path: 'rate-con-inbox', badge: rateConInboxCount || undefined },
         { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'brokers' },
         { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'facilities' },
       ],
@@ -2103,6 +2107,10 @@ export default function ManagementPortal() {
         {view === 'facilities' && <FacilitiesListPage />}
         {view === 'brokers' && <BrokersListPage />}
         {view === 'parser-diagnostics' && <ParserDiagnosticsPage />}
+
+        {view === 'rate-con-inbox' && (
+          <RateConInboxPage onOpenCreateLoad={() => setView('load-create')} />
+        )}
 
         {view === 'loads' && (
           <LoadsListPage
