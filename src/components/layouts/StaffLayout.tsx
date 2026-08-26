@@ -29,6 +29,11 @@ interface NavItem {
   icon: ReactNode;
   path: string;
   badge?: number;
+  /**
+   * Self-contained live badge (owns its own data subscription). Use instead of
+   * `badge` when the count must update without re-rendering the portal.
+   */
+  badgeNode?: ReactNode;
   dividerBefore?: string; // optional section label shown above this item
 }
 
@@ -166,6 +171,9 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
                 {item.badge > 99 ? '99+' : item.badge}
               </span>
             )}
+            {item.badgeNode && !(sidebarOpen || isMobileDrawer) && (
+              <span className="absolute -top-1.5 -right-1.5">{item.badgeNode}</span>
+            )}
           </span>
           {(sidebarOpen || isMobileDrawer) && (
             <span className="flex-1 flex items-center justify-between min-w-0">
@@ -175,6 +183,7 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
+              {item.badgeNode && <span className="ml-1.5 shrink-0">{item.badgeNode}</span>}
             </span>
           )}
         </button>
@@ -542,6 +551,9 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
                     <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none">
                       {item.badge > 99 ? '99+' : item.badge}
                     </span>
+                  )}
+                  {item.badgeNode && (
+                    <span className="absolute -top-1.5 -right-1.5">{item.badgeNode}</span>
                   )}
                 </span>
                 <span className="truncate w-full text-center leading-tight">{item.label}</span>
