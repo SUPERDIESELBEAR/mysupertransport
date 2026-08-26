@@ -61,8 +61,8 @@ README.md recorded 551 / 532, and the sentence here claiming gate.ts and README.
 agreed was false. Every skip is named and counted; no silent `it.skip` or
 `test.skip`.
 
-- **With database attached:** 714 passed, 2 skipped (94 files passed, 1 skipped).
-- **Without database:** 689 passed, 19 skipped (89 files passed, 6 skipped).
+- **With database attached:** 719 passed, 2 skipped (94 files passed, 1 skipped).
+- **Without database:** 694 passed, 19 skipped (89 files passed, 6 skipped).
 
 The no-database skip count moved from 13 to 19 because two live-catalog suites
 added since the last measurement — `caller-evaluated-functions` (3) and
