@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Archive, CheckCircle2, ExternalLink, FileWarning, Inbox as InboxIcon,
+  AlertTriangle, Archive, CheckCircle2, ExternalLink, FileWarning, Inbox as InboxIcon,
   Loader2, MailQuestion, RefreshCw, Sparkles, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +33,10 @@ const STATUS_LABEL: Record<QueueStatus, string> = {
   converted: 'Converted',
   dismissed: 'Dismissed',
 };
+
+function canRetry(row: QueueRow): boolean {
+  return row.status === 'needs_manual' && row.parse_status === 'failed' && !!row.attachment_storage_path;
+}
 
 export function formatIngestWhen(iso: string): string {
   const d = new Date(iso);
@@ -157,6 +161,23 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
     }
   };
 
+  const retryParse = async (row: QueueRow) => {
+    setBusyId(row.id);
+    try {
+      const { error } = await supabase.functions.invoke('receive-rate-con-email', {
+        body: { action: 'retry', queue_id: row.id },
+      });
+      if (error) throw error;
+      toast({ description: 'Retry started.' });
+      await fetchRows();
+    } catch (e) {
+      logDbError('rate con inbox retry', e, { queueId: row.id });
+      toast({ variant: 'destructive', description: 'Could not retry parsing that item.' });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   /**
    * Conversion: the stored attachment and the SERVER-verified parse travel to
    * Create Load as a one-shot handoff. The form runs only its application
@@ -245,7 +266,10 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
               </p>
             )}
             {row.parse_error && (
-              <p className="text-xs text-destructive mt-0.5">{row.parse_error}</p>
+              <p className="text-xs text-destructive mt-0.5 flex items-start gap-1.5">
+                {row.parse_status === 'failed' && <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />}
+                <span>{row.parse_error}</span>
+              </p>
             )}
             {row.status === 'auto_handled' && row.matched_load_id && (
               <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
@@ -278,6 +302,18 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
                 {openingId === row.id
                   ? <Loader2 className="h-4 w-4 animate-spin" />
                   : 'Create load'}
+              </Button>
+            )}
+            {canRetry(row) && (
+              <Button
+                size="sm" variant="outline"
+                disabled={busy}
+                onClick={() => void retryParse(row)}
+                title="Retry parsing this stored attachment"
+              >
+                {busyId === row.id
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <><RefreshCw className="h-4 w-4 mr-1" />Retry</>}
               </Button>
             )}
             {isOpen && row.status !== 'pending_parse' && (

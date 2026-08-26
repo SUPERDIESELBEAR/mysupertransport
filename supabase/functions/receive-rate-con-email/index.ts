@@ -35,6 +35,8 @@ const RESEND_API = 'https://api.resend.com';
 // Rate-cons exceed the 8 MB browser path regularly; inbound allows more, but
 // a bounded download keeps a pathological attachment from stalling the worker.
 const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
+const PARSE_TIMEOUT_MS = 2 * 60 * 1000;
+const STALE_PENDING_MS = 10 * 60 * 1000;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -70,10 +72,126 @@ interface InboundAttachmentMeta {
   download_url?: string;
 }
 
+interface QueueFinishOptions {
+  onlyWhileProcessing?: boolean;
+}
+
+// deno-lint-ignore no-explicit-any
+type AdminClient = any;
+
+async function updateQueue(
+  admin: AdminClient,
+  queueId: string,
+  patch: Record<string, unknown>,
+  options: QueueFinishOptions = {},
+): Promise<void> {
+  let q = admin
+    .from('rate_con_ingest_queue')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', queueId);
+  if (options.onlyWhileProcessing) {
+    q = q.in('status', ['received', 'pending_parse']);
+  }
+  const { error } = await q;
+  if (error) throw new Error(`Queue update failed: ${error.message}`);
+}
+
+async function markFailed(
+  admin: AdminClient,
+  queueId: string,
+  message: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    await updateQueue(admin, queueId, {
+      ...extra,
+      status: 'needs_manual',
+      parse_status: 'failed',
+      parse_error: message,
+    }, { onlyWhileProcessing: true });
+  } catch (err) {
+    console.error('queue failure update failed:', err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function markStalePendingRows(admin: AdminClient): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_PENDING_MS).toISOString();
+  const { error } = await admin
+    .from('rate_con_ingest_queue')
+    .update({
+      status: 'needs_manual',
+      parse_status: 'failed',
+      parse_error: 'Parsing timed out after 10 minutes. Retry parsing or upload the rate confirmation manually.',
+      updated_at: new Date().toISOString(),
+    })
+    .in('status', ['received', 'pending_parse'])
+    .lt('updated_at', cutoff);
+  if (error) console.error('stale ingest timeout sweep failed:', error.message);
+}
+
+async function withProcessingTimeout(
+  admin: AdminClient,
+  queueId: string,
+  task: Promise<void>,
+): Promise<void> {
+  let finished = false;
+  let timeoutId: number | undefined;
+  const guardedTask = task.catch(async (err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    await markFailed(admin, queueId, message);
+    console.error('ingest task failed:', message);
+  });
+  const timeout = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(async () => {
+      if (!finished) {
+        await markFailed(
+          admin,
+          queueId,
+          'Parsing timed out after 2 minutes. Retry parsing or upload the rate confirmation manually.',
+        );
+      }
+      resolve();
+    }, PARSE_TIMEOUT_MS);
+  });
+
+  await Promise.race([
+    guardedTask.finally(() => {
+      finished = true;
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }),
+    timeout,
+  ]);
+}
+
 async function resendGet(path: string, apiKey: string): Promise<Response> {
   return fetch(`${RESEND_API}${path}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
+}
+
+async function assertDispatchStaff(req: Request, admin: AdminClient): Promise<string | Response> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return json(401, { error: 'Unauthorized' });
+
+  const token = authHeader.replace('Bearer ', '');
+  const userClient = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+  if (claimsErr || !claimsData?.claims?.sub) return json(401, { error: 'Unauthorized' });
+  const userId = claimsData.claims.sub as string;
+
+  const { data: roles, error: rolesErr } = await admin
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .in('role', ['dispatcher', 'management', 'owner'])
+    .limit(1);
+  if (rolesErr) return json(500, { error: 'Role check failed' });
+  if (!roles || roles.length === 0) return json(403, { error: 'Dispatch role required' });
+  return userId;
 }
 
 Deno.serve(async (req) => {
@@ -89,6 +207,38 @@ Deno.serve(async (req) => {
     if (!lovableApiKey) return json(500, { error: 'Missing LOVABLE_API_KEY' });
 
     const rawBody = await req.text();
+    let parsedRequest: Record<string, unknown> | null = null;
+    try {
+      parsedRequest = JSON.parse(rawBody) as Record<string, unknown>;
+    } catch { /* webhook validation below will return the right error */ }
+
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    await markStalePendingRows(admin);
+
+    if (parsedRequest?.action === 'retry' && typeof parsedRequest.queue_id === 'string') {
+      const actor = await assertDispatchStaff(req, admin);
+      if (actor instanceof Response) return actor;
+      const processing = withProcessingTimeout(
+        admin,
+        parsedRequest.queue_id,
+        retryQueueItem(admin, {
+          queueId: parsedRequest.queue_id,
+          lovableApiKey,
+          requestedBy: actor,
+        }),
+      ).catch((err) => {
+        console.error('ingest retry failed:', err instanceof Error ? err.message : String(err));
+      });
+      // deno-lint-ignore no-explicit-any
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(processing);
+      else await processing;
+      return json(200, { id: parsedRequest.queue_id, retry: true });
+    }
+
     const verification = await verifySvixSignature(rawBody, req.headers, webhookSecret);
     if (!verification.ok) {
       console.warn('receive-rate-con-email rejected:', verification.error);
@@ -106,7 +256,7 @@ Deno.serve(async (req) => {
       };
     };
     try {
-      event = JSON.parse(rawBody);
+      event = parsedRequest as typeof event;
     } catch {
       return json(400, { error: 'Invalid JSON' });
     }
@@ -115,11 +265,6 @@ Deno.serve(async (req) => {
       // Not ours — acknowledge so Resend stops redelivering.
       return json(200, { ignored: true, type: event.type ?? null });
     }
-
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
 
     const { email_id: emailId, from: fromAddress, to, subject } = event.data;
     const toAddresses = Array.isArray(to) ? to : to ? [String(to)] : [];
@@ -161,15 +306,16 @@ Deno.serve(async (req) => {
 
     // Acknowledge immediately; the parse continues past the response so
     // Resend's delivery timeout cannot kill it.
-    const processing = processEmail(admin, {
+    const processing = withProcessingTimeout(admin, queueId, processEmail(admin, {
       queueId,
       emailId,
       resendApiKey,
       lovableApiKey,
       senderAllowed,
       eventAttachments: event.data.attachments ?? [],
-    }).catch((err) => {
+    })).catch((err) => {
       console.error('ingest processing failed:', err instanceof Error ? err.message : String(err));
+      void markFailed(admin, queueId, err instanceof Error ? err.message : String(err));
     });
     // deno-lint-ignore no-explicit-any
     const edgeRuntime = (globalThis as any).EdgeRuntime;
@@ -193,17 +339,32 @@ interface ProcessArgs {
   eventAttachments: InboundAttachmentMeta[];
 }
 
+interface StoredAttachmentArgs {
+  queueId: string;
+  lovableApiKey: string;
+  senderAllowed: boolean;
+  filename: string;
+  mimeType: string;
+  bytes: Uint8Array;
+  storagePath: string;
+  sha256: string;
+}
+
+interface RetryArgs {
+  queueId: string;
+  lovableApiKey: string;
+  requestedBy: string;
+}
+
 // deno-lint-ignore no-explicit-any
-async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
+async function processEmail(admin: AdminClient, args: ProcessArgs): Promise<void> {
   const { queueId, emailId, resendApiKey, lovableApiKey, senderAllowed } = args;
 
   const finish = async (patch: Record<string, unknown>) => {
-    const { error } = await admin
-      .from('rate_con_ingest_queue')
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq('id', queueId);
-    if (error) console.error('queue update failed:', error.message);
+    await updateQueue(admin, queueId, patch, { onlyWhileProcessing: true });
   };
+
+  try {
 
   // Fetch the full inbound email; attachments carry download URLs.
   let email: {
@@ -330,10 +491,96 @@ async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
     return;
   }
 
+  await processStoredAttachment(admin, {
+    queueId,
+    lovableApiKey,
+    senderAllowed,
+    filename,
+    mimeType,
+    bytes,
+    storagePath,
+    sha256,
+  });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await markFailed(admin, queueId, message);
+    throw err;
+  }
+}
+
+async function retryQueueItem(admin: AdminClient, args: RetryArgs): Promise<void> {
+  const { data: row, error } = await admin
+    .from('rate_con_ingest_queue')
+    .select('id, sender_allowed, attachment_storage_path, attachment_filename, attachment_mime_type, attachment_sha256')
+    .eq('id', args.queueId)
+    .maybeSingle();
+  if (error) throw new Error(`Queue item lookup failed: ${error.message}`);
+  if (!row) return;
+  if (!row.attachment_storage_path) {
+    await markFailed(
+      admin,
+      args.queueId,
+      'No stored attachment is linked to this item. Re-forward the email or upload the rate confirmation manually.',
+      { updated_by: args.requestedBy },
+    );
+    return;
+  }
+
+  await updateQueue(admin, args.queueId, {
+    status: 'pending_parse',
+    parse_status: null,
+    parse_error: null,
+    parsed: null,
+    parse_build: null,
+    verbatim_checks: null,
+    broker_load_number: null,
+    text_layer: null,
+    text_layer_available: null,
+    matched_load_id: null,
+    updated_by: args.requestedBy,
+  });
+
+  try {
+    const { data, error: downloadErr } = await admin.storage
+      .from(BUCKET)
+      .download(row.attachment_storage_path);
+    if (downloadErr || !data) throw new Error(`Stored attachment download failed: ${downloadErr?.message ?? 'missing file'}`);
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const sha256 = row.attachment_sha256 ?? await sha256Hex(bytes);
+    await processStoredAttachment(admin, {
+      queueId: args.queueId,
+      lovableApiKey: args.lovableApiKey,
+      senderAllowed: !!row.sender_allowed,
+      filename: row.attachment_filename ?? 'rate-con.pdf',
+      mimeType: row.attachment_mime_type ?? 'application/pdf',
+      bytes,
+      storagePath: row.attachment_storage_path,
+      sha256,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await markFailed(admin, args.queueId, message, { updated_by: args.requestedBy });
+    throw err;
+  }
+}
+
+async function processStoredAttachment(admin: AdminClient, args: StoredAttachmentArgs): Promise<void> {
+  const { queueId, lovableApiKey, senderAllowed, filename, mimeType, bytes, storagePath, sha256 } = args;
+
+  const finish = async (patch: Record<string, unknown>) => {
+    await updateQueue(admin, queueId, patch, { onlyWhileProcessing: true });
+  };
+
   // Extract the text layer with the same pdfjs version the browser uses, then
   // parse in-process through the shared core. No shared secret, no HTTP hop.
   const isPdf = mimeType.toLowerCase().includes('pdf') || filename.toLowerCase().endsWith('.pdf');
   const layer = isPdf ? await extractPdfTextLayerDeno(bytes) : null;
+  console.log(
+    `ingest ${queueId}: text layer extraction ` +
+      (layer?.available
+        ? `available chars=${layer.text.length} pages=${layer.pageCount}`
+        : `unavailable pages=${layer?.pageCount ?? 0}`),
+  );
   if (isPdf && !layer?.available) {
     console.warn(`ingest ${queueId}: no usable text layer — verbatim verification will run as no_layer`);
   }
@@ -344,8 +591,9 @@ async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
       mime_type: mimeType,
       file_name: filename,
     },
-    args.lovableApiKey,
+    lovableApiKey,
   );
+  console.log(`ingest ${queueId}: parse core returned status=${parseOutcome.status}`);
 
   if (parseOutcome.status !== 200) {
     const rejected = parseOutcome.status === 422;
@@ -367,13 +615,18 @@ async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
   }
 
   // Verbatim verification + adoption, server-side, before anything is stored.
-  const parsedBody = parseOutcome.body as {
-    result?: unknown;
-    model?: string;
+  const parsedResult = parseOutcome.body as {
     parser_build?: unknown;
+    load?: { broker_load_number?: { value?: string | null } | null } | null;
   };
-  const judged = judgeParsedVerbatimServer(parsedBody.result, layer);
-  const brokerLoadNumber = (judged.adopted as { load_number?: string | null })?.load_number ?? null;
+  const judged = judgeParsedVerbatimServer(parsedResult, layer);
+  console.log(
+    `ingest ${queueId}: verbatim core checks=${judged.checks.length} layer=${judged.layerAvailable ? 'available' : 'missing'}`,
+  );
+  const adopted = judged.adopted as {
+    load?: { broker_load_number?: { value?: string | null } | null } | null;
+  };
+  const brokerLoadNumber = adopted.load?.broker_load_number?.value ?? null;
 
   // A queue item whose broker reference matches a load created MANUALLY is
   // handled automatically. The DB trigger covers loads created after this
@@ -403,7 +656,7 @@ async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
     parse_error: senderAllowed ? null : 'Recipient was not the dedicated ingest address.',
     matched_load_id: matchedLoadId,
     parsed: judged.adopted,
-    parse_build: parsedBody.parser_build ?? null,
+    parse_build: parsedResult.parser_build ?? null,
     broker_load_number: brokerLoadNumber,
     verbatim_checks: judged.checks,
     text_layer: layer?.available ? layer.text : null,
