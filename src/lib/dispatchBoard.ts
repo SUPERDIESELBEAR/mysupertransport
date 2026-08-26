@@ -63,11 +63,20 @@ export interface ChainLoad {
   paperworkComplete: boolean;
 }
 
+export type DriverChainState = 'driving' | 'paperwork_only' | 'no_chain';
+
 export interface DriverChain {
   driver: BoardDriverInput;
   dispatch_status: string | null;
+  /** Full ordered chain — membership is unchanged; presentation splits below. */
   chain: ChainLoad[];
-  state: 'has_chain' | 'no_chain';
+  /** First pre-delivery load in ascending delivery order. Driving work. */
+  current: ChainLoad | null;
+  /** Remaining pre-delivery loads, ascending. Uncapped. */
+  queued: ChainLoad[];
+  /** Delivered-or-beyond loads with incomplete paperwork, oldest first. Office work. */
+  paperworkTail: ChainLoad[];
+  state: DriverChainState;
 }
 
 export interface BoardFaults {
@@ -194,11 +203,19 @@ export function assembleBoard({
 
   const build = (driver: BoardDriverInput): DriverChain => {
     const chain = chains.get(driver.operator_id) ?? [];
+    const preDelivery = chain.filter(c => PRE_DELIVERY_STATUSES.includes(c.status as LoadStatus));
+    const paperworkTail = chain.filter(c => !PRE_DELIVERY_STATUSES.includes(c.status as LoadStatus));
+    const [current, ...queued] = preDelivery;
+    const state: DriverChainState =
+      preDelivery.length > 0 ? 'driving' : paperworkTail.length > 0 ? 'paperwork_only' : 'no_chain';
     return {
       driver,
       dispatch_status: driver.dispatch_status,
       chain,
-      state: chain.length > 0 ? 'has_chain' : 'no_chain',
+      current: current ?? null,
+      queued,
+      paperworkTail,
+      state,
     };
   };
 

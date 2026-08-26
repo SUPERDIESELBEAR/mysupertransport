@@ -42,7 +42,7 @@ describe('chain ordering', () => {
       load({ id: 'a', stops: [pickup(1, null), delivery(2, '2026-03-01T12:00:00Z')] }),
     ]);
     expect(r.rows[0].chain.map(c => c.id)).toEqual(['a', 'b', 'c']);
-    expect(r.rows[0].state).toBe('has_chain');
+    expect(r.rows[0].state).toBe('driving');
   });
 
   it('is not capped', () => {
@@ -133,5 +133,58 @@ describe('empty chains', () => {
     const r = run([], [driver('d1')]);
     expect(r.rows[0].state).toBe('no_chain');
     expect(r.rows[0].chain).toEqual([]);
+  });
+});
+
+
+describe('driving work vs office work', () => {
+  // Regression: Johnathan Pratt's row. A Ready To Invoice load with an earlier
+  // delivery date sorted ABOVE the loads under his wheels.
+  it('keeps an in-transit load as current even when a delivered-incomplete load is older', () => {
+    const r = run(
+      [
+        load({ id: 'inv', status: 'ready_to_invoice', stops: [delivery(1, '2026-03-01T12:00:00Z')] }),
+        load({ id: 'run1', status: 'in_transit', stops: [delivery(1, '2026-03-10T12:00:00Z')] }),
+        load({ id: 'run2', status: 'in_transit', stops: [delivery(1, '2026-03-15T12:00:00Z')] }),
+      ],
+      [driver('d1')],
+      {},
+    );
+    const row = r.rows[0];
+    expect(row.current?.id).toBe('run1');
+    expect(row.queued.map(l => l.id)).toEqual(['run2']);
+    expect(row.paperworkTail.map(l => l.id)).toEqual(['inv']);
+    expect(row.state).toBe('driving');
+  });
+
+  it('reports paperwork_only when there is no pre-delivery load', () => {
+    const r = run([load({ id: 'p', status: 'delivered', stops: [delivery(1, '2026-02-01T12:00:00Z')] })]);
+    expect(r.rows[0].state).toBe('paperwork_only');
+    expect(r.rows[0].current).toBeNull();
+    expect(r.rows[0].paperworkTail.map(l => l.id)).toEqual(['p']);
+  });
+
+  it('leaves an empty tail when every load is pre-delivery', () => {
+    const r = run([
+      load({ id: 'a', status: 'dispatched', stops: [delivery(1, '2026-02-01T12:00:00Z')] }),
+      load({ id: 'b', status: 'in_transit', stops: [delivery(1, '2026-02-05T12:00:00Z')] }),
+    ]);
+    expect(r.rows[0].paperworkTail).toEqual([]);
+    expect(r.rows[0].current?.id).toBe('a');
+  });
+
+  it('orders the paperwork tail oldest first', () => {
+    const r = run([
+      load({ id: 'new', status: 'delivered', stops: [delivery(1, '2026-02-20T12:00:00Z')] }),
+      load({ id: 'old', status: 'ready_to_invoice', stops: [delivery(1, '2026-01-05T12:00:00Z')] }),
+    ]);
+    expect(r.rows[0].paperworkTail.map(l => l.id)).toEqual(['old', 'new']);
+  });
+
+  it('does not cap the queue', () => {
+    const r = run(['1', '2', '3', '4'].map(n =>
+      load({ id: n, status: 'dispatched', stops: [delivery(1, `2026-06-0${n}T12:00:00Z`)] })));
+    expect(r.rows[0].current?.id).toBe('1');
+    expect(r.rows[0].queued.map(l => l.id)).toEqual(['2', '3', '4']);
   });
 });
