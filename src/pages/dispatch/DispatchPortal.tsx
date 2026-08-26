@@ -1522,8 +1522,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
             <SelectValue placeholder="Filter by dispatcher" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="my">My Drivers</SelectItem>
-            <SelectItem value="all">All Drivers</SelectItem>
+            <SelectItem value="my">Assigned to me</SelectItem>
+            <SelectItem value="all">All drivers</SelectItem>
             {Object.entries(dispatcherNames).map(([id, name]) => (
               <SelectItem key={id} value={id}>{name}</SelectItem>
             ))}

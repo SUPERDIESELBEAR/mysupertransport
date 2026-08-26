@@ -9,8 +9,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/useAuth';
+import { useViewPreferences } from '@/hooks/useViewPreferences';
 import {
-  assembleBoard, type BoardDriverInput, type BoardLoadInput, type ChainLoad, type DriverChain,
+  assembleBoard, filterRowsByDispatcher, type BoardDriverInput, type BoardLoadInput,
+  type ChainLoad, type DriverChain,
 } from '@/lib/dispatchBoard';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
 
@@ -40,6 +44,8 @@ const getOne = (val: unknown) => (Array.isArray(val) ? val[0] : val) ?? null;
 
 interface BoardData {
   drivers: BoardDriverInput[];
+  /** Dispatcher/management users, for the scoping select. Same resolution Driver Status uses. */
+  dispatcherNames: Record<string, string>;
   loads: BoardLoadInput[];
   documentsByLoad: Record<string, PaperworkDocumentInput[]>;
   exceptionsByLoad: Record<string, PaperworkExceptionInput[]>;
@@ -51,7 +57,7 @@ async function fetchBoard(): Promise<BoardData> {
     .select(`
       id, user_id, unit_number, is_active, excluded_from_dispatch, excluded_from_dispatch_reason,
       onboarding_status (fully_onboarded, unit_number),
-      active_dispatch (dispatch_status)
+      active_dispatch (dispatch_status, assigned_dispatcher)
     `)
     .neq('is_active', false);
   if (opErr) throw opErr;
@@ -82,10 +88,27 @@ async function fetchBoard(): Promise<BoardData> {
         unit_number: os.unit_number ?? o.unit_number ?? null,
         dispatch_status: d.dispatch_status ?? 'not_dispatched',
         dispatchable: o.excluded_from_dispatch !== true && o.is_active !== false,
+        assigned_dispatcher: d.assigned_dispatcher ?? null,
         excluded_reason: o.excluded_from_dispatch_reason ?? null,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  const dispatcherNames: Record<string, string> = {};
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('user_id, role')
+    .in('role', ['dispatcher', 'management', 'owner']);
+  const roleUserIds = [...new Set(((roleData ?? []) as any[]).map(r => r.user_id).filter(Boolean))];
+  if (roleUserIds.length > 0) {
+    const { data: roleProfiles } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name')
+      .in('user_id', roleUserIds);
+    (roleProfiles ?? []).forEach((p: any) => {
+      dispatcherNames[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
+    });
+  }
 
   const { data: loadRows, error: loadErr } = await supabase
     .from('loads')
@@ -129,7 +152,7 @@ async function fetchBoard(): Promise<BoardData> {
     });
   }
 
-  return { drivers, loads, documentsByLoad, exceptionsByLoad };
+  return { drivers, dispatcherNames, loads, documentsByLoad, exceptionsByLoad };
 }
 
 function formatDeliveryDate(iso: string): string {
@@ -247,6 +270,15 @@ function DriverRow({ row, onOpen }: { row: DriverChain; onOpen: (id: string) => 
 
 export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPageProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { filters, setFilters } = useViewPreferences({
+    viewKey: 'dispatch_board',
+    defaultVisibleColumns: [],
+    // Everyone starts on the whole fleet. Two of six dispatchers are managers
+    // with one or two drivers, and nothing in the data identifies them.
+    defaultFilters: { dispatcher: 'all' },
+  });
+  const dispatcherFilter = (filters?.dispatcher as string) ?? 'all';
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['dispatch-board'],
     queryFn: fetchBoard,
@@ -267,9 +299,24 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
     else navigate(`/dispatch/loads/${id}`);
   };
 
+  const dispatcherNames = data?.dispatcherNames ?? {};
+  const visibleRows = useMemo(
+    () => filterRowsByDispatcher(board.rows, dispatcherFilter, user?.id),
+    [board.rows, dispatcherFilter, user?.id],
+  );
+  const visibleOffDispatchRows = useMemo(
+    () => filterRowsByDispatcher(board.offDispatchRows, dispatcherFilter, user?.id),
+    [board.offDispatchRows, dispatcherFilter, user?.id],
+  );
+
   const anyEmpty = board.rows.some(r => r.state === 'no_chain');
+  // Fleet-wide by design: an orientation signal about cutover, not a work list.
   const withLoads = board.rows.filter(r => r.state === 'driving' || r.state === 'paperwork_only').length;
   const noDriverCount = board.faults.noDriver.length;
+  const filterActive = dispatcherFilter !== 'all';
+  const filterName = dispatcherFilter === 'me'
+    ? (user?.id ? dispatcherNames[user.id] ?? 'me' : 'me')
+    : dispatcherNames[dispatcherFilter] ?? 'this dispatcher';
 
   return (
     <div className="space-y-4">
@@ -280,10 +327,27 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
             Every driver, the load they are on, and what is booked behind it.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        <Select
+          value={dispatcherFilter}
+          onValueChange={v => setFilters({ ...(filters ?? {}), dispatcher: v })}
+        >
+          <SelectTrigger className="h-8 text-xs w-full sm:w-44 shrink-0">
+            <SelectValue placeholder="Filter by dispatcher" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="me">Assigned to me</SelectItem>
+            <SelectItem value="all">All drivers</SelectItem>
+            {Object.entries(dispatcherNames).map(([id, name]) => (
+              <SelectItem key={id} value={id}>{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={cn('h-4 w-4 mr-2', isFetching && 'animate-spin')} />
           Refresh
         </Button>
+        </div>
       </div>
 
       {anyEmpty && (
@@ -292,9 +356,15 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
         </div>
       )}
 
+      {filterActive && (
+        <p className="text-xs font-medium text-foreground">
+          Showing {visibleRows.length} of {board.rows.length} drivers — assigned to {filterName}.
+        </p>
+      )}
+
       {board.rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {withLoads} of {board.rows.length} drivers have loads in SUPERDRIVE.
+          {withLoads} of {board.rows.length} drivers across the fleet have loads in SUPERDRIVE.
         </p>
       )}
 
@@ -312,10 +382,12 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
         </div>
-      ) : board.rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <div className="rounded-lg border border-border bg-card px-4 py-12 flex flex-col items-center justify-center text-center gap-3">
           <Truck className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No dispatchable drivers.</p>
+          <p className="text-sm text-muted-foreground">
+            {filterActive ? 'No drivers match this dispatcher filter.' : 'No dispatchable drivers.'}
+          </p>
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -328,13 +400,13 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
               </TableRow>
             </TableHeader>
             <TableBody>
-              {board.rows.map(r => <DriverRow key={r.driver.operator_id} row={r} onOpen={openLoad} />)}
+              {visibleRows.map(r => <DriverRow key={r.driver.operator_id} row={r} onOpen={openLoad} />)}
             </TableBody>
           </Table>
         </div>
       )}
 
-      {board.offDispatchRows.length > 0 && (
+      {visibleOffDispatchRows.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground">Not on dispatch — holds an assigned load</h2>
           <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -347,7 +419,7 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {board.offDispatchRows.map(r => (
+                {visibleOffDispatchRows.map(r => (
                   <DriverRow key={r.driver.operator_id} row={r} onOpen={openLoad} />
                 ))}
               </TableBody>
