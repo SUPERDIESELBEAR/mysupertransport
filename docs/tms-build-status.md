@@ -1231,6 +1231,47 @@ subscribe()" the moment the component mounts twice — which is exactly what
 happened when the rate-con badge rendered in two portals. `badgeNode` consumers
 inherit this rule.
 
+### Pass 3a — driving work vs office work on the chain
+
+A flat delivery-ordered chain treated every entry as the same kind of work. A
+load that has delivered but is missing its POD carries a delivery date in the
+PAST, so it sorted ABOVE the loads the driver is currently running: on the live
+board, Johnathan Pratt's row showed a Ready To Invoice load as current with two
+In Transit loads listed behind it.
+
+- **A load in transit is DRIVING work** — what the driver is doing now.
+- **A delivered load missing its POD is OFFICE work** — what the dispatcher is
+  chasing.
+
+Chain **membership is unchanged**. `evaluateLoadPaperwork` still decides what
+stays: pre-delivery statuses are always on, delivered-or-beyond stays only while
+paperwork is incomplete, `cancelled` and `tonu` never. Only the PRESENTATION
+splits, into `current` (first pre-delivery load, ascending), `queued` (the rest,
+uncapped) and `paperworkTail` (delivered-incomplete, oldest first — the longest
+outstanding is the one worth chasing).
+
+Three derived states replace the previous two:
+
+- `driving` — at least one pre-delivery load.
+- `paperwork_only` — no pre-delivery load but a non-empty paperwork tail. The
+  driver needs work AND his POD needs chasing; both are true at once and the
+  board says so, rendering "No load recorded in SUPERDRIVE" in the current
+  position with the tail beneath it.
+- `no_chain` — nothing at all.
+
+The delivery-time fallback source is now visible: loads ordered by `first_stop`
+or `created_at` carry a small marker beside the date naming the source in plain
+words. No marker for `last_delivery_stop`, the normal case.
+
+A coverage line near the cutover note reads "N of M drivers have loads in
+SUPERDRIVE" — N being drivers in `driving` or `paperwork_only`, M the
+dispatchable drivers rendered. It climbs through cutover, so it is a live
+progress signal rather than a static label.
+
+Part E of Pass 3 (seed loads) was correctly skipped: Johnathan Pratt's four
+existing loads carry real delivery appointments and proved the ordering without
+seeding. The heading below stays in place and empty.
+
 ### Board seed loads — purge before cutover
 
 No seed loads were created in this pass. The board was built and tested against
