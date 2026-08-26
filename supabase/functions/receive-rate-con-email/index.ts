@@ -37,6 +37,9 @@ const RESEND_API = 'https://api.resend.com';
 const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
 const PARSE_TIMEOUT_MS = 2 * 60 * 1000;
 const STALE_PENDING_MS = 10 * 60 * 1000;
+const PDF_LAYER_PROBE_PHRASE = 'SUPERDRIVE RUNTIME TEXT LAYER GUARD U6683409';
+const PDF_LAYER_PROBE_BASE64 =
+  'JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiA+PiA+PiAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNzYgPj4Kc3RyZWFtCkJUIC9GMSAxOCBUZiA3MiA3MjAgVGQgKFNVUEVSRFJJVkUgUlVOVElNRSBURVhUIExBWUVSIEdVQVJEIFU2NjgzNDA5KSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMDY0IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDI0NyAwMDAwMCBuIAowMDAwMDAwMzE3IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNDQyCiUlRU9GCg==';
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -52,6 +55,13 @@ function toBase64(bytes: Uint8Array): string {
     out += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return btoa(out);
+}
+
+function fromBase64(base64: string): Uint8Array {
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+  return bytes;
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -239,11 +249,36 @@ Deno.serve(async (req) => {
       return json(200, { id: parsedRequest.queue_id, retry: true });
     }
 
+    if (parsedRequest?.action === 'pdf_text_layer_probe') {
+      const actor = await assertDispatchStaff(req, admin);
+      if (actor instanceof Response) return actor;
+      const layer = await extractPdfTextLayerDeno(fromBase64(PDF_LAYER_PROBE_BASE64));
+      const containsGuardPhrase = layer.text.includes(PDF_LAYER_PROBE_PHRASE);
+      if (!layer.available || !containsGuardPhrase) {
+        return json(500, {
+          ok: false,
+          available: layer.available,
+          page_count: layer.pageCount,
+          text_chars: layer.text.length,
+          contains_guard_phrase: containsGuardPhrase,
+        });
+      }
+      return json(200, {
+        ok: true,
+        available: true,
+        page_count: layer.pageCount,
+        text_chars: layer.text.length,
+        contains_guard_phrase: true,
+      });
+    }
+
     const verification = await verifySvixSignature(rawBody, req.headers, webhookSecret);
     if (!verification.ok) {
       console.warn('receive-rate-con-email rejected:', verification.error);
       return json(401, { error: 'Invalid signature' });
     }
+
+    if (!parsedRequest) return json(400, { error: 'Invalid JSON' });
 
     let event: {
       type?: string;
@@ -255,11 +290,7 @@ Deno.serve(async (req) => {
         attachments?: InboundAttachmentMeta[];
       };
     };
-    try {
-      event = parsedRequest as typeof event;
-    } catch {
-      return json(400, { error: 'Invalid JSON' });
-    }
+    event = parsedRequest as typeof event;
 
     if (event.type !== 'email.received' || !event.data?.email_id) {
       // Not ours — acknowledge so Resend stops redelivering.
