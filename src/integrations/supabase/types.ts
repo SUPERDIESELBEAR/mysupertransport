@@ -7293,6 +7293,123 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_con_ingest_queue: {
+        Row: {
+          attachment_bytes: number | null
+          attachment_filename: string | null
+          attachment_mime_type: string | null
+          attachment_page_count: number | null
+          attachment_sha256: string | null
+          attachment_storage_path: string | null
+          broker_load_number: string | null
+          converted_load_id: string | null
+          created_at: string
+          created_by: string | null
+          dismiss_reason: string | null
+          dismissed_at: string | null
+          dismissed_by: string | null
+          from_address: string | null
+          id: string
+          matched_load_id: string | null
+          parse_build: Json | null
+          parse_error: string | null
+          parse_status: string | null
+          parsed: Json | null
+          received_at: string
+          resend_email_id: string | null
+          sender_allowed: boolean
+          status: Database["public"]["Enums"]["rate_con_ingest_status"]
+          subject: string | null
+          text_layer: string | null
+          text_layer_available: boolean | null
+          to_address: string | null
+          updated_at: string
+          updated_by: string | null
+          verbatim_checks: Json | null
+        }
+        Insert: {
+          attachment_bytes?: number | null
+          attachment_filename?: string | null
+          attachment_mime_type?: string | null
+          attachment_page_count?: number | null
+          attachment_sha256?: string | null
+          attachment_storage_path?: string | null
+          broker_load_number?: string | null
+          converted_load_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dismiss_reason?: string | null
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          from_address?: string | null
+          id?: string
+          matched_load_id?: string | null
+          parse_build?: Json | null
+          parse_error?: string | null
+          parse_status?: string | null
+          parsed?: Json | null
+          received_at?: string
+          resend_email_id?: string | null
+          sender_allowed?: boolean
+          status?: Database["public"]["Enums"]["rate_con_ingest_status"]
+          subject?: string | null
+          text_layer?: string | null
+          text_layer_available?: boolean | null
+          to_address?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verbatim_checks?: Json | null
+        }
+        Update: {
+          attachment_bytes?: number | null
+          attachment_filename?: string | null
+          attachment_mime_type?: string | null
+          attachment_page_count?: number | null
+          attachment_sha256?: string | null
+          attachment_storage_path?: string | null
+          broker_load_number?: string | null
+          converted_load_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dismiss_reason?: string | null
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          from_address?: string | null
+          id?: string
+          matched_load_id?: string | null
+          parse_build?: Json | null
+          parse_error?: string | null
+          parse_status?: string | null
+          parsed?: Json | null
+          received_at?: string
+          resend_email_id?: string | null
+          sender_allowed?: boolean
+          status?: Database["public"]["Enums"]["rate_con_ingest_status"]
+          subject?: string | null
+          text_layer?: string | null
+          text_layer_available?: boolean | null
+          to_address?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verbatim_checks?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_con_ingest_queue_converted_load_id_fkey"
+            columns: ["converted_load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rate_con_ingest_queue_matched_load_id_fkey"
+            columns: ["matched_load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       release_notes: {
         Row: {
           body: string
@@ -10080,6 +10197,14 @@ export type Database = {
         | "final_notice_sent"
         | "completed"
         | "gfe_documented"
+      rate_con_ingest_status:
+        | "received"
+        | "pending_parse"
+        | "parsed"
+        | "needs_manual"
+        | "auto_handled"
+        | "converted"
+        | "dismissed"
       rate_type: "flat" | "per_mile" | "per_ton" | "percentage_of_load"
       registration_type: "own_registration" | "needs_mo_reg"
       resource_category:
@@ -10409,6 +10534,15 @@ export const Constants = {
         "final_notice_sent",
         "completed",
         "gfe_documented",
+      ],
+      rate_con_ingest_status: [
+        "received",
+        "pending_parse",
+        "parsed",
+        "needs_manual",
+        "auto_handled",
+        "converted",
+        "dismissed",
       ],
       rate_type: ["flat", "per_mile", "per_ton", "percentage_of_load"],
       registration_type: ["own_registration", "needs_mo_reg"],

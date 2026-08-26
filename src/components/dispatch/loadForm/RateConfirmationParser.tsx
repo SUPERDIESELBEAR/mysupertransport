@@ -29,6 +29,8 @@ import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import type { PdfTextLayer } from '@/lib/pdfTextLayer';
+import type { IngestParseHandoff } from '@/lib/ingestHandoff';
 import { VerbatimSourceRows } from '@/components/dispatch/loadForm/VerbatimSourceRows';
 
 import { logParserDiagnostics, type DiagnosticWriteResult } from '@/lib/parserDiagnostics';
@@ -48,6 +50,13 @@ interface Props {
   onFacilitySuggestions?: (byStopIndex: Record<number, Facility[]>) => void;
   /** The raw extraction, lifted so the host can run its own checks on it. */
   onParsed?: (result: ParsedRateConfirmation | null) => void;
+  /**
+   * An email-ingested rate confirmation arriving from the Rate Con Inbox:
+   * already parsed, verbatim-verified and adopted server-side. When present,
+   * only the application half runs — never a second gateway call, and never a
+   * second verification that could disagree with what the inbox displayed.
+   */
+  ingestHandoff?: IngestParseHandoff | null;
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
@@ -77,7 +86,7 @@ async function invokeErrorMessage(error: unknown, fallback: string): Promise<str
 }
 
 export default function RateConfirmationParser({
-  onSourceFileChange, onExtractedBroker, onFacilitySuggestions, onParsed,
+  onSourceFileChange, onExtractedBroker, onFacilitySuggestions, onParsed, ingestHandoff,
 }: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
@@ -170,6 +179,115 @@ export default function RateConfirmationParser({
     onSourceFileChange(f);
   };
 
+  /**
+   * The application half of a parse: fill the form, fingerprint the run, score
+   * the loadout, file diagnostics, match the broker. Shared by the browser
+   * upload path (parse below, which verifies first) and the email-ingest path
+   * (ingestHandoff, which arrives already verified and adopted server-side) —
+   * both paths fill the form through the same code so a document reads the
+   * same no matter which door it came in.
+   */
+  const applyResult = async (
+    sourceFile: File,
+    result: ParsedRateConfirmation,
+    checks: VerbatimCheck[],
+    layer: PdfTextLayer | null,
+  ) => {
+    result.verbatim_verification = checks;
+    setVerbatim(checks);
+
+    const applied = applyParsedToForm(result, (name, value) =>
+      form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
+
+    // One comparable record per run. Two runs of the same document diverged
+    // with nothing kept to say whether the text layer or the model moved.
+    // The discards from THIS apply travel with it: the fingerprint printed
+    // both appointment windows while both form fields were empty, because it
+    // read the raw values and the form read them through the confidence gate.
+    setFingerprint(buildParseFingerprint({ layer, checks, parsed: result, discarded: applied.discarded }));
+
+    // The loadout assessment is scored from the model's signals AND the
+    // printed text layer, because one model answer was not a stable enough
+    // basis for a feature to exist: the same document scored above the
+    // threshold three times and below it once, and below it the banner
+    // rendered nothing at all.
+    const loadoutAssessment = assessLoadout(result, layer?.text ?? null);
+
+    // Anchor and label misses are filed here, on the create path. The same
+    // call runs on the revision path — a check that exists on only one of the
+    // two is the failure mode this wiring is guarding against.
+    // Collected and written are reported separately: zero written is only a
+    // clean document when zero were collected, and reading it as success is
+    // how a batch the database rejected passed for a healthy parse.
+    const result_ = await logParserDiagnostics(applied.classified, {
+      documentLabel: sourceFile.name,
+      parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
+    }, loadoutAssessment);
+    setDiagnostics(result_);
+
+    setParsed(result);
+    onParsed?.(result);
+    onExtractedBroker?.(result.broker?.company_name?.value?.trim() || null);
+    setVerify(applied.verify);
+    setUnassigned(applied.unassigned);
+    setLoadout(loadoutAssessment);
+    setLoadoutAnswer(null);
+
+    // Suggest-only: never rewrite what the broker printed, just point at our record.
+    const filled = form.getValues('stops') ?? [];
+    const suggestions: Record<number, Facility[]> = {};
+    filled.forEach((s, i) => {
+      const hits = matchFacilities(s, facilities ?? []);
+      if (hits.length) suggestions[i] = hits;
+    });
+    onFacilitySuggestions?.(suggestions);
+    setShowSource(true);
+
+    const found = await matchBroker(result.broker).catch(() => []);
+    setCandidates(found);
+    setBrokerResolved(false);
+
+    toast({
+      description: applied.stopCount
+        ? `Rate confirmation read. ${applied.stopCount} stops pre-filled — review before saving.`
+        : 'Rate confirmation read. Review the pre-filled fields before saving.',
+    });
+  };
+
+  /**
+   * Email-ingest path: an item opened from the Rate Con Inbox is applied here.
+   * Runs once per handoff; a stale or missing handoff is a no-op.
+   */
+  const ingestConsumed = useRef(false);
+  useEffect(() => {
+    if (!ingestHandoff || ingestConsumed.current) return;
+    ingestConsumed.current = true;
+    const h = ingestHandoff;
+    setParsing(true);
+    void (async () => {
+      try {
+        setFile(h.file);
+        setPreviewUrl(URL.createObjectURL(h.file));
+        onSourceFileChange(h.file);
+        const layer: PdfTextLayer | null = h.layerAvailable
+          ? { text: h.layerText, pageCount: h.pageCount, available: true, pageLineRanges: [] }
+          : null;
+        await applyResult(h.file, h.parsed, h.checks, layer);
+      } catch (e) {
+        logDbError('ingest handoff apply', e, { name: h.file.name });
+        toast({
+          variant: 'destructive',
+          description: 'Could not apply the ingested rate confirmation. Upload it manually instead.',
+        });
+      } finally {
+        setParsing(false);
+      }
+    })();
+    // Run-once on mount: the handoff is a one-shot object, and re-running on
+    // an unrelated re-render would re-fill a form the dispatcher has edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const parse = async () => {
     if (!file) return;
     setParsing(true);
@@ -196,72 +314,7 @@ export default function RateConfirmationParser({
       // the page's own text layer is clean it is the better source than a
       // transcription of it, so the value the form receives is the adopted one.
       const { checks, layer, adopted } = await verifyParsedVerbatim(file, parsedResult);
-      const result = adopted;
-      result.verbatim_verification = checks;
-      setVerbatim(checks);
-
-      const applied = applyParsedToForm(result, (name, value) =>
-        form.setValue(name as never, value as never, { shouldDirty: true, shouldValidate: false }));
-
-      // One comparable record per run. Two runs of the same document diverged
-      // with nothing kept to say whether the text layer or the model moved.
-      // The discards from THIS apply travel with it: the fingerprint printed
-      // both appointment windows while both form fields were empty, because it
-      // read the raw values and the form read them through the confidence gate.
-      setFingerprint(buildParseFingerprint({ layer, checks, parsed: result, discarded: applied.discarded }));
-
-      // The loadout assessment is scored from the model's signals AND the
-      // printed text layer, because one model answer was not a stable enough
-      // basis for a feature to exist: the same document scored above the
-      // threshold three times and below it once, and below it the banner
-      // rendered nothing at all.
-      const loadoutAssessment = assessLoadout(result, layer?.text ?? null);
-
-      // Anchor and label misses are filed here, on the create path. The same
-      // call runs on the revision path — a check that exists on only one of the
-      // two is the failure mode this wiring is guarding against.
-      // Collected and written are reported separately: zero written is only a
-      // clean document when zero were collected, and reading it as success is
-      // how a batch the database rejected passed for a healthy parse.
-      const result_ = await logParserDiagnostics(applied.classified, {
-        documentLabel: file.name,
-        parserContract: (result as { parser_contract?: number }).parser_contract ?? null,
-      }, loadoutAssessment);
-      setDiagnostics(result_);
-
-
-
-
-
-
-
-      setParsed(result);
-      onParsed?.(result);
-      onExtractedBroker?.(result.broker?.company_name?.value?.trim() || null);
-      setVerify(applied.verify);
-      setUnassigned(applied.unassigned);
-      setLoadout(loadoutAssessment);
-      setLoadoutAnswer(null);
-
-      // Suggest-only: never rewrite what the broker printed, just point at our record.
-      const filled = form.getValues('stops') ?? [];
-      const suggestions: Record<number, Facility[]> = {};
-      filled.forEach((s, i) => {
-        const hits = matchFacilities(s, facilities ?? []);
-        if (hits.length) suggestions[i] = hits;
-      });
-      onFacilitySuggestions?.(suggestions);
-      setShowSource(true);
-
-      const found = await matchBroker(result.broker).catch(() => []);
-      setCandidates(found);
-      setBrokerResolved(false);
-
-      toast({
-        description: applied.stopCount
-          ? `Rate confirmation read. ${applied.stopCount} stops pre-filled — review before saving.`
-          : 'Rate confirmation read. Review the pre-filled fields before saving.',
-      });
+      await applyResult(file, adopted, checks, layer);
     } catch (e) {
       logDbError('parse-rate-confirmation', e, { name: file.name });
       const message = await invokeErrorMessage(e, 'Could not read that rate confirmation.');
