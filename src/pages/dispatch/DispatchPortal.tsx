@@ -2590,7 +2590,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
               Excluded from Dispatch Hub
             </DialogTitle>
             <DialogDescription className="text-xs">
-              These drivers are active in the system but hidden from the Dispatch Board and excluded from the daily count tiles.
+              These drivers are active in the system but hidden from Driver Status and excluded from the daily count tiles.
               Re-include any driver to bring them back into the Dispatch Hub.
             </DialogDescription>
           </DialogHeader>
