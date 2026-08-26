@@ -8,18 +8,24 @@
  * selection, stop numbering, page placement, adoption replacement — produce
  * identical verdicts, origins, and stored values on the same document.
  *
- * The fixture is Blue Grace BG969676425: the Special Instructions capture is
- * damaged (`¶` for `53' 102"`, escaped `OS&D`) and must fall back to the model
- * while the broker-terms paragraph is adopted from the page — the exact split
- * where the two paths drifting apart would corrupt a stored load. The
- * Nationwide document (the 40%-dropped block) has no fixture in this repo;
- * when one lands, add it here alongside Blue Grace.
+ * Two fixtures, one for each half of the decision:
+ *
+ *   - Blue Grace BG969676425 — the DAMAGED-layer half. Its Special Instructions
+ *     capture is damaged on the page (`¶` for `53' 102"`, escaped `OS&D`) and must
+ *     fall back to the model, while the broker-terms paragraph is adopted from the
+ *     page. The split is where two drifting paths would corrupt a stored load.
+ *   - Nationwide U6683409 — the CLEAN-layer half. The page is printed cleanly, so
+ *     the stored value comes from the page. This is the half a broken ingest
+ *     extractor fails: returning `no_layer` here where the manual path adopts means
+ *     the extractor is not equivalent, and the test names it rather than accepting it.
  */
 import { describe, expect, it } from 'vitest';
 import { judgeParsedVerbatimWithLayer } from '@/lib/verbatimCheck';
 import { judgeParsedVerbatimServer } from '../../../supabase/functions/_shared/verbatimIngest';
 import { blueGraceParse, blueGraceRevisedParse } from '@/test/fixtures/blueGraceParseResult';
 import { blueGraceTextLayer } from '@/test/fixtures/blueGracePage';
+import { nationwideParse } from '@/test/fixtures/nationwideParseResult';
+import { nationwideTextLayer } from '@/test/fixtures/nationwidePage';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
 
 /** The check fields that define what the load stores and why. */
