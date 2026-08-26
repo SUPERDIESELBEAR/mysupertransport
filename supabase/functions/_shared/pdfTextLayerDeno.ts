@@ -51,9 +51,6 @@ export async function extractPdfTextLayerDeno(
   opts: { maxPages?: number } = {},
 ): Promise<PdfTextLayerResult> {
   try {
-    // Deno-only npm: specifier — the edge runtime resolves it. Kept in a
-    // variable behind @vite-ignore so the Vite toolchain (which also compiles
-    // this file for the browser test suite) never tries to resolve it.
     // The npm specifier itself lives in pdfjsDenoRuntime.ts as a static import
     // so Supabase Edge includes it in Deno's package constraint graph. This
     // dynamic local import still runs AFTER the DOM stubs above are installed.

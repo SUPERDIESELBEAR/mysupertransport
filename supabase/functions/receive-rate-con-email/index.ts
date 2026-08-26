@@ -136,6 +136,11 @@ async function withProcessingTimeout(
 ): Promise<void> {
   let finished = false;
   let timeoutId: number | undefined;
+  const guardedTask = task.catch(async (err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    await markFailed(admin, queueId, message);
+    console.error('ingest task failed:', message);
+  });
   const timeout = new Promise<void>((resolve) => {
     timeoutId = setTimeout(async () => {
       if (!finished) {
@@ -150,7 +155,7 @@ async function withProcessingTimeout(
   });
 
   await Promise.race([
-    task.finally(() => {
+    guardedTask.finally(() => {
       finished = true;
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     }),
