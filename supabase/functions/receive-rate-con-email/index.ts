@@ -297,10 +297,12 @@ async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
     .limit(1)
     .maybeSingle();
   if (prior) {
+    // NOTE: attachment_sha256 is deliberately NOT written here — the partial
+    // unique index on that column would reject this update while the original
+    // item holds the same hash.
     await finish({
       status: 'dismissed',
       parse_status: 'not_attempted',
-      attachment_sha256: sha256,
       dismiss_reason: `Duplicate of queue item ${prior.id} (identical attachment).`,
       dismissed_at: new Date().toISOString(),
     });
@@ -348,7 +350,7 @@ async function processEmail(admin: any, args: ProcessArgs): Promise<void> {
   if (parseOutcome.status !== 200) {
     const rejected = parseOutcome.status === 422;
     await finish({
-      status: rejected ? 'needs_manual' : 'needs_manual',
+      status: 'needs_manual',
       parse_status: rejected ? 'rejected' : 'failed',
       parse_error: rejected
         ? 'Parser found no load fields — likely not a rate confirmation. Dismiss or enter manually.'

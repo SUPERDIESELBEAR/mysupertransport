@@ -51,6 +51,9 @@ export async function extractPdfTextLayerDeno(
   opts: { maxPages?: number } = {},
 ): Promise<PdfTextLayerResult> {
   try {
+    // Deno-only npm: specifier — the edge runtime resolves it; the Vite/TS
+    // toolchain (which also compiles this file for tests) cannot see it.
+    // @ts-expect-error Deno npm: specifier has no type declarations
     const pdfjs = await import('npm:pdfjs-dist@5.7.284/legacy/build/pdf.min.mjs');
     const pdf = await pdfjs.getDocument({
       data: bytes,

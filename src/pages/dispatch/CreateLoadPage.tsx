@@ -53,6 +53,7 @@ import {
   checkForDuplicateBrokerReference, recordDuplicateOverride, type DuplicateMatch,
 } from '@/lib/duplicateBrokerRef';
 import { stashRateConForLoad } from '@/lib/rateConHandoff';
+import { takeIngestParse, type IngestParseHandoff } from '@/lib/ingestHandoff';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
 import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
 
@@ -111,6 +112,12 @@ export default function CreateLoadPage({
   const initialValues = useRef<LoadFormValues | null>(null);
   const hydrated = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Email-ingest handoff: an inbox item opened with "Create load" arrives here
+  // already parsed and adopted server-side. Taken once on mount; a stale or
+  // missing handoff leaves the form on the normal manual-upload path.
+  const [ingestHandoff] = useState<IngestParseHandoff | null>(() =>
+    loadId ? null : takeIngestParse());
 
   const form = useForm<LoadFormValues>({
     resolver: zodResolver(loadFormSchema),
@@ -333,6 +340,26 @@ export default function CreateLoadPage({
             variant: 'destructive',
             title: 'Rate confirmation not attached',
             description: 'The load was saved, but the file did not upload. Add it from the load page.',
+          });
+        }
+      }
+
+      // An email-ingested rate con that becomes a load leaves the inbox queue.
+      if (!isEdit && ingestHandoff?.queueId) {
+        const { error: queueError } = await supabase
+          .from('rate_con_ingest_queue')
+          .update({
+            status: 'converted',
+            converted_load_id: newId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', ingestHandoff.queueId);
+        if (queueError) {
+          logDbError('ingest queue converted mark', queueError, { queueId: ingestHandoff.queueId });
+          toast({
+            variant: 'destructive',
+            title: 'Inbox item not closed',
+            description: 'The load was created, but the inbox item was not marked converted. Dismiss it manually.',
           });
         }
       }
@@ -610,6 +637,7 @@ export default function CreateLoadPage({
                 onSourceFileChange={setSourceFile}
                 onExtractedBroker={setExtractedBroker}
                 onFacilitySuggestions={setFacilitySuggestions}
+                ingestHandoff={ingestHandoff}
               />
             )}
 
