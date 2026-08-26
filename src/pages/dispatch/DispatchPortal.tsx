@@ -36,6 +36,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import DispatchBoardPage from '@/pages/dispatch/DispatchBoardPage';
 import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
@@ -177,6 +178,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const brokersRoute = location.pathname.startsWith('/dispatch/brokers');
   const diagnosticsRoute = location.pathname.startsWith('/dispatch/parser-diagnostics');
   const rateConInboxRoute = location.pathname.startsWith('/dispatch/rate-con-inbox');
+  const boardRoute = location.pathname.startsWith('/dispatch/board');
   const loadDetailId = loadsRoute
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
@@ -644,7 +646,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute) {
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute) {
       navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
     }
     if (p === 'dispatch-messages') {
