@@ -552,6 +552,9 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
                       {item.badge > 99 ? '99+' : item.badge}
                     </span>
                   )}
+                  {item.badgeNode && (
+                    <span className="absolute -top-1.5 -right-1.5">{item.badgeNode}</span>
+                  )}
                 </span>
                 <span className="truncate w-full text-center leading-tight">{item.label}</span>
               </button>
