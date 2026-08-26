@@ -1254,7 +1254,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Container className="h-6 w-6 text-gold shrink-0" />
-            Dispatch Board
+            Driver Status
           </h1>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <p className="text-muted-foreground text-sm">Manage status for all active operators</p>
