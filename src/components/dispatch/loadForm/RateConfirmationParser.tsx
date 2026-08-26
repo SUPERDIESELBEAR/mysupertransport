@@ -29,6 +29,8 @@ import BrokerDialog, { type BrokerDialogValues } from './BrokerDialog';
 import { appendNote, brokerAddressPrefill } from '@/lib/brokerAddressPrefill';
 import BrokerCandidateRow from './BrokerCandidateRow';
 import { verifyParsedVerbatim, type VerbatimCheck } from '@/lib/verbatimCheck';
+import type { PdfTextLayer } from '@/lib/pdfTextLayer';
+import type { IngestParseHandoff } from '@/lib/ingestHandoff';
 import { VerbatimSourceRows } from '@/components/dispatch/loadForm/VerbatimSourceRows';
 
 import { logParserDiagnostics, type DiagnosticWriteResult } from '@/lib/parserDiagnostics';
@@ -48,6 +50,13 @@ interface Props {
   onFacilitySuggestions?: (byStopIndex: Record<number, Facility[]>) => void;
   /** The raw extraction, lifted so the host can run its own checks on it. */
   onParsed?: (result: ParsedRateConfirmation | null) => void;
+  /**
+   * An email-ingested rate confirmation arriving from the Rate Con Inbox:
+   * already parsed, verbatim-verified and adopted server-side. When present,
+   * only the application half runs — never a second gateway call, and never a
+   * second verification that could disagree with what the inbox displayed.
+   */
+  ingestHandoff?: IngestParseHandoff | null;
 }
 
 /** functions.invoke hides the response body — dig the real message out of it. */
@@ -77,7 +86,7 @@ async function invokeErrorMessage(error: unknown, fallback: string): Promise<str
 }
 
 export default function RateConfirmationParser({
-  onSourceFileChange, onExtractedBroker, onFacilitySuggestions, onParsed,
+  onSourceFileChange, onExtractedBroker, onFacilitySuggestions, onParsed, ingestHandoff,
 }: Props) {
   const form = useFormContext<LoadFormValues>();
   const { toast } = useToast();
