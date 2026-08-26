@@ -2416,7 +2416,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   if (embedded) return <>{board}{decalModal}</>;
 
   const navItems = [
-    { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
+    { label: 'Dispatch Board', icon: <LayoutGrid className="h-4 w-4" />, path: 'dispatch-board',        dividerBefore: 'Operations' },
+    { label: 'Driver Status',  icon: <Container className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
     { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />, path: 'dispatch-rate-con-inbox', badgeNode: <RateConInboxBadge /> },
     { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
