@@ -106,4 +106,31 @@ describe('ingest ↔ manual verbatim equivalence', () => {
     expect(browser.checks.every(c => c.verdict === 'no_layer')).toBe(true);
     expect(server.adopted).toEqual(browser.adopted);
   });
+
+  it('produces identical checks and stored values for the Nationwide tender', () => {
+    const parse = nationwideParse();
+    const layer = nationwideTextLayer();
+    const browser = judgeParsedVerbatimWithLayer(parse, layer);
+    const server = judgeParsedVerbatimServer(parse, layer);
+
+    expect(server.layerAvailable).toBe(true);
+    expect(server.checks.length).toBe(browser.checks.length);
+    expect(decisionProjection(server.checks)).toEqual(decisionProjection(browser.checks));
+    expect(server.adopted).toEqual(browser.adopted);
+
+    // The clean-layer half: the page is printed without corruption, so the
+    // STORED value is the page's own text on both paths. A `model` origin here
+    // means the ingest extractor lost the page and the load silently keeps the
+    // model's reading of it.
+    const instructions = browser.checks.find(c => c.field === 'special_instructions_verbatim');
+    expect(instructions).toBeDefined();
+    expect(instructions?.valueOrigin).toBe('text_layer');
+    expect(server.checks.find(c => c.field === 'special_instructions_verbatim')?.valueOrigin)
+      .toBe('text_layer');
+
+    // And the stored text is the page's, not the transcription's.
+    const stored = server.adopted.verbatim?.special_instructions?.value ?? '';
+    expect(stored).toContain('484-435-3131');
+    expect(stored).toContain('Carrier must invoice within 24 hours of delivery.');
+  });
 });
