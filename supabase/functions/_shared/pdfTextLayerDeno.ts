@@ -51,7 +51,7 @@ export async function extractPdfTextLayerDeno(
   opts: { maxPages?: number } = {},
 ): Promise<PdfTextLayerResult> {
   try {
-    // The npm specifier itself lives in pdfjsDenoRuntime.ts as a static import
+    // The npm specifier itself lives in pdfjsDenoRuntime.mjs as a static import
     // so Supabase Edge includes it in Deno's package constraint graph. This
     // dynamic local import still runs AFTER the DOM stubs above are installed.
     // deno-lint-ignore no-explicit-any

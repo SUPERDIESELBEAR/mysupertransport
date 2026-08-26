@@ -245,6 +245,8 @@ Deno.serve(async (req) => {
       return json(401, { error: 'Invalid signature' });
     }
 
+    if (!parsedRequest) return json(400, { error: 'Invalid JSON' });
+
     let event: {
       type?: string;
       data?: {
@@ -255,11 +257,7 @@ Deno.serve(async (req) => {
         attachments?: InboundAttachmentMeta[];
       };
     };
-    try {
-      event = parsedRequest as typeof event;
-    } catch {
-      return json(400, { error: 'Invalid JSON' });
-    }
+    event = parsedRequest as typeof event;
 
     if (event.type !== 'email.received' || !event.data?.email_id) {
       // Not ours — acknowledge so Resend stops redelivering.
