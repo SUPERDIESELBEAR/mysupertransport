@@ -29,6 +29,11 @@ interface NavItem {
   icon: ReactNode;
   path: string;
   badge?: number;
+  /**
+   * Self-contained live badge (owns its own data subscription). Use instead of
+   * `badge` when the count must update without re-rendering the portal.
+   */
+  badgeNode?: ReactNode;
   dividerBefore?: string; // optional section label shown above this item
 }
 
