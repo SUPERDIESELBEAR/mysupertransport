@@ -42,7 +42,7 @@ import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
-import { useRateConInboxCount } from '@/hooks/useRateConInboxCount';
+import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -181,7 +181,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
   const loadEditRoute = loadsRoute && location.pathname.endsWith('/edit');
-  const rateConInboxCount = useRateConInboxCount();
 
   // Desktop push notifications for high-priority events (truck_down, new_message)
   const { fireNotification } = useDesktopNotifications({
@@ -2419,7 +2418,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const navItems = [
     { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
     { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
-    { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />, path: 'dispatch-rate-con-inbox', badge: rateConInboxCount || undefined },
+    { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />, path: 'dispatch-rate-con-inbox', badgeNode: <RateConInboxBadge /> },
     { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
     { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'dispatch-brokers' },
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },

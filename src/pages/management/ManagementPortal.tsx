@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
 import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
-import { useRateConInboxCount } from '@/hooks/useRateConInboxCount';
+import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
@@ -225,7 +225,6 @@ export default function ManagementPortal() {
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [complianceRefreshKey, setComplianceRefreshKey] = useState(0);
   const [truckDownCount, setTruckDownCount] = useState(0);
-  const rateConInboxCount = useRateConInboxCount();
   const [dispatchDefaultFilter, setDispatchDefaultFilter] = useState<'all' | 'dispatched' | 'not_dispatched' | 'home' | 'truck_down'>('all');
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
@@ -1034,7 +1033,7 @@ export default function ManagementPortal() {
       items: [
         { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
         { label: 'Loads',          icon: <Truck className="h-4 w-4" />,     path: 'loads' },
-        { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />,     path: 'rate-con-inbox', badge: rateConInboxCount || undefined },
+        { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />,     path: 'rate-con-inbox', badgeNode: <RateConInboxBadge /> },
         { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'brokers' },
         { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'facilities' },
       ],
