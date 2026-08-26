@@ -25,15 +25,15 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-26, after Module 3 Pass 2 (paperwork predicate))
+## Expected baselines (measured 2026-08-26, after Module 3 Pass 3 (load-aware Dispatch Board))
 
 There are exactly two shapes. Anything else is a signal.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  93 passed | 1 skipped (94)
-     Tests  699 passed | 2 skipped (701)
+Test Files  94 passed | 1 skipped (95)
+     Tests  714 passed | 2 skipped (716)
 
 skipped:
   roadside bundle
@@ -45,8 +45,8 @@ skipped:
 **Without a database** (`PGHOST` absent):
 
 ```text
-Test Files  88 passed | 6 skipped (94)
-     Tests  674 passed | 19 skipped (693)
+Test Files  89 passed | 6 skipped (95)
+     Tests  689 passed | 19 skipped (708)
 
 skipped: the two above, plus
   share token throttling             no PGHOST, live catalog unreadable

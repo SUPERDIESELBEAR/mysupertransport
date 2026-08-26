@@ -61,8 +61,8 @@ README.md recorded 551 / 532, and the sentence here claiming gate.ts and README.
 agreed was false. Every skip is named and counted; no silent `it.skip` or
 `test.skip`.
 
-- **With database attached:** 699 passed, 2 skipped (93 files passed, 1 skipped).
-- **Without database:** 674 passed, 19 skipped (88 files passed, 6 skipped).
+- **With database attached:** 714 passed, 2 skipped (94 files passed, 1 skipped).
+- **Without database:** 689 passed, 19 skipped (89 files passed, 6 skipped).
 
 The no-database skip count moved from 13 to 19 because two live-catalog suites
 added since the last measurement — `caller-evaluated-functions` (3) and
@@ -1163,3 +1163,76 @@ real writer to drive, so the reader fixture in
 `src/components/dispatch/loadDetail/__tests__/outstandingPaperwork.test.tsx` is
 **authored**, not derived from the writer's output. Stated here rather than
 left to be assumed.
+
+## Module 3, Pass 3 — the load-aware Dispatch Board
+
+Read-only. No schema changes, no writes, no edge functions, no realtime.
+
+### What shipped
+
+- **`src/lib/dispatchBoard.ts`** — pure chain assembly. Takes flat loads, stops,
+  documents, exceptions and drivers; returns per-driver ordered chains plus
+  faults. It does not re-implement the paperwork rule: it calls
+  `evaluateLoadPaperwork` and is the predicate's second reader, as Pass 2 said
+  it would be.
+- **`src/pages/dispatch/DispatchBoardPage.tsx`** — replaces the Pass 1 shell.
+  Four set-based reads (operators + profiles, loads with stops, load documents,
+  document exceptions) behind one React Query key, `['dispatch-board']`, with a
+  manual Refresh. No subscription.
+
+### Chain membership
+
+- Pre-delivery statuses (`available`, `covered`, `dispatched`, `in_transit`,
+  `at_delivery`) are always on the chain.
+- `delivered` and everything after it stays on the chain **only while its
+  paperwork is incomplete**. A load leaves the board when its paperwork closes,
+  not when its status advances — an invoiced load with no POD is still the
+  driver's problem and still visible.
+- `cancelled` and `tonu` are never on a chain. A TONU never receives a POD, so
+  paperwork could never close it and it would sit on the board forever.
+
+### Ordering
+
+Ascending by resolved delivery time. The resolution is a named three-step
+fallback, and the source is carried on every chain entry so a wrong order can be
+traced rather than guessed: `last_delivery_stop` → `first_stop` → `created_at`.
+Chains are **uncapped**; nothing is sliced. A driver with five booked loads shows
+five.
+
+### What the board does not do
+
+No writes and no status mutation. No chain-gap or feasibility arithmetic — the
+board shows the queue in delivery order and a dispatcher reads the gap. No
+scoping or dispatcher filter. No realtime. No nav badge.
+
+### Faults surfaced
+
+- A chain load still at `available` despite having a driver is shown in place
+  with its real status rather than hidden.
+- Loads past `available` with **no** driver belong to no chain, so they would
+  otherwise be invisible here. They are reported as a single line linking to the
+  loads list.
+- A load held by a non-dispatchable driver is not dropped. Those drivers appear
+  in a separate "Not on dispatch — holds an assigned load" section below the
+  main table.
+
+### The cutover line
+
+A driver with no chain reads "No load recorded in SUPERDRIVE", and the page
+carries a standing note that drivers dispatched in Alvys appear with no load.
+The empty state is a statement about this system's records, not a claim the
+driver is idle.
+
+### Realtime channel rule (standing)
+
+Any hook that opens a `postgres_changes` channel must derive a **unique channel
+name per mount**. A fixed name crashes with "postgres_changes callbacks after
+subscribe()" the moment the component mounts twice — which is exactly what
+happened when the rate-con badge rendered in two portals. `badgeNode` consumers
+inherit this rule.
+
+### Board seed loads — purge before cutover
+
+No seed loads were created in this pass. The board was built and tested against
+the pure module's fixtures; when demo data is needed it must be created through
+the Create Load flow and every load number listed under this heading.

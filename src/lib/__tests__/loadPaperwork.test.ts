@@ -84,3 +84,11 @@ describe('exception status matrix', () => {
     expect(r.pendingExceptions).toEqual([]);
   });
 });
+
+describe('photo label coupling', () => {
+  it('the roof-check label is offered verbatim by the uploader suggestions', async () => {
+    const { PHOTO_LABEL_SUGGESTIONS } = await import('@/lib/loadDocuments');
+    const all = Object.values(PHOTO_LABEL_SUGGESTIONS).flat() as string[];
+    expect(all).toContain('Rear Doors Open');
+  });
+});
