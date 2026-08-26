@@ -102,13 +102,9 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const fetchRows = useCallback(async () => {
-    const statuses = showHandled
-      ? [...OPEN_STATUSES, 'auto_handled', 'converted', 'dismissed'] as QueueStatus[]
-      : OPEN_STATUSES;
     const { data, error } = await supabase
       .from('rate_con_ingest_queue')
       .select('*')
-      .in('status', statuses)
       .order('received_at', { ascending: false })
       .limit(200);
     if (error) {
@@ -116,9 +112,17 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
       toast({ variant: 'destructive', description: 'Could not load the rate con inbox.' });
       return;
     }
-    setRows(data ?? []);
+    // A duplicate the system collapsed on its own stays visible in the default
+    // view: a silent collapse is indistinguishable from mail never arriving.
+    const visible = (data ?? []).filter(row => {
+      if (showHandled) return true;
+      if ((OPEN_STATUSES as string[]).includes(row.status)) return true;
+      return row.status === 'dismissed' && !row.dismissed_by && /^duplicate/i.test(row.dismiss_reason ?? '');
+    });
+    setRows(visible);
     setLoading(false);
   }, [showHandled, toast]);
+
 
   useEffect(() => { void fetchRows(); }, [fetchRows]);
 
