@@ -46,6 +46,11 @@ export interface BoardDriverInput {
   dispatch_status: string | null;
   /** False when excluded_from_dispatch or inactive. */
   dispatchable: boolean;
+  /**
+   * PERMANENT driver-level dispatcher from `active_dispatch.assigned_dispatcher`.
+   * NOT `loads.dispatcher_id`, which records who booked a load.
+   */
+  assigned_dispatcher?: string | null;
   excluded_reason?: string | null;
 }
 
@@ -225,4 +230,22 @@ export function assembleBoard({
     .map(build);
 
   return { rows, offDispatchRows, faults };
+}
+
+/** Board dispatcher filter. 'me' = current user, 'all' = fleet, otherwise a dispatcher id. */
+export type DispatcherFilter = 'me' | 'all' | (string & {});
+
+/**
+ * PURE. Scopes assembled rows by the driver-level dispatcher assignment,
+ * mirroring the Driver Status page. Order and row contents are untouched.
+ */
+export function filterRowsByDispatcher(
+  rows: DriverChain[],
+  filter: DispatcherFilter,
+  currentUserId: string | null | undefined,
+): DriverChain[] {
+  if (filter === 'all') return rows;
+  const target = filter === 'me' ? currentUserId ?? null : filter;
+  if (!target) return [];
+  return rows.filter(r => r.driver.assigned_dispatcher === target);
 }
