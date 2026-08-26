@@ -251,7 +251,7 @@ export default function ManagementPortal() {
   // Hub counts are derived from one shared definition.
   const { windowDays: complianceWindowDays } = useComplianceWindow();
   // Target driver whose Inspection Binder should auto-open when navigating into Driver Hub
-  // (set by the Dispatch Board Binder button, cleared when leaving Driver Hub).
+  // (set by the Driver Status Binder button, cleared when leaving Driver Hub).
   const [driverHubBinderTarget, setDriverHubBinderTarget] = useState<{ operatorId: string } | null>(null);
   useEffect(() => {
     if (view !== 'drivers' && driverHubBinderTarget) setDriverHubBinderTarget(null);
@@ -486,7 +486,7 @@ export default function ManagementPortal() {
     for (const row of data) {
       // Skip operators excluded from the Dispatch Hub
       if ((row as any).operators?.excluded_from_dispatch === true) continue;
-      // Only count fully-onboarded operators (matches Dispatch Board visibility)
+      // Only count fully-onboarded operators (matches Driver Status visibility)
       const os = (row as any).operators?.onboarding_status;
       const onboardingStatus = Array.isArray(os) ? os[0] : os;
       if (!onboardingStatus?.fully_onboarded) continue;

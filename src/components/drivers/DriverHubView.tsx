@@ -59,7 +59,7 @@ const RATE_LIMIT_MS = 600;
 export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter, defaultDispatchFilter, initialSelectedOperatorId, scrollToBinderOnOpen }: DriverHubViewProps) {
   const { toast } = useToast();
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
-  // Sync external "open this driver" requests (e.g. from Dispatch Board → Binder button)
+  // Sync external "open this driver" requests (e.g. from Driver Status → Binder button)
   useEffect(() => {
     if (initialSelectedOperatorId) setSelectedOperatorId(initialSelectedOperatorId);
   }, [initialSelectedOperatorId]);
