@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
+  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX, Inbox,
   CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle, Building2, Handshake
   , Camera
 } from 'lucide-react';
@@ -41,6 +41,8 @@ import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
+import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
+import { useRateConInboxCount } from '@/hooks/useRateConInboxCount';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -174,10 +176,12 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const facilitiesRoute = location.pathname.startsWith('/dispatch/facilities');
   const brokersRoute = location.pathname.startsWith('/dispatch/brokers');
   const diagnosticsRoute = location.pathname.startsWith('/dispatch/parser-diagnostics');
+  const rateConInboxRoute = location.pathname.startsWith('/dispatch/rate-con-inbox');
   const loadDetailId = loadsRoute
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
   const loadEditRoute = loadsRoute && location.pathname.endsWith('/edit');
+  const rateConInboxCount = useRateConInboxCount();
 
   // Desktop push notifications for high-priority events (truck_down, new_message)
   const { fireNotification } = useDesktopNotifications({
@@ -600,7 +604,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute) return;
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -611,7 +615,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
@@ -631,9 +635,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       navigate('/dispatch/brokers');
       return;
     }
+    if (path === 'dispatch-rate-con-inbox') {
+      navigate('/dispatch/rate-con-inbox');
+      return;
+    }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute) {
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute) {
       navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
     }
     if (p === 'dispatch-messages') {
@@ -2411,6 +2419,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const navItems = [
     { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
     { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
+    { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />, path: 'dispatch-rate-con-inbox', badge: rateConInboxCount || undefined },
     { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
     { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'dispatch-brokers' },
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
@@ -2519,7 +2528,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : activePage}
+        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
         onNavigate={handleNavigate}
         title="Dispatch Board"
         notificationsPath="/dispatch?tab=notifications"
@@ -2536,6 +2545,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         {quickComposeModal}
         {diagnosticsRoute
           ? <ParserDiagnosticsPage />
+          : rateConInboxRoute
+          ? <RateConInboxPage />
           : brokersRoute
           ? <BrokersListPage />
           : facilitiesRoute

@@ -838,3 +838,57 @@ caught this; check it before writing any new author-scoped policy.
 **Not in this pass.** The computed scorecard — rate per mile, detention approval
 rate, short-pay frequency, days to pay — is Module 9. It reads load and invoice
 data that does not exist yet. This pass captures the human judgment only.
+
+## Rate con email ingestion — a second front door (2026-08-26)
+
+Rate confirmations can now arrive by email at a dedicated Resend inbound
+address; they land in a shared dispatch inbox already parsed, verbatim-checked,
+and adopted. Manual upload on Create Load is unchanged and remains first-class.
+
+**The parser is invoked in-process, not over HTTP.** The AI call, prompt,
+sampling, normalization, and result construction moved out of
+`parse-rate-confirmation/index.ts` into `_shared/rateConCore.ts`; the edge
+function is now a thin bearer-auth wrapper, and `receive-rate-con-email` calls
+the same core directly. No internal shared secret exists — a secret that lets
+any caller reach the parser as staff was refused as a new public attack
+surface.
+
+**Verification runs server-side, before storage.** The verbatim primitives
+(`verbatimRegions`, `verbatimVerify`, `verbatimAdopt`) moved to
+`_shared/verbatim/` with `src/lib` re-export shims, so edge and browser run
+one implementation. The ingest function extracts the text layer itself with
+pdfjs 5.7.284 — the exact version the browser uses, with minimal DOMMatrix /
+Path2D stubs the legacy build references at module scope — then runs the same
+verify-then-adopt judgment. A PDF with no extractable text layer logs loudly
+and stores `no_layer` checks; that is a defect signal, not a normal case.
+
+**The two paths are pinned equal by a permanent test.**
+`src/lib/__tests__/ingestVerbatimEquivalence.test.ts` drives the browser judge
+(`judgeParsedVerbatimWithLayer`) and the server judge
+(`judgeParsedVerbatimServer`) with the same parse and the same layer on the
+Blue Grace tender, and asserts identical verdicts, origins, adopted values,
+and adopted parses — including the no-layer case. The Nationwide document has
+no fixture in this repo; when one exists it joins this test.
+
+**Every email creates a queue item.** Junk, portal-link mail with no PDF, and
+mail to the wrong address all land as dismissible `needs_manual` items — a
+silently dropped email reads as "never sent". Redelivered webhooks collapse on
+`resend_email_id`; the same attachment forwarded twice collapses on SHA-256
+(the duplicate is dismissed WITHOUT writing the hash — the partial unique
+index would reject it). A parsed item whose broker reference matches a load
+created manually is marked `auto_handled` — both by an ingest-time lookup and
+by a trigger on `loads.broker_reference_number` for loads created later.
+
+**The queue is shared.** Any dispatcher/management/owner reads and updates
+`rate_con_ingest_queue`; there is no routing and no claiming. The sidebar
+count badge on Rate Con Inbox is the only notification. "Create load" on a
+parsed item carries the stored attachment and the server-verified parse to
+Create Load as a one-shot handoff (`ingestHandoff.ts`, five-minute expiry) —
+the form runs only its application half; the document is never parsed or
+verified twice. A successful create marks the item `converted`.
+
+**Webhook security.** Svix signature verification (`svix-id` / timestamp /
+signature, HMAC-SHA256, 5-minute replay tolerance, constant-time compare)
+against `RESEND_WEBHOOK_SECRET`. Attachment bytes are fetched from Resend
+authenticated with the existing outbound `RESEND_API_KEY`, bounded at 30 MB,
+stored in the private `rate-con-ingest` bucket (staff-read via signed URL).
