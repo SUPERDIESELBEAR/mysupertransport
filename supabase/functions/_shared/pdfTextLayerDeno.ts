@@ -54,9 +54,11 @@ export async function extractPdfTextLayerDeno(
     // Deno-only npm: specifier — the edge runtime resolves it. Kept in a
     // variable behind @vite-ignore so the Vite toolchain (which also compiles
     // this file for the browser test suite) never tries to resolve it.
-    const pdfjsSpecifier = 'npm:pdfjs-dist@5.7.284/legacy/build/pdf.min.mjs';
+    // The npm specifier itself lives in pdfjsDenoRuntime.ts as a static import
+    // so Supabase Edge includes it in Deno's package constraint graph. This
+    // dynamic local import still runs AFTER the DOM stubs above are installed.
     // deno-lint-ignore no-explicit-any
-    const pdfjs: any = await import(/* @vite-ignore */ pdfjsSpecifier);
+    const { pdfjs }: { pdfjs: any } = await import(/* @vite-ignore */ './pdfjsDenoRuntime.ts');
     const pdf = await pdfjs.getDocument({
       data: bytes,
       isEvalSupported: false,
