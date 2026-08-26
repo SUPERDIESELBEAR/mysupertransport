@@ -2527,9 +2527,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
+        currentPath={boardRoute ? 'dispatch-board' : loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
         onNavigate={handleNavigate}
-        title="Dispatch Board"
+        title="Dispatch"
         notificationsPath="/dispatch?tab=notifications"
         headerActions={
           <button
