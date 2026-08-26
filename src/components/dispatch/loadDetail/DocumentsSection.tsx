@@ -58,7 +58,78 @@ async function openDocument(doc: LoadDocument, mode: 'view' | 'download') {
   URL.revokeObjectURL(objectUrl);
 }
 
+/**
+ * Outstanding paperwork, read from the pure predicate. Display only — no
+ * actions, and nothing here writes load status. Where the predicate and the
+ * hand-typed status disagree, both stay visible; neither is hidden.
+ */
+function OutstandingPaperwork({ paperwork }: { paperwork: PaperworkStatus }) {
+  const pending = new Set(paperwork.pendingExceptions);
+  const waived = paperwork.satisfied.map(waivedSummary).filter(Boolean) as string[];
+
+  const nothingOutstanding =
+    paperwork.complete && paperwork.outstandingExpected.length === 0;
+
+  const item = (req: PaperworkRequirement) => (
+    <li key={`${req.documentType}-${req.label}`} className="flex flex-wrap items-baseline gap-x-2">
+      <span>{req.label}</span>
+      {pending.has(req) ? (
+        <span className="text-xs italic text-muted-foreground">Exception filed — awaiting review</span>
+      ) : null}
+    </li>
+  );
+
+  if (nothingOutstanding) {
+    return (
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Paperwork complete.</p>
+        {waived.map(line => (
+          <p key={line} className="text-xs text-muted-foreground">{line}</p>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
+      <h3 className="text-sm font-semibold text-foreground">Outstanding paperwork</h3>
+
+      {paperwork.outstandingRequired.length ? (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-warning-foreground">
+            Required — outstanding
+          </p>
+          <ul className="mt-1 space-y-1 text-sm text-foreground">
+            {paperwork.outstandingRequired.map(item)}
+          </ul>
+        </div>
+      ) : null}
+
+      {paperwork.outstandingExpected.length ? (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Expected — not received
+          </p>
+          <p className="text-xs text-muted-foreground">Chased, but does not hold the load.</p>
+          <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+            {paperwork.outstandingExpected.map(item)}
+          </ul>
+        </div>
+      ) : null}
+
+      {waived.length ? (
+        <div className="space-y-0.5">
+          {waived.map(line => (
+            <p key={line} className="text-xs text-muted-foreground">{line}</p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DocumentRow({
+
   doc, stopLabel, canDelete, onDelete,
 }: {
   doc: LoadDocument;
