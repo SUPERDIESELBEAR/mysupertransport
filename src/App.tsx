@@ -39,6 +39,18 @@ import PassengerAuthSign from "./pages/PassengerAuthSign";
 import PreviewLogin from "./pages/PreviewLogin";
 import PreviewSessionBanner from "@/components/PreviewSessionBanner";
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import PortalErrorBoundary from "@/components/shared/PortalErrorBoundary";
+
+// Labels for the destination named in the portal error fallback.
+const roleLabels: Record<string, string> = {
+  owner: 'Owner',
+  management: 'Management',
+  onboarding_staff: 'Onboarding',
+  dispatcher: 'Dispatch',
+  operator: 'Driver',
+  applicant: 'Applicant',
+  truck_owner: 'Truck Owner',
+};
 
 // Heavy authenticated portals — code-split out of the initial bundle
 const OperatorPortal = lazyWithRetry(() => import("./pages/operator/OperatorPortal"));
@@ -219,7 +231,7 @@ function AppRoutes() {
       } />
       <Route path="/dispatch/*" element={
         !user ? <LoginRedirect /> :
-        (isDispatcher || isManagement) ? <DispatchPortal /> :
+        (isDispatcher || isManagement) ? <PortalErrorBoundary name="Dispatch portal"><DispatchPortal /></PortalErrorBoundary> :
         !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
