@@ -61,8 +61,8 @@ README.md recorded 551 / 532, and the sentence here claiming gate.ts and README.
 agreed was false. Every skip is named and counted; no silent `it.skip` or
 `test.skip`.
 
-- **With database attached:** 719 passed, 2 skipped (94 files passed, 1 skipped).
-- **Without database:** 694 passed, 19 skipped (89 files passed, 6 skipped).
+- **With database attached:** 728 passed, 2 skipped (95 files passed, 1 skipped).
+- **Without database:** 703 passed, 19 skipped (90 files passed, 6 skipped).
 
 The no-database skip count moved from 13 to 19 because two live-catalog suites
 added since the last measurement — `caller-evaluated-functions` (3) and
@@ -1277,3 +1277,51 @@ seeding. The heading below stays in place and empty.
 No seed loads were created in this pass. The board was built and tested against
 the pure module's fixtures; when demo data is needed it must be created through
 the Create Load flow and every load number listed under this heading.
+
+## Module 3, Pass 4 — dispatcher scoping with a saved preference
+
+A dispatcher filter above the Dispatch Board. Read-only: no schema changes, no
+edge functions, no writes to loads, `active_dispatch` or `dispatch_daily_log`.
+
+**Default is ALL drivers**, saved per user through `useViewPreferences` with
+`viewKey: 'dispatch_board'` (stored in `user_view_preferences.filters` as
+`{ dispatcher: 'all' | 'me' | <userId> }`). The choice follows the user across
+devices.
+
+**No role-based defaulting, deliberately.** Jack Barney and Yasir Nawaz are
+dispatch managers who hold the plain `dispatcher` role while carrying one or two
+drivers each and overseeing the fleet. Nothing in the data distinguishes a
+manager from a dispatcher, so any role-derived default would drop them onto a
+near-empty board. Everyone starts on the whole fleet and chooses for themselves.
+
+**Which dispatcher field — do not mix these.**
+- The board filter reads `active_dispatch.assigned_dispatcher`: the PERMANENT
+  driver-level assignment. This mirrors the Driver Status page.
+- The Loads list "All Dispatchers" filter reads `loads.dispatcher_id`: who
+  BOOKED that load. Same words, different data.
+
+**Faults are never hidden by the filter.**
+- Main driver list: filtered.
+- "Not on dispatch — holds an assigned load": filtered (driver-keyed rows).
+- Driverless-loads line: ALWAYS fleet-wide. Those loads have no driver and so no
+  dispatcher; there is no honest way to scope the count.
+- Coverage line: ALWAYS fleet-wide, reworded to "N of M drivers across the fleet
+  have loads in SUPERDRIVE." It is a cutover orientation signal, not a work list.
+- When a filter is active the board states it plainly: "Showing X of M drivers —
+  assigned to <name>." Absent when the filter is 'all'.
+- The Alvys cutover note is unchanged and unfiltered.
+
+**Label consistency.** Driver Status now reads "Assigned to me" / "All drivers",
+matching the board. Labels only — values, state key and logic on that page are
+untouched.
+
+**`useViewPreferences` now carries filters.** HAZARD, recorded because the hook
+is shared: `persist` upserts every managed field together. A consumer that does
+not manage filters must not erase them. The hook keeps the live preference in a
+single ref (replacing the pairwise setState-callback reads) and carries any
+loaded filters through every save, so `LoadsListPage` — untouched in this pass —
+continues to save columns and sort without blanking a stored filter.
+
+Filtering itself is a pure exported function, `filterRowsByDispatcher` in
+`src/lib/dispatchBoard.ts`, unit-tested without React. It does not reorder rows
+or alter any row's `current`, `queued` or `paperworkTail`.
