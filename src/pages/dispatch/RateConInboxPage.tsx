@@ -267,7 +267,7 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
             </div>
             <p className="text-xs text-muted-foreground mt-1 truncate">
               {row.from_address ?? 'Unknown sender'} · {formatIngestWhen(row.received_at)}
-              {row.attachment_filename ? ` · ${row.attachment_filename}` : ' · no attachment'}
+              {' · '}{attachmentLabel(row)}
             </p>
             {row.broker_load_number && (
               <p className="text-xs text-muted-foreground mt-0.5">
