@@ -426,7 +426,7 @@ async function processEmail(admin: AdminClient, args: ProcessArgs): Promise<void
     await finish({
       status: 'needs_manual',
       parse_status: 'not_attempted',
-      parse_error: 'No PDF attachment — retrieve the rate con manually (the broker may have sent a portal link).',
+      parse_error: 'No attachment on the email — the broker likely sent a portal link. Retrieve the rate con manually.',
     });
     return;
   }
@@ -446,7 +446,7 @@ async function processEmail(admin: AdminClient, args: ProcessArgs): Promise<void
       parse_status: 'not_attempted',
       attachment_filename: chosen.filename ?? null,
       attachment_mime_type: chosen.content_type ?? null,
-      parse_error: 'Attachment present but no download URL — retrieve manually.',
+      parse_error: `Attachment retrieval failed: "${chosen.filename ?? 'attachment'}" was on the email but Resend returned no download URL. This is a retrieval fault, not a missing attachment — retrieve it manually and report it.`,
     });
     return;
   }
@@ -458,7 +458,7 @@ async function processEmail(admin: AdminClient, args: ProcessArgs): Promise<void
       parse_status: 'not_attempted',
       attachment_filename: chosen.filename ?? null,
       attachment_mime_type: chosen.content_type ?? null,
-      parse_error: `Attachment download failed (HTTP ${dl.status}) — retrieve manually.`,
+      parse_error: `Attachment retrieval failed: download of "${chosen.filename ?? 'attachment'}" returned HTTP ${dl.status}. The email did carry an attachment — retrieve it manually and report it.`,
     });
     return;
   }
@@ -470,7 +470,7 @@ async function processEmail(admin: AdminClient, args: ProcessArgs): Promise<void
       attachment_filename: chosen.filename ?? null,
       attachment_mime_type: chosen.content_type ?? null,
       attachment_bytes: bytes.byteLength,
-      parse_error: `Attachment unusable (${bytes.byteLength} bytes) — retrieve manually.`,
+      parse_error: `Attachment retrieval failed: "${chosen.filename ?? 'attachment'}" downloaded as ${bytes.byteLength} bytes, outside the usable range. The email did carry an attachment — retrieve it manually and report it.`,
     });
     return;
   }
