@@ -616,7 +616,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute, boardRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
