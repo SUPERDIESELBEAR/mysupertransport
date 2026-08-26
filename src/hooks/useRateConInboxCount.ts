@@ -25,8 +25,12 @@ export function useRateConInboxCount(): number {
 
   useEffect(() => {
     void refresh();
+    // Unique per mount. A fixed channel name breaks when the badge is mounted
+    // twice (desktop sidebar + mobile nav, or a StrictMode remount): the second
+    // `.on()` lands on the already-subscribed shared channel and throws, which
+    // took the whole portal down.
     const channel = supabase
-      .channel('rate-con-inbox-count')
+      .channel(`rate-con-inbox-count-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'rate_con_ingest_queue',
       }, () => { void refresh(); })
