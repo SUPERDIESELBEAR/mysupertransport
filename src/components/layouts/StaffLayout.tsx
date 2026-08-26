@@ -171,6 +171,9 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
                 {item.badge > 99 ? '99+' : item.badge}
               </span>
             )}
+            {item.badgeNode && !(sidebarOpen || isMobileDrawer) && (
+              <span className="absolute -top-1.5 -right-1.5">{item.badgeNode}</span>
+            )}
           </span>
           {(sidebarOpen || isMobileDrawer) && (
             <span className="flex-1 flex items-center justify-between min-w-0">
@@ -180,6 +183,7 @@ export default function StaffLayout({ children, navItems, navGroups, pinnedItems
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
+              {item.badgeNode && <span className="ml-1.5 shrink-0">{item.badgeNode}</span>}
             </span>
           )}
         </button>
