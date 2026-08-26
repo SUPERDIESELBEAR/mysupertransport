@@ -1,57 +1,74 @@
-# Phase 1 broker extensions
+# Rate Confirmation Inbound Email Ingestion
 
-Broker directory only. No changes to loads, pay policies, settlements, or invoicing. The earlier reverted draft is treated as a starting point, not as approved.
+Rate confirmations emailed to a dedicated address land in a shared dispatcher queue, already parsed and verbatim-verified server-side. Manual upload on Create Load is untouched — this is a second front door.
 
-## What already exists (verified against the live database)
+## 0. DNS — what you must create, in order (your action, before anything can be tested)
 
-- **brokers** — company name, MC/DOT, single primary contact (name/email/phone), billing email, mailing address, `factoring_status` + reason + timestamp, payment terms, `avg_days_to_pay`, one free-text `notes` blob, `is_active`, created/updated attribution. No packet fields, no agreement fields, no do-not-load flag, no rating, no per-note attribution.
-- **broker_documents** — `broker_id`, `document_category` (plain `text`, not an enum), `document_name`, `file_url`, `file_path`, `expiration_date`, `notes`, `version_number`, `is_current_version`, `created_by`. **Shape fits**: the signed broker-carrier agreement and packet paperwork go here as categories (`carrier_packet`, `signed_broker_agreement`). No parallel document store is needed. Note it has `created_by` but no `updated_by`.
-- **broker_factoring_history** — already the attributed audit trail for factoring status only. It is status-specific (`previous_status`/`new_status` are the factoring enum), so it is not reused for do-not-load or notes.
-- **RLS pattern (confirmed)**: management/owner `ALL`; dispatcher/onboarding_staff `SELECT`/`INSERT`/`UPDATE`; history read-only for staff; operators have no policy at all. New tables mirror this exactly.
-- **Override audit precedent (confirmed)**: `BrokerDialog.tsx` already writes an `audit_log` row with action `broker_duplicate_override` and the matched-broker context. The do-not-load override follows the same shape.
+The existing sender subdomain `notify.mysupertransport.com` is NS-delegated to Lovable's nameservers, so Resend cannot receive mail there. Inbound uses a **new, separate subdomain** — no conflict with outbound.
 
-## Do-not-load warning at load creation — answer
+1. **Add the domain in Resend**: create an inbound domain, e.g. `parse.mysupertransport.com`. Resend's dashboard will show the exact MX (and SPF TXT) record values — copy them from there; do not use remembered values.
+2. **At your DNS provider**, create the MX record for `parse.mysupertransport.com` pointing at the Resend inbound SMTP host(s) exactly as shown, plus the TXT record if Resend asks for one.
+3. **Verify in Resend** (their dashboard re-checks DNS; propagation can take minutes to hours).
+4. **Create the inbound route/address** (e.g. `ratecons@parse.mysupertransport.com`) — leave the webhook URL unset until step 5.
+5. After the ingest function is deployed (built below), paste its URL into Resend as the webhook endpoint for that address, and store the signing secret it issues.
 
-It can be done **without touching the load save path**. `BrokerSelect.tsx` already holds the full broker record from `useBrokers()`, so the warning renders purely from data already in memory, in the same place the existing provisional-name warning renders. Nothing in the save payload, RPC, parser, or revision code is touched. The warning also appears on the Load Detail broker row.
+Order matters: MX first, verification second, webhook last — mail arriving before the webhook exists is dropped by Resend, not queued.
 
-The override reason is recorded when the user acknowledges the warning at selection time (an `audit_log` row, same pattern as duplicate override), not inside the save transaction. That keeps `create_load_with_stops` / `update_load_with_stops` and the revision path completely untouched. No hard block anywhere.
+## 1. pdfjs in Deno — verification step before building
 
-## Database changes
+The plan assumes a text layer can be extracted inside an edge function. pdfjs-dist's legacy build is the candidate (it can run `getTextContent` without a browser DOM when the worker and canvas are disabled), but this is not guaranteed to be clean under Deno.
 
-**brokers — new columns**
-- `carrier_packet_completed boolean NOT NULL DEFAULT false`, `carrier_packet_completed_at timestamptz`, `carrier_packet_completed_by uuid` (profiles)
-- `broker_agreement_signed boolean NOT NULL DEFAULT false`, `broker_agreement_signed_at timestamptz`, `broker_agreement_recorded_by uuid` (profiles), `broker_agreement_document_id uuid` referencing `broker_documents(id) ON DELETE SET NULL`
-- `do_not_load boolean NOT NULL DEFAULT false`, `do_not_load_reason text`, `do_not_load_set_at timestamptz`, `do_not_load_set_by uuid` (profiles)
-- `rating smallint` (1–5, nullable, validated in a trigger rather than a CHECK on mutable data)
+- **Gate task**: a throwaway probe function that loads the Nationwide fixture PDF and asserts a non-empty text layer. Run before anything else is built.
+- If pdfjs fails under Deno: fall back to a self-contained pure-TS/JS PDF text extractor (no native deps), still server-side. The constraint stands: **silently skipping verification is not acceptable** — if no extractor works, the plan stops here rather than shipping parse-without-verify.
 
-Attribution/timestamp columns are stamped by a `BEFORE INSERT OR UPDATE` trigger using `current_profile_id()`; client payloads that try to set them are ignored/overwritten. Existing `updated_at` trigger stays.
+## 2. Shared extraction + verbatim core (refactor)
 
-**broker_contact_role enum** — `dispatch`, `accounts_payable`, `claims`, `after_hours`, `other`.
+- Move the pure verbatim functions (`verbatimVerify.ts`, `verbatimAdopt.ts`, `verbatimRegions.ts`, `textNormalize.ts` as needed) from `src/lib/` into `supabase/functions/_shared/verbatim/` and have the client import them from there (the client already tolerates cross-boundary imports of pure code; edge functions cannot import `src/`).
+- Extract the AI-calling core of `parse-rate-confirmation/index.ts` (prompts, schema, sampling pins, contract meta) into `_shared/ratecon/extract.ts` so it is callable in-process. The existing HTTP function keeps its staff auth and becomes a thin wrapper — manual upload behavior is byte-identical.
 
-**broker_contacts** (new) — `id`, `broker_id` (cascade), `name`, `role broker_contact_role NOT NULL DEFAULT 'other'`, `phone`, `email`, `notes`, `is_primary boolean NOT NULL DEFAULT false`, `created_at`, `updated_at`, `created_by`, `updated_by`. Partial unique index enforcing one primary per broker; index on `(broker_id, role)`.
+## 3. Auth for the server-side parse — recommendation
 
-**broker_notes** (new) — running attributed record instead of one overwritten blob: `id`, `broker_id` (cascade), `body text NOT NULL`, `created_at`, `created_by` (stamped server-side), plus `updated_at`/`updated_by` for author-only edits. Existing `brokers.notes` is left in place and shown as a legacy note; nothing is migrated automatically.
+**No HTTP call, no shared secret.** The ingest function is already a verified context (Resend webhook signature verified with its signing secret). It invokes the extraction core **directly in-process** with the service-role client — there is no staff JWT and no new publicly reachable parser surface.
 
-**broker_do_not_load_history** (new) — audit trail of do-not-load transitions: `broker_id`, `previous_value boolean`, `new_value boolean`, `reason`, `changed_at`, `changed_by`. Written by an `AFTER UPDATE OF do_not_load` trigger, mirroring the existing factoring-history trigger.
+Rationale: an internal shared secret on a public endpoint turns "verify one HMAC" into "anyone holding the secret is staff." In-process invocation removes that surface entirely; the only public endpoint is the webhook, guarded by Resend's signature verification, and a failed signature is a 401 with no processing.
 
-Order per new table: `CREATE TABLE` → `GRANT SELECT, INSERT, UPDATE, DELETE TO authenticated` and `ALL TO service_role` (no `anon`) → `ENABLE ROW LEVEL SECURITY` → policies (management/owner `ALL`; dispatcher/onboarding_staff select/insert/update; history tables staff read-only). Verified afterwards with `grant_parity_report()` and the Supabase linter.
+## 4. Ingest webhook: `receive-rate-con-email`
 
-## UI changes
+New edge function, `verify_jwt = false`, signature-verified against the Resend inbound signing secret (same verification library pattern as `handle-email-suppression`, but with the Resend-provided secret stored via `add_secret`).
 
-- **Broker Dialog** (`BrokerDialog.tsx`) — new sections: Carrier packet & agreement (completed toggles, dates read-only from stamps, agreement document upload/link into `broker_documents`), Status flags (do-not-load with required reason, showing who set it and when), Rating, Contacts (add/edit/remove, role select, primary toggle), Notes (append-only running list with author and timestamp). Existing factoring history and duplicate-detection flow untouched.
-- **Broker Directory** (`BrokersListPage.tsx` / `brokersColumns.tsx`) — new optional columns: do-not-load, rating, packet status, agreement status, primary contact by role; filters for do-not-load and packet status; do-not-load rows visually flagged.
-- **BrokerSelect** — do-not-load warning with acknowledge-with-reason, audit-logged. Same warning surface on Load Detail's broker row (read-only display).
-- Data access extended in `src/lib/brokers.ts` / `useBrokers.ts` plus a new `src/lib/brokerContacts.ts` and `src/lib/brokerNotes.ts`, so both directory and dialog read the same shapes (both-paths rule).
+For each inbound message:
 
-## Explicitly not in this pass
+1. Verify signature → 401 on failure.
+2. Fetch/parse the message payload; compute SHA-256 of each PDF attachment.
+3. **Duplicate collapse**: if an attachment hash already exists on a queue item, record the duplicate occurrence on that item and stop — one item per document.
+4. Extract text layer (section 1) → run extraction core → run verbatim verify + adoption server-side → adopted values are what get stored. Verdicts and origins are stored with the item so the queue shows "verified / repaired / needs eyes" exactly as the upload path does.
+5. **No usable attachment** (portal link, plain-text tender, image-only body): still create a queue item, status `needs_manual`, with sender/subject/date and a link to the stored email. Nothing is silently dropped.
+6. **Junk tolerance**: any parse or extraction failure still creates a queue item with the error recorded, dismissible in one click. The endpoint never errors to Resend in a way that causes redelivery loops — always 200 once the signature verifies.
+7. Attachments and the raw email stored in a private storage bucket (`inbound-rate-cons`), paths recorded on the queue row.
 
-Computed broker scorecard (rate per mile, detention approval rate, short-pay frequency, days to pay) stays Module 9.
+## 5. Queue table: `rate_con_ingest_queue`
 
-## Verification
+UUID pk, `created_at`/`updated_at`, `source_message_id` (Resend id, unique), `from_address`, `subject`, `received_at`, `attachment_paths jsonb`, `attachment_sha256 text` (dedupe key), `status` enum (`pending`, `needs_manual`, `dismissed`, `converted`, `auto_handled`), `parse_result jsonb`, `verbatim_checks jsonb`, `error text`, `load_id uuid null` (set on conversion), `broker_reference text null`. GRANTs + RLS: dispatcher/management/owner read and update status; insert only via service role (the webhook). Audit log entry on convert/dismiss with actor.
 
-- `grant_parity_report()` clean for `broker_contacts`, `broker_notes`, `broker_do_not_load_history`; linter clean.
-- Operator role confirmed to have no read path to any broker table.
-- Rendering tests against real query output for the new read-side components (contacts list, notes list, packet/agreement status block), per the reader-boundary rule.
-- Test asserting the do-not-load warning appears in both broker selection and the directory, and that it never blocks a save.
-- Test asserting actor/timestamp columns are ignored when sent from the client and set from `current_profile_id()`.
-- Full test suite run; `docs/tms-build-status.md` updated (Phase 1 broker extensions built; scorecard deferred to Module 9).
+**Auto-handled rule**: a scheduled (or on-read) check — when a queue item's parsed broker reference equals the broker reference of a load that already exists (created manually), status flips to `auto_handled` and it leaves the open count. Match is exact on normalized reference; a fuzzy match is surfaced for human dismissal instead.
+
+## 6. Dispatcher UI
+
+- New "Rate Con Inbox" list page under Dispatch: one row per open item — sender, received time, parse health chip (verified / repaired / needs eyes / no attachment), extracted broker + reference.
+- Row actions: **Review parse** (opens the existing Create Load review screen pre-filled from `parse_result`, identical confidence markers as manual upload), **Retrieve manually** (opens the stored email/attachments, then blank Create Load), **Dismiss** (one click, confirmation-free, undoable from a dismissed filter).
+- Shared queue: no claiming, no routing. Menu badge = count of `pending` + `needs_manual`. The only notification.
+- **No driver guessing**: the parse fills the load; driver assignment stays a human step, exactly as the manual path.
+
+## 7. Conversion
+
+"Review parse" reuses the Create Load save path unchanged. On save, the queue item gets `status = converted`, `load_id` set, and the source PDF is attached as the load's `rate_confirmation` document (same as manual upload). Dismissed and auto-handled items are excluded from the badge count.
+
+## Technical notes
+
+- Migration: `rate_con_ingest_queue` table + enum + grants + RLS; private storage bucket `inbound-rate-cons` with service-role-only access.
+- New functions: `receive-rate-con-email`, throwaway `probe-pdfjs-deno` (deleted after the gate passes).
+- Refactor: verbatim libs → `_shared/verbatim/`; extraction core → `_shared/ratecon/extract.ts`; `parse-rate-confirmation` becomes a wrapper (contract number unchanged — response shape does not change).
+- Secrets: `RESEND_INBOUND_SIGNING_SECRET` via `add_secret`.
+- Client: new page + route, nav badge from a count query; reuse of existing parse-review components.
+- Tests: dedupe hash collapse, auto-handled reference match, no-attachment item creation, junk tolerance (malformed payload → 200 + error row), verbatim adoption runs in the ingest path with a fixture, signature rejection.
+- Out of scope: driver assignment changes, manual upload changes, any outbound email changes.
