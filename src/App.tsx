@@ -191,15 +191,24 @@ function AppRoutes() {
               <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERDRIVE</p>
             </div>
           </div>
-        ) :
-        activeRole === 'owner' ? <ManagementPortal /> :
-        activeRole === 'management' ? <ManagementPortal /> :
-        activeRole === 'onboarding_staff' ? <StaffPortal /> :
-        activeRole === 'dispatcher' ? <Navigate to="/dispatch" replace /> :
-        activeRole === 'operator' ? <OperatorPortal /> :
-        activeRole === 'truck_owner' ? <OperatorPortal /> :
-        <ApplicationStatus />
+        ) : (
+          // Every role renders its portal in place. Dispatcher used to redirect
+          // to /dispatch, which raced the outgoing portal's own URL writer:
+          // the writer's setSearchParams landed after <Navigate>, the router
+          // location snapped back to /dashboard and nothing rendered — a white
+          // page with no error. Rendering in place removes the race, and the
+          // boundary guarantees a failure shows a message and a way back
+          // instead of an unmounted tree.
+          <PortalErrorBoundary name={`${activeRole ? roleLabels[activeRole] : 'Dashboard'} portal`}>
+            {activeRole === 'owner' || activeRole === 'management' ? <ManagementPortal /> :
+             activeRole === 'onboarding_staff' ? <StaffPortal /> :
+             activeRole === 'dispatcher' ? <DispatchPortal /> :
+             activeRole === 'operator' || activeRole === 'truck_owner' ? <OperatorPortal /> :
+             <ApplicationStatus />}
+          </PortalErrorBoundary>
+        )
       } />
+
 
       {/* Role-specific portals */}
       <Route path="/staff/*" element={
