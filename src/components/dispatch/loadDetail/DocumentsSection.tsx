@@ -96,7 +96,7 @@ function OutstandingPaperwork({ paperwork }: { paperwork: PaperworkStatus }) {
 
       {paperwork.outstandingRequired.length ? (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-warning-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-warning">
             Required — outstanding
           </p>
           <ul className="mt-1 space-y-1 text-sm text-foreground">
