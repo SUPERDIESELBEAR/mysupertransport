@@ -17,12 +17,12 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-26. There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-26 (Module 3 Pass 2). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     684 passed | 2 skipped        (91 files passed | 1 skipped)
+ *     699 passed | 2 skipped        (93 files passed | 1 skipped)
  *     skipped:
  *       - roadside bundle
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
@@ -30,7 +30,7 @@
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
  *   WITHOUT a database (PGHOST absent):
- *     659 passed | 19 skipped       (86 files passed | 6 skipped)
+ *     674 passed | 19 skipped       (88 files passed | 6 skipped)
  *     skipped: the two above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)

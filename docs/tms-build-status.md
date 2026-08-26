@@ -61,8 +61,8 @@ README.md recorded 551 / 532, and the sentence here claiming gate.ts and README.
 agreed was false. Every skip is named and counted; no silent `it.skip` or
 `test.skip`.
 
-- **With database attached:** 684 passed, 2 skipped (91 files passed, 1 skipped).
-- **Without database:** 659 passed, 19 skipped (86 files passed, 6 skipped).
+- **With database attached:** 699 passed, 2 skipped (93 files passed, 1 skipped).
+- **Without database:** 674 passed, 19 skipped (88 files passed, 6 skipped).
 
 The no-database skip count moved from 13 to 19 because two live-catalog suites
 added since the last measurement — `caller-evaluated-functions` (3) and
@@ -1062,3 +1062,104 @@ radius for no user benefit. Call sites that depend on that key:
   gaps). No drive-time verdict is computed. Evidence: `facilities` has no
   coordinates and `load_stops` lat/long are driver check-in points, not facility
   locations, so distance is not derivable. Do not invent one.
+
+## Module 3 — Dispatch Board, Pass 2: the paperwork predicate
+
+`src/lib/loadPaperwork.ts` is a pure module — no supabase, no React, no
+queries. It takes the documents and exceptions the caller already holds and
+returns a structured answer. Its first reader is the "Outstanding paperwork"
+block at the top of `DocumentsSection` on Load Detail; the Dispatch Board
+becomes its second reader in Pass 3. The predicate shipped with a real reader
+in the same change, deliberately: a predicate with no caller is the failure
+pattern this project has already produced four times.
+
+### Two levels, and why one is not enough
+
+- **required** — the load is not finished until this is satisfied. Holds the
+  load on the driver's chain.
+- **expected** — should exist, is chased when missing, never blocks.
+
+A BOL is wanted at origin and often never materialises. Requiring it would park
+loads on a driver's chain forever; omitting it entirely would mean nobody ever
+chases it. Two levels is the smallest shape that handles both.
+
+### Default matrix
+
+| Load type | Requirement | Level |
+|---|---|---|
+| standard | Proof of delivery (`pod`) | required |
+| standard | Bill of lading (`bol`) | expected |
+| per_ton | Proof of delivery (`pod`) | required |
+| per_ton | Scale ticket (`scale_ticket`) | required |
+| per_ton | Bill of lading (`bol`) | expected |
+| loadout | Pickup inspection photos (`loadout_pickup_inspection`) | required |
+| loadout | Roof check — rear doors open (`loadout_pickup_inspection`, photo label `Rear Doors Open`) | required |
+| loadout | Delivery inspection photos (`loadout_delivery_inspection`) | required |
+
+A loadout owes **neither BOL nor POD**. The guided photo package is the POD.
+
+The roof check is a **labelled photo inside the pickup set**, not a document
+type of its own — the requirement carries a `photoLabel` and is satisfied only
+by a pickup-inspection row whose `photo_label` matches after trimming and
+case-folding.
+
+**KNOWN LIMIT.** `photo_label` is free text with suggestions, so the roof-check
+requirement matches on the exact string `Rear Doors Open`. A driver who types
+something else will not satisfy it. The durable fix is a fixed capture slot in
+the driver app (Module 11), not a looser matcher. Fuzzy or partial matching is
+deliberately not added here — it would turn a precise miss into a silent
+false pass.
+
+### Satisfaction rules
+
+A requirement is satisfied by any of: a `load_documents` row of that type (plus
+matching `photo_label` where the requirement carries one); an approved
+`document_exceptions` row; or a resolved one. `pending` does not satisfy and is
+reported separately as "exception filed, awaiting review"; `denied` does not
+satisfy at all.
+
+An **approved exception satisfying the requirement** is what stops a receiver
+refusing to sign from parking a driver permanently — the dispatcher accepts
+that the document will not arrive, and the load stops being held.
+
+`load_documents.is_verified` does **not** gate completeness. A document that
+exists counts. Verification is a separate quality gate, and gating on it would
+park every delivered load behind an office click.
+
+The entry point never returns a bare boolean. A caller that can only see
+"incomplete" cannot tell a missing POD from an unchased BOL, which is the whole
+reason two levels exist.
+
+### Configurability — deliberately deferred
+
+The SaaS rule says business rules are configurable. This pass ships the matrix
+as a plain constant with **no override parameter and no policy column**, on the
+`DEFAULT_CHARGE_PAY_CLASSES` precedent. An unused override argument is the same
+uncalled-code pattern the pass structure exists to avoid. When a second carrier
+needs a different matrix, the override path gets built then, against a real
+requirement.
+
+### Status is not auto-advanced
+
+`pod_received` already exists as a load status and is advanced by hand. A
+document-derived predicate and a hand-typed status will disagree. This pass
+adds no writer, trigger, or RPC: a state change with a rule attached gets
+exactly one writer, and creating a second one inside a display pass is how that
+rule gets broken. Where the two disagree, both are shown and neither is hidden.
+
+**OPEN:** whether completeness should ever drive load status. A later,
+deliberate decision, not a side effect of this pass.
+
+### Not in the matrix
+
+Lumper receipts and detention documentation are deliberately absent. Both are
+accessorial-dependent and Module 5 does not exist yet. Revisit when it lands.
+
+### Test fixture provenance
+
+`document_exceptions` is not modelled in `src/test/helpers/pgFake.ts`, and
+`load_documents` appears only as an empty table with no write path. There is no
+real writer to drive, so the reader fixture in
+`src/components/dispatch/loadDetail/__tests__/outstandingPaperwork.test.tsx` is
+**authored**, not derived from the writer's output. Stated here rather than
+left to be assumed.
