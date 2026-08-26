@@ -2542,7 +2542,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         }
       >
         {quickComposeModal}
-        {diagnosticsRoute
+        {boardRoute
+          ? <DispatchBoardPage />
+          : diagnosticsRoute
           ? <ParserDiagnosticsPage />
           : rateConInboxRoute
           ? <RateConInboxPage />
