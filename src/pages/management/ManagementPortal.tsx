@@ -2088,6 +2088,12 @@ export default function ManagementPortal() {
           />
         )}
 
+        {view === 'dispatch-board' && (
+          <DispatchBoardPage
+            onSelectLoad={(id) => { setSelectedLoadId(id); setView('load-detail'); }}
+          />
+        )}
+
         {view === 'dispatch' && (
           <DispatchPortal
             embedded
