@@ -58,7 +58,7 @@ export async function extractPdfTextLayerDeno(
     // so Supabase Edge includes it in Deno's package constraint graph. This
     // dynamic local import still runs AFTER the DOM stubs above are installed.
     // deno-lint-ignore no-explicit-any
-    const { pdfjs }: { pdfjs: any } = await import(/* @vite-ignore */ './pdfjsDenoRuntime.ts');
+    const { pdfjs }: { pdfjs: any } = await import(/* @vite-ignore */ './pdfjsDenoRuntime.mjs');
     const pdf = await pdfjs.getDocument({
       data: bytes,
       isEvalSupported: false,
