@@ -54,10 +54,9 @@ export async function extractPdfTextLayerDeno(
     // Deno-only npm: specifier — the edge runtime resolves it. Kept in a
     // variable behind @vite-ignore so the Vite toolchain (which also compiles
     // this file for the browser test suite) never tries to resolve it.
-    // @ts-expect-error Deno npm: specifier has no type declarations
     const pdfjsSpecifier = 'npm:pdfjs-dist@5.7.284/legacy/build/pdf.min.mjs';
-    // @ts-expect-error Deno npm: specifier has no type declarations
-    const pdfjs = await import(/* @vite-ignore */ pdfjsSpecifier);
+    // deno-lint-ignore no-explicit-any
+    const pdfjs: any = await import(/* @vite-ignore */ pdfjsSpecifier);
     const pdf = await pdfjs.getDocument({
       data: bytes,
       isEvalSupported: false,
