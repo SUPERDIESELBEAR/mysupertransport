@@ -66,6 +66,48 @@ Figures from `src/test/helpers/gate.ts` and `src/test/README.md` (measured 2026-
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
 
+## Dispatch operating model
+
+This section records how SUPERTRANSPORT actually dispatches, so Module 3 is built against the real operation rather than a generic TMS assumption.
+
+### Freight source
+
+SUPERTRANSPORT has no direct customer freight. Dispatchers plan routes and book spot-market loads off DAT and Truckstop. Every load is booked intentionally for a specific driver — this is not a pool of loads matched against a pool of drivers. Assignment records a decision that was already made; it does not make one.
+
+### How a load gets to a driver
+
+The dispatcher and driver discuss options by phone or message and agree a plan. Some drivers give their dispatcher an open playbook and do not want to be consulted. There is no formal offer-and-accept step and one should not be built — it would add a step to a conversation that already happened.
+
+### How the rate confirmation arrives
+
+After negotiating, the broker emails it. It goes to the dispatcher directly, to dispatch@mysupertransport.com, or occasionally to the CEO's address because that address is on the USDOT filing and some brokers will not send anywhere else. Some brokers send a portal link rather than a PDF, so ingestion cannot be the only path and manual upload stays first-class.
+
+### Driver-to-dispatcher relationship
+
+The relationship is permanent, not per load. A dispatcher covers a set of drivers, needs to see just those by default, needs to see all activity, and needs to cover for another dispatcher when someone is out.
+
+### Loads booked ahead
+
+A driver typically has one or two loads booked beyond the current one; more is possible and the board must not cap it. Order matters — the board shows the queue in delivery sequence so a dispatcher can see whether the chain is feasible. A load delivering Thursday in Garland followed by one picking up Friday in Atlanta is a problem the board should make visible rather than leaving to arithmetic.
+
+### Availability is not the same as needing work
+
+A driver at home may be home by request. Home time is driver-initiated: they ask, SUPERTRANSPORT routes them a load toward home, and they give a day or two notice on when they want to be re-dispatched. So home time needs a requested date and an expected re-dispatch date. The signal that matters is not "who is home" but "who has no load booked and is not deliberately off."
+
+### Driver status sources
+
+- **Dispatched** should be derived from loads, not typed.
+- **Load progress** — at shipper, loaded, delivered — comes from the driver in the app; drivers already scan PODs and BOLs in their current TMS, so document capture is an existing habit rather than a new behaviour to establish.
+- **Home time, breakdown, out of service and compliance hold** require a human because no load record implies them.
+
+### The current Dispatch Board
+
+The current Dispatch Board is a driver availability calendar — status per driver, day counts, home/dispatched/broke-down, a status alerts banner. It is in daily use and works. Module 3 does not replace it. Rename it **Driver Status** and build the load-aware board as a separate page.
+
+### Driver preferences
+
+Driver preferences are currently unwritten and live in dispatchers' heads: route preferences and equipment willingness. Capturing them belongs in onboarding, expressed as named regions rather than whole states — a driver who avoids New York City is fine with Buffalo, one who avoids Miami is fine with the panhandle — plus a reefer-versus-dry-van flag. Deferred, not part of Module 3.
+
 ## Build order
 
 The file records what is built and the rules learned; this section records the sequence and why it is the sequence, so the next session does not have to reconstruct it from conversation.
@@ -98,7 +140,7 @@ Note: Messages live in Operations while Documents live in Documentation. A docum
 7. **Module 7 — Billing and Invoicing**.
 8. **Module 11 — Driver App** settlement views, check-ins, document capture, expense submission.
 9. **Module 9 — Reporting and Financial Intelligence**.
-10. **Module 10 — Integrations**, except Motive HOS, which is pulled forward into Module 3 for driver availability.
+10. **Module 10 — Integrations**.
 11. **Driver Qualification Files** — a separate arc after the TMS is complete.
 
 ### Dependency reasoning
@@ -123,6 +165,7 @@ Consciously postponed, not forgotten:
 - Load templates and lane history.
 - Load board integration.
 - Recruiting analytics.
+- Motive integration. HOS availability matters more than truck position — position tells a dispatcher where a driver is, hours tell them whether the driver can legally take the load being considered on DAT.
 
 
 ## Verbatim verification: document-determined regions (2026-08-22)
