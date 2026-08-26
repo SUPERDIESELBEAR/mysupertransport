@@ -15,7 +15,7 @@ const PRODUCT_OVERVIEW = `SUPERDRIVE is the operations platform for SUPERTRANSPO
 Surfaces:
 - Management dashboard (staff): sidebar-driven app for owner, management, onboarding_staff, dispatcher.
   Sections include Overview, Applications, Onboarding Pipeline (Stages 1–9), Fleet Roster / Driver Hub,
-  Fleet Compliance, Dispatch Board, Operations (Onboard Systems, MO Plate Registry), FAQ Manager,
+  Fleet Compliance, Driver Status, Operations (Onboard Systems, MO Plate Registry), FAQ Manager,
   Staff Help (this assistant), Messaging, PEI, Documents Hub, Release Notes, Pipeline Config.
 - SUPERDRIVE driver PWA (owner-operators): tab-based portal — Home, Status, Documents, Messages,
   Notifications, Equipment.

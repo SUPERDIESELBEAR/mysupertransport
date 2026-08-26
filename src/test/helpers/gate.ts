@@ -17,12 +17,12 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-22. There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-26. There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     535 passed | 2 skipped        (68 files passed | 1 skipped)
+ *     684 passed | 2 skipped        (91 files passed | 1 skipped)
  *     skipped:
  *       - roadside bundle
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
@@ -30,12 +30,14 @@
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
  *   WITHOUT a database (PGHOST absent):
- *     516 passed | 13 skipped       (65 files passed | 4 skipped)
+ *     659 passed | 19 skipped       (86 files passed | 6 skipped)
  *     skipped: the two above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
  *       - certify_rods_day live RPC, outer    (whole suite gated)
  *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
+ *       - caller-evaluated functions     x3   (live catalog unreadable)
+ *       - live grant / policy parity     x3   (live catalog unreadable)
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
  * without a matching named line, a gate has regressed to `runIf`/`skip`.

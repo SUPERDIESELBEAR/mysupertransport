@@ -120,7 +120,7 @@ export default function DeactivationPage() {
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadMsgCount },
     { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
     { label: 'Fleet Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
-    { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
+    { label: 'Driver Status', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
     { label: 'Driver Hub', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
     { label: 'Vehicle Hub', icon: <Truck className="h-4 w-4" />, path: 'vehicle-hub' },
     { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },

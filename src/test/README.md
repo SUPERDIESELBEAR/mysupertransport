@@ -25,15 +25,15 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-22, after verbatim region work)
+## Expected baselines (measured 2026-08-26, after broker relationship and rate con email ingestion work)
 
 There are exactly two shapes. Anything else is a signal.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  68 passed | 1 skipped (69)
-     Tests  551 passed | 2 skipped (553)
+Test Files  91 passed | 1 skipped (92)
+     Tests  684 passed | 2 skipped (686)
 
 skipped:
   roadside bundle
@@ -45,15 +45,24 @@ skipped:
 **Without a database** (`PGHOST` absent):
 
 ```text
-Test Files  65 passed | 4 skipped (69)
-     Tests  532 passed | 13 skipped (545)
+Test Files  86 passed | 6 skipped (92)
+     Tests  659 passed | 19 skipped (678)
 
 skipped: the two above, plus
   share token throttling             no PGHOST, live catalog unreadable
   purge_rods_day path coverage       no PGHOST, live column list unreadable
   certify_rods_day live RPC          no PGHOST, outer gate
   live SECURITY DEFINER catalog x9   no PGHOST, one named skip per live check
+  caller-evaluated functions x3      no PGHOST, live catalog unreadable
+  live grant / policy parity x3      no PGHOST, live catalog unreadable
 ```
+
+Note on flakiness: a few React Testing Library suites (`brokersPage`,
+`loadChargesCard`, `loadReferencesCard`, `loadsRouting`, `RequestRetakeModal`,
+`blueGraceLoadPath`) time out at the default 5s under full worker parallelism on
+a loaded machine. They pass individually and with `--maxWorkers=2`. A timeout in
+one of those files is contention, not a regression — re-run it alone before
+reading anything into it.
 
 Every skip in both shapes is named in the report. If the skip count moves and no
 named line moved with it, a gate has regressed to `runIf`/`skip` — fix the gate,

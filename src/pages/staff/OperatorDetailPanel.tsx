@@ -2189,8 +2189,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       toast({
         title: nextExcluded ? 'Excluded from Dispatch Hub' : 'Included in Dispatch Hub',
         description: nextExcluded
-          ? `${operatorName} is hidden from the Dispatch Board and removed from daily counts.`
-          : `${operatorName} now appears in the Dispatch Board and is counted in daily tiles.`,
+          ? `${operatorName} is hidden from Driver Status and removed from daily counts.`
+          : `${operatorName} now appears in Driver Status and is counted in daily tiles.`,
       });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -2945,7 +2945,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </Label>
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug mt-1">
-                Hides this driver from the Dispatch Board and removes them from daily counts (Total Active, Dispatched, Home, Truck Down, Not Dispatched).
+                Hides this driver from Driver Status and removes them from daily counts (Total Active, Dispatched, Home, Truck Down, Not Dispatched).
                 Use for backup-only drivers, owners who don't run loads daily, or test accounts.
                 Driver remains fully active everywhere else.
               </p>

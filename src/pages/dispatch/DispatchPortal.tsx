@@ -36,6 +36,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import DispatchBoardPage from '@/pages/dispatch/DispatchBoardPage';
 import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
@@ -177,6 +178,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const brokersRoute = location.pathname.startsWith('/dispatch/brokers');
   const diagnosticsRoute = location.pathname.startsWith('/dispatch/parser-diagnostics');
   const rateConInboxRoute = location.pathname.startsWith('/dispatch/rate-con-inbox');
+  const boardRoute = location.pathname.startsWith('/dispatch/board');
   const loadDetailId = loadsRoute
     ? location.pathname.split('/dispatch/loads/')[1]?.split('/')[0] || null
     : null;
@@ -603,7 +605,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute) return;
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -614,10 +616,14 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute, boardRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
+    if (path === 'dispatch-board') {
+      navigate('/dispatch/board');
+      return;
+    }
     if (path === 'dispatch-loads') {
       navigate('/dispatch/loads');
       return;
@@ -640,7 +646,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute) {
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute) {
       navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
     }
     if (p === 'dispatch-messages') {
@@ -1254,7 +1260,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Container className="h-6 w-6 text-gold shrink-0" />
-            Dispatch Board
+            Driver Status
           </h1>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <p className="text-muted-foreground text-sm">Manage status for all active operators</p>
@@ -2416,7 +2422,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   if (embedded) return <>{board}{decalModal}</>;
 
   const navItems = [
-    { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
+    { label: 'Dispatch Board', icon: <LayoutGrid className="h-4 w-4" />, path: 'dispatch-board',        dividerBefore: 'Operations' },
+    { label: 'Driver Status',  icon: <Container className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Loads',          icon: <Truck className="h-4 w-4" />, path: 'dispatch-loads' },
     { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />, path: 'dispatch-rate-con-inbox', badgeNode: <RateConInboxBadge /> },
     { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
@@ -2527,9 +2534,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
+        currentPath={boardRoute ? 'dispatch-board' : loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
         onNavigate={handleNavigate}
-        title="Dispatch Board"
+        title="Dispatch"
         notificationsPath="/dispatch?tab=notifications"
         headerActions={
           <button
@@ -2542,7 +2549,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         }
       >
         {quickComposeModal}
-        {diagnosticsRoute
+        {boardRoute
+          ? <DispatchBoardPage />
+          : diagnosticsRoute
           ? <ParserDiagnosticsPage />
           : rateConInboxRoute
           ? <RateConInboxPage />
@@ -2590,7 +2599,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
               Excluded from Dispatch Hub
             </DialogTitle>
             <DialogDescription className="text-xs">
-              These drivers are active in the system but hidden from the Dispatch Board and excluded from the daily count tiles.
+              These drivers are active in the system but hidden from Driver Status and excluded from the daily count tiles.
               Re-include any driver to bring them back into the Dispatch Hub.
             </DialogDescription>
           </DialogHeader>
