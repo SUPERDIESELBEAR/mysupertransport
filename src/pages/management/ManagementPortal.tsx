@@ -5,6 +5,7 @@ import StaffApplicationModal from '@/components/management/StaffApplicationModal
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import LoadsListPage from '@/pages/dispatch/LoadsListPage';
+import DispatchBoardPage from '@/pages/dispatch/DispatchBoardPage';
 import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
 import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
@@ -101,7 +102,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -174,7 +175,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -1031,7 +1032,8 @@ export default function ManagementPortal() {
     {
       label: 'Dispatch',
       items: [
-        { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
+        { label: 'Dispatch Board', icon: <LayoutGrid className="h-4 w-4" />, path: 'dispatch-board' },
+        { label: 'Driver Status', icon: <Container className="h-4 w-4" />, path: 'dispatch', badge: truckDownCount || undefined },
         { label: 'Loads',          icon: <Truck className="h-4 w-4" />,     path: 'loads' },
         { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />,     path: 'rate-con-inbox', badgeNode: <RateConInboxBadge /> },
         { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'brokers' },
@@ -1518,7 +1520,7 @@ export default function ManagementPortal() {
                         setView('dispatch');
                       }}
                       className={`flex flex-col items-center justify-center py-4 sm:py-5 gap-1 ${s.bg} transition-colors duration-200 w-full cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset`}
-                      title={`View ${s.label} operators on the Dispatch Board`}
+                      title={`View ${s.label} operators on Driver Status`}
                     >
                       <span className={`text-2xl sm:text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
                       <span className="text-xs text-muted-foreground font-medium text-center leading-tight">{s.label}</span>

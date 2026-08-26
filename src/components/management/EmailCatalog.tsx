@@ -698,7 +698,7 @@ const TEMPLATES: EmailTemplate[] = [
          <tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Notes</td><td style="padding:6px 0;font-size:14px;font-weight:600;color:#b91c1c;">ELD issue reported. Please call dispatch.</td></tr>
        </table>
        <p style="font-size:13px;color:#666;">Logged at Jan 23, 2026, 10:45 AM CT</p>`,
-      { label: 'Open Dispatch Board', url: `${SAMPLE_APP_URL}/dispatch` }
+      { label: 'Open Driver Status', url: `${SAMPLE_APP_URL}/dispatch` }
     ),
   },
   {
