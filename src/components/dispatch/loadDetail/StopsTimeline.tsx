@@ -11,8 +11,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { StopTimeProvenance, StopTimeSource } from '@/lib/stopTimes';
 import StopTimeEntry from './StopTimeEntry';
+import { carrierZoneAbbrev } from '@/lib/carrierTimezone';
 
 type Stop = LoadDetail['stops'][number] & StopTimeProvenance;
+
+/** "CDT" / "CST" for the given instant — quiet, so a time is never zone-less. */
+function Zone({ at }: { at: string | null | undefined }) {
+  const abbrev = carrierZoneAbbrev(at);
+  if (!abbrev) return null;
+  return <span className="ml-1 text-[11px] text-muted-foreground">{abbrev}</span>;
+}
 
 /** Quiet provenance line beside a recorded time. */
 function ProvenanceNote({
@@ -136,12 +144,16 @@ function StopCard({
           <div className="space-y-1 text-sm">
             <div>
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Appointment</span>
-              <div className="text-foreground">{formatWindow(stop.appointment_start, stop.appointment_end)}</div>
+              <div className="text-foreground">
+                {formatWindow(stop.appointment_start, stop.appointment_end)}
+                <Zone at={stop.appointment_start ?? stop.appointment_end} />
+              </div>
             </div>
             <div className="text-muted-foreground">
               Arrived: <span className="text-foreground">
                 {stop.actual_arrival_at ? formatDateTime(stop.actual_arrival_at) : 'Not yet arrived'}
               </span>
+              <Zone at={stop.actual_arrival_at} />
               {stop.actual_arrival_at ? (
                 <ProvenanceNote source={stop.arrival_source} recordedBy={stop.arrival_recorded_by} names={names} />
               ) : null}
@@ -150,6 +162,7 @@ function StopCard({
               Departed: <span className="text-foreground">
                 {stop.actual_departure_at ? formatDateTime(stop.actual_departure_at) : 'Not yet departed'}
               </span>
+              <Zone at={stop.actual_departure_at} />
               {stop.actual_departure_at ? (
                 <ProvenanceNote source={stop.departure_source} recordedBy={stop.departure_recorded_by} names={names} />
               ) : null}
