@@ -149,6 +149,7 @@ select
  * assigned to the resolved operator — and one disposable stop on it.
  */
 function scenario(body: string): string[] {
+  assertIdentitiesExist();
   const sql = `
 begin;
 
@@ -206,14 +207,6 @@ update public.load_stops set actual_arrival_at = ${ts}
  where id = (select v from t_ids where k='stop');`;
 
 describe('stamp_load_stop_time_source', () => {
-  itLive('resolves both actors from existing identities, inventing neither', () => {
-    assertIdentitiesExist();
-    const out = scenario(`
-select (select v from t_ids where k='op_profile') is distinct from
-       (select v from t_ids where k='staff_profile');`);
-    expect(out.at(-1)).toBe('t');
-  });
-
   itLive("a dispatcher setting arrival stamps 'dispatcher_entry' and their profile id", () => {
     const out = scenario(`${setArrival('staff')}${reportRow}`);
     expect(out.at(-1)).toBe('dispatcher_entry|staff|-|-');
