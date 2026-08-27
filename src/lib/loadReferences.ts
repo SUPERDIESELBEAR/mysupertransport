@@ -91,11 +91,12 @@ export async function saveLoadReferences(
     // with it the citations and created_at — is provably the one that survives.
     const { data: found, error: findError } = await supabase
       .from('load_references')
-      .select('id')
+      .select('id, value_key')
       .eq('load_id', loadId)
       .eq('reference_class', r.from_reference_class);
     if (findError) throw findError;
-    const target = (found ?? []).find(() => true);
+    const target = (found ?? []).find(row => row.value_key === r.value_key);
+
     if (!target) continue;
     const { error } = await supabase
       .from('load_references')
