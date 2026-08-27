@@ -831,6 +831,7 @@ export function applyRevision(
   // before the generic path writes and skipped by them.
   const refs = [...(values.references ?? [])];
   const removedReferences: RemovedReference[] = [];
+  const reclassifiedReferences: ReclassifiedReference[] = [];
   diff.nonFinancial.forEach(d => {
     if (!d.reference || !decisions.accepted[d.id]) return;
     const key = referenceKey(d.reference.reference_class as ReferenceClass, d.reference.value);
@@ -852,8 +853,28 @@ export function applyRevision(
       value: d.reference.value,
       citations: d.reference.citations,
     };
+
+    if (d.reference.op === 'reclassified' && d.reference.from_reference_class) {
+      reclassifiedReferences.push({
+        from_reference_class: d.reference.from_reference_class,
+        to_reference_class: d.reference.reference_class,
+        value: d.reference.value,
+        value_key: referenceValueKey(d.reference.value),
+      });
+      // The stale-class entry leaves the form values so the row is carried once.
+      const staleAt = refs.findIndex(r =>
+        referenceKey(r.reference_class as ReferenceClass, r.value)
+        === referenceKey(d.reference!.from_reference_class as ReferenceClass, d.reference!.value));
+      if (staleAt >= 0) refs.splice(staleAt, 1);
+      const nowAt = refs.findIndex(r =>
+        referenceKey(r.reference_class as ReferenceClass, r.value) === key);
+      if (nowAt >= 0) refs[nowAt] = row; else refs.push(row);
+      return;
+    }
+
     if (at >= 0) refs[at] = row; else refs.push(row);
   });
+
   values = { ...values, references: refs };
 
   diff.nonFinancial.forEach(d => {
