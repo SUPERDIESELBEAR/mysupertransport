@@ -1823,3 +1823,35 @@ did not grow.
 The +20 tests and +2 files in each shape are `detentionTerms.test.ts` (12),
 `detentionTermsRoundTrip.test.ts` (4) and four added cases in the existing
 `detentionSection.test.tsx`. Skip counts are unchanged: nothing new is gated.
+
+## Standing limit — the change-history snapshot cannot exceed 50 keys per call (2026-08-27)
+
+`update_load_with_stops` builds its change-history snapshot (`v_old`, and the
+`v_new` shape derived from its keys) with `jsonb_build_object`. That function
+takes TWO arguments per key against a hard Postgres limit of 100 arguments, so a
+single call cannot carry more than **50 keys**.
+
+Pass 2 added six detention columns to the snapshot, taking it to 52 keys — 104
+arguments — and every load edit failed with SQLSTATE 54023, *"cannot pass more
+than 100 arguments to a function"*. Not only detention edits: the snapshot is
+built before any field comparison, so EVERY save of EVERY load raised it.
+
+The snapshot is now split across two `jsonb_build_object` calls concatenated with
+`||`. The resulting jsonb is identical. Current occupancy, measured against the
+deployed function:
+
+  call 1: 34 keys (68 args) — 16 keys of headroom
+  call 2: 18 keys (36 args) — 32 keys of headroom
+
+**Standing limitation — pgFake does not model Postgres argument limits.** The
+Pass 2 round-trip tests were green the entire time every load edit was broken,
+because the fake executes the RPC shape in TypeScript and has no 100-argument
+ceiling. A green pgFake test is evidence the payload is carried; it is NOT
+evidence the RPC executes. Any future change that adds keys to this snapshot —
+or to any other large `jsonb_build_object` in a plpgsql function — must be
+verified with a REAL load edit against the database before it is called done.
+
+Verified for this fix: a real edit of ST26015 through Edit Load in the running
+app wrote `detention_free_time_minutes = 120`, `detention_rate_per_hour = 50`,
+`detention_notification_required = true` and a terms note, and produced four
+`load_change_history` rows, all `is_financial = false`.
