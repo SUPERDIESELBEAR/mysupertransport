@@ -1,17 +1,17 @@
 import type { LoadEditData } from '@/lib/loadDetail';
 import {
+import { isoToNaive } from '@/lib/carrierTimezone';
   emptyStop, loadFormDefaults, type LoadFormValues, type StopFormValues,
 } from '@/pages/dispatch/loadFormSchema';
 
 const text = (v: unknown): string => (v === null || v === undefined ? '' : String(v));
 
-/** ISO timestamp → the `YYYY-MM-DDTHH:mm` shape a datetime-local input wants. */
+/**
+ * ISO timestamp → the `YYYY-MM-DDTHH:mm` shape a datetime-local input wants,
+ * read in the CARRIER timezone so an edit round-trips on any machine.
+ */
 export function toLocalInput(value: string | null | undefined): string {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return isoToNaive(value);
 }
 
 /** Hydrates the shared load form from an existing load, its stops and its charges. */
