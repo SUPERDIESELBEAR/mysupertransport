@@ -214,7 +214,13 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
             stops={load.stops}
             canManage={canManageClaims}
             terms={readDetentionTerms(load)}
+            /* The verbatim record is written only by the parse path, so its
+               presence is the load's parse origin. Absent, unedited terms are
+               labelled "source not recorded" rather than credited to a
+               document nobody can point at. */
+            createdFromParse={load.verbatim_verification != null}
           />
+
         </SectionErrorBoundary>
       ) : null}
       {isStaff ? (
