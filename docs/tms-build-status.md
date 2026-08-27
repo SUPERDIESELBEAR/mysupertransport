@@ -1772,3 +1772,54 @@ are contention, not regression.
 A related trap: `bun run test:guards` is a NINE-FILE subset (86 tests). It is
 not a shape. A summary reading `9 passed (9) / 86 passed (86)` with zero skips
 is the guards subset, not a suite run, and must never be reported as one.
+
+## Module 5, Pass 2 — detention TERMS on the load (2026-08-27)
+
+**What the rate confirmation said, recorded as said.** Pass 1 recorded the
+on-site evidence and the claim; this pass records the terms the broker printed,
+so the dispatcher taking the hour-three phone call has the free time, the rate,
+the cap, the clock start and the notification requirement in front of them
+instead of re-reading a PDF.
+
+Six nullable columns on `loads`
+(`detention_free_time_minutes`, `detention_rate_per_hour`, `detention_daily_cap`,
+`detention_clock_start` (new enum: `appointment` / `arrival` / `gate_checkin`),
+`detention_notification_required`, `detention_terms_note`) plus the new enum.
+
+**NULL means NOT STATED, and no column takes a default.** Two hours of free time
+is a widespread convention and it is not a term of any particular contract; a
+default would have the system quoting the broker on something the broker never
+wrote. The display says "Not stated", never a zero or an assumed value, and when
+every field is null the block reads "This rate confirmation states no detention
+terms." rather than rendering an empty grid.
+
+`detention_notification_required` is a NULLABLE boolean and is therefore
+TRI-STATE — required / not required / not stated — everywhere it appears,
+including the Edit Load select. Collapsing "not stated" into `false` would have
+silenced the prompt below for exactly the loads where nobody knows the answer.
+
+Terms connect to claims in one place: an open claim with no `broker_notified_at`
+on a load whose terms require notification carries an inline warning on the claim
+card. It is a prompt, not a block — dispatch may still be mid-conversation — and
+it disappears the moment a notification is recorded, or when the requirement is
+absent or explicitly not required.
+
+Still true from Pass 1, and unchanged here: **detention is NEGOTIATED, not
+computed.** Recording a rate per hour and a free-time window does NOT license a
+calculator. Nothing multiplies dwell by rate, nothing shows an "eligible amount",
+and the section still shows evidence and terms only.
+
+**Manual entry only in this pass.** Terms are typed through the existing Edit Load
+path with the rest of the load; parser extraction from the rate confirmation is
+Pass 3. Operators cannot write any of the six columns — the
+`enforce_loads_operator_update` allow-list was not widened, and a test asserts it
+did not grow.
+
+### Test counts after this pass
+
+  with a database (PGHOST set):        835 passed | 7 skipped  (107 files passed | 1 skipped, 108 total)
+  without a database (--maxWorkers=2): 806 passed | 28 skipped (101 files passed | 7 skipped, 108 total)
+
+The +20 tests and +2 files in each shape are `detentionTerms.test.ts` (12),
+`detentionTermsRoundTrip.test.ts` (4) and four added cases in the existing
+`detentionSection.test.tsx`. Skip counts are unchanged: nothing new is gated.

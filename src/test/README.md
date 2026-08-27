@@ -39,7 +39,7 @@ It is not a shape and must never be reported as one.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  105 passed | 1 skipped (106)
+Test Files  107 passed | 1 skipped (108)
      Tests  835 passed | 7 skipped (842)
 
 
@@ -58,7 +58,7 @@ skipped:
 
 
 ```text
-Test Files  99 passed | 7 skipped (106)
+Test Files  101 passed | 7 skipped (108)
      Tests  806 passed | 28 skipped (834)
 
 skipped: the above, plus

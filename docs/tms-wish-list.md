@@ -265,3 +265,19 @@ TRIGGER: bind and check `error` in any edge-function query **at the moment that
 function is next edited for any other reason**, and in every new one. When a
 function's queries are all checked, note it here. Revisit wholesale only if a
 second silent-failure defect of this shape is found in production.
+
+### Broker-level default detention terms
+Terms are recorded per load, from the document that stated them. Several brokers
+print the same terms on every confirmation, so a dispatcher retypes them each
+time, and a mistyped free-time window is invisible until it is quoted back in a
+dispute.
+
+Not built: a broker-level default has to be presented as a SUGGESTION that the
+document can override, never as a term, and the moment it is stored on the load
+its provenance ("this came from the broker record, not this confirmation") has to
+travel with it. That is a provenance design, not a defaults form, and there is no
+evidence yet on how often the same broker's terms actually vary.
+
+TRIGGER: when a dispatcher reports retyping identical terms for the same broker,
+or when parser extraction (Module 5 Pass 3) lands and the parsed-vs-default
+disagreement becomes something the system can measure.
