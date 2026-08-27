@@ -30,6 +30,15 @@ let roles = { isDispatcher: true, isManagement: false };
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => roles }));
 
 import StopTimeEntry from '../StopTimeEntry';
+
+/** Drive the entry popup the way a dispatcher does: open, fill both, Done. */
+function pick(label: string, naive: string) {
+  const [date, time] = naive.split('T');
+  fireEvent.click(screen.getByRole('button', { name: label }));
+  fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } });
+  fireEvent.change(screen.getByLabelText('Time'), { target: { value: time } });
+  fireEvent.click(screen.getByRole('button', { name: `Done ${label.toLowerCase()}` }));
+}
 import StopsTimeline from '../StopsTimeline';
 import { DEPARTURE_BEFORE_ARRIVAL_MESSAGE } from '@/lib/stopTimes';
 
@@ -56,8 +65,8 @@ describe('StopTimeEntry', () => {
   it('rejects a departure earlier than the arrival and sends nothing', async () => {
     render(<StopTimeEntry stopId="stop-1" arrival={null} departure={null} />);
 
-    fireEvent.change(screen.getByLabelText('Record arrival'), { target: { value: '2026-08-27T10:00' } });
-    fireEvent.change(screen.getByLabelText('Record departure'), { target: { value: '2026-08-27T09:00' } });
+    pick('Record arrival', '2026-08-27T10:00');
+    pick('Record departure', '2026-08-27T09:00');
     fireEvent.click(screen.getByRole('button', { name: 'Save times' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(DEPARTURE_BEFORE_ARRIVAL_MESSAGE);
@@ -89,7 +98,7 @@ describe('StopTimeEntry', () => {
 
   it('never sends coordinates or a capture source', async () => {
     render(<StopTimeEntry stopId="stop-1" arrival={null} departure={null} />);
-    fireEvent.change(screen.getByLabelText('Record arrival'), { target: { value: '2026-08-27T10:00' } });
+    pick('Record arrival', '2026-08-27T10:00');
     fireEvent.click(screen.getByRole('button', { name: 'Save times' }));
 
     await waitFor(() => expect(updates).toHaveLength(1));
@@ -131,7 +140,7 @@ describe('StopsTimeline provenance', () => {
   it('does not render the entry control for a non-dispatch role', () => {
     roles = { isDispatcher: false, isManagement: false };
     render(<StopsTimeline stops={[baseStop] as never} />);
-    expect(screen.queryByLabelText('Record arrival')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Record arrival' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save times' })).toBeNull();
   });
 });
