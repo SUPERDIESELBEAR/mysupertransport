@@ -25,15 +25,15 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-27, after the carrier-timezone pass)
+## Expected baselines (measured 2026-08-27, after the stop-time picker pass)
 
 There are exactly two shapes. Anything else is a signal.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  99 passed | 1 skipped (100)
-     Tests  765 passed | 7 skipped (772)
+Test Files  100 passed | 1 skipped (101)
+     Tests  775 passed | 7 skipped (782)
 
 skipped:
   stop time source trigger x5
@@ -51,8 +51,8 @@ part of the baseline, not an optimisation: at full parallelism the RTL suites
 contend and time out, and those failures must not be read as a regression:
 
 ```text
-Test Files  93 passed | 7 skipped (100)
-     Tests  736 passed | 28 skipped (764)
+Test Files  94 passed | 7 skipped (101)
+     Tests  746 passed | 28 skipped (774)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
