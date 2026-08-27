@@ -513,16 +513,18 @@ export function buildRevisionDiff(
     }
     if (sameText(cur, revised)) return;
     const firstCapture = text(cur).trim() === '' && text(revised).trim() !== '';
+    const show = (raw: string) => (raw && spec.format ? spec.format(raw) : raw);
     nonFinancial.push({
       id: `load.${spec.key}`,
       label: firstCapture ? `${spec.label} — first capture` : spec.label,
       path: String(spec.key), stopIndex: null,
-      current: firstCapture ? 'Not previously stored' : (text(cur) || '—'),
-      revised: text(revised), value: String(revised),
+      current: firstCapture ? 'Not previously stored' : (show(text(cur)) || '—'),
+      revised: show(text(revised)), value: String(revised),
       hasDriverData: false, defaultAccept: !spec.freeText && !firstCapture,
       freeText: spec.freeText,
       firstCapture,
     });
+
   });
 
 
