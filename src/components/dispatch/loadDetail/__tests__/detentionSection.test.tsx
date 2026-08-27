@@ -123,7 +123,7 @@ describe('DetentionSection terms block', () => {
       loadId: 'load-1', loadStopId: 'stop-a', driverReportedAt: '2026-08-27T09:30',
     });
     renderWithTerms({ notificationRequired: null, freeTimeMinutes: 60 });
-    await waitFor(() => expect(screen.getByText('60 minutes')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('60 minutes (1 hour)')).toBeInTheDocument());
     expect(screen.queryByText(/require notifying the broker/i)).not.toBeInTheDocument();
   });
 });
