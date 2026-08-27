@@ -1563,3 +1563,22 @@ exists, is left untouched.
 Baselines after this pass: **766 passed | 7 skipped** with a database,
 **737 passed | 28 skipped** without (`PGHOST=` and `--maxWorkers=2`). The +1 in
 each shape is the new `reads every select it finds` test.
+
+## Investigation closure — Issue 2 (permission denied for loads / user_roles / current_profile_id)
+
+Date: 2026-08-27.
+
+Status: **closed as stale — no current emitter.**
+
+The original error report (`permission denied for table loads`, `permission denied for table user_roles`, `permission denied for function current_profile_id`) was traced to work performed on 2026-08-20. The code paths that produced it have since been replaced.
+
+Basis for closure:
+
+- `public.grant_parity_report()` returned **zero rows** for both `loads` and `user_roles`.
+- Direct privilege checks confirmed `authenticated` holds `SELECT, INSERT, UPDATE, DELETE` on both tables.
+- `has_role()` is callable from an authenticated session.
+- The `current_profile_id` revoke from 2026-08-20 is intentional and correct; no invoker paths reach it.
+
+### Standing constraint: postgres logs are not a reliable investigation source
+
+At the time of this check, `postgres_logs` retained roughly **nine minutes** of history (26 rows spanning 18:01–18:10 UTC). "No matching errors in the retained logs" is therefore not evidence of absence; it can only show that nothing broke in the last few minutes. For any reported database error after the fact, the only reliable evidence is a **current-state check against the catalog** (grants, policies, function signatures, RLS) rather than log history.
