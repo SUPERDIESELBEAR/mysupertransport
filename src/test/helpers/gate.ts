@@ -17,12 +17,12 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-27 (stop-time picker pass). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-27 (rate con inbox duplicate pass). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     775 passed | 7 skipped        (100 files passed | 1 skipped)
+ *     782 passed | 7 skipped        (101 files passed | 1 skipped)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -38,7 +38,7 @@
  *   WITHOUT a database (PGHOST absent), run with --maxWorkers=2 (the flag is part
  *   of the baseline: at full parallelism the RTL suites contend and time out,
  *   and those timeouts are not a regression):
- *     746 passed | 28 skipped       (94 files passed | 7 skipped)
+ *     753 passed | 28 skipped       (95 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)

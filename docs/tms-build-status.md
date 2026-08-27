@@ -1613,3 +1613,45 @@ Basis for closure:
 ### Standing constraint: postgres logs are not a reliable investigation source
 
 At the time of this check, `postgres_logs` retained roughly **nine minutes** of history (26 rows spanning 18:01–18:10 UTC). "No matching errors in the retained logs" is therefore not evidence of absence; it can only show that nothing broke in the last few minutes. For any reported database error after the fact, the only reliable evidence is a **current-state check against the catalog** (grants, policies, function signatures, RLS) rather than log history.
+
+
+## Rate con inbox — collapsed duplicates are visible, but never count as work
+
+Date: 2026-08-27. Issue 3.
+
+**The defect.** A duplicate inbound rate con is auto-collapsed by writing
+`status = 'dismissed'` with a `dismiss_reason` starting `Duplicate` and
+`dismissed_by` left null (no human dismissed it). The inbox fetched those rows
+but the render filter kept only `OPEN_STATUSES`, so they were dropped on the
+floor: not in the open list, not in Handled unless the toggle was on, and
+invisible in the default view. A second copy of a tender simply vanished.
+
+**One predicate, one place.** `src/lib/rateConInbox.ts` is now the only source
+of these rules, imported by both the page and the nav badge hook:
+
+- `OPEN_STATUSES` — `received`, `pending_parse`, `parsed`, `needs_manual`.
+  `dismissed` is deliberately NOT a member. Adding it would resurrect every
+  human-dismissed newsletter.
+- `isAutoCollapsedDuplicate(row)` — dismissed, `dismissed_by` null, reason
+  matches `/^duplicate/i`. Machine collapse, not a human decision.
+- `isDefaultVisible(row)` — open OR auto-collapsed duplicate. Drives the list.
+- `countsTowardBadge(row)` — open AND not a duplicate. Drives the badge.
+
+**Badge and list disagree on purpose.** The list is a record: you should be able
+to see that the broker sent the tender twice, without opening the Handled
+drawer. The badge is a call to action: a duplicate needs nothing done to it, so
+counting it would send someone to the inbox to find no work. This divergence is
+intentional and asserted in `rateConInboxDuplicates.test.tsx` — an agreement
+test would be the wrong test to write here.
+
+**Rendering.** Duplicates render in the open list at 75% opacity with a dashed
+border, badged `Duplicate — collapsed`, carrying the reason text and no action
+buttons at all — no Create load, no Dismiss, no Retry. They are subtracted from
+the Handled list so toggling Show handled does not draw them twice. The
+"Inbox zero" empty state is gated on the visible list rather than on open
+statuses, so it no longer claims an empty inbox while duplicates are on screen.
+
+Baselines after this pass: **782 passed | 7 skipped** with a database
+(101 files passed | 1 skipped), **753 passed | 28 skipped** without
+(95 | 7; `PGHOST=` and `--maxWorkers=2`). The +7 in each shape is
+`rateConInboxDuplicates.test.tsx`.
