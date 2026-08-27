@@ -1,12 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logDbError } from '@/lib/dbError';
+import { OPEN_STATUSES } from '@/lib/rateConInbox';
 
 /**
  * Open count for the rate-con ingest inbox: the only notification the shared
  * queue gets. Parsed items and items needing manual retrieval both count;
  * 'received' / 'pending_parse' are transient (the ingest function is still
  * working) and count too — a dispatcher should see that mail arrived.
+ *
+ * Auto-collapsed duplicates render in the list but are NOT counted here: a
+ * badge is a call to action and a duplicate needs none. The list and the badge
+ * agree because both derive from src/lib/rateConInbox — countsTowardBadge() is
+ * exactly "an open status", and no dismissed row has one.
  */
 export function useRateConInboxCount(): number {
   const [count, setCount] = useState(0);
@@ -15,7 +21,8 @@ export function useRateConInboxCount(): number {
     const { count: n, error } = await supabase
       .from('rate_con_ingest_queue')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['received', 'pending_parse', 'parsed', 'needs_manual']);
+      .in('status', [...OPEN_STATUSES]);
+
     if (error) {
       logDbError('rate con inbox count', error);
       return;
