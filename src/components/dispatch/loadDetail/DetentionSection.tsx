@@ -19,6 +19,7 @@ import { formatDateTime, formatWindow, type LoadDetail } from '@/lib/loadDetail'
 import { STOP_TYPE_LABELS, type StopType } from '@/lib/loadRateMath';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchLoadCharges, type LoadChargeRecord } from '@/lib/loadCharges';
+import { fetchLoadChangeHistory } from '@/lib/loadDetail';
 import type { StopTimeProvenance, StopTimeSource } from '@/lib/stopTimes';
 import {
   advanceDetentionClaimStatus,
