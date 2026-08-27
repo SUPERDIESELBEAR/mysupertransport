@@ -1,8 +1,8 @@
 import type { LoadEditData } from '@/lib/loadDetail';
 import {
-import { isoToNaive } from '@/lib/carrierTimezone';
   emptyStop, loadFormDefaults, type LoadFormValues, type StopFormValues,
 } from '@/pages/dispatch/loadFormSchema';
+import { isoToNaive } from '@/lib/carrierTimezone';
 
 const text = (v: unknown): string => (v === null || v === undefined ? '' : String(v));
 
