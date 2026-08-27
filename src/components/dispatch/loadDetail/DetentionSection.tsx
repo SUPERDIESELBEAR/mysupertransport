@@ -249,13 +249,19 @@ function chargeLabel(charge: LoadChargeRecord): string {
 }
 
 export default function DetentionSection({
-  loadId, stops, canManage, terms = EMPTY_DETENTION_TERMS,
+  loadId, stops, canManage, terms = EMPTY_DETENTION_TERMS, createdFromParse = false,
 }: {
   loadId: string;
   stops: LoadDetail['stops'];
   canManage: boolean;
   /** Terms as the rate confirmation stated them. Absent reads as not stated. */
   terms?: DetentionTerms;
+  /**
+   * Whether this load was created from a parsed rate confirmation. Used only to
+   * label an unedited term as read from the document; when false, unedited
+   * terms say their source was not recorded rather than claiming one.
+   */
+  createdFromParse?: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -270,6 +276,25 @@ export default function DetentionSection({
     queryKey: ['load-charges', loadId],
     queryFn: () => fetchLoadCharges(loadId),
   });
+
+  // Provenance is derived from the load's own edit trail; no column stores it.
+  const { data: history } = useQuery({
+    queryKey: ['load-change-history', loadId],
+    queryFn: () => fetchLoadChangeHistory(loadId),
+  });
+
+  const termSources = useMemo(
+    () => detentionTermSources(
+      (history ?? []).map(h => ({
+        field_path: h.field_path,
+        reason: h.reason ?? h.change_source,
+        changed_at: h.changed_at,
+      })),
+      createdFromParse,
+    ),
+    [history, createdFromParse],
+  );
+
 
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const actorKey = useMemo(
