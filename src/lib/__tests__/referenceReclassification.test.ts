@@ -52,8 +52,9 @@ async function diffFor(
     load_number: 'ST26035', stops: stopsOf(), references: currentRefs, charges: [],
   } as never;
   const parsed = { references: docRefs, stops: [] } as never;
-  return buildRevisionDiff({ current, parsed, resolutions: {} } as never);
+  return buildRevisionDiff(current, parsed, {});
 }
+
 
 describe('revision diff — a reclassification is ONE entry', () => {
   it('reports a stored `other` row and an incoming `unclassified` row as one reclassification', async () => {
