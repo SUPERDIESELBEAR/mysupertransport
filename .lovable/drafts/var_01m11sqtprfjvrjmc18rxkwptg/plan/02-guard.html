@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: hsl(var(--accent)); }
+    .accs { stroke: hsl(var(--accent)); stroke-width: 1; fill: none; }
+    .accf { fill: hsl(var(--accent-foreground)); font-size: 12px; font-family: var(--font-sans); }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text class="note" x="8" y="16">today</text>
+  <rect class="zone" x="8" y="26" width="280" height="240" rx="8"/>
+  <rect class="box" x="28" y="48" width="240" height="40" rx="8"/>
+  <text class="lbl" x="44" y="66">scan src/ only</text>
+  <text class="mono" x="44" y="82">594 literal selects checked</text>
+
+  <line class="wire" x1="148" y1="88" x2="148" y2="118" marker-end="url(#ch)"/>
+
+  <rect class="box" x="28" y="120" width="240" height="44" rx="8"/>
+  <text class="lbl" x="44" y="140">literal? check columns</text>
+  <text class="mono" x="44" y="156">not literal → skipped++, pass</text>
+
+  <line class="wire" x1="148" y1="164" x2="148" y2="194" marker-end="url(#ch)"/>
+
+  <rect class="box" x="28" y="196" width="240" height="44" rx="8"/>
+  <text class="lbl" x="44" y="216">green</text>
+  <text class="mono" x="44" y="232">23 selects unread · 324 unseen</text>
+
+  <line class="wire" x1="300" y1="146" x2="340" y2="146" marker-end="url(#ch)"/>
+
+  <text class="note" x="352" y="16">after</text>
+  <rect class="zone" x="352" y="26" width="280" height="240" rx="8"/>
+  <rect class="accs" x="372" y="48" width="240" height="40" rx="8"/>
+  <text class="lbl" x="388" y="66">scan src/ + supabase/functions/</text>
+  <text class="mono" x="388" y="82">918 literal selects checked</text>
+
+  <line class="wire" x1="492" y1="88" x2="492" y2="118" marker-end="url(#ch)"/>
+
+  <rect class="accs" x="372" y="120" width="240" height="44" rx="8"/>
+  <text class="lbl" x="388" y="140">literal? check · else resolve</text>
+  <text class="mono" x="388" y="156">unresolvable → FAIL, named</text>
+
+  <line class="wire" x1="492" y1="164" x2="492" y2="194" marker-end="url(#ch)"/>
+
+  <rect class="box" x="372" y="196" width="240" height="44" rx="8"/>
+  <text class="lbl" x="388" y="216">green means read</text>
+  <text class="mono" x="388" y="232">nothing silently passed over</text>
+
+  <circle class="acc" cx="360" cy="284" r="9"/>
+  <text class="accf" x="356" y="288">1</text>
+  <text class="note" x="376" y="288">the change: no select escapes unread — unreadable ones fail loudly</text>
+</svg>
