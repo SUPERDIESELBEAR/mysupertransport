@@ -29,6 +29,7 @@ import InspectionSharePage from "./pages/InspectionSharePage";
 import BinderShareBundlePage from "./pages/BinderShareBundlePage";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SubmitSSN from "./pages/SubmitSSN";
+import InboxShot from "./pages/__InboxShot";
 import InstallApp from "./pages/InstallApp";
 import PEIRespond from "./pages/PEIRespond";
 import PEIRelease from "./pages/PEIRelease";
@@ -182,6 +183,7 @@ function AppRoutes() {
       <Route path="/application/approve/:token" element={<ApplicationApprove />} />
       <Route path="/splash" element={<SplashPage />} />
       <Route path="/install" element={<InstallApp />} />
+      <Route path="/__inbox-shot" element={<InboxShot />} />
       <Route path="/qpassport/view" element={<QPassportView />} />
       <Route path="/passenger-auth/:token" element={<PassengerAuthSign />} />
       <Route path="/preview-login" element={<PreviewLogin />} />
