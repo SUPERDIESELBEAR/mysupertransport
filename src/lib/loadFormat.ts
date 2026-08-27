@@ -1,4 +1,5 @@
 import type { Database } from '@/integrations/supabase/types';
+import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 
 export type LoadStatus = Database['public']['Enums']['load_status'];
 export type EquipmentType = Database['public']['Enums']['equipment_type'];
@@ -56,5 +57,5 @@ export function formatShortDate(value: string | null | undefined): string {
   if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: CARRIER_TIMEZONE });
 }

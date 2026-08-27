@@ -204,7 +204,15 @@ export function assembleBoard({
   });
 
   // Ascending by resolved delivery time. UNCAPPED — never sliced.
-  chains.forEach(list => list.sort((a, b) => a.deliveryTime.localeCompare(b.deliveryTime)));
+  // Compare parsed instants, not strings. A lexical compare is only correct
+  // while every timestamp serialises with the same offset form; Postgres
+  // returns "+00:00" today but a "Z" or a "-05:00" row would sort wrongly.
+  chains.forEach(list => list.sort((a, b) => {
+    const ta = Date.parse(a.deliveryTime);
+    const tb = Date.parse(b.deliveryTime);
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return a.deliveryTime.localeCompare(b.deliveryTime);
+    return ta - tb;
+  }));
 
   const build = (driver: BoardDriverInput): DriverChain => {
     const chain = chains.get(driver.operator_id) ?? [];

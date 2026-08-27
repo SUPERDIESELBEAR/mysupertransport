@@ -17,6 +17,7 @@ import {
   type ChainLoad, type DriverChain,
 } from '@/lib/dispatchBoard';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
+import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 
 interface DispatchBoardPageProps {
   /** Provided by the Management portal so a board row can open its own load-detail view. */
@@ -159,7 +160,7 @@ function formatDeliveryDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago',
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: CARRIER_TIMEZONE,
   });
 }
 

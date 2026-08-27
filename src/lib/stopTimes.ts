@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { isoToNaive, naiveToIso } from '@/lib/carrierTimezone';
 
 /**
  * Stop arrival / departure capture.
@@ -40,21 +41,19 @@ export function validateStopTimes(
   return null;
 }
 
-/** `2026-08-27T13:04:00Z` -> `2026-08-27T08:04` in the viewer's local zone. */
+/** `2026-08-27T13:04:00Z` -> `2026-08-27T08:04` in the CARRIER timezone. */
 export function toLocalInputValue(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return isoToNaive(iso);
 }
 
-/** `2026-08-27T08:04` (local) -> ISO instant, or null when empty. */
+/** `2026-08-27T08:04` (carrier wall clock) -> ISO instant, or null when empty. */
 export function fromLocalInputValue(value: string): string | null {
   if (!value.trim()) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+  try {
+    return naiveToIso(value.trim());
+  } catch {
+    return null;
+  }
 }
 
 export async function saveStopTimes(

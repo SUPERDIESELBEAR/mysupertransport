@@ -1,5 +1,6 @@
 import type { LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 import { calcTotalLoadValue } from '@/lib/loadRateMath';
+import { naiveToIso } from '@/lib/carrierTimezone';
 
 /**
  * The exact payload shape `create_load_with_stops` / `update_load_with_stops` expect.
@@ -19,7 +20,11 @@ export interface LoadSavePayload {
   references: LoadFormValues['references'];
 }
 
-const toIso = (v?: string) => (v ? new Date(v).toISOString() : '');
+/**
+ * Appointment strings come off the form (and the parser) as naive wall-clock
+ * text. They are resolved against the carrier timezone, never the browser's.
+ */
+const toIso = (v?: string) => (v ? naiveToIso(v) : '');
 
 export function buildLoadSavePayload(
   v: LoadFormValues, opts: { isEdit: boolean },

@@ -14,6 +14,22 @@ Last updated: 2026-08-26
 
 ## PARKED CAPABILITIES
 
+### Per-facility timezone
+
+Freight convention is that appointment times are local to the FACILITY. SUPERDRIVE
+now pins everything to the carrier timezone, which is correct while humans on one
+clock enter times transcribed from documents. It breaks when a DRIVER records a
+time: a driver in Phoenix tapping "arrived" at 08:00 local stores 15:00 UTC, while
+an 08:00 appointment stored as carrier-local is 13:00 UTC — he reads two hours
+late when he was on time, and that comparison is what a detention conversation
+turns on. Natural home is a timezone column on `facilities`, seeded from state
+and corrected by hand for the states that straddle zones (TX, FL, TN, KY, IN, ND,
+SD, NE, KS, OR, ID, MI), since facilities are a reused registry. No coordinates
+exist, so state or ZIP is the only available basis.
+
+TRIGGER: Module 11, driver app check-in.
+
+
 ### Mileage engine
 Nothing in SUPERDRIVE can compute distance between two points. `facilities` has no
 coordinates, and `load_stops` latitude/longitude are DRIVER CHECK-IN coordinates,

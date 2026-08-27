@@ -1,5 +1,6 @@
 import type { BrokerAddressSource, ParsedRateConfirmation } from '@/lib/rateConfirmation';
 import { toTitleCase } from '@/lib/textNormalize';
+import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 
 /**
  * The broker address printed on a rate confirmation is usually a remit-to/bill-to
@@ -29,7 +30,7 @@ export interface BrokerAddressPrefill {
 /** M/D/YY in US Central — the operating timezone for this carrier. */
 function centralShortDate(now: Date): string {
   return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Chicago', month: 'numeric', day: 'numeric', year: '2-digit',
+    timeZone: CARRIER_TIMEZONE, month: 'numeric', day: 'numeric', year: '2-digit',
   }).format(now);
 }
 

@@ -246,3 +246,14 @@ describe('dispatcher scoping', () => {
     expect(d1).toBe(rows[1]);
   });
 });
+
+describe('delivery ordering across mixed offset representations', () => {
+  it('sorts chronologically when timestamps serialise differently', () => {
+    const r = run([
+      load({ id: 'a', stops: [delivery(1, '2026-03-10T18:00:00+00:00')] }), // 18:00Z
+      load({ id: 'b', stops: [delivery(1, '2026-03-10T09:00:00-05:00')] }), // 14:00Z
+      load({ id: 'c', stops: [delivery(1, '2026-03-10T16:00:00Z')] }),      // 16:00Z
+    ]);
+    expect(r.rows[0].chain.map(c => c.id)).toEqual(['b', 'c', 'a']);
+  });
+});

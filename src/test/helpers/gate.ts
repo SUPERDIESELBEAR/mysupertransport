@@ -17,12 +17,12 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-27 (Module 5 Pass 1). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-27 (Module 5 Pass 1, carrier-timezone pass). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     742 passed | 7 skipped        (97 files passed | 1 skipped)
+ *     752 passed | 7 skipped        (98 files passed | 1 skipped)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -35,8 +35,10 @@
  *       - certify_rods_day live RPC, execute arm
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
- *   WITHOUT a database (PGHOST absent):
- *     713 passed | 28 skipped       (91 files passed | 7 skipped)
+ *   WITHOUT a database (PGHOST absent), run with --maxWorkers=2 (the flag is part
+ *   of the baseline: at full parallelism the RTL suites contend and time out,
+ *   and those timeouts are not a regression):
+ *     723 passed | 28 skipped       (92 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
