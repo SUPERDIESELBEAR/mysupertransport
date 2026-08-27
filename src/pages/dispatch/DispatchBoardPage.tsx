@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +17,11 @@ import {
   assembleBoard, filterRowsByDispatcher, type BoardDriverInput, type BoardLoadInput,
   type ChainLoad, type DriverChain,
 } from '@/lib/dispatchBoard';
+import { summarizeActiveClaims, type ActiveClaimSummary } from '@/lib/loadClaims';
+import {
+  type ClaimLevel,
+  type ClaimType,
+} from '@/components/dispatch/loadDetail/claimConstants';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
 import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 
@@ -50,6 +56,8 @@ interface BoardData {
   loads: BoardLoadInput[];
   documentsByLoad: Record<string, PaperworkDocumentInput[]>;
   exceptionsByLoad: Record<string, PaperworkExceptionInput[]>;
+  /** Active claim summary keyed by load id, if the load has at least one active claim. */
+  activeClaimsByLoad: Record<string, ActiveClaimSummary>;
 }
 
 async function fetchBoard(): Promise<BoardData> {
@@ -132,6 +140,7 @@ async function fetchBoard(): Promise<BoardData> {
   const loadIds = loads.map(l => l.id);
   const documentsByLoad: Record<string, PaperworkDocumentInput[]> = {};
   const exceptionsByLoad: Record<string, PaperworkExceptionInput[]> = {};
+  const activeClaimsByLoad: Record<string, ActiveClaimSummary> = {};
 
   if (loadIds.length > 0) {
     const { data: docs, error: docErr } = await supabase
@@ -151,9 +160,26 @@ async function fetchBoard(): Promise<BoardData> {
     (excs ?? []).forEach((e: any) => {
       (exceptionsByLoad[e.load_id] ||= []).push({ document_type: e.document_type, status: e.status });
     });
+
+    const { data: claimRows, error: claimErr } = await supabase
+      .from('claim_flags')
+      .select('load_id, flag_level, claim_type')
+      .in('load_id', loadIds)
+      .eq('is_active', true);
+    if (claimErr) throw claimErr;
+    const grouped = new Map<string, { flag_level: ClaimLevel; claim_type: ClaimType }[]>();
+    (claimRows ?? []).forEach(c => {
+      const list = grouped.get(c.load_id) ?? [];
+      list.push({ flag_level: c.flag_level, claim_type: c.claim_type });
+      grouped.set(c.load_id, list);
+    });
+    grouped.forEach((claims, loadId) => {
+      const summary = summarizeActiveClaims(claims);
+      if (summary) activeClaimsByLoad[loadId] = summary;
+    });
   }
 
-  return { drivers, dispatcherNames, loads, documentsByLoad, exceptionsByLoad };
+  return { drivers, dispatcherNames, loads, documentsByLoad, exceptionsByLoad, activeClaimsByLoad };
 }
 
 function formatDeliveryDate(iso: string): string {
@@ -201,7 +227,15 @@ function DeliveryDate({ load }: { load: ChainLoad }) {
   );
 }
 
-function LoadLine({ load, queued, muted, onOpen }: { load: ChainLoad; queued?: boolean; muted?: boolean; onOpen: (id: string) => void }) {
+function LoadLine({
+  load, queued, muted, onOpen, activeClaim,
+}: {
+  load: ChainLoad;
+  queued?: boolean;
+  muted?: boolean;
+  onOpen: (id: string) => void;
+  activeClaim?: ActiveClaimSummary | null;
+}) {
   return (
     <button
       type="button"
@@ -214,6 +248,13 @@ function LoadLine({ load, queued, muted, onOpen }: { load: ChainLoad; queued?: b
     >
       <span className="font-medium">{load.load_number}</span>
       <LoadStatusBadge status={load.status as never} />
+      {activeClaim && (
+        <LoadClaimIndicator
+          level={activeClaim.level}
+          claimType={activeClaim.claimType}
+          title={activeClaim.title}
+        />
+      )}
       <span className="truncate">{lane(load)}</span>
       <span className={cn('ml-auto tabular-nums', queued || muted ? '' : 'text-muted-foreground')}>
         <DeliveryDate load={load} />
@@ -222,7 +263,13 @@ function LoadLine({ load, queued, muted, onOpen }: { load: ChainLoad; queued?: b
   );
 }
 
-function DriverRow({ row, onOpen }: { row: DriverChain; onOpen: (id: string) => void }) {
+function DriverRow({
+  row, onOpen, activeClaimsByLoad,
+}: {
+  row: DriverChain;
+  onOpen: (id: string) => void;
+  activeClaimsByLoad: Record<string, ActiveClaimSummary>;
+}) {
   return (
     <TableRow className="align-top">
       <TableCell className="py-3">
@@ -245,13 +292,15 @@ function DriverRow({ row, onOpen }: { row: DriverChain; onOpen: (id: string) => 
         ) : (
           <div className="space-y-1">
             {row.current ? (
-              <LoadLine load={row.current} onOpen={onOpen} />
+              <LoadLine load={row.current} onOpen={onOpen} activeClaim={activeClaimsByLoad[row.current.id]} />
             ) : (
               <span className="text-sm text-muted-foreground">No load recorded in SUPERDRIVE</span>
             )}
             {row.queued.length > 0 && (
               <div className="pl-3 border-l border-border space-y-0.5">
-                {row.queued.map(l => <LoadLine key={l.id} load={l} queued onOpen={onOpen} />)}
+                {row.queued.map(l => (
+                  <LoadLine key={l.id} load={l} queued onOpen={onOpen} activeClaim={activeClaimsByLoad[l.id]} />
+                ))}
               </div>
             )}
             {row.paperworkTail.length > 0 && (
@@ -259,7 +308,9 @@ function DriverRow({ row, onOpen }: { row: DriverChain; onOpen: (id: string) => 
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                   Awaiting paperwork
                 </div>
-                {row.paperworkTail.map(l => <LoadLine key={l.id} load={l} muted onOpen={onOpen} />)}
+                {row.paperworkTail.map(l => (
+                  <LoadLine key={l.id} load={l} muted onOpen={onOpen} activeClaim={activeClaimsByLoad[l.id]} />
+                ))}
               </div>
             )}
           </div>
@@ -401,7 +452,14 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleRows.map(r => <DriverRow key={r.driver.operator_id} row={r} onOpen={openLoad} />)}
+              {visibleRows.map(r => (
+                <DriverRow
+                  key={r.driver.operator_id}
+                  row={r}
+                  onOpen={openLoad}
+                  activeClaimsByLoad={data?.activeClaimsByLoad ?? {}}
+                />
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -421,7 +479,12 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
               </TableHeader>
               <TableBody>
                 {visibleOffDispatchRows.map(r => (
-                  <DriverRow key={r.driver.operator_id} row={r} onOpen={openLoad} />
+                  <DriverRow
+                    key={r.driver.operator_id}
+                    row={r}
+                    onOpen={openLoad}
+                    activeClaimsByLoad={data?.activeClaimsByLoad ?? {}}
+                  />
                 ))}
               </TableBody>
             </Table>

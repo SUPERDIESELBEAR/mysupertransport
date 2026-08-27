@@ -13,11 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import ColumnVisibilityMenu from '@/components/shared/ColumnVisibilityMenu';
 import SortableTableHead from '@/components/shared/SortableTableHead';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import { compareValues, nextSortState } from '@/lib/listSorting';
 import {
   EQUIPMENT_TYPES, LOAD_STATUSES, formatEnumLabel,
   type EquipmentType, type LoadStatus,
 } from '@/lib/loadFormat';
+import { summarizeActiveClaims, type ActiveClaimSummary } from '@/lib/loadClaims';
+import {
+  type ClaimLevel,
+  type ClaimType,
+} from '@/components/dispatch/loadDetail/claimConstants';
 import {
   DEFAULT_LOAD_COLUMNS, LOAD_COLUMNS, LOAD_COLUMN_TOGGLES, rateOf, type LoadRow,
 } from './loadsColumns';
@@ -83,6 +89,27 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
     });
   }
 
+  const loadIds = rows.map(r => r.id as string);
+  const activeClaimsByLoad: Record<string, ActiveClaimSummary> = {};
+  if (loadIds.length > 0) {
+    const { data: claimRows, error: claimErr } = await supabase
+      .from('claim_flags')
+      .select('load_id, flag_level, claim_type')
+      .in('load_id', loadIds)
+      .eq('is_active', true);
+    if (claimErr) throw claimErr;
+    const grouped = new Map<string, { flag_level: ClaimLevel; claim_type: ClaimType }[]>();
+    (claimRows ?? []).forEach(c => {
+      const list = grouped.get(c.load_id) ?? [];
+      list.push({ flag_level: c.flag_level, claim_type: c.claim_type });
+      grouped.set(c.load_id, list);
+    });
+    grouped.forEach((claims, loadId) => {
+      const summary = summarizeActiveClaims(claims);
+      if (summary) activeClaimsByLoad[loadId] = summary;
+    });
+  }
+
   return rows.map(r => {
     const stops = ((r.load_stops as StopRow[] | null) ?? [])
       .slice()
@@ -94,9 +121,10 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
       ? [dispatcher.first_name, dispatcher.last_name].filter(Boolean).join(' ').trim() || null
       : null;
     const operatorId = r.operator_id as string | null;
+    const loadId = r.id as string;
 
     return {
-      id: r.id as string,
+      id: loadId,
       load_number: r.load_number as string,
       status: r.status as LoadRow['status'],
       equipment_type: r.equipment_type as LoadRow['equipment_type'],
@@ -118,6 +146,7 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
       destinationState: last?.state ?? null,
       pickupDate: first?.appointment_start ?? null,
       deliveryDate: last?.appointment_start ?? null,
+      activeClaim: activeClaimsByLoad[loadId] ?? null,
     } satisfies LoadRow;
   });
 }
@@ -170,6 +199,7 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
   const [statusFilter, setStatusFilter] = useState<'all' | LoadStatus>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<'all' | EquipmentType>('all');
   const [dispatcherFilter, setDispatcherFilter] = useState<string>('all');
+  const [claimFilter, setClaimFilter] = useState<'all' | 'active' | 'watch' | 'hold'>('all');
   const debouncedSearch = useDebouncedValue(search, 200);
 
   const { visibleColumns, sort, setVisibleColumns, setSort, reset } = useViewPreferences({
@@ -198,7 +228,7 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
   });
 
   const clearFilters = () => {
-    setSearch(''); setStatusFilter('all'); setEquipmentFilter('all'); setDispatcherFilter('all');
+    setSearch(''); setStatusFilter('all'); setEquipmentFilter('all'); setDispatcherFilter('all'); setClaimFilter('all');
   };
 
   const filtered = useMemo(() => {
@@ -208,6 +238,11 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
       if (equipmentFilter !== 'all' && l.equipment_type !== equipmentFilter) return false;
       if (dispatcherFilter === 'unassigned' && l.dispatcher_id) return false;
       if (dispatcherFilter !== 'all' && dispatcherFilter !== 'unassigned' && l.dispatcher_id !== dispatcherFilter) return false;
+      if (claimFilter !== 'all') {
+        if (!l.activeClaim) return false;
+        if (claimFilter === 'active') return true;
+        if (claimFilter !== l.activeClaim.level) return false;
+      }
       if (!q) return true;
       return [l.load_number, l.brokerName, l.driverName, l.dispatcherName]
         .filter(Boolean)
@@ -221,7 +256,7 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
         compareValues(activeColumn.sortValue(a), activeColumn.sortValue(b), sort.direction));
     }
     return rows;
-  }, [loads, debouncedSearch, statusFilter, equipmentFilter, dispatcherFilter, sort, activeColumn]);
+  }, [loads, debouncedSearch, statusFilter, equipmentFilter, dispatcherFilter, claimFilter, sort, activeColumn]);
 
   const counts = useMemo(() => STAT_GROUPS.map(g => ({
     label: g.label,
@@ -294,6 +329,15 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
             {(dispatchers ?? []).map(d => (
               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={claimFilter} onValueChange={v => setClaimFilter(v as 'all' | 'active' | 'watch' | 'hold')}>
+          <SelectTrigger className="sm:w-44"><SelectValue placeholder="All Claims" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Claims</SelectItem>
+            <SelectItem value="active">Has active claim</SelectItem>
+            <SelectItem value="watch">Watch</SelectItem>
+            <SelectItem value="hold">Hold</SelectItem>
           </SelectContent>
         </Select>
         <ColumnVisibilityMenu
@@ -386,7 +430,16 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-semibold text-sm text-foreground">{l.load_number}</span>
-                  <LoadStatusBadge status={l.status} />
+                  <span className="inline-flex items-center gap-1.5">
+                    <LoadStatusBadge status={l.status} />
+                    {l.activeClaim && (
+                      <LoadClaimIndicator
+                        level={l.activeClaim.level}
+                        claimType={l.activeClaim.claimType}
+                        title={l.activeClaim.title}
+                      />
+                    )}
+                  </span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                   <span className="text-muted-foreground">Broker</span>
