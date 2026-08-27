@@ -239,3 +239,19 @@ When something is raised that is not being built now:
   3. When a trigger fires, promote it into a build pass and remove it from here
 
 Do not let items accumulate without triggers.
+
+### 246 edge-function queries destructure `data` and discard `error`
+Counted across 78 files in `supabase/functions`: `const { data } = await
+supabase.from(...)...` with no `error` binding. A rejected query is then
+indistinguishable from an empty result, and the caller proceeds on `null`. This
+is exactly how the `operators.email` defect in `send-notification` stayed
+invisible in production — the audit row simply recorded a null address.
+
+Not fixed wholesale: 246 mechanical edits across live functions is a large blast
+radius for a change that cannot be verified from tests, and most of the sites are
+genuinely tolerant of an empty result.
+
+TRIGGER: bind and check `error` in any edge-function query **at the moment that
+function is next edited for any other reason**, and in every new one. When a
+function's queries are all checked, note it here. Revisit wholesale only if a
+second silent-failure defect of this shape is found in production.
