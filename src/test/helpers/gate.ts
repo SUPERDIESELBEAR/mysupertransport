@@ -41,9 +41,8 @@
  *       - certify_rods_day live RPC, execute arm
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
- *   WITHOUT a database (PGHOST absent), run with --maxWorkers=2 (the flag is part
- *   of the baseline: at full parallelism the RTL suites contend and time out,
- *   and those timeouts are not a regression):
+ *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
+
  *     771 passed | 28 skipped       (97 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
