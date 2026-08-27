@@ -52,8 +52,9 @@ async function diffFor(
   const current = {
     load_number: 'ST26035', stops: stopsOf(), references: currentRefs, charges: [],
   } as never;
-  const parsed = { references: docRefs, stops: [] } as never;
+  const parsed = { load: {}, references: docRefs, stops: [] } as never;
   return buildRevisionDiff(current, parsed, {});
+
 }
 
 
