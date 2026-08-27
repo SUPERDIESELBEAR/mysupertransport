@@ -33,3 +33,28 @@ export function summarizeActiveClaims(
     title: `${levelLabel} — ${typeLabel}`,
   };
 }
+
+export type ClaimFilterValue = 'all' | 'active' | 'watch' | 'hold';
+
+export const CLAIM_FILTER_VALUES: ClaimFilterValue[] = ['all', 'active', 'watch', 'hold'];
+
+/** Narrow a stored preference value back to a valid claim filter. */
+export function normalizeClaimFilter(value: unknown): ClaimFilterValue {
+  return CLAIM_FILTER_VALUES.includes(value as ClaimFilterValue)
+    ? (value as ClaimFilterValue)
+    : 'all';
+}
+
+/**
+ * PURE claim-filter predicate shared by the Loads list and its tests.
+ * A settlement-blocking state must never be hidden, so 'all' passes everything.
+ */
+export function matchesClaimFilter(
+  activeClaim: ActiveClaimSummary | null | undefined,
+  filter: ClaimFilterValue,
+): boolean {
+  if (filter === 'all') return true;
+  if (!activeClaim) return false;
+  if (filter === 'active') return true;
+  return activeClaim.level === filter;
+}

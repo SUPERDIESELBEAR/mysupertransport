@@ -227,7 +227,8 @@ function DeliveryDate({ load }: { load: ChainLoad }) {
   );
 }
 
-function LoadLine({
+/** Exported for display tests. Not a route component. */
+export function LoadLine({
   load, queued, muted, onOpen, activeClaim,
 }: {
   load: ChainLoad;
@@ -263,7 +264,8 @@ function LoadLine({
   );
 }
 
-function DriverRow({
+/** Exported for display tests. Not a route component. */
+export function DriverRow({
   row, onOpen, activeClaimsByLoad,
 }: {
   row: DriverChain;
