@@ -67,10 +67,34 @@ export async function saveLoadReferences(
      * no-op here by design — so a removal has to be stated.
      */
     removals?: { reference_class: string; label: string; value: string; value_key: string }[];
+    /**
+     * Class moves applied IN PLACE, before the upsert runs. The upsert key is
+     * (load_id, reference_class, value_key): writing the new class straight
+     * through would miss the stored row entirely and insert a second one, which
+     * is exactly the duplicate this path exists to prevent. Updating first means
+     * the upsert then matches, so the row id, its citations and its created_at
+     * all survive.
+     */
+    reclassifications?: { from_reference_class: string; to_reference_class: string; value_key: string }[];
   } = {},
 ): Promise<void> {
   const usable = refs.filter(r => (r.value ?? '').trim());
   const removals = (opts.removals ?? []).filter(r => (r.value_key ?? '').trim());
+  const reclass = (opts.reclassifications ?? []).filter(
+    r => r.value_key && r.from_reference_class && r.to_reference_class
+      && r.from_reference_class !== r.to_reference_class,
+  );
+
+  for (const r of reclass) {
+    const { error } = await supabase
+      .from('load_references')
+      .update({ reference_class: r.to_reference_class })
+      .eq('load_id', loadId)
+      .eq('value_key', r.value_key)
+      .eq('reference_class', r.from_reference_class);
+    if (error) throw error;
+  }
+
   if (!usable.length && !removals.length) return;
 
   const { error } = await supabase.rpc('file_load_references', {
@@ -81,6 +105,7 @@ export async function saveLoadReferences(
   });
   if (error) throw error;
 }
+
 
 
 /** Reads a load's references with their stop citations, for display and diffing. */
