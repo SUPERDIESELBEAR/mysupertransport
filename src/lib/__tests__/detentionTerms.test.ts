@@ -105,7 +105,9 @@ describe('notification prompt (Part C)', () => {
 
 describe('operator write surface', () => {
   it('does not grant operators any detention terms column', () => {
-    const body = resolveMigrationFunctions().get('enforce_loads_operator_update')?.body ?? '';
+    const resolved = Array.from(resolveMigrationFunctions().values())
+      .find(f => f.name === 'public.enforce_loads_operator_update');
+    const body = resolved?.block ?? '';
     expect(body).not.toBe('');
     const allowed = /allowed\s+text\[\]\s*:=\s*ARRAY\[([^\]]*)\]/.exec(body)?.[1] ?? '';
     expect(allowed).not.toBe('');
