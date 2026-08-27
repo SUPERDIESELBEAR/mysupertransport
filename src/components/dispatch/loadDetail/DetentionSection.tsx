@@ -159,8 +159,20 @@ function Evidence({ stop, names }: { stop: Stop | undefined; names: Map<string, 
  * Scannable, not a form — terms are edited through Edit Load with the rest of
  * the load's contract data. Nothing here is computed: no eligible hours, no
  * dollar estimate, no comparison against a recorded arrival.
+ *
+ * Each stated value says where it came from, and the printed clause is shown
+ * ALONGSIDE the structured values rather than instead of them. The two are read
+ * off the same document and can disagree — a note saying "three hours free"
+ * beside a field holding 120 minutes. Nothing here resolves that: the
+ * disagreement is shown and the dispatcher decides, the same way a loadout
+ * signal contradicted by the printed page is shown and not scored.
  */
-function TermsBlock({ terms }: { terms: DetentionTerms }) {
+function TermsBlock({
+  terms, sources,
+}: {
+  terms: DetentionTerms;
+  sources: Record<DetentionTermKey, DetentionTermSource> | null;
+}) {
   if (!hasAnyDetentionTerms(terms)) {
     return (
       <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -170,12 +182,23 @@ function TermsBlock({ terms }: { terms: DetentionTerms }) {
   }
 
   const notStated = <span className="text-muted-foreground">Not stated</span>;
-  const row = (label: string, value: ReactNode) => (
+  const row = (label: string, key: DetentionTermKey, stated: boolean, value: ReactNode) => (
     <div>
       <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="text-sm text-foreground">{value}</dd>
+      {stated && sources ? (
+        <dd className="text-[11px] text-muted-foreground">
+          {DETENTION_SOURCE_LABELS[sources[key]]}
+        </dd>
+      ) : null}
     </div>
   );
+
+  const structured = terms.freeTimeMinutes !== null
+    || terms.ratePerHour !== null
+    || terms.dailyCap !== null
+    || terms.clockStart !== null
+    || terms.notificationRequired !== null;
 
   return (
     <div className="rounded-md border border-border bg-muted/40 p-3">
@@ -183,22 +206,40 @@ function TermsBlock({ terms }: { terms: DetentionTerms }) {
         Terms stated on the rate confirmation
       </p>
       <dl className="mt-2 grid gap-3 sm:grid-cols-3">
-        {row('Free time', freeTimeLabel(terms.freeTimeMinutes) ?? notStated)}
-        {row('Rate per hour', terms.ratePerHour === null
-          ? notStated
-          : formatCurrency(terms.ratePerHour))}
-        {row('Daily cap', terms.dailyCap === null ? notStated : formatCurrency(terms.dailyCap))}
-        {row('Clock start', terms.clockStart === null
-          ? notStated
-          : DETENTION_CLOCK_START_LABELS[terms.clockStart])}
-        {row('Notification', notificationLabel(terms.notificationRequired) ?? notStated)}
+        {row('Free time', 'freeTimeMinutes', terms.freeTimeMinutes !== null,
+          freeTimeLabel(terms.freeTimeMinutes) ?? notStated)}
+        {row('Rate per hour', 'ratePerHour', terms.ratePerHour !== null,
+          terms.ratePerHour === null ? notStated : formatCurrency(terms.ratePerHour))}
+        {row('Daily cap', 'dailyCap', terms.dailyCap !== null,
+          terms.dailyCap === null ? notStated : formatCurrency(terms.dailyCap))}
+        {row('Clock start', 'clockStart', terms.clockStart !== null,
+          terms.clockStart === null ? notStated : DETENTION_CLOCK_START_LABELS[terms.clockStart])}
+        {row('Notification', 'notificationRequired', terms.notificationRequired !== null,
+          notificationLabel(terms.notificationRequired) ?? notStated)}
       </dl>
       {terms.note ? (
-        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{terms.note}</p>
+        <div className="mt-3 border-t border-border pt-2">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            Detention clause as printed
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{terms.note}</p>
+          {sources ? (
+            <p className="text-[11px] text-muted-foreground">
+              {DETENTION_SOURCE_LABELS[sources.note]}
+            </p>
+          ) : null}
+          {structured ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              The clause is shown next to the values above because both come from the
+              document and can disagree. Read the clause before quoting a number.
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
 }
+
 
 function chargeLabel(charge: LoadChargeRecord): string {
   const amount = charge.amount === null || charge.amount === undefined
