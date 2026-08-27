@@ -19,7 +19,13 @@ import {
   EQUIPMENT_TYPES, LOAD_STATUSES, formatEnumLabel,
   type EquipmentType, type LoadStatus,
 } from '@/lib/loadFormat';
-import { summarizeActiveClaims, type ActiveClaimSummary } from '@/lib/loadClaims';
+import {
+  summarizeActiveClaims,
+  matchesClaimFilter,
+  normalizeClaimFilter,
+  type ActiveClaimSummary,
+  type ClaimFilterValue,
+} from '@/lib/loadClaims';
 import {
   type ClaimLevel,
   type ClaimType,
@@ -199,13 +205,18 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
   const [statusFilter, setStatusFilter] = useState<'all' | LoadStatus>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<'all' | EquipmentType>('all');
   const [dispatcherFilter, setDispatcherFilter] = useState<string>('all');
-  const [claimFilter, setClaimFilter] = useState<'all' | 'active' | 'watch' | 'hold'>('all');
   const debouncedSearch = useDebouncedValue(search, 200);
 
-  const { visibleColumns, sort, setVisibleColumns, setSort, reset } = useViewPreferences({
+  const { visibleColumns, sort, filters, setVisibleColumns, setSort, setFilters, reset } = useViewPreferences({
     viewKey: VIEW_KEY,
     defaultVisibleColumns: DEFAULT_LOAD_COLUMNS,
   });
+
+  // A settlement-blocking state is worth remembering: the claim filter persists
+  // per user through the same view-preferences record as columns and sort.
+  const claimFilter = normalizeClaimFilter((filters as Record<string, unknown> | null)?.claim);
+  const setClaimFilter = (next: ClaimFilterValue) =>
+    setFilters({ ...(filters as Record<string, unknown> | null ?? {}), claim: next });
 
   const columns = useMemo(
     () => LOAD_COLUMNS.filter(c => c.locked || visibleColumns.includes(c.key)),
@@ -238,11 +249,7 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
       if (equipmentFilter !== 'all' && l.equipment_type !== equipmentFilter) return false;
       if (dispatcherFilter === 'unassigned' && l.dispatcher_id) return false;
       if (dispatcherFilter !== 'all' && dispatcherFilter !== 'unassigned' && l.dispatcher_id !== dispatcherFilter) return false;
-      if (claimFilter !== 'all') {
-        if (!l.activeClaim) return false;
-        if (claimFilter === 'active') return true;
-        if (claimFilter !== l.activeClaim.level) return false;
-      }
+      if (!matchesClaimFilter(l.activeClaim, claimFilter)) return false;
       if (!q) return true;
       return [l.load_number, l.brokerName, l.driverName, l.dispatcherName]
         .filter(Boolean)
@@ -331,7 +338,7 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
             ))}
           </SelectContent>
         </Select>
-        <Select value={claimFilter} onValueChange={v => setClaimFilter(v as 'all' | 'active' | 'watch' | 'hold')}>
+        <Select value={claimFilter} onValueChange={v => setClaimFilter(v as ClaimFilterValue)}>
           <SelectTrigger className="sm:w-44"><SelectValue placeholder="All Claims" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Claims</SelectItem>
