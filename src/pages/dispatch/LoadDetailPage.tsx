@@ -16,6 +16,7 @@ import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
 import LoadChargesCard from '@/components/dispatch/loadDetail/LoadChargesCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
+import DetentionSection from '@/components/dispatch/loadDetail/DetentionSection';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
 import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
@@ -203,6 +204,13 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       <SectionErrorBoundary name="Stops">
         <StopsTimeline stops={load.stops} onStopTimesSaved={() => { void refetch(); }} />
       </SectionErrorBoundary>
+      {/* Detention sits with the stop times it argues from. Operators have no
+          access to claims in this pass. */}
+      {isStaff ? (
+        <SectionErrorBoundary name="Detention">
+          <DetentionSection loadId={load.id} stops={load.stops} canManage={canManageClaims} />
+        </SectionErrorBoundary>
+      ) : null}
       {isStaff ? (
         <SectionErrorBoundary name="Messages">
           <LoadMessagesCard loadId={load.id} />

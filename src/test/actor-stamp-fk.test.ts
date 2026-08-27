@@ -117,6 +117,25 @@ describe('staged migrations stamp actors with current_profile_id()', () => {
     stamps.forEach(v => expect(classifyActorExpression(v, staged)).toBe('profile'));
   });
 
+  it.each([
+    ['created_by'],
+    ['updated_by'],
+    ['reported_to'],
+    ['notified_by'],
+  ])('detention_claims.%s is stamped from current_profile_id()', (col) => {
+    if (!staged || !/stamp_detention_claim_actor/.test(staged)) return;
+    // NULL assignments exist on the "broker was never told" branches; only the
+    // non-NULL ones are actor stamps.
+    const all = [...staged.matchAll(new RegExp(`NEW\\.${col}\\s*:=\\s*([^;]+);`, 'gi'))]
+      .map(x => x[1].trim());
+    const stamps = all
+      .filter(v => v.toUpperCase() !== 'NULL' && !/^OLD\./i.test(v))
+      .map(v => /coalesce\s*\(\s*new\.\w+\s*,\s*([^)]+)\)/i.exec(v)?.[1] ?? v);
+    expect(all, `${col} is never assigned in the staged SQL`).not.toHaveLength(0);
+    expect(stamps, `${col} is never stamped with an actor`).not.toHaveLength(0);
+    stamps.forEach(v => expect(classifyActorExpression(v, staged)).toBe('profile'));
+  });
+
   it('the operator `allowed` array on load_stops is NOT widened by this pass', () => {
     if (!staged) return;
     expect(/allowed\s+text\[\]/.test(staged)).toBe(false);

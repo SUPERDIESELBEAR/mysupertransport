@@ -1,4 +1,4 @@
-import { resolveMigrationFunctions, stripComments } from './migrationFunctions';
+import { resolveMigrationFunctions, stagedMigrationSql, stripComments } from './migrationFunctions';
 
 /**
  * A Postgres-SHAPED fake for the actor-stamping tests.
@@ -27,6 +27,7 @@ export interface Row { [k: string]: unknown }
 
 /** Columns whose value must be a `profiles.id`. */
 export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
+  detention_claims: ['reported_to', 'notified_by', 'created_by', 'updated_by'],
   load_change_history: ['changed_by'],
   load_references: ['created_by'],
   load_status_history: ['changed_by'],
@@ -253,8 +254,10 @@ export function createPgFake(): PgFake {
     pay_policy_assignments: [],
     facilities: [],
     parser_diagnostics: [],
+    detention_claims: [],
 
   };
+
 
   const seed = () => {
     Object.keys(tables).forEach(k => { tables[k].length = 0; });
@@ -299,17 +302,56 @@ export function createPgFake(): PgFake {
     }
   };
 
+  /**
+   * `stamp_detention_claim_actor`, mirrored. The uuid it stamps is not
+   * hard-coded here: it is read from the trigger's own `v_profile` assignment
+   * in the checked-in SQL, so a trigger that switched to `auth.uid()` would
+   * stamp the auth uid in the fake too and fail the foreign key exactly as
+   * Postgres would.
+   */
+  const stampDetentionClaim = (row: Row, old: Row | null): Row => {
+    // Staged (draft) migrations are not in the resolved function map, so fall
+    // back to the staged SQL text — the actor still comes from the SQL, never
+    // from a constant written here.
+    const body = functionBody('stamp_detention_claim_actor') ?? stagedMigrationSql();
+    const actor = actorValue(classifyActorExpression('v_profile', body));
+    const next = { ...row };
+    if (!old) {
+      next.created_by = actor;
+      next.updated_by = actor;
+      next.reported_to = next.reported_to ?? actor;
+      if (next.broker_notified_at == null) {
+        next.notified_by = null;
+        next.notification_method = null;
+      } else {
+        next.notified_by = next.notified_by ?? actor;
+      }
+      return next;
+    }
+    next.created_by = old.created_by ?? null;
+    next.updated_by = actor;
+    if (next.broker_notified_at == null) {
+      next.notified_by = null;
+      next.notification_method = null;
+    } else if (next.broker_notified_at !== old.broker_notified_at && next.notified_by == null) {
+      next.notified_by = actor;
+    }
+    return next;
+  };
+
   const insertRows = (table: string, payload: Row | Row[], idPrefix = 'row') => {
     const list = Array.isArray(payload) ? payload : [payload];
     const written: Row[] = [];
     list.forEach((p, i) => {
-      enforce(table, p);
-      const row = { id: `${idPrefix}-${tables[table].length + i + 1}`, ...p };
+      const stamped = table === 'detention_claims' ? stampDetentionClaim(p, null) : p;
+      enforce(table, stamped);
+      const row = { id: `${idPrefix}-${tables[table].length + i + 1}`, ...stamped };
       tables[table].push(row);
       written.push(row);
     });
     return written;
   };
+
 
   /** Mimics the RPCs, taking the actor from the SQL's own text. */
   const rpc = async (fn: string, args: Record<string, unknown>) => {
@@ -690,6 +732,7 @@ export function createPgFake(): PgFake {
             {
               eq: (c: string, v: unknown) => resolved(l.filter(r => r[c] === v)),
               is: (c: string, v: unknown) => resolved(l.filter(r => (r[c] ?? null) === v)),
+              in: (c: string, vs: unknown[]) => resolved(l.filter(r => vs.includes(r[c]))),
               order: () => resolved(l),
               limit: (n: number) => resolved(l.slice(0, n)),
               maybeSingle: () => Promise.resolve({ data: l[0] ?? null, error: null }),
@@ -727,9 +770,12 @@ export function createPgFake(): PgFake {
             eq(col: string, val: unknown) {
               try {
                 rows.filter(r => r[col] === val).forEach(r => {
-                  const next = { ...r, ...patch };
+                  const merged = { ...r, ...patch };
+                  const next = table === 'detention_claims'
+                    ? stampDetentionClaim(merged, r)
+                    : merged;
                   enforce(table, next);
-                  Object.assign(r, patch);
+                  Object.keys(next).forEach(k => { r[k] = next[k]; });
                 });
                 void self;
                 return Promise.resolve({ data: null, error: null });

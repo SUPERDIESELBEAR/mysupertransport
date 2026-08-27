@@ -63,6 +63,16 @@ PDF. Candidate for parser extraction into structured fields.
 
 TRIGGER: before the detention claim record is built.
 
+### Detention chase queue
+
+Claims are visible only on their own load. A dispatcher chasing detention wants
+one list across all loads, oldest first, with claim age. Same shape as the
+paperwork chase queue already parked here — both are load-centric queue views
+over a driver-centric system.
+
+TRIGGER: after the claim record has been in real use long enough to know what
+the chase workflow needs.
+
 ### Dispatch company settlement (Module 6)
 The dispatch team is ONE 1099 vendor — a separate company, owner plus team, all
 carrying @mysupertransport.com addresses and representing themselves as part of
