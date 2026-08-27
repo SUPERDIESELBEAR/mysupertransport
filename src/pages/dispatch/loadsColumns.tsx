@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
+import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import {
   LOAD_STATUSES, formatCurrency, formatEnumLabel, formatShortDate,
   type EquipmentType, type LoadStatus,
 } from '@/lib/loadFormat';
 import { enumOrderValue, type SortValue } from '@/lib/listSorting';
+import type { ActiveClaimSummary } from '@/lib/loadClaims';
 import type { Database } from '@/integrations/supabase/types';
 
 export type LoadType = Database['public']['Enums']['load_type'];
@@ -32,6 +34,8 @@ export interface LoadRow {
   destinationState: string | null;
   pickupDate: string | null;
   deliveryDate: string | null;
+  /** Active claim summary, if the load has at least one active claim. */
+  activeClaim: ActiveClaimSummary | null;
 }
 
 export interface LoadColumnDef {
@@ -80,7 +84,18 @@ export const LOAD_COLUMNS: LoadColumnDef[] = [
     locked: true,
     defaultVisible: true,
     sortValue: l => enumOrderValue(LOAD_STATUSES, l.status),
-    render: l => <LoadStatusBadge status={l.status} />,
+    render: l => (
+      <span className="inline-flex items-center gap-1.5">
+        <LoadStatusBadge status={l.status} />
+        {l.activeClaim && (
+          <LoadClaimIndicator
+            level={l.activeClaim.level}
+            claimType={l.activeClaim.claimType}
+            title={l.activeClaim.title}
+          />
+        )}
+      </span>
+    ),
   },
   {
     key: 'broker',
