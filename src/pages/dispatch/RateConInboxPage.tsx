@@ -339,7 +339,7 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
                 <ExternalLink className="h-4 w-4" />
               </Button>
             )}
-            {row.status === 'parsed' && (
+            {row.status === 'parsed' && !collapsedDuplicate && (
               <Button
                 size="sm"
                 disabled={busy}
