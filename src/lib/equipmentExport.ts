@@ -1,4 +1,5 @@
 import type { EquipmentItem, DeviceType } from '@/components/equipment/EquipmentInventory';
+import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 
 export type ExportScope = 'eld' | 'dash_cam' | 'eld_dash_cam' | 'fuel_card' | 'drivers_equipment';
 
@@ -45,7 +46,7 @@ function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleDateString('en-US', {
-      timeZone: 'America/Chicago',
+      timeZone: CARRIER_TIMEZONE,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -269,7 +270,7 @@ export function downloadDriverEquipmentCsv(report: DriverEquipmentReport) {
 export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
   const title = 'Equipment by Driver';
   const generated = new Date().toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
+    timeZone: CARRIER_TIMEZONE,
     year: 'numeric', month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
   });
@@ -404,7 +405,7 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
 export function openEquipmentPdf(scope: ExportScope, rows: ExportRow[]) {
   const title = `Equipment List — ${SCOPE_LABEL[scope]}`;
   const generated = new Date().toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
+    timeZone: CARRIER_TIMEZONE,
     year: 'numeric', month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
   });

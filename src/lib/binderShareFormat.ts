@@ -1,3 +1,4 @@
+import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 /**
  * Formatters for driver binder share bodies (email + SMS).
  *
@@ -28,7 +29,7 @@ export interface ShareBody {
 function centralTimestamp(): string {
   try {
     return new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Chicago',
+      timeZone: CARRIER_TIMEZONE,
       month: 'short',
       day: 'numeric',
       year: 'numeric',
