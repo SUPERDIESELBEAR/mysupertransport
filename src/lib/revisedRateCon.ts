@@ -388,7 +388,14 @@ interface LoadFieldSpec {
   freeText?: boolean;
   /** Verbatim transcription slot — see StopFieldSpec.verbatim. */
   verbatim?: boolean;
+  /**
+   * How the stored/revised value reads on the review row. The accepted VALUE is
+   * unaffected — this only stops a row saying "true" where it means "the broker
+   * must be notified".
+   */
+  format?: (raw: string) => string;
 }
+
 
 const LOAD_FIELDS: LoadFieldSpec[] = [
   { key: 'broker_reference_number', label: "Broker's load #", read: p => use(p.load.broker_load_number) },
