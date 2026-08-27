@@ -9,16 +9,28 @@ import { gatedIt, skipBanner } from '@/test/helpers/gate';
  * ROLE and stamps the actor with `current_profile_id()`. Neither can be read
  * off the client: the whole point is that the client cannot influence it. So
  * this file exercises the real trigger against the real table, impersonating
- * each role by setting `request.jwt.claims` (which is what `auth.uid()` reads)
+ * each actor by setting `request.jwt.claims` (which is what `auth.uid()` reads)
  * inside a transaction that is always rolled back.
+ *
+ * FIXTURE RULE — read before editing. This follows
+ * rods-live-certification.test.ts:
+ *
+ *   - It runs as the AMBIENT psql role. There is no `set local role postgres`:
+ *     no other database test in this project assumes that privilege, and the
+ *     impersonation that actually matters is the `set_config` below.
+ *   - It never writes `auth.users`. The two actors are RESOLVED from identities
+ *     that already exist: one user holding `operator` and NOT holding
+ *     dispatcher/management/owner (a driver who also holds a staff role would
+ *     be stamped `dispatcher_entry`, so the test would prove nothing), and one
+ *     user holding dispatcher or management and NOT `operator`.
+ *   - The load and stop it writes to are DISPOSABLE rows created inside the
+ *     transaction, not a live load, and the load is assigned to the resolved
+ *     operator so `enforce_load_stops_operator_update` sees a legitimate
+ *     driver-path write.
  *
  * TWO GATES, both named and counted:
  *   - no PGHOST                -> the live catalog is unreachable.
- *   - columns not present yet  -> the migration is STAGED in a draft and
- *                                 applies on accept. A draft shares the live
- *                                 database and may not run DDL, so until the
- *                                 draft is accepted these columns do not
- *                                 exist and the trigger is not installed.
+ *   - provenance columns absent -> the migration has not been applied here.
  */
 
 const HAS_DB = Boolean(process.env.PGHOST);
@@ -45,60 +57,144 @@ if (HAS_DB) {
   }
 }
 
+/**
+ * Third gate, and the one that bites here. `stamp_load_stop_time_source` is a
+ * BEFORE UPDATE trigger, so exercising it requires UPDATE on load_stops. The
+ * sandbox psql role (`sandbox_exec`) is granted SELECT and INSERT and nothing
+ * else, on every public table — the same deliberate restriction that bars
+ * EXECUTE in rods-live-certification.test.ts. Granting UPDATE to work around it
+ * is forbidden, so the arm is gated on the real capability and says so at the
+ * same volume as the missing-PGHOST banner. It must never read as coverage.
+ */
+let CAN_UPDATE = false;
+if (HAS_DB) {
+  try {
+    CAN_UPDATE = psql(
+      `select has_table_privilege('public.load_stops','UPDATE')::text`,
+    )[0] === 'true';
+  } catch {
+    CAN_UPDATE = false;
+  }
+}
+
 if (!HAS_DB) {
   skipBanner('stop-time-source-trigger.test.ts LIVE CHECKS DID NOT RUN', [
     'No PGHOST in the environment, so the trigger could not be exercised.',
   ]);
 } else if (!SCHEMA_READY) {
   skipBanner('stop-time-source-trigger.test.ts LIVE CHECKS DID NOT RUN', [
-    'load_stops has no provenance columns yet. The migration is STAGED in',
-    'this draft and applies when the draft is accepted; a draft shares the',
-    'live database and may not run DDL. Re-run after accepting.',
+    'load_stops has no provenance columns in this database, so the trigger',
+    'is not installed. Apply the provenance migration and re-run.',
+  ]);
+} else if (!CAN_UPDATE) {
+  skipBanner('stop-time-source-trigger.test.ts LIVE CHECKS DID NOT RUN', [
+    'This harness role has SELECT and INSERT on load_stops and no UPDATE.',
+    'The trigger is BEFORE UPDATE, so it cannot fire from here at all.',
+    'Granting UPDATE to the sandbox role is forbidden. Run this file where a',
+    'role with UPDATE exists (a disposable instance). A green run WITHOUT',
+    'these five checks is NOT evidence that the stamping works.',
   ]);
 }
 
 const itLive = gatedIt({
-  enabled: HAS_DB && SCHEMA_READY,
-  reason: HAS_DB
-    ? 'the stop provenance columns are staged, not yet applied'
-    : 'no PGHOST, so the live trigger could not be exercised',
+  enabled: HAS_DB && SCHEMA_READY && CAN_UPDATE,
+  reason: !HAS_DB
+    ? 'no PGHOST, so the live trigger could not be exercised'
+    : !SCHEMA_READY
+      ? 'the stop provenance columns are not present in this database'
+      : 'the harness role has no UPDATE on load_stops, so a BEFORE UPDATE trigger cannot fire',
   details: ['Only this check sees what the trigger actually stamps.'],
 });
 
+
+/* ------------------------------------------------------------------ */
+/* Fixture: resolve, never invent                                      */
+/* ------------------------------------------------------------------ */
+
 /**
- * Runs `body` inside a rolled-back transaction with a disposable load, stop,
- * and two profiles/users: one dispatcher, one operator.
+ * A driver: holds `operator`, holds none of dispatcher/management/owner.
+ * A staff actor: holds dispatcher or management, does NOT hold `operator`.
+ *
+ * Selected in the SAME transaction as the writes, into a temp table, so the
+ * ids used by the inserts and the ids used by the assertions cannot drift.
+ */
+const RESOLVE = `
+insert into t_ids(k, v)
+select k, v from (
+  select 'op_user' as k, o.user_id as v, 1 as ord from public.operators o
+   where o.user_id is not null
+     and exists (select 1 from public.profiles p where p.user_id = o.user_id)
+     and exists (select 1 from public.user_roles r
+                  where r.user_id = o.user_id and r.role = 'operator')
+     and not exists (select 1 from public.user_roles r
+                  where r.user_id = o.user_id
+                    and r.role in ('dispatcher','management','owner'))
+   order by coalesce(o.is_demo, false) desc, o.id
+   limit 1
+) s;
+
+insert into t_ids(k, v)
+select 'op_operator', o.id from public.operators o
+ where o.user_id = (select v from t_ids where k='op_user') order by o.id limit 1;
+
+insert into t_ids(k, v)
+select 'op_profile', p.id from public.profiles p
+ where p.user_id = (select v from t_ids where k='op_user') limit 1;
+
+insert into t_ids(k, v)
+select 'staff_user', p.user_id from public.profiles p
+ where exists (select 1 from public.user_roles r
+                where r.user_id = p.user_id and r.role in ('dispatcher','management'))
+   and not exists (select 1 from public.user_roles r
+                where r.user_id = p.user_id and r.role = 'operator')
+ order by p.id limit 1;
+
+insert into t_ids(k, v)
+select 'staff_profile', p.id from public.profiles p
+ where p.user_id = (select v from t_ids where k='staff_user') limit 1;
+`;
+
+/** Fail loudly if either identity is missing, instead of silently passing. */
+function assertIdentitiesExist(): void {
+  const rows = psql(`
+select
+  (select count(*) from public.operators o
+    where o.user_id is not null
+      and exists (select 1 from public.profiles p where p.user_id = o.user_id)
+      and exists (select 1 from public.user_roles r where r.user_id = o.user_id and r.role='operator')
+      and not exists (select 1 from public.user_roles r where r.user_id = o.user_id
+                        and r.role in ('dispatcher','management','owner')))
+  || '|' ||
+  (select count(*) from public.profiles p
+    where exists (select 1 from public.user_roles r where r.user_id = p.user_id
+                    and r.role in ('dispatcher','management'))
+      and not exists (select 1 from public.user_roles r where r.user_id = p.user_id and r.role='operator'))
+`);
+  const [drivers, staff] = (rows[0] ?? '0|0').split('|').map(Number);
+  if (!drivers) throw new Error('No operator-only identity exists to impersonate.');
+  if (!staff) throw new Error('No dispatcher/management identity exists to impersonate.');
+}
+
+/**
+ * Runs `body` inside a rolled-back transaction holding a disposable load —
+ * assigned to the resolved operator — and one disposable stop on it.
  */
 function scenario(body: string): string[] {
+  assertIdentitiesExist();
   const sql = `
 begin;
-set local role postgres;
 
 create temporary table t_ids (k text primary key, v uuid) on commit drop;
+${RESOLVE}
 
--- Two actors. profiles.id is deliberately NOT the auth user id: writing the
--- auth uid into a profiles FK is the failure this whole family of tests exists
--- to catch.
-insert into t_ids values
-  ('disp_user', gen_random_uuid()), ('disp_profile', gen_random_uuid()),
-  ('op_user',   gen_random_uuid()), ('op_profile',   gen_random_uuid()),
-  ('load',      gen_random_uuid()), ('stop',         gen_random_uuid());
+insert into t_ids values ('load', gen_random_uuid()), ('stop', gen_random_uuid());
 
-insert into public.profiles (id, user_id, first_name, last_name)
-  values ((select v from t_ids where k='disp_profile'),
-          (select v from t_ids where k='disp_user'), 'Dee', 'Spatcher'),
-         ((select v from t_ids where k='op_profile'),
-          (select v from t_ids where k='op_user'), 'Otto', 'Perator');
-
-insert into public.user_roles (user_id, role) values
-  ((select v from t_ids where k='disp_user'), 'dispatcher'),
-  ((select v from t_ids where k='op_user'), 'operator');
-
-insert into public.loads (id, load_number, created_by, updated_by)
+insert into public.loads (id, load_number, operator_id, created_by, updated_by)
   values ((select v from t_ids where k='load'),
           'TRIGTEST-' || substr(gen_random_uuid()::text, 1, 8),
-          (select v from t_ids where k='disp_profile'),
-          (select v from t_ids where k='disp_profile'));
+          (select v from t_ids where k='op_operator'),
+          (select v from t_ids where k='staff_profile'),
+          (select v from t_ids where k='staff_profile'));
 
 insert into public.load_stops (id, load_id, stop_sequence, stop_type)
   values ((select v from t_ids where k='stop'),
@@ -112,62 +208,71 @@ rollback;
 }
 
 /** Impersonate an actor for the following statements. */
-const as = (who: 'disp' | 'op') =>
+const as = (who: 'staff' | 'op') =>
   `select set_config('request.jwt.claims',
-     json_build_object('sub', (select v from t_ids where k='${who}_user'))::text, true);`;
+     json_build_object('sub', (select v from t_ids where k='${who}_user'),
+                       'role', 'authenticated')::text, true);`;
 
+/**
+ * source|actor-tag for arrival, then for departure. The actor is reported as a
+ * TAG ('op' / 'staff') resolved from the fixture ids, so the assertion is about
+ * WHICH profile was stamped, not about a name that could collide.
+ */
 const reportRow = `
 select coalesce(s.arrival_source::text,'-') || '|' ||
-       coalesce(pa.first_name,'-') || '|' ||
+       coalesce(case s.arrival_recorded_by
+                  when (select v from t_ids where k='op_profile') then 'op'
+                  when (select v from t_ids where k='staff_profile') then 'staff'
+                  else 'other' end, '-') || '|' ||
        coalesce(s.departure_source::text,'-') || '|' ||
-       coalesce(pd.first_name,'-') || '|' ||
-       coalesce((s.arrival_recorded_by = pa.id)::text,'-')
+       coalesce(case s.departure_recorded_by
+                  when (select v from t_ids where k='op_profile') then 'op'
+                  when (select v from t_ids where k='staff_profile') then 'staff'
+                  else 'other' end, '-')
 from public.load_stops s
-left join public.profiles pa on pa.id = s.arrival_recorded_by
-left join public.profiles pd on pd.id = s.departure_recorded_by
 where s.id = (select v from t_ids where k='stop');`;
 
-const setArrival = (who: 'disp' | 'op', ts = "'2026-08-27 08:12'") => `
+const setArrival = (who: 'staff' | 'op', ts = "'2026-08-27 08:12'") => `
 ${as(who)}
 update public.load_stops set actual_arrival_at = ${ts}
  where id = (select v from t_ids where k='stop');`;
 
 describe('stamp_load_stop_time_source', () => {
   itLive("a dispatcher setting arrival stamps 'dispatcher_entry' and their profile id", () => {
-    const out = scenario(`${setArrival('disp')}${reportRow}`);
-    expect(out.at(-1)).toBe('dispatcher_entry|Dee|-|-|true');
+    const out = scenario(`${setArrival('staff')}${reportRow}`);
+    expect(out.at(-1)).toBe('dispatcher_entry|staff|-|-');
   });
 
   itLive("an operator setting arrival on their own stop stamps 'driver_app'", () => {
     const out = scenario(`${setArrival('op')}${reportRow}`);
-    expect(out.at(-1)).toBe('driver_app|Otto|-|-|true');
+    expect(out.at(-1)).toBe('driver_app|op|-|-');
   });
 
   itLive('a dispatcher correcting an operator-recorded time re-stamps source and actor', () => {
     const out = scenario(`
 ${setArrival('op')}
-${setArrival('disp', "'2026-08-27 09:45'")}
+${setArrival('staff', "'2026-08-27 09:45'")}
 ${reportRow}`);
-    expect(out.at(-1)).toBe('dispatcher_entry|Dee|-|-|true');
+    expect(out.at(-1)).toBe('dispatcher_entry|staff|-|-');
   });
 
   itLive('clearing a time to null clears its source and actor', () => {
     const out = scenario(`
-${setArrival('disp')}
+${setArrival('staff')}
 update public.load_stops set actual_arrival_at = null
  where id = (select v from t_ids where k='stop');
 ${reportRow}`);
-    expect(out.at(-1)).toBe('-|-|-|-|-');
+    expect(out.at(-1)).toBe('-|-|-|-');
   });
 
   itLive('arrival and departure stamp independently', () => {
     const out = scenario(`
 ${setArrival('op')}
-${as('disp')}
+${as('staff')}
 update public.load_stops set actual_departure_at = '2026-08-27 11:30'
  where id = (select v from t_ids where k='stop');
 ${reportRow}`);
-    // Arrival keeps the driver's provenance; only departure takes the dispatcher's.
-    expect(out.at(-1)).toBe('driver_app|Otto|dispatcher_entry|Dee|true');
+    // Arrival keeps the driver's provenance; only departure takes the staff actor's.
+    expect(out.at(-1)).toBe('driver_app|op|dispatcher_entry|staff');
   });
 });

@@ -25,7 +25,7 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-27, after Module 5 Pass 1 (stop time capture))
+## Expected baselines (measured 2026-08-27, after the trigger-fixture rework)
 
 There are exactly two shapes. Anything else is a signal.
 
@@ -37,8 +37,9 @@ Test Files  96 passed | 2 skipped (98)
 
 skipped:
   stop time source trigger x5
-    the load_stops provenance columns are staged in a draft and apply on
-    accept; a draft may not run DDL, so the trigger is not installed yet
+    columns and trigger are installed, but the harness role has SELECT +
+    INSERT and no UPDATE, and the trigger is BEFORE UPDATE, so it cannot
+    fire here; granting UPDATE is forbidden
   roadside bundle
     opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
   certify_rods_day live RPC > certifies a clean initial draft and supersedes it
