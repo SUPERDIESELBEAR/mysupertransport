@@ -260,17 +260,24 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
             : 'rounded-lg border border-border bg-card p-3 sm:p-4 flex flex-col gap-2'
         }
       >
-
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-foreground truncate">
+              <span
+                className={
+                  collapsedDuplicate
+                    ? 'text-sm font-normal text-muted-foreground truncate'
+                    : 'text-sm font-medium text-foreground truncate'
+                }
+              >
                 {row.subject || '(no subject)'}
               </span>
               <Badge
                 variant="outline"
                 className={
-                  row.status === 'parsed'
+                  collapsedDuplicate
+                    ? 'border-border/60 text-muted-foreground font-normal'
+                    : row.status === 'parsed'
                     ? 'border-status-complete/40 text-status-complete'
                     : row.status === 'needs_manual'
                     ? 'border-gold/50 text-gold'
@@ -279,10 +286,11 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
                     : 'border-border text-muted-foreground'
                 }
               >
-                {row.status === 'dismissed' && !row.dismissed_by && /^duplicate/i.test(row.dismiss_reason ?? '')
+                {collapsedDuplicate
                   ? 'Duplicate — collapsed'
                   : STATUS_LABEL[row.status]}
               </Badge>
+
               {!row.sender_allowed && (
                 <Badge variant="outline" className="border-destructive/40 text-destructive">
                   Wrong address
