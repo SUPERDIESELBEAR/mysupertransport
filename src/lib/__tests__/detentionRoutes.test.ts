@@ -94,15 +94,20 @@ describe('REVISION route — detention terms diff individually', () => {
     ].forEach(path => expect(ids).toContain(path));
   });
 
-  it('accepting the new rate alone does not import the free-time window beside it', () => {
+  it('each term is rejectable on its own — a rejected free-time window stays put', () => {
     const current = baseLoad({
       detention_free_time_minutes: '120', detention_rate_per_hour: '50',
     } as Partial<LoadFormValues>);
     const revised = parsedDoc({ free_time_minutes: f(60), rate_per_hour: f(75) });
     const diff = buildRevisionDiff(current, revised);
     const rateRow = diff.nonFinancial.find(d => d.path === 'detention_rate_per_hour')!;
+    // Rows are pre-checked by default; the dispatcher UNCHECKS the ones they
+    // do not agree to, and rejecting the shorter free-time window must not be
+    // undone by accepting the higher hourly rate printed beside it.
     const decisions = initialDecisions(diff);
+    const freeTimeRow = diff.nonFinancial.find(d => d.path === 'detention_free_time_minutes')!;
     decisions.accepted[rateRow.id] = true;
+    decisions.accepted[freeTimeRow.id] = false;
     const { values } = applyRevision(current, diff, decisions);
     expect(values.detention_rate_per_hour).toBe('75');
     expect(values.detention_free_time_minutes).toBe('120');
