@@ -40,6 +40,7 @@ import PreviewLogin from "./pages/PreviewLogin";
 import PreviewSessionBanner from "@/components/PreviewSessionBanner";
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import PortalErrorBoundary from "@/components/shared/PortalErrorBoundary";
+import DetentionShot from '@/pages/__DetentionShot';
 
 // Labels for the destination named in the portal error fallback.
 const roleLabels: Record<string, string> = {
@@ -180,6 +181,7 @@ function AppRoutes() {
       <Route path="/pei/release/:token" element={<PEIRelease />} />
       <Route path="/ica/review/:token" element={<IcaReview />} />
       <Route path="/application/approve/:token" element={<ApplicationApprove />} />
+      <Route path="/__detention-shot" element={<DetentionShot />} />
       <Route path="/splash" element={<SplashPage />} />
       <Route path="/install" element={<InstallApp />} />
       <Route path="/qpassport/view" element={<QPassportView />} />
