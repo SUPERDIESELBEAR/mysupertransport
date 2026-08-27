@@ -34,9 +34,10 @@ describe('classification — `other` and `unclassified` stay different things', 
     expect(classifyReferenceLabel('  ')).toBe('other');
   });
 
-  it('keeps the prefix fallback: `PU# (Shipper)` is a pickup number', () => {
-    expect(classifyReferenceLabel('PU# (Shipper)')).toBe('pickup');
+  it('keeps the prefix fallback: `Pickup Number (Shipper)` is a pickup number', () => {
+    expect(classifyReferenceLabel('Pickup Number (Shipper)')).toBe('pickup');
   });
+
 });
 
 /* ------------------------------------------------------------------ */
