@@ -1433,3 +1433,35 @@ import would be exactly such a path. Revisit the trigger — add a BEFORE INSERT
 arm — when either arrives; do not add it speculatively before there is a writer
 to shape it against.
 
+
+### Load times are pinned to the carrier timezone
+
+`src/lib/carrierTimezone.ts` holds `CARRIER_TIMEZONE = 'America/Chicago'`. All
+load appointment and actual times are **entered, stored and displayed against
+it, never the browser's zone**. SUPERTRANSPORT's dispatchers work from Pakistan
+on Central-set machines; before this pass correctness depended entirely on that
+OS setting on six machines, recorded nowhere. It is now a decision in code.
+
+- Write paths convert with `naiveToIso` (`loadSavePayload.toIso`,
+  `stopTimes.fromLocalInputValue`); read-back into `datetime-local` inputs uses
+  `isoToNaive` (`stopTimes.toLocalInputValue`, `loadEdit.toLocalInput`).
+- Read paths pin `timeZone: CARRIER_TIMEZONE` — `loadDetail.formatDateTime` /
+  `formatWindow`, `loadFormat.formatShortDate`, the Dispatch Board date, and the
+  previously hardcoded `America/Chicago` strings in `binderShareFormat`,
+  `equipmentExport` and `brokerAddressPrefill`, which now import the constant.
+- Load Detail shows the zone abbreviation (CDT/CST, resolved per date) beside
+  the appointment window and the recorded arrival and departure. The Dispatch
+  Board shows dates only and carries no label.
+- DST is solved from the instant, not assumed. The spring-forward gap hour
+  settles on the pre-transition offset and is documented in the helper.
+- The parser is unchanged and still emits **naive local strings exactly as
+  printed** on the rate confirmation. That is correct: the document states a
+  wall clock, not an instant.
+- **No backfill was needed.** Existing values were written under a
+  browser-is-Central assumption and are now read under an explicit Central
+  assumption — same instants, same meaning.
+- Becomes a per-carrier setting at multi-tenancy. Deliberately a constant now:
+  no override parameter, no settings row.
+- `dispatchBoard` chain ordering now compares parsed instants rather than
+  `localeCompare` on ISO strings, which was only correct while every timestamp
+  serialised with the same offset form.
