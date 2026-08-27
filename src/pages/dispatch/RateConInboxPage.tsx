@@ -13,6 +13,12 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { logDbError } from '@/lib/dbError';
 import { stashIngestParse } from '@/lib/ingestHandoff';
+import {
+  OPEN_STATUSES as INBOX_OPEN_STATUSES,
+  isAutoCollapsedDuplicate,
+  isDefaultVisible,
+  isOpenStatus,
+} from '@/lib/rateConInbox';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
 import type { VerbatimCheck } from '@/lib/verbatimCheck';
 import type { Database } from '@/integrations/supabase/types';
@@ -20,9 +26,10 @@ import type { Database } from '@/integrations/supabase/types';
 type QueueRow = Database['public']['Tables']['rate_con_ingest_queue']['Row'];
 type QueueStatus = QueueRow['status'];
 
-const OPEN_STATUSES: QueueStatus[] = ['received', 'pending_parse', 'parsed', 'needs_manual'];
+const OPEN_STATUSES: QueueStatus[] = [...INBOX_OPEN_STATUSES];
 /** Items a dispatcher still has to act on — parsed or needs_manual. */
 const ACTIONABLE_STATUSES: QueueStatus[] = ['parsed', 'needs_manual'];
+
 
 const STATUS_LABEL: Record<QueueStatus, string> = {
   received: 'Received',
