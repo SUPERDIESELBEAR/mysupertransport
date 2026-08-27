@@ -1328,6 +1328,34 @@ or alter any row's `current`, `queued` or `paperworkTail`.
 
 ## Module 5, Pass 1 — stop arrival and departure, with provenance (2026-08-27)
 
+**Entry control update (2026-08-27) — explicit Done, no half-entered saves.**
+The native `datetime-local` popup offered a Clear and no confirm: you committed
+by clicking into empty space, and the click-away happily committed a half-entered
+value — a time with the date still `mm/dd/yyyy` — so the field could display a
+time that was never recorded. `StopTimePicker` replaces it with a popup holding
+separate date and time inputs, a primary **Done** and a quiet **Clear**.
+Incomplete (exactly one of date/time filled) is refused on EVERY commit path:
+Done is disabled with "Enter both a date and a time.", and click-away DISCARDS
+instead of committing, so the two paths cannot disagree about what half-entered
+means. Nothing is defaulted — no today, no midnight, no now. Both empty is a
+legitimate value and Done commits it as "no value". Escape discards and restores
+whatever the field held when the popup opened; that is the cancel path, distinct
+from Clear, which actively empties a recorded value.
+
+**The two Clears were made identical rather than renamed.** The Clear inside the
+popup and the Clear beside the field now do the same single thing — empty the
+field — and the inner one closes the popup after doing it. Renaming one would
+have implied a distinction that does not exist; two controls that do the same act
+may share a word, two controls that do different acts may not.
+
+Unchanged by this pass: the departure-before-arrival rejection, the provenance
+trigger (`stamp_load_stop_time_source` fires on the resulting UPDATE regardless
+of which control committed it), and the carrier-timezone conversion — the picker
+reads and writes carrier-zone naive strings and never constructs a `Date`, so it
+cannot drift to the browser's zone. A round-trip through `isoToNaive`/`naiveToIso`
+under `TZ=Asia/Karachi` is pinned in `stopTimePicker.test.tsx`.
+
+
 `load_stops.actual_arrival_at` / `actual_departure_at`, the coordinate columns,
 the dwell rendering in `StopsTimeline`, the delete-protection in `loadEdit.ts`
 and the operator-update trigger all predate this pass. What was missing was any
