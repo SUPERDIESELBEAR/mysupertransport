@@ -57,6 +57,26 @@ if (HAS_DB) {
   }
 }
 
+/**
+ * Third gate, and the one that bites here. `stamp_load_stop_time_source` is a
+ * BEFORE UPDATE trigger, so exercising it requires UPDATE on load_stops. The
+ * sandbox psql role (`sandbox_exec`) is granted SELECT and INSERT and nothing
+ * else, on every public table — the same deliberate restriction that bars
+ * EXECUTE in rods-live-certification.test.ts. Granting UPDATE to work around it
+ * is forbidden, so the arm is gated on the real capability and says so at the
+ * same volume as the missing-PGHOST banner. It must never read as coverage.
+ */
+let CAN_UPDATE = false;
+if (HAS_DB) {
+  try {
+    CAN_UPDATE = psql(
+      `select has_table_privilege('public.load_stops','UPDATE')::text`,
+    )[0] === 'true';
+  } catch {
+    CAN_UPDATE = false;
+  }
+}
+
 if (!HAS_DB) {
   skipBanner('stop-time-source-trigger.test.ts LIVE CHECKS DID NOT RUN', [
     'No PGHOST in the environment, so the trigger could not be exercised.',
@@ -66,15 +86,26 @@ if (!HAS_DB) {
     'load_stops has no provenance columns in this database, so the trigger',
     'is not installed. Apply the provenance migration and re-run.',
   ]);
+} else if (!CAN_UPDATE) {
+  skipBanner('stop-time-source-trigger.test.ts LIVE CHECKS DID NOT RUN', [
+    'This harness role has SELECT and INSERT on load_stops and no UPDATE.',
+    'The trigger is BEFORE UPDATE, so it cannot fire from here at all.',
+    'Granting UPDATE to the sandbox role is forbidden. Run this file where a',
+    'role with UPDATE exists (a disposable instance). A green run WITHOUT',
+    'these five checks is NOT evidence that the stamping works.',
+  ]);
 }
 
 const itLive = gatedIt({
-  enabled: HAS_DB && SCHEMA_READY,
-  reason: HAS_DB
-    ? 'the stop provenance columns are not present in this database'
-    : 'no PGHOST, so the live trigger could not be exercised',
+  enabled: HAS_DB && SCHEMA_READY && CAN_UPDATE,
+  reason: !HAS_DB
+    ? 'no PGHOST, so the live trigger could not be exercised'
+    : !SCHEMA_READY
+      ? 'the stop provenance columns are not present in this database'
+      : 'the harness role has no UPDATE on load_stops, so a BEFORE UPDATE trigger cannot fire',
   details: ['Only this check sees what the trigger actually stamps.'],
 });
+
 
 /* ------------------------------------------------------------------ */
 /* Fixture: resolve, never invent                                      */
