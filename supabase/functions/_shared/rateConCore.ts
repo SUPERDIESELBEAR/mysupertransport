@@ -213,7 +213,15 @@ Rules:
   - READ THE PRINTED PAGE, NOT THE PDF'S EMBEDDED TEXT. Some documents carry a broken text layer where a printed span such as 53' 102" comes through as a paragraph mark, a control character, an escaped entity (&#182;) or a replacement character. Never reproduce those: they are not printed on the page. Transcribe the glyphs a reader sees. If a span is genuinely illegible, write what you can read and leave the illegible part out rather than inserting a symbol.
   - Never emit the characters ¶ (pilcrow), � (replacement character), or any control character inside a verbatim field.
   - special_instructions (the condensed field) is for display only. If you cannot produce a faithful verbatim copy of a block, return null for that verbatim field rather than a paraphrase.
+- detention_terms: STRUCTURE the detention clause this document prints. Do not sweep the document a second time and do not change what special_instructions or the verbatim blocks capture — the detention text stays in those fields too. Duplication here is deliberate: prose and structured terms serve different readers.
+  - ONLY WHAT IS PRINTED. Every one of the six fields is null unless this document states it. Two hours free is an industry convention, NOT a term: a rate confirmation silent on detention means detention was never agreed, and returning 120 there fabricates an agreement. A document that says nothing about detention returns all six fields null. This is the most important rule in this section.
+  - free_time_minutes is ALWAYS minutes: "2 hours free" is 120, "3 hours" is 180, "90 minutes" is 90.
+  - clock_start is null unless the document says WHICH moment starts the clock. "Detention after 2 hours" states free time and says nothing about the trigger: free_time_minutes 120, clock_start null. Never default to "appointment" — the three moments differ by 30–90 minutes and which governs is a per-broker term. Use "appointment" only for scheduled-appointment wording, "arrival" only for driver-arrival wording, "gate_checkin" only for gate/check-in wording.
+  - notification_required is true ONLY when the document requires notifying the broker before or during detention. It is false ONLY when the document says notification is not required, which is rare. Otherwise null. Never collapse "not stated" into false.
+  - daily_cap only when a per-day maximum is printed.
+  - terms_note is a VERBATIM transcription of the detention clause under the verbatim rule below: exact wording, no rewording, no pilcrows or replacement characters, and null rather than a paraphrase if a faithful copy is not possible.
 - references: transcribe the document-level References table rows exactly as printed, one entry per printed row, label and value unchanged. Include EVERY row, including categorical rows such as "Mode: TL" — the system decides what is an identifier. Do not merge rows that share a value under different Reference Types: "BOL BG969676425" and "PRO BG969676425" are two rows. If the document has no such table, return an empty array.
+
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
 
 
