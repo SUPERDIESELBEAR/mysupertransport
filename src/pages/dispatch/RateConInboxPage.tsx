@@ -121,11 +121,8 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
     }
     // A duplicate the system collapsed on its own stays visible in the default
     // view: a silent collapse is indistinguishable from mail never arriving.
-    const visible = (data ?? []).filter(row => {
-      if (showHandled) return true;
-      if ((OPEN_STATUSES as string[]).includes(row.status)) return true;
-      return row.status === 'dismissed' && !row.dismissed_by && /^duplicate/i.test(row.dismiss_reason ?? '');
-    });
+    const visible = (data ?? []).filter(row => showHandled || isDefaultVisible(row));
+
     setRows(visible);
     setLoading(false);
   }, [showHandled, toast]);
