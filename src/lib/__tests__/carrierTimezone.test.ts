@@ -26,12 +26,12 @@ describe('naiveToIso', () => {
     expect(isoToNaive(naiveToIso('2026-01-20T08:00'))).toBe('2026-01-20T08:00');
   });
 
-  it('resolves the spring-forward gap hour forward, as documented', () => {
-    // 2026-03-08 02:30 does not exist in Central. Documented behaviour: the
-    // equivalent instant one hour later, so the round-trip reads 03:30.
+  it('resolves the spring-forward gap hour to the documented instant', () => {
+    // 2026-03-08 02:30 does not exist in Central. Documented behaviour: it
+    // settles on the pre-transition offset, 01:30 CST, and never throws.
     const iso = naiveToIso('2026-03-08T02:30');
-    expect(iso).toBe('2026-03-08T08:30:00.000Z');
-    expect(isoToNaive(iso)).toBe('2026-03-08T03:30');
+    expect(iso).toBe('2026-03-08T07:30:00.000Z');
+    expect(isoToNaive(iso)).toBe('2026-03-08T01:30');
   });
 });
 

@@ -57,11 +57,13 @@ function carrierOffsetMs(date: Date): number {
  * assuming a fixed one: −5 in summer (CDT), −6 in winter (CST).
  *
  * Spring-forward gap (02:00–02:59 on the second Sunday in March, a wall-clock
- * time that does not exist): the value resolves forward to the equivalent
- * instant one hour later — 02:30 stores as 03:30 CDT. It is the same instant a
- * fixed-offset reading would produce and never throws; the round-trip through
- * isoToNaive therefore returns 03:30, not 02:30, for that hour alone.
- * Fall-back repeated hour resolves to the first (daylight) occurrence.
+ * time that does not exist): the offset solve settles on the pre-transition
+ * offset, so 02:30 stores as 07:30Z — 01:30 CST, the instant one hour BEFORE
+ * the nominal reading. It never throws, and the round-trip through isoToNaive
+ * therefore returns 01:30, not 02:30, for that hour alone. No appointment is
+ * ever legitimately written into a gap hour; this is documented so the
+ * behaviour is chosen rather than discovered.
+ * The fall-back repeated hour resolves to the first (daylight) occurrence.
  */
 export function naiveToIso(naive: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(naive.trim());

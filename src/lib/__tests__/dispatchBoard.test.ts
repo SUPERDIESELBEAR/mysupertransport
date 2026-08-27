@@ -254,6 +254,6 @@ describe('delivery ordering across mixed offset representations', () => {
       load({ id: 'b', stops: [delivery(1, '2026-03-10T09:00:00-05:00')] }), // 14:00Z
       load({ id: 'c', stops: [delivery(1, '2026-03-10T16:00:00Z')] }),      // 16:00Z
     ]);
-    expect(r.chains[0].chain.map(c => c.loadNumber)).toEqual(['L-b', 'L-c', 'L-a']);
+    expect(r.rows[0].chain.map(c => c.id)).toEqual(['b', 'c', 'a']);
   });
 });
