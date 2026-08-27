@@ -21,7 +21,13 @@
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
+ *   Both shapes are run with --maxWorkers=2; at full parallelism the RTL
+ *   suites contend and time out in EITHER shape, and those timeouts are not a
+ *   regression. Note too that `bun run test:guards` is a nine-file subset
+ *   (86 tests, zero skips) — it is not a shape.
+ *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
+
  *     800 passed | 7 skipped        (103 files passed | 1 skipped)
  *     skipped:
  *       - stop time source trigger x5
@@ -35,9 +41,8 @@
  *       - certify_rods_day live RPC, execute arm
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
- *   WITHOUT a database (PGHOST absent), run with --maxWorkers=2 (the flag is part
- *   of the baseline: at full parallelism the RTL suites contend and time out,
- *   and those timeouts are not a regression):
+ *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
+
  *     771 passed | 28 skipped       (97 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)

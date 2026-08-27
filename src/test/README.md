@@ -25,15 +25,23 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-27, after the stop-time picker pass)
+## Expected baselines (measured 2026-08-27, after the detention claim record pass)
 
 There are exactly two shapes. Anything else is a signal.
+
+**Both shapes are run with `--maxWorkers=2`.** The flag is part of the recorded
+invocation, not an optimisation: at full parallelism the RTL suites contend and
+time out in either shape, and those failures must not be read as a regression.
+
+Note also that `bun run test:guards` is a nine-file subset (86 tests, no skips).
+It is not a shape and must never be reported as one.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
 Test Files  103 passed | 1 skipped (104)
      Tests  800 passed | 7 skipped (807)
+
 
 skipped:
   stop time source trigger x5
@@ -46,9 +54,8 @@ skipped:
     no EXECUTE grant for the harness role, and no driver JWT can be minted here
 ```
 
-**Without a database** (`PGHOST` absent), run with `--maxWorkers=2` — the flag is
-part of the baseline, not an optimisation: at full parallelism the RTL suites
-contend and time out, and those failures must not be read as a regression:
+**Without a database** (`PGHOST` absent), same `--maxWorkers=2`:
+
 
 ```text
 Test Files  97 passed | 7 skipped (104)
@@ -79,11 +86,15 @@ do not adjust these numbers to match.
 
 ```bash
 # bundle assertions: build first, then opt in
-bun run build && RUN_BUNDLE_TESTS=1 bunx vitest run
+bun run build && RUN_BUNDLE_TESTS=1 bunx vitest run --maxWorkers=2
+
+# the database-attached baseline
+bunx vitest run --maxWorkers=2
 
 # reproduce the no-database baseline
-env -u PGHOST -u PGUSER -u PGPASSWORD -u PGDATABASE -u PGPORT bunx vitest run
+env -u PGHOST -u PGUSER -u PGPASSWORD -u PGDATABASE -u PGPORT bunx vitest run --maxWorkers=2
 ```
+
 
 The `certify_rods_day` execute arm cannot run here at all: the sandbox psql role
 is deliberately barred from `EXECUTE` on database functions, and granting it is

@@ -1727,3 +1727,48 @@ The +18 tests and +2 files in each shape are `detentionClaims.test.ts` (12),
 `detentionSection.test.tsx` (2) and the four new staged-SQL stamping cases in
 `actor-stamp-fk.test.ts`. The skip counts are unchanged, which is the point:
 no new test was gated.
+
+## Standing rule — a SECURITY DEFINER function needs all three (2026-08-27)
+
+The staged detention-claims draft declared `stamp_detention_claim_actor` as
+SECURITY DEFINER with a pinned `search_path`, and omitted the
+`REVOKE ALL ON FUNCTION ... FROM PUBLIC` that `stamp_load_stop_time_source`
+carries. Nothing in review caught it; `definer-live-catalog.test.ts` did, on
+the first run after the migration was applied, reporting
+`public.stamp_detention_claim_actor()` as an unexpected anon-executable
+function. A follow-up migration added the REVOKE.
+
+The rule, from here on, is that all three travel together in the SAME
+migration and none of them is optional:
+
+1. `SECURITY DEFINER`
+2. `SET search_path TO 'public', 'extensions'` (pinned, never inherited)
+3. `REVOKE ALL ON FUNCTION public.<name>() FROM PUBLIC` (and from `anon` /
+   `authenticated` where they were granted by default)
+
+A trigger function is reachable by name as an RPC unless the execute grant is
+revoked, so 1 and 2 without 3 hand an anon caller a definer-privileged entry
+point. `definer-live-catalog.test.ts` is the backstop, not the review step —
+it only runs with a database attached, so a draft that omits the REVOKE can
+sit unnoticed until the migration lands.
+
+## Test invocation — `--maxWorkers=2` belongs to BOTH shapes (2026-08-27)
+
+The contention mitigation was recorded against the no-database shape only.
+Five failures then appeared in the database shape at full parallelism; at
+`--maxWorkers=2` the same shape is clean:
+
+```text
+DB attached,  --maxWorkers=2 : Test Files 103 passed | 1 skipped (104)
+                                    Tests 800 passed | 7 skipped (807)
+no DB,        --maxWorkers=2 : Test Files  97 passed | 7 skipped (104)
+                                    Tests 771 passed | 28 skipped (799)
+```
+
+So the flag is part of the recorded invocation for both shapes, not an
+optimisation for one of them. A run without it may fail on RTL timeouts that
+are contention, not regression.
+
+A related trap: `bun run test:guards` is a NINE-FILE subset (86 tests). It is
+not a shape. A summary reading `9 passed (9) / 86 passed (86)` with zero skips
+is the guards subset, not a suite run, and must never be reported as one.
