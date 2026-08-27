@@ -234,19 +234,33 @@ export default function RateConInboxPage({ onOpenCreateLoad }: { onOpenCreateLoa
     }
   };
 
-  const open = rows.filter(r => OPEN_STATUSES.includes(r.status));
-  const handled = showHandled ? rows.filter(r => !OPEN_STATUSES.includes(r.status)) : [];
+  // Open work PLUS collapsed duplicates. 'dismissed' is deliberately not an
+  // open status — the duplicate predicate is what separates the system's own
+  // collapse from a row a dispatcher dismissed by hand.
+  const open = rows.filter(isDefaultVisible);
+  // Subtracting the duplicate predicate here is what keeps a collapsed
+  // duplicate from rendering twice when Show handled is switched on.
+  const handled = showHandled
+    ? rows.filter(r => !isOpenStatus(r.status) && !isAutoCollapsedDuplicate(r))
+    : [];
 
   const renderRow = (row: QueueRow) => {
     const busy = busyId === row.id || openingId === row.id;
     const isOpen = OPEN_STATUSES.includes(row.status);
+    const collapsedDuplicate = isAutoCollapsedDuplicate(row);
     const checks = (row.verbatim_checks ?? null) as unknown as VerbatimCheck[] | null;
     const summary = verbatimSummary(checks);
     return (
       <div
         key={row.id}
-        className="rounded-lg border border-border bg-card p-3 sm:p-4 flex flex-col gap-2"
+        data-testid={`inbox-row-${row.id}`}
+        className={
+          collapsedDuplicate
+            ? 'rounded-lg border border-dashed border-border bg-muted/30 p-3 sm:p-4 flex flex-col gap-2 opacity-75'
+            : 'rounded-lg border border-border bg-card p-3 sm:p-4 flex flex-col gap-2'
+        }
       >
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
