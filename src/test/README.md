@@ -59,6 +59,7 @@ skipped: the above, plus
   live SECURITY DEFINER catalog x9   no PGHOST, one named skip per live check
   caller-evaluated functions x3      no PGHOST, live catalog unreadable
   live grant / policy parity x3      no PGHOST, live catalog unreadable
+  stop time source structure x4      no PGHOST, live catalog unreadable
 ```
 
 Note on flakiness: a few React Testing Library suites (`brokersPage`,

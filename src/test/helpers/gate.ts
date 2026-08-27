@@ -44,6 +44,7 @@
  *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
  *       - caller-evaluated functions     x3   (live catalog unreadable)
  *       - live grant / policy parity     x3   (live catalog unreadable)
+ *       - stop time source structure     x4   (live catalog unreadable)
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
  * without a matching named line, a gate has regressed to `runIf`/`skip`.
