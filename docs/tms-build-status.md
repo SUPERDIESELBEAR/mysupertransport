@@ -1588,9 +1588,12 @@ hoisted copy at the no-op stub — jsdom resolves canvas from its peer directory
 so the root link alone is not enough. A genuine native build, if one ever
 exists, is left untouched.
 
-Baselines after this pass: **766 passed | 7 skipped** with a database,
-**737 passed | 28 skipped** without (`PGHOST=` and `--maxWorkers=2`). The +1 in
-each shape is the new `reads every select it finds` test.
+Baselines after the stop-time picker pass: **775 passed | 7 skipped** with a
+database (100 files passed | 1 skipped), **746 passed | 28 skipped** without
+(94 | 7; `PGHOST=` and `--maxWorkers=2`). The +9 in each shape is
+`stopTimePicker.test.tsx`; the earlier embed-guard pass contributed the +1
+`reads every select it finds` test.
+
 
 ## Investigation closure — Issue 2 (permission denied for loads / user_roles / current_profile_id)
 
