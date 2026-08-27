@@ -781,6 +781,14 @@ export interface RemovedReference {
   value_key: string;
 }
 
+/** The same stored row moving from one class to another, kept in place. */
+export interface ReclassifiedReference {
+  from_reference_class: string;
+  to_reference_class: string;
+  value: string;
+  value_key: string;
+}
+
 export interface ApplyRevisionResult {
   values: LoadFormValues;
   /** One line per applied money change, for the automatic change reason. */
@@ -794,7 +802,15 @@ export interface ApplyRevisionResult {
    * on every later review. These are deleted explicitly.
    */
   removedReferences: RemovedReference[];
+  /**
+   * Class moves the dispatcher accepted. The save path must UPDATE the stored
+   * row rather than write a new one: the upsert key is
+   * (load_id, reference_class, value_key), so a changed class inserts a second
+   * row and leaves the first behind — the duplicate this exists to prevent.
+   */
+  reclassifiedReferences: ReclassifiedReference[];
 }
+
 
 
 /**
