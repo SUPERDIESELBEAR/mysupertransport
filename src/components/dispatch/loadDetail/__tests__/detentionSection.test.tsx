@@ -76,7 +76,9 @@ describe('DetentionSection', () => {
  * as a zero — a dispatcher quoting "no free time" off a blank field is a worse
  * outcome than having no block at all.
  */
-function renderWithTerms(terms: Partial<DetentionTerms>, withClaim = false) {
+function renderWithTerms(
+  terms: Partial<DetentionTerms>, withClaim = false, createdFromParse = false,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -85,6 +87,7 @@ function renderWithTerms(terms: Partial<DetentionTerms>, withClaim = false) {
         stops={stops as never}
         canManage
         terms={{ ...EMPTY_DETENTION_TERMS, ...terms }}
+        createdFromParse={createdFromParse}
       />
     </QueryClientProvider>,
   );
@@ -125,5 +128,37 @@ describe('DetentionSection terms block', () => {
     renderWithTerms({ notificationRequired: null, freeTimeMinutes: 60 });
     await waitFor(() => expect(screen.getByText('60 minutes (1 hour)')).toBeInTheDocument());
     expect(screen.queryByText(/require notifying the broker/i)).not.toBeInTheDocument();
+  });
+});
+
+
+/**
+ * PROVENANCE AND DISAGREEMENT. A dispatcher arguing detention with a broker
+ * needs to know whether a number was read off the document or typed by a
+ * colleague — and where the printed clause and the structured values disagree,
+ * both are shown and neither is resolved.
+ */
+describe('DetentionSection terms provenance', () => {
+  it('labels an unedited term as read from the rate confirmation', async () => {
+    renderWithTerms({ freeTimeMinutes: 120 }, false, true);
+    await waitFor(() => expect(screen.getByText('120 minutes (2 hours)')).toBeInTheDocument());
+    expect(screen.getAllByText('Read from the rate confirmation').length).toBeGreaterThan(0);
+  });
+
+  it('says the source is not recorded rather than crediting a document there is none of', async () => {
+    renderWithTerms({ freeTimeMinutes: 120 }, false, false);
+    await waitFor(() => expect(screen.getByText('120 minutes (2 hours)')).toBeInTheDocument());
+    expect(screen.getAllByText('Source not recorded').length).toBeGreaterThan(0);
+  });
+
+  it('shows the printed clause beside structured values that contradict it', async () => {
+    renderWithTerms({
+      freeTimeMinutes: 120,
+      note: 'Detention paid after three (3) hours free at $50.00 per hour.',
+    }, false, true);
+    await waitFor(() => expect(screen.getByText('120 minutes (2 hours)')).toBeInTheDocument());
+    // Both readings are on screen; nothing here decides between them.
+    expect(screen.getByText(/three \(3\) hours free/)).toBeInTheDocument();
+    expect(screen.getByText(/Read the clause before quoting a number/)).toBeInTheDocument();
   });
 });

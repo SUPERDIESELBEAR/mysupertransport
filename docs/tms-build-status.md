@@ -1855,3 +1855,66 @@ Verified for this fix: a real edit of ST26015 through Edit Load in the running
 app wrote `detention_free_time_minutes = 120`, `detention_rate_per_hour = 50`,
 `detention_notification_required = true` and a terms note, and produced four
 `load_change_history` rows, all `is_financial = false`.
+
+## Module 5, Pass 3 — detention terms EXTRACTED from the rate confirmation (2026-08-27)
+
+Pass 2 gave the load six detention columns and a hand-entry path. This pass
+fills them from the parse. The model was already reading the detention clause —
+`rateConCore.ts` has instructed it to carry detention rate and free time in
+`special_instructions` since the first parser pass, and `verbatim.broker_terms`
+already transcribes the terms paragraph as printed. Nothing new is read off the
+document here. The clause is STRUCTURED, and the prose rules are untouched:
+detention text stays in `special_instructions` and in the verbatim blocks. The
+duplication is deliberate — prose and structured terms serve different readers.
+
+**Null means not stated, and there are no industry-convention defaults.** Two
+hours free is a convention, not an agreement. A rate confirmation silent on
+detention means detention was never agreed, and emitting 120 there would
+fabricate a term that renders on Load Detail exactly like one the broker signed.
+A silent document returns six nulls. This is the rule most likely to erode and
+it is the primary test case, not an afterthought.
+
+**`clock_start` is null unless the document names the trigger.** "Detention
+after 2 hours" states free time and says nothing about which moment starts the
+clock: `free_time_minutes = 120`, `clock_start = null`. The three moments —
+appointment, arrival, gate check-in — differ by 30 to 90 minutes, and which
+governs is a per-broker term. Nothing infers `appointment` as a default.
+
+**`notification_required` distinguishes false from null.** True only when the
+document requires notifying the broker; false only when it says notification is
+NOT required, which is rare; otherwise null. Pass 2's prompt — "these terms
+require notifying the broker and no notification has been recorded" — fires on
+true and must stay silent on null, so collapsing the two would invent an
+obligation. The load form carries the tri-state as a string for the same reason.
+
+**Both routes carry the terms, and each has its own test.**
+
+- CREATE: `applyParsedToForm` writes only the fields the parse stated; a silent
+  document writes nothing at all.
+- REVISION: all six appear in the revision diff as individually acceptable
+  entries, alongside `broker_terms_verbatim`. A revised rate confirmation is how
+  a detention negotiation concludes, so accepting a new hourly rate is not
+  agreement to a shorter free-time window printed beside it. A revised document
+  silent on detention produces no rows — silence is never read as removal.
+
+**Source, and disagreement.** The terms block labels each stated value with
+where it came from: read from the rate confirmation, from a revised rate
+confirmation, entered by hand, or source not recorded. Provenance is derived
+from the load's own `load_change_history` trail — no column stores it — and
+parse origin is inferred from the presence of `verbatim_verification`, which
+only the parse path writes. Where both a structured value and a printed clause
+exist they are shown TOGETHER and nothing resolves the conflict: a note reading
+"three hours free" beside a field holding 120 minutes is displayed as the
+disagreement it is, the same principle already applied to loadout scoring and to
+the paperwork predicate versus `pod_received`. Nothing is computed from the
+terms — no eligible hours, no dollar estimate, no comparison against recorded
+arrival times. Detention remains negotiated.
+
+**Contract version.** `PARSER_BUILD_META.contract` in
+`supabase/functions/_shared/rateConCore.ts` and `EXPECTED_PARSER_CONTRACT` in
+`src/lib/rateConfirmation.ts` both moved 5 → 6, in the same edit, per the
+standing rule. `parse-rate-confirmation` does not auto-deploy and was deployed
+explicitly alongside `receive-rate-con-email`, which shares the core.
+
+**Snapshot occupancy unchanged.** This pass adds no columns, so
+`update_load_with_stops` still holds 34 keys in call 1 and 18 in call 2.

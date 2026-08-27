@@ -31,10 +31,11 @@ const SAMPLING = { temperature: 0, seed: 20260823 } as const;
  * while the code around it moves.
  */
 const PARSER_BUILD_META = {
-  contract: 5,
-  built_at: '2026-08-24T14:50:00Z',
-  notes: 'contract 4 + run envelope (model/seed/seed_echoed/system_fingerprint) required',
+  contract: 6,
+  built_at: '2026-08-27T23:40:00Z',
+  notes: 'contract 5 + detention_terms object (free_time_minutes/rate_per_hour/daily_cap/clock_start/notification_required/terms_note)',
 };
+
 
 
 
@@ -152,6 +153,16 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
     "broker_terms": FIELD(string - the broker's terms/conditions paragraph, copied EXACTLY as printed),
     "special_instructions": FIELD(string - the block printed under the "Special Instructions" heading, copied EXACTLY as printed)
   },
+  "detention_terms": {
+
+    "free_time_minutes": FIELD(number - ALWAYS minutes; "2 hours free" is 120),
+    "rate_per_hour": FIELD(number),
+    "daily_cap": FIELD(number),
+    "clock_start": FIELD(one of "appointment","arrival","gate_checkin" - only when the document names the moment the clock starts),
+    "notification_required": FIELD(boolean),
+    "terms_note": FIELD(string - the detention clause copied EXACTLY as printed; see the verbatim rule)
+  },
+
   "loadout_signals": {
     "no_bol_mentioned": boolean - true if the document never mentions a BOL or bill of lading,
     "photo_pod_required": boolean - true if photos are named as proof of delivery,
@@ -203,7 +214,15 @@ Rules:
   - READ THE PRINTED PAGE, NOT THE PDF'S EMBEDDED TEXT. Some documents carry a broken text layer where a printed span such as 53' 102" comes through as a paragraph mark, a control character, an escaped entity (&#182;) or a replacement character. Never reproduce those: they are not printed on the page. Transcribe the glyphs a reader sees. If a span is genuinely illegible, write what you can read and leave the illegible part out rather than inserting a symbol.
   - Never emit the characters ¶ (pilcrow), � (replacement character), or any control character inside a verbatim field.
   - special_instructions (the condensed field) is for display only. If you cannot produce a faithful verbatim copy of a block, return null for that verbatim field rather than a paraphrase.
+- detention_terms: STRUCTURE the detention clause this document prints. Do not sweep the document a second time and do not change what special_instructions or the verbatim blocks capture — the detention text stays in those fields too. Duplication here is deliberate: prose and structured terms serve different readers.
+  - ONLY WHAT IS PRINTED. Every one of the six fields is null unless this document states it. Two hours free is an industry convention, NOT a term: a rate confirmation silent on detention means detention was never agreed, and returning 120 there fabricates an agreement. A document that says nothing about detention returns all six fields null. This is the most important rule in this section.
+  - free_time_minutes is ALWAYS minutes: "2 hours free" is 120, "3 hours" is 180, "90 minutes" is 90.
+  - clock_start is null unless the document says WHICH moment starts the clock. "Detention after 2 hours" states free time and says nothing about the trigger: free_time_minutes 120, clock_start null. Never default to "appointment" — the three moments differ by 30–90 minutes and which governs is a per-broker term. Use "appointment" only for scheduled-appointment wording, "arrival" only for driver-arrival wording, "gate_checkin" only for gate/check-in wording.
+  - notification_required is true ONLY when the document requires notifying the broker before or during detention. It is false ONLY when the document says notification is not required, which is rare. Otherwise null. Never collapse "not stated" into false.
+  - daily_cap only when a per-day maximum is printed.
+  - terms_note is a VERBATIM transcription of the detention clause under the verbatim rule below: exact wording, no rewording, no pilcrows or replacement characters, and null rather than a paraphrase if a faithful copy is not possible.
 - references: transcribe the document-level References table rows exactly as printed, one entry per printed row, label and value unchanged. Include EVERY row, including categorical rows such as "Mode: TL" — the system decides what is an identifier. Do not merge rows that share a value under different Reference Types: "BOL BG969676425" and "PRO BG969676425" are two rows. If the document has no such table, return an empty array.
+
 - If the document is not a rate confirmation, return every field null with an empty stops array.`;
 
 
@@ -640,6 +659,21 @@ export async function parseRateConfirmationCore(
       broker_terms: str(parsed.verbatim?.broker_terms),
       special_instructions: str(parsed.verbatim?.special_instructions),
     },
+    // Detention terms the document STATES. Every field is null unless printed:
+    // there is no industry-convention default anywhere on this path, because a
+    // fabricated "2 hours free" reads on screen exactly like an agreed term.
+    detention_terms: {
+      free_time_minutes: num(parsed.detention_terms?.free_time_minutes),
+      rate_per_hour: money(parsed.detention_terms?.rate_per_hour),
+      daily_cap: money(parsed.detention_terms?.daily_cap),
+      clock_start: enumField(parsed.detention_terms?.clock_start, ['appointment', 'arrival', 'gate_checkin']),
+      // Tri-state on purpose: false means the document says notification is NOT
+      // required, null means it is silent, and the Load Detail prompt depends
+      // on the difference. `bool()` already returns null for anything else.
+      notification_required: bool(parsed.detention_terms?.notification_required),
+      terms_note: str(parsed.detention_terms?.terms_note),
+    },
+
     references: (Array.isArray(parsed.references) ? parsed.references : [])
       .map((r: any) => ({
         label: String(r?.label ?? '').trim(),

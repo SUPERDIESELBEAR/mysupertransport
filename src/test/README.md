@@ -25,7 +25,7 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-27, after the detention claim record pass)
+## Expected baselines (measured 2026-08-27, after Module 5 Pass 3 — detention terms extraction)
 
 There are exactly two shapes. Anything else is a signal.
 
@@ -39,8 +39,8 @@ It is not a shape and must never be reported as one.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  107 passed | 1 skipped (108)
-     Tests  835 passed | 7 skipped (842)
+Test Files  109 passed | 1 skipped (110)
+     Tests  855 passed | 7 skipped (862)
 
 
 skipped:
@@ -58,8 +58,8 @@ skipped:
 
 
 ```text
-Test Files  101 passed | 7 skipped (108)
-     Tests  806 passed | 28 skipped (834)
+Test Files  103 passed | 7 skipped (110)
+     Tests  826 passed | 28 skipped (854)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
