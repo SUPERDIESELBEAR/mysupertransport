@@ -190,7 +190,21 @@ export const NUMERIC_LOAD_KEYS = [
   'estimated_tons', 'total_load_value', 'loaded_miles', 'deadhead_miles',
   'reefer_temp_f', 'reefer_temp_min_f', 'reefer_temp_max_f', 'permit_cost',
   'loadout_relocation_fee', 'loadout_use_period_days',
+  'detention_free_time_minutes', 'detention_rate_per_hour', 'detention_daily_cap',
 ];
+
+/**
+ * Tri-state booleans. `NULLIF(...,'')::boolean` keeps NOT STATED distinct from
+ * an explicit false, which is the whole point of the detention notification
+ * column — collapsing it to false would invent a broker term.
+ */
+const NULLABLE_BOOLEAN_LOAD_KEYS = ['detention_notification_required'];
+
+const boolOrNull = (v: unknown): boolean | null => {
+  if (v === true || v === 'true') return true;
+  if (v === false || v === 'false') return false;
+  return null;
+};
 
 const BOOLEAN_LOAD_KEYS = [
   'fsc_bundled_into_linehaul', 'reefer_precool_required', 'reefer_continuous_run',
@@ -209,6 +223,7 @@ export function coerceLoadColumns(p: Row): Row {
   const out: Row = {};
   Object.keys(p).forEach(k => {
     if (BOOLEAN_LOAD_KEYS.includes(k)) out[k] = boolOrFalse(p[k]);
+    else if (NULLABLE_BOOLEAN_LOAD_KEYS.includes(k)) out[k] = boolOrNull(p[k]);
     else if (NUMERIC_LOAD_KEYS.includes(k)) out[k] = numOrNull(p[k]);
     else out[k] = txt(p[k]);
   });

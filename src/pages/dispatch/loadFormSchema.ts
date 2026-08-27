@@ -121,6 +121,22 @@ export const loadFormSchema = z
     loaded_miles: optionalNumber,
     deadhead_miles: optionalNumber,
 
+    /**
+     * Detention terms as the rate confirmation states them. Every one is
+     * optional and empty means NOT STATED — there is no default free time,
+     * rate, cap or clock start, because defaulting would fabricate an
+     * agreement the broker never made.
+     */
+    detention_free_time_minutes: optionalNumber,
+    detention_rate_per_hour: optionalNumber,
+    detention_daily_cap: optionalNumber,
+    detention_clock_start: z
+      .enum(['appointment', 'arrival', 'gate_checkin'])
+      .or(z.literal('')),
+    /** Tri-state: 'true' required, 'false' not required, '' not stated. */
+    detention_notification_required: z.enum(['true', 'false']).or(z.literal('')),
+    detention_terms_note: z.string().trim().max(2000).optional().or(z.literal('')),
+
     stops: z.array(stopSchema).min(2, 'A load needs at least two stops'),
     /** Charges that belong to the load but not to any one stop. */
     charges: z.array(chargeSchema),
@@ -229,6 +245,12 @@ export const loadFormDefaults = (): LoadFormValues => ({
   fsc_amount: '',
   loaded_miles: '',
   deadhead_miles: '',
+  detention_free_time_minutes: '',
+  detention_rate_per_hour: '',
+  detention_daily_cap: '',
+  detention_clock_start: '' as const,
+  detention_notification_required: '' as const,
+  detention_terms_note: '',
   stops: [emptyStop('pickup'), emptyStop('delivery')],
   charges: [],
   internal_notes: '',

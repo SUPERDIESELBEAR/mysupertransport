@@ -4893,6 +4893,14 @@ export type Database = {
           created_by: string | null
           deadhead_miles: number | null
           delivered_at: string | null
+          detention_clock_start:
+            | Database["public"]["Enums"]["detention_clock_start"]
+            | null
+          detention_daily_cap: number | null
+          detention_free_time_minutes: number | null
+          detention_notification_required: boolean | null
+          detention_rate_per_hour: number | null
+          detention_terms_note: string | null
           dispatched_at: string | null
           dispatcher_id: string | null
           driver_accepted_at: string | null
@@ -4961,6 +4969,14 @@ export type Database = {
           created_by?: string | null
           deadhead_miles?: number | null
           delivered_at?: string | null
+          detention_clock_start?:
+            | Database["public"]["Enums"]["detention_clock_start"]
+            | null
+          detention_daily_cap?: number | null
+          detention_free_time_minutes?: number | null
+          detention_notification_required?: boolean | null
+          detention_rate_per_hour?: number | null
+          detention_terms_note?: string | null
           dispatched_at?: string | null
           dispatcher_id?: string | null
           driver_accepted_at?: string | null
@@ -5029,6 +5045,14 @@ export type Database = {
           created_by?: string | null
           deadhead_miles?: number | null
           delivered_at?: string | null
+          detention_clock_start?:
+            | Database["public"]["Enums"]["detention_clock_start"]
+            | null
+          detention_daily_cap?: number | null
+          detention_free_time_minutes?: number | null
+          detention_notification_required?: boolean | null
+          detention_rate_per_hour?: number | null
+          detention_terms_note?: string | null
           dispatched_at?: string | null
           dispatcher_id?: string | null
           driver_accepted_at?: string | null
@@ -10229,6 +10253,7 @@ export type Database = {
         | "resolved_revision"
         | "denied"
         | "abandoned"
+      detention_clock_start: "appointment" | "arrival" | "gate_checkin"
       detention_notification_method: "email" | "phone" | "text" | "load_board"
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
@@ -10565,6 +10590,7 @@ export const Constants = {
         "denied",
         "abandoned",
       ],
+      detention_clock_start: ["appointment", "arrival", "gate_checkin"],
       detention_notification_method: ["email", "phone", "text", "load_board"],
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
       doc_review_status: ["pending", "approved", "rejected"],

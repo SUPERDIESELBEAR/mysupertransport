@@ -96,6 +96,18 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
         actual_cost: text((c as unknown as Record<string, unknown>).actual_cost),
         proof_document_id: text((c as unknown as Record<string, unknown>).proof_document_id),
       })),
+    detention_free_time_minutes: text(l.detention_free_time_minutes),
+    detention_rate_per_hour: text(l.detention_rate_per_hour),
+    detention_daily_cap: text(l.detention_daily_cap),
+    detention_clock_start: text(l.detention_clock_start) as
+      LoadFormValues['detention_clock_start'],
+    // Tri-state. `text(null)` is '' — not stated — and false stays 'false'.
+    detention_notification_required: (l.detention_notification_required === true
+      ? 'true'
+      : l.detention_notification_required === false
+        ? 'false'
+        : '') as LoadFormValues['detention_notification_required'],
+    detention_terms_note: text(l.detention_terms_note),
     internal_notes: text(l.internal_notes),
     driver_facing_notes: text(l.driver_facing_notes),
     special_instructions: text(l.special_instructions),

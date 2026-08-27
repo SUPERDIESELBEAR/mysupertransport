@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,15 @@ import {
   type DetentionClaimStatus,
   type DetentionNotificationMethod,
 } from '@/lib/detentionClaims';
+import {
+  DETENTION_CLOCK_START_LABELS,
+  EMPTY_DETENTION_TERMS,
+  freeTimeLabel,
+  hasAnyDetentionTerms,
+  needsNotificationPrompt,
+  notificationLabel,
+  type DetentionTerms,
+} from '@/lib/detentionTerms';
 import { DetailSection } from './DetailPrimitives';
 import StopTimePicker from './StopTimePicker';
 
@@ -144,6 +153,53 @@ function Evidence({ stop, names }: { stop: Stop | undefined; names: Map<string, 
   );
 }
 
+/**
+ * The terms block a dispatcher reads while the driver is on the phone.
+ *
+ * Scannable, not a form — terms are edited through Edit Load with the rest of
+ * the load's contract data. Nothing here is computed: no eligible hours, no
+ * dollar estimate, no comparison against a recorded arrival.
+ */
+function TermsBlock({ terms }: { terms: DetentionTerms }) {
+  if (!hasAnyDetentionTerms(terms)) {
+    return (
+      <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+        This rate confirmation states no detention terms.
+      </div>
+    );
+  }
+
+  const notStated = <span className="text-muted-foreground">Not stated</span>;
+  const row = (label: string, value: ReactNode) => (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="text-sm text-foreground">{value}</dd>
+    </div>
+  );
+
+  return (
+    <div className="rounded-md border border-border bg-muted/40 p-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        Terms stated on the rate confirmation
+      </p>
+      <dl className="mt-2 grid gap-3 sm:grid-cols-3">
+        {row('Free time', freeTimeLabel(terms.freeTimeMinutes) ?? notStated)}
+        {row('Rate per hour', terms.ratePerHour === null
+          ? notStated
+          : formatCurrency(terms.ratePerHour))}
+        {row('Daily cap', terms.dailyCap === null ? notStated : formatCurrency(terms.dailyCap))}
+        {row('Clock start', terms.clockStart === null
+          ? notStated
+          : DETENTION_CLOCK_START_LABELS[terms.clockStart])}
+        {row('Notification', notificationLabel(terms.notificationRequired) ?? notStated)}
+      </dl>
+      {terms.note ? (
+        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{terms.note}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function chargeLabel(charge: LoadChargeRecord): string {
   const amount = charge.amount === null || charge.amount === undefined
     ? ''
@@ -152,11 +208,13 @@ function chargeLabel(charge: LoadChargeRecord): string {
 }
 
 export default function DetentionSection({
-  loadId, stops, canManage,
+  loadId, stops, canManage, terms = EMPTY_DETENTION_TERMS,
 }: {
   loadId: string;
   stops: LoadDetail['stops'];
   canManage: boolean;
+  /** Terms as the rate confirmation stated them. Absent reads as not stated. */
+  terms?: DetentionTerms;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -288,6 +346,10 @@ export default function DetentionSection({
         <Button size="sm" variant="outline" onClick={openRaise}>Detention reported</Button>
       ) : null}
     >
+      <div className="mb-4">
+        <TermsBlock terms={terms} />
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading claims…</p>
       ) : list.length === 0 ? (
@@ -356,6 +418,14 @@ export default function DetentionSection({
                     <span className="font-medium text-warning">Not yet notified</span>
                   )}
                 </div>
+
+                {needsNotificationPrompt(terms, claim) ? (
+                  <p className="mt-2 flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-[12px] text-warning">
+                    <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    These terms require notifying the broker, and no notification has been
+                    recorded on this claim.
+                  </p>
+                ) : null}
 
                 <div className="mt-3">
                   <Evidence stop={stop} names={names} />
