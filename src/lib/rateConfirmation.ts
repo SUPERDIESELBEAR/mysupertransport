@@ -102,6 +102,20 @@ export interface ParsedRateConfirmation {
     broker_terms: Field<string>;
     special_instructions: Field<string>;
   };
+  /**
+   * Detention terms the document STATES, structured. Null on every field means
+   * not stated, and not stated is the answer for most rate confirmations —
+   * nothing on this path ever supplies a conventional default.
+   */
+  detention_terms?: {
+    free_time_minutes: Field<number>;
+    rate_per_hour: Field<number>;
+    daily_cap: Field<number>;
+    clock_start: Field<'appointment' | 'arrival' | 'gate_checkin'>;
+    notification_required: Field<boolean>;
+    terms_note: Field<string>;
+  };
+
   /** Load-level References table rows, as printed. */
   references: ParsedReference[];
   loadout_signals: {
