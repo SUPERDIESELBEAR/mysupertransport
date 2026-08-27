@@ -1,0 +1,8 @@
+{
+  "name": "canvas",
+  "version": "2.11.2",
+  "description": "Local no-op stand-in for the optional native `canvas` package. jsdom treats canvas as an OPTIONAL peer and runs fine without it; installing the real one requires a native build that is not available in CI or the sandbox, and a half-installed copy makes every jsdom test fail at import with MODULE_NOT_FOUND. Exporting an object with no createCanvas makes jsdom's feature probe fall back to no-canvas mode.",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true
+}
