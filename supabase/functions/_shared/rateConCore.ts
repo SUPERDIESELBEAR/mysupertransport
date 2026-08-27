@@ -31,10 +31,11 @@ const SAMPLING = { temperature: 0, seed: 20260823 } as const;
  * while the code around it moves.
  */
 const PARSER_BUILD_META = {
-  contract: 5,
-  built_at: '2026-08-24T14:50:00Z',
-  notes: 'contract 4 + run envelope (model/seed/seed_echoed/system_fingerprint) required',
+  contract: 6,
+  built_at: '2026-08-27T23:40:00Z',
+  notes: 'contract 5 + detention_terms object (free_time_minutes/rate_per_hour/daily_cap/clock_start/notification_required/terms_note)',
 };
+
 
 
 
