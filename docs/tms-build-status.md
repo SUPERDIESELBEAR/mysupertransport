@@ -1508,3 +1508,58 @@ OS setting on six machines, recorded nowhere. It is now a decision in code.
 - `dispatchBoard` chain ordering now compares parsed instants rather than
   `localeCompare` on ISO strings, which was only correct while every timestamp
   serialised with the same offset form.
+
+### The embed guard now reads every select, in src/ AND in edge functions
+
+`postgrestEmbeds.test.ts` used to skip any `.select()` whose argument was not a
+plain string literal, and it never looked at `supabase/functions/` at all. A
+guard that walks past what it cannot read reports green while covering nothing;
+that is how `operators(first_name)` survived in the app and `operators.email`
+survived in an edge function.
+
+- The scan now walks **both roots** (`src/` and `supabase/functions/`) and finds
+  950 selects. All 950 resolve; 3152 column references and 166 embed hops are
+  checked. **Zero skips.**
+- A select argument is RESOLVED, not skipped: string literals, `'a' + 'b'`
+  concatenations, module-level (and function-local) `const` strings followed
+  across named imports, templates interpolating those consts, and ternaries
+  (both branches are checked). The optional second argument
+  (`{ count: 'exact', head: true }`) is split off and ignored.
+- Anything the resolver still cannot read **fails the test by name**, with the
+  file, line and the select text. `UNREADABLE_ALLOWLIST` exists for genuine
+  exceptions and is **empty**; every entry added to it is a hole.
+- Triage outcome of the 26 previously-skipped non-literal selects: **all 26
+  resolved with no source change and no allowlist entry.** 24 were term
+  literals paired with a `count` option, one was a `+` concatenation, one a
+  `const col` ternary. No hoisting to module-level consts was needed, so none
+  was done.
+- Rootless `.select(` calls are only considered when a Supabase client or
+  `.from(` appears within the preceding 300 characters. This is what keeps
+  `textarea.select()` and prose in comments out of the scan.
+- `literalOf` rejects a body containing an unescaped closing quote. Without
+  that, `'a, load_stops(' + 'x)'` folds into one pseudo-literal and the embed
+  stops being recognised as an embed — a silent loss of nesting, which the
+  guard caught on itself.
+
+**Defect found and fixed by the widened scan:**
+`supabase/functions/send-notification/index.ts:407` selected
+`operators.email`, which does not exist. PostgREST rejected the whole request,
+so the ICA signing-link audit row recorded `driver_email: null` on every
+`ica_sent` event. It read as an absent address rather than a failed query
+because the `error` was destructured away. Now reads
+`applications(email)` through `application_id`, and logs the error if the
+lookup fails. **Requires an explicit deploy of `send-notification`.**
+
+**Harness note — the canvas stub is now wired by a postinstall script.**
+`overrides`/`resolutions` in package.json were not honoured on a plain
+`bun install`: the real `canvas@2.11.2` came back from the registry with no
+native binding, and all 100 test files failed to collect with
+`Cannot find module '../build/Release/canvas.node'`. `tools/canvas-stub/link.mjs`
+now runs on postinstall and points both `node_modules/canvas` and jsdom's own
+hoisted copy at the no-op stub — jsdom resolves canvas from its peer directory,
+so the root link alone is not enough. A genuine native build, if one ever
+exists, is left untouched.
+
+Baselines after this pass: **766 passed | 7 skipped** with a database,
+**737 passed | 28 skipped** without (`PGHOST=` and `--maxWorkers=2`). The +1 in
+each shape is the new `reads every select it finds` test.

@@ -402,13 +402,18 @@ Deno.serve(async (req) => {
           try {
             let driverUserId: string | null = null;
             let driverEmail: string | null = null;
-            const { data: opRow } = await supabaseAdmin
+            // `operators` has no email column — the address lives on the
+            // application the operator was created from.
+            const { data: opRow, error: opErr } = await supabaseAdmin
               .from('operators')
-              .select('user_id, email')
+              .select('user_id, application_id, applications(email)')
               .eq('id', operatorId)
               .maybeSingle();
+            if (opErr) {
+              console.warn('[send-notification] driver lookup for ica audit failed:', opErr.message);
+            }
             driverUserId = opRow?.user_id ?? null;
-            driverEmail = opRow?.email ?? null;
+            driverEmail = (opRow?.applications as { email?: string } | null)?.email ?? null;
             await supabaseAdmin.from('audit_log').insert({
               action: 'ica_signing_link_routed',
               entity_type: 'operator',
