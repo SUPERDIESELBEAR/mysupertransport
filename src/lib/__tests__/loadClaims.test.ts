@@ -6,14 +6,15 @@ describe('summarizeActiveClaims', () => {
     expect(summarizeActiveClaims([])).toBeNull();
   });
 
-  it('prefers hold severity over watch', () => {
+  it('prefers hold severity over watch and reports multiple claim types', () => {
     const summary = summarizeActiveClaims([
       { flag_level: 'watch', claim_type: 'late_delivery' },
       { flag_level: 'hold', claim_type: 'damaged_goods' },
     ]);
     expect(summary?.level).toBe('hold');
-    expect(summary?.claimType).toBe('damaged_goods');
+    expect(summary?.claimType).toBe('other');
     expect(summary?.title).toContain('Hold');
+    expect(summary?.title).toContain('2 claim types');
   });
 
   it('falls back to watch when no hold is present', () => {
