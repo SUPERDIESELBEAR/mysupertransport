@@ -54,9 +54,8 @@ skipped:
     no EXECUTE grant for the harness role, and no driver JWT can be minted here
 ```
 
-**Without a database** (`PGHOST` absent), run with `--maxWorkers=2` — the flag is
-part of the baseline, not an optimisation: at full parallelism the RTL suites
-contend and time out, and those failures must not be read as a regression:
+**Without a database** (`PGHOST` absent), same `--maxWorkers=2`:
+
 
 ```text
 Test Files  97 passed | 7 skipped (104)
