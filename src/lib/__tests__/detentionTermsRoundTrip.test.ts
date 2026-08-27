@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPgFake, AUTH_UID } from '@/test/helpers/pgFake';
+import { createPgFake } from '@/test/helpers/pgFake';
 
 /**
  * DETENTION TERMS WRITE-PATH ROUND TRIP.
@@ -41,10 +41,7 @@ async function createLoad(terms: Record<string, string>) {
 const loadRow = (id: string) =>
   (fake.tables.loads as Record<string, unknown>[]).find(l => l.id === id)!;
 
-beforeEach(() => {
-  fake.reset();
-  fake.setAuthUid(AUTH_UID);
-});
+beforeEach(() => fake.reset());
 
 describe('detention terms round trip', () => {
   it('writes every stated term and reads it back unchanged', async () => {
