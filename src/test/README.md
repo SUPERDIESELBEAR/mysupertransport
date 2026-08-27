@@ -33,7 +33,7 @@ There are exactly two shapes. Anything else is a signal.
 
 ```text
 Test Files  100 passed | 1 skipped (101)
-     Tests  782 passed | 7 skipped (789)
+     Tests  800 passed | 7 skipped (789)
 
 skipped:
   stop time source trigger x5
@@ -52,7 +52,7 @@ contend and time out, and those failures must not be read as a regression:
 
 ```text
 Test Files  94 passed | 7 skipped (101)
-     Tests  753 passed | 28 skipped (781)
+     Tests  771 passed | 28 skipped (781)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
