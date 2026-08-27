@@ -61,8 +61,8 @@ README.md recorded 551 / 532, and the sentence here claiming gate.ts and README.
 agreed was false. Every skip is named and counted; no silent `it.skip` or
 `test.skip`.
 
-- **With database attached:** 728 passed, 2 skipped (95 files passed, 1 skipped).
-- **Without database:** 703 passed, 19 skipped (90 files passed, 6 skipped).
+- **With database attached:** 738 passed, 7 skipped (96 files passed, 2 skipped).
+- **Without database:** 713 passed, 24 skipped (91 files passed, 7 skipped).
 
 The no-database skip count moved from 13 to 19 because two live-catalog suites
 added since the last measurement — `caller-evaluated-functions` (3) and
@@ -1373,11 +1373,19 @@ rather than silently swapped.
 Measured 2026-08-27: **738 passed / 7 skipped (98 files)** with a database,
 **713 / 24 (98 files)** without.
 
-The registered-test gap between the two shapes is **unchanged at 8**. The five
-new trigger tests register in BOTH shapes and are skipped in both right now: the
-migration is STAGED in a draft, and a draft shares the live database and may not
-run DDL, so the columns and trigger do not exist until the draft is accepted.
-The DB-shape skip count therefore moved 2 → 7 without the gap moving. When the
-draft is accepted those five run under a database and the gap widens to 13 — a
-predicted move, recorded here so it is read as expected rather than found later
-as an anomaly.
+The registered-test gap between the two shapes is **8**, measured: 745 registered
+with a database against 737 without. It comes from the two `gatedDescribe`
+suites, which collapse a whole file to one named placeholder when gated —
+`share-token-throttle` (8 → 1) and `rods-live-certification` (2 → 1). Per-test
+`gatedIt` files register the same count in both shapes, which is the point of
+using it.
+
+The five trigger tests register in BOTH shapes and are skipped in both. The
+earlier prediction that they would run once the migration applied was wrong, and
+for a reason worth recording: the columns and the trigger are now installed, but
+`stamp_load_stop_time_source` is a BEFORE UPDATE trigger and the sandbox psql
+role holds SELECT + INSERT and no UPDATE on any public table — the same
+deliberate restriction that bars EXECUTE for the certify RPC. Granting UPDATE to
+the harness is forbidden, so the file gates on the capability and says so
+loudly. These five, and the certify execute arm, belong on a disposable
+instance with a real session.

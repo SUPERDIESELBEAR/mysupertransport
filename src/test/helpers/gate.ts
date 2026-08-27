@@ -25,9 +25,11 @@
  *     738 passed | 7 skipped        (96 files passed | 2 skipped)
  *     skipped:
  *       - stop time source trigger x5
- *           the load_stops provenance columns are STAGED in a draft and apply
- *           on accept; a draft may not run DDL, so the trigger is not
- *           installed here yet. Re-measure after the draft is accepted.
+ *           the provenance columns and the trigger ARE installed; the harness
+ *           role (`sandbox_exec`) holds SELECT + INSERT and no UPDATE on any
+ *           public table, and stamp_load_stop_time_source is BEFORE UPDATE, so
+ *           it cannot fire from here. Granting UPDATE is forbidden; these five
+ *           run on a disposable instance.
  *       - roadside bundle
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
  *       - certify_rods_day live RPC, execute arm
