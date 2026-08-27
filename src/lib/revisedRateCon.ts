@@ -568,7 +568,18 @@ export function buildRevisionDiff(
   if (classified.references.length) {
     const currentKeys = new Map(currentRefs.map(r =>
       [referenceKey(r.reference_class as ReferenceClass, r.value), r]));
+    // Stored rows indexed by value alone, so the same number filed under a
+    // class the classifier no longer returns can be recognised as the SAME
+    // reference rather than a removal plus an unrelated addition.
+    const currentByValue = new Map<string, typeof currentRefs>();
+    currentRefs.forEach(r => {
+      const vk = referenceValueKey(r.value);
+      currentByValue.set(vk, [...(currentByValue.get(vk) ?? []), r]);
+    });
+    const incomingKeys = new Set(classified.references.map(r => referenceKey(r.clazz, r.value)));
     const revisedKeys = new Set<string>();
+    /** Stored keys accounted for by a reclassification; never reported removed. */
+    const reclassified = new Set<string>();
 
     classified.references.forEach(r => {
       const key = referenceKey(r.clazz, r.value);
@@ -591,6 +602,33 @@ export function buildRevisionDiff(
         });
         return;
       }
+
+      // Nothing on file under this class, but the same number IS on file under
+      // another class that this document does not otherwise account for. That
+      // is a reclassification — one entry, no removal.
+      const stale = (currentByValue.get(referenceValueKey(r.value)) ?? []).find(c => {
+        const ck = referenceKey(c.reference_class as ReferenceClass, c.value);
+        return ck !== key && !incomingKeys.has(ck) && !reclassified.has(ck);
+      });
+      if (stale) {
+        const staleKey = referenceKey(stale.reference_class as ReferenceClass, stale.value);
+        reclassified.add(staleKey);
+        nonFinancial.push({
+          id: `ref.reclass.${key}`,
+          label: `Reference filed differently — ${r.label}`,
+          path: 'references', stopIndex: null,
+          current: `Filed as ${stale.label} (${stale.reference_class}) — ${stale.value}`,
+          revised: `Files as ${r.label} (${r.clazz}) — same number, ${r.value}`,
+          value: null, hasDriverData: false, defaultAccept: true,
+          reference: {
+            op: 'reclassified', reference_class: r.clazz,
+            from_reference_class: stale.reference_class,
+            label: r.label, value: r.value, citations: r.citations,
+          },
+        });
+        return;
+      }
+
       nonFinancial.push({
         id: `ref.add.${key}`,
         label: referencesComparable
@@ -607,7 +645,8 @@ export function buildRevisionDiff(
 
     currentRefs.forEach(r => {
       const key = referenceKey(r.reference_class as ReferenceClass, r.value);
-      if (revisedKeys.has(key)) return;
+      if (revisedKeys.has(key) || reclassified.has(key)) return;
+
       nonFinancial.push({
         id: `ref.remove.${key}`,
         label: `Reference removed — ${r.label}`,
