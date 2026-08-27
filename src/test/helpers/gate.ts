@@ -28,7 +28,7 @@
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
 
- *     835 passed | 7 skipped        (107 files passed | 1 skipped)
+ *     855 passed | 7 skipped        (109 files passed | 1 skipped)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -43,7 +43,7 @@
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
 
- *     806 passed | 28 skipped       (101 files passed | 7 skipped)
+ *     826 passed | 28 skipped       (103 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
