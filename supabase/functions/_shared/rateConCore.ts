@@ -151,7 +151,9 @@ Every scalar field is an object: {"value": <value or null>, "confidence": "high"
   "verbatim": {
     "broker_terms": FIELD(string - the broker's terms/conditions paragraph, copied EXACTLY as printed),
     "special_instructions": FIELD(string - the block printed under the "Special Instructions" heading, copied EXACTLY as printed)
+  },
   "detention_terms": {
+
     "free_time_minutes": FIELD(number - ALWAYS minutes; "2 hours free" is 120),
     "rate_per_hour": FIELD(number),
     "daily_cap": FIELD(number),
