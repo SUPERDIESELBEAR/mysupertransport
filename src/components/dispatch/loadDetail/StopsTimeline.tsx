@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Bookmark, CheckCircle2, Circle, DollarSign, Hash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -6,8 +7,30 @@ import { formatCurrency } from '@/lib/loadFormat';
 import { formatPhone } from '@/lib/textNormalize';
 import { formatDateTime, formatDuration, formatWindow, type LoadDetail } from '@/lib/loadDetail';
 import { STOP_TYPE_LABELS, type StopType } from '@/lib/loadRateMath';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import type { StopTimeProvenance, StopTimeSource } from '@/lib/stopTimes';
+import StopTimeEntry from './StopTimeEntry';
 
-type Stop = LoadDetail['stops'][number];
+type Stop = LoadDetail['stops'][number] & StopTimeProvenance;
+
+/** Quiet provenance line beside a recorded time. */
+function ProvenanceNote({
+  source,
+  recordedBy,
+  names,
+}: {
+  source: StopTimeSource | null | undefined;
+  recordedBy: string | null | undefined;
+  names: Map<string, string>;
+}) {
+  if (!source) return null;
+  const text =
+    source === 'driver_app'
+      ? 'Driver check-in'
+      : `Entered by ${(recordedBy && names.get(recordedBy)) || 'dispatch'}`;
+  return <div className="text-[11px] text-muted-foreground">{text}</div>;
+}
 
 const STOP_TYPE_CLASSES: Record<StopType, string> = {
   pickup: 'bg-info/12 text-info border-info/30',
@@ -24,7 +47,17 @@ function addressLines(stop: Stop): string[] {
   ].filter((l): l is string => !!l && l.trim().length > 0);
 }
 
-function StopCard({ stop }: { stop: Stop }) {
+function StopCard({
+  stop,
+  canEdit,
+  names,
+  onSaved,
+}: {
+  stop: Stop;
+  canEdit: boolean;
+  names: Map<string, string>;
+  onSaved?: () => void;
+}) {
   const completed = !!stop.actual_arrival_at && !!stop.actual_departure_at;
   const dwell = completed
     ? formatDuration(stop.actual_arrival_at as string, stop.actual_departure_at as string)
@@ -109,15 +142,31 @@ function StopCard({ stop }: { stop: Stop }) {
               Arrived: <span className="text-foreground">
                 {stop.actual_arrival_at ? formatDateTime(stop.actual_arrival_at) : 'Not yet arrived'}
               </span>
+              {stop.actual_arrival_at ? (
+                <ProvenanceNote source={stop.arrival_source} recordedBy={stop.arrival_recorded_by} names={names} />
+              ) : null}
             </div>
             <div className="text-muted-foreground">
               Departed: <span className="text-foreground">
                 {stop.actual_departure_at ? formatDateTime(stop.actual_departure_at) : 'Not yet departed'}
               </span>
+              {stop.actual_departure_at ? (
+                <ProvenanceNote source={stop.departure_source} recordedBy={stop.departure_recorded_by} names={names} />
+              ) : null}
             </div>
             {dwell ? <div className="text-muted-foreground">Time at facility: <span className="text-foreground">{dwell}</span></div> : null}
           </div>
         </div>
+
+        {canEdit ? (
+          <StopTimeEntry
+            stopId={stop.id}
+            arrival={stop.actual_arrival_at}
+            departure={stop.actual_departure_at}
+            onSaved={onSaved}
+          />
+        ) : null}
+
 
         {stop.stop_notes ? (
           <p className="mt-3 whitespace-pre-wrap rounded-md bg-muted/60 p-2 text-sm text-muted-foreground">
@@ -129,15 +178,64 @@ function StopCard({ stop }: { stop: Stop }) {
   );
 }
 
-export default function StopsTimeline({ stops }: { stops: LoadDetail['stops'] }) {
+export default function StopsTimeline({
+  stops,
+  onStopTimesSaved,
+}: {
+  stops: LoadDetail['stops'];
+  onStopTimesSaved?: () => void;
+}) {
+  const { isDispatcher, isManagement } = useAuth();
+  // Dispatcher, management and owner only. isManagement already folds in owner.
+  const canEdit = isDispatcher || isManagement;
+
+  const rows = stops as Stop[];
+  const [names, setNames] = useState<Map<string, string>>(new Map());
+
+  const actorIds = Array.from(
+    new Set(
+      rows
+        .flatMap(s => [s.arrival_recorded_by, s.departure_recorded_by])
+        .filter((v): v is string => !!v),
+    ),
+  );
+  const actorKey = actorIds.slice().sort().join(',');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!actorKey) { setNames(new Map()); return; }
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', actorKey.split(','));
+      if (cancelled) return;
+      setNames(new Map(
+        (data ?? []).map(p => [
+          p.id,
+          [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || 'dispatch',
+        ]),
+      ));
+    })();
+    return () => { cancelled = true; };
+  }, [actorKey]);
+
   return (
-    <DetailSection title={`Stops (${stops.length})`}>
-      {stops.length === 0 ? (
+    <DetailSection title={`Stops (${rows.length})`}>
+      {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No stops recorded for this load.</p>
       ) : (
         <ol className="relative space-y-4">
           <span className="absolute left-[13px] top-3 bottom-3 w-px bg-border" aria-hidden />
-          {stops.map(stop => <StopCard key={stop.id} stop={stop} />)}
+          {rows.map(stop => (
+            <StopCard
+              key={stop.id}
+              stop={stop}
+              canEdit={canEdit}
+              names={names}
+              onSaved={onStopTimesSaved}
+            />
+          ))}
         </ol>
       )}
     </DetailSection>

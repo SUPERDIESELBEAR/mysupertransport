@@ -1325,3 +1325,59 @@ continues to save columns and sort without blanking a stored filter.
 Filtering itself is a pure exported function, `filterRowsByDispatcher` in
 `src/lib/dispatchBoard.ts`, unit-tested without React. It does not reorder rows
 or alter any row's `current`, `queued` or `paperworkTail`.
+
+## Module 5, Pass 1 — stop arrival and departure, with provenance (2026-08-27)
+
+`load_stops.actual_arrival_at` / `actual_departure_at`, the coordinate columns,
+the dwell rendering in `StopsTimeline`, the delete-protection in `loadEdit.ts`
+and the operator-update trigger all predate this pass. What was missing was any
+writer at all — a reader and a security policy built for a writer that never
+arrived. This pass adds the writer.
+
+**Detention is NEGOTIATED, not computed.** At SUPERTRANSPORT detention is agreed
+with the broker and lands as a REVISED RATE CONFIRMATION, which the existing
+parse path already handles. Arrival and departure times are evidence for that
+conversation, not an input to a formula. Do not build a detention calculator, do
+not derive a detention charge from a dwell duration, and do not offer to.
+
+**Capture source is derived by trigger, never accepted from the client.**
+`stamp_load_stop_time_source` fires BEFORE UPDATE on `load_stops`. When a time
+changes to a non-null value it sets that time's `*_source` from the WRITER'S
+ROLE — `driver_app` when the writer holds the operator role, `dispatcher_entry`
+otherwise — and stamps `*_recorded_by` with `current_profile_id()`. The client
+sends only the two timestamps. An operator therefore cannot claim a stronger
+provenance than they have, and the driver check-in in Module 11 needs no extra
+work to be recorded correctly. The enum has exactly two values; no ELD value
+exists because no ELD writer exists.
+
+**A dispatcher correction re-stamps, deliberately.** Editing a time a driver
+recorded moves both source and actor to the dispatcher. The stored value is now
+the dispatcher's, and the board must not present a corrected time as if a
+driver's phone produced it. Clearing a time to null clears its source and actor
+with it. Arrival and departure stamp independently.
+
+**No RLS work is needed for Module 11.** `enforce_load_stops_operator_update`
+already permitted an operator to write arrival, departure and the coordinates on
+their own stops. Its `allowed` array was NOT modified by this pass and must not
+be: the new columns are trigger-written, so granting operators direct access to
+them would reopen exactly the hole the trigger closes.
+
+**The dispatcher control writes no coordinates.** A dispatcher typing a time has
+no location, and an absent coordinate is honest. Nothing is pre-filled — not the
+appointment time, not "now"; a default that looks like a record is worse than an
+empty one. A departure earlier than its arrival is rejected with a plain message
+rather than silently swapped.
+
+### Baselines and the DB / non-DB gap
+
+Measured 2026-08-27: **738 passed / 7 skipped (98 files)** with a database,
+**713 / 24 (98 files)** without.
+
+The registered-test gap between the two shapes is **unchanged at 8**. The five
+new trigger tests register in BOTH shapes and are skipped in both right now: the
+migration is STAGED in a draft, and a draft shares the live database and may not
+run DDL, so the columns and trigger do not exist until the draft is accepted.
+The DB-shape skip count therefore moved 2 → 7 without the gap moving. When the
+draft is accepted those five run under a database and the gap widens to 13 — a
+predicted move, recorded here so it is read as expected rather than found later
+as an anomaly.

@@ -10,7 +10,12 @@ import {
   createPgFake,
   functionBody,
 } from './helpers/pgFake';
-import { resolveMigrationFunctions, stripComments } from './helpers/migrationFunctions';
+import {
+  resolveMigrationFunctions,
+  stagedMigrationSql,
+  stripComments,
+} from './helpers/migrationFunctions';
+import { classifyActorExpression } from './helpers/pgFake';
 
 /**
  * ACTOR STAMPING: auth uid vs profile id.
@@ -70,6 +75,52 @@ describe('SQL functions resolve the actor server-side', () => {
   ])('%s stamps %s.%s from current_profile_id()', (fn, table, col) => {
     expect(functionBody(fn), `${fn} is not defined in the migrations`).toBeTruthy();
     expect(actorExpressionFor(fn, table, col)?.kind).toBe('profile');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 1b. Static: staged (draft) migrations                               */
+/* ------------------------------------------------------------------ */
+
+describe('staged migrations stamp actors with current_profile_id()', () => {
+  const staged = stagedMigrationSql();
+
+  it('no staged SQL assigns auth.uid() to a profiles(id) column', () => {
+    if (!staged) return;
+    const offenders: string[] = [];
+    for (const cols of Object.values(PROFILE_FK_COLUMNS)) {
+      for (const col of cols) {
+        const re = new RegExp(`(?:NEW\\.)?${col}\\s*:?=\\s*([^;]+);`, 'gi');
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(staged)) !== null) {
+          if (classifyActorExpression(m[1], staged) === 'auth_uid') {
+            offenders.push(`${col} = ${m[1].trim()}`);
+          }
+        }
+      }
+    }
+    expect(offenders, 'use current_profile_id(), not auth.uid()').toEqual([]);
+  });
+
+  it.each([
+    ['arrival_recorded_by'],
+    ['departure_recorded_by'],
+  ])('load_stops.%s is stamped from current_profile_id()', (col) => {
+    if (!staged || !/stamp_load_stop_time_source/.test(staged)) return;
+    // Two assignments exist: NULL on the clear branch, the actor on the record
+    // branch. Only the second is an actor stamp.
+    const all = [...staged.matchAll(new RegExp(`NEW\\.${col}\\s*:=\\s*([^;]+);`, 'gi'))]
+      .map(x => x[1].trim());
+    const stamps = all.filter(v => v.toUpperCase() !== 'NULL');
+    expect(all, `${col} is never assigned in the staged SQL`).not.toHaveLength(0);
+    expect(stamps, `${col} is never stamped with an actor`).not.toHaveLength(0);
+    stamps.forEach(v => expect(classifyActorExpression(v, staged)).toBe('profile'));
+  });
+
+  it('the operator `allowed` array on load_stops is NOT widened by this pass', () => {
+    if (!staged) return;
+    expect(/allowed\s+text\[\]/.test(staged)).toBe(false);
+    expect(/enforce_load_stops_operator_update/.test(staged)).toBe(false);
   });
 });
 
