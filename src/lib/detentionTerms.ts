@@ -128,3 +128,79 @@ export function needsNotificationPrompt(
   if (claim.broker_notified_at) return false;
   return !['resolved_revision', 'denied', 'abandoned'].includes(claim.status);
 }
+
+/* ------------------------------------------------------------------ */
+/* Provenance: was this number read off the document, or typed?        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Where a stated term came from. A dispatcher arguing a detention claim with a
+ * broker needs to know whether the number was read off the rate confirmation or
+ * typed by a colleague, and the two carry very different weight on a phone call.
+ *
+ * `unknown` is a real answer and is said out loud rather than guessed at: loads
+ * created before this pass carry no record either way, and labelling those
+ * "from the rate confirmation" would be exactly the invention this module
+ * exists to avoid.
+ */
+export type DetentionTermSource = 'parse' | 'revision' | 'manual' | 'unknown';
+
+export const DETENTION_SOURCE_LABELS: Record<DetentionTermSource, string> = {
+  parse: 'Read from the rate confirmation',
+  revision: 'From a revised rate confirmation',
+  manual: 'Entered by hand',
+  unknown: 'Source not recorded',
+};
+
+export type DetentionTermKey =
+  | 'freeTimeMinutes' | 'ratePerHour' | 'dailyCap' | 'clockStart'
+  | 'notificationRequired' | 'note';
+
+/** Form/column path each term is stored and audited under. */
+export const DETENTION_FIELD_PATHS: Record<DetentionTermKey, string> = {
+  freeTimeMinutes: 'detention_free_time_minutes',
+  ratePerHour: 'detention_rate_per_hour',
+  dailyCap: 'detention_daily_cap',
+  clockStart: 'detention_clock_start',
+  notificationRequired: 'detention_notification_required',
+  note: 'detention_terms_note',
+};
+
+export interface DetentionHistoryEntry {
+  field_path: string;
+  reason: string | null;
+  changed_at: string;
+}
+
+/** A revision save stamps its reason; `buildRevisionReason` writes this prefix. */
+const REVISION_REASON = /^revised rate confirmation/i;
+
+/**
+ * Per-field provenance, derived from the load's own change trail.
+ *
+ * No column stores this. A field with an edit row was last written by a person
+ * (or by a dispatcher accepting a revised document, which the reason text names);
+ * a field with no edit row still holds what the load was created with, which is
+ * the parse when the load was created from a parsed document.
+ */
+export function detentionTermSources(
+  history: DetentionHistoryEntry[],
+  createdFromParse: boolean,
+): Record<DetentionTermKey, DetentionTermSource> {
+  const latest = new Map<string, DetentionHistoryEntry>();
+  history.forEach(h => {
+    const prev = latest.get(h.field_path);
+    if (!prev || h.changed_at > prev.changed_at) latest.set(h.field_path, h);
+  });
+
+  const out = {} as Record<DetentionTermKey, DetentionTermSource>;
+  (Object.keys(DETENTION_FIELD_PATHS) as DetentionTermKey[]).forEach(key => {
+    const row = latest.get(DETENTION_FIELD_PATHS[key]);
+    if (row) {
+      out[key] = REVISION_REASON.test((row.reason ?? '').trim()) ? 'revision' : 'manual';
+      return;
+    }
+    out[key] = createdFromParse ? 'parse' : 'unknown';
+  });
+  return out;
+}
