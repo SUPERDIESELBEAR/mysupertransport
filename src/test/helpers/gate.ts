@@ -17,21 +17,25 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-26 (Module 3 Pass 2). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-27 (Module 5 Pass 1). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     728 passed | 2 skipped        (95 files passed | 1 skipped)
+ *     738 passed | 7 skipped        (96 files passed | 2 skipped)
  *     skipped:
+ *       - stop time source trigger x5
+ *           the load_stops provenance columns are STAGED in a draft and apply
+ *           on accept; a draft may not run DDL, so the trigger is not
+ *           installed here yet. Re-measure after the draft is accepted.
  *       - roadside bundle
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
  *       - certify_rods_day live RPC, execute arm
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
  *   WITHOUT a database (PGHOST absent):
- *     703 passed | 19 skipped       (90 files passed | 6 skipped)
- *     skipped: the two above, plus
+ *     713 passed | 24 skipped       (91 files passed | 7 skipped)
+ *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
  *       - certify_rods_day live RPC, outer    (whole suite gated)

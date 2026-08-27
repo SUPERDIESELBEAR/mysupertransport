@@ -62,7 +62,7 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
 
   const goBack = () => (onBack ? onBack() : navigate('/dispatch/loads'));
 
-  const { data: load, isLoading, error } = useQuery({
+  const { data: load, isLoading, error, refetch } = useQuery({
     queryKey: ['load-detail', id],
     enabled: !!id,
     queryFn: () => fetchLoadDetail(id as string),
@@ -201,7 +201,7 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
         <FlagsBlock load={load} />
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Stops">
-        <StopsTimeline stops={load.stops} />
+        <StopsTimeline stops={load.stops} onStopTimesSaved={() => { void refetch(); }} />
       </SectionErrorBoundary>
       {isStaff ? (
         <SectionErrorBoundary name="Messages">

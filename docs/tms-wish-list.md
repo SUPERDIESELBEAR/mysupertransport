@@ -36,6 +36,17 @@ mileage, integrates a mileage provider, or ships without RPM deliberately.
 
 ## OPEN QUESTIONS — answer before the named module
 
+### Detention terms on the rate confirmation (Module 5, later pass)
+
+Industry standard free time is 2 hours; some brokers write 3. Rate cons also
+vary on the CLOCK START TRIGGER — scheduled appointment, actual arrival, or gate
+check-in are three different moments and can differ by 30–90 minutes. Many cons
+carry daily caps ($200–$400) and a notification requirement. When a driver calls
+at hour three, the dispatcher should see this load's terms without opening a
+PDF. Candidate for parser extraction into structured fields.
+
+TRIGGER: before the detention claim record is built.
+
 ### Dispatch company settlement (Module 6)
 The dispatch team is ONE 1099 vendor — a separate company, owner plus team, all
 carrying @mysupertransport.com addresses and representing themselves as part of

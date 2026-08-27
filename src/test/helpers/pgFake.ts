@@ -30,6 +30,7 @@ export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
   load_change_history: ['changed_by'],
   load_references: ['created_by'],
   load_status_history: ['changed_by'],
+  load_stops: ['arrival_recorded_by', 'departure_recorded_by'],
   loads: ['created_by', 'updated_by', 'dispatcher_id'],
   parser_diagnostics: ['created_by', 'resolved_by'],
 };

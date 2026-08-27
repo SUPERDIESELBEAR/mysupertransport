@@ -25,17 +25,20 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-26, after Module 3 Pass 4 (dispatcher scoping))
+## Expected baselines (measured 2026-08-27, after Module 5 Pass 1 (stop time capture))
 
 There are exactly two shapes. Anything else is a signal.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  95 passed | 1 skipped (96)
-     Tests  728 passed | 2 skipped (730)
+Test Files  96 passed | 2 skipped (98)
+     Tests  738 passed | 7 skipped (745)
 
 skipped:
+  stop time source trigger x5
+    the load_stops provenance columns are staged in a draft and apply on
+    accept; a draft may not run DDL, so the trigger is not installed yet
   roadside bundle
     opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
   certify_rods_day live RPC > certifies a clean initial draft and supersedes it
@@ -45,10 +48,10 @@ skipped:
 **Without a database** (`PGHOST` absent):
 
 ```text
-Test Files  90 passed | 6 skipped (96)
-     Tests  703 passed | 19 skipped (722)
+Test Files  91 passed | 7 skipped (98)
+     Tests  713 passed | 24 skipped (737)
 
-skipped: the two above, plus
+skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
   purge_rods_day path coverage       no PGHOST, live column list unreadable
   certify_rods_day live RPC          no PGHOST, outer gate

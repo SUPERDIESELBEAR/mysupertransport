@@ -46,6 +46,36 @@ export const MIGRATIONS_DIR = path.resolve(
   "../../../supabase/migrations",
 );
 
+/**
+ * Migrations staged in a draft. A draft cannot run DDL against the shared
+ * database, so schema work lands here first and applies on accept. Guards that
+ * read migration TEXT must still see it, otherwise a staged function ships
+ * unchecked.
+ */
+export const DRAFT_MIGRATIONS_ROOT = path.resolve(__dirname, "../../../.lovable/drafts");
+
+/** Concatenated SQL of every staged draft migration, comments stripped. */
+export function stagedMigrationSql(): string {
+  const out: string[] = [];
+  let drafts: string[] = [];
+  try {
+    drafts = readdirSync(DRAFT_MIGRATIONS_ROOT);
+  } catch {
+    return "";
+  }
+  for (const draft of drafts) {
+    const dir = path.join(DRAFT_MIGRATIONS_ROOT, draft, "migrations");
+    let files: string[] = [];
+    try {
+      files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+    } catch {
+      continue;
+    }
+    for (const f of files) out.push(readFileSync(path.join(dir, f), "utf8"));
+  }
+  return stripComments(out.join("\n"));
+}
+
 export interface ResolvedFunction {
   /** `public.enqueue_email(text, jsonb)` — the resolution key. */
   signature: string;
