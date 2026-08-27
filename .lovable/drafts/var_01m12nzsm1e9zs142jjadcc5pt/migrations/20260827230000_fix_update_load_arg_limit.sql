@@ -120,7 +120,7 @@ BEGIN
     'loadout_use_period_days', v_load.loadout_use_period_days::text,
     'loadout_use_start', v_load.loadout_use_start::text,
     'loadout_use_end', v_load.loadout_use_end::text,
-    'loadout_use_window_source', v_load.loadout_use_window_source,
+    'loadout_use_window_source', v_load.loadout_use_window_source
   );
   v_old := v_old || jsonb_build_object(
     'detention_free_time_minutes', v_load.detention_free_time_minutes::text,
