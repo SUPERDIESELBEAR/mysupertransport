@@ -659,6 +659,21 @@ export async function parseRateConfirmationCore(
       broker_terms: str(parsed.verbatim?.broker_terms),
       special_instructions: str(parsed.verbatim?.special_instructions),
     },
+    // Detention terms the document STATES. Every field is null unless printed:
+    // there is no industry-convention default anywhere on this path, because a
+    // fabricated "2 hours free" reads on screen exactly like an agreed term.
+    detention_terms: {
+      free_time_minutes: num(parsed.detention_terms?.free_time_minutes),
+      rate_per_hour: money(parsed.detention_terms?.rate_per_hour),
+      daily_cap: money(parsed.detention_terms?.daily_cap),
+      clock_start: enumField(parsed.detention_terms?.clock_start, ['appointment', 'arrival', 'gate_checkin']),
+      // Tri-state on purpose: false means the document says notification is NOT
+      // required, null means it is silent, and the Load Detail prompt depends
+      // on the difference. `bool()` already returns null for anything else.
+      notification_required: bool(parsed.detention_terms?.notification_required),
+      terms_note: str(parsed.detention_terms?.terms_note),
+    },
+
     references: (Array.isArray(parsed.references) ? parsed.references : [])
       .map((r: any) => ({
         label: String(r?.label ?? '').trim(),
