@@ -49,7 +49,7 @@ CREATE OR REPLACE FUNCTION public.stamp_load_stop_time_source()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path TO 'public', 'extensions'
 AS $function$
 DECLARE
   v_profile uuid;
