@@ -1370,11 +1370,14 @@ rather than silently swapped.
 
 ### Baselines and the DB / non-DB gap
 
-Measured 2026-08-27: **742 passed / 7 skipped (98 files)** with a database,
-**713 / 28 (98 files)** without.
+Measured 2026-08-27 (carrier-timezone pass): **752 passed / 7 skipped (99 files)**
+with a database, **723 / 28 (99 files)** without. The no-database run is measured
+with `--maxWorkers=2`, and that flag is recorded here alongside the figures: at
+full parallelism the RTL suites contend and time out, and those timeouts are a
+harness artefact, not a regression.
 
-The registered-test gap between the two shapes is **8**, measured: 749 registered
-with a database against 741 without. It comes from the two `gatedDescribe`
+The registered-test gap between the two shapes is **8**, measured: 759 registered
+with a database against 751 without. It comes from the two `gatedDescribe`
 suites, which collapse a whole file to one named placeholder when gated —
 `share-token-throttle` (8 → 1) and `rods-live-certification` (2 → 1). Per-test
 `gatedIt` files register the same count in both shapes, which is the point of

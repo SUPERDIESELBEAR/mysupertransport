@@ -25,15 +25,15 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-27, after the trigger-fixture rework)
+## Expected baselines (measured 2026-08-27, after the carrier-timezone pass)
 
 There are exactly two shapes. Anything else is a signal.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  97 passed | 1 skipped (98)
-     Tests  742 passed | 7 skipped (749)
+Test Files  98 passed | 1 skipped (99)
+     Tests  752 passed | 7 skipped (759)
 
 skipped:
   stop time source trigger x5
@@ -46,11 +46,13 @@ skipped:
     no EXECUTE grant for the harness role, and no driver JWT can be minted here
 ```
 
-**Without a database** (`PGHOST` absent):
+**Without a database** (`PGHOST` absent), run with `--maxWorkers=2` — the flag is
+part of the baseline, not an optimisation: at full parallelism the RTL suites
+contend and time out, and those failures must not be read as a regression:
 
 ```text
-Test Files  91 passed | 7 skipped (98)
-     Tests  713 passed | 28 skipped (741)
+Test Files  92 passed | 7 skipped (99)
+     Tests  723 passed | 28 skipped (751)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
