@@ -371,12 +371,22 @@ export async function unassignLoadDriver(loadId: string, reason: string): Promis
   return data as UnassignResult;
 }
 
+// Load times are read against the carrier timezone, never the viewer's machine.
 const dateTime = new Intl.DateTimeFormat('en-US', {
   month: 'short', day: 'numeric', year: 'numeric',
   hour: 'numeric', minute: '2-digit',
+  timeZone: CARRIER_TIMEZONE,
 });
 
-/** "Aug 19, 2026, 1:05 PM" — em dash when empty/invalid. */
+const timeOnly = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric', minute: '2-digit', timeZone: CARRIER_TIMEZONE,
+});
+
+const dayKey = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric', month: '2-digit', day: '2-digit', timeZone: CARRIER_TIMEZONE,
+});
+
+/** "Aug 19, 2026, 1:05 PM" in carrier time — em dash when empty/invalid. */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
   const d = new Date(value);
@@ -392,10 +402,8 @@ export function formatWindow(start: string | null, end: string | null): string {
   const s = new Date(start as string);
   const e = new Date(end as string);
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return '—';
-  const sameDay = s.toDateString() === e.toDateString();
-  const endPart = sameDay
-    ? e.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    : formatDateTime(end);
+  const sameDay = dayKey.format(s) === dayKey.format(e);
+  const endPart = sameDay ? timeOnly.format(e) : formatDateTime(end);
   return `${formatDateTime(start)} – ${endPart}`;
 }
 
