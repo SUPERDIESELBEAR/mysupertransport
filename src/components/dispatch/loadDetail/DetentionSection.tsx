@@ -43,7 +43,11 @@ import {
   hasAnyDetentionTerms,
   needsNotificationPrompt,
   notificationLabel,
+  DETENTION_SOURCE_LABELS,
+  detentionTermSources,
   type DetentionTerms,
+  type DetentionTermKey,
+  type DetentionTermSource,
 } from '@/lib/detentionTerms';
 import { DetailSection } from './DetailPrimitives';
 import StopTimePicker from './StopTimePicker';
@@ -413,7 +417,7 @@ export default function DetentionSection({
       ) : null}
     >
       <div className="mb-4">
-        <TermsBlock terms={terms} />
+        <TermsBlock terms={terms} sources={termSources} />
       </div>
 
       {isLoading ? (
