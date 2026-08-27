@@ -1651,8 +1651,8 @@ the Handled list so toggling Show handled does not draw them twice. The
 "Inbox zero" empty state is gated on the visible list rather than on open
 statuses, so it no longer claims an empty inbox while duplicates are on screen.
 
-Baselines after this pass: **800 passed | 7 skipped** with a database
-(101 files passed | 1 skipped), **771 passed | 28 skipped** without
+Baselines at that pass: **782 passed | 7 skipped** with a database
+(101 files passed | 1 skipped), **753 passed | 28 skipped** without
 (95 | 7; `PGHOST=` and `--maxWorkers=2`). The +7 in each shape is
 `rateConInboxDuplicates.test.tsx`.
 
@@ -1714,3 +1714,16 @@ signal — it gates nothing.
 A claim on a stop with no recorded arrival or departure says so plainly and
 warns that brokers routinely refuse detention without an on-site record. A
 blank there would read as "nothing to worry about".
+
+### Baselines after this pass
+
+Measured, both shapes, including FILE counts — the file gap and the test gap
+are separate structural signals:
+
+  with a database (PGHOST set):    800 passed | 7 skipped   (103 files passed | 1 skipped, 104 total)
+  without a database (--maxWorkers=2): 771 passed | 28 skipped  (97 files passed | 7 skipped, 104 total)
+
+The +18 tests and +2 files in each shape are `detentionClaims.test.ts` (12),
+`detentionSection.test.tsx` (2) and the four new staged-SQL stamping cases in
+`actor-stamp-fk.test.ts`. The skip counts are unchanged, which is the point:
+no new test was gated.
