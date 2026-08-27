@@ -427,7 +427,56 @@ const LOAD_FIELDS: LoadFieldSpec[] = [
     freeText: true,
     verbatim: true,
   },
+
+  // Detention terms. A revised rate confirmation is how a detention
+  // negotiation concludes, so each term is its own row the dispatcher accepts
+  // or rejects on its own — accepting a new hourly rate is not agreement to a
+  // shorter free-time window printed beside it. A term the revised document
+  // does not state produces no row at all: `read` returning null means "not
+  // stated", never "removed".
+  {
+    key: 'detention_free_time_minutes',
+    label: 'Detention free time (minutes)',
+    read: p => use(p.detention_terms?.free_time_minutes),
+  },
+  {
+    key: 'detention_rate_per_hour',
+    label: 'Detention rate per hour',
+    read: p => use(p.detention_terms?.rate_per_hour),
+  },
+  {
+    key: 'detention_daily_cap',
+    label: 'Detention daily cap',
+    read: p => use(p.detention_terms?.daily_cap),
+  },
+  {
+    key: 'detention_clock_start',
+    label: 'Detention clock start',
+    read: p => use(p.detention_terms?.clock_start),
+    format: raw =>
+      DETENTION_CLOCK_START_OPTION_LABELS[raw as DetentionClockStart] ?? raw,
+  },
+  {
+    // Tri-state carried as a string so an unstated requirement stays distinct
+    // from a stated "not required". The boolean branch below would read '' and
+    // 'false' as the same thing.
+    key: 'detention_notification_required',
+    label: 'Detention notification required',
+    read: p => {
+      const v = use(p.detention_terms?.notification_required);
+      return v === null ? null : v ? 'true' : 'false';
+    },
+    format: raw => (raw === 'true' ? 'Required' : raw === 'false' ? 'Not required' : 'Not stated'),
+  },
+  {
+    key: 'detention_terms_note',
+    label: 'Detention terms (as printed)',
+    read: p => p.detention_terms?.terms_note?.value ?? null,
+    freeText: true,
+    verbatim: true,
+  },
 ];
+
 
 
 const sameText = (a: unknown, b: unknown) => text(a).trim() === text(b).trim();
