@@ -137,7 +137,12 @@ describe('collapsed duplicates in the rate con inbox', () => {
     mount();
     await screen.findByText('Duplicate tender 5501');
     const dupRow = screen.getByTestId('inbox-row-dup-1');
-    expect(dupRow.querySelector('button')).toBeNull();
+    // It keeps the quiet "open the original attachment" affordance, but nothing
+    // that treats it as work: no Create load, no Dismiss, no Retry.
+    const labels = Array.from(dupRow.querySelectorAll('button'))
+      .map(b => (b.textContent ?? '').trim())
+      .filter(Boolean);
+    expect(labels).toEqual([]);
     // The genuinely open parsed row still has its action.
     expect(screen.getByRole('button', { name: 'Create load' })).toBeInTheDocument();
   });
