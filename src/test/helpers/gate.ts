@@ -17,7 +17,7 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-27 (detention claim record pass). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-27 (detention terms on the load pass). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
@@ -28,7 +28,7 @@
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
 
- *     815 passed | 7 skipped        (105 files passed | 1 skipped)
+ *     835 passed | 7 skipped        (107 files passed | 1 skipped)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -43,7 +43,7 @@
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
 
- *     786 passed | 28 skipped       (99 files passed | 7 skipped)
+ *     806 passed | 28 skipped       (101 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)

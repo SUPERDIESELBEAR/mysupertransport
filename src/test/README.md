@@ -40,7 +40,7 @@ It is not a shape and must never be reported as one.
 
 ```text
 Test Files  105 passed | 1 skipped (106)
-     Tests  815 passed | 7 skipped (822)
+     Tests  835 passed | 7 skipped (842)
 
 
 skipped:
@@ -59,7 +59,7 @@ skipped:
 
 ```text
 Test Files  99 passed | 7 skipped (106)
-     Tests  786 passed | 28 skipped (814)
+     Tests  806 passed | 28 skipped (834)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
