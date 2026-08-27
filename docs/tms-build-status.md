@@ -1655,3 +1655,62 @@ Baselines after this pass: **782 passed | 7 skipped** with a database
 (101 files passed | 1 skipped), **753 passed | 28 skipped** without
 (95 | 7; `PGHOST=` and `--maxWorkers=2`). The +7 in each shape is
 `rateConInboxDuplicates.test.tsx`.
+
+## Module 5, Pass 1 — detention CLAIM RECORD (2026-08-27)
+
+Detention at SUPERTRANSPORT is NEGOTIATED, not computed. The driver calls his
+dispatcher, the dispatcher emails the broker, and if the chase works the broker
+sends a REVISED RATE CONFIRMATION with detention on it. That document is the
+authority; the money reaches `load_charges` through the existing parse path.
+So this pass ships no calculator: no hours, no free time, no eligible minutes,
+no dollar figure anywhere in the feature. Stop arrival and departure are
+EVIDENCE the dispatcher pastes into the broker email, never inputs to a formula.
+
+What was missing was the conversation. Nothing knew a claim was open, who
+raised it, when the broker was told, or whether it died quietly — which is
+where detention is actually lost.
+
+### The record
+
+`detention_claims`, staged additively: load, stop, when the driver reported it
+and to whom, when the broker was notified, by whom and by which method, a
+status, a free-text resolution note, and `resulting_charge_id`.
+
+`detention_claim_status` includes **'abandoned'**, and it is not optional. Most
+claims die without an answer, and a status set that cannot say so would record
+them as open forever.
+
+`resulting_charge_id` is set **BY HAND** and is the only link between a claim
+and the money it produced. Nothing matches charges to claims automatically: a
+revised con carries one detention line and a load may hold several claims, so
+a guess would attribute a dispatcher's chase to the wrong claim. It is nullable
+and never blocks the 'resolved_revision' transition — a dispatcher holding the
+revised con but not yet the charge row must still be able to close the claim.
+
+Actor columns are stamped server-side by `stamp_detention_claim_actor`, a
+SECURITY DEFINER trigger with `SET search_path TO 'public', 'extensions'`, using
+`current_profile_id()` and never `auth.uid()`. `reported_to`, `notified_by`,
+`created_by` and `updated_by` are in `PROFILE_FK_COLUMNS`, so
+`actor-stamp-fk.test.ts` covers them statically and the fake enforces the FK.
+
+### Deliberate omissions
+
+- **Operators have NO access in this pass.** Deliberate: the driver-facing view
+  of his own claims belongs with the driver app, and a read policy written now
+  would be a guess at that surface.
+- **No new page**, so no sidebar placement was required — the section lives on
+  Load Detail, between Stops and Documents. Recording that here so the
+  placement rule is visibly satisfied rather than silently skipped.
+- No cross-load detention queue; parked in the wish list.
+
+### Claim age
+
+Days since `driver_reported_at`, shown only for non-terminal claims. Common
+industry guidance is to submit within about 48 hours, so age is the staleness
+signal — it gates nothing.
+
+### Missing evidence is stated, not blanked
+
+A claim on a stop with no recorded arrival or departure says so plainly and
+warns that brokers routinely refuse detention without an on-site record. A
+blank there would read as "nothing to worry about".
