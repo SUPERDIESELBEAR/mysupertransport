@@ -1549,3 +1549,17 @@ so the ICA signing-link audit row recorded `driver_email: null` on every
 because the `error` was destructured away. Now reads
 `applications(email)` through `application_id`, and logs the error if the
 lookup fails. **Requires an explicit deploy of `send-notification`.**
+
+**Harness note — the canvas stub is now wired by a postinstall script.**
+`overrides`/`resolutions` in package.json were not honoured on a plain
+`bun install`: the real `canvas@2.11.2` came back from the registry with no
+native binding, and all 100 test files failed to collect with
+`Cannot find module '../build/Release/canvas.node'`. `tools/canvas-stub/link.mjs`
+now runs on postinstall and points both `node_modules/canvas` and jsdom's own
+hoisted copy at the no-op stub — jsdom resolves canvas from its peer directory,
+so the root link alone is not enough. A genuine native build, if one ever
+exists, is left untouched.
+
+Baselines after this pass: **766 passed | 7 skipped** with a database,
+**737 passed | 28 skipped** without (`PGHOST=` and `--maxWorkers=2`). The +1 in
+each shape is the new `reads every select it finds` test.
