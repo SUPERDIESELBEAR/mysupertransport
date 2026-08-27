@@ -154,7 +154,7 @@ export interface ParsedRateConfirmation {
  * A stale deploy answering with an older contract once surfaced as three
  * unrelated-looking bugs, so divergence is reported rather than inferred.
  */
-export const EXPECTED_PARSER_CONTRACT = 5;
+export const EXPECTED_PARSER_CONTRACT = 6;
 
 /**
  * Warning text when the deployed parser is not the one this build expects.
