@@ -365,7 +365,7 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
 
       {board.rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {withLoads} of {board.rows.length} drivers across the fleet have loads in SUPERDRIVE.
+          {withLoads} of {board.rows.length} drivers on the board have loads in SUPERDRIVE.
         </p>
       )}
 
