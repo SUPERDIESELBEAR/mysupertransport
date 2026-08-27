@@ -56,6 +56,10 @@ import { stashRateConForLoad } from '@/lib/rateConHandoff';
 import { takeIngestParse, type IngestParseHandoff } from '@/lib/ingestHandoff';
 import type { ParsedRateConfirmation } from '@/lib/rateConfirmation';
 import { UnsavedChangesDialog } from '@/components/shared/UnsavedChangesDialog';
+import {
+  DETENTION_CLOCK_STARTS,
+  DETENTION_CLOCK_START_OPTION_LABELS,
+} from '@/lib/detentionTerms';
 
 
 
@@ -1246,6 +1250,115 @@ export default function CreateLoadPage({
                     </FormItem>
                   )}
                 />
+              </div>
+
+              {/* Detention terms exactly as the rate confirmation states them.
+                  Blank means NOT STATED — no default free time, rate or cap. */}
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <div>
+                  <p className="text-sm font-medium">Detention Terms</p>
+                  <p className="text-xs text-muted-foreground">
+                    Only what this rate confirmation states. Leave a field blank when the
+                    document is silent — blank reads as “Not stated”, and nothing is assumed.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <FormField
+                    control={form.control}
+                    name="detention_free_time_minutes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Free Time (minutes)</FormLabel>
+                        <FormControl>
+                          <Input inputMode="numeric" placeholder="e.g. 120" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="detention_rate_per_hour"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Detention Rate / Hour</FormLabel>
+                        <FormControl><CurrencyInput {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="detention_daily_cap"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Daily Cap</FormLabel>
+                        <FormControl><CurrencyInput {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="detention_clock_start"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Clock Starts At</FormLabel>
+                        <Select
+                          value={field.value || 'unset'}
+                          onValueChange={v => field.onChange(v === 'unset' ? '' : v)}
+                        >
+                          <FormControl>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="unset">Not stated</SelectItem>
+                            {DETENTION_CLOCK_STARTS.map(v => (
+                              <SelectItem key={v} value={v}>
+                                {DETENTION_CLOCK_START_OPTION_LABELS[v]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="detention_notification_required"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Broker Notification</FormLabel>
+                        <Select
+                          value={field.value || 'unset'}
+                          onValueChange={v => field.onChange(v === 'unset' ? '' : v)}
+                        >
+                          <FormControl>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="unset">Not stated</SelectItem>
+                            <SelectItem value="true">Required</SelectItem>
+                            <SelectItem value="false">Not required</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="detention_terms_note"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-3">
+                        <FormLabel>Detention Notes</FormLabel>
+                        <FormControl><Textarea rows={2} {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-6 pt-1">

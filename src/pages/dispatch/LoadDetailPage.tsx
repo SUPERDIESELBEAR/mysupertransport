@@ -17,6 +17,7 @@ import LoadChargesCard from '@/components/dispatch/loadDetail/LoadChargesCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
 import DetentionSection from '@/components/dispatch/loadDetail/DetentionSection';
+import { readDetentionTerms } from '@/lib/detentionTerms';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
 import ClaimsSection from '@/components/dispatch/loadDetail/ClaimsSection';
 import NotesSection from '@/components/dispatch/loadDetail/NotesSection';
@@ -208,7 +209,12 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
           access to claims in this pass. */}
       {isStaff ? (
         <SectionErrorBoundary name="Detention">
-          <DetentionSection loadId={load.id} stops={load.stops} canManage={canManageClaims} />
+          <DetentionSection
+            loadId={load.id}
+            stops={load.stops}
+            canManage={canManageClaims}
+            terms={readDetentionTerms(load)}
+          />
         </SectionErrorBoundary>
       ) : null}
       {isStaff ? (

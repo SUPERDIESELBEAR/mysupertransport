@@ -84,6 +84,14 @@ export function buildLoadSavePayload(
     loadout_use_start: isLoadout ? (v.loadout_use_start ?? '') : '',
     loadout_use_end: isLoadout ? (v.loadout_use_end ?? '') : '',
     loadout_use_window_source: isLoadout ? (v.loadout_use_window_source ?? '') : '',
+    // Detention terms travel as strings; '' is NOT STATED and the RPC's
+    // NULLIF turns it back into NULL. Never coerce the tri-state to false.
+    detention_free_time_minutes: v.detention_free_time_minutes ?? '',
+    detention_rate_per_hour: v.detention_rate_per_hour ?? '',
+    detention_daily_cap: v.detention_daily_cap ?? '',
+    detention_clock_start: v.detention_clock_start ?? '',
+    detention_notification_required: v.detention_notification_required ?? '',
+    detention_terms_note: v.detention_terms_note ?? '',
     internal_notes: v.internal_notes ?? '',
     driver_facing_notes: v.driver_facing_notes ?? '',
     special_instructions: v.special_instructions ?? '',
