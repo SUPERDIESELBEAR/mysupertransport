@@ -1370,11 +1370,11 @@ rather than silently swapped.
 
 ### Baselines and the DB / non-DB gap
 
-Measured 2026-08-27: **738 passed / 7 skipped (98 files)** with a database,
-**713 / 24 (98 files)** without.
+Measured 2026-08-27: **742 passed / 7 skipped (98 files)** with a database,
+**713 / 28 (98 files)** without.
 
-The registered-test gap between the two shapes is **8**, measured: 745 registered
-with a database against 737 without. It comes from the two `gatedDescribe`
+The registered-test gap between the two shapes is **8**, measured: 749 registered
+with a database against 741 without. It comes from the two `gatedDescribe`
 suites, which collapse a whole file to one named placeholder when gated —
 `share-token-throttle` (8 → 1) and `rods-live-certification` (2 → 1). Per-test
 `gatedIt` files register the same count in both shapes, which is the point of
@@ -1389,3 +1389,44 @@ deliberate restriction that bars EXECUTE for the certify RPC. Granting UPDATE to
 the harness is forbidden, so the file gates on the capability and says so
 loudly. These five, and the certify execute arm, belong on a disposable
 instance with a real session.
+
+The registered-test gap of **8** is fully accounted for, with nothing left over:
+`share-token-throttle` collapses 8 → 1 and `rods-live-certification` 2 → 1 under
+`gatedDescribe`. 7 + 1 = 8. No other file contributes.
+
+### What the behavioural gates do and do not cover
+
+Three capability gates guard the five behavioural trigger tests, in order:
+`PGHOST` present, the provenance columns installed, and UPDATE on
+`public.load_stops`. The third is the one that bites, and it is not an accident
+to be fixed: the harness role has SELECT and INSERT by deliberate design and
+must not be granted UPDATE.
+
+So the honest coverage statement is:
+
+- **Structural** — the trigger exists, is BEFORE UPDATE on `public.load_stops`,
+  is SECURITY DEFINER and pins `search_path` to `public, extensions`. Asserted
+  automatically from the catalog on every DB-attached run, under the harness
+  role's existing privileges.
+- **Dispatcher path behaviour** — verified MANUALLY in the application. No
+  automated check covers it here.
+- **Operator (`driver_app`) path behaviour** — CANNOT be verified until the
+  driver check-in app exists. Nothing writes that path today.
+
+A permanently skipped test is not coverage, and the banner says so at the same
+volume as the missing-PGHOST one.
+
+### The INSERT hole, and when it becomes real
+
+The trigger is **BEFORE UPDATE only**. A path that INSERTs a `load_stop` with
+`actual_arrival_at` or `actual_departure_at` already populated would leave the
+matching `*_source` and `*_recorded_by` NULL — a recorded time with no
+provenance.
+
+No such path exists today. Stop replacement on the revision path DELETES and
+re-creates stops with no actual times, guarded by `p_ack_stop_data_loss`, and
+the dispatcher control writes times by UPDATE. A driver-app upsert or an ELD
+import would be exactly such a path. Revisit the trigger — add a BEFORE INSERT
+arm — when either arrives; do not add it speculatively before there is a writer
+to shape it against.
+

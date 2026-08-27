@@ -32,8 +32,8 @@ There are exactly two shapes. Anything else is a signal.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  96 passed | 2 skipped (98)
-     Tests  738 passed | 7 skipped (745)
+Test Files  97 passed | 1 skipped (98)
+     Tests  742 passed | 7 skipped (749)
 
 skipped:
   stop time source trigger x5
@@ -50,7 +50,7 @@ skipped:
 
 ```text
 Test Files  91 passed | 7 skipped (98)
-     Tests  713 passed | 24 skipped (737)
+     Tests  713 passed | 28 skipped (741)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
@@ -59,6 +59,7 @@ skipped: the above, plus
   live SECURITY DEFINER catalog x9   no PGHOST, one named skip per live check
   caller-evaluated functions x3      no PGHOST, live catalog unreadable
   live grant / policy parity x3      no PGHOST, live catalog unreadable
+  stop time source structure x4      no PGHOST, live catalog unreadable
 ```
 
 Note on flakiness: a few React Testing Library suites (`brokersPage`,

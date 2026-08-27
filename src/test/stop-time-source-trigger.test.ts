@@ -87,12 +87,22 @@ if (!HAS_DB) {
     'is not installed. Apply the provenance migration and re-run.',
   ]);
 } else if (!CAN_UPDATE) {
-  skipBanner('stop-time-source-trigger.test.ts LIVE CHECKS DID NOT RUN', [
+  skipBanner('stop-time-source-trigger.test.ts BEHAVIOURAL CHECKS DID NOT RUN', [
     'This harness role has SELECT and INSERT on load_stops and no UPDATE.',
     'The trigger is BEFORE UPDATE, so it cannot fire from here at all.',
-    'Granting UPDATE to the sandbox role is forbidden. Run this file where a',
-    'role with UPDATE exists (a disposable instance). A green run WITHOUT',
-    'these five checks is NOT evidence that the stamping works.',
+    'Granting UPDATE to the sandbox role is forbidden.',
+    '',
+    'THESE FIVE SKIPS ARE NOT COVERAGE. Read them as untested here:',
+    '  - the dispatcher path is verified MANUALLY in the application, by a',
+    '    staff user typing a time on a load stop and reading back the stamped',
+    '    source and actor. No automated check covers it in this environment.',
+    '  - the operator (driver_app) path CANNOT be verified at all until the',
+    '    driver check-in app exists (Module 11). Nothing writes that path today.',
+    '',
+    'The structural checks below DO run here: they assert the trigger exists,',
+    'is BEFORE UPDATE on public.load_stops, is SECURITY DEFINER and pins',
+    'search_path. Structure is not behaviour — a correctly attached trigger',
+    'with the wrong body would still pass them.',
   ]);
 }
 
@@ -103,8 +113,80 @@ const itLive = gatedIt({
     : !SCHEMA_READY
       ? 'the stop provenance columns are not present in this database'
       : 'the harness role has no UPDATE on load_stops, so a BEFORE UPDATE trigger cannot fire',
-  details: ['Only this check sees what the trigger actually stamps.'],
+  details: [
+    'Only this check sees what the trigger actually stamps.',
+    'Dispatcher path: verified manually in the app. Operator path: unverifiable',
+    'until the driver app exists. A permanent skip is not coverage.',
+  ],
 });
+
+/* ------------------------------------------------------------------ */
+/* Structural checks — catalog SELECTs only                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * These follow definer-live-catalog.test.ts: they read pg_proc / pg_trigger
+ * and need nothing but SELECT, so they run under the harness role's existing
+ * privileges even though the behavioural arm cannot. They prove the trigger is
+ * ATTACHED AND SHAPED correctly; they prove nothing about what it stamps.
+ */
+const itStructure = gatedIt({
+  enabled: HAS_DB,
+  reason: 'no PGHOST, so the live catalog could not be read',
+  details: ['Catalog-only checks; they need SELECT and nothing more.'],
+});
+
+describe('stamp_load_stop_time_source (structure)', () => {
+  itStructure('the function exists in public', () => {
+    expect(
+      psql(
+        `select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname='public' and p.proname='stamp_load_stop_time_source'`,
+      ),
+    ).toEqual(['1']);
+  });
+
+  itStructure('it is SECURITY DEFINER', () => {
+    expect(
+      psql(
+        `select p.prosecdef::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname='public' and p.proname='stamp_load_stop_time_source'`,
+      ),
+    ).toEqual(['true']);
+  });
+
+  itStructure('it pins search_path to public and extensions', () => {
+    const rows = psql(
+      `select coalesce(array_to_string(p.proconfig, ','), '<none>')
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname='public' and p.proname='stamp_load_stop_time_source'`,
+    );
+    expect(rows).toHaveLength(1);
+    const pin = rows[0].replace(/^search_path=/, '');
+    expect(rows[0]).toMatch(/^search_path=/);
+    expect(
+      pin.split(',').map(s => s.trim().replace(/^"|"$/g, '')).sort(),
+    ).toEqual(['extensions', 'public']);
+  });
+
+  itStructure('it is attached BEFORE UPDATE on public.load_stops', () => {
+    // tgtype bit 1 = BEFORE (0 = AFTER), bit 4 = UPDATE, bit 2 = INSERT, bit 3 = DELETE.
+    const rows = psql(
+      `select (t.tgtype & 2 > 0)::text || '|' || (t.tgtype & 16 > 0)::text || '|' ||
+              (t.tgtype & 4 > 0)::text || '|' || (t.tgtype & 8 > 0)::text
+         from pg_trigger t
+         join pg_class c on c.oid = t.tgrelid
+         join pg_namespace n on n.oid = c.relnamespace
+         join pg_proc p on p.oid = t.tgfoid
+        where n.nspname='public' and c.relname='load_stops'
+          and p.proname='stamp_load_stop_time_source' and not t.tgisinternal`,
+    );
+    // BEFORE | UPDATE | not INSERT | not DELETE
+    expect(rows).toEqual(['true|true|false|false']);
+  });
+});
+
+
 
 
 /* ------------------------------------------------------------------ */

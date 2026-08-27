@@ -22,7 +22,7 @@
  * or stopped running, and the run should be read before it is trusted.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     738 passed | 7 skipped        (96 files passed | 2 skipped)
+ *     742 passed | 7 skipped        (97 files passed | 1 skipped)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -36,7 +36,7 @@
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
  *   WITHOUT a database (PGHOST absent):
- *     713 passed | 24 skipped       (91 files passed | 7 skipped)
+ *     713 passed | 28 skipped       (91 files passed | 7 skipped)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
@@ -44,6 +44,7 @@
  *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
  *       - caller-evaluated functions     x3   (live catalog unreadable)
  *       - live grant / policy parity     x3   (live catalog unreadable)
+ *       - stop time source structure     x4   (live catalog unreadable)
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
  * without a matching named line, a gate has regressed to `runIf`/`skip`.
