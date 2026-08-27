@@ -581,6 +581,39 @@ export function applyParsedToForm(
     set('broker_terms_verbatim', p.verbatim.broker_terms.value);
   }
 
+  // ---- detention terms ---------------------------------------------------
+  // Written only where the document stated something. A field the parse left
+  // null is left blank here: there is no default free time, rate, cap or clock
+  // start, and writing one would put an agreement on the load that the broker
+  // never made.
+  const dt = p.detention_terms;
+  if (dt) {
+    put('detention_free_time_minutes', dt.free_time_minutes, 'Detention free time');
+    put('detention_rate_per_hour', dt.rate_per_hour, 'Detention rate per hour');
+    put('detention_daily_cap', dt.daily_cap, 'Detention daily cap');
+    put('detention_clock_start', dt.clock_start, 'Detention clock start');
+    // Tri-state: only true or false is written, never "" from a null. The form
+    // stores the tri-state as a string, so the boolean is stringified here
+    // rather than run through `put`'s boolean branch.
+    const notify = usable(dt.notification_required as Field<unknown>);
+    if (notify === null) {
+      noteDiscard(
+        'detention_notification_required', 'Detention notification required',
+        dt.notification_required as Field<unknown>,
+      );
+    } else {
+      set('detention_notification_required', notify === true ? 'true' : 'false');
+      if (needsCheck(dt.notification_required as Field<unknown>)) {
+        verify.push('Detention notification required');
+      }
+    }
+    // A transcription, not an inference: written whatever the confidence, the
+    // same rule the other verbatim slots follow.
+    if (dt.terms_note?.value) set('detention_terms_note', dt.terms_note.value);
+  }
+
+
+
   if (usable(p.load.equipment_type) === 'reefer') {
     put('reefer_temp_f', p.reefer.temp_f, 'Reefer temperature');
     put('reefer_temp_min_f', p.reefer.temp_min_f, 'Reefer min temp');
