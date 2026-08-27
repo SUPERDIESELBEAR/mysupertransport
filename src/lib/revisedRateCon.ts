@@ -200,12 +200,22 @@ export interface NonFinancialDiff {
 }
 
 export interface ReferenceDiffOp {
-  op: 'added' | 'removed';
+  /**
+   * `reclassified` is the same number staying on the load under a different
+   * class. It happens whenever LABEL_MAP learns a label — every stored row for
+   * that label becomes stale at once — and must never be reported as an add
+   * plus a remove: the dispatcher would be asked to approve deleting a number
+   * that is not going anywhere, and the save path would insert a second row.
+   */
+  op: 'added' | 'removed' | 'reclassified';
   reference_class: string;
+  /** The class the row is filed under today; set only on `reclassified`. */
+  from_reference_class?: string;
   label: string;
   value: string;
   citations: ReferenceCitation[];
 }
+
 
 /**
  * Zod infers the stored/form citation shape with optional members. Citations
@@ -558,7 +568,18 @@ export function buildRevisionDiff(
   if (classified.references.length) {
     const currentKeys = new Map(currentRefs.map(r =>
       [referenceKey(r.reference_class as ReferenceClass, r.value), r]));
+    // Stored rows indexed by value alone, so the same number filed under a
+    // class the classifier no longer returns can be recognised as the SAME
+    // reference rather than a removal plus an unrelated addition.
+    const currentByValue = new Map<string, typeof currentRefs>();
+    currentRefs.forEach(r => {
+      const vk = referenceValueKey(r.value);
+      currentByValue.set(vk, [...(currentByValue.get(vk) ?? []), r]);
+    });
+    const incomingKeys = new Set(classified.references.map(r => referenceKey(r.clazz, r.value)));
     const revisedKeys = new Set<string>();
+    /** Stored keys accounted for by a reclassification; never reported removed. */
+    const reclassified = new Set<string>();
 
     classified.references.forEach(r => {
       const key = referenceKey(r.clazz, r.value);
@@ -581,6 +602,33 @@ export function buildRevisionDiff(
         });
         return;
       }
+
+      // Nothing on file under this class, but the same number IS on file under
+      // another class that this document does not otherwise account for. That
+      // is a reclassification — one entry, no removal.
+      const stale = (currentByValue.get(referenceValueKey(r.value)) ?? []).find(c => {
+        const ck = referenceKey(c.reference_class as ReferenceClass, c.value);
+        return ck !== key && !incomingKeys.has(ck) && !reclassified.has(ck);
+      });
+      if (stale) {
+        const staleKey = referenceKey(stale.reference_class as ReferenceClass, stale.value);
+        reclassified.add(staleKey);
+        nonFinancial.push({
+          id: `ref.reclass.${key}`,
+          label: `Reference filed differently — ${r.label}`,
+          path: 'references', stopIndex: null,
+          current: `Filed as ${stale.label} (${stale.reference_class}) — ${stale.value}`,
+          revised: `Files as ${r.label} (${r.clazz}) — same number, ${r.value}`,
+          value: null, hasDriverData: false, defaultAccept: true,
+          reference: {
+            op: 'reclassified', reference_class: r.clazz,
+            from_reference_class: stale.reference_class,
+            label: r.label, value: r.value, citations: r.citations,
+          },
+        });
+        return;
+      }
+
       nonFinancial.push({
         id: `ref.add.${key}`,
         label: referencesComparable
@@ -597,7 +645,8 @@ export function buildRevisionDiff(
 
     currentRefs.forEach(r => {
       const key = referenceKey(r.reference_class as ReferenceClass, r.value);
-      if (revisedKeys.has(key)) return;
+      if (revisedKeys.has(key) || reclassified.has(key)) return;
+
       nonFinancial.push({
         id: `ref.remove.${key}`,
         label: `Reference removed — ${r.label}`,
@@ -732,6 +781,14 @@ export interface RemovedReference {
   value_key: string;
 }
 
+/** The same stored row moving from one class to another, kept in place. */
+export interface ReclassifiedReference {
+  from_reference_class: string;
+  to_reference_class: string;
+  value: string;
+  value_key: string;
+}
+
 export interface ApplyRevisionResult {
   values: LoadFormValues;
   /** One line per applied money change, for the automatic change reason. */
@@ -745,7 +802,15 @@ export interface ApplyRevisionResult {
    * on every later review. These are deleted explicitly.
    */
   removedReferences: RemovedReference[];
+  /**
+   * Class moves the dispatcher accepted. The save path must UPDATE the stored
+   * row rather than write a new one: the upsert key is
+   * (load_id, reference_class, value_key), so a changed class inserts a second
+   * row and leaves the first behind — the duplicate this exists to prevent.
+   */
+  reclassifiedReferences: ReclassifiedReference[];
 }
+
 
 
 /**
@@ -766,6 +831,7 @@ export function applyRevision(
   // before the generic path writes and skipped by them.
   const refs = [...(values.references ?? [])];
   const removedReferences: RemovedReference[] = [];
+  const reclassifiedReferences: ReclassifiedReference[] = [];
   diff.nonFinancial.forEach(d => {
     if (!d.reference || !decisions.accepted[d.id]) return;
     const key = referenceKey(d.reference.reference_class as ReferenceClass, d.reference.value);
@@ -787,8 +853,28 @@ export function applyRevision(
       value: d.reference.value,
       citations: d.reference.citations,
     };
+
+    if (d.reference.op === 'reclassified' && d.reference.from_reference_class) {
+      reclassifiedReferences.push({
+        from_reference_class: d.reference.from_reference_class,
+        to_reference_class: d.reference.reference_class,
+        value: d.reference.value,
+        value_key: referenceValueKey(d.reference.value),
+      });
+      // The stale-class entry leaves the form values so the row is carried once.
+      const staleAt = refs.findIndex(r =>
+        referenceKey(r.reference_class as ReferenceClass, r.value)
+        === referenceKey(d.reference!.from_reference_class as ReferenceClass, d.reference!.value));
+      if (staleAt >= 0) refs.splice(staleAt, 1);
+      const nowAt = refs.findIndex(r =>
+        referenceKey(r.reference_class as ReferenceClass, r.value) === key);
+      if (nowAt >= 0) refs[nowAt] = row; else refs.push(row);
+      return;
+    }
+
     if (at >= 0) refs[at] = row; else refs.push(row);
   });
+
   values = { ...values, references: refs };
 
   diff.nonFinancial.forEach(d => {
@@ -860,7 +946,7 @@ export function applyRevision(
   });
 
   values = { ...values, charges };
-  return { values, financialSummary, removedReferences };
+  return { values, financialSummary, removedReferences, reclassifiedReferences };
 }
 
 const signed = (n: number) => `${n >= 0 ? '+' : '-'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

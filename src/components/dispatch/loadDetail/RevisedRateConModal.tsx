@@ -457,7 +457,9 @@ export default function RevisedRateConModal({
 
     setSaving(true);
     try {
-      const { values, financialSummary, removedReferences } = applyRevision(baseValues, diff, decisions);
+      const { values, financialSummary, removedReferences, reclassifiedReferences } =
+        applyRevision(baseValues, diff, decisions);
+
       const payload = buildLoadSavePayload(values, { isEdit: true });
       const reason = buildRevisionReason({
         financialSummary,
@@ -513,11 +515,13 @@ export default function RevisedRateConModal({
       // one, and accepted removals are deleted in the same call — dropping a
       // row out of the payload never deleted anything, so the outdated number
       // stayed on file and the "removed" row returned on every later review.
-      if (payload.references?.length || removedReferences.length) {
+      if (payload.references?.length || removedReferences.length || reclassifiedReferences.length) {
         try {
           await saveLoadReferences(load.id, payload.references ?? [], {
             removals: removedReferences,
+            reclassifications: reclassifiedReferences,
           });
+
         } catch (refError) {
           logDbError('save_load_references (revision)', refError, { loadId: load.id });
           toast({

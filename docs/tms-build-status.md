@@ -1370,14 +1370,16 @@ rather than silently swapped.
 
 ### Baselines and the DB / non-DB gap
 
-Measured 2026-08-27 (carrier-timezone pass): **752 passed / 7 skipped (99 files)**
-with a database, **723 / 28 (99 files)** without. The no-database run is measured
+Measured 2026-08-27 (reference reclassification pass): **765 passed / 7 skipped
+(100 files)** with a database, **736 / 28 (100 files)** without. The no-database
+run is measured
 with `--maxWorkers=2`, and that flag is recorded here alongside the figures: at
 full parallelism the RTL suites contend and time out, and those timeouts are a
 harness artefact, not a regression.
 
-The registered-test gap between the two shapes is **8**, measured: 759 registered
-with a database against 751 without. It comes from the two `gatedDescribe`
+The registered-test gap between the two shapes is **8**, measured: 772 registered
+with a database against 764 without. It comes from the two `gatedDescribe`
+
 suites, which collapse a whole file to one named placeholder when gated —
 `share-token-throttle` (8 → 1) and `rods-live-certification` (2 → 1). Per-test
 `gatedIt` files register the same count in both shapes, which is the point of
@@ -1432,6 +1434,47 @@ the dispatcher control writes times by UPDATE. A driver-app upsert or an ELD
 import would be exactly such a path. Revisit the trigger — add a BEFORE INSERT
 arm — when either arrives; do not add it speculatively before there is a writer
 to shape it against.
+
+### Waiting on the driver app — the single list for Module 11
+
+Everything below is real code on a shared path, exercised only by the half of
+that path the application can reach today. Module 11 is what makes the other
+half real, and is expected to close this list:
+
+- **The `driver_app` branch of `stamp_load_stop_time_source`** — the operator
+  path. Nothing writes it today. The dispatcher branch of the same trigger is
+  verified end to end in the application, which is the only reason the branch is
+  trusted at all.
+- **The timezone label on recorded arrival and departure times** — verified via
+  the appointment window rendered by the same component with the same helper,
+  because no stop in the database has a recorded arrival to render.
+
+### Reference classes go stale, and that is normal
+
+`LABEL_MAP` grows every time a broker's printed label is learned, and every
+addition makes the stored rows for that label stale in one step: a row filed
+`other` (or `unclassified`) is now classified differently, and the revision diff
+keys on class + value. Reported as duplicate reference numbers after a revised
+rate confirmation.
+
+The fix is not a one-time backfill:
+
+- `buildRevisionDiff` recognises the same `value_key` arriving under a different
+  class as a **reclassification** — one entry, worded so the dispatcher can see
+  the number is not changing, only how it is filed. Never an add plus a remove.
+- `saveLoadReferences` applies one by UPDATEing the stored row's
+  `reference_class` before the upsert runs, so the row id, its citations and its
+  `created_at` survive. Writing the new class straight through would miss the
+  upsert key `(load_id, reference_class, value_key)` and insert a second row.
+- `src/lib/referenceBackfill.ts` plans the historical repair and
+  `scripts/reference-backfill.ts` runs it. It imports `classifyReferenceLabel`
+  rather than reimplementing the rule in SQL. The trap it exists to avoid: a
+  reference with NO printed label is stored with `label = <class name>`, and
+  those rows are correctly `other` — an absent label and an unrecognised one are
+  different things. The live audit found 0 rows needing reclassification and 0
+  sentinel rows, so the script has not had to run.
+- No unique constraint on `(load_id, value_key)`: one number can legitimately be
+  both the BOL and the PRO.
 
 
 ### Load times are pinned to the carrier timezone
