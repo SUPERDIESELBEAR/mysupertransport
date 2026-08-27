@@ -200,12 +200,22 @@ export interface NonFinancialDiff {
 }
 
 export interface ReferenceDiffOp {
-  op: 'added' | 'removed';
+  /**
+   * `reclassified` is the same number staying on the load under a different
+   * class. It happens whenever LABEL_MAP learns a label — every stored row for
+   * that label becomes stale at once — and must never be reported as an add
+   * plus a remove: the dispatcher would be asked to approve deleting a number
+   * that is not going anywhere, and the save path would insert a second row.
+   */
+  op: 'added' | 'removed' | 'reclassified';
   reference_class: string;
+  /** The class the row is filed under today; set only on `reclassified`. */
+  from_reference_class?: string;
   label: string;
   value: string;
   citations: ReferenceCitation[];
 }
+
 
 /**
  * Zod infers the stored/form citation shape with optional members. Citations
