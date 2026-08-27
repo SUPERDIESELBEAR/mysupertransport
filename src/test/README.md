@@ -32,8 +32,8 @@ There are exactly two shapes. Anything else is a signal.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  98 passed | 1 skipped (99)
-     Tests  752 passed | 7 skipped (759)
+Test Files  99 passed | 1 skipped (100)
+     Tests  765 passed | 7 skipped (772)
 
 skipped:
   stop time source trigger x5
@@ -51,8 +51,8 @@ part of the baseline, not an optimisation: at full parallelism the RTL suites
 contend and time out, and those failures must not be read as a regression:
 
 ```text
-Test Files  92 passed | 7 skipped (99)
-     Tests  723 passed | 28 skipped (751)
+Test Files  93 passed | 7 skipped (100)
+     Tests  736 passed | 28 skipped (764)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
