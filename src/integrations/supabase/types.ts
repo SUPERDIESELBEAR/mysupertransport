@@ -1698,6 +1698,116 @@ export type Database = {
           },
         ]
       }
+      detention_claims: {
+        Row: {
+          broker_notified_at: string | null
+          created_at: string
+          created_by: string | null
+          driver_reported_at: string
+          id: string
+          load_id: string
+          load_stop_id: string | null
+          notification_method:
+            | Database["public"]["Enums"]["detention_notification_method"]
+            | null
+          notified_by: string | null
+          reported_to: string | null
+          resolution_note: string | null
+          resulting_charge_id: string | null
+          status: Database["public"]["Enums"]["detention_claim_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          broker_notified_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_reported_at: string
+          id?: string
+          load_id: string
+          load_stop_id?: string | null
+          notification_method?:
+            | Database["public"]["Enums"]["detention_notification_method"]
+            | null
+          notified_by?: string | null
+          reported_to?: string | null
+          resolution_note?: string | null
+          resulting_charge_id?: string | null
+          status?: Database["public"]["Enums"]["detention_claim_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          broker_notified_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_reported_at?: string
+          id?: string
+          load_id?: string
+          load_stop_id?: string | null
+          notification_method?:
+            | Database["public"]["Enums"]["detention_notification_method"]
+            | null
+          notified_by?: string | null
+          reported_to?: string | null
+          resolution_note?: string | null
+          resulting_charge_id?: string | null
+          status?: Database["public"]["Enums"]["detention_claim_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "detention_claims_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_claims_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_claims_load_stop_id_fkey"
+            columns: ["load_stop_id"]
+            isOneToOne: false
+            referencedRelation: "load_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_claims_notified_by_fkey"
+            columns: ["notified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_claims_reported_to_fkey"
+            columns: ["reported_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_claims_resulting_charge_id_fkey"
+            columns: ["resulting_charge_id"]
+            isOneToOne: false
+            referencedRelation: "load_charges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detention_claims_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_daily_log: {
         Row: {
           created_at: string
@@ -10112,6 +10222,14 @@ export type Database = {
         | "home"
         | "truck_down"
         | "not_dispatched"
+      detention_claim_status:
+        | "open"
+        | "notified"
+        | "in_discussion"
+        | "resolved_revision"
+        | "denied"
+        | "abandoned"
+      detention_notification_method: "email" | "phone" | "text" | "load_board"
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
       document_exception_reason:
@@ -10439,6 +10557,15 @@ export const Constants = {
         "truck_down",
         "not_dispatched",
       ],
+      detention_claim_status: [
+        "open",
+        "notified",
+        "in_discussion",
+        "resolved_revision",
+        "denied",
+        "abandoned",
+      ],
+      detention_notification_method: ["email", "phone", "text", "load_board"],
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
       doc_review_status: ["pending", "approved", "rejected"],
       document_exception_reason: [

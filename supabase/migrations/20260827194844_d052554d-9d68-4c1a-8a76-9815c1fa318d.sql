@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.stamp_detention_claim_actor() FROM PUBLIC, anon, authenticated;
