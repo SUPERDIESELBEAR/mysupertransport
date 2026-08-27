@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import StopTimePicker from './StopTimePicker';
 import { useToast } from '@/hooks/use-toast';
+
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import {
   fromLocalInputValue,
@@ -69,16 +69,18 @@ export default function StopTimeEntry({ stopId, arrival, departure, onSaved }: S
     <div className="mt-3 rounded-md border border-border bg-muted/40 p-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`arrival-${stopId}`} className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          <span className="block text-[11px] uppercase tracking-wide text-muted-foreground">
             Record arrival
-          </Label>
+          </span>
           <div className="flex items-center gap-2">
-            <Input
-              id={`arrival-${stopId}`}
-              type="datetime-local"
-              value={arrivalValue}
-              onChange={e => { setArrivalValue(e.target.value); setError(null); }}
-            />
+            <div className="flex-1">
+              <StopTimePicker
+                id={`arrival-${stopId}`}
+                label="Record arrival"
+                value={arrivalValue}
+                onCommit={next => { setArrivalValue(next); setError(null); }}
+              />
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -93,16 +95,18 @@ export default function StopTimeEntry({ stopId, arrival, departure, onSaved }: S
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor={`departure-${stopId}`} className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          <span className="block text-[11px] uppercase tracking-wide text-muted-foreground">
             Record departure
-          </Label>
+          </span>
           <div className="flex items-center gap-2">
-            <Input
-              id={`departure-${stopId}`}
-              type="datetime-local"
-              value={departureValue}
-              onChange={e => { setDepartureValue(e.target.value); setError(null); }}
-            />
+            <div className="flex-1">
+              <StopTimePicker
+                id={`departure-${stopId}`}
+                label="Record departure"
+                value={departureValue}
+                onCommit={next => { setDepartureValue(next); setError(null); }}
+              />
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -124,6 +128,7 @@ export default function StopTimeEntry({ stopId, arrival, departure, onSaved }: S
           {saving ? 'Saving…' : 'Save times'}
         </Button>
       </div>
+
     </div>
   );
 }
