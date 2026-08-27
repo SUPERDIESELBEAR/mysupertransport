@@ -82,8 +82,10 @@ vi.mock('@/integrations/supabase/client', () => ({
     storage: { from: () => ({ createSignedUrl: async () => ({ data: null, error: null }) }) },
   },
 }));
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ session: { user: { id: 'u1' } } }) }));
-vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: () => {} }) }));
+const authApi = { session: { user: { id: 'u1' } } };
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => authApi }));
+const toastApi = { toast: () => {} };
+vi.mock('@/hooks/use-toast', () => ({ useToast: () => toastApi }));
 
 import RateConInboxPage from '../RateConInboxPage';
 
