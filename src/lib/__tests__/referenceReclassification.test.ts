@@ -177,10 +177,11 @@ describe('backfill plan', () => {
   it('leaves a recognised label alone, prefix fallback included', () => {
     const plan = planReferenceBackfill([
       row({ id: 'a', label: 'BOL' }),
-      row({ id: 'b', label: 'PU# (Shipper)' }),
+      row({ id: 'b', label: 'Pickup Number (Shipper)' }),
     ]);
     expect(plan.reclassify).toHaveLength(0);
   });
+
 
   it('collapses a duplicate pair to one row and records the deletion', () => {
     const plan = planReferenceBackfill([
