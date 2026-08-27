@@ -10,6 +10,10 @@ import {
 import { normalizeAddressKey, normalizeZipKey } from '@/lib/facilityMatch';
 import { toLocalInput } from '@/lib/loadEdit';
 import {
+  DETENTION_CLOCK_START_OPTION_LABELS, type DetentionClockStart,
+} from '@/lib/detentionTerms';
+
+import {
   normalizeImportedName, normalizePhone, normalizeWhitespace, normalizeZip, toTitleCase,
 } from '@/lib/textNormalize';
 
