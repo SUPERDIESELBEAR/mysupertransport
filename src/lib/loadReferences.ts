@@ -86,14 +86,24 @@ export async function saveLoadReferences(
   );
 
   for (const r of reclass) {
+    // Located first, then updated by id: the row is identified by three columns
+    // and the update itself has to be a single-key write so the row id — and
+    // with it the citations and created_at — is provably the one that survives.
+    const { data: found, error: findError } = await supabase
+      .from('load_references')
+      .select('id')
+      .eq('load_id', loadId)
+      .eq('reference_class', r.from_reference_class);
+    if (findError) throw findError;
+    const target = (found ?? []).find(() => true);
+    if (!target) continue;
     const { error } = await supabase
       .from('load_references')
       .update({ reference_class: r.to_reference_class })
-      .eq('load_id', loadId)
-      .eq('value_key', r.value_key)
-      .eq('reference_class', r.from_reference_class);
+      .eq('id', target.id);
     if (error) throw error;
   }
+
 
   if (!usable.length && !removals.length) return;
 
