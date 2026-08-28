@@ -1,17 +1,3 @@
--- PAY POLICY EXPOSURE — live defect, independent of the driver home pass.
---
--- pay_policies carried a SELECT policy that admitted the operator role, so any
--- signed-in driver could read every pay policy row in the company: every split
--- percentage, every named policy. The UI never rendered them, which is exactly
--- why a rendered-output test would have stayed green the whole time the hole
--- was open. The fix is at the database.
---
--- Replacement below is staff-only. The driver's own figure now comes from a
--- SECURITY DEFINER function that returns a DOLLAR AMOUNT and nothing else —
--- no percentage, no policy row, no gross line haul.
-
--- 1. Staff-only read on pay_policies -----------------------------------------
-
 DROP POLICY IF EXISTS pay_policies_read_authenticated ON public.pay_policies;
 
 CREATE POLICY pay_policies_read_staff
@@ -24,13 +10,6 @@ CREATE POLICY pay_policies_read_staff
     OR has_role(auth.uid(), 'dispatcher'::app_role)
     OR has_role(auth.uid(), 'onboarding_staff'::app_role)
   );
-
--- 2. The driver's figure, dollars only ---------------------------------------
---
--- Actor context is current_profile_id() per the standing rule. The function
--- resolves the caller's own operator row, refuses any load that is not his,
--- and returns a single rounded amount plus an honesty flag. There is no code
--- path that returns a percentage or a pay_policies row.
 
 CREATE OR REPLACE FUNCTION public.driver_load_pay_estimate(_load_id uuid)
 RETURNS TABLE(amount numeric, incomplete boolean)
@@ -69,7 +48,6 @@ BEGIN
     RETURN NEXT; RETURN;
   END IF;
 
-  -- The policy in force for this driver, else the company default.
   SELECT pp.* INTO v_policy
     FROM public.pay_policy_assignments a
     JOIN public.pay_policies pp ON pp.id = a.pay_policy_id
@@ -114,7 +92,6 @@ BEGIN
     END IF;
 
     IF v_pay_class = 'reimbursement' THEN
-      -- Only money the DRIVER spent comes back to him.
       IF r.funding_source IS DISTINCT FROM 'driver' THEN CONTINUE; END IF;
       IF r.actual_cost IS NULL THEN
         v_incomplete := true; CONTINUE;

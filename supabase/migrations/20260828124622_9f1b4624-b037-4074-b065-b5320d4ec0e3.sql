@@ -1,13 +1,3 @@
--- Corrective pin. 20260828105444 created these two functions with
--- SET search_path = public, omitting "extensions". The standing convention on
--- this project is "public, extensions" for every SECURITY DEFINER function, and
--- both the file-based guard (definer-search-path.test.ts) and the live catalog
--- guard (definer-live-catalog.test.ts) fail on it today.
---
--- Additive: bodies are byte-identical to the applied versions; only the
--- search_path pin changes. Last definition wins, so this also clears the
--- file-based resolver once it is applied.
-
 CREATE OR REPLACE FUNCTION public.canonical_equipment_serial(_serial text)
 RETURNS text
 LANGUAGE sql
