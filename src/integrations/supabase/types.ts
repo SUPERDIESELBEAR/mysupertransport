@@ -9253,6 +9253,7 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      canonical_equipment_serial: { Args: { _serial: string }; Returns: string }
       certify_rods_day:
         | {
             Args: {
