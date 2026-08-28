@@ -54,15 +54,15 @@ Date: 2026-08-22
 
 ## Test baselines
 
-Figures re-measured 2026-08-28 and written into `src/test/helpers/gate.ts`,
+Figures re-measured 2026-08-28 (Module 11 Pass 2) and written into `src/test/helpers/gate.ts`,
 `src/test/README.md`, and this file; all three files carry the same measured
 figures. The 2026-08-28 run used vitest 3.2.7, installed by a caret-range
 reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
 — the flag is part of the recorded invocation, not an optimisation. Every skip is
 named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 878 passed, 7 skipped (114 files passed, 1 skipped, 115 total).
-- **Without database:** 844 passed, 33 skipped (107 files passed, 8 skipped, 115 total).
+- **With database attached:** 892 passed, 7 skipped (116 files passed, 1 skipped, 117 total).
+- **Without database:** 858 passed, 33 skipped (109 files passed, 8 skipped, 117 total).
 
 Anything that matches neither shape is a signal, not a question. If a skip count
 moves without a matching named line in the output, a gate has regressed to
@@ -1468,13 +1468,12 @@ Everything below is real code on a shared path, exercised only by the half of
 that path the application can reach today. Module 11 is what makes the other
 half real, and is expected to close this list:
 
-- **The `driver_app` branch of `stamp_load_stop_time_source`** — the operator
-  path. Nothing writes it today. The dispatcher branch of the same trigger is
-  verified end to end in the application, which is the only reason the branch is
-  trusted at all.
-- **The timezone label on recorded arrival and departure times** — verified via
-  the appointment window rendered by the same component with the same helper,
-  because no stop in the database has a recorded arrival to render.
+Both original entries — the `driver_app` branch of
+`stamp_load_stop_time_source` and the timezone label on recorded arrival and
+departure times — came OFF this list in Module 11 Pass 2, when a driver recorded
+an arrival from the operator portal and the trigger stamped it. The list is now
+empty; add to it only when a shared path gains a half the application cannot
+reach.
 
 ### Reference classes go stale, and that is normal
 
@@ -1968,6 +1967,52 @@ after subscribe throws, white-screening the app. Fixed the same way as
 `src/components/__tests__/notificationBellChannelIsolation.test.tsx` mounts two
 bells against a mock that reproduces the caching and the throw, so a third
 recurrence fails a test instead of a screen.
+
+## Module 11, Pass 2 — the driver writes: check-in and load paperwork (2026-08-28)
+
+Arrival, departure and paperwork upload are THREE INDEPENDENT ACTIONS on the
+Pass 1 load card, available in any order. No wizard, no sequence, no requirement
+that arrival precede departure. The reason is the facility, not the code:
+paperwork is usually in hand when he pulls off the dock, but some facilities hand
+it over at a window on the way out — and those are disproportionately the
+facilities where he sat longest. A flow that demanded paperwork at departure
+would be wrong exactly where detention money is.
+
+**The tap is late, and the time adjustment exists for that.** He taps once he is
+stopped, which is ten to twenty minutes after he actually arrived, and he never
+taps early. At $50/hour in fifteen-minute increments that drift is real money and
+always against SUPERTRANSPORT. So the tap opens a sheet — "Just now", 15, 30, 45
+minutes ago, plus manual entry in the carrier's time zone. One tap for the common
+case, two for the honest one. Nothing is silently recorded as "now".
+
+**Coordinates are best effort; a timestamp is never blocked on a location fix.**
+`bestEffortCoords` in `src/lib/stopCheckIn.ts` resolves to nulls on denial,
+timeout or an insecure context, and the write proceeds. A missing coordinate is
+honest; a missing timestamp is a lost detention claim.
+
+**The `driver_app` branch of `stamp_load_stop_time_source` executed for the first
+time in this pass, and stamped correctly.** Johnathan Pratt recorded arrival at
+stop 1 of ST-TEST-001 from the phone view with the "30 minutes ago" adjustment:
+`arrival_source = 'driver_app'`, `arrival_recorded_by` = his PROFILE id
+(`913f9ab4…`, not his auth uid), `arrival_latitude` populated, and the stored
+instant 30 minutes before the tap rather than the tap. The card then rendered
+"Aug 28, 4:42 PM CDT / Driver check-in" — the first time that string has been
+produced by the trigger rather than seeded. The trigger's five behavioural tests
+REMAIN SKIPPED and that is unchanged: the harness role has SELECT + INSERT and no
+UPDATE, the trigger is BEFORE UPDATE, and granting UPDATE is forbidden. The
+branch is now verified in the application instead.
+
+**The upload list is not re-derived.** `LoadPaperworkUpload` calls
+`evaluateLoadPaperwork` from `src/lib/loadPaperwork.ts` and renders required and
+expected separately, keeping the predicate the single authority on what a load
+owes. Camera capture is the primary control with file selection beside it, and
+writes go through the existing `uploadLoadDocument` path into `load_documents`.
+
+**No status changes from the driver.** He records facts; dispatch moves status.
+No detention reporting, no reminders, no nags — a missed departure is caught by
+the Module 5 Pass 1 dispatcher-entry control, and provenance makes the difference
+between the two visible.
+
 
 ## The anon grant on SECURITY DEFINER functions (2026-08-28)
 
