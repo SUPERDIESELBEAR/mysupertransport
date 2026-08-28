@@ -1918,3 +1918,54 @@ explicitly alongside `receive-rate-con-email`, which shares the core.
 
 **Snapshot occupancy unchanged.** This pass adds no columns, so
 `update_load_with_stops` still holds 34 keys in call 1 and 18 in call 2.
+
+## Module 11, Pass 1 — the driver home screen becomes today's work (2026-08-28)
+
+The operator home screen was a greeting and four tiles. It never said what the
+driver was doing. It now leads with the load he is on, read through the SAME
+chain rule the Dispatch Board uses (`src/lib/dispatchBoard.ts` / `assembleBoard`)
+rather than a second derivation, so home and the board can never disagree about
+which load is current. Read-only: this pass writes nothing against loads.
+
+What the screen holds, in order: current load (next stop, window in carrier
+time, origin → destination, broker, status), the driver's estimated pay for
+that load, required paperwork still outstanding, how many loads are queued
+behind it, delivered loads still owing paperwork, then what onboarding still
+needs, then the existing tiles.
+
+**Onboarding and driving are CONCURRENT, and the screen shows both.** Go-live at
+SUPERTRANSPORT is triggered by insurance, not by finishing onboarding: a driver
+hauls on temporary decals and paper logs for roughly a week while he works his
+way to Pleasant Hill for USDOT numbers, logo, ELD and dash cam install. A mode
+switch that hid onboarding once he went live would make real, dated obligations
+invisible at exactly the moment they matter. `OperatorStillNeeded` is therefore
+present whenever anything is open and absent only when nothing is.
+
+**The money shown is the driver's number, never the gross.** `src/lib/driverLoadPay.ts`
+returns the driver's share and nothing else — no line haul total, no split
+percentage. A percentage against a gross invites arithmetic that will not match
+the check, because a settlement also carries detention at 100%, reimbursements,
+deductions and the R&M deposit. Reimbursements pay ACTUAL cost and only to the
+party who spent it; an unconfirmed driver-funded reimbursement is reported as
+incomplete rather than guessed, and with no readable policy the figure is
+omitted entirely instead of defaulted.
+
+Two RLS facts surfaced and were fixed rather than worked around:
+
+- A driver cannot `SELECT` another person's `profiles` row, so the operator
+  portal's direct read left the dispatcher nameless and the Message button
+  unwired. `src/lib/staffContacts.ts` routes through `get_staff_contact_info`,
+  the SECURITY DEFINER path built for this. Phone is not exposed by that
+  function; messaging is the contact path.
+- `pay_policy_assignments` was staff-read only, so a driver's client silently
+  fell back to the company default and could quote a policy that is not his.
+  An additive operator-self SELECT policy is staged with the draft.
+
+**Operator Preview crash.** Mounting `OperatorPortal` inside `StaffPortal` put a
+second `NotificationBell` on the fixed realtime channel `notifications-bell`;
+supabase-js returns the cached channel and adding a `postgres_changes` listener
+after subscribe throws, white-screening the app. Fixed the same way as
+`RateConInboxBadge` in Module 3 Pass 2 — unique channel name per mount — and
+`src/components/__tests__/notificationBellChannelIsolation.test.tsx` mounts two
+bells against a mock that reproduces the caching and the throw, so a third
+recurrence fails a test instead of a screen.
