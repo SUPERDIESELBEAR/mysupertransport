@@ -54,14 +54,15 @@ Date: 2026-08-22
 
 ## Test baselines
 
-Figures re-measured 2026-08-28 and written into `src/test/helpers/gate.ts` and
-`src/test/README.md`; all three files carry the same measured figures. Both shapes
-are run with `--maxWorkers=2` — the flag is part of the recorded invocation, not
-an optimisation. Every skip is named and counted; no silent `it.skip` or
-`test.skip`.
+Figures re-measured 2026-08-28 and written into `src/test/helpers/gate.ts`,
+`src/test/README.md`, and this file; all three files carry the same measured
+figures. The 2026-08-28 run used vitest 3.2.7, installed by a caret-range
+reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
+— the flag is part of the recorded invocation, not an optimisation. Every skip is
+named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 874 passed, 7 skipped (113 files passed, 1 skipped, 114 total).
-- **Without database:** 840 passed, 33 skipped (106 files passed, 8 skipped, 114 total).
+- **With database attached:** 878 passed, 7 skipped (114 files passed, 1 skipped, 115 total).
+- **Without database:** 844 passed, 33 skipped (107 files passed, 8 skipped, 115 total).
 
 Anything that matches neither shape is a signal, not a question. If a skip count
 moves without a matching named line in the output, a gate has regressed to

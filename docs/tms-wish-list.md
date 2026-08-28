@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-08-26
+Last updated: 2026-08-28
 
 ---
 
@@ -198,6 +198,25 @@ anyone here sees.
 
 Each function must be classified individually — body read, callers traced,
 anon-reachability decided — before anything is revoked. Do not run a loop.
+
+### Test tooling can change without a commit
+**TRIGGER: if a baseline moves and no code change explains it.**
+
+vitest is pinned as `^3.2.4`, so a `node_modules` reinstall pulled 3.2.7 unasked
+mid-session, and every recorded baseline is now measured against a version that
+arrived by accident. Nothing broke. But the baselines in `gate.ts`, `README.md`
+and `tms-build-status.md` are the project's primary evidence that nothing
+silently stopped running, and a caret range lets the tool producing that
+evidence shift without any commit recording it.
+
+Related: the `canvas-stub` postinstall hook can be bypassed by some installers,
+which broke suite collection twice. The script covers every path jsdom resolves
+when it does run, but the install that brought vitest 3.2.7 did not run it;
+the symlinks were recreated manually after the fact.
+
+The fix is either an exact vitest pin in `package.json` or a committed lockfile
+that the installer respects, plus a CI step that asserts the canvas stub is in
+place before tests collect.
 
 ### Reader fixtures for loadPaperwork are AUTHORED, not writer-derived
 Standing rule: a persisted shape is tested at both writing and reading
