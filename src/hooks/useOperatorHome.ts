@@ -59,7 +59,7 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
         .from('loads')
         .select(
           'id, load_number, status, load_type, operator_id, created_at, '
-          + 'brokers(name), '
+          + 'brokers(company_name), '
           + 'load_stops(stop_sequence, stop_type, facility_name, city, state, '
           + 'appointment_start, appointment_end, actual_departure_at)',
         )
@@ -131,7 +131,7 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
         return {
           ...c,
           loadType: raw?.load_type ?? null,
-          brokerName: raw?.brokers?.name ?? null,
+          brokerName: raw?.brokers?.company_name ?? null,
           stops,
           next: nextStop(stops),
           outstandingPaperwork: paperwork.outstandingRequired.map(r => r.label),
