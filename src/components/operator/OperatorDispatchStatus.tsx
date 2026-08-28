@@ -74,13 +74,19 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
   const [liveFlash, setLiveFlash] = useState(false);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // A driver cannot SELECT another person's profiles row, so the old direct
+  // read returned nothing and the card degraded to a nameless dispatcher with
+  // a dead Message button. get_staff_contact_info is the authorized path.
   const fetchDispatcherInfo = async (dispatcherUserId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, phone, avatar_url')
-      .eq('user_id', dispatcherUserId)
-      .maybeSingle();
-    setDispatcher(data as DispatcherInfo | null);
+    const contact = await fetchStaffContact(dispatcherUserId);
+    if (!contact) { setDispatcher(null); return; }
+    const [first, ...rest] = contact.name.split(' ');
+    setDispatcher({
+      first_name: first ?? null,
+      last_name: rest.join(' ') || null,
+      phone: null,
+      avatar_url: contact.avatarUrl,
+    });
   };
 
   const fetchDispatch = async (silent = false) => {
