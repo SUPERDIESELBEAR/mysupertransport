@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.enforce_equipment_serial_uniqueness() FROM PUBLIC, anon, authenticated;
