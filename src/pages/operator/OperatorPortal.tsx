@@ -399,21 +399,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
   }, [operatorId, dispatchUpdatedAt, user]);
 
+  // Staff names are read through get_staff_contact_info, not `profiles`: RLS
+  // denies a driver a direct read of anyone else's profile row, which silently
+  // left the dispatcher nameless and the Message button unwired.
   const fetchDispatcherInfo = useCallback(async (dispatcherUserId: string | null) => {
     if (!dispatcherUserId) { setAssignedDispatcher(null); return; }
-    const { data } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, phone, avatar_url')
-      .eq('user_id', dispatcherUserId)
-      .maybeSingle();
-    if (data) {
-      setAssignedDispatcher({
-        name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Dispatcher',
-        phone: data.phone ?? null,
-        userId: dispatcherUserId,
-        avatarUrl: data.avatar_url ?? null,
-      });
-    }
+    const contact = await fetchStaffContact(dispatcherUserId);
+    setAssignedDispatcher(contact ? {
+      name: contact.name,
+      phone: null,
+      userId: dispatcherUserId,
+      avatarUrl: contact.avatarUrl,
+    } : null);
   }, []);
 
   const fetchCoordinatorInfo = useCallback(async (coordinatorUserId: string | null) => {
