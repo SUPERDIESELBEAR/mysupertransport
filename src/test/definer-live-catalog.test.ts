@@ -306,6 +306,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // is_staff, or the operator assigned to the load; returns only messages linked
   // to that load. Read-only.
   "public.get_load_linked_messages(uuid)",
+  // The driver's own pay estimate for one of his own loads. Definer BECAUSE
+  // pay_policies no longer admits the operator role (that unscoped read was
+  // removed 2026-08-28); the function resolves the caller's operator row via
+  // current_profile_id(), refuses any load that is not his, and returns one
+  // rounded figure plus an `incomplete` flag — never a percentage, a policy id,
+  // or anything about another driver. `authenticated` only: the anon grant that
+  // Supabase's default privileges attached at CREATE time is revoked in
+  // 20260828130500_revoke_anon_driver_load_pay_estimate.sql, so this entry
+  // deliberately does NOT appear in KNOWN_ANON_EXECUTABLE.
+  "public.driver_load_pay_estimate(uuid)",
 
 
 
@@ -329,7 +339,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + log_parser_diagnostics, which replaced the direct client insert.
 // + get_load_linked_messages, the staff/assigned-operator reader for messages
 // linked to a load.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 91;
+// + driver_load_pay_estimate, authenticated-only (2026-08-28).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 92;
+
 
 
 /**
