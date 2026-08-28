@@ -1,3 +1,4 @@
+import type React from 'react';
 import { MapPin, Package, Clock, FileWarning, MessageSquare, Phone } from 'lucide-react';
 import { formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
 import { formatCarrierWindow } from '@/lib/operatorHome';
@@ -40,7 +41,7 @@ function StopLine({ label, city, state, facility, start, end }: {
 }
 
 export function OperatorTodayCard({
-  load, pay, queuedCount, onOpenLoad, onMessageDispatcher, dispatcher,
+  load, pay, queuedCount, onOpenLoad, onMessageDispatcher, dispatcher, children,
 }: {
   load: HomeLoad;
   pay: DriverLoadPayEstimate | null;
@@ -48,6 +49,8 @@ export function OperatorTodayCard({
   onOpenLoad?: () => void;
   onMessageDispatcher?: () => void;
   dispatcher?: { name: string; phone: string | null } | null;
+  /** Check-in and paperwork actions. Independent, unordered, never gated. */
+  children?: React.ReactNode;
 }) {
   const next = load.next;
   return (
@@ -127,6 +130,8 @@ export function OperatorTodayCard({
             {queuedCount === 1 ? '1 more load' : `${queuedCount} more loads`} lined up after this one
           </p>
         )}
+
+        {children}
 
         {(onMessageDispatcher || dispatcher) && (
           <div className="flex flex-wrap items-center gap-2 pt-1">

@@ -52,6 +52,18 @@ mileage, integrates a mileage provider, or ships without RPM deliberately.
 
 ## OPEN QUESTIONS — answer before the named module
 
+### Check-in without a load (SaaS)
+
+A driver can arrive at a facility before the load exists in the system —
+dispatch books verbally and enters it later. Rare at SUPERTRANSPORT, likely
+elsewhere. Arrival and departure write to `load_stops`, which requires a stop to
+exist. Nothing in Pass 2 assumes `load_stops` is the ONLY possible source, so an
+unattached check-in reconciled later would be additive rather than a rework. The
+provenance model already supports it: a reconciled time would be a third source
+value alongside `driver_app` and `dispatcher_entry`.
+
+TRIGGER: first SaaS carrier whose dispatch books ahead of entry.
+
 ### Detention terms on the rate confirmation (Module 5, later pass)
 
 Industry standard free time is 2 hours; some brokers write 3. Rate cons also

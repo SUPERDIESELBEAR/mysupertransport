@@ -36,6 +36,8 @@ import { useOperatorHome } from '@/hooks/useOperatorHome';
 import {
   OperatorTodayCard, OperatorPaperworkTail, OperatorNoLoadCard,
 } from '@/components/operator/OperatorTodayCard';
+import { StopCheckIn } from '@/components/operator/StopCheckIn';
+import { LoadPaperworkUpload } from '@/components/operator/LoadPaperworkUpload';
 import OperatorStillNeeded from '@/components/operator/OperatorStillNeeded';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
@@ -1763,7 +1765,30 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                     if (assignedDispatcher?.userId) setMessageInitialUserId(assignedDispatcher.userId);
                     navigateToView('messages');
                   }}
-                />
+                >
+                  <StopCheckIn
+                    stops={(home.current.stops ?? [])
+                      .filter(s => !!s.id)
+                      .map(s => ({
+                        id: s.id as string,
+                        stop_sequence: s.stop_sequence,
+                        stop_type: s.stop_type,
+                        facility_name: s.facility_name,
+                        city: s.city,
+                        state: s.state,
+                        actual_arrival_at: s.actual_arrival_at ?? null,
+                        actual_departure_at: s.actual_departure_at,
+                        arrival_source: s.arrival_source ?? null,
+                        departure_source: s.departure_source ?? null,
+                      }))}
+                    onSaved={home.refresh}
+                  />
+                  <LoadPaperworkUpload
+                    loadId={home.current.id}
+                    loadType={home.current.loadType}
+                    onUploaded={home.refresh}
+                  />
+                </OperatorTodayCard>
               ) : (
                 <OperatorNoLoadCard
                   dispatchStatus={dispatchStatus}

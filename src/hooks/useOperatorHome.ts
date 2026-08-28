@@ -58,8 +58,9 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
         .select(
           'id, load_number, status, load_type, operator_id, created_at, '
           + 'brokers(company_name), '
-          + 'load_stops(stop_sequence, stop_type, facility_name, city, state, '
-          + 'appointment_start, appointment_end, actual_departure_at)',
+          + 'load_stops(id, stop_sequence, stop_type, facility_name, city, state, '
+          + 'appointment_start, appointment_end, actual_arrival_at, actual_departure_at, '
+          + 'arrival_source, departure_source)',
         )
         .eq('operator_id', operatorId);
 
@@ -118,10 +119,13 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
       const decorate = (c: ChainLoad): HomeLoad => {
         const raw = byId.get(c.id);
         const stops: HomeStop[] = (raw?.load_stops ?? []).map((s: any) => ({
+          id: s.id,
           stop_sequence: s.stop_sequence, stop_type: s.stop_type,
           facility_name: s.facility_name, city: s.city, state: s.state,
           appointment_start: s.appointment_start, appointment_end: s.appointment_end,
+          actual_arrival_at: s.actual_arrival_at,
           actual_departure_at: s.actual_departure_at,
+          arrival_source: s.arrival_source, departure_source: s.departure_source,
         }));
         const paperwork = evaluateLoadPaperwork(
           raw?.load_type, documentsByLoad[c.id] ?? [], exceptionsByLoad[c.id] ?? [],
