@@ -415,19 +415,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const fetchCoordinatorInfo = useCallback(async (coordinatorUserId: string | null) => {
     if (!coordinatorUserId) { setAssignedCoordinator(null); return; }
-    const { data } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, phone, avatar_url')
-      .eq('user_id', coordinatorUserId)
-      .maybeSingle();
-    if (data) {
-      setAssignedCoordinator({
-        name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Coordinator',
-        phone: data.phone ?? null,
-        userId: coordinatorUserId,
-        avatarUrl: data.avatar_url ?? null,
-      });
-    }
+    const contact = await fetchStaffContact(coordinatorUserId);
+    setAssignedCoordinator(contact ? {
+      name: contact.name || 'Coordinator',
+      phone: null,
+      userId: coordinatorUserId,
+      avatarUrl: contact.avatarUrl,
+    } : null);
   }, []);
 
   const fetchData = useCallback(async () => {
