@@ -9317,6 +9317,13 @@ export type Database = {
         Returns: boolean
       }
       discard_rods_amendment: { Args: { _day_id: string }; Returns: undefined }
+      driver_load_pay_estimate: {
+        Args: { _load_id: string }
+        Returns: {
+          amount: number
+          incomplete: boolean
+        }[]
+      }
       eld_cron_status: {
         Args: never
         Returns: {
