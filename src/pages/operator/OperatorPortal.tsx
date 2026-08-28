@@ -31,6 +31,12 @@ const OperatorMessagesHub = lazyWithRetry(() => import('@/components/operator/Op
 import NotificationBell from '@/components/NotificationBell';
 const OperatorStatusPage = lazyWithRetry(() => import('@/components/operator/OperatorStatusPage'));
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
+import { fetchStaffContact } from '@/lib/staffContacts';
+import { useOperatorHome } from '@/hooks/useOperatorHome';
+import {
+  OperatorTodayCard, OperatorPaperworkTail, OperatorNoLoadCard,
+} from '@/components/operator/OperatorTodayCard';
+import OperatorStillNeeded from '@/components/operator/OperatorStillNeeded';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
 import OperatorOSASSign from '@/components/operator/OperatorOSASSign';
