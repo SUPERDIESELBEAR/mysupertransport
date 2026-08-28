@@ -1740,11 +1740,48 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <div className="space-y-5 animate-fade-in">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName}</h1>
-                <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
+                <p className="text-sm text-muted-foreground">Here's your work today.</p>
               </div>
 
               <PendingPassengerAuthCard operatorId={operatorId} />
               <PendingOSASCard operatorId={operatorId} onOpen={() => navigateToView('onboard-systems')} />
+
+              {/* ── TODAY'S WORK ──────────────────────────────────────────
+                   Driving work first. Onboarding sits BELOW it and stays
+                   visible: go-live is insurance-triggered, so a driver hauls
+                   while plates, decals and ELD install are still open. */}
+              {home.loading ? (
+                <div className="h-40 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+              ) : home.current ? (
+                <OperatorTodayCard
+                  load={home.current}
+                  pay={home.currentPay}
+                  queuedCount={home.queued.length}
+                  dispatcher={assignedDispatcher}
+                  onOpenLoad={() => navigateToView('dispatch')}
+                  onMessageDispatcher={() => {
+                    if (assignedDispatcher?.userId) setMessageInitialUserId(assignedDispatcher.userId);
+                    navigateToView('messages');
+                  }}
+                />
+              ) : (
+                <OperatorNoLoadCard
+                  dispatchStatus={dispatchStatus}
+                  onMessageDispatcher={() => {
+                    if (assignedDispatcher?.userId) setMessageInitialUserId(assignedDispatcher.userId);
+                    navigateToView('messages');
+                  }}
+                />
+              )}
+
+              {!home.loading && <OperatorPaperworkTail loads={home.paperworkTail} />}
+
+              <OperatorStillNeeded
+                status={effectiveOnboardingStatus as Record<string, unknown>}
+                paySetup={paySetupData}
+                onOpenProgress={() => navigateToView('progress')}
+              />
+
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((t, idx) => (
