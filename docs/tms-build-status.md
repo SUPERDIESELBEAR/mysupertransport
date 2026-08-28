@@ -54,20 +54,18 @@ Date: 2026-08-22
 
 ## Test baselines
 
-Figures re-measured 2026-08-26 and written into `src/test/helpers/gate.ts` and
-`src/test/README.md`; all three files now carry the same measured figures. Before
-this re-measurement the three disagreed: gate.ts and this file recorded 535 / 516,
-README.md recorded 551 / 532, and the sentence here claiming gate.ts and README.md
-agreed was false. Every skip is named and counted; no silent `it.skip` or
+Figures re-measured 2026-08-28 and written into `src/test/helpers/gate.ts` and
+`src/test/README.md`; all three files carry the same measured figures. Both shapes
+are run with `--maxWorkers=2` — the flag is part of the recorded invocation, not
+an optimisation. Every skip is named and counted; no silent `it.skip` or
 `test.skip`.
 
-- **With database attached:** 738 passed, 7 skipped (96 files passed, 2 skipped).
-- **Without database:** 713 passed, 24 skipped (91 files passed, 7 skipped).
+- **With database attached:** 874 passed, 7 skipped (113 files passed, 1 skipped, 114 total).
+- **Without database:** 840 passed, 33 skipped (106 files passed, 8 skipped, 114 total).
 
-The no-database skip count moved from 13 to 19 because two live-catalog suites
-added since the last measurement — `caller-evaluated-functions` (3) and
-`grant-parity-live` (3) — each register named PGHOST gates. Every one of the 19
-is named in the run output; no gate regressed to `runIf`/`skip`.
+Anything that matches neither shape is a signal, not a question. If a skip count
+moves without a matching named line in the output, a gate has regressed to
+`runIf`/`skip` — fix the gate, do not adjust these numbers to match.
 
 ## Open items
 
