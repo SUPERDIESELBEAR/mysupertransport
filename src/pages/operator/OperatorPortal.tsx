@@ -31,6 +31,12 @@ const OperatorMessagesHub = lazyWithRetry(() => import('@/components/operator/Op
 import NotificationBell from '@/components/NotificationBell';
 const OperatorStatusPage = lazyWithRetry(() => import('@/components/operator/OperatorStatusPage'));
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
+import { fetchStaffContact } from '@/lib/staffContacts';
+import { useOperatorHome } from '@/hooks/useOperatorHome';
+import {
+  OperatorTodayCard, OperatorPaperworkTail, OperatorNoLoadCard,
+} from '@/components/operator/OperatorTodayCard';
+import OperatorStillNeeded from '@/components/operator/OperatorStillNeeded';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
 import OperatorOSASSign from '@/components/operator/OperatorOSASSign';
@@ -355,6 +361,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
   }, [operatorId]);
 
+  // Today's driving work. Read through the same chain rule the Dispatch Board
+  // uses so home and the board can never disagree about the current load.
+  const home = useOperatorHome(operatorId);
+
   // Track OSAS assignment sheet counts to drive sidebar visibility and badge.
   useEffect(() => {
     if (!operatorId) { setOsasSheetTotal(0); setOsasPendingCount(0); return; }
@@ -399,38 +409,29 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
   }, [operatorId, dispatchUpdatedAt, user]);
 
+  // Staff names are read through get_staff_contact_info, not `profiles`: RLS
+  // denies a driver a direct read of anyone else's profile row, which silently
+  // left the dispatcher nameless and the Message button unwired.
   const fetchDispatcherInfo = useCallback(async (dispatcherUserId: string | null) => {
     if (!dispatcherUserId) { setAssignedDispatcher(null); return; }
-    const { data } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, phone, avatar_url')
-      .eq('user_id', dispatcherUserId)
-      .maybeSingle();
-    if (data) {
-      setAssignedDispatcher({
-        name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Dispatcher',
-        phone: data.phone ?? null,
-        userId: dispatcherUserId,
-        avatarUrl: data.avatar_url ?? null,
-      });
-    }
+    const contact = await fetchStaffContact(dispatcherUserId);
+    setAssignedDispatcher(contact ? {
+      name: contact.name,
+      phone: null,
+      userId: dispatcherUserId,
+      avatarUrl: contact.avatarUrl,
+    } : null);
   }, []);
 
   const fetchCoordinatorInfo = useCallback(async (coordinatorUserId: string | null) => {
     if (!coordinatorUserId) { setAssignedCoordinator(null); return; }
-    const { data } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, phone, avatar_url')
-      .eq('user_id', coordinatorUserId)
-      .maybeSingle();
-    if (data) {
-      setAssignedCoordinator({
-        name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Coordinator',
-        phone: data.phone ?? null,
-        userId: coordinatorUserId,
-        avatarUrl: data.avatar_url ?? null,
-      });
-    }
+    const contact = await fetchStaffContact(coordinatorUserId);
+    setAssignedCoordinator(contact ? {
+      name: contact.name || 'Coordinator',
+      phone: null,
+      userId: coordinatorUserId,
+      avatarUrl: contact.avatarUrl,
+    } : null);
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -1739,11 +1740,48 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <div className="space-y-5 animate-fade-in">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName}</h1>
-                <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
+                <p className="text-sm text-muted-foreground">Here's your work today.</p>
               </div>
 
               <PendingPassengerAuthCard operatorId={operatorId} />
               <PendingOSASCard operatorId={operatorId} onOpen={() => navigateToView('onboard-systems')} />
+
+              {/* ── TODAY'S WORK ──────────────────────────────────────────
+                   Driving work first. Onboarding sits BELOW it and stays
+                   visible: go-live is insurance-triggered, so a driver hauls
+                   while plates, decals and ELD install are still open. */}
+              {home.loading ? (
+                <div className="h-40 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+              ) : home.current ? (
+                <OperatorTodayCard
+                  load={home.current}
+                  pay={home.currentPay}
+                  queuedCount={home.queued.length}
+                  dispatcher={assignedDispatcher}
+                  onOpenLoad={() => navigateToView('dispatch')}
+                  onMessageDispatcher={() => {
+                    if (assignedDispatcher?.userId) setMessageInitialUserId(assignedDispatcher.userId);
+                    navigateToView('messages');
+                  }}
+                />
+              ) : (
+                <OperatorNoLoadCard
+                  dispatchStatus={dispatchStatus}
+                  onMessageDispatcher={() => {
+                    if (assignedDispatcher?.userId) setMessageInitialUserId(assignedDispatcher.userId);
+                    navigateToView('messages');
+                  }}
+                />
+              )}
+
+              {!home.loading && <OperatorPaperworkTail loads={home.paperworkTail} />}
+
+              <OperatorStillNeeded
+                status={effectiveOnboardingStatus as Record<string, unknown>}
+                paySetup={paySetupData}
+                onOpenProgress={() => navigateToView('progress')}
+              />
+
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((t, idx) => (

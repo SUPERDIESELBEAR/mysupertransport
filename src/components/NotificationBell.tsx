@@ -83,8 +83,13 @@ export default function NotificationBell({
   useEffect(() => {
     if (!session?.user?.id) return;
     fetchNotifications();
+    // Unique per mount. A fixed channel name collides the moment two bells are
+    // alive at once — staff-side Operator Preview mounts OperatorPortal inside
+    // StaffPortal — and supabase-js throws "cannot add postgres_changes
+    // callbacks after subscribe()", white-screening the app. Same defect and
+    // same fix as the Rate Con inbox badge.
     const channel = supabase
-      .channel('notifications-bell')
+      .channel(`notifications-bell-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${session.user.id}`,
