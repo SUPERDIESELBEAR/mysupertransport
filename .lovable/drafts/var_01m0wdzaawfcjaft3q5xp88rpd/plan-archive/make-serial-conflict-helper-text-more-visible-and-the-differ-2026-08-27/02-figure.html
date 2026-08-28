@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 260" style="font-family: var(--font-sans)">
+  <style>
+    .box { fill: none; stroke: hsl(var(--border)); stroke-width: 1; }
+    .label { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .muted { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .pill { fill: hsl(var(--primary)); }
+    .pill-text { fill: hsl(var(--primary-foreground)); font-size: 12px; }
+    .helper { fill: hsl(var(--info) / 0.08); stroke: hsl(var(--info)); stroke-width: 1; }
+    .outline { fill: none; stroke: hsl(var(--border)); stroke-width: 1; }
+  </style>
+
+  <text class="label" x="8" y="28">Conflict card footer — current</text>
+  <rect class="box" x="8" y="44" width="300" height="180" rx="8"/>
+  <rect class="pill" x="24" y="62" width="124" height="24" rx="12"/>
+  <text class="pill-text" x="86" y="78" text-anchor="middle">Keep this record</text>
+  <text class="muted" x="24" y="112">Next you'll confirm which serial number is right —</text>
+  <text class="muted" x="24" y="128">you can keep either number or type a corrected one.</text>
+  <text class="muted" x="24" y="168">These are different devices</text>
+
+  <text class="label" x="332" y="28">Conflict card footer — proposed</text>
+  <rect class="box" x="332" y="44" width="300" height="180" rx="8"/>
+  <rect class="pill" x="348" y="62" width="124" height="24" rx="12"/>
+  <text class="pill-text" x="410" y="78" text-anchor="middle">Keep this record</text>
+  <rect class="helper" x="348" y="102" width="268" height="46" rx="6"/>
+  <text class="muted" x="358" y="122" style="fill: hsl(var(--info))">Next you'll confirm which serial number is right —</text>
+  <text class="muted" x="358" y="138" style="fill: hsl(var(--info))">you can keep either number or type a corrected one.</text>
+  <rect class="outline" x="348" y="166" width="176" height="28" rx="6"/>
+  <text class="muted" x="436" y="184" text-anchor="middle">These are different devices</text>
+</svg>

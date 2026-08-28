@@ -322,7 +322,7 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
                         ) : a.return_condition ? (
                           <Badge variant="outline" className={`text-xs ${CONDITION_COLORS[a.return_condition] ?? ''}`}>
                             {a.return_condition === 'available' ? 'Returned OK' :
-                             a.return_condition === 'damaged'   ? 'Damaged' : 'Lost'}
+                             a.return_condition === 'damaged'   ? 'Damaged' : 'Not Returned'}
                           </Badge>
                         ) : null}
                         {isActive && !isEditing && (

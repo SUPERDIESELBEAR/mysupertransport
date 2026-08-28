@@ -1,0 +1,41 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="hsl(var(--muted-foreground))"/>
+    </marker>
+  </defs>
+
+  <rect x="12" y="40" width="150" height="64" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="87" y="66" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Conflict pair</text>
+  <text x="87" y="86" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">"This one is correct"</text>
+
+  <line x1="166" y1="72" x2="230" y2="72" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+
+  <rect x="234" y="24" width="200" height="112" rx="8" fill="none" stroke="hsl(var(--accent-foreground))"/>
+  <text x="334" y="48" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--accent-foreground))">Confirm dialog</text>
+  <rect x="252" y="60" width="164" height="7" rx="3.5" fill="hsl(var(--border))"/>
+  <rect x="252" y="73" width="140" height="7" rx="3.5" fill="hsl(var(--border))"/>
+  <rect x="252" y="86" width="120" height="7" rx="3.5" fill="hsl(var(--border))"/>
+  <rect x="252" y="104" width="66" height="22" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="285" y="119" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">Cancel</text>
+  <rect x="326" y="104" width="90" height="22" rx="8" fill="hsl(var(--primary))"/>
+  <text x="371" y="119" text-anchor="middle" style="font-size:12px" fill="hsl(var(--primary-foreground))">Keep serial</text>
+
+  <line x1="438" y1="72" x2="500" y2="72" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+  <rect x="504" y="40" width="124" height="64" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="566" y="66" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Merge runs</text>
+  <text x="566" y="86" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">unchanged logic</text>
+
+  <path d="M285 136 L285 176 L87 176 L87 112" fill="none" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="190" y="170" text-anchor="middle" style="font-size:12px;paint-order:stroke;stroke:hsl(var(--background));stroke-width:6" fill="hsl(var(--muted-foreground))">cancel — nothing written</text>
+
+  <circle cx="24" cy="222" r="9" fill="hsl(var(--accent))"/>
+  <text x="24" y="226" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">1</text>
+  <text x="42" y="226" style="font-size:12px" fill="hsl(var(--muted-foreground))">Dialog names the driver who keeps the device and the one whose assignment closes.</text>
+  <circle cx="24" cy="252" r="9" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="24" y="256" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">2</text>
+  <text x="42" y="256" style="font-size:12px" fill="hsl(var(--muted-foreground))">Same driver + same unit reads as cleanup, not a device transfer.</text>
+  <circle cx="24" cy="282" r="9" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="24" y="286" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">3</text>
+  <text x="42" y="286" style="font-size:12px" fill="hsl(var(--muted-foreground))">Every pair still requires review — no auto-merge.</text>
+</svg>

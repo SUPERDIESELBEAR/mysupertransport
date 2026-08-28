@@ -1,0 +1,44 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans);">
+  <style>
+    text { font-family: var(--font-sans); }
+    .label { font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; rx: 8; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; marker-end: url(#chev); }
+  </style>
+  <defs>
+    <marker id="chev" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- Main lane -->
+  <text x="20" y="30" class="note">main</text>
+  <line x1="20" y1="38" x2="620" y2="38" stroke="hsl(var(--border))" stroke-width="1"/>
+  <rect x="60" y="52" width="120" height="44" class="box" rx="8"/>
+  <text x="120" y="70" text-anchor="middle" class="label">Pre-build state</text>
+  <text x="120" y="86" text-anchor="middle" class="note">revert target</text>
+  <rect x="230" y="52" width="120" height="44" class="box" rx="8"/>
+  <text x="290" y="70" text-anchor="middle" class="label">Big build edits</text>
+  <text x="290" y="86" text-anchor="middle" class="note">in Main (today)</text>
+  <rect x="400" y="52" width="160" height="44" class="box" rx="8"/>
+  <text x="480" y="70" text-anchor="middle" class="label">Revert in Main</text>
+  <text x="480" y="86" text-anchor="middle" class="note">code returns to pre-build</text>
+  <line x1="180" y1="74" x2="226" y2="74" class="wire"/>
+  <line x1="350" y1="74" x2="396" y2="74" class="wire"/>
+
+  <!-- Draft lane -->
+  <text x="20" y="150" class="note">big-build draft</text>
+  <line x1="20" y1="158" x2="620" y2="158" stroke="hsl(var(--border))" stroke-width="1"/>
+  <rect x="230" y="172" width="170" height="44" class="box" rx="8"/>
+  <text x="315" y="190" text-anchor="middle" class="label">Draft copy (with big build)</text>
+  <text x="315" y="206" text-anchor="middle" class="note">untouched by Main revert</text>
+  <line x1="290" y1="96" x2="290" y2="150" class="wire"/>
+  <text x="298" y="130" class="note">branched before revert</text>
+
+  <!-- FIXES lane -->
+  <text x="20" y="246" class="note">FIXES draft</text>
+  <line x1="20" y1="254" x2="620" y2="254" stroke="hsl(var(--border))" stroke-width="1"/>
+  <rect x="400" y="262" width="200" height="34" fill="hsl(var(--accent))" rx="8"/>
+  <text x="500" y="284" text-anchor="middle" class="label" fill="hsl(var(--accent-foreground))">accept FIXES → publish: fixes only</text>
+</svg>

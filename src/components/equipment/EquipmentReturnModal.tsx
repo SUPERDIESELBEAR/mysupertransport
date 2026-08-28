@@ -26,7 +26,7 @@ interface Props {
 const CONDITIONS: { value: ReturnCondition; label: string; description: string; mgmtOnly?: boolean }[] = [
   { value: 'available', label: 'Good — Available to Reissue', description: 'Device returned in working condition, ready for the next operator.' },
   { value: 'damaged',   label: 'Damaged / Needs Replacement',  description: 'Device returned but requires inspection or replacement before reissue.', mgmtOnly: true },
-  { value: 'lost',      label: 'Lost / Not Returned',          description: 'Device was not returned by the operator.', mgmtOnly: true },
+  { value: 'lost',      label: 'Not Returned',          description: 'Device was not returned by the operator.', mgmtOnly: true },
 ];
 
 export default function EquipmentReturnModal({ open, item, isManagement, onClose, onSaved }: Props) {
@@ -169,7 +169,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
           {confirming && item && (
             <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm text-foreground">
               This will return <span className="font-mono font-semibold">{item.serial_number}</span> to inventory
-              {condition === 'available' ? ' as Available' : ` as ${condition === 'damaged' ? 'Damaged' : 'Lost'}`}
+              {condition === 'available' ? ' as Available' : ` as ${condition === 'damaged' ? 'Damaged' : 'Not Returned'}`}
               {item.current_operator_name ? <> and clear it from <span className="font-semibold">{item.current_operator_name}</span>'s record</> : ''}. Continue?
             </div>
           )}
