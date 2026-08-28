@@ -361,6 +361,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     }
   }, [operatorId]);
 
+  // Today's driving work. Read through the same chain rule the Dispatch Board
+  // uses so home and the board can never disagree about the current load.
+  const home = useOperatorHome(operatorId);
+
   // Track OSAS assignment sheet counts to drive sidebar visibility and badge.
   useEffect(() => {
     if (!operatorId) { setOsasSheetTotal(0); setOsasPendingCount(0); return; }
