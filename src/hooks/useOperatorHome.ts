@@ -5,9 +5,7 @@ import {
 } from '@/lib/dispatchBoard';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
 import { evaluateLoadPaperwork } from '@/lib/loadPaperwork';
-import { fetchEffectivePayPolicy } from '@/lib/payTreatment';
-import { estimateDriverLoadPay, type DriverLoadPayEstimate } from '@/lib/driverLoadPay';
-import type { LoadChargeRecord } from '@/lib/loadCharges';
+import type { DriverLoadPayEstimate } from '@/lib/driverLoadPay';
 import { nextStop, type HomeStop } from '@/lib/operatorHome';
 
 export interface HomeLoad extends ChainLoad {
@@ -142,16 +140,22 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
       const queued = (chain?.queued ?? []).map(decorate);
       const paperworkTail = (chain?.paperworkTail ?? []).map(decorate);
 
+      // The figure comes back from the database as a DOLLAR AMOUNT. The client
+      // never reads a pay policy row: percentages are staff-only at the RLS
+      // layer, and driver_load_pay_estimate has no code path that returns one.
       let currentPay: DriverLoadPayEstimate | null = null;
       if (current) {
-        const [{ data: charges }, policy] = await Promise.all([
-          supabase
-            .from('load_charges')
-            .select('id, load_id, load_stop_id, charge_type, description, amount, source, funding_source, actual_cost, proof_document_id')
-            .eq('load_id', current.id),
-          fetchEffectivePayPolicy(operatorId),
-        ]);
-        currentPay = estimateDriverLoadPay((charges ?? []) as unknown as LoadChargeRecord[], policy);
+        const { data: est, error: payError } = await (supabase as any)
+          .rpc('driver_load_pay_estimate', { _load_id: current.id });
+        if (payError) {
+          console.error('[useOperatorHome] pay estimate failed', payError);
+          currentPay = { amount: null, incomplete: true };
+        } else {
+          const row = Array.isArray(est) ? est[0] : est;
+          currentPay = row
+            ? { amount: row.amount === null ? null : Number(row.amount), incomplete: !!row.incomplete }
+            : { amount: null, incomplete: true };
+        }
       }
 
       if (!cancelled) {
