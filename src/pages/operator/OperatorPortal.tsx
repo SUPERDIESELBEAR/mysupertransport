@@ -2093,7 +2093,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading messages…</div>}>
             <OperatorMessagesHub
               initialBroadcastId={new URLSearchParams(location.search).get('b') ?? undefined}
+              initialUserId={messageInitialUserId ?? undefined}
+              onInitialUserConsumed={() => setMessageInitialUserId(null)}
             />
+
           </Suspense>
         )}
 

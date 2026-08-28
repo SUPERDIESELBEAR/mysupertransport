@@ -11,17 +11,30 @@ import DriverContactsPanel from './DriverContactsPanel';
 interface Props {
   /** Deep-link to a specific broadcast id, opens the Announcements tab. */
   initialBroadcastId?: string;
+  /**
+   * Deep-link straight into a direct conversation with this staff member —
+   * used by "Message <dispatcher>" on the driver's load card. Dispatch is the
+   * first call when something goes wrong, so it must land in the thread, not
+   * on the inbox list. The thread is opened even when no message exists yet.
+   */
+  initialUserId?: string;
+  /** Called once the conversation has been opened, so the parent can clear it. */
+  onInitialUserConsumed?: () => void;
 }
 
-export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
+export default function OperatorMessagesHub({ initialBroadcastId, initialUserId, onInitialUserConsumed }: Props) {
   const { user } = useAuth();
   const [announceUnread, setAnnounceUnread] = useState(0);
   const [needsAck, setNeedsAck] = useState(0);
   const [tab, setTab] = useState<'announcements' | 'direct' | 'contacts'>(
     initialBroadcastId ? 'announcements' : 'direct'
   );
-  const [pendingChatUserId, setPendingChatUserId] = useState<string | undefined>(undefined);
-  const clearPendingChatUser = useCallback(() => setPendingChatUserId(undefined), []);
+  const [pendingChatUserId, setPendingChatUserId] = useState<string | undefined>(initialUserId);
+  const clearPendingChatUser = useCallback(() => {
+    setPendingChatUserId(undefined);
+    onInitialUserConsumed?.();
+  }, [onInitialUserConsumed]);
+
   const [directUnread, setDirectUnread] = useState(0);
 
   // Load badge counts for announcements
@@ -60,6 +73,14 @@ export default function OperatorMessagesHub({ initialBroadcastId }: Props) {
   useEffect(() => {
     if (initialBroadcastId) setTab('announcements');
   }, [initialBroadcastId]);
+
+  // A dispatcher deep-link arriving after mount opens Direct on that thread.
+  useEffect(() => {
+    if (!initialUserId) return;
+    setPendingChatUserId(initialUserId);
+    setTab('direct');
+  }, [initialUserId]);
+
 
   return (
     <div className="bg-white border border-border rounded-2xl overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 180px)', minHeight: '480px' }}>

@@ -84,17 +84,32 @@ export function OperatorTodayCard({
           </span>
         </div>
 
-        {pay?.amount !== null && pay !== null && (
+        {/* ABSENCE IS INFORMATION. A missing or incomplete estimate must never
+            render as a dollar figure — $0.00 reads as "this load pays nothing".
+            Same rule as "Not stated" on detention terms. */}
+        {pay && (
           <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Estimated for you on this load
             </p>
-            <p className="text-xl font-bold text-foreground leading-tight">{formatCurrency(pay.amount)}</p>
-            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-              Estimate. Final amount is set on your settlement{pay.incomplete ? ' — some charges are still being confirmed' : ''}.
-            </p>
+            {pay.amount === null || pay.incomplete ? (
+              <>
+                <p className="text-sm font-semibold text-muted-foreground leading-tight">Not yet calculated</p>
+                <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                  Charges for this load are still being entered. Your dispatcher can tell you more.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl font-bold text-foreground leading-tight">{formatCurrency(pay.amount)}</p>
+                <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                  Estimate. Final amount is set on your settlement.
+                </p>
+              </>
+            )}
           </div>
         )}
+
 
         {load.outstandingPaperwork.length > 0 && (
           <div className="flex items-start gap-2.5 rounded-xl border border-info/40 bg-info/8 px-4 py-3">
