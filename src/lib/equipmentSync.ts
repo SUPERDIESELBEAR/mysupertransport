@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
+export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 
 /** Map from device type back to the onboarding_status column holding its serial. */
 const DEVICE_TYPE_FIELD: Record<DeviceType, string> = {
@@ -154,12 +154,151 @@ export function normalizeSerial(value: string | null | undefined): string | null
   return cleaned || null;
 }
 
+/**
+ * Comparison form of a serial. On top of normalizeSerial it folds the
+ * characters that are visually confusable on a device label — O/0, I/1, L/1,
+ * S/5 — so `AABL36UGO24945` and `AABL36UG024945` are recognised as the same
+ * physical device. Vendor serials here are a letter prefix followed by digits,
+ * so folding can never collapse two genuinely different devices.
+ *
+ * Only comparisons use this. The serial is always STORED as typed.
+ */
+export function canonicalSerial(value: string | null | undefined): string | null {
+  const normalized = normalizeSerial(value);
+  if (!normalized) return null;
+  return normalized.replace(/[OILS]/g, ch =>
+    ch === 'O' ? '0' : ch === 'S' ? '5' : '1',
+  );
+}
+
+/** True when two serials are the same device once confusables are folded. */
+export function serialsCollide(a: string | null | undefined, b: string | null | undefined): boolean {
+  const ca = canonicalSerial(a);
+  const cb = canonicalSerial(b);
+  return !!ca && !!cb && ca === cb;
+}
+
+/**
+ * Indexes (into the NORMALIZED form) where two serials differ. Canonical
+ * collisions are the same length in practice; when they are not, the trailing
+ * overflow of the longer string is reported so callers never have to guard.
+ */
+export function serialDiffPositions(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): number[] {
+  const na = normalizeSerial(a) ?? '';
+  const nb = normalizeSerial(b) ?? '';
+  const out: number[] = [];
+  const len = Math.max(na.length, nb.length);
+  for (let i = 0; i < len; i++) {
+    if (na[i] !== nb[i]) out.push(i);
+  }
+  return out;
+}
+
+/** Plain-language sentence naming the differing characters, or null if identical. */
+export function describeSerialDiff(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): string | null {
+  const na = normalizeSerial(a) ?? '';
+  const nb = normalizeSerial(b) ?? '';
+  const positions = serialDiffPositions(na, nb);
+  if (positions.length === 0) return null;
+  if (positions.length > 3) {
+    return `Differs at ${positions.length} characters.`;
+  }
+  const parts = positions.map(i => `position ${i + 1}: ${na[i] ?? '—'} vs ${nb[i] ?? '—'}`);
+  const joined = parts.length === 1
+    ? parts[0]
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return `Differs at ${joined} — these look alike.`;
+}
+
+/** Levenshtein distance capped at 2 — enough to answer "is this one edit away?". */
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 2) return 3;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+export interface SerialMatch {
+  id: string;
+  serial_number: string;
+  status: string;
+  holderName: string | null;
+  /** 'collision' = same device after folding (hard block); 'near' = one edit away. */
+  kind: 'collision' | 'near';
+}
+
+/**
+ * Looks for existing devices of the same type whose serial either collides
+ * after confusable folding, or sits exactly one character away (the classic
+ * dropped/added-digit typo). Used by the add and assign forms.
+ */
+export async function findSerialMatches(
+  deviceType: DeviceType,
+  serial: string | null | undefined,
+  excludeId?: string | null,
+): Promise<SerialMatch[]> {
+  const canon = canonicalSerial(serial);
+  if (!canon) return [];
+
+  const { data } = await supabase
+    .from('equipment_items')
+    .select('id, serial_number, status')
+    .eq('device_type', deviceType);
+
+  const candidates = ((data ?? []) as any[])
+    .filter(row => row.id !== excludeId)
+    .map(row => {
+      const rowCanon = canonicalSerial(row.serial_number) ?? '';
+      const kind: 'collision' | 'near' | null =
+        rowCanon === canon ? 'collision'
+          : editDistance(rowCanon, canon) === 1 ? 'near'
+            : null;
+      return kind ? { id: row.id as string, serial_number: row.serial_number as string, status: row.status as string, kind } : null;
+    })
+    .filter(Boolean) as Omit<SerialMatch, 'holderName'>[];
+
+  if (candidates.length === 0) return [];
+
+  const { data: open } = await supabase
+    .from('equipment_assignments')
+    .select('equipment_id, operator_id')
+    .in('equipment_id', candidates.map(c => c.id))
+    .is('returned_at', null);
+
+  const holderByEquipment = new Map<string, string | null>();
+  for (const row of (open ?? []) as any[]) {
+    holderByEquipment.set(row.equipment_id, await resolveOperatorName(row.operator_id));
+  }
+
+  return candidates
+    .map(c => ({ ...c, holderName: holderByEquipment.get(c.id) ?? null }))
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'collision' ? -1 : 1));
+}
+
 /** Dashes are not allowed in serials — surfaced inline on entry forms. */
 export const SERIAL_DASH_MESSAGE = 'Serial numbers cannot contain dashes';
 
 export function serialHasDash(value: string): boolean {
   return value.includes('-');
 }
+
 
 /**
  * Throws DuplicateAssignmentError when the item cannot be assigned to
@@ -288,13 +427,16 @@ export async function syncDeviceToInventory(
     return;
   }
 
-  // Check if device already exists
-  const { data: existingDevice } = await supabase
+  // Check if device already exists — matched on the canonical (confusable-folded)
+  // form so an O-for-zero typo reuses the existing device instead of cloning it.
+  const { data: sameTypeItems } = await supabase
     .from('equipment_items')
-    .select('id, status')
-    .eq('serial_number', serial)
-    .eq('device_type', deviceType)
-    .maybeSingle();
+    .select('id, status, serial_number')
+    .eq('device_type', deviceType);
+  const canon = canonicalSerial(serial);
+  const existingDevice = ((sameTypeItems ?? []) as any[])
+    .find(row => canonicalSerial(row.serial_number) === canon) ?? null;
+
 
   let equipmentId: string;
 
@@ -372,3 +514,103 @@ export async function syncAllDeviceFields(
 
   await Promise.all(promises);
 }
+
+/**
+ * Resolves a serial conflict: two inventory records that are really one
+ * physical device. The surviving record keeps its open assignment (so the
+ * driver holding the device does not change); the duplicate's history is
+ * repointed onto the survivor, its open assignment is closed, and the driver
+ * that held the duplicate has the serial cleared from their onboarding record.
+ *
+ * `correctedSerial` covers the case where the right driver has the wrong
+ * number typed on their record: the survivor's serial is rewritten (and pushed
+ * to its holder's onboarding field) before the duplicate row is deleted, so the
+ * confusable-serial guard never sees two rows on the corrected value.
+ */
+export async function mergeEquipmentItems(
+  survivor: { id: string; device_type: DeviceType; serial_number: string },
+  loser: { id: string; device_type: DeviceType; serial_number: string },
+  opts: { correctedSerial?: string | null } = {},
+): Promise<void> {
+  if (survivor.id === loser.id) return;
+
+  const field = DEVICE_TYPE_FIELD[loser.device_type];
+
+  const corrected = normalizeSerial(opts.correctedSerial);
+  const survivorSerial = normalizeSerial(survivor.serial_number);
+  const needsCorrection = !!corrected && corrected !== survivorSerial;
+
+  // Close any open assignment on the duplicate and clear that driver's field.
+  const { data: open, error: openErr } = await supabase
+    .from('equipment_assignments')
+    .select('id, operator_id')
+    .eq('equipment_id', loser.id)
+    .is('returned_at', null);
+  if (openErr) throw openErr;
+
+  for (const row of (open ?? []) as any[]) {
+    const { error: updErr } = await supabase
+      .from('equipment_assignments')
+      .update({
+        returned_at: new Date().toISOString(),
+        notes: `Merged into ${corrected ?? survivor.serial_number} — duplicate record`,
+      })
+      .eq('id', row.id);
+    if (updErr) throw updErr;
+
+    if (row.operator_id) {
+      const { error: clearErr } = await supabase
+        .from('onboarding_status')
+        .update({ [field]: null } as never)
+        .eq('operator_id', row.operator_id);
+      if (clearErr) throw clearErr;
+    }
+  }
+
+  // Repoint remaining (closed) history onto the survivor.
+  const { error: moveErr } = await supabase
+    .from('equipment_assignments')
+    .update({ equipment_id: survivor.id })
+    .eq('equipment_id', loser.id)
+    .not('returned_at', 'is', null);
+  if (moveErr) throw moveErr;
+
+  const { error: delErr } = await supabase.from('equipment_items').delete().eq('id', loser.id);
+  if (delErr) throw delErr;
+
+  if (needsCorrection) {
+    const { error: fixErr } = await supabase
+      .from('equipment_items')
+      .update({ serial_number: corrected })
+      .eq('id', survivor.id);
+    if (fixErr) throw fixErr;
+
+    // Push the corrected number onto the holding driver's onboarding record.
+    const { data: stillOpen, error: holderErr } = await supabase
+      .from('equipment_assignments')
+      .select('operator_id')
+      .eq('equipment_id', survivor.id)
+      .is('returned_at', null);
+    if (holderErr) throw holderErr;
+
+    for (const row of (stillOpen ?? []) as any[]) {
+      if (!row.operator_id) continue;
+      const { error: setErr } = await supabase
+        .from('onboarding_status')
+        .update({ [field]: corrected } as never)
+        .eq('operator_id', row.operator_id);
+      if (setErr) throw setErr;
+    }
+  }
+
+  await auditEquipment('equipment_deleted', loser, {
+    merged_into_id: survivor.id,
+    merged_into_serial: corrected ?? survivor.serial_number,
+    ...(needsCorrection
+      ? { serial_corrected_from: survivor.serial_number, serial_corrected_to: corrected }
+      : {}),
+    reason: 'serial_conflict_merge',
+  });
+}
+
+

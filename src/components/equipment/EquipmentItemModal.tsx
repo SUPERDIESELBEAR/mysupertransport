@@ -11,11 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Archive, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
 import type { EquipmentItem, DeviceType, EquipmentStatus } from './EquipmentInventory';
+import SerialDiffText from './SerialDiffText';
 import {
   normalizeSerial, SERIAL_DASH_MESSAGE, serialHasDash,
   archiveEquipmentItem, restoreEquipmentItem, deleteEquipmentItem,
   getDeleteEligibility, type DeleteEligibility,
+  findSerialMatches, type SerialMatch,
 } from '@/lib/equipmentSync';
+
 
 interface Props {
   open: boolean;
@@ -38,7 +41,7 @@ const STATUSES: { value: EquipmentStatus; label: string; mgmtOnly?: boolean }[] 
   { value: 'available', label: 'Available' },
   { value: 'assigned',  label: 'Assigned' },
   { value: 'damaged',   label: 'Damaged / Needs Replacement', mgmtOnly: true },
-  { value: 'lost',      label: 'Lost / Not Returned',    mgmtOnly: true },
+  { value: 'lost',      label: 'Not Returned',    mgmtOnly: true },
   { value: 'deactivated', label: 'Archived', mgmtOnly: true },
 ];
 
@@ -57,6 +60,31 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteSerialInput, setDeleteSerialInput] = useState('');
   const [eligibility, setEligibility] = useState<DeleteEligibility | null>(null);
+  const [matches, setMatches] = useState<SerialMatch[]>([]);
+
+
+  // Live look-ahead: is this serial the same device as one already on file
+  // (confusable characters folded), or one character away from one?
+  useEffect(() => {
+    if (!open) { setMatches([]); return; }
+    const value = serialNumber.trim();
+    if (!value) { setMatches([]); return; }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      findSerialMatches(deviceType, value, item?.id ?? null)
+        .then(found => {
+          if (cancelled) return;
+          // For 3-digit fuel cards a one-character difference is normal, not a typo.
+          setMatches(deviceType === 'fuel_card' ? found.filter(m => m.kind === 'collision') : found);
+        })
+        .catch(() => { if (!cancelled) setMatches([]); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [open, serialNumber, deviceType, item?.id]);
+
+  const collision = matches.find(m => m.kind === 'collision') ?? null;
+  const nearMatches = matches.filter(m => m.kind === 'near');
+
 
   useEffect(() => {
     if (item) {
@@ -125,21 +153,26 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
     }
     setSaving(true);
 
-    // Duplicate serial+type guard
+    // Duplicate guard — matched on the confusable-folded form so O/0 and I/1
+    // twins of an existing device are blocked, not silently added.
     const normalizedSerial = normalizeSerial(serialNumber) as string;
-    let dupQuery = supabase
-      .from('equipment_items')
-      .select('id')
-      .eq('device_type', deviceType)
-      .ilike('serial_number', normalizedSerial);
-    if (item) dupQuery = dupQuery.neq('id', item.id);
-    const { data: dupRows } = await dupQuery.limit(1);
-    if (dupRows && dupRows.length > 0) {
+    const found = await findSerialMatches(deviceType, normalizedSerial, item?.id ?? null);
+    const hit = found.find(m => m.kind === 'collision');
+    if (hit) {
       const label = DEVICE_TYPES.find(t => t.value === deviceType)?.label ?? deviceType;
-      toast({ title: `A ${label} with serial ${normalizedSerial} already exists`, variant: 'destructive' });
+      toast({
+        title: `That ${label} is already on file as ${hit.serial_number}`,
+        description: hit.holderName
+          ? `Currently assigned to ${hit.holderName}. Assign that record instead of adding a second one.`
+          : 'Use the existing record instead of adding a second one.',
+        variant: 'destructive',
+      });
       setSaving(false);
       return;
     }
+
+
+
 
     const payload = {
       device_type: deviceType,
@@ -212,6 +245,33 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
             {serialHasDash(serialNumber) && (
               <p className="text-xs text-destructive">{SERIAL_DASH_MESSAGE}</p>
             )}
+            {collision && (
+              <div className="flex items-start gap-1.5 rounded border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-foreground">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive mt-0.5" />
+                <span>
+                  Already on file as <SerialDiffText value={collision.serial_number} against={serialNumber} />
+                  {collision.holderName ? ` — assigned to ${collision.holderName}` : ''}. Only the characters
+                  that look alike differ, so this is the same device.
+                </span>
+              </div>
+            )}
+            {!collision && nearMatches.length > 0 && (
+              <div className="flex items-start gap-1.5 rounded border border-warning/30 bg-warning/10 px-2 py-1.5 text-xs text-foreground">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning mt-0.5" />
+                <span>
+                  One character away from{' '}
+                  {nearMatches.slice(0, 2).map((m, i) => (
+                    <span key={m.id}>
+                      {i > 0 ? ' and ' : ''}
+                      <SerialDiffText value={m.serial_number} against={serialNumber} />
+                      {m.holderName ? ` (${m.holderName})` : ''}
+                    </span>
+                  ))}
+                  . Double-check the label before saving.
+                </span>
+              </div>
+            )}
+
           </div>
 
           <div className="space-y-1.5">

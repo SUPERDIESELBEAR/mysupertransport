@@ -1,0 +1,30 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect x="16" y="40" width="150" height="56" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="91" y="63" text-anchor="middle" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Conflict pair</text>
+  <text x="91" y="82" text-anchor="middle" font-size="12" fill="hsl(var(--muted-foreground))">shown in panel</text>
+
+  <line x1="166" y1="68" x2="238" y2="68" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <text x="202" y="60" text-anchor="middle" font-size="12" fill="hsl(var(--muted-foreground))" style="paint-order:stroke" stroke="hsl(var(--background))" stroke-width="3">tap</text>
+
+  <rect x="240" y="40" width="160" height="56" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="320" y="63" text-anchor="middle" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Hidden locally</text>
+  <text x="320" y="82" text-anchor="middle" font-size="12" fill="hsl(var(--muted-foreground))">browser only — no data change</text>
+
+  <line x1="400" y1="68" x2="472" y2="68" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="474" y="40" width="150" height="56" rx="8" fill="none" stroke="hsl(var(--accent-foreground))"/>
+  <text x="549" y="63" text-anchor="middle" font-size="14" font-weight="480" fill="hsl(var(--accent-foreground))">Undo / Show</text>
+  <text x="549" y="82" text-anchor="middle" font-size="12" fill="hsl(var(--muted-foreground))">pair returns</text>
+
+  <path d="M549 96 L549 140 L91 140 L91 100" fill="none" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3" marker-end="url(#ch)"/>
+
+  <circle cx="30" cy="190" r="10" fill="hsl(var(--accent))"/>
+  <text x="30" y="194" text-anchor="middle" font-size="12" fill="hsl(var(--accent-foreground))">1</text>
+  <text x="50" y="187" font-size="12" fill="hsl(var(--muted-foreground))">Nothing was merged or deleted — the two devices are untouched.</text>
+  <text x="50" y="205" font-size="12" fill="hsl(var(--muted-foreground))">Clearing the hidden list restores both pairs for review.</text>
+</svg>

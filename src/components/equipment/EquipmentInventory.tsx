@@ -24,6 +24,8 @@ import SignOffSheetList from './SignOffSheetList';
 import type { SheetWithItems } from './SignOffSheetList';
 import SignOffSheetPreviewModal from './SignOffSheetPreviewModal';
 import EquipmentByDriver from './EquipmentByDriver';
+import SerialConflictsPanel from './SerialConflictsPanel';
+
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
@@ -61,7 +63,7 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; ico
   available: { label: 'Available',      color: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-3 w-3" /> },
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
   damaged:   { label: 'Damaged / Needs Replacement', color: 'bg-warning/15 text-warning border-warning/30',        icon: <AlertTriangle className="h-3 w-3" /> },
-  lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
+  lost:      { label: 'Not Returned',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
   deactivated: { label: 'Archived',     color: 'bg-muted text-muted-foreground border-border',                        icon: <Archive className="h-3 w-3" /> },
 };
 
@@ -523,7 +525,10 @@ export default function EquipmentInventory({
         </div>
       ) : (
         <div className="space-y-3">
+          <SerialConflictsPanel items={items} onResolved={() => { fetchItems(); fetchByDriverCounts(); }} />
+
           {/* By Driver expandable section */}
+
           <div className="border border-border rounded-xl bg-card overflow-hidden">
             <button
               type="button"
@@ -965,7 +970,7 @@ function FuelCardSections({
   const allSections: { key: EquipmentStatus | 'available_group'; title: string; subtitle: string; items: EquipmentItem[] }[] = [
     { key: 'assigned', title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
     { key: 'available_group', title: 'Unassigned Inventory', subtitle: 'Available fuel cards not yet assigned to a driver', items: available },
-    { key: 'lost', title: 'Lost/Missing', subtitle: 'Fuel cards reported lost or missing', items: lost },
+    { key: 'lost', title: 'Not Returned', subtitle: 'Fuel cards not returned by the operator', items: lost },
     { key: 'deactivated', title: 'Deactivated', subtitle: 'Archived fuel cards no longer in use', items: deactivated },
   ];
 
