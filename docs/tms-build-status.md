@@ -1969,3 +1969,117 @@ after subscribe throws, white-screening the app. Fixed the same way as
 `src/components/__tests__/notificationBellChannelIsolation.test.tsx` mounts two
 bells against a mock that reproduces the caching and the throw, so a third
 recurrence fails a test instead of a screen.
+
+## The anon grant on SECURITY DEFINER functions (2026-08-28)
+
+### Supabase default privileges grant anon at CREATE time
+
+`\ddp` on this database shows, for schema `public`, functions:
+
+```
+ postgres        | public | function | postgres=X/postgres +
+                                       anon=X/postgres +
+                                       authenticated=X/postgres +
+                                       service_role=X/postgres
+ supabase_admin  | public | function | postgres=X/supabase_admin +
+                                       anon=X/supabase_admin +
+                                       authenticated=X/supabase_admin +
+                                       service_role=X/supabase_admin
+```
+
+Every function created in schema `public` by `postgres` — which is every
+function any migration in this project has ever created — is born with `anon`,
+`authenticated` and `service_role` holding EXECUTE. This is standard Supabase
+configuration, not a defect in this project and not something done out of band.
+It fires at CREATE time only: no event trigger and no post-creation hook
+re-grants afterwards. The event triggers that do exist
+(`issue_pg_graphql_access`, `pgrst_ddl_watch`, `pgrst_drop_watch`,
+`issue_pg_cron_access`, `issue_pg_net_access`) do not touch these ACLs.
+
+### REVOKE ALL FROM PUBLIC DOES NOT REMOVE THE anon GRANT
+
+PUBLIC is the implicit pseudo-role. `anon` is a real named role holding a real
+entry in `proacl`. Revoking from one says nothing about the other.
+
+**Every migration in this project that revoked from PUBLIC and considered the
+function locked was mistaken.** The function stayed reachable by
+unauthenticated callers, and the migration file read as though it were not.
+This is also why `definer-live-catalog.test.ts` exists at all: a migration-file
+guard cannot see a grant the file never mentions.
+
+`current_profile_id` is the counter-example and the proof. Its revoke, made
+2026-08-20 and reaffirmed in migration `20260824134718`, **named the roles
+explicitly**. Live `proacl` today:
+
+```
+current_profile_id | {postgres=X/postgres,service_role=X/postgres}
+```
+
+No `anon`, no `authenticated`. It held because it named roles. The others did
+not because they named PUBLIC.
+
+### STANDING RULE, AMENDED
+
+A new SECURITY DEFINER function requires **all four** in the same migration
+that creates it:
+
+1. `SECURITY DEFINER`
+2. `SET search_path TO 'public', 'extensions'`
+3. `REVOKE ALL ON FUNCTION ... FROM PUBLIC`
+4. `REVOKE EXECUTE ON FUNCTION ... FROM anon` — **unless anon access is
+   intended, in which case the migration must say so in a comment naming the
+   public route that needs it**
+
+Item 4 is new. Items 1 through 3 were the rule before today and were not
+sufficient.
+
+### The current inventory
+
+49 of 205 SECURITY DEFINER functions in schema `public` carry `anon=X`, plus
+161 non-definer functions. A subset of the 49 is deliberate — the token-gated
+public paths — and the rest have not been classified. The sweep is its own
+future pass, registered in `docs/tms-wish-list.md` under KNOWN DEBT; nothing
+was revoked in this pass except `driver_load_pay_estimate`.
+
+Full list of the 49 definer functions carrying `anon=X` as of 2026-08-28,
+before the `driver_load_pay_estimate` revoke:
+
+```
+_audit_actor_name                      add_pei_staff_note
+approve_application_correction         archive_applicant_pei (both overloads)
+can_driver_message_staff               cancel_application_correction
+check_application_email_taken          consume_application_resume_token
+driver_load_pay_estimate               email_queue_dispatch
+get_application_by_draft_token         get_application_correction_by_token
+get_application_pei_summary            get_equipment_shipping_for_operator
+get_ica_review_link                    get_inspection_doc_by_token
+get_or_create_short_link               get_pei_request_for_response
+get_pei_requests_needing_action        get_share_bundle_meta
+get_thread_participants                get_user_roles
+has_role                               is_own_rods_operator
+is_staff                               is_thread_participant
+is_truck_owner_for_operator            is_valid_application_draft_token
+list_driver_contacts                   list_my_group_threads
+list_staff_auto_assigned_drivers       log_pei_manual_send
+log_pei_phone_attempt                  mark_thread_read
+move_revisions_to_pending              operator_awaiting_return
+operator_return_requested              reject_application_correction
+resolve_share_bundle                   resolve_share_token
+resolve_short_link                     restore_applicant_pei
+save_application_draft                 submit_application_correction
+submit_application_draft               submit_pei_response (both overloads)
+unacked_go_live_blockers
+```
+
+`driver_load_pay_estimate` comes off that list with the revoke staged in
+`20260828130500_revoke_anon_driver_load_pay_estimate.sql`.
+
+### pay_policies granted unscoped read to the operator role from creation until 2026-08-28
+
+`pay_policies_read_staff` admitted `operator` alongside management, owner,
+dispatcher and onboarding_staff, with no row scope, from the table's creation
+in Module 1 Pass 1 until 2026-08-28. Any signed-in driver could read every
+company pay policy: every percentage, every company default, and every
+driver-specific policy written for someone else. The driver-facing surface only
+ever needed one number, so the policy now excludes `operator` and the driver
+reads his own estimate through `driver_load_pay_estimate`.

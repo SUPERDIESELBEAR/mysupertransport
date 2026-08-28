@@ -174,6 +174,31 @@ been in real use long enough to know what the chase workflow actually needs.
 
 ## KNOWN DEBT
 
+### Audit and revoke anon EXECUTE across definer functions
+**TRIGGER: before any external launch or SaaS onboarding.**
+
+Supabase default privileges grant `anon` EXECUTE on every function created in
+schema `public` at CREATE time, and `REVOKE ALL FROM PUBLIC` does not remove it
+(PUBLIC is not anon). 49 of 205 SECURITY DEFINER functions currently carry
+`anon=X`, plus 161 non-definer functions. The full record, including the
+amended standing rule for new definer functions, is in
+`docs/tms-build-status.md`.
+
+**This cannot be done in bulk.** A subset legitimately needs anon — the
+token-gated public paths: `resolve_share_token`,
+`get_application_by_draft_token`, `get_inspection_doc_by_token`,
+`resolve_short_link`, the PEI response path (`get_pei_request_for_response`,
+`submit_pei_response`) and the application draft-save path
+(`is_valid_application_draft_token`, `save_application_draft`,
+`submit_application_draft`, `consume_application_resume_token`). Revoking one of
+those breaks `/inspect/:token` or the public application flow **with no obvious
+symptom**: the caller is unauthenticated, so the failure surfaces as a blank
+page or a silent empty result to someone outside the company, not as an error
+anyone here sees.
+
+Each function must be classified individually — body read, callers traced,
+anon-reachability decided — before anything is revoked. Do not run a loop.
+
 ### Reader fixtures for loadPaperwork are AUTHORED, not writer-derived
 Standing rule: a persisted shape is tested at both writing and reading
 boundaries, with reader fixtures derived from writer output. The Pass 2
