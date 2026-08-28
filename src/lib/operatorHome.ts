@@ -15,6 +15,8 @@ import { CARRIER_TIMEZONE, carrierZoneAbbrev } from '@/lib/carrierTimezone';
 import { getOnboardingStages } from '@/lib/onboardingProgress';
 
 export interface HomeStop {
+  /** Present so the driver can write his own check-in against the stop. */
+  id?: string;
   stop_sequence: number | null;
   stop_type: string | null;
   facility_name: string | null;
@@ -22,7 +24,10 @@ export interface HomeStop {
   state: string | null;
   appointment_start: string | null;
   appointment_end: string | null;
+  actual_arrival_at?: string | null;
   actual_departure_at: string | null;
+  arrival_source?: string | null;
+  departure_source?: string | null;
 }
 
 /**
