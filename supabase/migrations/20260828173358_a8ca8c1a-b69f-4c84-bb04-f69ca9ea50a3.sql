@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.driver_load_pay_estimate(uuid) FROM anon;

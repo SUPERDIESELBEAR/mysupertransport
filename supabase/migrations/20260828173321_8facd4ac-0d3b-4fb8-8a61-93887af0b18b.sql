@@ -1,18 +1,3 @@
--- pay_policies: remove the operator role from the read policy, and give the
--- driver a narrow definer function for the one number he is entitled to see.
---
--- ALREADY APPLIED TO THE LIVE DATABASE 2026-08-28. Written as a file after the
--- fact on 2026-08-28 for the same reason as the equipment-serial migration:
--- the change reached the database and never landed in the repo. Transcribed
--- from pg_policy and pg_get_functiondef on the live catalog. Idempotent.
---
--- WHY. pay_policies_read_staff admitted 'operator' from the table's creation
--- until 2026-08-28, with no row scope. Any signed-in driver could read every
--- company pay policy: every percentage, every company default, every
--- driver-specific override written for someone else. Nothing in the app asked
--- for that; the driver-facing surface needs one number, his own estimate for
--- one of his own loads.
-
 DROP POLICY IF EXISTS pay_policies_read_staff ON public.pay_policies;
 CREATE POLICY pay_policies_read_staff
   ON public.pay_policies
@@ -25,10 +10,6 @@ CREATE POLICY pay_policies_read_staff
     OR has_role(auth.uid(), 'onboarding_staff'::app_role)
   );
 
--- The replacement surface. Resolves the caller's own operator row, refuses any
--- load that is not his, applies the policy that governs him on today's date,
--- and returns a single rounded figure plus an `incomplete` flag. It never
--- returns a percentage, a policy id, or anything about another driver.
 CREATE OR REPLACE FUNCTION public.driver_load_pay_estimate(_load_id uuid)
 RETURNS TABLE(amount numeric, incomplete boolean)
 LANGUAGE plpgsql
@@ -142,10 +123,5 @@ BEGIN
 END;
 $function$;
 
--- The grant as originally applied. REVOKE ... FROM PUBLIC does NOT remove the
--- anon grant that Supabase's default privileges attach at CREATE time — PUBLIC
--- is not anon. That defect is corrected in the migration immediately after
--- this one; the statements are left here as applied so this file is a faithful
--- record of the state it produced.
 REVOKE ALL ON FUNCTION public.driver_load_pay_estimate(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.driver_load_pay_estimate(uuid) TO authenticated;
