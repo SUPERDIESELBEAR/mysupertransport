@@ -1025,7 +1025,7 @@ export default function ManagementPortal() {
         { label: 'Driver Hub',          icon: <Users2 className="h-4 w-4" />,         path: 'drivers' },
         { label: 'Compliance Tracking', icon: <ShieldCheck className="h-4 w-4" />,    path: 'compliance', badge: criticalExpiryCount || undefined },
         { label: 'Document Hub',        icon: <Library className="h-4 w-4" />,        path: 'docs-hub' },
-        { label: 'Driver Logs (RODS)',  icon: <FileText className="h-4 w-4" />,       path: 'eld-logs' },
+        { label: 'Paper Logs (RODS)',   icon: <FileText className="h-4 w-4" />,       path: 'eld-logs' },
         { label: 'Lease Terminations',  icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
       ],
     },
