@@ -15,7 +15,11 @@ export interface HomeLoad extends ChainLoad {
   stops: HomeStop[];
   /** The stop the driver is heading to. */
   next: HomeStop | null;
-  /** Required paperwork still outstanding, in matrix order. */
+  /**
+   * Required paperwork still outstanding, in matrix order, already worded for
+   * the home card: guided loadout stages collapse to a count, ordinary
+   * documents keep their names. See src/lib/paperworkSummary.ts.
+   */
   outstandingPaperwork: string[];
 }
 
