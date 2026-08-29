@@ -67,57 +67,86 @@ function psqlExpectError(sql: string): string {
 }
 
 let CAN_UPDATE = false;
+/**
+ * The index expression `canonical_equipment_serial(serial_number)` is evaluated
+ * as the CALLING role on every write, unlike the trigger body which runs as
+ * definer. `authenticated` holds EXECUTE (checked in the catalog), so the app
+ * is unaffected — but the sandbox harness role does not, so even an INSERT
+ * fails here with `permission denied for function`. That is a harness
+ * limitation, not a defect, and it gates the write arms exactly like UPDATE.
+ */
+let CAN_EXEC_CANONICAL = false;
 if (HAS_DB) {
   try {
     CAN_UPDATE =
       psql(`select has_table_privilege('public.equipment_items','UPDATE')::text`)[0] ===
       'true';
+    CAN_EXEC_CANONICAL =
+      psql(
+        `select has_function_privilege('public.canonical_equipment_serial(text)','EXECUTE')::text`,
+      )[0] === 'true';
   } catch {
     CAN_UPDATE = false;
+    CAN_EXEC_CANONICAL = false;
   }
 }
+
+const CAN_WRITE = HAS_DB && CAN_EXEC_CANONICAL;
 
 if (!HAS_DB) {
   skipBanner('equipment-serial-guard.test.ts LIVE CHECKS DID NOT RUN', [
     'No PGHOST in the environment, so the guard could not be exercised.',
   ]);
-} else if (!CAN_UPDATE) {
+} else if (!CAN_WRITE || !CAN_UPDATE) {
   skipBanner('equipment-serial-guard.test.ts BEHAVIOURAL CHECKS DID NOT RUN', [
-    'This harness role has SELECT and INSERT on equipment_items and no UPDATE.',
+    'This harness role has SELECT on equipment_items, no UPDATE, and no',
+    'EXECUTE on canonical_equipment_serial — which the unique index expression',
+    'needs on every write, so even an INSERT is refused from here.',
     'The reported defect is an UPDATE-path defect — assign, return and archive',
     'are all status UPDATEs — so it cannot be reproduced or disproved here.',
-    'Granting UPDATE to the sandbox role is forbidden.',
+    'Granting UPDATE or EXECUTE to the sandbox role is forbidden.',
     '',
-    'THESE THREE SKIPS ARE NOT COVERAGE. Read them as untested here:',
-    '  - assign / return / archive against a row with a near-twin are verified',
-    '    MANUALLY in Onboard Systems, and on a disposable instance where the',
-    '    harness role holds UPDATE. Nothing automated covers them in this',
-    '    environment.',
+    'THESE SKIPS ARE NOT COVERAGE. Read them as untested here:',
+    '  - assign / return / archive against a row with a near-twin, and the',
+    '    INSERT-path rejection, are verified MANUALLY in Onboard Systems and on',
+    '    a disposable instance where the harness role holds both privileges.',
+    '    Nothing automated covers them in this environment.',
     '',
-    'The INSERT and structural checks below DO run here: they assert the guard',
-    'still rejects a new live near-twin, that a deactivated twin is permitted',
-    'by both trigger and index, that the partial unique index exists with the',
-    'right predicate, and that both early exits are present in the body.',
+    'The catalog checks below DO run here: the partial unique index exists with',
+    'the right predicate, the superseded non-unique index is gone, both early',
+    'exits and the self-exemption are present in the live body, and the',
+    'function is definer, pinned and unreachable by anon/authenticated.',
     'Body text is not behaviour.',
   ]);
 }
 
 const itLive = gatedIt({
-  enabled: HAS_DB && CAN_UPDATE,
+  enabled: HAS_DB && CAN_UPDATE && CAN_EXEC_CANONICAL,
   reason: !HAS_DB
     ? 'no PGHOST, so the live guard could not be exercised'
-    : 'the harness role has no UPDATE on equipment_items, so the UPDATE-path defect cannot fire',
+    : !CAN_EXEC_CANONICAL
+      ? 'the harness role has no EXECUTE on canonical_equipment_serial, so no write to equipment_items can complete'
+      : 'the harness role has no UPDATE on equipment_items, so the UPDATE-path defect cannot fire',
   details: [
     'This is the reported defect itself: assign, return and archive against a',
     'row whose serial has a near-twin. A permanent skip is not coverage.',
   ],
 });
 
+const itWrite = gatedIt({
+  enabled: CAN_WRITE,
+  reason: !HAS_DB
+    ? 'no PGHOST, so the live guard could not be exercised'
+    : 'the harness role has no EXECUTE on canonical_equipment_serial, so the index expression rejects every write',
+  details: ['INSERT-path checks. A permanent skip is not coverage.'],
+});
+
 const itStructure = gatedIt({
   enabled: HAS_DB,
   reason: 'no PGHOST, so the live catalog could not be read',
-  details: ['Catalog and INSERT-path checks; they need no UPDATE privilege.'],
+  details: ['Catalog-only checks; they need SELECT and nothing more.'],
 });
+
 
 /**
  * The constructed pair, built inside one transaction and rolled back.
