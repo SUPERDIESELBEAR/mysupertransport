@@ -39,8 +39,8 @@ It is not a shape and must never be reported as one.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  118 passed | 1 skipped (119)
-     Tests  910 passed | 7 skipped (917)
+Test Files  119 passed | 1 skipped (120)
+     Tests  914 passed | 14 skipped (928)
 
 
 skipped:
@@ -48,6 +48,11 @@ skipped:
     columns and trigger are installed, but the harness role has SELECT +
     INSERT and no UPDATE, and the trigger is BEFORE UPDATE, so it cannot
     fire here; granting UPDATE is forbidden
+  equipment serial guard, write arms x7
+    same missing UPDATE, plus no EXECUTE on canonical_equipment_serial —
+    the unique index expression evaluates it as the CALLER on every write,
+    so even an INSERT is refused here. `authenticated` holds that EXECUTE,
+    so the application is unaffected
   roadside bundle
     opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
   certify_rods_day live RPC > certifies a clean initial draft and supersedes it
@@ -58,8 +63,9 @@ skipped:
 
 
 ```text
-Test Files  111 passed | 8 skipped (119)
-     Tests  876 passed | 33 skipped (909)
+Test Files  111 passed | 9 skipped (120)
+     Tests  876 passed | 44 skipped (920)
+
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable
@@ -69,6 +75,8 @@ skipped: the above, plus
   caller-evaluated functions x3      no PGHOST, live catalog unreadable
   live grant / policy parity x3      no PGHOST, live catalog unreadable
   stop time source structure x4      no PGHOST, live catalog unreadable
+  equipment serial guard catalog x4  no PGHOST, live catalog unreadable
+
 ```
 
 Note on flakiness: a few React Testing Library suites (`brokersPage`,
