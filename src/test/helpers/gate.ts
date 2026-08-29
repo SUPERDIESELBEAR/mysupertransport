@@ -17,7 +17,7 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-29 (look-alike serial guard fix). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-29 (home paperwork summary + canvas stub globalSetup). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
@@ -28,7 +28,7 @@
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
 
- *     914 passed | 14 skipped       (119 files passed | 1 skipped, 120 total)
+ *     919 passed | 14 skipped       (120 files passed | 1 skipped, 121 total)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -50,7 +50,7 @@
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
 
- *     876 passed | 44 skipped       (111 files passed | 9 skipped, 120 total)
+ *     881 passed | 44 skipped       (112 files passed | 9 skipped, 121 total)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)

@@ -61,8 +61,8 @@ reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
 — the flag is part of the recorded invocation, not an optimisation. Every skip is
 named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 914 passed, 14 skipped (119 files passed, 1 skipped, 120 total).
-- **Without database:** 876 passed, 44 skipped (111 files passed, 9 skipped, 120 total).
+- **With database attached:** 919 passed, 14 skipped (120 files passed, 1 skipped, 121 total).
+- **Without database:** 881 passed, 44 skipped (112 files passed, 9 skipped, 121 total).
 
 
 Anything that matches neither shape is a signal, not a question. If a skip count

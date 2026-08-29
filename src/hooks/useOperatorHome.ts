@@ -5,6 +5,7 @@ import {
 } from '@/lib/dispatchBoard';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
 import { evaluateLoadPaperwork } from '@/lib/loadPaperwork';
+import { summarizeOutstandingPaperwork } from '@/lib/paperworkSummary';
 import type { DriverLoadPayEstimate } from '@/lib/driverLoadPay';
 import { nextStop, type HomeStop } from '@/lib/operatorHome';
 
@@ -14,7 +15,11 @@ export interface HomeLoad extends ChainLoad {
   stops: HomeStop[];
   /** The stop the driver is heading to. */
   next: HomeStop | null;
-  /** Required paperwork still outstanding, in matrix order. */
+  /**
+   * Required paperwork still outstanding, in matrix order, already worded for
+   * the home card: guided loadout stages collapse to a count, ordinary
+   * documents keep their names. See src/lib/paperworkSummary.ts.
+   */
   outstandingPaperwork: string[];
 }
 
@@ -136,7 +141,7 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
           brokerName: raw?.brokers?.company_name ?? null,
           stops,
           next: nextStop(stops),
-          outstandingPaperwork: paperwork.outstandingRequired.map(r => r.label),
+          outstandingPaperwork: summarizeOutstandingPaperwork(paperwork.outstandingRequired),
         };
       };
 

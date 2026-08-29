@@ -221,14 +221,12 @@ and `tms-build-status.md` are the project's primary evidence that nothing
 silently stopped running, and a caret range lets the tool producing that
 evidence shift without any commit recording it.
 
-Related: the `canvas-stub` postinstall hook can be bypassed by some installers,
-which broke suite collection twice. The script covers every path jsdom resolves
-when it does run, but the install that brought vitest 3.2.7 did not run it;
-the symlinks were recreated manually after the fact.
-
 The fix is either an exact vitest pin in `package.json` or a committed lockfile
-that the installer respects, plus a CI step that asserts the canvas stub is in
-place before tests collect.
+that the installer respects.
+
+(The canvas-stub half of this entry is resolved: the stub is now re-linked from
+vitest `globalSetup` on every run, so no install hook is involved. See
+`tools/canvas-stub/globalSetup.mjs`.)
 
 ### Reader fixtures for loadPaperwork are AUTHORED, not writer-derived
 Standing rule: a persisted shape is tested at both writing and reading
