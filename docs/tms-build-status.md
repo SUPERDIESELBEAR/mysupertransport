@@ -2546,3 +2546,97 @@ completion stamp fires when a driver uploads a tracking receipt, before anything
 is physically checked in, and `mark_equipment_return_completed` is a
 driver-triggered write. No field records "management confirms the set is back".
 That gap is real.
+
+## Parked state, and a guardrail on lease termination (2026-08-30)
+
+### The mechanism as found
+
+Nine `lease_terminations` rows were written in three weeks by one person who
+believed she was recording a status. Six of those drivers were never
+terminated — the notes read "Truck down", "on vacation", "temporarily remove
+need personal time off" — and all six are still dispatched today, holding
+their equipment.
+
+Four things combined to make that the expected outcome, not a slip:
+
+1. A legally significant document generator sat **inline in the routine ICA
+   panel** of active drivers, at the same visual weight as ordinary document
+   buttons.
+2. The button opened the builder on a single click, with no consequence text.
+3. The Reason/Notes pair was captioned "Reason (internal — not on document)",
+   which reads like a status annotation. The dropdown defaulted to
+   "voluntary", so "cause" — selected on all six — was chosen *actively*: the
+   list was being read as a status, not as a legal ground.
+4. The insert had **no side effects at all**: no `is_active`, no exclusion, no
+   status, no notification. Nobody ever received feedback that anything had
+   happened.
+
+### The parked state, and where it lives
+
+Investigated before building. `active_dispatch.dispatch_status` carries
+`home` / `truck_down` but is **a day's status** — no reason, no end date, and
+rewritten nightly by the rollover cron. `operators.excluded_from_dispatch` is
+an **administrative hide** that removes a driver from views and daily counts.
+`operators.on_hold` is an **onboarding-pipeline** hold. None of the three is
+"out for two weeks and coming back", so parked is a fourth thing only because
+the third does not serve — a parked driver must stay visible and counted.
+
+Parked is an **overlay**, deliberately separate from `dispatch_status`. One
+writer per state change, and the two answer different questions: parked is
+"out until the 8th", day status is "what happened today". A parked driver
+whose truck comes back Thursday is still parked-until-Monday and
+dispatched-Thursday.
+
+- Columns on `operators`: `is_parked`, `parked_reason`, `parked_note`,
+  `parked_expected_return`, `parked_at`, `parked_by`.
+- History in `operator_parking_events`, actor-stamped via
+  `current_profile_id()`.
+- RPCs `set_operator_parked` / `clear_operator_parked` — SECURITY DEFINER,
+  `search_path` pinned to `public, extensions`, EXECUTE revoked from PUBLIC and
+  `anon`, dispatcher/management/owner only.
+- Reasons: truck down, vacation, personal time off, medical, other (note
+  required). Expected return optional.
+- Parked keeps the driver **active in every other sense**: equipment stays
+  assigned, the R&M deposit keeps building, settlements run normally.
+- The nightly rollover (`rollover-dispatch-status`) **skips** parked drivers
+  rather than carrying their status forward — a driver parked for three weeks
+  no longer rolls into `dispatched` every night.
+- Parked is **not** the departing flag; that concept is not built.
+
+### The guardrail
+
+- Termination moved **out of the routine ICA panel** into its own destructive
+  "End the Independent Contractor Agreement" zone on the detail panel.
+- A confirmation states the consequence in plain language and requires the
+  driver's **full name to be typed** before the builder opens.
+- When the operator is active, not excluded, and still showing dispatch
+  activity — the exact shape all six mistaken rows had — the confirmation
+  warns hard and **names the parked control**, linking to it.
+- The reason field is relabelled "Legal ground for ending the lease", has
+  **no default selection**, and signing is blocked until one is chosen.
+- The write now has a visible consequence: an operator with a
+  `lease_terminations` row shows an "ICA Terminated" indicator on the detail
+  panel, the dispatch board and Driver Status, with date and ground. It still
+  does **not** flip `is_active` — the deactivation wizard owns that.
+
+### Outstanding
+
+The nine rows themselves were **not** modified, voided or deleted in this
+pass; whether they are voided or deleted is a legal decision the owner is
+taking separately. `lease_terminations` holds 31 rows in total today (16
+voluntary, 12 cause, 3 mutual), and the test suite pins that count so this
+pass cannot silently change it.
+
+### Notes from the build
+
+- `operators.parked_by` records the actor but carries **no foreign key to
+  `profiles`**, deliberately. Adding one made `operators -> profiles` a
+  resolvable PostgREST embed, so any `operators(profiles(...))` shape would
+  have silently returned the *parking actor's* name where the driver's own
+  profile was meant. Referential integrity for the actor lives on
+  `operator_parking_events.changed_by`, which is the audit trail of record.
+- Baselines restamped 2026-08-30: **963 passed | 14 skipped** with a database,
+  **909 passed | 60 skipped** without one.
+- Verification screenshots are still outstanding: the sandbox browser has no
+  signed-in session (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`), so the five
+  captures require a preview sign-in first.

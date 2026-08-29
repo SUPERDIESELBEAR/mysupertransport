@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     // "carry-forward" safety net so the board never drifts when a day is skipped.
     const { data: logs, error: logsErr } = await supabase
       .from('dispatch_daily_log')
-      .select('operator_id, status, log_date, created_at, operators!inner(excluded_from_dispatch)')
+      .select('operator_id, status, log_date, created_at, operators!inner(excluded_from_dispatch, is_parked)')
       .lte('log_date', today)
       .order('log_date', { ascending: false })
       .order('created_at', { ascending: false });
@@ -58,6 +58,9 @@ Deno.serve(async (req) => {
       const opId = (r as any).operator_id as string;
       if (latestByOperator.has(opId)) continue;
       if ((r as any)?.operators?.excluded_from_dispatch === true) continue;
+      // Parked drivers are skipped, never carried forward. A driver parked for
+      // three weeks must not roll into 'dispatched' every night.
+      if ((r as any)?.operators?.is_parked === true) continue;
       latestByOperator.set(opId, r);
     }
     const eligible = Array.from(latestByOperator.values());

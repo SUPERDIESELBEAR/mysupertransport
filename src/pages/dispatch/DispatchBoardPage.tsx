@@ -9,6 +9,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
+import ParkedBadge from '@/components/drivers/ParkedBadge';
+import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
@@ -65,6 +67,7 @@ async function fetchBoard(): Promise<BoardData> {
     .from('operators')
     .select(`
       id, user_id, unit_number, is_active, excluded_from_dispatch, excluded_from_dispatch_reason,
+      is_parked, parked_reason, parked_expected_return,
       onboarding_status (fully_onboarded, unit_number),
       active_dispatch (dispatch_status, assigned_dispatcher)
     `)
@@ -72,6 +75,18 @@ async function fetchBoard(): Promise<BoardData> {
   if (opErr) throw opErr;
 
   const opRows = (operators ?? []) as unknown as Record<string, any>[];
+
+  // Lease terminations on file — the write now has a visible consequence on the board.
+  const terminationByOperator: Record<string, { effective_date: string | null; reason: string | null }> = {};
+  const { data: terminationRows } = await supabase
+    .from('lease_terminations')
+    .select('operator_id, effective_date, reason')
+    .order('effective_date', { ascending: false });
+  ((terminationRows ?? []) as any[]).forEach(t => {
+    if (t.operator_id && !terminationByOperator[t.operator_id]) {
+      terminationByOperator[t.operator_id] = { effective_date: t.effective_date ?? null, reason: t.reason ?? null };
+    }
+  });
   const userIds = opRows.map(o => o.user_id).filter(Boolean);
   const nameByUser: Record<string, string> = {};
   if (userIds.length > 0) {
@@ -99,6 +114,10 @@ async function fetchBoard(): Promise<BoardData> {
         dispatchable: o.excluded_from_dispatch !== true && o.is_active !== false,
         assigned_dispatcher: d.assigned_dispatcher ?? null,
         excluded_reason: o.excluded_from_dispatch_reason ?? null,
+        is_parked: o.is_parked === true,
+        parked_reason: o.parked_reason ?? null,
+        parked_expected_return: o.parked_expected_return ?? null,
+        termination: terminationByOperator[o.id as string] ?? null,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -275,7 +294,11 @@ export function DriverRow({
   return (
     <TableRow className="align-top">
       <TableCell className="py-3">
-        <div className="text-sm font-medium text-foreground">{row.driver.name}</div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-sm font-medium text-foreground">{row.driver.name}</span>
+          <ParkedBadge operator={row.driver} />
+          <TerminationBadge termination={row.driver.termination} />
+        </div>
         <div className="text-xs text-muted-foreground">
           {row.driver.unit_number ? `Unit ${row.driver.unit_number}` : '—'}
         </div>

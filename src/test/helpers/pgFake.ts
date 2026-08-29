@@ -35,6 +35,7 @@ export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
   load_stops: ['arrival_recorded_by', 'departure_recorded_by'],
   loads: ['created_by', 'updated_by', 'dispatcher_id'],
   parser_diagnostics: ['created_by', 'resolved_by'],
+  operator_parking_events: ['changed_by'],
 };
 
 export class FkViolation extends Error {

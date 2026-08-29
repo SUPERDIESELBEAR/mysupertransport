@@ -17,7 +17,7 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-29 (fuel disagreement rule). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-30 (parked state + termination guardrail). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
@@ -28,7 +28,7 @@
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
 
- *     951 passed | 14 skipped       (122 files passed | 1 skipped, 123 total)
+ *     963 passed | 14 skipped       (123 files passed | 1 skipped, 124 total)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -50,7 +50,7 @@
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
 
- *     901 passed | 56 skipped       (113 files passed | 10 skipped, 123 total)
+ *     909 passed | 60 skipped       (114 files passed | 11 skipped, 124 total)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
@@ -58,6 +58,7 @@
  *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
  *       - caller-evaluated functions     x3   (live catalog unreadable)
  *       - live grant / policy parity     x3   (live catalog unreadable)
+      - parked live schema / standing rows x4 (live catalog unreadable)
  *       - stop time source structure     x4   (live catalog unreadable)
  *       - equipment serial guard, catalog x4  (live catalog unreadable)
  *       - fuel import live structure     x7   (live catalog unreadable)

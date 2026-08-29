@@ -342,6 +342,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.get_ica_review_link(text)",
   "public.get_share_bundle_meta(uuid)",
   "public.resolve_share_bundle(uuid)",
+  // Parked overlay — role-checked inside; parking never touches is_active,
+  // equipment or lease_terminations.
+  "public.set_operator_parked(uuid,operator_parked_reason,text,date)",
+  "public.clear_operator_parked(uuid,text)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -360,7 +364,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + driver_load_pay_estimate, authenticated-only (2026-08-28).
 // + record_loadout_damage_flag, authenticated-only (2026-08-29).
 // + the three fuel import RPCs, each role-checked in its own body (2026-08-29).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 96;
+// + set_operator_parked / clear_operator_parked, the parked overlay writers.
+//   Each checks dispatcher/management/owner in its own body, so authenticated
+//   EXECUTE is the app's only call path and a driver gets a raised exception.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 98;
 
 
 

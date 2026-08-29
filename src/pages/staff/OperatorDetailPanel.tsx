@@ -36,6 +36,11 @@ import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
 import ICAAmendmentList from '@/components/ica/ICAAmendmentList';
 import LeaseTerminationBuilderModal from '@/components/ica/LeaseTerminationBuilderModal';
+import TerminationConsequenceDialog from '@/components/ica/TerminationConsequenceDialog';
+import ParkDriverControl, { type ParkedFields } from '@/components/drivers/ParkDriverControl';
+import ParkedBadge from '@/components/drivers/ParkedBadge';
+import TerminationBadge from '@/components/drivers/TerminationBadge';
+import { terminationReasonLabel } from '@/lib/leaseTermination';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
@@ -633,7 +638,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
   const [savingExclusion, setSavingExclusion] = useState(false);
-  const { isManagement, isOwner } = useAuth();
+  const { isManagement, isOwner, isDispatcher } = useAuth();
+  // Parked state (temporarily unavailable — NOT a termination, NOT a day status)
+  const [parked, setParked] = useState<ParkedFields>({
+    is_parked: false, parked_reason: null, parked_note: null,
+    parked_expected_return: null, parked_at: null,
+  });
+  // Latest lease termination on file — surfaced so the write has a visible consequence
+  const [latestTermination, setLatestTermination] = useState<{ id: string; effective_date: string | null; reason: string | null } | null>(null);
+  const [liveDispatchStatus, setLiveDispatchStatus] = useState<string | null>(null);
+  const [showTerminationConfirm, setShowTerminationConfirm] = useState(false);
   const senderEmail: string = (session?.user?.email ?? '').toString();
 
   // Go Live ack gate state
@@ -1382,7 +1396,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, excluded_from_dispatch_reason, excluded_from_dispatch_at, safety_advisor_notified_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_line2, address_city, address_state, address_zip, address_duration, prev_address_street, prev_address_line2, prev_address_city, prev_address_state, prev_address_zip, cdl_state, cdl_number, cdl_class, cdl_expiration, endorsements, cdl_10_years, referral_source, employers, employment_gaps, employment_gaps_explanation, years_experience, equipment_operated, dot_accidents, dot_accidents_description, moving_violations, moving_violations_description, sap_process, dot_positive_test_past_2yr, dot_return_to_duty_docs, auth_safety_history, auth_drug_alcohol, auth_previous_employers, testing_policy_accepted, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, typed_full_name, signature_image_url, signed_date, submitted_at, submitted_by_staff, reviewer_notes)`)
+        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, excluded_from_dispatch_reason, excluded_from_dispatch_at, safety_advisor_notified_at, is_parked, parked_reason, parked_note, parked_expected_return, parked_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_line2, address_city, address_state, address_zip, address_duration, prev_address_street, prev_address_line2, prev_address_city, prev_address_state, prev_address_zip, cdl_state, cdl_number, cdl_class, cdl_expiration, endorsements, cdl_10_years, referral_source, employers, employment_gaps, employment_gaps_explanation, years_experience, equipment_operated, dot_accidents, dot_accidents_description, moving_violations, moving_violations_description, sap_process, dot_positive_test_past_2yr, dot_return_to_duty_docs, auth_safety_history, auth_drug_alcohol, auth_previous_employers, testing_policy_accepted, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, typed_full_name, signature_image_url, signed_date, submitted_at, submitted_by_staff, reviewer_notes)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -1409,6 +1423,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setOnHoldDate((op as any).on_hold_date ?? null);
       setExcludedFromDispatch((op as any).excluded_from_dispatch === true);
       setExcludedReason((op as any).excluded_from_dispatch_reason ?? '');
+      setParked({
+        is_parked: (op as any).is_parked === true,
+        parked_reason: (op as any).parked_reason ?? null,
+        parked_note: (op as any).parked_note ?? null,
+        parked_expected_return: (op as any).parked_expected_return ?? null,
+        parked_at: (op as any).parked_at ?? null,
+      });
+      // Lease termination on file + live day status — read for the guardrail and the indicator
+      void (async () => {
+        const [{ data: term }, { data: live }] = await Promise.all([
+          supabase.from('lease_terminations')
+            .select('id, effective_date, reason')
+            .eq('operator_id', operatorId)
+            .order('effective_date', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase.from('active_dispatch')
+            .select('dispatch_status')
+            .eq('operator_id', operatorId)
+            .maybeSingle(),
+        ]);
+        setLatestTermination((term as any) ?? null);
+        setLiveDispatchStatus((live as any)?.dispatch_status ?? null);
+      })();
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
@@ -2927,6 +2965,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
         {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
+        <ParkedBadge operator={parked} />
+        <TerminationBadge termination={latestTermination} />
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
@@ -2987,6 +3027,59 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           )}
         </div>
       )}
+
+      {/* Parked — temporarily unavailable, still active (order next to the exclusion toggle) */}
+      {isActive && (
+        <div style={{ order: isQuickView ? 0 : 45 }}>
+          <ParkDriverControl
+            operatorId={operatorId}
+            operatorName={operatorName}
+            value={parked}
+            onChanged={setParked}
+            canEdit={isManagement || isOwner || isDispatcher}
+          />
+        </div>
+      )}
+
+      {/* END THE ICA — deliberately separated from routine document generators */}
+      <div
+        className="rounded-xl border-2 border-destructive/40 bg-destructive/5 p-4 space-y-3"
+        style={{ order: isQuickView ? 0 : 95 }}
+        data-testid="end-ica-zone"
+      >
+        <div>
+          <p className="text-sm font-bold text-destructive">End the Independent Contractor Agreement</p>
+          <p className="text-[11px] text-muted-foreground leading-snug mt-1">
+            Generates a signed Appendix C lease termination — a legal document sent to the insurance
+            company. This is not a status note. If the driver is temporarily unavailable, park them instead.
+          </p>
+        </div>
+        {latestTermination && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs">
+            <div className="flex items-center gap-2">
+              <TerminationBadge termination={latestTermination} />
+              <button
+                type="button"
+                className="underline text-destructive"
+                onClick={() => setOpenTerminationId(latestTermination.id)}
+              >
+                View Appendix C
+              </button>
+            </div>
+            <p className="mt-1 text-muted-foreground">{terminationReasonLabel(latestTermination.reason)}</p>
+          </div>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs gap-1.5 border-destructive/50 text-destructive hover:bg-destructive/10"
+          data-testid="open-termination-confirm"
+          onClick={() => setShowTerminationConfirm(true)}
+        >
+          <FileSignature className="h-3.5 w-3.5" />
+          End ICA & Generate Lease Termination
+        </Button>
+      </div>
 
       {/* ── Top Completion Summary ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={{ order: isQuickView ? 20 : 10 }}>{(() => {
@@ -5550,22 +5643,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               />
             </div>
 
-            {/* Lease Termination — Appendix C */}
-            <div className="pt-2 space-y-2">
-              <SectionSubtitle>Lease Termination (Appendix C)</SectionSubtitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
-                onClick={() => setShowTerminationBuilder(true)}
-              >
-                <FileSignature className="h-3.5 w-3.5" />
-                Generate Lease Termination (Appendix C)
-              </Button>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Sign with your saved Carrier Signature, then notify the insurance company.
-              </p>
-            </div>
+            {/* Lease Termination lives in its own destructive area below — see "End the ICA". */}
 
             {/* ICA Amendments — add / replace a leased unit */}
             <div className="pt-2 space-y-2">
@@ -7543,6 +7621,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       )}
 
+      <TerminationConsequenceDialog
+        open={showTerminationConfirm}
+        onOpenChange={setShowTerminationConfirm}
+        operatorName={operatorName}
+        signals={{
+          isActive,
+          excludedFromDispatch,
+          dispatchStatus: liveDispatchStatus,
+          hasRecentDispatchActivity: liveDispatchStatus === 'dispatched' || liveDispatchStatus === 'home',
+        }}
+        onParkInstead={() => {
+          document.querySelector('[data-testid="park-driver-control"]')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+        onConfirm={() => {
+          setShowTerminationConfirm(false);
+          setShowTerminationBuilder(true);
+        }}
+      />
+
       {/* Lease Termination Builder */}
       {showTerminationBuilder && (
         <LeaseTerminationBuilderModal
@@ -7552,6 +7650,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           onCreated={(id) => {
             setShowTerminationBuilder(false);
             setOpenTerminationId(id);
+            void supabase.from('lease_terminations')
+              .select('id, effective_date, reason')
+              .eq('id', id)
+              .maybeSingle()
+              .then(({ data }) => setLatestTermination((data as any) ?? null));
           }}
         />
       )}
