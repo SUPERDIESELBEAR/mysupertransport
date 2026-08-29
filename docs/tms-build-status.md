@@ -2626,3 +2626,17 @@ pass; whether they are voided or deleted is a legal decision the owner is
 taking separately. `lease_terminations` holds 31 rows in total today (16
 voluntary, 12 cause, 3 mutual), and the test suite pins that count so this
 pass cannot silently change it.
+
+### Notes from the build
+
+- `operators.parked_by` records the actor but carries **no foreign key to
+  `profiles`**, deliberately. Adding one made `operators -> profiles` a
+  resolvable PostgREST embed, so any `operators(profiles(...))` shape would
+  have silently returned the *parking actor's* name where the driver's own
+  profile was meant. Referential integrity for the actor lives on
+  `operator_parking_events.changed_by`, which is the audit trail of record.
+- Baselines restamped 2026-08-30: **963 passed | 14 skipped** with a database,
+  **909 passed | 60 skipped** without one.
+- Verification screenshots are still outstanding: the sandbox browser has no
+  signed-in session (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`), so the five
+  captures require a preview sign-in first.
