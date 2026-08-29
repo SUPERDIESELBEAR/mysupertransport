@@ -2199,3 +2199,19 @@ with no new display work.
 `claim_flags` was added to `PROFILE_FK_COLUMNS` and modelled in pgFake, and the
 function is registered in the live definer catalog
 (`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 92 → 93).
+
+
+## Reported issues closed as stale
+
+A running list so the next round of bug reports can be triaged against it instead
+of re-investigated. Each entry is a reported issue that was investigated and
+found to be stale, false, or already fixed.
+
+| Reported issue | First reported / closed | Reason |
+|---|---|---|
+| InspectionComplianceSummary embed broken | 2026-08-20 / closed 2026-08-20 | Fixed before report; the embed error predates the 2026-08-20 redesign. |
+| Permission-denied errors on operator/document paths | 2026-08-27 / closed 2026-08-27 | `grant_parity_report` was clean; the proposed GRANT would reverse a deliberate revoke. |
+| Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27 | Fixed in the same 2026-08-27 pass that introduced the reclassification path. |
+| `update_load_with_stops` fails with 54023 (100-argument limit) | 2026-08-29 / closed 2026-08-29 | **False.** The live function splits the change-history snapshot across two `jsonb_build_object` calls (34 keys and 18 keys). Corrective migration `20260827230239` is present in `supabase/migrations` and is byte-identical to the live definition. Three real UI saves against ST26015 returned HTTP 200 with no 54023; the probe edit was reverted. The report cited `20260827222017` as the latest migration touching the function, but `20260827230239` superseded it 34 minutes later. |
+
+
