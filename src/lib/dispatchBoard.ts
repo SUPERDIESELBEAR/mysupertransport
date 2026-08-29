@@ -52,6 +52,12 @@ export interface BoardDriverInput {
    */
   assigned_dispatcher?: string | null;
   excluded_reason?: string | null;
+  /** Parked overlay — separate from dispatch_status, which stays the day's status. */
+  is_parked?: boolean;
+  parked_reason?: string | null;
+  parked_expected_return?: string | null;
+  /** Most recent lease_terminations row, if any. */
+  termination?: { effective_date: string | null; reason: string | null } | null;
 }
 
 export interface ChainLoad {

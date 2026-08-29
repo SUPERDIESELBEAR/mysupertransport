@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import ParkedBadge from '@/components/drivers/ParkedBadge';
+import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
@@ -37,6 +39,10 @@ interface DriverRow {
   pwa_installed_at: string | null;
   last_web_seen_at: string | null;
   excluded_from_dispatch: boolean;
+  is_parked?: boolean;
+  parked_reason?: string | null;
+  parked_expected_return?: string | null;
+  termination?: { effective_date: string | null; reason: string | null } | null;
   is_demo?: boolean;
 }
 
@@ -487,11 +493,11 @@ export default function DriverRoster({
 
     // Fetch is_active and pwa_installed_at separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
-    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; last_web_seen_at: string | null; excluded_from_dispatch: boolean }> = {};
+    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; last_web_seen_at: string | null; excluded_from_dispatch: boolean; is_parked: boolean; parked_reason: string | null; parked_expected_return: string | null }> = {};
     if (operatorIds.length > 0) {
       const { data: activeData } = await supabase
         .from('operators')
-        .select('id, is_active, pwa_installed_at, last_web_seen_at, excluded_from_dispatch')
+        .select('id, is_active, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, is_parked, parked_reason, parked_expected_return')
         .in('id', operatorIds) as any;
       for (const row of (activeData ?? []) as any[]) {
         activeMap[row.id] = {
@@ -499,7 +505,25 @@ export default function DriverRoster({
           pwa_installed_at: row.pwa_installed_at ?? null,
           last_web_seen_at: row.last_web_seen_at ?? null,
           excluded_from_dispatch: row.excluded_from_dispatch === true,
+          is_parked: row.is_parked === true,
+          parked_reason: row.parked_reason ?? null,
+          parked_expected_return: row.parked_expected_return ?? null,
         };
+      }
+    }
+
+    // Lease terminations on file — surfaced so a mistaken write is noticed.
+    const terminationMap: Record<string, { effective_date: string | null; reason: string | null }> = {};
+    if (operatorIds.length > 0) {
+      const { data: termRows } = await supabase
+        .from('lease_terminations')
+        .select('operator_id, effective_date, reason')
+        .in('operator_id', operatorIds)
+        .order('effective_date', { ascending: false }) as any;
+      for (const t of (termRows ?? []) as any[]) {
+        if (t.operator_id && !terminationMap[t.operator_id]) {
+          terminationMap[t.operator_id] = { effective_date: t.effective_date ?? null, reason: t.reason ?? null };
+        }
       }
     }
     const activeSet = new Set(Object.entries(activeMap).filter(([, v]) => v.is_active === !showInactive).map(([k]) => k));
@@ -572,6 +596,10 @@ export default function DriverRoster({
           pwa_installed_at: activeMap[op.id]?.pwa_installed_at ?? null,
           last_web_seen_at: activeMap[op.id]?.last_web_seen_at ?? null,
           excluded_from_dispatch: activeMap[op.id]?.excluded_from_dispatch ?? false,
+          is_parked: activeMap[op.id]?.is_parked ?? false,
+          parked_reason: activeMap[op.id]?.parked_reason ?? null,
+          parked_expected_return: activeMap[op.id]?.parked_expected_return ?? null,
+          termination: terminationMap[op.id] ?? null,
         };
       }).sort((a, b) => {
         const order: Record<DriverRow['dispatch_status'], number> = { truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3 };
@@ -1249,6 +1277,8 @@ export default function DriverRoster({
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                        <ParkedBadge operator={driver} />
+                        <TerminationBadge termination={driver.termination} />
                         {driver.excluded_from_dispatch && (
                           <TooltipProvider delayDuration={100}>
                             <Tooltip>

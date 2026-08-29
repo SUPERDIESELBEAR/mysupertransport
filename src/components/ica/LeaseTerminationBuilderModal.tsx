@@ -33,7 +33,9 @@ interface LeaseTerminationBuilderModalProps {
   onCreated: (terminationId: string) => void;
 }
 
-type ReasonValue = 'voluntary' | 'mutual' | 'cause';
+import { TERMINATION_REASONS, terminationReasonLabel, type TerminationReason } from '@/lib/leaseTermination';
+
+type ReasonValue = TerminationReason;
 
 export default function LeaseTerminationBuilderModal({
   operatorId, operatorName, onClose, onCreated,
@@ -52,7 +54,9 @@ export default function LeaseTerminationBuilderModal({
 
   const today = new Date().toISOString().slice(0, 10);
   const [effectiveDate, setEffectiveDate] = useState<string>(today);
-  const [reason, setReason] = useState<ReasonValue>('voluntary');
+  // NO DEFAULT. "For cause" was actively selected six times because the list read
+  // like a status; the ground for ending the lease must be chosen deliberately.
+  const [reason, setReason] = useState<ReasonValue | ''>('');
   const [notes, setNotes] = useState<string>('');
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export default function LeaseTerminationBuilderModal({
     return ica.owner_business_name || ica.owner_name || operatorName;
   })();
 
-  const canSign = !!carrierSettings?.signature_url && !!effectiveDate;
+  const canSign = !!carrierSettings?.signature_url && !!effectiveDate && !!reason;
 
   const handleSign = async () => {
     if (guardDemo()) return;
@@ -198,16 +202,21 @@ export default function LeaseTerminationBuilderModal({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Reason (internal — not on document)
+                    Legal ground for ending the lease <span className="text-destructive">*</span>
                   </Label>
                   <Select value={reason} onValueChange={(v) => setReason(v as ReasonValue)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="termination-reason-trigger">
+                      <SelectValue placeholder="Choose the legal ground…" />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="voluntary">Voluntary separation</SelectItem>
-                      <SelectItem value="mutual">Mutual release</SelectItem>
-                      <SelectItem value="cause">For cause</SelectItem>
+                      {TERMINATION_REASONS.map(r => (
+                        <SelectItem key={r} value={r}>{terminationReasonLabel(r)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    This is the ground on which the ICA is ending — not a status note.
+                  </p>
                 </div>
               </div>
 

@@ -6683,6 +6683,57 @@ export type Database = {
           },
         ]
       }
+      operator_parking_events: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          created_at: string
+          expected_return: string | null
+          id: string
+          note: string | null
+          operator_id: string
+          reason: Database["public"]["Enums"]["operator_parked_reason"] | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          expected_return?: string | null
+          id?: string
+          note?: string | null
+          operator_id: string
+          reason?: Database["public"]["Enums"]["operator_parked_reason"] | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          expected_return?: string | null
+          id?: string
+          note?: string | null
+          operator_id?: string
+          reason?: Database["public"]["Enums"]["operator_parked_reason"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_parking_events_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_parking_events_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operators: {
         Row: {
           anticipated_start_date: string | null
@@ -6704,11 +6755,19 @@ export type Database = {
           id: string
           is_active: boolean
           is_demo: boolean
+          is_parked: boolean
           last_web_seen_at: string | null
           notes: string | null
           on_hold: boolean
           on_hold_date: string | null
           on_hold_reason: string | null
+          parked_at: string | null
+          parked_by: string | null
+          parked_expected_return: string | null
+          parked_note: string | null
+          parked_reason:
+            | Database["public"]["Enums"]["operator_parked_reason"]
+            | null
           pay_percentage: number
           pwa_installed_at: string | null
           safety_advisor_notified_at: string | null
@@ -6736,11 +6795,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_demo?: boolean
+          is_parked?: boolean
           last_web_seen_at?: string | null
           notes?: string | null
           on_hold?: boolean
           on_hold_date?: string | null
           on_hold_reason?: string | null
+          parked_at?: string | null
+          parked_by?: string | null
+          parked_expected_return?: string | null
+          parked_note?: string | null
+          parked_reason?:
+            | Database["public"]["Enums"]["operator_parked_reason"]
+            | null
           pay_percentage?: number
           pwa_installed_at?: string | null
           safety_advisor_notified_at?: string | null
@@ -6768,11 +6835,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_demo?: boolean
+          is_parked?: boolean
           last_web_seen_at?: string | null
           notes?: string | null
           on_hold?: boolean
           on_hold_date?: string | null
           on_hold_reason?: string | null
+          parked_at?: string | null
+          parked_by?: string | null
+          parked_expected_return?: string | null
+          parked_note?: string | null
+          parked_reason?:
+            | Database["public"]["Enums"]["operator_parked_reason"]
+            | null
           pay_percentage?: number
           pwa_installed_at?: string | null
           safety_advisor_notified_at?: string | null
@@ -9583,6 +9658,10 @@ export type Database = {
         Args: { p_operator_ids: string[] }
         Returns: Json
       }
+      clear_operator_parked: {
+        Args: { _note?: string; _operator_id: string }
+        Returns: string
+      }
       commit_fuel_import: {
         Args: { _file_name: string; _provider: string; _rows: Json }
         Returns: Json
@@ -10415,6 +10494,15 @@ export type Database = {
         Args: { p_load_id: string; p_records: Json }
         Returns: undefined
       }
+      set_operator_parked: {
+        Args: {
+          _expected_return?: string
+          _note?: string
+          _operator_id: string
+          _reason: Database["public"]["Enums"]["operator_parked_reason"]
+        }
+        Returns: string
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_application_correction: {
@@ -10683,6 +10771,12 @@ export type Database = {
         | "truck_photos"
         | "truck_inspection"
         | "pe_receipt"
+      operator_parked_reason:
+        | "truck_down"
+        | "vacation"
+        | "personal_time_off"
+        | "medical"
+        | "other"
       osas_device_type:
         | "eld"
         | "dash_cam"
@@ -11045,6 +11139,13 @@ export const Constants = {
         "truck_photos",
         "truck_inspection",
         "pe_receipt",
+      ],
+      operator_parked_reason: [
+        "truck_down",
+        "vacation",
+        "personal_time_off",
+        "medical",
+        "other",
       ],
       osas_device_type: [
         "eld",
