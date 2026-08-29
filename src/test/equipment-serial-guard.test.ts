@@ -246,7 +246,7 @@ describe('enforce_equipment_serial_uniqueness — the reported defect', () => {
 });
 
 describe('enforce_equipment_serial_uniqueness — INSERT path and structure', () => {
-  itStructure('a second LIVE near-twin cannot be inserted', () => {
+  itWrite('a second LIVE near-twin cannot be inserted', () => {
     const err = psqlExpectError(`
       begin;
       insert into public.equipment_items (device_type, serial_number, status)
@@ -256,7 +256,7 @@ describe('enforce_equipment_serial_uniqueness — INSERT path and structure', ()
     expect(err).toMatch(/already on file|duplicate key/i);
   });
 
-  itStructure('a DEACTIVATED near-twin is permitted', () => {
+  itWrite('a DEACTIVATED near-twin is permitted', () => {
     // Cleanup must remain expressible: any number of retired twins may coexist.
     const rows = psql(`
       begin;
