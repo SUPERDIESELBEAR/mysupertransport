@@ -17,7 +17,7 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-29 (guided loadout capture pass). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-29 (look-alike serial guard fix). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
@@ -28,7 +28,7 @@
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
 
- *     910 passed | 7 skipped        (118 files passed | 1 skipped, 119 total)
+ *     914 passed | 14 skipped       (119 files passed | 1 skipped, 120 total)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -36,6 +36,13 @@
  *           public table, and stamp_load_stop_time_source is BEFORE UPDATE, so
  *           it cannot fire from here. Granting UPDATE is forbidden; these five
  *           run on a disposable instance.
+ *       - equipment serial guard, write arms x7
+ *           the same missing UPDATE, plus no EXECUTE on
+ *           canonical_equipment_serial — which the unique index expression
+ *           evaluates as the CALLER on every write, so even an INSERT is
+ *           refused here. `authenticated` does hold that EXECUTE, so the app
+ *           is unaffected. Assign / return / archive against a near-twin are
+ *           verified manually and on a disposable instance.
  *       - roadside bundle
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
  *       - certify_rods_day live RPC, execute arm
@@ -43,7 +50,7 @@
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
 
- *     876 passed | 33 skipped       (111 files passed | 8 skipped, 119 total)
+ *     876 passed | 44 skipped       (111 files passed | 9 skipped, 120 total)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
@@ -52,6 +59,8 @@
  *       - caller-evaluated functions     x3   (live catalog unreadable)
  *       - live grant / policy parity     x3   (live catalog unreadable)
  *       - stop time source structure     x4   (live catalog unreadable)
+ *       - equipment serial guard, catalog x4  (live catalog unreadable)
+
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
  * without a matching named line, a gate has regressed to `runIf`/`skip`.
