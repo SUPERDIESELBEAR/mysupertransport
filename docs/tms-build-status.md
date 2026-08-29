@@ -2215,4 +2215,75 @@ found to be stale, false, or already fixed.
 | Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27 | Fixed in the same 2026-08-27 pass that introduced the reclassification path. |
 | `update_load_with_stops` fails with 54023 (100-argument limit) | 2026-08-29 / closed 2026-08-29 | **False.** The live function splits the change-history snapshot across two `jsonb_build_object` calls (34 keys and 18 keys). Corrective migration `20260827230239` is present in `supabase/migrations` and is byte-identical to the live definition. Three real UI saves against ST26015 returned HTTP 200 with no 54023; the probe edit was reverted. The report cited `20260827222017` as the latest migration touching the function, but `20260827230239` superseded it 34 minutes later. |
 
+## The look-alike serial guard blocked its own cleanup (2026-08-29)
+
+**Real, but latent.** `enforce_equipment_serial_uniqueness` fires
+`BEFORE INSERT OR UPDATE OF serial_number, device_type, status`. Because
+`status` is in that column list, assign, return and archive — all pure status
+transitions that never touch a serial — consulted a serial-uniqueness check.
+On a row whose serial had a near-twin in inventory, every one of them was
+rejected, **including deactivation, which is the remedy for the duplicate**.
+A guard that blocks its own cleanup.
+
+Latent rather than live: zero near-duplicate pairs existed under the guard's own
+canonicalisation, so no staff member could reach the defect. The self-exemption
+(`ei.id <> NEW.id`) was present throughout and was never the problem.
+
+The fix adds two early exits, before the collision query:
+
+- `NEW.status = 'deactivated'` always passes. The collision query already
+  excludes deactivated rows as comparison targets; excluding them as the subject
+  closes the loop.
+- On UPDATE, when `device_type` is unchanged and the canonical serial is
+  unchanged from `OLD`, return immediately. This is the general fix: no status
+  path can ever consult a serial guard again. `device_type` is in the condition
+  because the same canonical serial under a different type is a real collision.
+
+### Look-alike uniqueness rested on a trigger alone, 2026-08-28 to 2026-08-29
+
+The unique canonical index planned alongside the guard **never landed**. What
+existed, `idx_equipment_items_canonical_serial`, was NON-unique and enforced
+nothing; the only unique index was the older `idx_equipment_items_serial_type`
+on the exact form, which does not apply the `OILS → 0115` translation and so
+does not catch look-alikes at all. For that day, any path bypassing the trigger
+— bulk import, restore, direct SQL, a disabled trigger — could have created a
+pair. Zero pairs existed, so nothing was corrupted. **That was a fact about the
+data, not a guarantee.**
+
+Now enforced structurally:
+
+```sql
+CREATE UNIQUE INDEX idx_equipment_items_canonical_serial_uniq
+  ON public.equipment_items (device_type, public.canonical_equipment_serial(serial_number))
+  WHERE status <> 'deactivated';
+```
+
+Partial by necessity: a total index would forbid multiple retired twins, which
+is exactly the state a duplicate cleanup produces — it would re-create the bug
+at the storage layer. The superseded non-unique index was dropped.
+
+Note for future writers: the index expression is evaluated as the **calling**
+role on every write, unlike the trigger body which runs as definer.
+`authenticated` holds EXECUTE on `canonical_equipment_serial`, so the
+application is unaffected; the sandbox test role does not, which is why the
+test file's write arms are gated and named rather than quietly absent.
+
+**If the index build ever fails on data that arrives later, it must fail
+loudly.** Report the offending pair and stop. A unique index quietly downgraded
+to non-unique is the exact state this entry exists to close.
+
+### The general lesson, now seen twice
+
+A rule enforced in ONE layer while everyone assumes it is enforced
+structurally. The look-alike serial rule lived in a trigger while a unique index
+was believed to exist. The `pay_policies` exposure was the same shape: driver
+pay was assumed to be gated by policy while the table itself was readable. In
+both cases the enforcement that people reasoned about was not the enforcement
+that was running.
+
+TRIGGER: when a constraint is described as enforced, read the catalog for it —
+`pg_indexes`, `pg_policy`, `pg_constraint` — before relying on it. A trigger is
+enforcement for the paths that go through it, and nothing more.
+
+
 
