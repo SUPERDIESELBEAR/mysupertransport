@@ -39,8 +39,8 @@ It is not a shape and must never be reported as one.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  116 passed | 1 skipped (117)
-     Tests  892 passed | 7 skipped (899)
+Test Files  118 passed | 1 skipped (119)
+     Tests  910 passed | 7 skipped (917)
 
 
 skipped:
@@ -58,8 +58,8 @@ skipped:
 
 
 ```text
-Test Files  109 passed | 8 skipped (117)
-     Tests  858 passed | 33 skipped (891)
+Test Files  111 passed | 8 skipped (119)
+     Tests  876 passed | 33 skipped (909)
 
 skipped: the above, plus
   share token throttling             no PGHOST, live catalog unreadable

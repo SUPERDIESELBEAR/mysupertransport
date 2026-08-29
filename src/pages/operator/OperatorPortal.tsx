@@ -38,6 +38,8 @@ import {
 } from '@/components/operator/OperatorTodayCard';
 import { StopCheckIn } from '@/components/operator/StopCheckIn';
 import { LoadPaperworkUpload } from '@/components/operator/LoadPaperworkUpload';
+import { LoadoutCapture } from '@/components/operator/LoadoutCapture';
+
 import OperatorStillNeeded from '@/components/operator/OperatorStillNeeded';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import OperatorICAAmendmentSign from '@/components/operator/OperatorICAAmendmentSign';
@@ -1783,11 +1785,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                       }))}
                     onSaved={home.refresh}
                   />
-                  <LoadPaperworkUpload
-                    loadId={home.current.id}
-                    loadType={home.current.loadType}
-                    onUploaded={home.refresh}
-                  />
+                  {home.current.loadType === 'loadout' ? (
+                    <LoadoutCapture loadId={home.current.id} onUploaded={home.refresh} />
+                  ) : (
+                    <LoadPaperworkUpload
+                      loadId={home.current.id}
+                      loadType={home.current.loadType}
+                      onUploaded={home.refresh}
+                    />
+                  )}
+
                 </OperatorTodayCard>
               ) : (
                 <OperatorNoLoadCard

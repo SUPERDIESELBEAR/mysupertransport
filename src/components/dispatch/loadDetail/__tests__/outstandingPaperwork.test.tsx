@@ -75,9 +75,11 @@ describe('Outstanding paperwork block', () => {
       { id: 'p1', document_type: 'loadout_pickup_inspection', document_name: 'front.jpg', upload_channel: 'driver_app', uploaded_at: null, file_path: 'p', file_type: 'image/jpeg', file_size: 10, uploaded_by_name: null, notes: null, load_stop_id: null, photo_label: 'Front' },
     ]);
     await renderSection('loadout');
-    expect(await screen.findByText('Roof check — rear doors open')).toBeInTheDocument();
-    expect(screen.getByText('Delivery inspection photos')).toBeInTheDocument();
-    expect(screen.queryByText('Pickup inspection photos')).not.toBeInTheDocument();
+    // Labels come from the shared slot definition, so the office sees the same
+    // slot names the driver was asked for.
+    expect(await screen.findByText('Pickup inspection — Roof check — doors open')).toBeInTheDocument();
+    expect(screen.getByText('Delivery inspection — Front')).toBeInTheDocument();
+    expect(screen.queryByText('Pickup inspection — Front')).not.toBeInTheDocument();
   });
 
   it('notes a POD waived by an approved exception', async () => {

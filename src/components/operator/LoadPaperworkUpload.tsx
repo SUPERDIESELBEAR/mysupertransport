@@ -127,7 +127,7 @@ export function LoadPaperworkUpload({ loadId, loadType, onUploaded }: Props) {
     }
     setBusy(documentType);
     try {
-      await uploadLoadDocument({ loadId, documentType, file });
+      await uploadLoadDocument({ loadId, documentType, file, uploadChannel: 'driver_app' });
       toast({ title: 'Uploaded' });
       await load();
       onUploaded?.();

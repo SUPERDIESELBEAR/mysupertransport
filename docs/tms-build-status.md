@@ -61,8 +61,8 @@ reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
 — the flag is part of the recorded invocation, not an optimisation. Every skip is
 named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 892 passed, 7 skipped (116 files passed, 1 skipped, 117 total).
-- **Without database:** 858 passed, 33 skipped (109 files passed, 8 skipped, 117 total).
+- **With database attached:** 910 passed, 7 skipped (118 files passed, 1 skipped, 119 total).
+- **Without database:** 876 passed, 33 skipped (111 files passed, 8 skipped, 119 total).
 
 Anything that matches neither shape is a signal, not a question. If a skip count
 moves without a matching named line in the output, a gate has regressed to
@@ -1102,12 +1102,12 @@ type of its own — the requirement carries a `photoLabel` and is satisfied only
 by a pickup-inspection row whose `photo_label` matches after trimming and
 case-folding.
 
-**KNOWN LIMIT.** `photo_label` is free text with suggestions, so the roof-check
-requirement matches on the exact string `Rear Doors Open`. A driver who types
-something else will not satisfy it. The durable fix is a fixed capture slot in
-the driver app (Module 11), not a looser matcher. Fuzzy or partial matching is
-deliberately not added here — it would turn a precise miss into a silent
-false pass.
+**CLOSED 2026-08-29 (Module 11 Pass 3).** The free-text limit is gone: the
+driver no longer types a label at all. `src/lib/loadoutSlots.ts` defines fixed
+capture slots and the roof-check slot stores the exact string `Rear Doors Open`,
+so the predicate matches with no backfill. Fuzzy or partial matching was
+deliberately still NOT added — it would turn a precise miss into a silent false
+pass.
 
 ### Satisfaction rules
 
@@ -1471,9 +1471,10 @@ half real, and is expected to close this list:
 Both original entries — the `driver_app` branch of
 `stamp_load_stop_time_source` and the timezone label on recorded arrival and
 departure times — came OFF this list in Module 11 Pass 2, when a driver recorded
-an arrival from the operator portal and the trigger stamped it. The list is now
-empty; add to it only when a shared path gains a half the application cannot
-reach.
+an arrival from the operator portal and the trigger stamped it. The roof-check
+free-text limitation came off in Pass 3, when fixed slots replaced typed labels.
+The list is now empty; add to it only when a shared path gains a half the
+application cannot reach.
 
 ### Reference classes go stale, and that is normal
 
@@ -2127,3 +2128,74 @@ company pay policy: every percentage, every company default, and every
 driver-specific policy written for someone else. The driver-facing surface only
 ever needed one number, so the policy now excludes `operator` and the driver
 reads his own estimate through `driver_load_pay_estimate`.
+
+
+## Module 11, Pass 3 — guided loadout photo capture (2026-08-29)
+
+### Fixed slots, one definition
+
+`src/lib/loadoutSlots.ts` is the single source of truth for what a loadout owes
+in photos. The paperwork predicate (`DEFAULT_LOAD_PAPERWORK.loadout`) is
+**derived** from it rather than listing the slots a second time, and a test
+asserts the derivation — a second list is exactly how the capture screen and the
+predicate would drift apart.
+
+This is the durable fix for the roof-check matcher recorded as a KNOWN LIMIT in
+Module 5 Pass 2. The slot changed; the stored value did not. The roof check
+still writes `photo_label = 'Rear Doors Open'`, so nothing needed backfilling and
+`PHOTO_LABEL_SUGGESTIONS` keeps its coupling assertion. Fuzzy matching was
+deliberately not added.
+
+### Per-slot instructions
+
+Every slot carries one line of instruction shown with the camera. A label cannot
+teach and a new driver has never done a loadout. The roof-check line says what to
+look for, not what to photograph: stand at the back with the doors open, shoot up
+toward the nose, any daylight through the ceiling is a hole. **Nobody climbs on
+the trailer** — no instruction implies otherwise, and a test asserts none does.
+
+Pickup and delivery are different lists. Delivery has no roof check and no
+inspection sticker: both are pre-hook checks, done before accepting the trailer.
+Delivery adds location signage, which pickup does not have.
+
+### Nothing gates the driver
+
+Required slots are required for the load to clear its **paperwork**, not for the
+driver to proceed — the same distinction the predicate already makes. The screen
+shows what is still missing and never prevents anything. If the trailer is wrong
+he tells dispatch, records it, hooks up and goes: dispatch cannot always reach a
+broker after hours, and a driver stranded at a yard is a worse outcome than a
+documented dent.
+
+### The inspection sticker is tri-state
+
+A third-party trailer with an expired or missing annual DOT inspection is
+SUPERTRANSPORT's violation under SUPERTRANSPORT's authority, and faded stickers
+are common. The driver answers one of: a photo plus expiry date, "present but
+unreadable" (photo still captured), or "no sticker found" (no photo). A blank is
+not reachable, because blank would be ambiguous between three different
+situations, only one of which is a compliance concern. Same principle as "Not
+stated" on detention terms and the null pay estimate.
+
+`load_documents` gained `inspection_sticker_state` (enum
+`loadout_sticker_state`) and `inspection_sticker_expiry`. It is the right home:
+the sticker is part of the pickup photo set, and "no sticker found" writes a
+fileless row there so all three answers live in one place and the predicate sees
+the slot satisfied whichever was given. Two CHECK constraints keep it honest — an
+expiry only with `recorded`, and a sticker state only on a pickup inspection.
+
+### Damage raises WATCH, never HOLD
+
+A damage note is a record, not a dispute, so it must not stop settlement.
+`record_loadout_damage_flag(uuid, text)` is SECURITY DEFINER with
+`search_path` pinned, `REVOKE ALL FROM PUBLIC` and from `anon`, and EXECUTE to
+`authenticated` and `service_role`. It admits staff or the operator assigned to
+that load, stamps `current_profile_id()`, and **appends to the load's existing
+active WATCH flag rather than creating a second one**. The description carries
+the damage note, so a dispatcher reads what was found without opening the photos,
+and the existing claim indicator on the Loads list and Dispatch Board surfaces it
+with no new display work.
+
+`claim_flags` was added to `PROFILE_FK_COLUMNS` and modelled in pgFake, and the
+function is registered in the live definer catalog
+(`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 92 → 93).

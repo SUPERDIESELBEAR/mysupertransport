@@ -1,5 +1,9 @@
 import type { LoadType } from '@/lib/loadRateMath';
 import type { DocumentExceptionStatus, LoadDocumentType } from '@/lib/loadDocuments';
+import {
+  LOADOUT_STAGES, LOADOUT_STAGE_DOCUMENT_TYPE, LOADOUT_STAGE_LABEL, requiredLoadoutSlots,
+} from '@/lib/loadoutSlots';
+
 
 /**
  * Which documents a load owes, and whether it owes them hard.
@@ -54,17 +58,20 @@ export const DEFAULT_LOAD_PAPERWORK: Record<LoadType, PaperworkRequirement[]> = 
     { documentType: 'bol', level: 'expected', label: 'Bill of lading (collected at pickup)' },
   ],
   // A loadout owes NEITHER bol NOR pod. The guided photo package IS the POD.
-  loadout: [
-    { documentType: 'loadout_pickup_inspection', level: 'required', label: 'Pickup inspection photos' },
-    {
-      documentType: 'loadout_pickup_inspection',
+  //
+  // Derived, never re-listed: the required slots come from loadoutSlots.ts, the
+  // same module the capture UI reads, so the two cannot disagree about what the
+  // load owes.
+  loadout: LOADOUT_STAGES.flatMap(stage =>
+    requiredLoadoutSlots(stage).map<PaperworkRequirement>(slot => ({
+      documentType: LOADOUT_STAGE_DOCUMENT_TYPE[stage],
       level: 'required',
-      label: 'Roof check — rear doors open',
-      photoLabel: 'Rear Doors Open',
-    },
-    { documentType: 'loadout_delivery_inspection', level: 'required', label: 'Delivery inspection photos' },
-  ],
+      label: `${LOADOUT_STAGE_LABEL[stage]} — ${slot.title}`,
+      photoLabel: slot.photoLabel,
+    })),
+  ),
 };
+
 
 export type SatisfiedBy = 'document' | 'exception_approved' | 'exception_resolved';
 

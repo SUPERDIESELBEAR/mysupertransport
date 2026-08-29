@@ -27,6 +27,7 @@ export interface Row { [k: string]: unknown }
 
 /** Columns whose value must be a `profiles.id`. */
 export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
+  claim_flags: ['created_by', 'updated_by', 'resolved_by'],
   detention_claims: ['reported_to', 'notified_by', 'created_by', 'updated_by'],
   load_change_history: ['changed_by'],
   load_references: ['created_by'],
@@ -265,6 +266,7 @@ export function createPgFake(): PgFake {
     loads: [],
     load_charges: [],
     load_documents: [],
+    claim_flags: [],
     pay_policies: [],
     pay_policy_assignments: [],
     facilities: [],
