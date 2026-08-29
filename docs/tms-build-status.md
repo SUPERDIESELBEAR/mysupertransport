@@ -54,15 +54,16 @@ Date: 2026-08-22
 
 ## Test baselines
 
-Figures re-measured 2026-08-28 (Module 11 Pass 2) and written into `src/test/helpers/gate.ts`,
+Figures re-measured 2026-08-29 (look-alike serial guard fix) and written into `src/test/helpers/gate.ts`,
 `src/test/README.md`, and this file; all three files carry the same measured
-figures. The 2026-08-28 run used vitest 3.2.7, installed by a caret-range
+figures. The run used vitest 3.2.7, installed by a caret-range
 reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
 — the flag is part of the recorded invocation, not an optimisation. Every skip is
 named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 910 passed, 7 skipped (118 files passed, 1 skipped, 119 total).
-- **Without database:** 876 passed, 33 skipped (111 files passed, 8 skipped, 119 total).
+- **With database attached:** 914 passed, 14 skipped (119 files passed, 1 skipped, 120 total).
+- **Without database:** 876 passed, 44 skipped (111 files passed, 9 skipped, 120 total).
+
 
 Anything that matches neither shape is a signal, not a question. If a skip count
 moves without a matching named line in the output, a gate has regressed to
