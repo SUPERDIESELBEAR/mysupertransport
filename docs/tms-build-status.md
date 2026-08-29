@@ -61,8 +61,8 @@ reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
 — the flag is part of the recorded invocation, not an optimisation. Every skip is
 named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 946 passed, 14 skipped (122 files passed, 1 skipped, 123 total).
-- **Without database:** 901 passed, 51 skipped (113 files passed, 10 skipped, 123 total).
+- **With database attached:** 951 passed, 14 skipped (122 files passed, 1 skipped, 123 total).
+- **Without database:** 901 passed, 56 skipped (113 files passed, 10 skipped, 123 total).
 
 
 Anything that matches neither shape is a signal, not a question. If a skip count
@@ -2415,8 +2415,8 @@ settlements.
 Two new files (20 pure parser tests, 7 live-catalog checks; the live file is
 gated on `PGHOST` and contributes 7 named skips without a database).
 
-- **With database attached:** 946 passed, 14 skipped (122 files passed, 1 skipped, 123 total).
-- **Without database:** 901 passed, 51 skipped (113 files passed, 10 skipped, 123 total).
+- **With database attached:** 951 passed, 14 skipped (122 files passed, 1 skipped, 123 total).
+- **Without database:** 901 passed, 56 skipped (113 files passed, 10 skipped, 123 total).
 
 `FacilitySelect.test.tsx` joins the slow-RTL list: it needs ~45s of jsdom work
 for a single `userEvent.type` and exceeds the 5s default on this machine. It
