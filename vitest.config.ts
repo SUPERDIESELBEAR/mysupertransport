@@ -8,6 +8,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Guarantees node_modules/canvas points at tools/canvas-stub before any
+    // jsdom environment is created — see tools/canvas-stub/globalSetup.mjs.
+    // Does NOT depend on the postinstall hook, which some installers skip.
+    globalSetup: ["./tools/canvas-stub/globalSetup.mjs"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {

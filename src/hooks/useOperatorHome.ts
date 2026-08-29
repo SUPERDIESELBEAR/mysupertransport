@@ -5,6 +5,7 @@ import {
 } from '@/lib/dispatchBoard';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
 import { evaluateLoadPaperwork } from '@/lib/loadPaperwork';
+import { summarizeOutstandingPaperwork } from '@/lib/paperworkSummary';
 import type { DriverLoadPayEstimate } from '@/lib/driverLoadPay';
 import { nextStop, type HomeStop } from '@/lib/operatorHome';
 
@@ -136,7 +137,7 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
           brokerName: raw?.brokers?.company_name ?? null,
           stops,
           next: nextStop(stops),
-          outstandingPaperwork: paperwork.outstandingRequired.map(r => r.label),
+          outstandingPaperwork: summarizeOutstandingPaperwork(paperwork.outstandingRequired),
         };
       };
 
