@@ -2424,3 +2424,125 @@ passes with `--testTimeout=120000`. Vitest also reported **3.2.7** again during
 this pass while the lockfile range is `^3.2.4` — the exact drift recorded under
 KNOWN DEBT in `docs/tms-wish-list.md`, and the trigger condition for it (a
 baseline moving with no code change explaining it) is now observed twice.
+
+---
+
+## Findings — Active-operator population (2026-08-29, investigation only)
+
+Read-only survey taken before defining "active operator" for the settlement
+engine. No code, schema, or data changed.
+
+### Headline counts
+
+- 61 operators with `is_active = true` (0 demo).
+- 46 `onboarding_status.fully_onboarded = true`; 15 not.
+- 11 `excluded_from_dispatch = true` — **all 11 with a NULL reason**.
+- 35 appear on the dispatch board as dispatchable rows.
+- 26 active operators are off the board (board row filter is `fully_onboarded`;
+  exclusion only removes them from the dispatchable list).
+
+### 1. Off-board population, grouped
+
+**Group A — mid-onboarding, never live (15).** Christopher Harris, Daniel Vazquez
+Gonzalez, Dario Hamilton, Jeffery Oliver, Jonathan Grant, Laudel Zequeira
+Villafranca, Mel Smith, Michael Campbell, Michelle Watts, Reginald Blue, Robert
+Carpenter, Robert Patrick, Ruben Reyes Islas, Shawn Bresett, Shawn Bresett Jr.
+Evidence: `fully_onboarded = false`, `go_live_date` NULL, zero loads ever, zero
+open equipment assignments, zero `lease_terminations`. 5 are `on_hold`. Shawn
+Bresett Jr also has a `truck_owners` row — an owner record, not a driver.
+
+**Group B — onboarded but excluded from dispatch (11).** All have a
+`go_live_date`; none has a recorded exclusion reason.
+- Departed with a termination on file, still `is_active`: Bilal Leggett
+  (2026-07-24), Ronald Lockett (2026-08-10), Willie Westbrook (2026-08-14) —
+  each still holding 2-3 open equipment assignments.
+- Parked with equipment still out: Cortez Nelson (3), Damian Anderson (3),
+  Timothy Rainey (4), David Mitchell (1), Craig Pate (2, holds 1 load).
+- Owner-linked: Bilal Leggett, Jamian Anderson.
+- Emma Mueller (`on_hold`, no equipment, no loads); Progress Loyd (go-live
+  2025-06-30, no equipment, no loads).
+
+### 2. Terminated drivers still on the board
+
+`lease_terminations` rows whose operator is still `is_active = true`: **9**
+(22 more belong to already-deactivated operators). Only 3 are excluded from
+dispatch, so **6 sit on the board as ordinary dispatchable drivers**.
+
+| Driver | Termination | Reason / note | Excluded | Dispatch status | Last daily log | Equipment out | Loads |
+|---|---|---|---|---|---|---|---|
+| Ian Dunfee | 2026-07-17 | cause — "Truck and trailer down" | no | home | 2026-08-29 | eld, dash_cam, fuel_card | 0 |
+| Vino Huddleston | 2026-07-27 | cause — "Truck down" | no | home | 2026-08-30 | eld, dash_cam, fuel_card | 0 |
+| Dale Erickson | 2026-08-05 | cause — "Truck issue" | no | dispatched | 2026-08-28 | eld, dash_cam, fuel_card | 0 |
+| Steve Figueroa | 2026-08-10 | cause — "personal time off" | no | dispatched | 2026-08-31 | eld, dash_cam, fuel_card | 0 |
+| Steven Fifer | 2026-08-10 | cause — "on vacation" | no | dispatched | 2026-08-28 | eld, dash_cam, fuel_card | 0 |
+| Calvin Herrera | 2026-08-10 | cause — "truck issue" | no | dispatched | 2026-08-31 | eld, dash_cam, fuel_card | 0 |
+| Bilal Leggett | 2026-07-24 | mutual | yes | home | 2026-07-09 | eld, dash_cam | 0 |
+| Ronald Lockett | 2026-08-10 | cause — "Truck issue" | yes | home | 2026-08-10 | eld, dash_cam, fuel_card | 0 |
+| Willie Westbrook | 2026-08-14 | mutual | yes | home | 2026-08-31 | eld, dash_cam | 0 |
+
+- **Left and returned / never actually left:** Dunfee, Huddleston, Erickson,
+  Figueroa, Fifer, Herrera. The notes read "truck down", "vacation", "personal
+  time off" — the lease-termination document was used as a *temporary parking*
+  mechanism. All six log dispatch activity after the effective date (four are
+  `dispatched` today). A `lease_terminations` row therefore does NOT mean
+  departed.
+- **Left and not closed out:** Leggett, Lockett, Westbrook. Excluded, no
+  dispatch activity since the effective date, equipment never returned,
+  `is_active` never flipped.
+- `contractor_signed_at`, `pdf_url`, and `insurance_notified_at` are NULL on
+  **all nine** rows.
+- No money can be reported: no settlement layer exists yet. The only related
+  table is `forecast_deductions` — no `settlements`, `rm_deposits`,
+  `cash_advances`, or `deductions`.
+
+### 3. Every "active operator" predicate in the codebase
+
+| Call site | Predicate |
+|---|---|
+| `src/lib/managementMetrics.ts` (`isEligibleDriver`) | `is_active` AND `!is_demo` AND not in `OWNER_USER_IDS` |
+| `src/pages/dispatch/DispatchBoardPage.tsx` | `is_active <> false`, rows filtered to `fully_onboarded`; `dispatchable = !excluded_from_dispatch && is_active !== false` |
+| `src/pages/dispatch/DispatchPortal.tsx` | fully onboarded, split into excluded / included |
+| `ManagementPortal.tsx` (Compliance) | `is_active && fully_onboarded && past go_live_date && insurance_added_date` |
+| `ManagementPortal.tsx` (roster count) | `is_active && fully_onboarded && !is_demo` |
+| `ManagementPortal.tsx` (dispatch cards) | `active_dispatch` join, `!excluded_from_dispatch && fully_onboarded` |
+| `src/pages/staff/StaffPortal.tsx` | `fully_onboarded` only |
+| `src/pages/staff/PipelineDashboard.tsx` | `!fully_onboarded || stage5 open`; deactivate writes `is_active = false` |
+| `LoadsListPage.tsx`, `FuelImportPage.tsx`, `payTreatment.ts` | `is_active = true` only |
+| DB `check_driver_eligibility` | blocks on `is_active IS NOT TRUE`, `excluded_from_dispatch`, plus CDL/med/IRP/DOT expiry |
+| `supabase/functions/rollover-dispatch-status` | `excluded_from_dispatch = false` only |
+
+Seven materially different predicates. `lease_terminations` appears in none.
+
+### 4. Truck owners vs drivers
+
+`truck_owners` is one-to-one on `operator_id` with its own `user_id` and the
+`truck_owner` role in `useAuth`. 5 rows. In all 5 the owner's `user_id` differs
+from the operator's `user_id` — owner and driver are always different people
+today, though the schema does not forbid them being the same. All 5
+owner-linked operators have never held a load.
+
+### 5. Load history
+
+Only **2 operators** have ever been assigned a load, and both hold one now.
+Load data is effectively pre-production.
+
+### 6. Equipment return — is there a home for "management confirms the set is back"?
+
+- `equipment_assignments.returned_at` / `returned_by`: 276 assignments, 117
+  returned. Stamped by `DeactivationWizardContent.tsx`, which also flips
+  `operators.is_active = false`.
+- `equipment_receipts`: shipping receipts (`direction` inbound/return, uploader
+  driver or management). 3 return receipts exist. Trigger
+  `mark_equipment_return_completed` stamps
+  `onboarding_status.equipment_return_completed_at` on the first return receipt.
+- `onboarding_status` also carries `*_awaiting_return_shipment` per device,
+  `return_instructions_sent_at/by`, `equipment_return_date`,
+  `equipment_return_notes`.
+- `operator_offboarding_steps` has an `equipment_return` step: 7 operators have
+  step rows, **0 completed**.
+
+A home exists, but it records *shipment*, not *receipt inspection*: the
+completion stamp fires when a driver uploads a tracking receipt, before anything
+is physically checked in, and `mark_equipment_return_completed` is a
+driver-triggered write. No field records "management confirms the set is back".
+That gap is real.
