@@ -3735,6 +3735,278 @@ export type Database = {
           },
         ]
       }
+      fuel_import_batches: {
+        Row: {
+          created_at: string
+          date_range_end: string | null
+          date_range_start: string | null
+          disagreement_count: number
+          duplicate_count: number
+          file_name: string
+          flagged_count: number
+          id: string
+          imported_at: string
+          imported_by: string | null
+          imported_count: number
+          matched_count: number
+          provider: Database["public"]["Enums"]["fuel_provider"]
+          reconciliation_ok: boolean
+          row_count: number
+          total_amount: number
+          unmatched_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          disagreement_count?: number
+          duplicate_count?: number
+          file_name: string
+          flagged_count?: number
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          imported_count?: number
+          matched_count?: number
+          provider?: Database["public"]["Enums"]["fuel_provider"]
+          reconciliation_ok?: boolean
+          row_count?: number
+          total_amount?: number
+          unmatched_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          disagreement_count?: number
+          duplicate_count?: number
+          file_name?: string
+          flagged_count?: number
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          imported_count?: number
+          matched_count?: number
+          provider?: Database["public"]["Enums"]["fuel_provider"]
+          reconciliation_ok?: boolean
+          row_count?: number
+          total_amount?: number
+          unmatched_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_import_batches_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_transaction_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          line_type: Database["public"]["Enums"]["fuel_line_type"]
+          quantity: number | null
+          transaction_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          line_type: Database["public"]["Enums"]["fuel_line_type"]
+          quantity?: number | null
+          transaction_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          line_type?: Database["public"]["Enums"]["fuel_line_type"]
+          quantity?: number | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_transaction_lines_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_transactions: {
+        Row: {
+          additive_amount: number
+          batch_id: string
+          card_no: string
+          cash_advance_12digit_amount: number
+          cash_advance_emoney_amount: number
+          cash_advance_insta_amount: number
+          city: string | null
+          created_at: string
+          created_by: string | null
+          daycode: string | null
+          def_amount: number
+          def_quantity: number
+          diesel_amount: number
+          diesel_gallons: number
+          disagreement_fields: Json
+          driver_name: string | null
+          fees_amount: number
+          fuel_discount_amount: number
+          id: string
+          invoice_date: string
+          invoice_no: string
+          match_status: Database["public"]["Enums"]["fuel_match_status"]
+          matched_equipment_id: string | null
+          minor_repairs_amount: number
+          misc_amount: number
+          operator_id: string | null
+          reconciliation_delta: number
+          reconciliation_ok: boolean
+          reefer_amount: number
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          state: string | null
+          tires_amount: number
+          total_amount: number
+          unit_no: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          additive_amount?: number
+          batch_id: string
+          card_no: string
+          cash_advance_12digit_amount?: number
+          cash_advance_emoney_amount?: number
+          cash_advance_insta_amount?: number
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          daycode?: string | null
+          def_amount?: number
+          def_quantity?: number
+          diesel_amount?: number
+          diesel_gallons?: number
+          disagreement_fields?: Json
+          driver_name?: string | null
+          fees_amount?: number
+          fuel_discount_amount?: number
+          id?: string
+          invoice_date: string
+          invoice_no: string
+          match_status?: Database["public"]["Enums"]["fuel_match_status"]
+          matched_equipment_id?: string | null
+          minor_repairs_amount?: number
+          misc_amount?: number
+          operator_id?: string | null
+          reconciliation_delta?: number
+          reconciliation_ok?: boolean
+          reefer_amount?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          state?: string | null
+          tires_amount?: number
+          total_amount?: number
+          unit_no?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          additive_amount?: number
+          batch_id?: string
+          card_no?: string
+          cash_advance_12digit_amount?: number
+          cash_advance_emoney_amount?: number
+          cash_advance_insta_amount?: number
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          daycode?: string | null
+          def_amount?: number
+          def_quantity?: number
+          diesel_amount?: number
+          diesel_gallons?: number
+          disagreement_fields?: Json
+          driver_name?: string | null
+          fees_amount?: number
+          fuel_discount_amount?: number
+          id?: string
+          invoice_date?: string
+          invoice_no?: string
+          match_status?: Database["public"]["Enums"]["fuel_match_status"]
+          matched_equipment_id?: string | null
+          minor_repairs_amount?: number
+          misc_amount?: number
+          operator_id?: string | null
+          reconciliation_delta?: number
+          reconciliation_ok?: boolean
+          reefer_amount?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          state?: string | null
+          tires_amount?: number
+          total_amount?: number
+          unit_no?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_transactions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_transactions_matched_equipment_id_fkey"
+            columns: ["matched_equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_transactions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_transactions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_transactions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ica_amendment_units: {
         Row: {
           amendment_id: string
@@ -6803,6 +7075,7 @@ export type Database = {
           detention_pct: number
           effective_date: string
           fsc_pct: number
+          fuel_discount_passthrough: boolean
           id: string
           is_active: boolean
           is_company_default: boolean
@@ -6826,6 +7099,7 @@ export type Database = {
           detention_pct?: number
           effective_date?: string
           fsc_pct?: number
+          fuel_discount_passthrough?: boolean
           id?: string
           is_active?: boolean
           is_company_default?: boolean
@@ -6849,6 +7123,7 @@ export type Database = {
           detention_pct?: number
           effective_date?: string
           fsc_pct?: number
+          fuel_discount_passthrough?: boolean
           id?: string
           is_active?: boolean
           is_company_default?: boolean
@@ -9242,6 +9517,10 @@ export type Database = {
             }
             Returns: undefined
           }
+      assign_fuel_transaction_operator: {
+        Args: { _note?: string; _operator_id: string; _transaction_id: string }
+        Returns: Json
+      }
       assign_load_driver: {
         Args: {
           p_load_id: string
@@ -9302,6 +9581,10 @@ export type Database = {
       }
       check_driver_eligibility_bulk: {
         Args: { p_operator_ids: string[] }
+        Returns: Json
+      }
+      commit_fuel_import: {
+        Args: { _file_name: string; _provider: string; _rows: Json }
         Returns: Json
       }
       compliance_status: {
@@ -9366,6 +9649,16 @@ export type Database = {
           p_summary?: string
         }
         Returns: undefined
+      }
+      fuel_normalize_name: { Args: { _name: string }; Returns: string }
+      fuel_resolve_card: {
+        Args: { _card_no: string; _on_date: string }
+        Returns: {
+          driver_name: string
+          equipment_id: string
+          operator_id: string
+          unit_number: string
+        }[]
       }
       generate_load_number: { Args: never; Returns: string }
       get_application_by_draft_token: {
@@ -9847,6 +10140,7 @@ export type Database = {
         Args: { _operator_id: string }
         Returns: boolean
       }
+      preview_fuel_import: { Args: { _rows: Json }; Returns: Json }
       purge_rods_day:
         | { Args: { _day_id: string; _reason: string }; Returns: Json }
         | {
@@ -10314,6 +10608,21 @@ export type Database = {
         | "equipment"
         | "dispatch_operations"
         | "general_owner_operator"
+      fuel_line_type:
+        | "diesel"
+        | "reefer"
+        | "def"
+        | "additive"
+        | "minor_repairs"
+        | "misc"
+        | "tires"
+        | "cash_advance_12digit"
+        | "cash_advance_emoney"
+        | "cash_advance_insta"
+        | "fees"
+        | "fuel_discount"
+      fuel_match_status: "matched" | "unmatched" | "matched_with_disagreement"
+      fuel_provider: "multiservice"
       ica_status:
         | "not_issued"
         | "in_progress"
@@ -10656,6 +10965,22 @@ export const Constants = {
         "dispatch_operations",
         "general_owner_operator",
       ],
+      fuel_line_type: [
+        "diesel",
+        "reefer",
+        "def",
+        "additive",
+        "minor_repairs",
+        "misc",
+        "tires",
+        "cash_advance_12digit",
+        "cash_advance_emoney",
+        "cash_advance_insta",
+        "fees",
+        "fuel_discount",
+      ],
+      fuel_match_status: ["matched", "unmatched", "matched_with_disagreement"],
+      fuel_provider: ["multiservice"],
       ica_status: [
         "not_issued",
         "in_progress",

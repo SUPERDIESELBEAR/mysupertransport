@@ -25,7 +25,7 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-28, after the pay-policy lockdown pass; restamped during the vitest 3.2.7 reinstall)
+## Expected baselines (measured 2026-08-29, after the MultiService fuel import pass)
 
 There are exactly two shapes. Anything else is a signal.
 
@@ -39,8 +39,8 @@ It is not a shape and must never be reported as one.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  120 passed | 1 skipped (121)
-     Tests  919 passed | 14 skipped (933)
+Test Files  122 passed | 1 skipped (123)
+     Tests  946 passed | 14 skipped (960)
 
 
 skipped:
@@ -63,8 +63,8 @@ skipped:
 
 
 ```text
-Test Files  112 passed | 9 skipped (121)
-     Tests  881 passed | 44 skipped (925)
+Test Files  113 passed | 10 skipped (123)
+     Tests  901 passed | 51 skipped (952)
 
 
 skipped: the above, plus
@@ -76,12 +76,13 @@ skipped: the above, plus
   live grant / policy parity x3      no PGHOST, live catalog unreadable
   stop time source structure x4      no PGHOST, live catalog unreadable
   equipment serial guard catalog x4  no PGHOST, live catalog unreadable
+  fuel import live structure x7      no PGHOST, live catalog unreadable
 
 ```
 
 Note on flakiness: a few React Testing Library suites (`brokersPage`,
 `loadChargesCard`, `loadReferencesCard`, `loadsRouting`, `RequestRetakeModal`,
-`blueGraceLoadPath`) time out at the default 5s under full worker parallelism on
+`blueGraceLoadPath`, `FacilitySelect`) time out at the default 5s under full worker parallelism on
 a loaded machine. They pass individually and with `--maxWorkers=2`. A timeout in
 one of those files is contention, not a regression — re-run it alone before
 reading anything into it.

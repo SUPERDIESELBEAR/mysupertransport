@@ -325,6 +325,14 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // current_profile_id(). authenticated only; the anon grant is revoked in the
   // same migration.
   "public.record_loadout_damage_flag(uuid,text)",
+  // Fuel import (Module 6, 2026-08-29). All three check the caller's role in
+  // their own body before touching a row: preview and commit require
+  // management or owner, the review-queue assignment requires staff. The
+  // internal resolver fuel_resolve_card holds no EXECUTE for authenticated at
+  // all and so is deliberately absent from this list.
+  "public.preview_fuel_import(jsonb)",
+  "public.commit_fuel_import(text,text,jsonb)",
+  "public.assign_fuel_transaction_operator(uuid,uuid,text)",
 
 
 
@@ -351,7 +359,8 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // linked to a load.
 // + driver_load_pay_estimate, authenticated-only (2026-08-28).
 // + record_loadout_damage_flag, authenticated-only (2026-08-29).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 93;
+// + the three fuel import RPCs, each role-checked in its own body (2026-08-29).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 96;
 
 
 

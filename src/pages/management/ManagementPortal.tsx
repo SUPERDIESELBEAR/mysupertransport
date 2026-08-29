@@ -10,6 +10,7 @@ import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
 import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
+import FuelImportPage from '@/pages/management/FuelImportPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
 import LoadDetailPage from '@/pages/dispatch/LoadDetailPage';
 import CreateLoadPage from '@/pages/dispatch/CreateLoadPage';
@@ -40,6 +41,7 @@ import {
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, SlidersHorizontal, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   Building2, MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy, Handshake, Inbox, LayoutGrid,
+  Fuel,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -102,7 +104,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -175,7 +177,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -1040,9 +1042,14 @@ export default function ManagementPortal() {
         { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'facilities' },
       ],
     },
-    // Accounting stays empty until Modules 4 (Settlements) and 7 (Billing).
-    // An empty group renders nothing at all.
-    { label: 'Accounting', items: [] as typeof pinnedNavItems },
+    // Accounting holds the money modules. Fuel import is the first of them;
+    // Settlements (Module 4) and Billing (Module 7) join it later.
+    {
+      label: 'Accounting',
+      items: [
+        { label: 'Fuel Import', icon: <Fuel className="h-4 w-4" />, path: 'fuel-import' },
+      ],
+    },
     {
       label: 'Equipment',
       items: [
@@ -2114,6 +2121,7 @@ export default function ManagementPortal() {
         {view === 'facilities' && <FacilitiesListPage />}
         {view === 'brokers' && <BrokersListPage />}
         {view === 'parser-diagnostics' && <ParserDiagnosticsPage />}
+        {view === 'fuel-import' && <FuelImportPage />}
 
         {view === 'rate-con-inbox' && (
           <RateConInboxPage onOpenCreateLoad={() => setView('load-create')} />
