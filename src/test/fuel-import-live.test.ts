@@ -166,3 +166,52 @@ describe("fuel import structure", () => {
     expect(anyOn).toBe("0");
   });
 });
+
+/**
+ * ABSENCE IS NOT DISAGREEMENT.
+ *
+ * A "matched_with_disagreement" flag says the file and the record CONTRADICT
+ * each other. When the system side is empty there is nothing to contradict,
+ * and a flag that fires on 291 of 297 rows buries the six that mean something.
+ * Both RPCs must require a value on BOTH sides before flagging.
+ */
+describe("fuel disagreement flags require both sides to hold a value", () => {
+  function fnBody(name: string): string {
+    return psql(`
+      select pg_get_functiondef(p.oid)
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = '${name}'
+    `).join("\n");
+  }
+
+  for (const fn of ["preview_fuel_import", "commit_fuel_import"]) {
+    itLive(`${fn}: a null system unit number records matched, not a disagreement`, () => {
+      const body = fnBody(fn);
+      expect(body, `${fn} is missing`).toBeTruthy();
+      // The unit branch must test the RESOLVED value for emptiness, not only
+      // the CSV value.
+      expect(
+        body,
+        `${fn} flags unit_no without checking the system side is present`,
+      ).toMatch(/NULLIF\(btrim\(COALESCE\(v_res\.unit_number,''\)\), ''\) IS NOT NULL/);
+    });
+
+    itLive(`${fn}: a blank driver name on either side records matched`, () => {
+      const body = fnBody(fn);
+      expect(
+        body,
+        `${fn} flags driver_name without checking both sides are present`,
+      ).toMatch(/NULLIF\(public\.fuel_normalize_name\(v_res\.driver_name\), ''\) IS NOT NULL/);
+      expect(body).toMatch(/NULLIF\(public\.fuel_normalize_name\(r->>'driver_name'\), ''\) IS NOT NULL/);
+    });
+  }
+
+  itLive("card resolution reads the unit number the Driver Status board reads", () => {
+    // The board reads onboarding_status.unit_number and falls back to
+    // operators.unit_number. The import must read the same place rather than
+    // ask anyone to maintain a second copy.
+    const body = fnBody("fuel_resolve_card");
+    expect(body).toMatch(/onboarding_status/);
+    expect(body).toMatch(/COALESCE\(NULLIF\(btrim\(os\.unit_number\), ''\), NULLIF\(btrim\(o\.unit_number\), ''\)\)/);
+  });
+});
