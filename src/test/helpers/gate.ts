@@ -17,7 +17,7 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-29 (MultiService fuel import). There are exactly two shapes. A
+ * EXPECTED BASELINES — measured 2026-08-29 (fuel disagreement rule). There are exactly two shapes. A
  * total that matches neither is a signal, not a question: something started
  * or stopped running, and the run should be read before it is trusted.
  *
@@ -28,7 +28,7 @@
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
 
- *     946 passed | 14 skipped       (122 files passed | 1 skipped, 123 total)
+ *     951 passed | 14 skipped       (122 files passed | 1 skipped, 123 total)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -50,7 +50,7 @@
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
 
- *     901 passed | 51 skipped       (113 files passed | 10 skipped, 123 total)
+ *     901 passed | 56 skipped       (113 files passed | 10 skipped, 123 total)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
