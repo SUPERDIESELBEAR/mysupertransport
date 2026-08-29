@@ -240,17 +240,26 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(-120) || 'file';
 }
 
+export type LoadoutStickerState = Database['public']['Enums']['loadout_sticker_state'];
+export type LoadDocumentUploadChannel = Database['public']['Enums']['document_upload_channel'];
+
 export interface UploadLoadDocumentInput {
   loadId: string;
   documentType: LoadDocumentType;
   loadStopId?: string | null;
   notes?: string | null;
   file: File;
+  /** Where the file came from. Driver capture must say so. */
+  uploadChannel?: LoadDocumentUploadChannel;
   /** Photo-only metadata for loadout inspection uploads. */
   photoLabel?: string | null;
   photoSequence?: number | null;
   damageNoted?: boolean | null;
   damageNotes?: string | null;
+  /** Annual inspection sticker answer — pickup inspections only. */
+  inspectionStickerState?: LoadoutStickerState | null;
+  /** ISO date, only meaningful when the state is 'recorded'. */
+  inspectionStickerExpiry?: string | null;
 }
 
 /** Uploads one file and records it. `uploaded_by` is stamped server-side. */
@@ -258,8 +267,9 @@ export interface UploadLoadDocumentInput {
 export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promise<string> {
 
   const {
-    loadId, documentType, loadStopId, notes, file,
+    loadId, documentType, loadStopId, notes, file, uploadChannel,
     photoLabel, photoSequence, damageNoted, damageNotes,
+    inspectionStickerState, inspectionStickerExpiry,
   } = input;
   const contentType = resolveMimeType(file) || 'application/octet-stream';
   const path = `${loadId}/${documentType}/${crypto.randomUUID()}-${sanitizeFilename(file.name)}`;
@@ -271,6 +281,7 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
   if (upErr) throw upErr;
 
   const isPhotoType = LOADOUT_PHOTO_TYPES.includes(documentType);
+  const isPickup = documentType === 'loadout_pickup_inspection';
   const { data: inserted, error: insErr } = await supabase.from('load_documents').insert({
     load_id: loadId,
     load_stop_id: loadStopId || null,
@@ -278,12 +289,15 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     document_name: file.name,
     file_path: path,
     file_type: contentType,
-    upload_channel: 'office_upload',
+    upload_channel: uploadChannel ?? 'office_upload',
     notes: notes?.trim() ? notes.trim() : null,
     photo_label: isPhotoType ? (photoLabel?.trim() ? photoLabel.trim() : null) : null,
     photo_sequence: isPhotoType ? photoSequence ?? null : null,
     damage_noted: isPhotoType ? damageNoted ?? false : false,
     damage_notes: isPhotoType && damageNoted ? (damageNotes?.trim() ? damageNotes.trim() : null) : null,
+    inspection_sticker_state: isPickup ? inspectionStickerState ?? null : null,
+    inspection_sticker_expiry:
+      isPickup && inspectionStickerState === 'recorded' ? inspectionStickerExpiry || null : null,
   }).select('id').single();
   if (insErr) {
     // Roll back the orphaned object so storage does not drift from the table.
@@ -292,6 +306,45 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
   }
   return inserted.id as string;
 }
+
+/**
+ * "No sticker found" — an answer with no photo behind it.
+ *
+ * It still lands in load_documents so the sticker lives in ONE place regardless
+ * of which of the three answers was given, and so the paperwork predicate sees
+ * the slot satisfied. Absence is information; a blank field is ambiguity.
+ */
+export async function recordLoadoutStickerNotFound(
+  loadId: string,
+  photoLabel: string,
+  loadStopId?: string | null,
+): Promise<string> {
+  const { data, error } = await supabase.from('load_documents').insert({
+    load_id: loadId,
+    load_stop_id: loadStopId || null,
+    document_type: 'loadout_pickup_inspection',
+    document_name: 'No annual inspection sticker found',
+    upload_channel: 'driver_app',
+    photo_label: photoLabel,
+    inspection_sticker_state: 'not_found',
+  }).select('id').single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+/**
+ * A damage note raises a WATCH claim on the load — never HOLD. This is a record,
+ * not a dispute, and it must not stop settlement. The RPC appends to the load's
+ * existing WATCH flag rather than creating a second one.
+ */
+export async function recordLoadoutDamageFlag(loadId: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc('record_loadout_damage_flag', {
+    _load_id: loadId,
+    _note: note,
+  });
+  if (error) throw error;
+}
+
 
 /** Replaces a load document's notes, e.g. when a reviewed file is later applied. */
 export async function setLoadDocumentNotes(documentId: string, notes: string): Promise<void> {

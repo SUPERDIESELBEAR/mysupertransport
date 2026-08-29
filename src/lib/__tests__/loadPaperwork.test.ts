@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOAD_PAPERWORK, evaluateLoadPaperwork } from '@/lib/loadPaperwork';
+import { requiredLoadoutSlots } from '@/lib/loadoutSlots';
+
 
 const doc = (document_type: string, photo_label?: string) => ({ document_type, photo_label });
 const exc = (document_type: string, status: string) => ({ document_type, status });
@@ -33,21 +35,38 @@ describe('evaluateLoadPaperwork — per_ton', () => {
 });
 
 describe('evaluateLoadPaperwork — loadout', () => {
-  const sets = [doc('loadout_pickup_inspection', 'Front'), doc('loadout_delivery_inspection', 'Front')];
+  const every = (type: string, stage: 'pickup' | 'delivery') =>
+    requiredLoadoutSlots(stage).map(s => doc(type, s.photoLabel));
+  const full = [
+    ...every('loadout_pickup_inspection', 'pickup'),
+    ...every('loadout_delivery_inspection', 'delivery'),
+  ];
 
   it('is incomplete when no photo is labelled Rear Doors Open', () => {
-    const r = evaluateLoadPaperwork('loadout', sets, []);
+    const r = evaluateLoadPaperwork(
+      'loadout',
+      full.filter(d => d.photo_label !== 'Rear Doors Open'),
+      [],
+    );
     expect(r.complete).toBe(false);
-    expect(r.outstandingRequired.map(x => x.label)).toEqual(['Roof check — rear doors open']);
+    expect(r.outstandingRequired.map(x => x.photoLabel)).toEqual(['Rear Doors Open']);
   });
 
   it('matches the roof check after trimming and case-folding', () => {
     const r = evaluateLoadPaperwork(
       'loadout',
-      [...sets, doc('loadout_pickup_inspection', 'rear doors open ')],
+      [
+        ...full.filter(d => d.photo_label !== 'Rear Doors Open'),
+        doc('loadout_pickup_inspection', 'rear doors open '),
+      ],
       [],
     );
     expect(r.complete).toBe(true);
+  });
+
+  it('is complete only once every required slot is captured', () => {
+    expect(evaluateLoadPaperwork('loadout', full, []).complete).toBe(true);
+    expect(evaluateLoadPaperwork('loadout', full.slice(1), []).complete).toBe(false);
   });
 
   it('never requires bol or pod', () => {
@@ -55,6 +74,7 @@ describe('evaluateLoadPaperwork — loadout', () => {
     expect(types).not.toContain('bol');
     expect(types).not.toContain('pod');
   });
+
 });
 
 describe('exception status matrix', () => {

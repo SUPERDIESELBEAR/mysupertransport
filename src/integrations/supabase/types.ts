@@ -4456,6 +4456,10 @@ export type Database = {
           file_type: string | null
           file_url: string | null
           id: string
+          inspection_sticker_expiry: string | null
+          inspection_sticker_state:
+            | Database["public"]["Enums"]["loadout_sticker_state"]
+            | null
           is_verified: boolean | null
           load_id: string
           load_stop_id: string | null
@@ -4481,6 +4485,10 @@ export type Database = {
           file_type?: string | null
           file_url?: string | null
           id?: string
+          inspection_sticker_expiry?: string | null
+          inspection_sticker_state?:
+            | Database["public"]["Enums"]["loadout_sticker_state"]
+            | null
           is_verified?: boolean | null
           load_id: string
           load_stop_id?: string | null
@@ -4506,6 +4514,10 @@ export type Database = {
           file_type?: string | null
           file_url?: string | null
           id?: string
+          inspection_sticker_expiry?: string | null
+          inspection_sticker_state?:
+            | Database["public"]["Enums"]["loadout_sticker_state"]
+            | null
           is_verified?: boolean | null
           load_id?: string
           load_stop_id?: string | null
@@ -9879,6 +9891,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_loadout_damage_flag: {
+        Args: { _load_id: string; _note: string }
+        Returns: string
+      }
       record_retention_export: {
         Args: {
           _artifact_count: number
@@ -10342,6 +10358,7 @@ export type Database = {
         | "tonu"
         | "cancelled"
       load_type: "standard" | "per_ton" | "loadout"
+      loadout_sticker_state: "recorded" | "unreadable" | "not_found"
       mo_docs_status: "not_submitted" | "submitted"
       mo_reg_status: "not_yet" | "yes"
       mvr_status: "not_started" | "requested" | "received"
@@ -10687,6 +10704,7 @@ export const Constants = {
         "cancelled",
       ],
       load_type: ["standard", "per_ton", "loadout"],
+      loadout_sticker_state: ["recorded", "unreadable", "not_found"],
       mo_docs_status: ["not_submitted", "submitted"],
       mo_reg_status: ["not_yet", "yes"],
       mvr_status: ["not_started", "requested", "received"],

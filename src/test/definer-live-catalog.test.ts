@@ -317,6 +317,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // deliberately does NOT appear in KNOWN_ANON_EXECUTABLE.
   "public.driver_load_pay_estimate(uuid)",
 
+  // Raises the WATCH claim behind a loadout damage note. claim_flags is
+  // staff-write only, and it has to stay that way: the driver may record damage
+  // on HIS OWN load and nothing else. The function verifies the caller either
+  // holds a staff role or is the operator on that load, appends to the load's
+  // existing WATCH flag rather than creating a second, and stamps
+  // current_profile_id(). authenticated only; the anon grant is revoked in the
+  // same migration.
+  "public.record_loadout_damage_flag(uuid,text)",
+
+
 
 
   // Token-gated public endpoints that also hold the authenticated grant; see
@@ -340,7 +350,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + get_load_linked_messages, the staff/assigned-operator reader for messages
 // linked to a load.
 // + driver_load_pay_estimate, authenticated-only (2026-08-28).
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 92;
+// + record_loadout_damage_flag, authenticated-only (2026-08-29).
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 93;
+
 
 
 
