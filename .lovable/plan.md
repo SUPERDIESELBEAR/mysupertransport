@@ -1,71 +1,130 @@
-# Fix the look-alike serial guard so it stops blocking its own cleanup
+# Active-Operator Population Report (investigation only)
 
-The guard `enforce_equipment_serial_uniqueness` fires on `BEFORE INSERT OR UPDATE OF serial_number, device_type, status`. Because `status` is in that list, every assign, return and archive consults a serial-uniqueness check even though none of them touch the serial. On a row with a near-twin in inventory, all three are rejected — including deactivation, which is the remedy for the duplicate.
+Nothing was changed. All figures are live reads taken 2026-08-29. The only proposed
+change is recording this report in `docs/tms-build-status.md` as a findings section.
 
-No such pair exists in live data today (verified: zero groups under the guard's own canonicalisation), so the defect is latent. The fix is to make the guard consult itself only when the serial can actually collide.
+## Headline counts
 
-## 1. Skip when the canonical serial is unchanged
+- 61 operators with `is_active = true` (0 of them demo).
+- 46 have `onboarding_status.fully_onboarded = true`; 15 do not.
+- 11 have `excluded_from_dispatch = true` — all 11 with a NULL reason.
+- 35 appear on the dispatch board as dispatchable rows (fully onboarded AND not excluded).
+- 61 - 35 = **26 active operators off the board** (your 27 is off by one; the board's
+  own row filter is `fully_onboarded`, and exclusion only removes them from the
+  dispatchable list).
 
-On UPDATE, compute `canonical_equipment_serial` of `OLD.serial_number` and `NEW.serial_number`. When they match **and** `device_type` is unchanged, return `NEW` immediately without querying. Status transitions never reach the uniqueness check.
+## 1. The off-board population, grouped
 
-This alone fixes assign, return, archive and every future status path, because none of them alter the serial. INSERT is unaffected — there is no `OLD`, so the check always runs.
+**Group A — mid-onboarding, never live (15).**
+Christopher Harris, Daniel Vazquez Gonzalez, Dario Hamilton, Jeffery Oliver, Jonathan
+Grant, Laudel Zequeira Villafranca, Mel Smith, Michael Campbell, Michelle Watts,
+Reginald Blue, Robert Carpenter, Robert Patrick, Ruben Reyes Islas, Shawn Bresett,
+Shawn Bresett Jr.
+Evidence: `fully_onboarded = false`, `go_live_date` NULL, zero loads ever, zero open
+equipment assignments, zero `lease_terminations` rows. 5 of them are `on_hold`
+(Harris, Oliver, Zequeira, Smith, Watts). Shawn Bresett Jr also has a `truck_owners`
+row — he is an owner record, not a driver in progress.
 
-`device_type` is included in the early exit condition because the same canonical serial under a different device type is a genuinely new collision surface and must still be checked.
+**Group B — onboarded but excluded from dispatch (11).** All have a `go_live_date`;
+none has a recorded exclusion reason.
+- Departed, termination on file, still active: **Bilal Leggett** (2026-07-24),
+  **Ronald Lockett** (2026-08-10), **Willie Westbrook** (2026-08-14). Each still holds
+  2-3 open equipment assignments.
+- Parked with equipment still out: Cortez Nelson (3), Damian Anderson (3),
+  Timothy Rainey (4), David Mitchell (1), Craig Pate (2, and holds 1 load).
+- Owner-linked: Bilal Leggett, Jamian Anderson have `truck_owners` rows.
+- Emma Mueller — `on_hold`, no equipment, no loads (staff/test-shaped record).
+- Progress Loyd — go-live 2025-06-30, no equipment, no loads.
 
-## 2. Skip when `NEW.status = 'deactivated'`
+## 2. Six terminated drivers who are still fully on the board
 
-Retiring a row removes it from contention — the guard's own query already excludes deactivated rows as comparison targets. Excluding them as the *subject* too closes the loop: deactivating one half of a duplicate pair is always allowed, whatever the serial says.
+`lease_terminations` rows whose operator is still `is_active = true`: **9**
+(22 more belong to already-deactivated operators). Only 3 of the 9 are excluded from
+dispatch, so **6 sit on the board as ordinary dispatchable drivers**.
 
-Ordering: the deactivation exit is evaluated before the collision query, alongside the unchanged-serial exit.
+| Driver | Termination | Reason / note | Excluded | Dispatch status | Last daily log | Equipment still out | Loads |
+|---|---|---|---|---|---|---|---|
+| Ian Dunfee | 2026-07-17 | cause — "Truck and trailer down" | no | home | 2026-08-29 | eld, dash_cam, fuel_card | 0 |
+| Vino Huddleston | 2026-07-27 | cause — "Truck down" | no | home | 2026-08-30 | eld, dash_cam, fuel_card | 0 |
+| Dale Erickson | 2026-08-05 | cause — "Truck issue" | no | dispatched | 2026-08-28 | eld, dash_cam, fuel_card | 0 |
+| Steve Figueroa | 2026-08-10 | cause — "temporarily remove need personal time off" | no | dispatched | 2026-08-31 | eld, dash_cam, fuel_card | 0 |
+| Steven Fifer | 2026-08-10 | cause — "on vacation" | no | dispatched | 2026-08-28 | eld, dash_cam, fuel_card | 0 |
+| Calvin Herrera | 2026-08-10 | cause — "truck issue" | no | dispatched | 2026-08-31 | eld, dash_cam, fuel_card | 0 |
+| Bilal Leggett | 2026-07-24 | mutual | yes | home | 2026-07-09 | eld, dash_cam | 0 |
+| Ronald Lockett | 2026-08-10 | cause — "Truck issue" | yes | home | 2026-08-10 | eld, dash_cam, fuel_card | 0 |
+| Willie Westbrook | 2026-08-14 | mutual | yes | home | 2026-08-31 | eld, dash_cam, fuel_card* | 0 |
 
-## 3. The missing unique index
+*Westbrook's fuel card assignment was closed; he holds eld + dash_cam.
 
-Look-alike uniqueness currently rests on the trigger alone. The index that landed, `idx_equipment_items_canonical_serial`, is **non-unique**; the only unique index is the older `idx_equipment_items_serial_type`, built on the exact form with no `OILS → 0115` translation, so it does not catch look-alikes. Any path that bypasses the trigger — bulk import, restore, direct SQL, `ALTER TABLE ... DISABLE TRIGGER` — can create a pair.
+Plainly, per your three categories:
+- **Left and returned / never actually left:** Dunfee, Huddleston, Erickson, Figueroa,
+  Fifer, Herrera. The termination notes say "truck down", "vacation", "personal time
+  off" — the lease-termination document was used as a *temporary parking* mechanism.
+  All six are still logging dispatch activity after the effective date (four are
+  `dispatched` right now), so treating a `lease_terminations` row as "departed" would
+  wrongly exclude six working drivers.
+- **Left and not closed out:** Leggett, Lockett, Westbrook. Excluded from dispatch,
+  no dispatch activity since the effective date, equipment never returned, `is_active`
+  never flipped, no signed contractor copy, no PDF, insurance never notified
+  (`contractor_signed_at`, `pdf_url`, `insurance_notified_at` are NULL on **all nine**).
+- **No unsettled money can be reported:** there is no settlement layer yet — the only
+  matching table in the database is `forecast_deductions`. No `settlements`,
+  `rm_deposits`, `cash_advances`, or `deductions` tables exist, so R&M balances,
+  advances, and negative carry-forward do not exist for anyone, departed or not.
 
-**The canonical expression can carry a unique index against current data.** `canonical_equipment_serial` is `IMMUTABLE` and `SET search_path`-pinned, which is what a functional index requires, and there are zero canonical collisions across 199 rows.
+## 3. Every "active operator" definition in the codebase
 
-It must be **partial**, matching the trigger's own scope:
+| Call site | Predicate |
+|---|---|
+| `src/lib/managementMetrics.ts` `isEligibleDriver` + `fetchOverviewMetrics` | `is_active = true` AND `!is_demo` AND `user_id NOT IN OWNER_USER_IDS` |
+| `src/pages/dispatch/DispatchBoardPage.tsx` | `is_active <> false`, rows filtered to `onboarding_status.fully_onboarded`; `dispatchable = !excluded_from_dispatch && is_active !== false` |
+| `src/pages/dispatch/DispatchPortal.tsx` | fully onboarded, then split into `excludedOnboarded` / `includedOnboarded` |
+| `src/pages/management/ManagementPortal.tsx` (Compliance) | `is_active && fully_onboarded && past go_live_date && insurance_added_date` |
+| `src/pages/management/ManagementPortal.tsx` (roster count) | `is_active && fully_onboarded && !is_demo` |
+| `src/pages/management/ManagementPortal.tsx` (dispatch cards) | `active_dispatch` join, `!excluded_from_dispatch && fully_onboarded` |
+| `src/pages/staff/StaffPortal.tsx` | `fully_onboarded = true` only |
+| `src/pages/staff/PipelineDashboard.tsx` | `!fully_onboarded || stage5 open`; deactivate writes `is_active = false` |
+| `src/pages/dispatch/LoadsListPage.tsx`, `FuelImportPage.tsx`, `payTreatment.ts` | `is_active = true` only |
+| DB `check_driver_eligibility` | blocks on `is_active IS NOT TRUE` and on `excluded_from_dispatch`, plus CDL/med/IRP/DOT expiry |
+| `supabase/functions/rollover-dispatch-status` | `operators.excluded_from_dispatch = false` only |
 
-```sql
-CREATE UNIQUE INDEX idx_equipment_items_canonical_serial_uniq
-  ON public.equipment_items (device_type, public.canonical_equipment_serial(serial_number))
-  WHERE status <> 'deactivated';
-```
+Seven materially different predicates; `lease_terminations` appears in none of them.
 
-Without the `WHERE`, the index would forbid multiple retired rows sharing a canonical serial — which is exactly the state a duplicate cleanup produces, so a total index would re-create the bug at the storage layer. The partial form permits any number of deactivated twins and permits exactly one live device per canonical serial per type.
+## 4. Truck owners vs drivers
 
-The non-unique `idx_equipment_items_canonical_serial` becomes redundant and is dropped in the same migration. The older exact-form `idx_equipment_items_serial_type` is left alone — it is a strictly weaker constraint and dropping it is not in scope here.
+`truck_owners` is a separate table keyed one-to-one on `operator_id`, with its own
+`user_id` and the `truck_owner` role in `useAuth`. 5 rows exist. In **all 5** the
+owner's `user_id` differs from the operator's `user_id` — so today owner and driver
+are always different people, though the schema does not forbid them being the same.
+**All 5 owner-linked operators have never held a load.** The operator record is the
+lease/truck; the driver identity is `operators.user_id`.
 
-If the index build fails on data that arrives between planning and applying, the migration fails loudly rather than being weakened; the fallback in that case is to record in `docs/tms-build-status.md` that the trigger is the only enforcement, and resolve the offending pair first.
+## 5. Load history
 
-## 4. Test — the reported defect, written as its case
+Across the whole `loads` table only **2 operators** have ever been assigned a load,
+and both are current holders. So of the 61 active operators, 2 have ever held a load
+and 2 hold one now — load data is effectively pre-production.
 
-New `src/test/equipment-serial-guard.test.ts`, following the `stop-time-source-trigger.test.ts` pattern: ambient psql role, everything inside a transaction that is always rolled back, gated through `gatedIt`/`skipBanner` on `PGHOST`.
+## 6. Equipment return: is there a home for "management confirms the set is back"?
 
-Because no near-duplicate exists in live data, the test constructs one. With the partial unique index in place a live pair cannot be inserted, so the pair is created as one live row plus one row that the index permits, and the guard's behaviour is asserted against it:
+- `equipment_assignments.returned_at` / `returned_by` — 276 assignments, 117 returned.
+  Set by the Deactivation Wizard (`DeactivationWizardContent.tsx`), which stamps
+  `returned_at` and also flips `operators.is_active = false`.
+- `equipment_receipts` — shipping receipts, `direction` inbound/return, uploaded by
+  driver or management. 3 return receipts exist. Trigger
+  `mark_equipment_return_completed` stamps `onboarding_status.equipment_return_completed_at`
+  on the first return receipt.
+- `onboarding_status` also carries `*_awaiting_return_shipment` flags per device,
+  `return_instructions_sent_at/by`, `equipment_return_date`, `equipment_return_notes`.
+- `operator_offboarding_steps` has an `equipment_return` step — 7 operators have step
+  rows and **0 have `equipment_return` completed**.
 
-- Insert device A with serial `AABL36UGO24945`, then attempt device B with `AABL36UG024945` (O/zero twin, same type) — **rejected**, both by trigger and by index.
-- With the pair forced into place (second row inserted as `deactivated`, which both the guard and the partial index allow), assert against the live row:
-  - `update status = 'assigned'` — **succeeds**
-  - `update status = 'lost'` (return path) — **succeeds**
-  - `update status = 'deactivated'` (archive path) — **succeeds**
-- Assert the guard still bites where it should: changing a live row's serial *to* another live row's canonical twin is still rejected.
-- Assert self-comparison is not reintroduced: rewriting a row's serial to its own current value succeeds.
+A home exists, but it records *shipment*, not *receipt inspection*: the "completed"
+stamp fires as soon as a driver uploads a tracking receipt, before anything is
+physically checked in. There is no field for "management confirms the set is back",
+and `mark_equipment_return_completed` is a driver-triggered write. That gap is real.
 
-Baselines in `src/test/helpers/gate.ts`, `src/test/README.md` and `docs/tms-build-status.md` are restamped together from the measured run.
+## Proposed change
 
-## Technical details
-
-Migration contents, in order:
-
-1. `CREATE OR REPLACE FUNCTION public.enforce_equipment_serial_uniqueness()` with both early exits added. It carries all four required attributes: `SECURITY DEFINER`, `SET search_path TO 'public', 'extensions'`, `REVOKE ALL ON FUNCTION ... FROM PUBLIC`, and an explicit `REVOKE ALL ON FUNCTION ... FROM anon` — anon is not intended for a trigger function, and `authenticated` is revoked too for the same reason (Postgres checks EXECUTE at `CREATE TRIGGER` time, not at fire time).
-2. `DROP INDEX IF EXISTS idx_equipment_items_canonical_serial;`
-3. `CREATE UNIQUE INDEX idx_equipment_items_canonical_serial_uniq ... WHERE status <> 'deactivated';`
-
-`canonical_equipment_serial` is not re-authored — it is already correct, already pinned, and already revoked from PUBLIC. Its `IMMUTABLE` marking is load-bearing for the index and must not change.
-
-No table, column, RLS or grant changes. The trigger definition itself is unchanged; the `UPDATE OF ... status` clause stays, since the function now exits cheaply on those events and keeping `status` in the list is what lets the deactivation exemption be evaluated at all.
-
-## Verify
-
-Run the new suite plus `definer-search-path`, `definer-live-catalog` and the full `vitest run --maxWorkers=2`, read output in full, and re-query `pg_get_functiondef` and `pg_indexes` to confirm the live function and the partial unique index match the migration.
+Add the above as a dated findings section in `docs/tms-build-status.md`. No code,
+schema, or data changes.
