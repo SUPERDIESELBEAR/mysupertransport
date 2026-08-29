@@ -61,8 +61,8 @@ reinstall rather than a committed pin. Both shapes are run with `--maxWorkers=2`
 — the flag is part of the recorded invocation, not an optimisation. Every skip is
 named and counted; no silent `it.skip` or `test.skip`.
 
-- **With database attached:** 919 passed, 14 skipped (120 files passed, 1 skipped, 121 total).
-- **Without database:** 881 passed, 44 skipped (112 files passed, 9 skipped, 121 total).
+- **With database attached:** 946 passed, 14 skipped (122 files passed, 1 skipped, 123 total).
+- **Without database:** 901 passed, 51 skipped (113 files passed, 10 skipped, 123 total).
 
 
 Anything that matches neither shape is a signal, not a question. If a skip count
@@ -2319,3 +2319,108 @@ every write. Any role that inserts into `equipment_items` therefore needs
 `EXECUTE` on that function. `authenticated` holds it; the sandbox test role does
 not. This coupling is not obvious from reading the migration and will apply to
 any future functional index.
+
+
+## Module 6, Pass 1 — MultiService fuel import (2026-08-29)
+
+Imports the MultiService "customized detail" CSV, attributes each transaction to
+an owner-operator, and surfaces what could not be attributed. It does **not**
+post anything to settlements — that is Module 4.
+
+### The deduplication key is invoice + date + card, not invoice
+
+`Invoice No` is the **merchant's** number, not MultiService's. Two truck stops
+both issue an invoice 55231, and the live 297-row export contains repeats. A
+dedup key of `invoice_no` alone would silently discard a real fuel purchase
+every time two merchants collide, and the loss would be invisible: the row
+simply would not appear.
+
+The key is therefore `(invoice_no, invoice_date, card_no)`, enforced by the
+UNIQUE index `fuel_transactions_dedup_key`. Overlapping exports — the normal
+case, since staff pull three weeks at a time — skip the overlap and report the
+count rather than failing the file.
+
+### Card is the authority; the printed name is only confirmation
+
+Resolution runs through `fuel_resolve_card(card_no, date)`, which reads
+`equipment_assignments` and honours the assignment window. A card reassigned
+mid-month attributes each transaction to whoever held it **on the transaction
+date**, not to today's holder.
+
+The matching hierarchy, in order:
+
+1. **Card, date-scoped.** The card is the account the money actually moved on.
+2. **Printed unit number and driver name — confirmation only.** When either
+   disagrees with the system, the row is imported against the card and marked
+   `matched_with_disagreement`, with both values shown side by side in the
+   review queue. The name is never allowed to override the card.
+3. **Unresolvable card → `unmatched`.** It lands in the review queue for manual
+   assignment through `assign_fuel_transaction_operator`, the single writer for
+   that transition.
+
+### Reconciliation flags, never drops
+
+The category columns must sum to `Total Amount` to the cent. `Fuel Disc Amt` is
+negative and **already** subtracted from the total, so it is added like every
+other category — subtracting it would double-count the discount. A row that
+does not reconcile is **imported and flagged**, never dropped and never quietly
+corrected: a category nobody has heard of yet must show up as a discrepancy,
+not disappear.
+
+### Two money formats in one column
+
+`Bulk DEF Amount` prints `"$0.00"` when zero and a bare `50` when populated, in
+the same file. `parseMoney` reads both, plus thousands separators, leading
+minus, and parenthesised negatives. Text that is not a number at all throws —
+an unreadable value is not a zero.
+
+A related bug was caught by the date test rather than by review: the US-date
+regex was `(\d{2}|\d{4})`, whose alternation matched `20` out of `2026` and
+turned every date in the file into 2020. Four-digit years are now matched
+first.
+
+### One row is not one charge
+
+78 of the 297 live rows carry more than one category (diesel plus DEF, most
+often). Each row expands into one `fuel_transaction_lines` row per non-zero
+category, discount included as its own negative line so it stays visible
+instead of being folded into the fuel figure.
+
+### Navigation placement
+
+Management → **Accounting** → Fuel Import. The Accounting group had been
+deliberately empty since the sidebar reorganisation; this is the first money
+module to land in it. Settlements (Module 4) and Billing (Module 7) join it
+there.
+
+### Fuel discount pass-through
+
+`pay_policies.fuel_discount_passthrough`, default **false**. Off means the
+discount is company margin and the driver never sees it. It is forward-only
+from the policy's effective date; nothing was switched on by the migration.
+
+### Authorization
+
+`preview_fuel_import` and `commit_fuel_import` require management or owner;
+`assign_fuel_transaction_operator` requires staff. Each checks in its own body
+and all three are registered in `KNOWN_AUTHENTICATED_EXECUTABLE`.
+`fuel_resolve_card` is an internal resolver and holds **no** EXECUTE for
+`authenticated` or `anon`.
+
+No operator-facing read exists in this pass. Driver-visible fuel arrives with
+settlements.
+
+### Test counts after this pass
+
+Two new files (20 pure parser tests, 7 live-catalog checks; the live file is
+gated on `PGHOST` and contributes 7 named skips without a database).
+
+- **With database attached:** 946 passed, 14 skipped (122 files passed, 1 skipped, 123 total).
+- **Without database:** 901 passed, 51 skipped (113 files passed, 10 skipped, 123 total).
+
+`FacilitySelect.test.tsx` joins the slow-RTL list: it needs ~45s of jsdom work
+for a single `userEvent.type` and exceeds the 5s default on this machine. It
+passes with `--testTimeout=120000`. Vitest also reported **3.2.7** again during
+this pass while the lockfile range is `^3.2.4` — the exact drift recorded under
+KNOWN DEBT in `docs/tms-wish-list.md`, and the trigger condition for it (a
+baseline moving with no code change explaining it) is now observed twice.
