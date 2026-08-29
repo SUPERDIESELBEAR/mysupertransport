@@ -2286,4 +2286,36 @@ TRIGGER: when a constraint is described as enforced, read the catalog for it —
 enforcement for the paths that go through it, and nothing more.
 
 
+## Standing limitations of this test environment
 
+### Trigger behaviour cannot be exercised here
+
+The harness role used by `vitest` has `SELECT` and `INSERT` on public tables, but
+no `UPDATE`, by deliberate design. Trigger paths that fire on `UPDATE` therefore
+cannot be reached automatically in this repository. The following test files are
+gated on that restriction:
+
+- `stop-time-source-trigger.test.ts` — 5 behavioural cases, never executed
+  anywhere in CI.
+- `equipment-serial-guard.test.ts` — 7 write arms (assign, return, archive,
+  and variants).
+
+Catalog checks that read `pg_proc`, `pg_policy`, and `pg_indexes` do run and are
+the durable, repeatable coverage. Behavioural correctness is verified manually or
+on a disposable instance; it is not repeatable in this harness.
+
+### Functional-index coupling with `canonical_equipment_serial`
+
+The unique index
+
+```sql
+CREATE UNIQUE INDEX idx_equipment_items_canonical_serial_uniq
+  ON public.equipment_items (device_type, public.canonical_equipment_serial(serial_number))
+  WHERE status <> 'deactivated';
+```
+
+evaluates `canonical_equipment_serial(serial_number)` as the **calling role** on
+every write. Any role that inserts into `equipment_items` therefore needs
+`EXECUTE` on that function. `authenticated` holds it; the sandbox test role does
+not. This coupling is not obvious from reading the migration and will apply to
+any future functional index.
