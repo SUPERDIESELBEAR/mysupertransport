@@ -119,10 +119,7 @@ export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }
         <strong style={{ color: '#000' }}>NOTICE:</strong> This form is made available to monthly account holders by NIC on behalf of the U.S. Department of Transportation, Federal Motor Carrier Safety Administration (FMCSA). Account holders are required by federal law to obtain an Applicant's written or electronic consent prior to accessing the Applicant's PSP report. Further, account holders are required by FMCSA to use the language contained in this Disclosure and Authorization form to obtain an Applicant's consent. The language must be used in whole, exactly as provided. Further, the language on this form must exist as one stand-alone document. The language may NOT be included with other consent forms or any other language. NOTICE: The prospective employment concept referenced in this form contemplates the definition of "employee" contained at 49 C.F.R. 383.5.
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: '0.4in', borderTop: '1px solid #ccc', paddingTop: '10px', fontSize: '10px', color: '#888', textAlign: 'center' }}>
-        SUPERTRANSPORT — PSP Authorization · Generated {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-      </div>
+      <CompanyDocFooter identity={identity} docLabel="PSP Authorization" />
     </div>
   );
 }
