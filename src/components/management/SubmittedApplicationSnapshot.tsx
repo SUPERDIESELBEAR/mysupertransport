@@ -225,26 +225,11 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   };
 
   const handleDownloadPdf = async () => {
+    if (!a.id) return;
     setGeneratingPdf(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-application-pdf', {
-        body: { application_id: a.id },
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error(data?.error ?? 'No document was returned');
-
-      // Fetch to a blob first: a cross-origin signed URL handed straight to an
-      // anchor opens in a viewer tab instead of downloading.
-      const res = await fetch(data.url);
-      if (!res.ok) throw new Error('The generated document could not be retrieved');
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = data.filename ?? `Driver-Application_${fullName.replace(/\s+/g, '-')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const { objectUrl, filename } = await generateApplicationPdf(a.id, fullName);
+      saveObjectUrl(objectUrl, filename);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
     } catch (err) {
       toast({
