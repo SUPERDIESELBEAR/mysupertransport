@@ -35,12 +35,16 @@ The in-app print button is kept and upgraded to `openPrintableDocument` (the rel
 3. **Legal wording is not altered.** Moving question text into a shared copy file is a relocation, not a rewrite; every disclosure sentence stays byte-identical, so no re-consent is implied for anyone who already signed.
 4. **Historical applications.** Older submissions store answers, not the wording that was on screen at the time. The printed document will show today's wording next to their stored answers. That is normal practice, but if you ever change a disclosure's wording materially, the honest fix is versioning the copy — worth flagging now, not needed today.
 5. **Length.** A fully worded application will run roughly 6-10 pages instead of the current 2-3. That is the point, but staff should expect it.
-6. **Logo file.** The current logo is a PNG. It will print cleanly at the header size used here; if you have an SVG or a high-resolution version, that would print sharper on a large letterhead.
+6. **Logo file.** The current logo is a PNG. It prints cleanly at header size; an SVG or high-resolution version would be sharper if you have one.
+7. **Server rendering costs a little time.** Generating the PDF takes a few seconds rather than being instant, so the button shows a progress state. Repeat downloads of an unchanged submission reuse the stored file and are immediate.
+8. **The document must be defined once.** The letterhead and full wording live in one shared definition that both the on-screen view and the server renderer use, otherwise the screen and the PDF drift apart over time. This is the main reason the build is a little larger than a print-button change.
 
 ## Technical notes
 
-- New `CompanyLetterhead` component plus a shared `companyIdentity` accessor.
-- New shared application copy module for question and disclosure text, consumed by the Step components and the printed document.
-- Touch points: the four files in `src/components/application/documents/`, `SubmittedApplicationSnapshot.tsx`, `ApplicationReviewDrawer.tsx` (it has its own print call), and the footer in `ApplicationForm.tsx`.
-- Print path switched from `printDocumentById` to `openPrintableDocument` for the application; the standalone disclosure docs get the same treatment for consistency.
-- No database or schema changes.
+- New `CompanyLetterhead` component plus a shared `companyIdentity` accessor sourced from the existing carrier record.
+- New shared application-copy module holding every question and disclosure string, consumed by the Step components, the on-screen snapshot, and the PDF renderer.
+- New edge function `generate-application-pdf`: authorizes the caller, loads the application, renders the document to PDF, stores it in a private bucket, returns a signed URL. Deployed explicitly.
+- Generated PDFs recorded against the applicant so the file can be attached to emails and filed into the driver's binder.
+- Client touch points: the four files in `src/components/application/documents/`, `SubmittedApplicationSnapshot.tsx`, `ApplicationReviewDrawer.tsx`, and the footer in `ApplicationForm.tsx`.
+- Fallback print path switched from `printDocumentById` to `openPrintableDocument`.
+- One additive migration for the generated-PDF record; no changes to existing columns.
