@@ -130,12 +130,19 @@ serve(async (req) => {
 
     // Attribution is required for anything that renders personal data, but a
     // logging failure must not deny staff the document they just generated.
+    const { data: actorProfile } = await admin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .maybeSingle();
     await admin.from('audit_log').insert({
       action: 'application_pdf_generated',
       entity_type: 'application',
       entity_id: applicationId,
-      performed_by: userId,
-      details: { applicant: applicantName(app), path: objectPath, pages_bytes: pdfBytes.byteLength },
+      entity_label: applicantName(app),
+      actor_id: userId,
+      actor_name: actorProfile?.full_name ?? null,
+      metadata: { path: objectPath, byte_size: pdfBytes.byteLength },
     }).then(undefined, () => undefined);
 
     return json({
