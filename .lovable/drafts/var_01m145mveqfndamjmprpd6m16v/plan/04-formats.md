@@ -1,37 +1,32 @@
-# Print / download format options
+# Print / download: server-rendered PDF
 
-Two print paths exist in the app today, and they behave very differently:
+Chosen approach: **a real PDF generated on the server**, not a browser print dialog.
 
-**1. `printDocumentById` — used by the application snapshot now.** Clones the element into the current tab and calls `window.print()`. It works on desktop, but it is unreliable on phones and tablets: iOS Safari frequently captures the preview before the clone renders, and it inherits app screen styles, so the output looks like a web page rather than a document.
+A new backend function renders the fully worded application (and each standalone disclosure) to a genuine PDF file and returns it. Everything downstream gets easier once a PDF exists as a file rather than a print preview:
 
-**2. `openPrintableDocument` — used by the PEI release page.** Opens a dedicated print window containing only the document plus the stylesheets, waits for images and fonts to finish loading, offers **Letter or A4**, gives the user a Save-as-PDF / Print button, and falls back to an in-tab overlay when popups are blocked (normal on mobile Safari).
+- One **Download PDF** button produces the identical file on desktop, iPad and phone — no popup blockers, no share-sheet detour, no "my print looked different than yours".
+- The PDF can be **emailed as an attachment** and **auto-filed into the driver's binder**, because it is a file.
+- Page breaks, margins, headers and the repeating footer are controlled by us, not by whatever the browser decided that day.
+- Text stays selectable and searchable, and the file is small.
 
-## Recommendation
+## How it works
 
-Move the application print to **`openPrintableDocument`**, the same path the PEI release already uses.
+- A backend function receives the application id, loads the application server-side, and renders the same letterhead + full-wording document to PDF.
+- The rendered PDF is stored in a private documents bucket and returned via a short-lived signed URL, so re-downloading is instant and the filed copy is byte-identical to the one that was emailed.
+- File naming: `Driver-Application_LastName-FirstName_YYYY-MM-DD.pdf`.
+- Authorization mirrors existing document rules: staff can generate for any applicant; an applicant can only obtain their own.
 
-- Real "Save as PDF" on every platform, via the browser's own PDF engine.
-- Waits for the logo and signature images — the main cause of a missing logo on a printed page.
-- Paper-size choice (Letter default, A4 available).
-- Works one-handed on a phone through the share sheet.
-- No new dependency and no server round-trip.
+## Browser print stays as a fallback
 
-## Alternatives considered
-
-| Approach | Verdict |
-|---|---|
-| Browser print (`openPrintableDocument`) | **Recommended.** Zero infrastructure, native PDF quality, works offline-ish, already proven in this app. |
-| Client-side PDF library (jsPDF / html2canvas) | Not recommended. Rasterizes the page, so text is not selectable or searchable, file sizes balloon, and long applications page-break badly. |
-| Server-rendered PDF (headless browser in a backend function) | Best output control and lets you email a real PDF attachment or file it automatically. Heavier to build and run. Worth doing later **if** you want the application PDF attached to emails or auto-filed into the driver's binder — say the word and I will plan it as a follow-up. |
-
-If the goal today is "staff or the applicant can hit one button and get a clean PDF," the browser path is the right answer.
+The in-app print button is kept and upgraded to `openPrintableDocument` (the reliable path the PEI release already uses, with Letter/A4 choice and image-load waiting). It costs little to keep and covers the case where the PDF service is unreachable — staff are never blocked from getting a copy.
 
 ## Page-quality details included in the build
 
-- `@page` margins and a repeating footer so multi-page applications stay attributable.
-- CSS page-break rules so an employer record, a signature block, or a question-and-answer pair never splits across pages.
-- Print-safe colors (no gold-on-dark backgrounds that render as gray mush).
-- The logo embedded as a data URL so it prints even when a print window blocks remote images.
+- Letter page size, consistent margins, and a repeating footer with company identity and page numbers ("Page 3 of 9") on every page.
+- Page-break rules so an employer record, a signature block, or a question-and-answer pair never splits across pages.
+- Print-safe colors — no gold-on-dark panels that render as gray mush.
+- Logo and signature images embedded in the document rather than fetched at render time.
+- A small footer stamp with the submission id and generation timestamp, so two copies of the same application are traceable.
 
 # Considerations
 
