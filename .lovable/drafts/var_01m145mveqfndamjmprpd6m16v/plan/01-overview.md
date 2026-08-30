@@ -1,10 +1,10 @@
-# Application PDF preview coverage — no changes required
+# Application PDF branding coverage — no changes required
 
 ## Answer to the question
 
-All current applications are covered by the new server-rendered PDF feature (Preview / Download / Print). Nothing needs to be migrated or backfilled.
+All current applications are covered by the new branded, server-rendered PDF feature (Preview / Download / Print). Nothing was written into the application records and nothing needs to be backfilled.
 
-The PDF is **generated on demand from live application data** every time the button is clicked. It is not stored per application, so every one of the 218 submitted applications in the database — including ones submitted before this feature existed — renders with the new letterhead, full wording, and page footers automatically.
+The company logo, name, and address are **not stored on each application**. They are drawn onto the PDF at the moment it is generated, from the carrier profile. So every one of the 218 submitted applications — including ones submitted before this feature existed — renders with the SUPERTRANSPORT, LLC letterhead (logo, name, Pleasant Hill, Missouri, USDOT 2309365 / MC 788425) the first time anyone clicks Preview, Download, or Print.
 
 ## Scope confirmed with the owner
 
